@@ -27,7 +27,8 @@ As portas e as pastas ficam em [`config/padrao.env`](../config/padrao.env).
   painel do componente: nome, parâmetros, ligações (mesmo rótulo, mesmo nó, como no Gecko), o que um medidor mede, e o
   check de desativar (o componente fica no circuito, cinza).
 - **Fios:** puxados de um terminal a outro; os rótulos de nó ligam pontos distantes.
-- **Subcircuitos:** clicar num subcircuito abre a folha de dentro (Esc volta). Um subcircuito selecionado pode ir para a
+- **Subcircuitos:** clicar num subcircuito abre a folha de dentro (editando, o clique seleciona e o duplo clique abre;
+  Esc volta). Um subcircuito selecionado pode ir para a
   **biblioteca** (salvar na biblioteca…) e ser posto em outros circuitos pela aba Biblioteca da paleta. Mudanças dentro
   de um subcircuito valem para todos os iguais.
 - **Variáveis globais ($)** (Simulação › variáveis globais): um parâmetro ligado a `$La` vale o da variável, como no Gecko.
