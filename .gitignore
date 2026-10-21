@@ -13,3 +13,16 @@ simu/validacao/tela/*.png
 # nada de dados de uso nem logins no repositório (ficam em ~/.local/share, ~/.cache e nas pastas das IAs)
 .claude-maisim/
 .env
+# segredos e ambientes locais
+.env.*
+!.env.example
+*.pem
+*.key
+id_rsa*
+credentials*.json
+venv/
+.venv/
+node_modules/
+dist/
+build/
+!gecko/patches/
