@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # MaiSim: não deixa enviar direto para o main — tudo entra por PR, com a verificação do GitHub Actions (CONTRIBUTING.md).
+# (A proteção do ramo no GitHub também barra; este gancho só avisa antes, sem gastar uma ida ao GitHub.)
 # Ativar uma vez por cópia do repositório: git config core.hooksPath .githooks
 # Numa emergência, com o OK do dono do repositório: MAISIM_PUSH_MAIN=1 git push …
 while read -r _ _ ref_remota _; do

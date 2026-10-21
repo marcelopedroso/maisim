@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 150
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/prepara
       - name: os testes
         run: bash simu/validacao/ci.sh completo
@@ -31,7 +31,7 @@ jobs:
           { echo '```'; cat ~/.cache/maisim_teste/bateria/resumo.txt 2>/dev/null || echo "(sem resumo)"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - name: os registros e as fotos
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: registros-bateria
           path: |
@@ -43,11 +43,11 @@ jobs:
   versao:
     name: versão (tag e release)
     needs: bateria
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: a tag e a Release, se o VERSION mudou
@@ -62,7 +62,7 @@ jobs:
     name: avisa a falha
     needs: bateria
     if: failure()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       issues: write
     steps:
