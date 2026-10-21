@@ -11,7 +11,10 @@
    rótulo `nao-juntar`, e PR de quem não é o dono do repositório (esse espera a revisão). O merge vale só para o commit
    que foi testado. Um rascunho que fica pronto roda a verificação de novo (e é juntado se passar).
    **O Codex revisa cada PR** (o app do ChatGPT no GitHub): os comentários dele são respondidos no próprio PR —
-   corrigidos no ramo, ou explicado por que não.
+   corrigidos no ramo, ou explicado por que não — e a conversa é resolvida. Antes de juntar, o Actions espera a revisão
+   do Codex terminar (até 10 min; passou disso, segue sem ela) e não junta com conversa aberta (`.github/scripts/espera_codex.py`; a proteção do `main` também
+   exige as conversas resolvidas). Se o job "juntar no main" falhar por isso: resolva as conversas e rode o job de novo
+   (ou envie a correção no ramo, que roda a verificação inteira outra vez).
 3. **Depois do merge, a bateria inteira** (`.github/workflows/bateria.yml`, `simu/validacao/ci.sh completo`: tela, API,
    offline e o scope ao vivo). Se falhar, abre um issue com o link dos registros e das fotos.
 4. **Versão:** o arquivo `VERSION` ([SemVer](https://semver.org/lang/pt-BR/)). Um PR que muda o `VERSION`, depois do
