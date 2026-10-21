@@ -1,4 +1,4 @@
-// o diagrama da arquitetura como no Figma (instância de teste 5010 → 8768), pedido de Marcelo em 19/10 ("clicar e arrastar,
+// o diagrama da arquitetura como no Figma (instância de teste 7200 → 7201), pedido de Marcelo em 19/10 ("clicar e arrastar,
 // dar zoom + −"): abre inteiro na vista; + aumenta 25 % no meio; Ctrl + roda dá zoom no ponto do mouse (o que está embaixo
 // dele fica parado); arrastar move (e soltar em cima de um DSP não abre o código); a roda rola; clicar num DSP sem arrastar
 // abre o código; reaberto, a vista fica onde foi deixada; "ajustar" cabe inteiro de novo; % volta a 100 %
@@ -12,8 +12,8 @@ const ORQ = 'def iniciar(p, e):\n    pass\n\n\ndef passo(t, m, p, e):\n    envia
   try {
     b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1800, height: 1000 } })).newPage();
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-    await pg.addInitScript(() => { try { localStorage.setItem("pew-simu-ctl-vista", "arq"); localStorage.removeItem("pew-simu-ctl-tabelas"); } catch (e) { /* ok */ } });
-    await pg.goto("http://localhost:5010/pew/simu/");
+    await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-ctl-vista", "arq"); localStorage.removeItem("maisim-simu-ctl-tabelas"); } catch (e) { /* ok */ } });
+    await pg.goto("http://localhost:7200/maisim/simu/");
     for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof dados !== "undefined" && dados && dados.editor)); k++) { if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }
     await pg.evaluate(async ([orq, ctl0]) => {
       const j = await api("editor/novo", { modo: "descartar" }); dados = j; folhaAtual = "0"; novoEstado(j);

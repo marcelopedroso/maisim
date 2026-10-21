@@ -1,4 +1,4 @@
-"""Módulos do controle (instância de teste 8768), pedido de Marcelo em 19/10: o circuito novo vem com leitura.py → controle.py
+"""Módulos do controle (instância de teste 7201), pedido de Marcelo em 19/10: o circuito novo vem com leitura.py → controle.py
 → escrita.py; todo .py que não é controlador é um módulo, importado e chamado na mesma amostra, sem atraso. Prova: o PI de
 corrente do teste_controle (RL com fonte controlada) escrito em módulos (leitura → pi → escrita) dá o MESMO resultado,
 bit a bit, que o PI todo no controle.py. E os riscos: nome de módulo do Python, import que não existe, import de um
@@ -8,7 +8,7 @@ import json, math, os, time, urllib.request
 from pathlib import Path
 import numpy as np
 RAIZ_PROJ = str(Path(__file__).resolve().parents[2])   # a raiz do projeto (validacao → simu → raiz)
-B = "http://localhost:8768/pew/simu/"
+B = "http://localhost:7201/maisim/simu/"
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(req, timeout=300).read())
@@ -142,8 +142,8 @@ ec = j.get("erro_controle") or {}
 ok(j.get("estado") == "erro" and ec.get("arquivo") == "pi.py" and ec.get("linha") == 6 and "nao_tem" in j.get("erro", ""), f"erro no pi.py: a rodada diz pi.py linha {ec.get('linha')} ({j.get('erro', '')[:70]})")
 # 5b. "Salvar como" leva os módulos (dentro do <nome>.controle.json) e reabrir os traz de volta (Marcelo, 19/10: "duplica tudo")
 painel(ORQ, MODS)
-sv = api("editor/salvar", {"nome": "modulos_salvar_como", "pasta": "pew", "sobrescrever": True})
-pasta_sv = os.path.dirname(sv["salvo"]) if os.path.isabs(sv.get("salvo", "")) else os.path.expanduser("~/.cache/pew_simu_teste/pew")
+sv = api("editor/salvar", {"nome": "modulos_salvar_como", "pasta": "circuitos", "sobrescrever": True})
+pasta_sv = os.path.dirname(sv["salvo"]) if os.path.isabs(sv.get("salvo", "")) else os.path.expanduser("~/.cache/maisim_teste/circuitos")
 jsv = json.load(open(os.path.join(pasta_sv, "modulos_salvar_como.controle.json")))
 api("editor/novo", {"modo": "descartar"})
 api("editor/abrir", {"arq": os.path.join(pasta_sv, "modulos_salvar_como.ipes"), "modo": "descartar"})
@@ -151,7 +151,7 @@ r = api("editor/controle")
 ok(jsv["arquivos"] == MODS and jsv["codigo"] == ORQ and r["controle"]["arquivos"] == MODS and r["modulos"] == sorted(MODS),
    f"salvar como: o .controle.json leva o controle.py e os módulos {sorted(jsv['arquivos'])}; reaberto, os mesmos")
 # 6. um controle de antes dos módulos continua como era (o exemplo congelado, sem arquivos)
-pi_arq = os.path.expanduser("~/.cache/pew_simu_teste/pew/exemplo_controle_pi.ipes")
+pi_arq = os.path.expanduser("~/.cache/maisim_teste/circuitos/exemplo_controle_pi.ipes")
 api("editor/abrir", {"arq": pi_arq, "modo": "descartar"})
 r = api("editor/controle")
 ok(r["controle"]["arquivos"] == {} and r.get("modulos") == [] and "import leitura" not in r["controle"]["codigo"], "o exemplo de antes dos módulos abre como era (sem leitura.py nem escrita.py)")

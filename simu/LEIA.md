@@ -1,13 +1,13 @@
-# PEW / simu — monte e simule circuitos, com o Gecko como cérebro
+# MaiSim / simu — monte e simule circuitos, com o Gecko como cérebro
 Um front nosso para os modelos do GeckoCIRCUITS: lê o .ipes e desenha no navegador os componentes, as ligações e os
-subcircuitos (SMs), sem a janela do Gecko. Os scopes do Gecko ficam de fora (o /pew/scope faz esse papel).
+subcircuitos (SMs), sem a janela do Gecko. Os scopes do Gecko ficam de fora (o /maisim/scope faz esse papel).
 O Gecko é o cérebro (backend): a interface é nossa, e cada edição vira um pedido ao próprio Gecko, que aplica e grava o
 .ipes. Feito: ver o circuito; catálogo da paleta; motor do editor. A seguir: a paleta e a edição na tela.
 
-**Subir:** `python3 simu/pew_simu/servidor.py` (da raiz de sm-autonomo; porta 8767). **Abrir:** pelo PEW,
-**http://localhost:5000/pew/simu/** (menu lateral ou cartão "Simu: monte e simule"; o pew-app encaminha
-/pew/simu, `PEW_SIMU_URL` troca o destino), ou direto em http://localhost:8767/pew/simu/. Até 18/10 o módulo se chamava
-/pew/control (pasta `pew_control`): o endereço antigo redireciona para o novo.
+**Subir:** `python3 simu/servidor.py` (da raiz de sm-autonomo; porta 8767). **Abrir:** pelo MaiSim,
+**http://localhost:5000/maisim/simu/** (menu lateral ou cartão "Simu: monte e simule"; o maisim-app encaminha
+/maisim/simu, `MAISIM_SIMU_URL` troca o destino), ou direto em http://localhost:8767/maisim/simu/. Até 18/10 o módulo se chamava
+/maisim/control (pasta `pew_control`): o endereço antigo redireciona para o novo.
 
 ## Uso
 - Escolher o modelo (os .ipes de `simu/gecko/*/`); arrastar move, roda dá zoom, **ajustar** (ou tecla 0) mostra a folha.
@@ -29,7 +29,7 @@ Regras do próprio Gecko (código em MDPGeckoCIRCUITS, pacote `ch.technokrat.gec
   variável, que é o que o Gecko mostra e usa. No modelo 03, o valor guardado no elemento está velho (ex.: L.4 guarda
   10 mH, $La = 15 mH; R.1 guarda 133,3 Ω, $Rload = 150 Ω; U guarda 120 V, $Vp = 180 V); a dica mostra os dois.
 
-**Conferência:** `python3 simu/pew_simu/ipes.py <modelo.ipes>` conta as pontas de fio que caem num terminal, noutro
+**Conferência:** `python3 simu/ipes.py <modelo.ipes>` conta as pontas de fio que caem num terminal, noutro
 fio ou num rótulo. Em 18/10: modelos 01, 02 e 03, todas (03: 874 de 874); modelo 00, uma solta em (99, 61) na folha
 principal. O desenho do modelo 03 foi comparado com a tela do Gecko (mesmas posições, valores das variáveis globais).
 
@@ -38,12 +38,12 @@ As 11 abas do Gecko (Circuit, Motor & EMI, Subcircuit, Thermal, Reluctance, Cont
 Source/Sink, Special) e os 121 componentes, na ordem dele, tirados do código (SchematischeEingabeAuswahl2, CircuitTyp,
 ControlTyp, SpecialTyp, I18nKeys): enum, código gravado no .ipes, nome curto aceito pelo createComponent e nome exibido.
 
-## Motor do editor (motor/src/pew/PewMotor.java, porta 6120, só 127.0.0.1)
+## Motor do editor (motor/src/maisim/MaiSimMotor.java, porta 6120, só 127.0.0.1)
 Cliente RMI da interface remota do Gecko (GeckoRemoteInterface), separado da gecko-bridge da co-simulação. Protocolo de
 linhas, "OK …"/"ERR …": OPEN, SAVEAS, CREATE <tipo> <nome> <x> <y>, DELETE, MOVE, POS, ROTATE, ORIENT, RENAME, PARAMS,
-GETP, SETP, GETG, SETG, INNODE/OUTNODE (rótulo de terminal), GETIN/GETOUT, LIST, SHEET. Sobe com o pew_gecko/sobe.sh.
+GETP, SETP, GETG, SETG, INNODE/OUTNODE (rótulo de terminal), GETIN/GETOUT, LIST, SHEET. Sobe com o gecko/sobe.sh.
 
-Conferido em 18/10 no Gecko do PEW (cópia do modelo 03): criar um R e uma CONST, mudar o R, rotular a saída da CONST e
+Conferido em 18/10 no Gecko do MaiSim (cópia do modelo 03): criar um R e uma CONST, mudar o R, rotular a saída da CONST e
 mudar $La; o Gecko salvou e o ipes.py leu de volta posição, valor, rótulo e $La (L.4 acompanhou); apagar os dois e
 voltar $La: os 485 elementos voltam com os mesmos valores efetivos e os fios iguais. Ao salvar, o Gecko também troca os
 valores velhos guardados nos elementos pelos das variáveis (23 → 0 no modelo 03).
@@ -53,18 +53,18 @@ nome como rótulo (código comentado em SchematischeEingabe2.externalCreateAndPl
 tela, completar isso no fork, compilando num jar separado do que a co-simulação usa.
 
 ## Editor na tela (18/10)
-- **editar** abre o modelo escolhido no Gecko do PEW; a paleta (abas do Gecko, busca) põe componentes com um clique na
+- **editar** abre o modelo escolhido no Gecko do MaiSim; a paleta (abas do Gecko, busca) põe componentes com um clique na
   folha; selecionar mostra o painel: nome, posição, girar/apagar, parâmetros lidos do Gecko (fonte: CC, senoidal ou
   controlada por sinal), variáveis globais, **ligações** (rótulo do nó de cada terminal: mesmo rótulo, mesmo nó, como no
   Gecko) e, nos medidores, **o que ele mede** (voltímetro: nó − nó; amperímetro: corrente de um componente).
   Arrastar move, R gira, Delete apaga. **novo**: folha em branco (o Gecko mantém a tabela de variáveis globais).
-  **salvar como…**: o Gecko grava em simu/gecko/pew/.
+  **salvar como…**: o Gecko grava nos seus circuitos (MAISIM_SALVOS, padrão ~/.local/share/maisim/circuitos).
 - O acoplamento dos medidores não existe na interface remota: o Gecko salva o estado, o servidor escreve o acoplamento no
   bloco do medidor e o Gecko reabre o arquivo (quem valida é ele; se não aceitar, a tela diz).
-- **rodar ▸** (passo, tempo final, nome): o Gecko do PEW simula; os sinais são as saídas dos medidores e blocos de
-  controle (nome = rótulo da saída), publicados ao vivo no /pew/scope e gravados em `rodadas/<data>_<nome>/` com o
-  circuito exato (.ipes) e o `scope_<nome>.npz` (aparece no Comparar como "PEW / simu · nome"). Até ~4000 amostras.
-- **scope** (tela dividida): o /pew/scope na mesma janela, **ao lado** (dividida na vertical, o padrão) ou **embaixo**
+- **rodar ▸** (passo, tempo final, nome): o Gecko do MaiSim simula; os sinais são as saídas dos medidores e blocos de
+  controle (nome = rótulo da saída), publicados ao vivo no /maisim/scope e gravados em `rodadas/<data>_<nome>/` com o
+  circuito exato (.ipes) e o `scope_<nome>.npz` (aparece no Comparar como "MaiSim / simu · nome"). Até ~4000 amostras.
+- **scope** (tela dividida): o /maisim/scope na mesma janela, **ao lado** (dividida na vertical, o padrão) ou **embaixo**
   (os dois botões com o desenho da divisão); divisória arrastável, posição e tamanho guardados no navegador. Abre na
   última rodada (a do servidor, ou a gravada mais recente em `rodadas/`) e ao vivo enquanto simula, sempre com
   `?so=rodada`: o scope mostra só a seção e os sinais da rodada, e o índice também. Em edição, o desenho fica com 320 px
@@ -89,11 +89,11 @@ tela, completar isso no fork, compilando num jar separado do que a co-simulaçã
   nenhum aviso do navegador, sem erros de JavaScript.
 
 ## Nome novo, tela dividida ao lado e histórico (18/10, madrugada)
-- /pew/control virou **/pew/simu** (pasta `pew_simu`, `static/simu.js`, ícone novo no menu lateral: resistor + ▶);
-  /pew/control redireciona (GET; POST aceita os dois prefixos). O estado do editor foi para `~/.cache/pew_simu/`.
+- /maisim/control virou **/maisim/simu** (pasta `pew_simu`, `static/simu.js`, ícone novo no menu lateral: resistor + ▶);
+  /maisim/control redireciona (GET; POST aceita os dois prefixos). O estado do editor foi para `~/.cache/maisim/simu/`.
 - **Histórico** embaixo do painel da direita (em edição): as últimas 20 mudanças e avisos (o que passa em verde ou
   vermelho no topo), com a hora; guardado na aba do navegador (sessionStorage).
-- Teste (18/10, só leitura: sem abrir o editor nem rodar, para não mexer no Gecko em uso): /pew/control → /pew/simu;
+- Teste (18/10, só leitura: sem abrir o editor nem rodar, para não mexer no Gecko em uso): /maisim/control → /maisim/simu;
   menu lateral com "Simu" ativo; scope ao lado na última rodada (índice: só a rodada; gráfico ocupando o cartão, também
   depois de arrastar a divisória e embaixo); histórico; scope cheio numa rodada do simu com o índice só da rodada; sem
   erros de JavaScript.
@@ -114,9 +114,9 @@ Na tela, "conexão" (pedido de Marcelo: botão, dicas, painel e mensagens); no c
   POST editor/fio: `{acao: novo, cantos, dom, rotulo}`, `{acao: apagar, cantos}`, `{acao: rotulo, cantos, rotulo}`.
   Por enquanto só na folha principal. Os terminais dos blocos de controle novos usam distância 2 (palpite do leitor):
   ligar fio em bloco de controle ainda precisa ser conferido.
-- **Instância de teste** (sem mexer no Gecko do PEW nem no scope ao vivo): Xvfb :98 + Gecko na 43060 com
-  `-Duser.home` próprio + `pew.PewMotor --gecko-port 43060 --porta 6121` + `PEW_SIMU_CACHE=… PEW_MOTOR_PORTA=6121
-  PEW_GECKO_TELA=:98 PEW_SIMU_RODADAS=… PEW_SCOPE_URL=http://127.0.0.1:9 python3 simu/pew_simu/servidor.py --porta 8768`.
+- **Instância de teste** (sem mexer no Gecko do MaiSim nem no scope ao vivo): Xvfb :98 + Gecko na 43060 com
+  `-Duser.home` próprio + `maisim.MaiSimMotor --gecko-port 43060 --porta 6121` + `MAISIM_SIMU_CACHE=… MAISIM_PORTA_MOTOR=6121
+  MAISIM_TELA_X=:98 MAISIM_RODADAS=… MAISIM_SCOPE_URL=http://127.0.0.1:9 python3 simu/servidor.py --porta 8768`.
 - Teste (18/10, na instância de teste): pela API, folha nova, U.1 e R.1 SEM rótulo nos terminais, dois fios em U (o de
   baixo com rótulo gnd, o de cima recebe o rótulo a depois), fio na diagonal recusado, fio solto criado e apagado
   (cantos ao contrário), fonte senoidal 100 V 50 Hz, R 10 Ω, voltímetro a − gnd, amperímetro em R.1: 20 ms a 1 µs,
@@ -138,23 +138,23 @@ Na tela, "conexão" (pedido de Marcelo: botão, dicas, painel e mensagens); no c
 - **Bornes**: todo terminal tem um ponto; cheio se ligado (conexão, rótulo ou outro terminal no mesmo ponto), vazado se
   livre. Corrigido o lado dos bornes do SM (EnumTerminalLocation UP=0, LEFT=1, RIGHT=2, BOTTOM=3 → "cedb").
 - **Desfazer** (Ctrl+Z ou "↶ desfazer" no histórico): antes de cada mudança o Gecko salva o estado em
-  `~/.cache/pew_simu/desfazer/`; desfazer = ele reabre o último. Até 20 passos; abrir outro modelo zera; um pedido que
+  `~/.cache/maisim/simu/desfazer/`; desfazer = ele reabre o último. Até 20 passos; abrir outro modelo zera; um pedido que
   falha sem mexer no circuito não ocupa a pilha. A pilha fica na memória do servidor (reiniciá-lo a zera).
 - **Sentido da corrente** (botão "corrente"): seta do terminal 1 para o 2 em cada componente de dois terminais, como
   no Gecko; é o sinal que o amperímetro mede (conferido: R.1 com a de cima, v/i = +10 Ω).
-- **Medidores → /pew/scope** (regra do PEW; o Scope do Gecko saiu da paleta): ao lado de cada medidor, a etiqueta com o
+- **Medidores → /maisim/scope** (regra do MaiSim; o Scope do Gecko saiu da paleta): ao lado de cada medidor, a etiqueta com o
   nome do sinal no scope (o rótulo da saída, ou o nome do bloco). Ao dizer o que ele mede, o nome vira automático
   (`i_R_1`, `v_a_gnd`) se estava vazio ou era o automático de antes; um nome seu não muda. No que é medido: "A" e o
   sinal no componente; "V+"/"V−" nos nós. "corrente de" e os nós do voltímetro são campos com busca (até 10 sugestões,
   filtradas ao digitar: igual > começa com > contém > letras na ordem). A dica do mouse não mostra mais a posição.
 - **Abrir…** (Arquivo, ou clique no nome do modelo): lista com busca de todos os .ipes de simu/gecko/ (repositório e
-  salvos pelo PEW em simu/gecko/pew/). "editar" (com lápis) fica antes do scope; a folha principal aparece como "Main".
+  salvos pelo MaiSim em simu/gecko/pew/). "editar" (com lápis) fica antes do scope; a folha principal aparece como "Main".
 - Testes (18/10, na instância de teste com o modelo 03): API — Rp movido nos 18 SMs (0,1 s), girado só no SM.1,
   R.90 criado nos 18, conexão nos 18 (0,3 s), 4 desfazer voltam ao original, 5º recusado, pedido com erro não ocupa a
   pilha; depois disso, 2 ms do MMC simulam (80 sinais). Tela — 22/22 (editar antes do scope, setas, etiquetas, marcas,
   dica, Abrir com busca, paleta sem Scope, busca do amperímetro, faixa, arrasto nos 18, só no SM.1, Ctrl+Z, borda e
   recusa fora da folha, R e conexão nos 18 pela paleta e pelo W, ↶ desfazer 2×) e 6/6 nos medidores (busca, nomes
-  automáticos, marcas, histórico sem repetição); no PEW de verdade, só leitura, 12/12.
+  automáticos, marcas, histórico sem repetição); no MaiSim de verdade, só leitura, 12/12.
 
 ## Biblioteca de subcircuitos, Salvar, medidor dentro do SM (18/10, madrugada)
 - **Biblioteca** (`simu/gecko/subcircuitos/<nome>.ipes`): o Gecko não exporta nem importa subcircuito (ele só existe
@@ -165,10 +165,10 @@ Na tela, "conexão" (pedido de Marcelo: botão, dicas, painel e mensagens); no c
   identificadores novos (uniqueObjectIdentifier e tudo o que os cita), nome SUBCIRCUIT.k livre e as variáveis $ que
   faltarem; o Gecko reabre e confere (dá para desfazer). Os arquivos da biblioteca aparecem no Abrir (para editar o
   subcircuito) num grupo próprio.
-- **Salvar** (disquete na barra, Ctrl+S, Arquivo › Salvar): grava por cima do arquivo aberto quando ele é do PEW
-  (simu/gecko/pew/ ou a biblioteca; o servidor diz isso em `dono`); modelo do repositório ou circuito novo → Salvar
+- **Salvar** (disquete na barra, Ctrl+S, Arquivo › Salvar): grava por cima do arquivo aberto quando ele é do MaiSim
+  (os seus circuitos ou a biblioteca; o servidor diz isso em `dono`); modelo do repositório ou circuito novo → Salvar
   como. Pontinho laranja no disquete = mudança não salva.
-- **Apagar** (lixeira no Abrir): só circuitos salvos pelo PEW e subcircuitos da biblioteca; o arquivo vai para a
+- **Apagar** (lixeira no Abrir): só circuitos salvos pelo MaiSim e subcircuitos da biblioteca; o arquivo vai para a
   `.lixeira/` da pasta (dá para recuperar).
 - **Medidor dentro do SM**: o acoplamento procura o componente medido na mesma folha (os nomes se repetem de um SM para
   outro) e vale para todos os SMs iguais, como as outras mudanças. A rodada leva para o scope também os medidores de
@@ -176,7 +176,7 @@ Na tela, "conexão" (pedido de Marcelo: botão, dicas, painel e mensagens); no c
 - **medições** (botão): esconde ou mostra as etiquetas do scope e as marcas A / V±.
 - Leitor de blocos do servidor: o Gecko às vezes cola um bloco no seguinte, sem linha em branco (3 no modelo 03); os
   padrões não consomem mais a quebra do fim (485 de 485 blocos, 456 conexões).
-- Instância de teste: `PEW_SIMU_BIBLIOTECA` e `PEW_SIMU_SALVOS` trocam as pastas (para não sujar as de verdade).
+- Instância de teste: `MAISIM_BIBLIOTECA` e `MAISIM_SALVOS` trocam as pastas (para não sujar as de verdade).
 - Testes (18/10, instância de teste, modelo 03): API — voltímetro VOLT.6 mudado nos 18 SMs e desfeito; SM.1 salvo na
   biblioteca (0,4 s; 20 elementos, 5 terminais); salvar de novo pede para sobrescrever; inserido no próprio MMC como
   SUBCIRCUIT.19 e **o MMC simula** (1 ms, 118 sinais, 38 de medidores dos SMs); circuito novo com 2 cópias e as 25
@@ -191,26 +191,26 @@ Na tela, "conexão" (pedido de Marcelo: botão, dicas, painel e mensagens); no c
   meio, ponta num terminal, potência × controle) e no modelo 03 (10 na folha principal, 8 dentro do SM.1).
 - **Terminais dos blocos de controle** (18/10): o leitor punha as entradas e saídas por palpite (distância 2, ou o que as
   pontas das conexões existentes sugeriam), e bloco novo, sem conexão, ficava com a saída no lugar errado na maioria dos
-  tipos. Agora a geometria vem do próprio Gecko: `motor/src/pew/PewGeometria.java` constrói cada tipo
+  tipos. Agora a geometria vem do próprio Gecko: `motor/src/maisim/MaiSimGeometria.java` constrói cada tipo
   (`TypeInfo.fabric()`, sem janela) e grava os `_posX`/`_posY` crus de cada XIN/YOUT em `geometria_gecko.json` (114 de
   118 tipos; Scope, Space Vector, U-Z*i e Subcircuit não se constroem sem janela e ficam no palpite / regra própria);
   o leitor aplica a conta de `TerminalRelativePosition.getPointFromDirection` (503: x+posX, y−posY; 504, 501, 502) e,
   para blocos com mais terminais que o padrão, o mesmo passo das últimas. Saídas: +1 em 42 tipos (ganho, PI, soma, AND,
   NOT, atraso…), +2 em 12 (medidores, constante, fonte de sinal…); entradas a −2, uma por linha.
-  Regerar (com o jar do Gecko): `javac -cp $JAR -d /tmp/geo motor/src/pew/PewGeometria.java && java
-  -Djava.awt.headless=true -cp $JAR:/tmp/geo pew.PewGeometria > geometria_gecko.json`.
+  Regerar (com o jar do Gecko): `javac -cp $JAR -d /tmp/geo motor/src/maisim/MaiSimGeometria.java && java
+  -Djava.awt.headless=true -cp $JAR:/tmp/geo maisim.MaiSimGeometria > geometria_gecko.json`.
   Conferência: a tabela encaixa todas as pontas que o Gecko gravou nos 4 modelos (1075/1076, 794/794, 874/874,
   874/874; a do modelo 00 já era solta). Na instância de teste: constante 3 → ganho ×2 → ganho ×5 ligados só por
   conexões nas posições da tabela simulam 3 → 6 → 30; ligando a saída a +2 (o palpite antigo), o segundo ganho fica em 0
   (não liga) e a tela acusa a ponta solta.
 
-## npm run pew (18/10)
-- No pew-app (WSL: `cd ~/doutorado/power-eletronics/pew-app && npm run pew`): sobe scope (8765), simu (8767), o Gecko do
-  PEW (sobe.sh, em paralelo; avisa quando fica pronto) e a página (Vite, 5000); o que já estiver no ar é reaproveitado e
+## npm run maisim (18/10)
+- No maisim-app (WSL: `cd ~/doutorado/power-eletronics/maisim-app && npm run maisim`): sobe scope (8765), simu (8767), o Gecko do
+  MaiSim (sobe.sh, em paralelo; avisa quando fica pronto) e a página (Vite, 5000); o que já estiver no ar é reaproveitado e
   fica. Ctrl+C derruba o que o comando subiu; o Gecko só cai se `GET editor/pendente` disser que não há nada por salvar
   (o simu compara o circuito no Gecko com o arquivo aberto — o "*" do título não serve, a interface remota nunca o
   limpa); senão ele fica no ar e o comando diz como derrubar (para.sh -f). Servidores em sessão própria (setsid): o
-  Ctrl+C do terminal não os atinge de surpresa. Logs em ~/.cache/pew/. PEW_SEM_GECKO=1, PEW_PORTA, SCOPE_PORTA,
+  Ctrl+C do terminal não os atinge de surpresa. Logs em ~/.cache/maisim/. MAISIM_SEM_GECKO=1, MAISIM_PORTA_PAGINA, SCOPE_PORTA,
   SIMU_PORTA para outros usos/testes.
 - Testes (18/10): do zero em portas de teste (5091/8795/8797, sem Gecko) — sobe, a página responde pelo proxy, Ctrl+C
   derruba só o que subiu; nas portas de verdade com tudo no ar — reaproveita tudo e não derruba nem troca nenhum
@@ -262,14 +262,14 @@ Na tela, "conexão" (pedido de Marcelo: botão, dicas, painel e mensagens); no c
   fim (ou da última amostra, para p) não acontecem e geram aviso; dois do mesmo alvo no mesmo instante: vale o último,
   com aviso. Uma agenda única (`anda`) parte os STEP nos instantes de escrita, nos dois laços (com e sem controle).
 - Os CONST que a rodada escreve **voltam ao valor de antes** no fim (antes ficavam com o último valor: a próxima rodada
-  começava de outro estado e o circuito aparecia como alterado). Se o servidor cair no meio, `~/.cache/pew_simu/
+  começava de outro estado e o circuito aparecia como alterado). Se o servidor cair no meio, `~/.cache/maisim/simu/
   devolver.json` faz a próxima partida terminar a simulação e devolver os CONST.
 - **Trava**: com a simulação rodando (ou preparando), o painel e o editor ficam só para leitura e o servidor recusa
   mudar o controle (409); a preparação da rodada é atômica (dois ▶ juntos: um roda, o outro é recusado). Número inválido
   num campo fica marcado e não é gravado; se o controle não grava, a simulação não começa.
 - **Scope**: os acionamentos da rodada (meta.acionamentos, com o instante efetivo) aparecem como linha tracejada com o
   rótulo; no Comparar, os de B em cinza com "· B".
-- **Exemplo pronto**: `simu/gecko/pew/exemplo_controle_pi.ipes` (+ `.controle.json`) — fonte controlada (u_ctrl) → R 1 Ω →
+- **Exemplo pronto**: `exemplos/exemplo_controle_pi.ipes` (+ `.controle.json`) — fonte controlada (u_ctrl) → R 1 Ω →
   L 10 mH → fonte de perturbação (v_dist), PI com anti-windup e atuação na amostra seguinte; acionamentos: i_ref 5 → 8 A
   em 12 ms e perturbação de 20 V em 22 ms. Rodada de referência em `rodadas/2026-10-18_042335_exemplo_controle_pi/`.
 - Validação (instância de teste, referência independente com o mesmo atraso e os mesmos acionamentos): logo 9,4·10⁻⁵ A,
@@ -308,7 +308,7 @@ Na tela, "conexão" (pedido de Marcelo: botão, dicas, painel e mensagens); no c
   (`CONST.1 → chave S.1`).
 - **Validação da compensação** (instância de teste): os quatro caminhos e o subcircuito do modelo 03 sentem o
   acionamento no passo pedido.
-- **Exemplo novo**: `simu/gecko/pew/exemplo_controle_pwm.ipes` (+ `.controle.json`). É um buck com Vdc = 100 V,
+- **Exemplo novo**: `exemplos/exemplo_controle_pwm.ipes` (+ `.controle.json`). É um buck com Vdc = 100 V,
   chave S.1, diodo de roda livre, L = 1 mH e R = 2 Ω; o CONST.1 (atuação `g`) passa pelo GATE.1 e comanda a S.1. Δt = 1 µs
   e Ts = 2 µs. O código gera a portadora dente de serra a 5 kHz e o PWM, e roda um PI de corrente, uma vez por período,
   sobre a média de i_L. Acionamento: i_ref 10 → 15 A em 5 ms. Rodada de referência em
@@ -334,7 +334,7 @@ Na tela, "conexão" (pedido de Marcelo: botão, dicas, painel e mensagens); no c
 - **Guia**: `GUIA_CONTROLE.md`, também pelo "?" do painel (`static/guia.html`, rota `/guia`). Cobre a linha do tempo,
   onde configurar, a API do código, o atraso, a lista de conferência, os exemplos, os arquivos e a API HTTP para
   automatizar.
-- **Contexto para o Claude Code** (passo 3): `.claude/skills/pew-controle/SKILL.md`. Ela carrega quando o Claude Code
+- **Contexto para o Claude Code** (passo 3): `.claude/skills/maisim-controle/SKILL.md`. Ela carrega quando o Claude Code
   é iniciado em `simu/pew_simu` ou abaixo; mais acima, só quando ele mexer num arquivo daqui.
 - **Revisão adversarial** (workflow de 6 agentes: 3 lentes — tempo e traçado, robustez, tela e guia — e um verificador
   cético por lente): 23 achados, 22 confirmados (cerca de 15 distintos), 1 recusado. Todos corrigidos e testados:
@@ -362,14 +362,14 @@ Na tela, "conexão" (pedido de Marcelo: botão, dicas, painel e mensagens); no c
 - **Ensaios guardados**: `validacao/` traz os scripts de todos os números acima (instância de teste: `sobe_teste.sh` e
   `desce_teste.sh`; `casos_tracado.py` roda offline), com o resultado registrado de cada um em `validacao/LEIA.md`.
 
-## Claude do PEW — passo 3a (18/10): login pelo botão ✦
-- **Pasta própria**. O PEW usa o CLI oficial do Claude Code (`claude`, sem modificação) com `CLAUDE_CONFIG_DIR =
-  ~/.claude-pew` (`PEW_CLAUDE_DIR` troca). O login, as configurações e as sessões do Claude do PEW ficam nessa pasta, e o
-  `~/.claude` do usuário não muda. O CLI grava a credencial em `~/.claude-pew/.credentials.json` (0600, texto puro); o
+## Claude do MaiSim — passo 3a (18/10): login pelo botão ✦
+- **Pasta própria**. O MaiSim usa o CLI oficial do Claude Code (`claude`, sem modificação) com `CLAUDE_CONFIG_DIR =
+  ~/.claude-maisim` (`MAISIM_CLAUDE_DIR` troca). O login, as configurações e as sessões do Claude do MaiSim ficam nessa pasta, e o
+  `~/.claude` do usuário não muda. O CLI grava a credencial em `~/.claude-maisim/.credentials.json` (0600, texto puro); o
   servidor nunca a lê nem a guarda.
   * A pasta fica **fora do repositório**, por decisão da revisão: dentro dele, um `grep` de qualquer agente ou um zip
     da pasta da tese levaria o token.
-  * O `.gitignore` daqui ainda barra `.claude-pew/`, como segunda barreira.
+  * O `.gitignore` daqui ainda barra `.claude-maisim/`, como segunda barreira.
 - **Botão ✦ no cabeçalho**. Um ponto mostra o estado: cinza deslogado, amarelo login em andamento, verde conectado,
   vermelho sem resposta do servidor. A janela tem entrar, sair (com confirmação), cancelar e tentar de novo.
 - **Como funciona o "entrar"**:
@@ -389,14 +389,14 @@ Na tela, "conexão" (pedido de Marcelo: botão, dicas, painel e mensagens); no c
   também passaria na frente do login.
 - **Proteção das rotas `/claude/*`**:
   * Host local (barra DNS rebinding);
-  * `Origin`, se vier, igual a uma origem do PEW **com a porta** (`localhost:5000` ou a porta do próprio servidor). Pelo
-    Vite, outra página em `localhost:N` passaria pelo CORS dele, e daria para ler o e-mail, deslogar ou logar o PEW
+  * `Origin`, se vier, igual a uma origem do MaiSim **com a porta** (`localhost:5000` ou a porta do próprio servidor). Pelo
+    Vite, outra página em `localhost:N` passaria pelo CORS dele, e daria para ler o e-mail, deslogar ou logar o MaiSim
     noutra conta;
   * `Sec-Fetch-Site`, se vier, `same-origin`;
-  * nos POST, o cabeçalho `X-PEW: 1`.
+  * nos POST, o cabeçalho `X-MaiSim: 1`.
 - **Política da Anthropic** (docs, "legal and compliance"): terceiros não podem oferecer o login do claude.ai em produtos
-  nem guardar ou intermediar credenciais; o usuário pode entrar no CLI oficial com a própria assinatura. O PEW é pessoal e
-  local, quem faz o login é o CLI e o servidor não guarda nada. Se o PEW um dia for usado por outras pessoas, o caminho é
+  nem guardar ou intermediar credenciais; o usuário pode entrar no CLI oficial com a própria assinatura. O MaiSim é pessoal e
+  local, quem faz o login é o CLI e o servidor não guarda nada. Se o MaiSim um dia for usado por outras pessoas, o caminho é
   a chave de API do Console.
 - **Revisão adversarial** (6 agentes, 3 lentes: segurança e política, processo, tela): 17 achados, 16 confirmados e todos
   corrigidos:
@@ -423,7 +423,7 @@ Na tela, "conexão" (pedido de Marcelo: botão, dicas, painel e mensagens); no c
 ## Cabeçalho e dicas (18/10, pedido de Marcelo)
 - O menu **Simulação** saiu. Os comandos dele já tinham botões; agora o grupo do ▶ é **⚙** (parâmetros da simulação: Δt,
   tempo final, nome, amostras) · **$x** (variáveis globais, desabilitado durante a rodada) · ▶ ⏸ ⏹. O menu Arquivo fica.
-- **Dicas no padrão do PEW** (`static/dica.js`), no lugar da caixinha nativa do navegador:
+- **Dicas no padrão do MaiSim** (`static/dica.js`), no lugar da caixinha nativa do navegador:
   * caixa escura, arredondada, com sombra, abaixo do botão (ou acima, sem espaço), sempre dentro da tela;
   * atalhos entre parênteses viram teclas, como "pausar [Espaço]";
   * vale para todo elemento com `title`, inclusive botão desabilitado;
@@ -451,7 +451,7 @@ Na tela, "conexão" (pedido de Marcelo: botão, dicas, painel e mensagens); no c
     marcado. Antes, voltar à edição as jogava fora sem aviso;
   * o mesmo arquivo, com mudanças que o editor não viu (janela do Gecko, ou servidor reiniciado): pergunta **manter as
     mudanças** ou **descartar**;
-  * outro arquivo, com mudanças não salvas: pergunta **salvar <arquivo> e abrir** (só para arquivo da pasta do PEW; o
+  * outro arquivo, com mudanças não salvas: pergunta **salvar <arquivo> e abrir** (só para arquivo da pasta do MaiSim; o
     modelo original nunca é regravado) ou **descartar e abrir**.
 - O aviso falso "mudou fora do editor" a cada reinício do servidor acabou. Ele vinha do "*" do título do Gecko, que a
   interface remota deixa até depois de salvar; agora a comparação é com o arquivo no disco.
@@ -479,11 +479,11 @@ Na tela, "conexão" (pedido de Marcelo: botão, dicas, painel e mensagens); no c
 - **Teste**: `validacao/tela/cabecalho_tela.js` 17/17, e as outras telas sem regressão (validador 8, Claude 17, pwm 9,
   controle 11, passo2 11, revisão 7, guia 3).
 
-## Cores: violeta do PEW e medições como no osciloscópio (18/10, pedido de Marcelo)
-- **Destaque do simu**: o azul-marinho (`--acento` #1f4e79) virou o violeta do PEW (#6d28d9; botões principais
+## Cores: violeta do MaiSim e medições como no osciloscópio (18/10, pedido de Marcelo)
+- **Destaque do simu**: o azul-marinho (`--acento` #1f4e79) virou o violeta do MaiSim (#6d28d9; botões principais
   #7c3aed), o mesmo do trilho (#8b5cf6, #c4b5fd). O azul do desenho fica, porque ali significa potência (controle é
   verde).
-- **Dicas no trilho do PEW**: ficam por cima dele (z-index acima do 2147483000 do trilho) e ao lado do ícone, como as
+- **Dicas no trilho do MaiSim**: ficam por cima dele (z-index acima do 2147483000 do trilho) e ao lado do ícone, como as
   dele.
 - **Medições**:
   * a marca de tensão é como uma ponta de prova: **V+ vermelho**, **V− preto**;
@@ -519,10 +519,10 @@ corrigidos.
   * **mesmo arquivo**: mantém o que está no Gecko. Só pergunta (manter ou descartar) se o circuito mudou sem o editor
     ver;
   * **outro arquivo, ou novo**: pergunta se o circuito, o controle ou as cores não estão salvos. As opções são salvar e
-    abrir (arquivo da pasta do PEW), salvar como… e abrir (modelo original ou circuito novo), descartar e abrir, ou
+    abrir (arquivo da pasta do MaiSim), salvar como… e abrir (modelo original ou circuito novo), descartar e abrir, ou
     cancelar. Cancelar volta a lista ao modelo aberto e continua na edição.
   O que o editor viu e a base ficam em disco (`visto.txt`, `base.txt`): reiniciar o servidor não faz perguntar à toa. O
-  `editor/pendente` (o do `npm run pew`) usa a mesma regra e diz o que falta salvar.
+  `editor/pendente` (o do `npm run maisim`) usa a mesma regra e diz o que falta salvar.
 - **Validador**:
   * sublinhados atualizados quando o circuito muda;
   * `setdefault`, `update` e `"x" in p` contam como criados;
@@ -537,7 +537,7 @@ corrigidos.
   * o desenho reajusta a proporção quando o cabeçalho muda de altura;
   * os atalhos (W, R, 0, Esc, Delete) ficam mudos enquanto se digita no `controle.py`;
   * a dica não pega o `title` do iframe do scope.
-- **Trilho do PEW**: se não montar (falha passageira ao carregar o `pew-nav.js`), a página tenta de novo uma vez.
+- **Trilho do MaiSim**: se não montar (falha passageira ao carregar o `maisim-nav.js`), a página tenta de novo uma vez.
 - **Testes**: `validacao/nao_salvo_api.py` 15/15 (substitui o `abrir_conflito_api.py`), `assinatura_api.py` 8/8,
   `validador_offline.py` 11/11, `tela/validador_tela.js` 13/13, `tela/ajustes_tela.js` 6/6 (o do trilho usa uma página
   de teste na 5010 → 8768). Todas as outras telas passam.
@@ -570,11 +570,11 @@ corrigidos.
   * Teste: `pontas_tela.js` 6/6 (inclui digitar no campo e escolher pela sugestão); a bateria inteira de tela e de API
     passa na instância de teste.
 
-## Tema do PEW: sistema, claro, escuro (18/10, pedido de Marcelo)
-- **O botão** fica no pé do trilho do PEW (`pew-app/public/pew-nav.js`, comum a todas as páginas). Ele alterna sistema
-  (segue o Windows) → claro → escuro. A escolha fica no navegador (`localStorage "pew-tema"`, a mesma para todas as
-  páginas na porta do PEW), é aplicada em `<html data-tema="claro|escuro">` e avisa as páginas com o evento `pew-tema`.
-  Também acompanha uma troca do tema do sistema e outra aba do PEW.
+## Tema do MaiSim: sistema, claro, escuro (18/10, pedido de Marcelo)
+- **O botão** fica no pé do trilho do MaiSim (`maisim-app/public/maisim-nav.js`, comum a todas as páginas). Ele alterna sistema
+  (segue o Windows) → claro → escuro. A escolha fica no navegador (`localStorage "maisim-tema"`, a mesma para todas as
+  páginas na porta do MaiSim), é aplicada em `<html data-tema="claro|escuro">` e avisa as páginas com o evento `maisim-tema`.
+  Também acompanha uma troca do tema do sistema e outra aba do MaiSim.
 - **No simu**:
   * a interface usa variáveis de tema no CSS (`--campo`, `--suave`, `--fraco`, `--ok`, `--erro`, `--aviso`,
     `--desenho`…), com a versão escura em `:root[data-tema="escuro"]` e `color-scheme`;
@@ -585,7 +585,7 @@ corrigidos.
   * ficam iguais nos dois temas: V+ vermelho, V− preto com a borda do canal, a seleção laranja e o roxo dos SMs.
 - **Teste**: `validacao/tela/tema_tela.js` 7/7 (página de teste 5010 → 8768: os três cliques, o desenho redesenhado, o
   Monaco escuro, o navegador escuro com "sistema"); as outras telas seguem passando no claro.
-- **Falta**: a página inicial do PEW (React), o /pew/gecko e o scope (este é do outro chat).
+- **Falta**: a página inicial do MaiSim (React), o /maisim/gecko e o scope (este é do outro chat).
 - **Defeito achado depois (corrigido)**: no tema claro, 19 variáveis do `:root` apontavam para si mesmas
   (`--ok: var(--ok)`, `--suave: var(--suave)`…), estrago da substituição em lote das cores fixas por variáveis. Para o
   CSS, isso é valor inválido, e no claro essas cores sumiam: o verde de "guardado"/ok, o vermelho de erro, o amarelo de
@@ -610,7 +610,7 @@ corrigidos.
 ## Quebra de linha no editor do controle (18/10, pedido de Marcelo)
 - Botão ao lado do "?" na barra do `controle.py`, ou **Alt+Z** com o cursor no editor (como no VS Code): as linhas
   longas continuam embaixo, recuadas, sem a barra de rolagem para o lado. É só a vista: o código não muda.
-- A escolha fica no navegador (`localStorage "pew-simu-quebra"`) e volta ao recarregar. O botão continua valendo com a
+- A escolha fica no navegador (`localStorage "maisim-simu-quebra"`) e volta ao recarregar. O botão continua valendo com a
   simulação rodando, porque não mexe no código.
 - Sem o Monaco (CDN fora do ar), a caixa de texto simples segue a mesma escolha, pelo botão ou por Alt+Z (achado da
   revisão).
@@ -629,28 +629,28 @@ corrigidos.
   no cabeçalho, em "pedir ao Claude". Ctrl+Enter envia. Exemplos: "PI de corrente com anti-windup", "metade do tempo
   com Kp e depois 2·Kp", "dois controles", "implemente o controle do artigo anexado".
 - **O que o Claude pode**: só o controle, ou seja, `controle.py`, os parâmetros e os acionamentos no tempo. Ele não
-  cria componente nem toca no `.ipes`; se faltar algo no circuito, diz o que montar. Ele lê o contexto que o PEW gera a
+  cria componente nem toca no `.ipes`; se faltar algo no circuito, diz o que montar. Ele lê o contexto que o MaiSim gera a
   cada pedido (`CONTEXTO.md`) e o `GUIA_CONTROLE.md`. O contexto traz:
   * o circuito, com os componentes, os valores e os nós;
   * as medidas `m[...]`, com o que cada uma mede;
   * as atuações, com aonde chegam e o atraso do Gecko;
   * Ts, Δt e tfim;
   * os parâmetros, os acionamentos e o código atual, com o que o validador acusa.
-- **Como roda** (`servidor.py`, seção "Claude do PEW: uso da conta e pedir ao Claude"): o `claude` oficial, com a
-  pasta do PEW (`~/.claude-pew`):
+- **Como roda** (`servidor.py`, seção "Claude do MaiSim: uso da conta e pedir ao Claude"): o `claude` oficial, com a
+  pasta do MaiSim (`~/.claude-maisim`):
   * opções: `--restricted` (sem terminal, sem internet, arquivos só na pasta da conversa); `--tools Read,Edit,Glob,Grep`;
     `--allowedTools Edit(./controle.py) Edit(./parametros.json) Edit(./acionamentos.json)`; `--permission-mode dontAsk`
     e `--permission-prompts none` (o que pediria permissão é negado); `--strict-mcp-config`; `--max-turns 30`; prazo de
     15 min; regras em `--append-system-prompt`;
   * ambiente por lista branca e processo em sessão própria ("parar" e a saída do servidor derrubam o grupo);
-  * **conversa por circuito**: uma pasta `~/.cache/pew_simu/claude/conversas/<id>/` (o cwd, que a retomada exige
+  * **conversa por circuito**: uma pasta `~/.cache/maisim/simu/claude/conversas/<id>/` (o cwd, que a retomada exige
     igual), `--session-id` no 1º pedido e `--resume` nos seguintes. Se a sessão sumiu da pasta do Claude, recomeça com o
     mesmo id. O histórico (pedido, resposta, gasto, aplicada) fica em `claude/historico/<id>.json`. "nova" esquece a
     conversa.
 - **Anexos**: PDF de artigo, imagem ou texto (txt, md, csv). Entram pelo botão de documento, arrastando para a
   conversa ou colando uma imagem. Até 25 MB cada e 12 por conversa; ficam em `anexos/` da conversa, e o Claude Code lê
   PDF e imagem direto. No pedido, os anexos novos vão marcados.
-- **A proposta**: o PEW lê de volta os três arquivos e confere **sem executar**: formato, sintaxe, o validador de `m`,
+- **A proposta**: o MaiSim lê de volta os três arquivos e confere **sem executar**: formato, sintaxe, o validador de `m`,
   `p` e atuações, e as atuações que `passo()` devolve (as que existem são marcadas ao aplicar). Se o controle estava
   desligado, liga.
   * O cartão mostra +/− linhas, os parâmetros e os acionamentos que mudam e a conferência.
@@ -662,13 +662,13 @@ corrigidos.
 - **Uso da conta**: `claude -p "/usage"` devolve o texto do `/usage` (sessão de 5 h e semana, com quando renova), com 0
   turnos e 0 tokens. **Não é documentado** (conferido no CLI 2.1.273); se o formato mudar, a tela diz que não leu. O
   resultado fica guardado 60 s. Aparece no topo da conversa e em barras no ícone do Claude. O % é o da **conta
-  inteira**, somando Claude Code, claude.ai e PEW.
+  inteira**, somando Claude Code, claude.ai e MaiSim.
 - **Prova com o Claude de verdade** (instância de teste, 1 pedido, "aumente o Kp em 20% e explique em uma frase"): 9,6 s
   e 4 passos; 26,6 mil tokens de entrada (a maior parte de cache) e 586 de saída. Ele leu o `CONTEXTO.md` e o
   `parametros.json` e editou só o `parametros.json`: Kp 1,885 → 2,262 (×1,20, confere). O código ficou intacto, a
   proposta foi validada e o controle guardado não mudou.
-- **Testes** (o Claude de mentira `validacao/claude_falso.py`: `PEW_CLAUDE_BIN` aponta para ele, e o cenário vem de
-  arquivos na pasta descartável `PEW_CLAUDE_DIR`; login e logout vão para o CLI de verdade):
+- **Testes** (o Claude de mentira `validacao/claude_falso.py`: `MAISIM_CLAUDE_BIN` aponta para ele, e o cenário vem de
+  arquivos na pasta descartável `MAISIM_CLAUDE_DIR`; login e logout vão para o CLI de verdade):
   * `validacao/claude_pedido_api.py`, que confere:
     - o uso e as opções exatas com que o `claude` roda;
     - o contexto, a proposta sem executar e o teste a pedido;
@@ -676,8 +676,8 @@ corrigidos.
     - a retomada da conversa, inclusive com a sessão apagada;
     - erros (sintaxe, JSON inválido, erro da API, recusa fora da pasta), parar sem processo órfão, anexos (tipo, `../`,
       novo) e conversa nova;
-    - a proteção das rotas: sem X-PEW, outra origem e Host de fora.
-  * `validacao/tela/claude_chat_tela.js`, direto na 8768 (as rotas do Claude só aceitam a origem do PEW ou a do
+    - a proteção das rotas: sem X-MaiSim, outra origem e Host de fora.
+  * `validacao/tela/claude_chat_tela.js`, direto na 8768 (as rotas do Claude só aceitam a origem do MaiSim ou a do
     servidor), que confere:
     - a conversa e o uso no topo;
     - a proposta, a diferença, testar, aplicar e voltar;
@@ -686,10 +686,10 @@ corrigidos.
     - as barras de uso no ícone do Claude, o escuro e o estado sem login.
 - **Revisão adversarial** (só leitura, 4 lentes: segurança, servidor, tela e testes): 39 achados confirmados e 4
   refutados, todos corrigidos e testados. Os principais:
-  * **todo POST confere a origem** (`pedido_local`: Host local, Origin do PEW, Sec-Fetch-Site). Era um defeito antigo,
+  * **todo POST confere a origem** (`pedido_local`: Host local, Origin do MaiSim, Sec-Fetch-Site). Era um defeito antigo,
     de antes deste passo: guardar e testar o controle e rodar aceitavam pedido de qualquer página, e uma página de fora
-    gravaria um `controle.py` e o testaria (código rodando aqui). O X-PEW continua só nas rotas do Claude. A instância
-    de teste sobe com `PEW_PORTA=5010` (a origem da página de teste);
+    gravaria um `controle.py` e o testaria (código rodando aqui). O X-MaiSim continua só nas rotas do Claude. A instância
+    de teste sobe com `MAISIM_PORTA_PAGINA=5010` (a origem da página de teste);
   * **a retomada da conversa** olha se o CLI já gravou a sessão, e não se o 1º pedido terminou. Com um 1º pedido parado,
     o CLI de verdade recusava `--session-id` ("already in use") e a conversa travava. O Claude de mentira agora imita
     essa recusa, o `--verbose` obrigatório e o formato real dos erros (motivo em `errors`; erro da API em `result`);
@@ -699,14 +699,14 @@ corrigidos.
   * **a conversa segue o circuito**: "salvar como" leva a conversa para o nome novo, e uma folha nova começa outra
     conversa. A proposta é conferida contra o circuito do pedido;
   * **o contexto** diz em que SM está cada chave ou fonte comandada, lista os SMs com os nós dos terminais e descreve o
-    atraso efetivo e quanto o PEW compensa. As regras pedem as atuações num `return {...}` literal;
+    atraso efetivo e quanto o MaiSim compensa. As regras pedem as atuações num `return {...}` literal;
   * **na tela**:
     - aplicar avisa se o código, os parâmetros ou os acionamentos mudaram na tela depois do pedido, não aplica duas
       vezes e não roda com o editor ainda carregando (gravaria um código vazio);
     - a conversa não pula de rolagem e o acompanhamento para ao fechar;
     - colar texto com imagem cola o texto, os erros de vários anexos ficam todos e o anexar é um botão (teclado);
     - a diferença leva o foco, "nova" fica desligado durante um pedido e um arquivo solto fora da conversa não abre
-      no lugar do PEW;
+      no lugar do MaiSim;
     - o uso no ícone do Claude se renova;
   * parâmetro com valor não finito é recusado (`NaN` quebraria o JSON da tela).
 - **Testes**: `claude_pedido_api.py` 49/49 (com: parar o 1º pedido e pedir de novo, salvar como, folha nova, POST de
@@ -714,7 +714,7 @@ corrigidos.
   `claude_chat_tela.js` 25/25; a bateria inteira (13 telas, 4 de API) passa.
 - **Onde fica a conversa** (pedido de Marcelo, testando): por padrão, ao lado do código, em 3 colunas (parâmetros |
   código | Claude). Um botão no topo da conversa a leva para baixo do código e de volta; a escolha fica no navegador
-  (`pew-simu-claude-lugar`). Com o painel mais estreito que 820 px, ela desce sozinha para não espremer o código.
+  (`maisim-simu-claude-lugar`). Com o painel mais estreito que 820 px, ela desce sozinha para não espremer o código.
   Pergunta respondida sem mudança no controle não mostra mais o cartão "sem mudança". `claude_chat_tela.js` 29/29.
 - **Diferença como no git** (pedido de Marcelo): o cartão da proposta mostra o trecho mudado do `controle.py`, com
   `@@ linha N @@` a cada bloco, `+` verde, `−` vermelho e 2 linhas de contexto (até 60 linhas; o resto, em "ver
@@ -722,7 +722,7 @@ corrigidos.
   Conferida em 7 casos conhecidos e em 300 pares aleatórios: o que sai mais o contexto refaz o antes, e o que entra mais
   o contexto refaz o depois. "ver diferença" abre **unificado** (como o `git diff`, com o número da linha antes e
   depois) ou **lado a lado**, e a escolha fica lembrada. Nada entra sem "aplicar". `claude_chat_tela.js` 32/32.
-- **Memória do PEW** (pedido de Marcelo): um arquivo de notas, `~/.cache/pew_simu/claude/memoria.md`, que vale em todas
+- **Memória do MaiSim** (pedido de Marcelo): um arquivo de notas, `~/.cache/maisim/simu/claude/memoria.md`, que vale em todas
   as conversas e circuitos: preferências e lições (ex.: "anti-windup por clamping", "ganhos em V/A").
   * A cada pedido, o arquivo vai para a pasta da conversa, e as regras mandam o Claude ler e seguir. Quando você pede
     para lembrar algo, ou deixa clara uma preferência, ele **propõe** uma linha. `memoria.md` é o 4º arquivo que ele
@@ -808,24 +808,24 @@ corrigidos.
   postos pela paleta, prévia do arrasto encostada na borda, painel (sem girar; R não gira), renomear, nomes no bloco sem
   sobreposição (medido), tamanho pelo painel, marca de bornes juntos.
 
-## Tamanho do PEW e o ícone do simu (18/10, pedido de Marcelo)
-- **+ e −** no pé do trilho, acima do tema: o tamanho do PEW, de 80 % a 140 % (80, 90, 100, 110, 125, 140), independente
+## Tamanho do MaiSim e o ícone do simu (18/10, pedido de Marcelo)
+- **+ e −** no pé do trilho, acima do tema: o tamanho do MaiSim, de 80 % a 140 % (80, 90, 100, 110, 125, 140), independente
   do zoom do navegador.
-  * Fica no navegador (`localStorage "pew-escala"`), vale em todas as abas e páginas do PEW e é aplicado antes de
+  * Fica no navegador (`localStorage "maisim-escala"`), vale em todas as abas e páginas do MaiSim e é aplicado antes de
     pintar (o script do `<head>` do simu, do scope e da página inicial). É o `zoom` do CSS na página inteira.
   * O clique no desenho e no editor Monaco foi conferido com 90 % e 125 %: o componente cai no ponto clicado e o
     cursor, na linha clicada.
-  * Fora: o /pew/gecko (a tela remota ficaria borrada), os seminários (sem trilho; têm o A−/A+ deles) e o scope
+  * Fora: o /maisim/gecko (a tela remota ficaria borrada), os seminários (sem trilho; têm o A−/A+ deles) e o scope
     embutido no simu (o simu já escala; escalar o iframe de novo dobraria).
 - **Ícone do simu no trilho**: um circuito (resistor na malha) com o "simular", no lugar do zigue-zague com seta.
 - Teste: `validacao/tela/escala_tela.js` 12/12.
 
-## Marca do PEW e o ícone do Claude (18/10, pedido de Marcelo)
-- **Marca do PEW: o diodo com o brilho de IA** (ideia dele; ele vetou o rosto e o clipe). Os arquivos ficam em
-  `power-eletronics/pew-app/public/marca/` (ícone, fundo escuro, uma cor, ícone de aba, logotipo; ver o LEIA de lá). A
+## Marca do MaiSim e o ícone do Claude (18/10, pedido de Marcelo)
+- **Marca do MaiSim: o diodo com o brilho de IA** (ideia dele; ele vetou o rosto e o clipe). Os arquivos ficam em
+  `power-eletronics/maisim-app/public/marca/` (ícone, fundo escuro, uma cor, ícone de aba, logotipo; ver o LEIA de lá). A
   marca vai no ícone da aba (`/favicon.svg?v=1`: o "?v=1" fura o cache de ícones do Chrome, que guardava o "sem
-  ícone"), no topo do trilho (no lugar do texto "PEW") e no cabeçalho da página inicial (no lugar do ⚡).
-- **Claude do PEW: um balão de conversa com o brilho dentro** (`#pew-claude`, no sprite do simu), no cabeçalho, no
+  ícone"), no topo do trilho (no lugar do texto "MaiSim") e no cabeçalho da página inicial (no lugar do ⚡).
+- **Claude do MaiSim: um balão de conversa com o brilho dentro** (`#maisim-claude`, no sprite do simu), no cabeçalho, no
   botão da aba Controle, no topo e ao lado das respostas da conversa; o brilho pulsa enquanto o Claude trabalha.
   **Nunca o logotipo da Anthropic**: as diretrizes dela pedem aprovação prévia e proíbem alterar ou dar a entender
   parceria (https://www.anthropic.com/legal/trademark-guidelines).
@@ -856,7 +856,7 @@ corrigidos.
   latência da rede; as medidas mostradas e o autocompletar seguem o arquivo aberto; erro marcado no arquivo e na aba
   dele; a proposta do Claude vai sempre para o `controle.py` (mesmo com outra aba aberta). As explicações dos campos (Ts,
   atuação, rede, acionamentos, controladores) foram para a dica de um "i" ao lado (cabe mais); à vista só os alertas.
-- **Claude do PEW**: vê a lista de controladores e os outros arquivos (só leitura); editar vários é o passo 3.
+- **Claude do MaiSim**: vê a lista de controladores e os outros arquivos (só leitura); editar vários é o passo 3.
 - **Revisão com Marcelo** ("não entendi a lógica arquivos e controladores"): agora **cada arquivo é um controlador**, com o
   nome do arquivo (`aquisicao.py` → `envia("aquisicao", …)`); o "+ arquivo" cria os dois, renomear e apagar levam o
   controlador junto; embaixo de cada arquivo, **lê** (com a opção **todas as medidas**), **escreve** (marcar num tira do
@@ -888,7 +888,7 @@ corrigidos.
 
 ## Cadeado, coluna recolhível e a janela do código (18/10, pedidos de Marcelo)
 - **Cadeado no lugar do lápis** ("talvez o edit ser o default fosse melhor… ao invés de um lapisinho, um cadeado"): o
-  simu abre **editando** (cadeado aberto); clicar fecha (só ver) e a escolha fica no navegador (`pew-simu-travado`).
+  simu abre **editando** (cadeado aberto); clicar fecha (só ver) e a escolha fica no navegador (`maisim-simu-travado`).
   Motivo de fundo: com a edição fechada o servidor não conhece o circuito (as medidas e atuações do controle ficam
   vazias) — foi o que deixou o controle "lendo nada". Os testes de tela antigos começam travados (uma linha no começo de
   cada um) e clicam para editar, como antes; `codigo_tela.js` confere o padrão aberto.
@@ -900,10 +900,10 @@ corrigidos.
   coluna continua na grade com 0 px (com `display:none` ela saía da grade e o editor caía na célula de 0 px — achado pelo
   teste).
 - **A janela do código** ("ter na vertical o code também… abrir em duas telas sem dividir; o play fica só no circuito"):
-  item `</>` no trilho (`pew-nav.js`), que abre `/pew/simu/?vista=codigo` numa janela à parte (a mesma, se já aberta),
+  item `</>` no trilho (`maisim-nav.js`), que abre `/maisim/simu/?vista=codigo` numa janela à parte (a mesma, se já aberta),
   para o outro monitor. É a página do simu em modo código (`VISTA_CODIGO`): só o painel do controle, em tela cheia,
   ligado ao circuito aberto no servidor (o seletor no alto troca o circuito das duas janelas); sem ▶ (Ctrl+Enter avisa
-  que o ▶ fica no circuito). As janelas conversam pelo `BroadcastChannel("pew-simu")`: controle guardado (a outra
+  que o ▶ fica no circuito). As janelas conversam pelo `BroadcastChannel("maisim-simu")`: controle guardado (a outra
   recarrega, sem perder o que se digita nela), circuito mudado (a outra relê o estado; um CONST novo aparece nos
   atuadores), rodada começou (a do código acompanha e trava a edição até o fim), e a janela do código avisa que está
   aberta (a do circuito cobre o painel do controle com "o código está aberto na janela do código" e um "editar aqui
@@ -918,12 +918,12 @@ corrigidos.
   lembrado, recolher a coluna (editor de 326 para mais de 480 px), o item no trilho, a janela do código (só o
   controle, sem o ▶, ligada ao exemplo), o aviso na do circuito, código mudado numa aparece na outra, CONST novo aparece
   na do código, a rodada pelo ▶ do circuito trava e destrava a do código, fechar tira o aviso.
-- **O PEW como app** ("nem precisava mostrar a barra de endereço"): uma página não esconde a barra de endereço de uma
-  janela que ela abre (regra de segurança do navegador); instalado como app (PWA: `pew-app/public/manifest.webmanifest`,
-  ícones em `marca/`), o PEW abre como programa e as janelas não têm barra de endereço. A página do Gecko é a cópia que o
-  `pew_gecko/sobe.sh` faz em `~/.cache/pew_gecko/web/` ao subir — atualizada à mão (só as linhas do ícone e do manifesto
+- **O MaiSim como app** ("nem precisava mostrar a barra de endereço"): uma página não esconde a barra de endereço de uma
+  janela que ela abre (regra de segurança do navegador); instalado como app (PWA: `maisim-app/public/manifest.webmanifest`,
+  ícones em `marca/`), o MaiSim abre como programa e as janelas não têm barra de endereço. A página do Gecko é a cópia que o
+  `gecko/sobe.sh` faz em `~/.cache/maisim/gecko/web/` ao subir — atualizada à mão (só as linhas do ícone e do manifesto
   mudaram), sem reiniciar o Gecko. Prova: `validacao/tela/app_tela.js` 4/4 — o próprio Chrome (Page.getInstallabilityErrors,
-  pelo protocolo de depuração) diz que o PEW é instalável no início, no simu, no scope e no Gecko.
+  pelo protocolo de depuração) diz que o MaiSim é instalável no início, no simu, no scope e no Gecko.
 
 ## Soltar o terminal do subcircuito num nó liga (18/10, achado de Marcelo)
 - "Comecei a criar um subcircuito; o terminal não liga num nó, numa linha, em nada": o terminal tinha sido **arrastado
@@ -931,7 +931,7 @@ corrigidos.
   altura do nó, y = 13, sem ligação. Pela conexão (W: clique no terminal, clique na linha) ligava (conferido na cópia do
   estado dele: 5 → 6 conexões).
 - Agora **soltar o terminal num ponto de ligação** (terminal de componente, conexão, nó) liga: o terminal **fica onde
-  está** (o lado do borne no bloco não muda) e o PEW desenha uma conexão dele até o ponto, em L — horizontal primeiro ou
+  está** (o lado do borne no bloco não muda) e o MaiSim desenha uma conexão dele até o ponto, em L — horizontal primeiro ou
   vertical primeiro, o que não passar por terminal ou ponta de conexão (passar ligaria junto). Os dois passam: não liga e
   diz onde. Domínios diferentes (controle num ponto de potência): não liga. Uma 1ª versão encostava o terminal na borda
   mais próxima do ponto (no caso dele, a de cima: o borne mudaria de lado) — trocada antes de publicar.
@@ -942,26 +942,26 @@ corrigidos.
 ## "Failed to fetch" ao apagar uma conexão (18/10, achado de Marcelo)
 - Nada registrado no servidor do simu nem no Vite (que repassa o 5000 ao simu) naqueles instantes, e a conexão continuava
   no estado: o pedido não chegou. Pela API direta, apagar a mesma conexão (numa cópia do estado dele) funciona. Causa
-  provável: a ponte Windows ↔ WSL (o navegador no Windows, o PEW no WSL) derrubando conexões — ele já tinha notado a
+  provável: a ponte Windows ↔ WSL (o navegador no Windows, o MaiSim no WSL) derrubando conexões — ele já tinha notado a
   ponte instável; cinco falhas seguidas em 30 s, às 20h41, batem com isso.
 - O `api()` do simu agora repete uma vez a leitura (GET) que cai no caminho; a mudança (POST) não é repetida sozinha (se só
   a resposta se perdeu, repetir faria duas vezes) e o erro diz o que houve, no lugar de "Failed to fetch". Resposta que
   não é JSON (um erro do Vite, por exemplo) também vira uma mensagem clara. Teste: `validacao/tela/rede_tela.js` 2/2.
-- Se acontecer com frequência: reiniciar o WSL (`wsl --shutdown` no Windows) — derruba tudo; depois `npm run pew`.
+- Se acontecer com frequência: reiniciar o WSL (`wsl --shutdown` no Windows) — derruba tudo; depois `npm run maisim`.
 
 ## Contingência para a conexão que cai (18/10, pedido de Marcelo: "como ter uma contingência… um botão aqui")
 - Hipótese para as quedas seguidas sem rastro no servidor: o navegador guarda a conexão aberta para reusar, e a ponte
   Windows ↔ WSL às vezes a deixa morta do lado do Windows. O Chrome repete sozinho o GET numa conexão nova; o POST não
   — por isso falhavam as mudanças (apagar, salvar) e a leitura seguinte funcionava. Três camadas:
-  1. **Sem conexão guardada** (pew-app, `vite.config.js`): o Vite fecha a conexão depois de cada resposta do simu e do
+  1. **Sem conexão guardada** (maisim-app, `vite.config.js`): o Vite fecha a conexão depois de cada resposta do simu e do
      scope (`Connection: close`); a página do Vite (os arquivos estáticos) continua como estava.
   2. **A mudança também é repetida, sem fazer duas vezes**: todo POST do `api()` leva uma etiqueta única
-     (`X-PEW-Pedido`); caindo no caminho, é repetido uma vez com a mesma etiqueta. O servidor guarda as últimas 300
+     (`X-MaiSim-Pedido`); caindo no caminho, é repetido uma vez com a mesma etiqueta. O servidor guarda as últimas 300
      respostas por etiqueta: se a primeira chegou e só a resposta se perdeu, a repetição recebe a resposta guardada e a
      mudança não é feita de novo; se a primeira ainda estiver em andamento, a repetição espera por ela.
   3. **A faixa "sem conexão"** (só quando a repetição também falha): diz que é a ponte Windows ↔ WSL, com o botão
      **testar de novo**; testa sozinha a cada 5 s e some quando o servidor responde ("conexão com o servidor do simu de
-     volta"). Se o botão não resolve, ela orienta: fechar e abrir o PEW; se continuar, `wsl --shutdown` e `npm run pew`.
+     volta"). Se o botão não resolve, ela orienta: fechar e abrir o MaiSim; se continuar, `wsl --shutdown` e `npm run maisim`.
 - Prova: `validacao/tela/rede_tela.js` 6/6 — Connection: close pelo Vite; leitura que cai uma vez (repetida); mudança que
   cai antes de chegar (repetida com a mesma etiqueta, feita uma vez); mudança feita e resposta perdida (a repetição
   recebe a resposta guardada: o R.2 não é criado duas vezes); sem conexão nenhuma, o erro claro e a faixa; com a
@@ -1015,7 +1015,7 @@ corrigidos.
 - Prova: `validacao/tela/selecao_tela.js` 9/9 — retângulo (R.1, L.1 e a conexão, não o C.1), arrastar o grupo (a
   conexão continua nos terminais), Ctrl+Z num passo, Shift + clique, copiar e colar o grupo com a conexão, Delete com
   uma pergunta, Ctrl+Z, Esc.
-- **De novo, depois de "salvar em branco"** (já no PEW instalado como app): o arquivo foi gravado, e os dois erros que
+- **De novo, depois de "salvar em branco"** (já no MaiSim instalado como app): o arquivo foi gravado, e os dois erros que
   vieram logo depois (a lista do Abrir e um pedido) não deixaram rastro no servidor nem no Vite — a mesma queda de
   conexão. A lista de modelos e a leitura do circuito usavam o fetch direto (sem repetir); agora passam pelo `api()`,
   que repete a leitura uma vez e diz o que houve.
@@ -1039,15 +1039,15 @@ corrigidos.
   ligar e desligar é no arquivo, e o Gecko reabre e confere (rota `editor/variavel`: nova, apaga — uma ou várias —,
   liga, desliga).
 - O nome que a tela mostra (o da interface remota: uMAX, f, phase) é outro no arquivo (amplitude, frequency,
-  phaseDegrees): o mapa vem do próprio Gecko — `motor/src/pew/PewParametros.java` constrói cada tipo e grava, de cada
+  phaseDegrees): o mapa vem do próprio Gecko — `motor/src/maisim/MaiSimParametros.java` constrói cada tipo e grava, de cada
   parâmetro, os nomes, o identificador, o índice e o tipo do valor em `parametros_gecko.json` (114 de 118 tipos; os
-  mesmos 4 da geometria não se constroem sem janela). Regerar: `javac -cp $JAR -d /tmp/par motor/src/pew/PewParametros.java
-  && java -Djava.awt.headless=true -cp $JAR:/tmp/par pew.PewParametros > parametros_gecko.json`. A busca segue a ordem
+  mesmos 4 da geometria não se constroem sem janela). Regerar: `javac -cp $JAR -d /tmp/par motor/src/maisim/MaiSimParametros.java
+  && java -Djava.awt.headless=true -cp $JAR:/tmp/par maisim.MaiSimParametros > parametros_gecko.json`. A busca segue a ordem
   do Gecko (o nome de agora primeiro, os alternativos por último): o alternativo do uDC da fonte é "uMAX", o nome da
   amplitude — sem a ordem, ligar o uDC aparecia como o uMAX ligado (achado na foto do teste).
 - Achado no teste: o Gecko separa a lista de nomes só pela "/"; um espaço depois do último nome entra no nome (`"$b "`),
   e o parâmetro ligado a ele vale NaN (o amperímetro "has no output" na rodada). A lista é escrita como o Gecko
-  escreve, sem espaço no fim (os arquivos do Gecko e do PEW conferidos: nenhum tinha o espaço).
+  escreve, sem espaço no fim (os arquivos do Gecko e do MaiSim conferidos: nenhum tinha o espaço).
 - O circuito novo vem com as 25 variáveis do modelo base do MMC ($CSm, $igbt_…; nenhum componente as usa): "apagar as
   que nenhum componente usa" limpa.
 - Prova: `validacao/variaveis_api.py` 16/16 — criar; repetida e nome inválido recusados; ligar uDC (dcValue) e uMAX
@@ -1074,7 +1074,7 @@ corrigidos.
   anda a vista o mesmo tanto: nada pula, e a mensagem diz quanto o circuito andou. Vale para o grupo (Shift) também.
   Dentro de um subcircuito (folha de tamanho fixo) o limite é 1…tamanho−1 e a tela recusa antes, como já fazia.
 - O item "GeckoCIRCUITS" saiu do trilho ("nem precisa mais"): o simu faz tudo pelo Gecko escondido; a página
-  /pew/gecko/ continua no endereço e no cartão da página inicial, para conferir.
+  /maisim/gecko/ continua no endereço e no cartão da página inicial, para conferir.
 - Prova: `validacao/move_api.py` 8/8 — Va para (−4, 0): o circuito anda (5, 1), Va fica 5 à esquerda e 1 acima em
   relação às outras, a conexão vai junto (o encaixe conta o mesmo), o SM por dentro igual; Ctrl+Z volta tudo; dentro da
   folha só ele anda; o grupo 4 para cima abre 3; no SM, nada anda. `validacao/tela/beira_tela.js` 5/5 — as três fontes
@@ -1082,11 +1082,11 @@ corrigidos.
   soltou (nada pulou); a mensagem; Ctrl+Z.
 
 ## Rumo a um .exe para a comunidade (18/10)
-- Pedido de Marcelo: o PEW portátil para Windows, para compartilhar. Roteiro em `ROTEIRO_EXE.md` (escopo, arquitetura,
+- Pedido de Marcelo: o MaiSim portátil para Windows, para compartilhar. Roteiro em `ROTEIRO_EXE.md` (escopo, arquitetura,
   licenças — o Gecko é GPLv3 —, 8 fases com critérios de pronto, riscos e decisões em aberto).
 - O modo de rede espelhado do WSL (`networkingMode=mirrored`), tentado em 19/10 para tirar o `wslrelay` do caminho,
-  quebrou o Gecko do PEW: a ponte (6110) e o motor (6120) não conectaram ao RMI em localhost:43050 ("Connection timed
-  out"; `npm run pew`: "o Gecko do PEW não ficou pronto em 2 min"). Voltou ao NAT, e tudo subiu (conferido pelo
+  quebrou o Gecko do MaiSim: a ponte (6110) e o motor (6120) não conectaram ao RMI em localhost:43050 ("Connection timed
+  out"; `npm run maisim`: "o Gecko do MaiSim não ficou pronto em 2 min"). Voltou ao NAT, e tudo subiu (conferido pelo
   `curl.exe` do Windows: 5000 → simu, scope e trilho com 200 em ~0,2 s). Causa a investigar antes de tentar de novo.
 
 ## O que o Claude mudou, depois de aprovar (19/10, pedido de Marcelo)
@@ -1108,19 +1108,19 @@ corrigidos.
 - "Mesmo com tela dividida, poder correr o divisor dentro da segunda, onde estão o controle e o Claude": a borda entre o
   código e a conversa se arrasta — ao lado, muda a largura da conversa (`--cc-w`); embaixo, a altura (`--cc-h`); o
   código fica com pelo menos 300 px; guardado no navegador; duplo clique volta ao padrão. As contas são em pixels de CSS,
-  com a escala do zoom do PEW medida na hora (com 110 %, o divisor fica exatamente onde o mouse solta).
+  com a escala do zoom do MaiSim medida na hora (com 110 %, o divisor fica exatamente onde o mouse solta).
 - Prova: `validacao/tela/divisor_tela.js` 7/7 (zoom 110 %: ao lado e embaixo, o limite de 300 px, guardado, duplo
   clique); `claude_chat_tela.js` 38/38 e `controladores_tela.js` 20/20 depois da mudança. O `codigo_tela.js` parou no
-  passo que abre o scope pela 5010 (o scope 8765 estava fora: o WSL tinha reiniciado e o PEW não tinha subido) — a
-  repetir com o PEW no ar.
+  passo que abre o scope pela 5010 (o scope 8765 estava fora: o WSL tinha reiniciado e o MaiSim não tinha subido) — a
+  repetir com o MaiSim no ar.
 
 ## Módulos: ler → controlar → escrever (19/10, pedido de Marcelo)
-- O Claude do PEW achou a pegadinha: dois .py eram dois controladores (processos à parte, com 1 amostra de atraso entre
+- O Claude do MaiSim achou a pegadinha: dois .py eram dois controladores (processos à parte, com 1 amostra de atraso entre
   eles) — dividir a aquisição e o PLL em arquivos poria 100 µs dentro da malha do PLL. Marcelo: um padrão de arquivos,
   "para ele não alucinar e viajar", e emular certinho um controle com seus limites.
 - **Todo .py que não é controlador é um módulo** (não precisou de campo novo: os arquivos que "não rodavam" viraram
   módulos): quem importa chama, no mesmo processo e na mesma amostra. O worker importa os módulos da memória (um
-  `MetaPathFinder` com as fontes que vêm no `carrega`; a pasta do PEW sai do `sys.path` do usuário); cada controlador tem
+  `MetaPathFinder` com as fontes que vêm no `carrega`; a pasta do MaiSim sai do `sys.path` do usuário); cada controlador tem
   a sua cópia. Erro num módulo aponta o arquivo e a linha dele (também erro de sintaxe ao importar).
 - **Circuito novo:** `leitura.py` (ADC e sensores) → `controle.py` (orquestrador) → `escrita.py` (PWM/DAC), dos modelos
   `leitura_modelo.py`, `controle_modelo.py`, `escrita_modelo.py`; "+ arquivo" cria um módulo (`modulo_modelo.py`).
@@ -1130,22 +1130,22 @@ corrigidos.
 - **Os riscos** (`analisa_modulos`): erros (impedem rodar) — nome de módulo do Python, import que não existe, import de um
   controlador; avisos — módulo que ninguém importa, ciclo, módulo com `passo(t, m, p, e)`, o mesmo módulo em dois
   controladores. O tempo de cálculo é zero na amostra: o atraso real é o do painel (anotado no guia, §3.0.1).
-- O Claude do PEW sabe disso pelas regras e pelo CONTEXTO.md (os arquivos com o papel de cada um, os riscos acusados); ele
+- O Claude do MaiSim sabe disso pelas regras e pelo CONTEXTO.md (os arquivos com o papel de cada um, os riscos acusados); ele
   ainda edita só o controle.py (diz o que mudar nos módulos) — editar vários arquivos é a etapa seguinte.
 - Prova: `validacao/modulos_api.py` 12/12 — o PI de corrente em módulos (`leitura → pi → escrita`) é **bit a bit igual** ao
   PI num arquivo só (t, i_L, u_ctrl, erro; 101 amostras; i_L final 4,99915 A); os 6 riscos; erro no `pi.py` linha 6 na
   rodada; o exemplo antigo abre como era. `validacao/tela/modulos_tela.js` 9/9; `controladores_tela.js` 21/21 (o "+
   arquivo" nasce módulo, "virar controlador" segue como antes); `codigo_tela.js` 16/16.
 - A instância de teste agora tem a página (5010) e um scope só dela (8776), em `validacao/sobe_pagina_teste.sh` (o
-  `sobe_teste.sh` chama): com o PEW de Marcelo fechado, os testes do scope caíam.
+  `sobe_teste.sh` chama): com o MaiSim de Marcelo fechado, os testes do scope caíam.
 
-## Etapa B: o Claude do PEW cria e edita os módulos; a ordem conferida (19/10, pedido de Marcelo)
+## Etapa B: o Claude do MaiSim cria e edita os módulos; a ordem conferida (19/10, pedido de Marcelo)
 - "Melhor criar separados e ter um padrão de comunicação entre eles… na ordem certa; o Claude manjar disso e sempre
   corrigir". A pasta do Claude recebe todos os .py; ele roda com `--tools Read,Edit,Write,Glob,Grep` e pode editar/criar
   só `./*.py` (além dos três arquivos de sempre e da memória): `Edit(./*.py)`, `Write(./*.py)`. As regras dizem o contrato
   e a ORDEM (leitura → módulos de controle, cada um com a saída do anterior → escrita, que devolve as atuações; cada
   módulo iniciado no `iniciar()`), que arquivo novo é módulo, que ele não apaga nem promove a controlador, e que corrija o
-  que fugir disso. O `CONTEXTO.md` lista os arquivos com o papel e o que o PEW acusa, sem repetir o código (está na pasta:
+  que fugir disso. O `CONTEXTO.md` lista os arquivos com o papel e o que o MaiSim acusa, sem repetir o código (está na pasta:
   menos tokens).
 - A ordem é conferida (`ordem_do_fluxo`, avisos): `leitura.passo()` 1ª chamada; `escrita.passo()` última; o `return` é o
   que o escrita devolveu; módulo chamado sem o `iniciar()` dele.
@@ -1166,7 +1166,7 @@ corrigidos.
   eles): 6/6, e não depende mais de um arquivo fora do repositório. Bateria limpa (sozinha): 30 de tela e 16 de API
   verdes, com o pontas_tela refeito.
 
-## O modelo e o esforço do Claude do PEW; o enviar desligado enquanto ele responde (19/10, pedido de Marcelo)
+## O modelo e o esforço do Claude do MaiSim; o enviar desligado enquanto ele responde (19/10, pedido de Marcelo)
 - "Escolher qual modelo vamos usar antes de enviar, até para controle de consumo": ao lado do enviar, **modelo** (padrão
   da conta, Fable, Opus, Sonnet, Haiku → `claude --model <apelido>`) e **esforço** (padrão, baixo, médio, alto, muito alto,
   máximo → `--effort`), lembrados no navegador; o servidor só aceita os da lista (`MODELOS_CLAUDE`, `ESFORCOS_CLAUDE`).
@@ -1207,7 +1207,7 @@ corrigidos.
 - Agora: "girar (R)" só nos componentes que o Gecko gira; no bloco de controle e no subcircuito o botão "girar" fica
   apagado e, clicado (ou com R), explica: para ligar sem fio, o mesmo rótulo nos dois terminais.
 - Espelhar de verdade exigiria mudar o fork do Gecko (e o arquivo deixaria de abrir igual no Gecko original) ou um
-  espelho só no desenho do PEW (o fio passaria por dentro do bloco no arquivo): nenhum dos dois foi feito.
+  espelho só no desenho do MaiSim (o fio passaria por dentro do bloco no arquivo): nenhum dos dois foi feito.
 - Prova: `validacao/tela/giro_tela.js` 7/7 — R gira o resistor (503 → 504); no CONST e no subcircuito o botão explica,
   o R avisa, nada muda e nada de "girado" no histórico. `sub_terminais_tela.js` 16/16.
 
@@ -1215,12 +1215,12 @@ corrigidos.
 - "Depois de testar, como fechar o console?": a saída do ▷ testar (e a da rodada) não fechava. Agora tem um ✕ no canto;
   o ▷ testar abre de novo. O texto tem margem à direita para o ✕ não cobrir a primeira linha.
 - Na mesma foto, o aviso "sm_an_1_s, sm_ap_1_s não é atuação marcada (a rodada pararia)": ao aplicar uma proposta do
-  Claude do PEW, o PEW marca as atuações que o código escreve, mas procurava só chaves num `return {…}` literal. No fluxo
+  Claude do MaiSim, o MaiSim marca as atuações que o código escreve, mas procurava só chaves num `return {…}` literal. No fluxo
   leitura → controle → escrita o controle.py monta `u = {"sm_ap_1_s": …}` e devolve `escrita.passo(u, …)`: nada era
-  marcado (o Claude até escreveu no comentário "o PEW marca ao aplicar"). Agora `chaves_devolvidas` lê, no passo() do
+  marcado (o Claude até escreveu no comentário "o MaiSim marca ao aplicar"). Agora `chaves_devolvidas` lê, no passo() do
   controle.py e no dos módulos, as chaves de dicionário literal, de `dict(x=…)` e de `u["x"] = …`, cruzadas com os
   atuadores do circuito (um dicionário qualquer não marca nada). O validador do editor também sublinha a chave de
-  atuador não marcada fora do return, e a regra do Claude do PEW diz `u = {…}` ou `return {…}`.
+  atuador não marcada fora do return, e a regra do Claude do MaiSim diz `u = {…}` ou `return {…}`.
 - Prova: `validacao/atuacoes_modulos_api.py` 9/9 — a proposta marca u_ctrl em `u = {…}` (o caso dele), `u["x"] = …`,
   `dict(x=…)`, numa chave do escrita.py e no `return {…}` de antes; o dicionário com chave que não é atuador não marca; o
   validador sublinha; marcada, o testar não avisa. A função antiga, no código do caso dele, não achava nenhuma chave.
@@ -1280,7 +1280,7 @@ corrigidos.
   controladores_tela ajustados à árvore (a dica da linha diz o papel); quebra_tela, divisor_tela, codigo_tela,
   claude_chat_tela, tabelas_tela, escala_tela, dica_tela, claude_modulos_tela verdes.
 
-## O Claude do PEW cria e muda controladores (3 DSPs pela fibra) (19/10, pedido de Marcelo)
+## O Claude do MaiSim cria e muda controladores (3 DSPs pela fibra) (19/10, pedido de Marcelo)
 - "Estou tentando fazer 3 DSPs… idealmente na prática se comunicando por fibras ópticas… uma trava no Claude": o
   controle.py com o PLL manda o θ por envia() aos DSPs de cada célula (sm_ap_1.py, sm_an_1.py), que recebem e escrevem a
   chave do seu SM. O código o Claude fez; a lista de controladores, não — as regras diziam "não transforme módulo em
@@ -1290,7 +1290,7 @@ corrigidos.
   regras explicam o formato, o dono único de cada atuação, envia/recebe e a latência (fibra: a mensagem chega na 1ª
   amostra com t ≥ t_envio + latência; 0 = a amostra seguinte), e pedem controlador novo só quando o usuário quer controle
   distribuído. O nome padrão é o do arquivo.
-- O PEW valida a proposta como valida o painel (`confere_controle`), marca as atuações que o código e os controladores
+- O MaiSim valida a proposta como valida o painel (`confere_controle`), marca as atuações que o código e os controladores
   escrevem (antes de conferir os controladores: senão acusava "marque u_ctrl"), acusa atuação com dois donos, testa com os
   controladores propostos, e o histórico ("ver a mudança") guarda os controladores e a rede de antes e de depois. Na tela, o
   cartão e a janela da diferença listam "+ controlador dsp_a (dsp_a.py; lê nada; escreve u_ctrl)", "rede: latência 0 s → 20
@@ -1313,7 +1313,7 @@ corrigidos.
   árvore certa); controladores_tela, modulos_tela, codigo_tela, quebra_tela, divisor_tela, claude_* e tabelas_tela verdes.
 - **O contador "o Claude está trabalhando… (-120 s)"** (19/10): o relógio do WSL estava 2 min adiantado em relação ao do
   Windows (15:16:09 × 15:14:04), e a tela subtraía a hora de início do servidor (WSL) da do navegador (Windows). Agora o
-  servidor manda o tempo decorrido (`decorrido`, medido lá); a tela usa esse. E a regra do Claude do PEW ficou explícita:
+  servidor manda o tempo decorrido (`decorrido`, medido lá); a tela usa esse. E a regra do Claude do MaiSim ficou explícita:
   o que cada controlador lê e escreve e a latência ele muda no controladores.json — não é "ação do painel" (numa resposta
   ele ainda disse que era).
 
@@ -1333,7 +1333,7 @@ corrigidos.
 - "Ao clicar nas setinhas, talvez abrir como tabela ou telinha… hoje são menos de 10, mas quando tiver centenas de
   variáveis fica ruim de clicar… um dropdown com filtro e multiselect… e quando clicar no .py, aí sim abrir o código".
 - Clicar em **lê …**, **escreve …** ou **em subcircuitos …** num cartão abre uma telinha junto da linha (por cima do
-  código; com o zoom do PEW, pela razão offsetWidth/largura medida, como o divisor): filtro, "todas as medidas" (em lê),
+  código; com o zoom do MaiSim, pela razão offsetWidth/largura medida, como o divisor): filtro, "todas as medidas" (em lê),
   **marcar / desmarcar os filtrados** (de uma vez, uma gravação só) e a lista com caixas (cerca de 5 linhas à vista e rolagem: ele, "umas 5 linhas e scroll"); em "escreve", a atuação de outro
   controlador aparece "(de sm_an_1)" e marcar tira de lá (dono único). É uma vista dos checkboxes do cartão, que continuam
   sendo o que se guarda: marcar ali dispara a mesma mudança do cartão. Esc, ✕ ou clique fora fecham; a lista no cartão não
@@ -1369,7 +1369,7 @@ corrigidos.
   (embaixo, antes de "sem uso"), com o que ele importa e "usado por sm_ap_1, sm_an_1". Clicar em qualquer aparição abre o
   arquivo e realça todas. Deixa claro que o compartilhado é o CÓDIGO: cada controlador roda a sua cópia (sem memória
   comum). Os avisos "é importado por …: cada controlador tem a sua cópia" saem da lista de avisos do painel (a seção já
-  diz; o Claude do PEW continua recebendo no CONTEXTO).
+  diz; o Claude do MaiSim continua recebendo no CONTEXTO).
 - No controle dele: pwm.py e escrita.py (usados por sm_ap_1 e sm_an_1) e modulacao.py (pelas duas modulações).
 - Prova: `validacao/tela/arvore_tela.js` 12/12 (o pwm.py das duas modulações: ⇄ nas duas e na seção; "usado por"; o
   clique realça as 3 aparições; sem o aviso de importado por dois); modulos_tela, controladores_tela, claude_modulos_tela,
@@ -1377,7 +1377,7 @@ corrigidos.
 - **+/− do cartão** (19/10, ele: "um + para o card e a setinha para os códigos"): na linha de cada controlador, a seta
   recolhe os códigos (os módulos embaixo) e o **−/+** esconde ou mostra o cartão (lê, escreve, mensagens), cada um por
   si, guardados no navegador. `arvore_tela.js` 13/13.
-- **O que vai na mensagem, num tooltip** (19/10, ele: "passar o mouse e ver o que estou enviando"): o PEW segue a
+- **O que vai na mensagem, num tooltip** (19/10, ele: "passar o mouse e ver o que estou enviando"): o MaiSim segue a
   variável do `envia("sm_ap_1", msg)` até a atribuição (`msg = {...}` e `msg["x"] = …`, antes do envia) e mostra as chaves
   ("envia theta, i_arm"); lê também o que cada DSP tira da mensagem (`msg["dados"]["theta"]` ou `.get("theta")`): a
   chave que chega e não é lida fica apagada no cartão de quem recebe. Passar o mouse na linha do cartão ou no rótulo da
@@ -1387,7 +1387,7 @@ corrigidos.
 ## Desativar um componente: fica no circuito, cinza (19/10, pedido de Marcelo)
 - "Faltou um desabilitar… ao lado do girar, um check: preparado no circuito, mas desabilitado, na cor cinzinha". O Gecko
   tem: cada componente tem `enabled` (0 desativado, 1 ativo, 2 em curto: no lugar dele, um curto-circuito), gravado no
-  .ipes como `enabledShorted`; a interface remota muda com `setParameter(nome, "enabled", v)` (o SETP do PEW); o bloco de
+  .ipes como `enabledShorted`; a interface remota muda com `setParameter(nome, "enabled", v)` (o SETP do MaiSim); o bloco de
   controle também (NetzlisteCONTROL tira o desativado); um subcircuito desativado desativa tudo dentro.
 - No painel do componente, embaixo do girar/apagar: **☐ desativado** (não aparece no terminal de subcircuito). Marcar
   manda enabled = 0; o desenho fica cinza (opacidade e sem cor), com a dica "desativado (o Gecko simula como se não
@@ -1403,7 +1403,7 @@ corrigidos.
 - "Por que eles estão diferentes? Se eu mexer no subcircuito, ficar todos iguais é top": o SM.ap.1 e o SM.an.1 eram
   idênticos às 18:20 (conferido nas cópias do desfazer); às 18:28 ele recortou o CONST da folha principal e colou
   (Ctrl+V) dentro do SM.ap.1 — e o colar ia só para a folha aberta, mesmo com "mudar os 2 juntos". Dali em diante eram
-  diferentes, e o PEW (certo) passou a tratar o SM.ap.1 como "único".
+  diferentes, e o MaiSim (certo) passou a tratar o SM.ap.1 como "único".
 - Agora, dentro de um SM com iguais e "mudar os N juntos" marcado, a página manda as folhas iguais (`folhas`) e o colar
   vai para todas: o MESMO nome (livre em cada uma) e a mesma posição, para continuarem iguais; um passo do desfazer.
   Colar numa folha só continua como antes (o nome livre em todo o circuito).
@@ -1433,13 +1433,13 @@ corrigidos.
   sub_terminais_api, biblioteca_rotulos_api, colar_sms_api, sub_terminais_tela, sub_novo_tela, tag_tela, desativar_tela
   verdes.
 
-## O PEW não trava numa janela de erro do Gecko (19/10, achado de Marcelo)
-- "O PEW parece travado: não consegue copiar e colar vários componentes juntos" — e depois apagar também dava timeout.
-  Ele colou a perna do MMC (6 SMs + La/Ra) abaixo da beira da folha principal (160 × 100). Para colar, o PEW grava o
+## O MaiSim não trava numa janela de erro do Gecko (19/10, achado de Marcelo)
+- "O MaiSim parece travado: não consegue copiar e colar vários componentes juntos" — e depois apagar também dava timeout.
+  Ele colou a perna do MMC (6 SMs + La/Ra) abaixo da beira da folha principal (160 × 100). Para colar, o MaiSim grava o
   arquivo e o Gecko reabre; ao abrir, o Gecko confere se tudo cabe no tamanho gravado (`worksheetSizeX/Y`, no fim do
   arquivo) e, se não cabe, abre "There are circuit components located outside the selected sheet size…" (e depois
-  "Cannot resize due to bad component location") e espera o OK — na tela escondida do Gecko do PEW (:99). O pedido ficou
-  parado, e o PEW inteiro com ele (o cliente do motor ainda espera 60 s e repete). Como o tamanho não mudava, todo
+  "Cannot resize due to bad component location") e espera o OK — na tela escondida do Gecko do MaiSim (:99). O pedido ficou
+  parado, e o MaiSim inteiro com ele (o cliente do motor ainda espera 60 s e repete). Como o tamanho não mudava, todo
   reabrir seguinte (mover em grupo, apagar, desfazer, colar) caía na mesma janela. Achado pelo jstack do motor (parado
   em `openFile`) e do Gecko (`WorksheetSize.setNewWorksheetSize` → `JOptionPane`); as janelas foram fechadas à mão
   (XTest) e o circuito dele seguiu inteiro.
@@ -1448,9 +1448,9 @@ corrigidos.
   mais longe, com o bloco inteiro dos SMs, mais 6 quadrados de folga, arredondado para dezenas). Um arquivo que precisa
   crescer é aberto por uma cópia ajustada (`ajustado.ipes`; o modelo em disco não muda).
 - Camada 2, a vigia do motor (`motor.py` + `janelas_gecko.py`): se um pedido ao Gecko passa de 2 s, ela olha a tela do
-  Gecko a cada segundo; uma janela de erro (título Error/Warning…) é fotografada (`~/.cache/pew_simu/janelas_gecko/`,
+  Gecko a cada segundo; uma janela de erro (título Error/Warning…) é fotografada (`~/.cache/maisim/simu/janelas_gecko/`,
   as últimas 20, para saber o que o Gecko disse) e fechada com OK (XTest, sem xdotool); a resposta leva `aviso_gecko`
-  e a página mostra "o Gecko abriu uma janela de erro… o PEW fechou. Confira o desenho (Ctrl+Z volta)".
+  e a página mostra "o Gecko abriu uma janela de erro… o MaiSim fechou. Confira o desenho (Ctrl+Z volta)".
 - A folha de um SM menor que o que tem dentro (SheetSizeX/Y) não abre janela nesta versão do Gecko (conferido: SETP e
   reabrir sem janela); fica para a vigia, se um dia abrir.
 - Prova: `validacao/janela_gecko_api.py` 7/7 — colar em y = 280 numa folha de 160 × 200 responde na hora e a folha vai a
@@ -1459,7 +1459,7 @@ corrigidos.
   fotos. move_api, colar_sms_api, sub_terminais_api, biblioteca_rotulos_api, ponta_migra_api, nao_salvo_api,
   assinatura_api, desativar_api, copia_tela, selecao_tela, sub_iguais_tela verdes.
 
-## Um sinal que o controle usa mudou de nome: o PEW pergunta (19/10, pedido de Marcelo)
+## Um sinal que o controle usa mudou de nome: o MaiSim pergunta (19/10, pedido de Marcelo)
 - "Quando a gente muda uma variável de nome e ela está sendo usada em algum código, tem como mudar todos os lugares? Ou
   pelo menos alertar num modal e confirmar." O caso dele: os SMs passaram a se chamar SM.ap.1…SM.cn.3, as medidas e as
   atuações de dentro viraram SM_ap_1_vCSm e SM_ap_1_S (o prefixo do subcircuito + o rótulo de dentro); o código foi
@@ -1516,7 +1516,7 @@ corrigidos.
 
 ## envia com o destino montado: o diagrama e os cartões ligam (19/10, achado de Marcelo)
 - "Não está indo o theta do controle para os SMs… a saída está no for, aí não cria a variável para ligar… mas mostrar no
-  esquema de ligar também": o controle.py (refeito pelo Claude do PEW para as 6 células) manda com
+  esquema de ligar também": o controle.py (refeito pelo Claude do MaiSim para as 6 células) manda com
   `for k in (1, 2, 3): envia("sm_ap_%d" % k, {...})`. Na rodada isso funciona (o nome é montado e a mensagem chega), mas a
   leitura do código da página (`mensagensDe`) só reconhecia envia("nome", …) — o diagrama e os cartões ficavam sem as setas.
 - `argumento()` lê o 1º argumento até a vírgula de fora (parênteses e texto); `destinosDe()` resolve: o nome escrito; "x_%d"
@@ -1530,7 +1530,7 @@ corrigidos.
   claude_controladores_tela verdes.
 
 ## Sem o limite de 30 arquivos; o diagrama como no Figma (19/10, pedidos de Marcelo)
-- O Claude do PEW fez a fase c (19 DSPs: o central + 18 células) e a proposta voltou "proposta inválida: até 30 arquivos no
+- O Claude do MaiSim fez a fase c (19 DSPs: o central + 18 células) e a proposta voltou "proposta inválida: até 30 arquivos no
   controle" ("naturalmente vamos ter mais de 30 arquivos… se tiver essa trava, pode tirar"). `confere_controle` aceitava até
   30 arquivos e cortava calado a lista em 50 controladores. Agora: até 1000 arquivos, até 500 controladores (com erro claro,
   sem corte calado) e o controle inteiro até 20 milhões de caracteres — limites só contra um pedido desgovernado.
@@ -1538,16 +1538,16 @@ corrigidos.
   não abre o código; clicar sem arrastar abre); a roda rola (Shift: para o lado); Ctrl + roda (ou a pinça do touchpad) dá
   zoom no ponto do mouse; na barra, − / % (clique: 100 %) / + / ajustar. Até alguém mexer, o desenho cabe inteiro e
   acompanha o código e o tamanho da tela; depois, a vista fica onde foi deixada (também ao fechar e reabrir). O SVG fica
-  no tamanho dele, com translate + scale (o texto continua nítido em qualquer zoom); a conta usa a razão do zoom do PEW.
+  no tamanho dele, com translate + scale (o texto continua nítido em qualquer zoom); a conta usa a razão do zoom do MaiSim.
 - Prova: `validacao/tela/diagrama_zoom_tela.js` 10/10 (inteiro na vista; + 25 %; Ctrl + roda com o dsp_a parado embaixo do
   mouse; arrastar −120, +60 e soltar em cima do DSP sem abrir; a roda rola; clique abre o código; a vista fica; ajustar;
   100 %). `segue_codigo_api.py` 9/9 (40 arquivos e 41 controladores aceitos). diagrama_tela, escolha_tela,
   claude_controladores_tela, envia_for_tela, controladores_api, claude_controladores_api verdes.
 
-## Os olhos do Claude do PEW e o modo autônomo (19/10, pedido de Marcelo)
-- O Claude do PEW implementou a Etapa 1 da estratégia de controle e parou pedindo "os números, que só você consegue
+## Os olhos do Claude do MaiSim e o modo autônomo (19/10, pedido de Marcelo)
+- O Claude do MaiSim implementou a Etapa 1 da estratégia de controle e parou pedindo "os números, que só você consegue
   ler": ele via o código e o circuito, mas não o resultado das rodadas. Marcelo: "ter os dois já pode ser vantagem".
-- **Olhos** (`resumo_rodada.py`): ao fim de toda rodada (antes de dizer o estado final), o PEW grava ao lado do .npz o
+- **Olhos** (`resumo_rodada.py`): ao fim de toda rodada (antes de dizer o estado final), o MaiSim grava ao lado do .npz o
   `resumo.md` — por canal: média, mín., máx., pico a pico, eficaz CA e o fasor de 50 Hz (por mínimos quadrados num número
   inteiro de ciclos; referência cosseno) na última de 5 janelas, e a média e o pico a pico em cada janela; o estado final,
   o erro e o fim da saída do controle — e `serie/<canal>.csv` (a média de cada bloco, ≈ 500 pontos, sem aliasing do
@@ -1555,13 +1555,13 @@ corrigidos.
   `ULTIMA_RODADA.md` e `ULTIMA_RODADA/` (a rodada mais nova), e o pedido diz qual é; as regras dizem para usar os números
   daí (Grep pelo canal) em vez de pedi-los ao usuário.
 - **Modo autônomo** (o seletor "simular sozinho: não / até 3 / 5 / 10 / 20" ao lado do modelo e do esforço; volta a "não"
-  ao recarregar): ao fim de cada resposta, se há uma versão nova sem erros e ele não escreveu [PRONTO], o PEW simula essa
+  ao recarregar): ao fim de cada resposta, se há uma versão nova sem erros e ele não escreveu [PRONTO], o MaiSim simula essa
   versão (rodada Claude_N, com o dt e o tfim da tela) **sem aplicar no controle do usuário** (`rodar(c, ctl_de_fora)`),
   põe o resumo na pasta dele e o chama de novo na mesma conversa (`--resume`): "a rodada N de M terminou… corrija e
   devolva, ou [PRONTO]". Para quando ele diz [PRONTO], quando não muda nada, quando a versão tem erros ou quando acabam as
   rodadas; o motivo aparece no chat, e as rodadas ficam no scope como Claude_1, Claude_2… A proposta final é a última
   versão (aplicar, descartar, ver a diferença, como sempre). Parar o pedido para também a rodada dele.
-- **Segurança:** o Claude continua só com Read/Edit/Write/Glob/Grep nos arquivos da pasta; quem roda o código é o PEW, no
+- **Segurança:** o Claude continua só com Read/Edit/Write/Glob/Grep nos arquivos da pasta; quem roda o código é o MaiSim, no
   mesmo processo à parte do "testar" e da rodada. A diferença do modo autônomo é que o código de cada versão roda sem o
   usuário olhar antes — por isso é um interruptor dele, desligado por padrão, com limite de voltas.
 - Prova: `validacao/claude_autonomo_api.py` 12/12 (a rodada do usuário grava o resumo e 7 séries; o pedido seguinte leva
@@ -1573,10 +1573,10 @@ corrigidos.
 
 ## O limite de passos e os fasores nas mensagens (20/10, achado de Marcelo)
 - "Aprovei porque ele não conseguiu terminar e deu erro… esses 30 passos?!": a Etapa 3 do MMC (26 arquivos) estourou o
-  `--max-turns 30` que o PEW passava ao CLI; o Claude parou no meio, o modo autônomo nem chegou a simular, e a proposta
+  `--max-turns 30` que o MaiSim passava ao CLI; o Claude parou no meio, o modo autônomo nem chegou a simular, e a proposta
   parcial aplicada dava no teste `TypeError: float() argument must be … not 'tuple'` no `envia`.
 - **Limite:** `CLAUDE_PASSOS = 100` passos por chamada e `CLAUDE_PRAZO` de 40 min. No modo autônomo, quando a chamada
-  chega ao limite no meio da versão, o PEW chama de novo na mesma conversa ("continue de onde parou", até 3 vezes
+  chega ao limite no meio da versão, o MaiSim chama de novo na mesma conversa ("continue de onde parou", até 3 vezes
   seguidas) em vez de parar; quando ele termina, simula como sempre.
 - **Mensagens:** o `envia` só aceitava `{nome: número}`, e a estratégia (e o md) manda fasores. Agora cada valor é um
   número, `None` (sem valor ainda) ou uma lista curta de números (até 64): o fasor vai como `(re, im)` e chega como

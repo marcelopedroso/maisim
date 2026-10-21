@@ -1,4 +1,4 @@
-"""Os cartões dos controladores seguem o código (instância de teste 8768), escolha de Marcelo em 19/10 — os SMs mudaram de
+"""Os cartões dos controladores seguem o código (instância de teste 7201), escolha de Marcelo em 19/10 — os SMs mudaram de
 nome, o código foi acertado e os cartões ficaram com vc_smap_1 e sm_ap_1_s ("as variáveis nem existem mais"; "tem que ser
 algo tipo variável do código não existe no esquema"; "ter uma lista para tentar colocar outra"):
 o cartão lê o que o código lê (o nome entre aspas, também por NOME = "x" num módulo) e escreve o que o passo() devolve
@@ -6,7 +6,7 @@ o cartão lê o que o código lê (o nome entre aspas, também por NOME = "x" nu
 atuações escritas ficam marcadas; o aviso que fica é o da variável do código que não existe no esquema (arquivo:linha);
 trocar por um nome que existe (editor/controle/renomeia) tira o aviso."""
 import json, urllib.request
-B = "http://localhost:8768/pew/simu/"
+B = "http://localhost:7201/maisim/simu/"
 def api(rota, corpo=None):
     q = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(q, timeout=180).read())

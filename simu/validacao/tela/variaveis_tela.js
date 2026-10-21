@@ -1,4 +1,4 @@
-// variáveis globais ($) pela tela (instância de teste 5010 → 8768): no parâmetro de um componente, escrever $nome liga
+// variáveis globais ($) pela tela (instância de teste 7200 → 7201): no parâmetro de um componente, escrever $nome liga
 // (a que não existe é criada com o valor de agora) e o campo mostra o nome e o valor; o ⚙ tem as abas "simulação" e
 // "variáveis globais ($)" (o $x abre direto na segunda): mudar o valor, criar, apagar (a usada pede confirmação e quem a usa
 // fica com o valor), "apagar as que nenhum componente usa"; um número no campo desliga
@@ -8,10 +8,10 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
 (async () => {
   let b;
   try {
-    b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1500, height: 900 } }); await ctx.grantPermissions(["clipboard-read", "clipboard-write"], { origin: "http://localhost:5010" });
+    b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1500, height: 900 } }); await ctx.grantPermissions(["clipboard-read", "clipboard-write"], { origin: "http://localhost:7200" });
     const pg = await ctx.newPage();
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-    await pg.goto("http://localhost:5010/pew/simu/");
+    await pg.goto("http://localhost:7200/maisim/simu/");
     for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof dados !== "undefined" && dados && dados.editor)); k++) {
       if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }
     const g0 = await pg.evaluate(async () => { const j = await api("editor/novo", { modo: "descartar" }); ed.novo = "variaveis"; dados = j; folhaAtual = "0"; seleciona(null); novoEstado(j);

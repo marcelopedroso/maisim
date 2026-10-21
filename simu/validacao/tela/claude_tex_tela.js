@@ -1,5 +1,5 @@
-// as equações nas respostas do Claude do PEW (página de teste 5010 → 8768), Marcelo em 20/10 ("ter as libs de equação ou
-// LaTeX para apresentar nas respostas as equações formatadas"): o KaTeX do próprio PEW (static/katex) no markdown leve da
+// as equações nas respostas do Claude do MaiSim (página de teste 7200 → 7201), Marcelo em 20/10 ("ter as libs de equação ou
+// LaTeX para apresentar nas respostas as equações formatadas"): o KaTeX do próprio MaiSim (static/katex) no markdown leve da
 // conversa — $$…$$ e \[…\] em destaque, $…$ e \(…\) na linha; código, "$Ra e $Rf" (parâmetros do Gecko) e "$5 e $10" não
 // viram equação; TeX inválido não quebra; sem javascript: (trust desligado); as fontes do KaTeX carregam. Sem fotos.
 const { chromium } = require("playwright");
@@ -10,7 +10,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   try {
     b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1500, height: 900 } })).newPage();
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-    await pg.goto("http://localhost:5010/pew/simu/");
+    await pg.goto("http://localhost:7200/maisim/simu/");
     await pg.waitForFunction(() => typeof mdLeve === "function" && typeof katex !== "undefined", null, { timeout: 30000 });
     const md = (t) => pg.evaluate((x) => mdLeve(x), t);
     let h = await md("O PI de corrente:\n\n$$G(s) = k_p + \\frac{k_i}{s}$$\n\ncom $k_p = \\omega_c L$ e \\(k_i = k_p R / L\\); em destaque também \\[ \\hat I = \\frac{2P}{3\\hat V} \\]");

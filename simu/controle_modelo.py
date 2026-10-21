@@ -1,4 +1,4 @@
-# Controle do circuito (PEW / simu). O PEW chama iniciar() uma vez e passo() a cada Ts:
+# Controle do circuito (MaiSim / simu). O MaiSim chama iniciar() uma vez e passo() a cada Ts:
 #   t  tempo (s) da amostra
 #   m  medidas no instante t: m["nome no scope"] (os medidores e as saídas dos blocos de controle)
 #   p  parâmetros da tela: p["nome"]; p["Ts"] é o período de amostragem efetivo

@@ -3,7 +3,7 @@ Rodada sem controle; um acionamento vira CONST_S1 em t = 8 µs (passo j = 8); co
 a primeira amostra diferente diz em que passo o circuito sentiu (amostra j+1 → passo j)."""
 import json, time, urllib.request
 import numpy as np
-B = "http://localhost:8768/pew/simu/"
+B = "http://localhost:7201/maisim/simu/"
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(req, timeout=600).read())

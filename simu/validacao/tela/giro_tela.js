@@ -1,4 +1,4 @@
-// girar (instância de teste 5010 → 8768): o Gecko só gira componentes de potência — bloco de controle e subcircuito ficam
+// girar (instância de teste 7200 → 7201): o Gecko só gira componentes de potência — bloco de controle e subcircuito ficam
 // sempre para baixo (RegelBlock.rotiereSymbol() vazio, "control components cannot be rotated at the moment!"; os dois
 // forçam a orientação em setComponentDirection). Antes o "girar (R)" aparecia no CONST e não fazia nada (pergunta de
 // Marcelo, 19/10: "o CONST tá sempre pra um lado"). Agora: R gira o resistor; no CONST e no subcircuito o botão explica
@@ -11,8 +11,8 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   try {
     b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1500, height: 900 } })).newPage();
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-    await pg.addInitScript(() => { try { localStorage.setItem("pew-simu-travado", "0"); } catch (e) { /* ok */ } });
-    await pg.goto("http://localhost:5010/pew/simu/");
+    await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "0"); } catch (e) { /* ok */ } });
+    await pg.goto("http://localhost:7200/maisim/simu/");
     for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof dados !== "undefined" && dados && dados.editor)); k++) {
       if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }
     await pg.evaluate(async () => { const j = await api("editor/novo", { modo: "descartar" }); ed.novo = "giro"; dados = j; folhaAtual = "0"; seleciona(null); novoEstado(j);

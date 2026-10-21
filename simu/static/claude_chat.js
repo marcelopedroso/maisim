@@ -1,21 +1,21 @@
-// PEW / simu — "pedir ao Claude" (passo 3b): uma conversa por circuito, no painel do controle.
-// O Claude do PEW cuida só do controle: lê o contexto (o circuito, as medidas, as atuações, Ts, Δt, tfim) e o código atual
+// MaiSim / simu — "pedir ao Claude" (passo 3b): uma conversa por circuito, no painel do controle.
+// O Claude do MaiSim cuida só do controle: lê o contexto (o circuito, as medidas, as atuações, Ts, Δt, tfim) e o código atual
 // e propõe controle.py, parâmetros e acionamentos; o servidor valida e testa a proposta e aqui o usuário vê a diferença e
 // aplica (com volta) ou descarta. Anexos (PDF de artigo, foto de um diagrama, texto) vão para a pasta da conversa: 📎,
 // arrastar para a conversa ou colar uma imagem. O topo mostra o uso da conta (sessão de 5 h e semana).
 const ICONE_DOC = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>';
 const ICONE_CLIPE = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5l-8.6 8.6a5 5 0 0 1-7.1-7.1l9.2-9.2a3.3 3.3 0 0 1 4.7 4.7l-9.2 9.2a1.7 1.7 0 0 1-2.4-2.4l8.5-8.5"/></svg>';
-const MASCOTE = (w = 20, h = 20, pensando = false) => `<svg class="mascote${pensando ? " pensando" : ""}" width="${w}" height="${h}" aria-hidden="true"><use href="#pew-claude"/></svg>`;
+const MASCOTE = (w = 20, h = 20, pensando = false) => `<svg class="mascote${pensando ? " pensando" : ""}" width="${w}" height="${h}" aria-hidden="true"><use href="#maisim-claude"/></svg>`;
 const cc = { voltou: false, aberto: false, estado: null, timer: null, antes: null, enviando: false, aviso: "", desenhado: "", uso: null, ias: [] };
 
 // ---------------------------------------------------------------- qual IA responde (hub de IA, etapa 3): o seletor e os modelos dela
-// (a conversa é a mesma: trocar no meio continua de onde a outra parou — o PEW passa a ela a conversa em CONVERSA.md)
+// (a conversa é a mesma: trocar no meio continua de onde a outra parou — o MaiSim passa a ela a conversa em CONVERSA.md)
 const MODELOS_IA = {
   claude: [["", "modelo: padrão"], ["fable", "Fable"], ["opus", "Opus"], ["sonnet", "Sonnet"], ["haiku", "Haiku"]],
   gemini: [["", "modelo: automático"], ["pro", "Pro"], ["flash", "Flash"], ["flash-lite", "Flash-Lite"]],
 };
 const ccIA = () => ($("cc-ia") && $("cc-ia").value) || "claude";
-const chaveModelo = (ia) => (ia === "claude" ? "pew-simu-cc-modelo" : `pew-simu-cc-modelo-${ia}`);   // o do Claude: a chave de sempre
+const chaveModelo = (ia) => (ia === "claude" ? "maisim-simu-cc-modelo" : `maisim-simu-cc-modelo-${ia}`);   // o do Claude: a chave de sempre
 function iaLogada(ia = ccIA()) {
   if (ia === "claude") return !!(cla.estado && cla.estado.logado);
   const a = (cc.ias || []).find((x) => x.id === ia);
@@ -25,7 +25,7 @@ const nomeIA = (ia = ccIA()) => ((cc.ias || []).find((x) => x.id === ia) || {}).
 // monta o seletor de IA (as instaladas) e os modelos da escolhida; a escolha fica no navegador
 function ccMontaIA() {
   const s = $("cc-ia"); if (!s) return;
-  let quer = s.value; try { quer = localStorage.getItem("pew-simu-cc-ia") || quer; } catch (e) { /* padrão */ }
+  let quer = s.value; try { quer = localStorage.getItem("maisim-simu-cc-ia") || quer; } catch (e) { /* padrão */ }
   const lista = (cc.ias || []).filter((a) => a.instalado);
   if (lista.length) {
     const html = lista.map((a) => `<option value="${escT(a.id)}">${escT(a.nome)}</option>`).join("");
@@ -51,7 +51,7 @@ function fmtTempo(t) {
   const a = Math.abs(t);
   return a === 0 ? "0 s" : a < 1e-6 ? `${fmtNum(t * 1e9)} ns` : a < 1e-3 ? `${fmtNum(t * 1e6)} µs` : a < 1 ? `${fmtNum(t * 1e3)} ms` : `${fmtNum(t)} s`;
 }
-// uma equação em LaTeX, formatada pelo KaTeX (static/katex; Marcelo, 20/10: "o Claude do PEW apresentar as equações
+// uma equação em LaTeX, formatada pelo KaTeX (static/katex; Marcelo, 20/10: "o Claude do MaiSim apresentar as equações
 // formatadas"); sem o KaTeX (não carregou), o TeX como código; TeX inválido sai em vermelho, sem quebrar a conversa
 function tex(src, destaque) {
   if (typeof katex === "undefined") return `<code>${escT(src)}</code>`;
@@ -200,7 +200,7 @@ const ICONE_LUGAR = {
   lado: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><path d="M6 2.5v11M10.5 2.5v11"/></svg>',
   embaixo: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><path d="M6 2.5v11M6 9h8.5"/></svg>' };
 let lugarMem = "lado";                                   // sem localStorage: vale até recarregar
-function lugarEscolhido() { try { return localStorage.getItem("pew-simu-claude-lugar") === "embaixo" ? "embaixo" : "lado"; } catch (e) { return lugarMem; } }
+function lugarEscolhido() { try { return localStorage.getItem("maisim-simu-claude-lugar") === "embaixo" ? "embaixo" : "lado"; } catch (e) { return lugarMem; } }
 function aplicaLugar() {
   const p = $("painel-controle"), escolha = lugarEscolhido(), estreito = p.clientWidth > 0 && p.clientWidth < LARGURA_MIN_LADO;
   const embaixo = escolha === "embaixo" || estreito;
@@ -268,11 +268,11 @@ function desenhaChat() {
   $("cc-anexos").innerHTML = (typeof cxEtiquetas === "function" ? cxEtiquetas() : "") + anexos.map((a) => `<span class="cc-anexo" title="${escT(a.nome)} · ${Math.max(1, Math.round(a.tamanho / 1024))} kB">${ICONE_DOC}<span>${escT(a.nome)}</span><button data-tira="${escT(a.nome)}" title="tirar o anexo">×</button></span>`).join("");
   const box = $("cc-msgs"), noFim = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
   let h = "";
-  if (!cla.estado) h = `<div class="cc-vazio">consultando a IA do PEW…</div>`;
-  else if (!logado) h = `<div class="cc-vazio"><div class="cc-oi"><svg class="mascote" width="40" height="40" aria-hidden="true"><use href="#pew-claude"/></svg><p>Para pedir à IA, entre com a sua conta do ${escT(nomeIA())} (o balão no cabeçalho)${(cc.ias || []).filter((a) => a.instalado).length > 1 ? ", ou escolha outra IA embaixo" : ""}.</p></div><button id="cc-entrar" class="primario">entrar com o ${escT(nomeIA())}</button></div>`;
+  if (!cla.estado) h = `<div class="cc-vazio">consultando a IA do MaiSim…</div>`;
+  else if (!logado) h = `<div class="cc-vazio"><div class="cc-oi"><svg class="mascote" width="40" height="40" aria-hidden="true"><use href="#maisim-claude"/></svg><p>Para pedir à IA, entre com a sua conta do ${escT(nomeIA())} (o balão no cabeçalho)${(cc.ias || []).filter((a) => a.instalado).length > 1 ? ", ou escolha outra IA embaixo" : ""}.</p></div><button id="cc-entrar" class="primario">entrar com o ${escT(nomeIA())}</button></div>`;
   else {
     const hist = (e && e.conversa && e.conversa.historico) || [];
-    if (!hist.length && !anda) h += `<div class="cc-vazio"><div class="cc-oi"><svg class="mascote" width="40" height="40" aria-hidden="true"><use href="#pew-claude"/></svg><b>IA do PEW</b></div><p>Ela lê o circuito e o código e propõe o controle; você vê a diferença antes de aplicar.</p>
+    if (!hist.length && !anda) h += `<div class="cc-vazio"><div class="cc-oi"><svg class="mascote" width="40" height="40" aria-hidden="true"><use href="#maisim-claude"/></svg><b>IA do MaiSim</b></div><p>Ela lê o circuito e o código e propõe o controle; você vê a diferença antes de aplicar.</p>
       <ul><li>“um PI de corrente com anti-windup”</li><li>“implemente o controle do artigo anexado”</li></ul></div>`;   /* curto (Marcelo, 19/10: "nem precisa tanto") */
     hist.forEach((m, k) => {
       h += `<div class="cc-eu">${escT(m.pedido || "")}${m.anexos && m.anexos.length ? `<small>${ICONE_CLIPE} ${escT(m.anexos.join(", "))}</small>` : ""}</div>`;
@@ -322,7 +322,7 @@ function cartaoProposta(e, rodando) {
   for (const x of mudancasControladores(p)) itens.push(escT(x));
   if (p.marcar && p.marcar.length) itens.push(`marca a atuação ${p.marcar.map((x) => `<code>${escT(x)}</code>`).join(", ")}`);
   if (p.ligar) itens.push(`liga “usar este controle ao simular”`);
-  if (opsMem) itens.push(`memória do PEW: <b class="cc-ok">+${opsMem.filter((o) => o.t === "+").length}</b> <b class="cc-erro">−${opsMem.filter((o) => o.t === "-").length}</b> linhas (vale nas próximas conversas)`);
+  if (opsMem) itens.push(`memória do MaiSim: <b class="cc-ok">+${opsMem.filter((o) => o.t === "+").length}</b> <b class="cc-erro">−${opsMem.filter((o) => o.t === "-").length}</b> linhas (vale nas próximas conversas)`);
   const conf = [];
   if (p.erro) conf.push(`<li class="cc-erro">${escT(p.erro)}</li>`);
   for (const x of p.erros || []) conf.push(`<li class="cc-erro">${x.arquivo && x.arquivo !== "controle.py" ? `${escT(x.arquivo)} ` : ""}linha ${x.linha}: ${escT(x.msg)}</li>`);
@@ -336,7 +336,7 @@ function cartaoProposta(e, rodando) {
   const bts = aplicada && cc.voltou ? `<span class="cc-aviso-t">aplicada e desfeita: voltou ao de antes.</span>` : aplicada ? `<span class="cc-ok">aplicada.</span>${cc.antes ? `<button id="cc-voltar" title="volta o código, os parâmetros e os acionamentos de antes da proposta">↶ voltar ao de antes</button>` : ""}`
     : `${codigoMudou ? `<button id="cc-ver">ver diferença</button>` : ""}${!codigoMudou || p.teste || (p.erros || []).length ? "" : `<button id="cc-testar" title="roda iniciar() e 3 passo() do código proposto, sem simular — o código roda neste computador: veja a diferença antes">▷ testar</button>`}<button id="cc-aplicar" class="primario" ${bloqueio ? `disabled title="${escT(bloqueio)}"` : ""}>aplicar</button><button id="cc-descartar">descartar</button>`;
   const difs = muds.map((f) => `${muds.length > 1 ? `<div class="cc-diff-rot">${escT(f.arq)}${f.novo ? " (novo)" : ""}</div>` : ""}${htmlDiff(f.ops, muds.length > 1 ? 30 : 60)}`).join("");
-  return `<div class="cc-prop"><h5>Proposta</h5><ul>${itens.map((x) => `<li>${x}</li>`).join("")}</ul>${difs}${opsMem ? `<div class="cc-diff-rot">memória do PEW</div>${htmlDiff(opsMem, 20)}` : ""}${conf.length ? `<ul>${conf.join("")}</ul>` : ""}<div class="cc-bts">${bts}</div></div>`;
+  return `<div class="cc-prop"><h5>Proposta</h5><ul>${itens.map((x) => `<li>${x}</li>`).join("")}</ul>${difs}${opsMem ? `<div class="cc-diff-rot">memória do MaiSim</div>${htmlDiff(opsMem, 20)}` : ""}${conf.length ? `<ul>${conf.join("")}</ul>` : ""}<div class="cc-bts">${bts}</div></div>`;
 }
 
 // ---------------------------------------------------------------- ações
@@ -386,7 +386,7 @@ async function ccAplica() {
   if (memMudou) {                                        // a memória mexida depois do pedido (botão "memória"): pergunta
     let atual = null; try { atual = (await apiClaude("memoria")).texto; } catch (e) { /* segue */ }
     if (atual !== null && atual.trim() !== (p.memoria_antes || "").trim() &&
-        !(await confirma("Aplicar a proposta", "A memória do PEW mudou depois do pedido. Aplicar troca pela da proposta (a atual volta com “voltar ao de antes”).", "aplicar", false))) { cc.aplicando = false; return; }
+        !(await confirma("Aplicar a proposta", "A memória do MaiSim mudou depois do pedido. Aplicar troca pela da proposta (a atual volta com “voltar ao de antes”).", "aplicar", false))) { cc.aplicando = false; return; }
   }
   cc.antes = { codigo: codigoAtual(), parametros: JSON.parse(JSON.stringify(c.parametros)), acionamentos: JSON.parse(JSON.stringify(c.acionamentos || [])),
     atuacoes: [...c.atuacoes], ativo: !!c.ativo, arquivos: arquivosDoEditor(),
@@ -431,11 +431,11 @@ function poeControle(x) {
   } else poeCodigo(x.codigo);
 }
 const memoriaMudou = (p) => p.memoria !== undefined && (p.memoria || "").trim() !== (p.memoria_antes || "").trim();
-// a memória do PEW: preferências e lições que valem em todas as conversas; o usuário lê e edita aqui
+// a memória do MaiSim: preferências e lições que valem em todas as conversas; o usuário lê e edita aqui
 async function ccMemoria() {
   let txt; try { txt = (await apiClaude("memoria")).texto || ""; } catch (e) { cc.aviso = e.message; desenhaChat(); return; }
   const fundo = document.createElement("div"); fundo.className = "modal-fundo";
-  fundo.innerHTML = `<div class="modal cc-mem" role="dialog" aria-modal="true"><h3>Memória da IA do PEW</h3>
+  fundo.innerHTML = `<div class="modal cc-mem" role="dialog" aria-modal="true"><h3>Memória da IA do MaiSim</h3>
     <p class="cc-dica-t">Vale em todas as conversas e circuitos: como você gosta dos controles, convenções, lições (ex.: “anti-windup por
     clamping”, “ganhos em V/A”, “Ts sempre múltiplo de 1/fsw”). A IA lê em todo pedido e pode propor linhas novas, que entram
     quando você aplica a proposta.</p><textarea class="cc-mem-txt" spellcheck="false" placeholder="- uma preferência por linha"></textarea>
@@ -465,7 +465,7 @@ function ccDiferenca(p0, op = {}) {
   const fundo = document.createElement("div"); fundo.className = "modal-fundo"; fundo.style.paddingTop = "5vh";
   const pars = mudancasParametros(p.parametros_antes, p.parametros).concat(mudancasAcionamentos(p.acionamentos_antes, p.acionamentos).map((x) => `acionamento ${x}`), mudancasControladores(p));
   const rodando = document.body.classList.contains("sim-rodando");
-  const modoDif = (() => { try { return localStorage.getItem("pew-simu-dif-modo") === "lado" ? "lado" : "uni"; } catch (e) { return "uni"; } })();
+  const modoDif = (() => { try { return localStorage.getItem("maisim-simu-dif-modo") === "lado" ? "lado" : "uni"; } catch (e) { return "uni"; } })();
   const muds = arquivosMudados(p); if (!muds.length) muds.push({ arq: "controle.py", antes: p.codigo_antes || "", depois: p.codigo || "", novo: false });
   const titulo = (op.titulo || "Proposta da IA — controle.py").replace(/ — controle\.py$/, muds.length > 1 ? "" : ` — ${muds[0].arq}`);
   fundo.innerHTML = `<div class="modal cc-dif" role="dialog" aria-modal="true"><div class="cc-dif-cab"><h3>${escT(titulo)}</h3>
@@ -490,7 +490,7 @@ function ccDiferenca(p0, op = {}) {
   const marcaModo = (m) => fundo.querySelectorAll(".cc-dif-modo button").forEach((b) => b.classList.toggle("ativo", b.dataset.modo === m));
   marcaModo(modoDif);
   fundo.querySelectorAll(".cc-dif-modo button").forEach((b) => { b.onclick = () => {
-    try { localStorage.setItem("pew-simu-dif-modo", b.dataset.modo); } catch (e) { /* só agora */ }
+    try { localStorage.setItem("maisim-simu-dif-modo", b.dataset.modo); } catch (e) { /* só agora */ }
     if (dif) dif.updateOptions({ renderSideBySide: b.dataset.modo === "lado" }); marcaModo(b.dataset.modo); }; });
   const fecha = () => { removeEventListener("keydown", tecla, true); if (dif) dif.dispose(); modelos.forEach((m) => m.dispose()); fundo.remove();
     if (voltaFoco && voltaFoco.isConnected) voltaFoco.focus(); };
@@ -514,10 +514,10 @@ async function ccAnexa(arquivos) {
 }
 
 // o divisor entre o código e a conversa (pedido de Marcelo, 19/10): ao lado muda a largura da conversa (--cc-w), embaixo a
-// altura (--cc-h); guardado no navegador. As contas em pixels de CSS (o zoom do PEW muda a escala do mouse: k)
+// altura (--cc-h); guardado no navegador. As contas em pixels de CSS (o zoom do MaiSim muda a escala do mouse: k)
 function divisorConversa() {
   const pc = $("painel-controle"), dv = $("cc-divisor"); if (!dv) return;
-  try { for (const v of ["w", "h"]) { const x = localStorage.getItem(`pew-simu-cc-${v}`); if (x) pc.style.setProperty(`--cc-${v}`, x); } } catch (e) { /* padrão */ }
+  try { for (const v of ["w", "h"]) { const x = localStorage.getItem(`maisim-simu-cc-${v}`); if (x) pc.style.setProperty(`--cc-${v}`, x); } } catch (e) { /* padrão */ }
   dv.addEventListener("mousedown", (ev) => {
     if (ev.button !== 0) return; ev.preventDefault();
     const cl = $("ctl-claude"), embaixo = pc.classList.contains("cc-embaixo"), r = cl.getBoundingClientRect();
@@ -529,30 +529,30 @@ function divisorConversa() {
     const mexe = (e) => { v = Math.round(Math.max(min, Math.min(max, v0 - ((embaixo ? e.clientY : e.clientX) - p0) * k)));
       pc.style.setProperty(embaixo ? "--cc-h" : "--cc-w", `${v}px`); if (ctl.editor) ctl.editor.layout(); };
     const solta = () => { removeEventListener("mousemove", mexe); removeEventListener("mouseup", solta); dv.classList.remove("arrastando"); document.body.style.cursor = "";
-      try { localStorage.setItem(embaixo ? "pew-simu-cc-h" : "pew-simu-cc-w", `${v}px`); } catch (e) { /* só agora */ }
+      try { localStorage.setItem(embaixo ? "maisim-simu-cc-h" : "maisim-simu-cc-w", `${v}px`); } catch (e) { /* só agora */ }
       if (ctl.editor) ctl.editor.layout(); };
     addEventListener("mousemove", mexe); addEventListener("mouseup", solta);
   });
   dv.addEventListener("dblclick", () => {
     const v = pc.classList.contains("cc-embaixo") ? "h" : "w"; pc.style.removeProperty(`--cc-${v}`);
-    try { localStorage.removeItem(`pew-simu-cc-${v}`); } catch (e) { /* ok */ } if (ctl.editor) setTimeout(() => ctl.editor.layout(), 30);
+    try { localStorage.removeItem(`maisim-simu-cc-${v}`); } catch (e) { /* ok */ } if (ctl.editor) setTimeout(() => ctl.editor.layout(), 30);
   });
 }
 (function iniciaChat() {
   const painel = $("ctl-claude"); if (!painel) return;
   divisorConversa();
   for (const id of ["cc-modelo", "cc-esforco"]) {          // o modelo (de cada IA) e o esforço escolhidos ficam no navegador
-    const chave = () => (id === "cc-modelo" ? chaveModelo(ccIA()) : `pew-simu-${id}`);
+    const chave = () => (id === "cc-modelo" ? chaveModelo(ccIA()) : `maisim-simu-${id}`);
     try { const v = localStorage.getItem(chave()); if (v !== null && [...$(id).options].some((o) => o.value === v)) $(id).value = v; } catch (e) { /* padrão */ }
     $(id).onchange = () => { try { localStorage.setItem(chave(), $(id).value); } catch (e) { /* só agora */ } };
   }
-  $("cc-ia").onchange = () => { try { localStorage.setItem("pew-simu-cc-ia", ccIA()); } catch (e) { /* só agora */ } ccModelos(); desenhaChat(); };
-  if (cla.ias && cla.ias.length) { cc.ias = cla.ias; ccMontaIA(); }   // as IAs do PEW (o seletor e o nome de quem respondeu): atualizaIAs()
+  $("cc-ia").onchange = () => { try { localStorage.setItem("maisim-simu-cc-ia", ccIA()); } catch (e) { /* só agora */ } ccModelos(); desenhaChat(); };
+  if (cla.ias && cla.ias.length) { cc.ias = cla.ias; ccMontaIA(); }   // as IAs do MaiSim (o seletor e o nome de quem respondeu): atualizaIAs()
   $("ctl-claude-bt").onclick = () => ccAbre();
   $("cc-fechar").onclick = () => ccAbre(false);
   $("cc-memoria").onclick = ccMemoria;
   $("cc-lugar").onclick = () => { lugarMem = lugarEscolhido() === "lado" ? "embaixo" : "lado";
-    try { localStorage.setItem("pew-simu-claude-lugar", lugarMem); } catch (e) { /* só até recarregar */ } aplicaLugar(); };
+    try { localStorage.setItem("maisim-simu-claude-lugar", lugarMem); } catch (e) { /* só até recarregar */ } aplicaLugar(); };
   new ResizeObserver(() => { if (cc.aberto) aplicaLugar(); }).observe($("painel-controle"));
   $("cc-enviar").onclick = ccEnvia;
   $("cc-parar").onclick = async () => { try { cc.estado = await apiClaude("parar", {}); } catch (e) { cc.aviso = e.message; } desenhaChat(); acompanhaChat(); };
@@ -572,7 +572,7 @@ function divisorConversa() {
   });
   $("cc-arq").onchange = (ev) => { ccAnexa([...ev.target.files]); ev.target.value = ""; };
   $("cc-anexar").onclick = () => $("cc-arq").click();
-  // com a conversa aberta, um arquivo solto fora da coluna não abre no lugar do PEW
+  // com a conversa aberta, um arquivo solto fora da coluna não abre no lugar do MaiSim
   for (const t of ["dragover", "drop"]) addEventListener(t, (ev) => {
     if (cc.aberto && ev.dataTransfer && [...ev.dataTransfer.types].includes("Files") && !painel.contains(ev.target)) {
       ev.preventDefault(); if (t === "drop") { cc.aviso = "solte o arquivo na conversa para anexar"; desenhaChat(); } }

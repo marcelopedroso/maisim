@@ -1,4 +1,4 @@
-// vários controladores pela tela (instância de teste 5010 → 8768), com o PI do exemplo (congelado em validacao/dados).
+// vários controladores pela tela (instância de teste 7200 → 7201), com o PI do exemplo (congelado em validacao/dados).
 // Arquivo novo é um módulo (19/10); "virar controlador" o põe a rodar à parte (o nome é o do arquivo) e o controle.py entra
 // na lista; na coluna "arquivos", embaixo de cada arquivo, o
 // que ele lê (ou todas) e o que escreve (um dono só por atuação); rede; medidas do arquivo aberto; erro na aba certa;
@@ -6,14 +6,14 @@
 const { chromium } = require("playwright");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
-const PI = require("os").homedir() + "/.cache/pew_simu_teste/pew/exemplo_controle_pi.ipes";
+const PI = require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_controle_pi.ipes";
 const AQ = 'def passo(t, m, p, e):\n    envia("controle", {"i": m["i_L"]})\n';
 (async () => {
   let b;
   try {
-    b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1600, height: 950 } })).newPage(); await pg.addInitScript(() => { try { localStorage.setItem("pew-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
+    b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1600, height: 950 } })).newPage(); await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-    await pg.goto("http://localhost:5010/pew/simu/?modelo=" + encodeURIComponent(PI));
+    await pg.goto("http://localhost:7200/maisim/simu/?modelo=" + encodeURIComponent(PI));
     await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
     await pg.click("#bt-editar"); await pg.waitForTimeout(600); while (await pg.$(".modal-fundo")) { await pg.click(".modal .m-extra, .modal .m-ok"); await pg.waitForTimeout(800); }
     await pg.waitForFunction(() => dados && dados.editor, null, { timeout: 30000 });

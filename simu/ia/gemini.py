@@ -1,17 +1,17 @@
-"""O Gemini como IA do PEW (etapa 3 do hub de IA): o Gemini CLI oficial (`gemini`, conferido no 0.63.0), com a conta Google
-da pessoa (a cota grátis do Gemini Code Assist para pessoas físicas, ou o plano dela), numa pasta só do PEW
-(GEMINI_CLI_HOME = ~/.gemini-pew: o login, as sessões e as configurações; o ~/.gemini da pessoa não muda). O servidor nunca
-lê a credencial: quem grava .gemini/oauth_creds.json é o CLI, e o PEW só confere se o arquivo existe.
+"""O Gemini como IA do MaiSim (etapa 3 do hub de IA): o Gemini CLI oficial (`gemini`, conferido no 0.63.0), com a conta Google
+da pessoa (a cota grátis do Gemini Code Assist para pessoas físicas, ou o plano dela), numa pasta só do MaiSim
+(GEMINI_CLI_HOME = ~/.gemini-maisim: o login, as sessões e as configurações; o ~/.gemini da pessoa não muda). O servidor nunca
+lê a credencial: quem grava .gemini/oauth_creds.json é o CLI, e o MaiSim só confere se o arquivo existe.
 
-Pedido: `gemini -p` em stream-json, com a política de ferramentas do PEW no nível de administrador (--admin-policy, o mais
+Pedido: `gemini -p` em stream-json, com a política de ferramentas do MaiSim no nível de administrador (--admin-policy, o mais
 alto: nada a sobrepõe). Só ler, listar e procurar arquivos, e escrever ou editar os arquivos do controle DESTA pasta (os
 editáveis e os .py, no nível de cima); todo o resto (shell, web, memória, MCP, subagentes, perguntar ao usuário) é negado, e
 o que é negado de vez some da vista do modelo. A mesma política só de leitura fica também no nível do usuário: se a do
-administrador não carregasse, ele só leria. As regras do PEW vão em GEMINI.md na pasta (o CLI lê como contexto). A sessão
+administrador não carregasse, ele só leria. As regras do MaiSim vão em GEMINI.md na pasta (o CLI lê como contexto). A sessão
 é por id: --session-id na primeira chamada, --resume <id> depois.
 Resumo de um contexto salvo: `gemini -p` em JSON, só leitura.
 Login: o `gemini` interativo num terminal (pty) com NO_BROWSER — ele mostra o link do Google e espera o código que a página
-mostra depois de autorizar; o PEW mostra o link e repassa o código colado. Sair: apaga os arquivos do login na pasta do PEW
+mostra depois de autorizar; o MaiSim mostra o link e repassa o código colado. Sair: apaga os arquivos do login na pasta do MaiSim
 (o mesmo que o CLI faz no logout)."""
 import json
 import os
@@ -23,16 +23,16 @@ from pathlib import Path
 from .base import IA
 from .login_pty import LoginPorTerminal
 
-# os nomes das ferramentas do Gemini → os do PEW (a linha "lendo controle.py" da tela)
+# os nomes das ferramentas do Gemini → os do MaiSim (a linha "lendo controle.py" da tela)
 FERRAMENTAS = {"read_file": "Read", "read_many_files": "Read", "list_directory": "Glob", "glob": "Glob", "grep_search": "Grep",
                "write_file": "Write", "replace": "Edit"}
 LEITURA = ("read_file", "read_many_files", "list_directory", "glob", "grep_search")
-# a configuração do CLI na pasta do PEW: login pela conta Google, sem atualização automática e sem estatísticas de uso
+# a configuração do CLI na pasta do MaiSim: login pela conta Google, sem atualização automática e sem estatísticas de uso
 CONFIG = {"security": {"auth": {"selectedType": "oauth-personal"}},
           "general": {"enableAutoUpdate": False, "enableAutoUpdateNotification": False},
           "privacy": {"usageStatisticsEnabled": False}, "telemetry": {"enabled": False}}
 URL_LOGIN = re.compile(r"https://accounts\.google\.com/o/oauth2/v2/auth\?[^\s\x1b\x07]+")
-NEGA = "o PEW não deixa: só ler, listar e procurar arquivos, e escrever ou editar os do controle (os editáveis e os .py) desta pasta"
+NEGA = "o MaiSim não deixa: só ler, listar e procurar arquivos, e escrever ou editar os do controle (os editáveis e os .py) desta pasta"
 
 
 def _re(texto):
@@ -54,8 +54,8 @@ def _grava(arq, texto):
 
 
 def politica(regras_escrita=None):
-    """A política do PEW em TOML: nega tudo (prioridade 1), libera a leitura e, se houver, a escrita com o argsPattern dado."""
-    t = ("# Gerada pelo PEW (ia/gemini.py) a cada chamada; passada com --admin-policy (o nível de administrador: nada a sobrepõe).\n"
+    """A política do MaiSim em TOML: nega tudo (prioridade 1), libera a leitura e, se houver, a escrita com o argsPattern dado."""
+    t = ("# Gerada pelo MaiSim (ia/gemini.py) a cada chamada; passada com --admin-policy (o nível de administrador: nada a sobrepõe).\n"
          "[[rule]]\ntoolName = \"*\"\ndecision = \"deny\"\npriority = 1\n"
          f"denyMessage = \"{NEGA}\"\n\n"
          "[[rule]]\ntoolName = [" + ", ".join(f'"{x}"' for x in LEITURA) + "]\ndecision = \"allow\"\npriority = 100\n")
@@ -100,7 +100,7 @@ class Gemini(LoginPorTerminal, IA):
         return env
 
     def _prepara(self, passos=None):
-        """A configuração do CLI na pasta do PEW (só as chaves do PEW; o resto do arquivo fica)."""
+        """A configuração do CLI na pasta do MaiSim (só as chaves do MaiSim; o resto do arquivo fica)."""
         self.pasta.mkdir(mode=0o700, parents=True, exist_ok=True)
         arq = self.pasta / ".gemini" / "settings.json"
         try:
@@ -117,23 +117,23 @@ class Gemini(LoginPorTerminal, IA):
         _grava(arq, json.dumps(novo, ensure_ascii=False, indent=2) + "\n")
         # a segunda trava: a mesma política só de leitura no nível do usuário (o CLI a lê sozinho em .gemini/policies). Se a
         # do administrador (a de cada chamada) não carregasse, o Gemini continuaria só lendo — nunca solto
-        _grava(self.pasta / ".gemini" / "policies" / "pew_base.toml", politica())
+        _grava(self.pasta / ".gemini" / "policies" / "maisim_base.toml", politica())
 
     # ---- o pedido e o resumo
     def comando(self, prompt, sessao, retoma, regras, modelo="", esforco="", passos=100, editaveis=(), pasta=None):
         if pasta is None:
             raise ValueError("Gemini: sem a pasta da conversa não há como restringir a escrita")
         self._prepara(passos)
-        pol = self.pasta / "pew" / "politica_pedido.toml"
+        pol = self.pasta / "maisim" / "politica_pedido.toml"
         _grava(pol, politica(padrao_escrita(pasta, editaveis)))
-        (Path(pasta) / "GEMINI.md").write_text(regras)           # as regras do PEW: o CLI lê GEMINI.md como contexto
+        (Path(pasta) / "GEMINI.md").write_text(regras)           # as regras do MaiSim: o CLI lê GEMINI.md como contexto
         return [self.bin, "-p", prompt, "--output-format", "stream-json", "--skip-trust", "--approval-mode", "default",
                 "--admin-policy", str(pol), *(["--model", modelo] if modelo else []),
                 *(["--resume", sessao] if retoma else ["--session-id", sessao])]
 
     def comando_resumo(self, prompt, modelo="", esforco="", pasta=None):
         self._prepara()
-        pol = self.pasta / "pew" / "politica_leitura.toml"
+        pol = self.pasta / "maisim" / "politica_leitura.toml"
         _grava(pol, politica())
         return [self.bin, "-p", prompt, "--output-format", "json", "--skip-trust", "--approval-mode", "default",
                 "--admin-policy", str(pol), *(["--model", modelo] if modelo else [])]
@@ -222,7 +222,7 @@ class Gemini(LoginPorTerminal, IA):
 
     def estado(self):
         g = self.pasta / ".gemini"
-        logado = self._creds().exists()                      # só se existe: o PEW não lê a credencial
+        logado = self._creds().exists()                      # só se existe: o MaiSim não lê a credencial
         email = None
         if logado:
             try:                                             # a conta ativa (só o e-mail; não é credencial)

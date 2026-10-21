@@ -1,4 +1,4 @@
-// variáveis em tabelas (instância de teste 5010 → 8768), pedido de Marcelo em 19/10: "a barra com atuações, medidas,
+// variáveis em tabelas (instância de teste 7200 → 7201), pedido de Marcelo em 19/10: "a barra com atuações, medidas,
 // parâmetros e acionamentos vai ficar ruim com muita coisa… mesma dinâmica dos arquivos". A coluna "variáveis" é o índice
 // (com quanto tem e os ⚠); a tabela aparece no lugar do código, sem aba ("nem precisa abrir nas abas"): um arquivo, o
 // item de novo ou o ✕ voltam ao código; "No código" leva à linha; ordenar e filtrar só mudam a vista (a ordem guardada é
@@ -15,9 +15,9 @@ const COD = 'import leitura\nimport escrita\n\n\ndef iniciar(p, e):\n    e["leit
   let b;
   try {
     b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1900, height: 950 } });
-    await ctx.addInitScript(() => { try { if (!sessionStorage.getItem("ja")) { localStorage.removeItem("pew-simu-ctl-tabelas"); localStorage.setItem("pew-simu-ctl-vista", "var"); sessionStorage.setItem("ja", "1"); } } catch (e) { /* ok */ } });
+    await ctx.addInitScript(() => { try { if (!sessionStorage.getItem("ja")) { localStorage.removeItem("maisim-simu-ctl-tabelas"); localStorage.setItem("maisim-simu-ctl-vista", "var"); sessionStorage.setItem("ja", "1"); } } catch (e) { /* ok */ } });
     const pg = await ctx.newPage(); const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-    const entra = async () => { await pg.goto("http://localhost:5010/pew/simu/");
+    const entra = async () => { await pg.goto("http://localhost:7200/maisim/simu/");
       for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof dados !== "undefined" && dados && dados.editor)); k++) { if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); } };
     await entra();
     await pg.evaluate(async (cod) => {                  // RL com fonte controlada pelo CONST u_ctrl, i_L medida; o controle em módulos

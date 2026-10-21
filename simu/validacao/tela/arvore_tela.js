@@ -1,4 +1,4 @@
-// a árvore dos arquivos pelos imports e a busca (instância de teste 5010 → 8768), pedido de Marcelo em 19/10 ("a lista já
+// a árvore dos arquivos pelos imports e a busca (instância de teste 7200 → 7201), pedido de Marcelo em 19/10 ("a lista já
 // está ficando cheia… busca e hierarquia"): o caso dele — controle.py chama leitura → pll → modulacao_smap_1 →
 // modulacao_sman_1 → escrita, as duas modulações importam pwm.py, e sobrou um modulacao.py que ninguém importa. Confere a
 // ordem do fluxo (a do passo(), não a dos imports), o aninhamento, a repetição "(acima)", o "sem uso", recolher (fica ao
@@ -14,9 +14,9 @@ const ORQ = 'import escrita\nimport modulacao_sman_1\nimport leitura\nimport mod
   let b;
   try {
     b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1600, height: 900 } });
-    await ctx.addInitScript(() => { try { if (!sessionStorage.getItem("ja")) { localStorage.setItem("pew-simu-ctl-vista", "arq"); localStorage.removeItem("pew-simu-ctl-recolhidos"); localStorage.removeItem("pew-simu-ctl-tabelas"); sessionStorage.setItem("ja", "1"); } } catch (e) { /* ok */ } });
+    await ctx.addInitScript(() => { try { if (!sessionStorage.getItem("ja")) { localStorage.setItem("maisim-simu-ctl-vista", "arq"); localStorage.removeItem("maisim-simu-ctl-recolhidos"); localStorage.removeItem("maisim-simu-ctl-tabelas"); sessionStorage.setItem("ja", "1"); } } catch (e) { /* ok */ } });
     const pg = await ctx.newPage(); const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-    const entra = async () => { await pg.goto("http://localhost:5010/pew/simu/");
+    const entra = async () => { await pg.goto("http://localhost:7200/maisim/simu/");
       for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof dados !== "undefined" && dados && dados.editor)); k++) { if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); } };
     await entra();
     const monta = async () => { await pg.evaluate(async ([orq, m1, m2]) => {
@@ -96,7 +96,7 @@ const ORQ = 'import escrita\nimport modulacao_sman_1\nimport leitura\nimport mod
     const c3 = await cartao();
     ok(c0.visivel && c0.bt === "−" && !c1.visivel && c1.bt === "+" && c1.pwm && !c2.visivel && c3.visivel && c3.bt === "−" && await pg.evaluate(() => ctl.arq) === arq0,
       `+/− do cartão: − esconde (o pwm.py embaixo continua), fica escondido ao redesenhar, + mostra; não abre o arquivo`);
-    await pg.evaluate(async () => { localStorage.removeItem("pew-simu-ctl-cartoes"); await api("editor/novo", { modo: "descartar" }); });
+    await pg.evaluate(async () => { localStorage.removeItem("maisim-simu-ctl-cartoes"); await api("editor/novo", { modo: "descartar" }); });
     ok(!erros.length, `sem erros de JS nem diálogos ${erros.join(" ; ")}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message}`); }
   finally { if (b) await b.close(); }

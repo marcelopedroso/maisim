@@ -1,4 +1,4 @@
-"""Leitor de .ipes (GeckoCIRCUITS) para o desenho do circuito no /pew/simu: folhas (a principal e a de cada
+"""Leitor de .ipes (GeckoCIRCUITS) para o desenho do circuito no /maisim/simu: folhas (a principal e a de cada
 subcircuito), elementos com tipo, posição, orientação, parâmetros e terminais, e fios. Coordenadas na grade do Gecko.
 
 Regras do Gecko (código em MDPGeckoCIRCUITS, ch.technokrat.gecko.geckocircuits.circuit):
@@ -34,7 +34,7 @@ try:
             CATALOGO[(FAMILIA.get(_i["dom"], _i["dom"]), _i["typ"])] = (_i["id"], _i["nome"])
 except (OSError, ValueError, KeyError):
     pass
-# geometria dos terminais tirada do próprio Gecko (motor/src/pew/PewGeometria.java → geometria_gecko.json): por id do tipo,
+# geometria dos terminais tirada do próprio Gecko (motor/src/maisim/MaiSimGeometria.java → geometria_gecko.json): por id do tipo,
 # (_posX, _posY) crus de cada entrada e saída; o ponto na folha é a conta de TerminalRelativePosition.getPointFromDirection
 GEOMETRIA = {}
 try:

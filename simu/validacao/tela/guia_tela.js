@@ -4,8 +4,8 @@ let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
 (async () => {
   const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1400, height: 950 } });
-  const pg = await ctx.newPage(); await pg.addInitScript(() => { try { localStorage.setItem("pew-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */ const erros = []; pg.on("pageerror", (e) => erros.push(e.message));
-  await pg.goto("http://localhost:8768/pew/simu/");
+  const pg = await ctx.newPage(); await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */ const erros = []; pg.on("pageerror", (e) => erros.push(e.message));
+  await pg.goto("http://localhost:7201/maisim/simu/");
   await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
   await pg.click("#bt-ctl"); await pg.waitForFunction(() => ctl.carregado, null, { timeout: 30000 });
   const [guia] = await Promise.all([ctx.waitForEvent("page"), pg.click("#ctl-guia")]);

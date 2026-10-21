@@ -1,9 +1,9 @@
-"""Colar dentro de subcircuitos iguais (instância de teste 8768), achado de Marcelo em 19/10: o Ctrl+V dentro de um SM só
+"""Colar dentro de subcircuitos iguais (instância de teste 7201), achado de Marcelo em 19/10: o Ctrl+V dentro de um SM só
 ia para o SM aberto, e ele deixava de ser igual aos outros (as mudanças seguintes passavam a valer só para ele). Agora, com
 "mudar os N juntos", a página manda as folhas iguais e a cópia vai para todas: o mesmo nome e a mesma posição em cada uma
 (continuam iguais), um passo do desfazer; colar numa folha só continua como antes."""
 import json, urllib.request
-B = "http://localhost:8768/pew/simu/"
+B = "http://localhost:7201/maisim/simu/"
 def api(rota, corpo=None):
     q = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(q, timeout=180).read())

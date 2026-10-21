@@ -1,4 +1,4 @@
-// a linha Σ da medição do scope (página de teste 5010 → scope 8776), Marcelo em 20/10 ("no medir podia ter um somatório"):
+// a linha Σ da medição do scope (página de teste 7200 → scope 7202), Marcelo em 20/10 ("no medir podia ter um somatório"):
 // a soma, ponto a ponto, dos sinais da tabela, medida como um sinal. Gravação feita aqui (apagada no fim): três fases de
 // 180 V com uma sequência zero conhecida (médias 1, 2 e 3 V; 10 V de 3ª harmônica em fase nas três) → Σ: média 6 V,
 // h1 ≈ 0 (as fundamentais se cancelam), h3 = 30 V ∠ 0°. Clicar no nome tira o sinal do Σ (e põe de volta); no Comparar,
@@ -7,7 +7,7 @@ const { chromium } = require("playwright");
 const { execFileSync } = require("child_process");
 const fs = require("fs"), path = require("path");
 const SM = path.resolve(__dirname, "../../.."), PASTA = path.join(__dirname, "..", "tmp_scope_soma");
-const B = "http://localhost:5010";
+const B = "http://localhost:7200";
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
 (async () => {
@@ -17,7 +17,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     const grava = (x, k) => { const arq = path.join(PASTA, `scope_soma_${x}.npz`);
       execFileSync("python3", ["-c", `import numpy as np, json
 t = np.arange(0, 0.04, 1e-4); w = 2 * np.pi * 50; z = ${10 + 5 * k} * np.cos(3 * w * t)
-meta = {"planta": "gecko-pew", "rotulo": "soma_${x}", "dt": 1e-4, "Ts": 1e-4, "n_fino": 1, "dt_gecko": 1e-6, "tfim": 0.04, "sinais": [], "acionamentos": []}
+meta = {"planta": "gecko-maisim", "rotulo": "soma_${x}", "dt": 1e-4, "Ts": 1e-4, "n_fino": 1, "dt_gecko": 1e-6, "tfim": 0.04, "sinais": [], "acionamentos": []}
 np.savez(${JSON.stringify(arq)}, meta=np.array(json.dumps(meta)), t=t, Va=1 + 180*np.cos(w*t) + z, Vb=2 + 180*np.cos(w*t-2*np.pi/3) + z, Vc=3 + 180*np.cos(w*t+2*np.pi/3) + z)`]);
       return path.relative(SM, arq); };
     const ra = grava("A", 0), rb = grava("B", 1);
@@ -33,7 +33,7 @@ np.savez(${JSON.stringify(arq)}, meta=np.array(json.dumps(meta)), t=t, Va=1 + 18
     };
     const tabela = () => pg.evaluate(() => { const p = paineis().find((x) => x.u && x.sinais.includes("Va"));
       return [...p.el.querySelectorAll(".med-tab tbody tr")].map((tr) => [...tr.children].map((td) => td.textContent.trim())); });
-    await abre(`${B}/pew/scope/?a=${encodeURIComponent(ra)}`);
+    await abre(`${B}/maisim/scope/?a=${encodeURIComponent(ra)}`);
     let t = await tabela();
     const soma = t.find((l) => l[0].startsWith("Σ"));
     const num = (s) => parseFloat(String(s).split("∠")[0]), ang = (s) => parseFloat(String(s).split("∠")[1]);
@@ -118,9 +118,9 @@ np.savez(${JSON.stringify(arq)}, meta=np.array(json.dumps(meta)), t=t, Va=1 + 18
     const req = path.join(PASTA, "scope_soma_eq.npz");
     execFileSync("python3", ["-c", `import numpy as np, json
 t = np.arange(0, 0.04, 1.4e-4); w = 2 * np.pi * 50
-meta = {"planta": "gecko-pew", "rotulo": "soma_eq", "dt": 1.4e-4, "Ts": 1.4e-4, "n_fino": 1, "dt_gecko": 1e-6, "tfim": 0.04, "sinais": [], "acionamentos": []}
+meta = {"planta": "gecko-maisim", "rotulo": "soma_eq", "dt": 1.4e-4, "Ts": 1.4e-4, "n_fino": 1, "dt_gecko": 1e-6, "tfim": 0.04, "sinais": [], "acionamentos": []}
 np.savez(${JSON.stringify(req)}, meta=np.array(json.dumps(meta)), t=t, Va=180*np.cos(w*t + 0.23), Vb=180*np.cos(w*t + 0.23 - 2*np.pi/3), Vc=180*np.cos(w*t + 0.23 + 2*np.pi/3))`]);
-    await abre(`${B}/pew/scope/?a=${encodeURIComponent(path.relative(SM, req))}`);
+    await abre(`${B}/maisim/scope/?a=${encodeURIComponent(path.relative(SM, req))}`);
     t = await tabela();
     const seq = t.find((l) => l[0].startsWith("Σ"));
     const ceq = await curva();
@@ -130,9 +130,9 @@ np.savez(${JSON.stringify(req)}, meta=np.array(json.dumps(meta)), t=t, Va=180*np
     const rvc = path.join(PASTA, "scope_soma_vc.npz");
     execFileSync("python3", ["-c", `import numpy as np, json
 t = np.arange(0, 0.04, 1e-4); w = 2 * np.pi * 50
-meta = {"planta": "gecko-pew", "rotulo": "soma_vc", "dt": 1e-4, "Ts": 1e-4, "n_fino": 1, "dt_gecko": 1e-6, "tfim": 0.04, "sinais": [], "acionamentos": []}
+meta = {"planta": "gecko-maisim", "rotulo": "soma_vc", "dt": 1e-4, "Ts": 1e-4, "n_fino": 1, "dt_gecko": 1e-6, "tfim": 0.04, "sinais": [], "acionamentos": []}
 np.savez(${JSON.stringify(rvc)}, meta=np.array(json.dumps(meta)), t=t, Va=200 + 10*np.cos(w*t), Vb=195 + 10*np.cos(w*t), Vc=205 + 10*np.cos(w*t))`]);
-    await abre(`${B}/pew/scope/?a=${encodeURIComponent(path.relative(SM, rvc))}`);
+    await abre(`${B}/maisim/scope/?a=${encodeURIComponent(path.relative(SM, rvc))}`);
     const y1 = (await curva()).ymax;
     await pg.evaluate(() => { const p = paineis().find((x) => x.u && x.sinais.includes("Va")); p.u.setSeries(p.series.findIndex((se) => se.soma) + 1, { show: false }); });
     await pg.waitForTimeout(400);
@@ -143,12 +143,12 @@ np.savez(${JSON.stringify(rvc)}, meta=np.array(json.dumps(meta)), t=t, Va=200 + 
     await pg.waitForTimeout(300);
     const c3 = await curva();
     ok(c3 && !c3.show && c3.ymax < 250, "o gráfico refeito: a Σ continua escondida");
-    await abre(`${B}/pew/scope/?a=${encodeURIComponent(path.relative(SM, rvc))}`);     // recarregada: está no layout
+    await abre(`${B}/maisim/scope/?a=${encodeURIComponent(path.relative(SM, rvc))}`);     // recarregada: está no layout
     const c4 = await curva();
     ok(c4 && !c4.show && c4.ymax < 250, `a página recarregada: a Σ continua escondida (escala até ${c4 && c4.ymax.toFixed(0)})`);
     await pg.evaluate(() => { const p = paineis().find((x) => x.u && x.sinais.includes("Va")); p.u.setSeries(p.series.findIndex((se) => se.soma) + 1, { show: true }); });
     // Comparar: um Σ por gravação (B tem 15 V de 3ª: Σ h3 = 45)
-    await abre(`${B}/pew/scope/?a=${encodeURIComponent(ra)}&b=${encodeURIComponent(rb)}`);
+    await abre(`${B}/maisim/scope/?a=${encodeURIComponent(ra)}&b=${encodeURIComponent(rb)}`);
     await pg.evaluate(() => { const p = paineis().find((x) => x.u && x.sinais.includes("Va")); p.espFora.clear(); mede(p); });
     await pg.waitForTimeout(300);
     t = await tabela();
@@ -158,9 +158,9 @@ np.savez(${JSON.stringify(rvc)}, meta=np.array(json.dumps(meta)), t=t, Va=200 + 
     const r380 = path.join(PASTA, "scope_soma_380.npz");
     execFileSync("python3", ["-c", `import numpy as np, json
 t = np.arange(0, 0.3, 380e-6); w = 2 * np.pi * 50
-meta = {"planta": "gecko-pew", "rotulo": "soma_380", "dt": 380e-6, "Ts": 380e-6, "n_fino": 1, "dt_gecko": 1e-6, "tfim": 0.3, "sinais": [], "acionamentos": []}
+meta = {"planta": "gecko-maisim", "rotulo": "soma_380", "dt": 380e-6, "Ts": 380e-6, "n_fino": 1, "dt_gecko": 1e-6, "tfim": 0.3, "sinais": [], "acionamentos": []}
 np.savez(${JSON.stringify(r380)}, meta=np.array(json.dumps(meta)), t=t, Va=5 + 180*np.cos(w*t + np.pi/6) + 20*np.cos(3*w*t), Vb=180*np.cos(w*t - np.pi/2), Vc=180*np.cos(w*t + 5*np.pi/6))`]);
-    await abre(`${B}/pew/scope/?a=${encodeURIComponent(path.relative(SM, r380))}`);
+    await abre(`${B}/maisim/scope/?a=${encodeURIComponent(path.relative(SM, r380))}`);
     await pg.evaluate(() => { const p = paineis().find((x) => x.u && x.sinais.includes("Va")); p.med.t0 = 0; p.med.n = 13; p.espFora.clear(); mede(p); });
     await pg.waitForTimeout(300);
     t = await tabela();

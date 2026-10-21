@@ -1,5 +1,5 @@
-"""O Claude como IA do PEW: o Claude Code (`claude`, conferido no CLI 2.1.273), com a pasta de configuração do PEW
-(~/.claude-pew, o login dele; o servidor nunca lê as credenciais — quem faz o login é o próprio CLI).
+"""O Claude como IA do MaiSim: o Claude Code (`claude`, conferido no CLI 2.1.273), com a pasta de configuração do MaiSim
+(~/.claude-maisim, o login dele; o servidor nunca lê as credenciais — quem faz o login é o próprio CLI).
 
 Pedido: `claude -p` restrito (só Read, Edit, Write, Glob e Grep; Edit só nos arquivos editáveis da pasta e nos .py; sem
 shell, sem MCP, sem perguntar), stream-json, retomando a sessão da conversa (--resume) ou criando (--session-id).

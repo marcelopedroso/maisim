@@ -1,8 +1,8 @@
-"""Validação do passo 1 do Controle: PI de corrente num RL com fonte controlada por sinal, rodado pelo PEW (Gecko +
+"""Validação do passo 1 do Controle: PI de corrente num RL com fonte controlada por sinal, rodado pelo MaiSim (Gecko +
 código do usuário no laço) × referência independente (RL exato a cada Δt, mesmo PI, mesmo tempo de aplicação)."""
 import json, math, time, urllib.request
 import numpy as np
-B = "http://localhost:8768/pew/simu/"
+B = "http://localhost:7201/maisim/simu/"
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(req, timeout=300).read())

@@ -1,10 +1,10 @@
-"""Um sinal que o controle usa muda de nome no circuito (instância de teste 8768), pedido de Marcelo em 19/10 ("quando a
+"""Um sinal que o controle usa muda de nome no circuito (instância de teste 7201), pedido de Marcelo em 19/10 ("quando a
 gente muda uma variável de nome e ela está sendo usada em algum código, tem como mudar todos os lugares? ou pelo menos
 alertar num modal e confirmar" — os cartões dos controladores tinham ficado com vc_smap_1 e sm_ap_1_s depois que os
 SMs passaram a se chamar SM.ap.1…): a resposta da edição diz o nome de antes, o novo e onde o controle o usa; a rota
 editor/controle/renomeia troca no código (só entre aspas), nos cartões, nas atuações e nos acionamentos."""
 import json, urllib.request
-B = "http://localhost:8768/pew/simu/"
+B = "http://localhost:7201/maisim/simu/"
 def api(rota, corpo=None):
     q = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(q, timeout=180).read())

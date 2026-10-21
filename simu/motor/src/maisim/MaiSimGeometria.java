@@ -1,4 +1,4 @@
-package pew;
+package maisim;
 
 import ch.technokrat.gecko.geckocircuits.circuit.AbstractBlockInterface;
 import ch.technokrat.gecko.geckocircuits.allg.AbstractComponentTyp;
@@ -18,9 +18,9 @@ import java.util.List;
  * (TypeInfo.fabric(), sem a janela) e lê a posição relativa crua (_posX, _posY) de cada entrada (XIN) e saída (YOUT); o
  * ponto na folha é TerminalRelativePosition.getPointFromDirection(orientação, centro, _posX, _posY) (503: x+posX, y−posY).
  * Saída: JSON (uma linha por tipo) em stdout, para o leitor do .ipes (ipes.py) pôr os terminais onde o Gecko põe.
- * uso: java -Djava.awt.headless=true -cp gecko.jar:bin pew.PewGeometria > geometria.json
+ * uso: java -Djava.awt.headless=true -cp gecko.jar:bin maisim.MaiSimGeometria > geometria.json
  */
-public final class PewGeometria {
+public final class MaiSimGeometria {
 
     private static String pontos(List<AbstractTerminal> terms) throws Exception {
         StringBuilder sb = new StringBuilder("[");

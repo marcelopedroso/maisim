@@ -1,25 +1,25 @@
-"""O Claude do PEW cria controladores (instância de teste 8768, com o claude de mentira): o pedido de Marcelo em 19/10 —
+"""O Claude do MaiSim cria controladores (instância de teste 7201, com o claude de mentira): o pedido de Marcelo em 19/10 —
 "3 DSPs… se comunicando por fibra óptica… uma trava no Claude" (as regras não deixavam o Claude mexer nos controladores).
 Agora a pasta do pedido tem controladores.json (quem roda à parte, o que lê e escreve, a latência da rede) e o Claude pode
-editá-lo; o PEW valida (dono único de cada atuação), marca as atuações que os controladores escrevem, testa com eles, e
+editá-lo; o MaiSim valida (dono único de cada atuação), marca as atuações que os controladores escrevem, testa com eles, e
 a aplicação vai para o histórico. Confere também a rodada de verdade com os 3 DSPs."""
 import json, os, subprocess, time, urllib.request
 from pathlib import Path
 import numpy as np
 RAIZ_PROJ = str(Path(__file__).resolve().parents[2])   # a raiz do projeto (validacao → simu → raiz)
 
-B = "http://localhost:8768/pew/simu/"
-PID = subprocess.run("ss -ltnp | grep ':8768 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1", shell=True, capture_output=True, text=True).stdout.strip()
+B = "http://localhost:7201/maisim/simu/"
+PID = subprocess.run("ss -ltnp | grep ':7201 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1", shell=True, capture_output=True, text=True).stdout.strip()
 ENV = dict(x.split("=", 1) for x in Path(f"/proc/{PID}/environ").read_bytes().decode().split("\0") if "=" in x)
-assert ENV.get("PEW_CLAUDE_BIN", "").endswith("claude_falso.py"), "suba o servidor de teste com o claude de mentira (reinicia_servidor_teste.sh)"
-CONF = Path(ENV["PEW_CLAUDE_DIR"])
-assert "pew_simu_teste" in str(CONF) or "/tmp/" in str(CONF), "PEW_CLAUDE_DIR tem de ser uma pasta descartável"
+assert ENV.get("MAISIM_CLAUDE_BIN", "").endswith("claude_falso.py"), "suba o servidor de teste com o claude de mentira (reinicia_servidor_teste.sh)"
+CONF = Path(ENV["MAISIM_CLAUDE_DIR"])
+assert "maisim_teste" in str(CONF) or "/tmp/" in str(CONF), "MAISIM_CLAUDE_DIR tem de ser uma pasta descartável"
 CONF.mkdir(parents=True, exist_ok=True)
 
 
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None,
-                                 headers={"Content-Type": "application/json", "X-PEW": "1"})
+                                 headers={"Content-Type": "application/json", "X-MaiSim": "1"})
     try:
         return json.loads(urllib.request.urlopen(req, timeout=300).read())
     except urllib.error.HTTPError as e:
@@ -60,10 +60,10 @@ c("OUTNODE", ["AMP.1", 0, "i_L"]); api("editor/mede", {"nome": "AMP.1", "tipo": 
 ORQ = 'def iniciar(p, e):\n    pass\n\n\ndef passo(t, m, p, e):\n    envia("dsp_a", {"x": 2.0})\n    envia("dsp_b", {"x": 3.0})\n    return {}\n'
 api("editor/controle", {"controle": {"ativo": True, "Ts": 1e-5, "atuacoes": [], "parametros": [], "acionamentos": [], "controladores": [],
                                      "codigo": ORQ, "arquivos": {}}})
-# 1. dois donos: o PEW acusa
+# 1. dois donos: o MaiSim acusa
 e = pede("dois_donos")
 p = e.get("proposta") or {}
-ok(any("escrita por dois controladores" in x["msg"] for x in p.get("erros", [])), f"u_ctrl em dsp_a e dsp_b: o PEW acusa ({[x['msg'][:70] for x in p.get('erros', [])]})")
+ok(any("escrita por dois controladores" in x["msg"] for x in p.get("erros", [])), f"u_ctrl em dsp_a e dsp_b: o MaiSim acusa ({[x['msg'][:70] for x in p.get('erros', [])]})")
 # 2. o pedido certo: 3 DSPs, a fibra de 20 µs
 e = pede("controladores")
 p = e.get("proposta") or {}

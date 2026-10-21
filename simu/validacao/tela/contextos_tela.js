@@ -1,26 +1,26 @@
-// os contextos salvos na tela (direto no servidor de teste 8768, claude de mentira), Marcelo em 21/10 ("um botãozinho para
+// os contextos salvos na tela (direto no servidor de teste 7201, claude de mentira), Marcelo em 21/10 ("um botãozinho para
 // salvar isso na memória não volátil… usar em outras conversas"): "salvar" com a nota de quem salva; a biblioteca
 // ("contextos"): usar nesta conversa (a etiqueta 📘 ao lado dos anexos; × tira), abrir (o resumo formatado e a conversa),
-// editar, exportar (baixa o .pewctx), importar, apagar (pergunta); as conversas anteriores, salvas como contexto. Sem fotos.
+// editar, exportar (baixa o .maisimctx), importar, apagar (pergunta); as conversas anteriores, salvas como contexto. Sem fotos.
 const { chromium } = require("playwright");
 const fs = require("fs"), path = require("path"), { execSync } = require("child_process");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
-const pid = execSync(`ss -ltnp | grep ':8768 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1`).toString().trim();
+const pid = execSync(`ss -ltnp | grep ':7201 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1`).toString().trim();
 const ENV = Object.fromEntries(fs.readFileSync(`/proc/${pid}/environ`).toString().split("\0").filter((x) => x.includes("=")).map((x) => [x.slice(0, x.indexOf("=")), x.slice(x.indexOf("=") + 1)]));
-if (!(ENV.PEW_CLAUDE_BIN || "").endsWith("claude_falso.py") || !/pew_simu_teste/.test(ENV.PEW_CONTEXTOS || "")) { console.log("FALHA suba o servidor de teste (reinicia_servidor_teste.sh)"); process.exit(1); }
-const CONF = ENV.PEW_CLAUDE_DIR, CTX = ENV.PEW_CONTEXTOS;
+if (!(ENV.MAISIM_CLAUDE_BIN || "").endsWith("claude_falso.py") || !/maisim_teste/.test(ENV.MAISIM_CONTEXTOS || "")) { console.log("FALHA suba o servidor de teste (reinicia_servidor_teste.sh)"); process.exit(1); }
+const CONF = ENV.MAISIM_CLAUDE_DIR, CTX = ENV.MAISIM_CONTEXTOS;
 fs.mkdirSync(CONF, { recursive: true }); fs.writeFileSync(path.join(CONF, "falso_cenario"), "ganho"); fs.writeFileSync(path.join(CONF, "falso_logado"), "");
 const DADOS = path.resolve(__dirname, "../dados");
-for (const f of ["exemplo_controle_pwm.ipes", "exemplo_controle_pwm.controle.json"]) fs.copyFileSync(path.join(DADOS, f), path.join(ENV.PEW_SIMU_SALVOS, f));
-const ARQ = path.join(ENV.PEW_SIMU_SALVOS, "exemplo_controle_pwm.ipes"), URL = "http://localhost:8768/pew/simu/?modelo=" + encodeURIComponent(ARQ);
-const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: "POST", headers: { "Content-Type": "application/json", "X-PEW": "1" }, body: JSON.stringify(c) } : {}).then((x) => x.json()), [rota, corpo]);
+for (const f of ["exemplo_controle_pwm.ipes", "exemplo_controle_pwm.controle.json"]) fs.copyFileSync(path.join(DADOS, f), path.join(ENV.MAISIM_SALVOS, f));
+const ARQ = path.join(ENV.MAISIM_SALVOS, "exemplo_controle_pwm.ipes"), URL = "http://localhost:7201/maisim/simu/?modelo=" + encodeURIComponent(ARQ);
+const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: "POST", headers: { "Content-Type": "application/json", "X-MaiSim": "1" }, body: JSON.stringify(c) } : {}).then((x) => x.json()), [rota, corpo]);
 const antes = new Set(fs.existsSync(CTX) ? fs.readdirSync(CTX) : []);
 (async () => {
   let b;
   try {
     b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1700, height: 950 }, acceptDownloads: true }); const pg = await ctx.newPage();
-    await pg.addInitScript(() => { try { localStorage.setItem("pew-simu-travado", "1"); } catch (e) { /* ok */ } });
+    await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } });
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
     await pg.goto(URL);
     await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
@@ -74,11 +74,11 @@ const antes = new Set(fs.existsSync(CTX) ? fs.readdirSync(CTX) : []);
     await pg.click(".cx-abrir .m-guardar"); await pg.waitForTimeout(700);
     const tit = await pg.evaluate((s) => document.querySelector(`${s} .cx-tit`).textContent, item);
     ok(/^## O que lembrar/.test(resEdit) && /Kp dobrado \(rev\)/.test(tit), `editar: a nota vem para editar; o título novo na lista ("${tit.trim()}")`);
-    // exportar: baixa o .pewctx
+    // exportar: baixa o .maisimctx
     await pg.click(`${item} [data-a="exportar"]`); await pg.waitForSelector(".cx-exportar");
     const [down] = await Promise.all([pg.waitForEvent("download"), pg.click(".cx-exportar .m-guardar")]);
-    const arqZip = path.join(require("os").tmpdir(), `teste_${id}.pewctx`); await down.saveAs(arqZip);
-    ok(down.suggestedFilename() === `${id}.pewctx` && fs.statSync(arqZip).size > 500, `exportar: baixou ${down.suggestedFilename()} (${fs.statSync(arqZip).size} bytes)`);
+    const arqZip = path.join(require("os").tmpdir(), `teste_${id}.maisimctx`); await down.saveAs(arqZip);
+    ok(down.suggestedFilename() === `${id}.maisimctx` && fs.statSync(arqZip).size > 500, `exportar: baixou ${down.suggestedFilename()} (${fs.statSync(arqZip).size} bytes)`);
     // importar de volta
     await pg.setInputFiles(".cx-bib .cx-arq", arqZip);
     await pg.waitForFunction(() => document.querySelectorAll(".cx-bib .cx-item").length === 2, null, { timeout: 10000 }).catch(() => {});

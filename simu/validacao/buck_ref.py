@@ -1,6 +1,6 @@
 """Referência independente do buck com o PWM do controle: o mesmo código de controle (reimplementado aqui), o circuito
 resolvido por Euler implícito a cada Δt (o solverType 0 do Gecko), a chave ideal (rON) e o diodo (uF + rON, bloqueia i < 0).
-Semântica do PEW (atraso "logo"): a amostra k é em t = k·Ts = k·n·Δt, mede i[k·n]; a atuação vale do passo k·n + 1 em diante."""
+Semântica do MaiSim (atraso "logo"): a amostra k é em t = k·Ts = k·n·Δt, mede i[k·n]; a atuação vale do passo k·n + 1 em diante."""
 import json, sys, math
 import numpy as np
 d = np.load(sys.argv[1]); P = json.loads(sys.argv[2]); EV = json.loads(sys.argv[3]) if len(sys.argv) > 3 else []

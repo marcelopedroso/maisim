@@ -1,8 +1,8 @@
-# a ponta, a garra e a cor seguem o voltímetro quando o nome no scope muda (instância de teste 8768): renomear o sinal e renomear o subcircuito
-# instância de teste (8768): a ponta, a garra e a cor seguem o voltímetro quando o nome no scope muda (o caso do Marcelo:
+# a ponta, a garra e a cor seguem o voltímetro quando o nome no scope muda (instância de teste 7201): renomear o sinal e renomear o subcircuito
+# instância de teste (7201): a ponta, a garra e a cor seguem o voltímetro quando o nome no scope muda (o caso do Marcelo:
 # um voltímetro dentro do subcircuito; renomear o sinal, e renomear o subcircuito)
 import json, urllib.request
-B = "http://localhost:8768/pew/simu/"
+B = "http://localhost:7201/maisim/simu/"
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(req, timeout=120).read())

@@ -1,4 +1,4 @@
-// desativar um componente pela tela (instância de teste 5010 → 8768), pedido de Marcelo em 19/10 ("um check: preparado no
+// desativar um componente pela tela (instância de teste 7200 → 7201), pedido de Marcelo em 19/10 ("um check: preparado no
 // circuito, mas desabilitado, na cor cinza"): a caixinha "desativado" no painel do componente (ao lado do girar) manda o
 // enabled = 0 ao Gecko; o desenho fica cinza, com a dica; desmarcar volta; Ctrl+Z volta; vale para bloco de controle;
 // no terminal de subcircuito não aparece
@@ -11,7 +11,7 @@ const S = process.argv[2];
   try {
     b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1600, height: 900 } })).newPage();
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-    await pg.goto("http://localhost:5010/pew/simu/");
+    await pg.goto("http://localhost:7200/maisim/simu/");
     for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof dados !== "undefined" && dados && dados.editor)); k++) { if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }
     await pg.evaluate(async () => { const j = await api("editor/novo", { modo: "descartar" }); dados = j; folhaAtual = "0"; seleciona(null); novoEstado(j);
       for (const [n, x, t] of [["R.1", 8, "R"], ["GAIN.1", 18, "GAIN"]]) novoEstado(await api("editor/cmd", { op: "CREATE", args: [n, x, 8, t] })); ajusta(); });

@@ -1,4 +1,4 @@
-// PEW / simu — painel "Controle" (na doca, ao lado do scope): atuadores (blocos CONST que o código escreve), medidas,
+// MaiSim / simu — painel "Controle" (na doca, ao lado do scope): atuadores (blocos CONST que o código escreve), medidas,
 // parâmetros, Ts e o código Python (editor Monaco, o do VS Code; sem internet, uma caixa de texto simples). A configuração
 // é guardada no servidor a cada mudança (POST editor/controle) e vai junto quando o circuito é salvo; a rodada com o
 // controle ligado chama passo() a cada Ts (servidor.py, laco_controle). Usa as funções globais do simu.js.
@@ -8,10 +8,10 @@ const ctl = { dados: null, carregado: false, editor: null, texto: null, monaco: 
 
 // quebra de linha no editor (botão ao lado do "?", Alt+Z como no VS Code): as linhas longas continuam embaixo, sem rolar
 // para o lado; a escolha fica no navegador
-function quebraGuardada() { try { return localStorage.getItem("pew-simu-quebra") === "1"; } catch (e) { return false; } }
+function quebraGuardada() { try { return localStorage.getItem("maisim-simu-quebra") === "1"; } catch (e) { return false; } }
 function poeQuebra(on) {
   ctl.quebra = on;
-  try { localStorage.setItem("pew-simu-quebra", on ? "1" : "0"); } catch (e) { /* vale só até recarregar */ }
+  try { localStorage.setItem("maisim-simu-quebra", on ? "1" : "0"); } catch (e) { /* vale só até recarregar */ }
   const bt = $("ctl-quebra"); bt.classList.toggle("ativo", on); bt.setAttribute("aria-pressed", String(on));
   if (ctl.editor) ctl.editor.updateOptions({ wordWrap: on ? "on" : "off" });
   if (ctl.texto) ctl.texto.style.whiteSpace = on ? "pre-wrap" : "pre";   // sem o Monaco: a caixa de texto simples
@@ -37,7 +37,7 @@ function poeLado(recolhido) {
   const bt = $("ctl-lado-bt"); bt.classList.toggle("ativo", recolhido); bt.setAttribute("aria-pressed", String(recolhido));
   bt.title = recolhido ? "mostrar a coluna (variáveis e arquivos)" : "recolher a coluna (variáveis e arquivos): mais espaço para o código";
   bt.querySelector(".seta").setAttribute("d", recolhido ? "M3.4 6.4 4.8 8 3.4 9.6" : "M4.6 6.4 3.2 8l1.4 1.6");
-  try { localStorage.setItem("pew-simu-ctl-sem-lado", recolhido ? "1" : "0"); } catch (e) { /* vale até recarregar */ }
+  try { localStorage.setItem("maisim-simu-ctl-sem-lado", recolhido ? "1" : "0"); } catch (e) { /* vale até recarregar */ }
 }
 // os arquivos do controle (abas): o controle.py e os outros .py (outros controladores: aquisição, central, um por
 // subcircuito…). No Monaco, um modelo por arquivo (cada um com o seu desfazer); sem ele, um texto por arquivo na caixa
@@ -53,7 +53,7 @@ function poeCodigo(txt, arq = "controle.py") {
 }
 function criaArquivo(arq, txt) {                         // um arquivo novo no editor (sem guardar: quem chama guarda)
   if (!ctl.lista.includes(arq)) ctl.lista = ["controle.py", ...ctl.lista.filter((a) => a !== "controle.py").concat(arq).sort()];
-  if (ctl.monaco && ctl.editor) { if (!ctl.modelos[arq]) { ctl.modelos[arq] = ctl.monaco.editor.createModel(txt, "python", ctl.monaco.Uri.parse(`file:///pew/${arq}`));
+  if (ctl.monaco && ctl.editor) { if (!ctl.modelos[arq]) { ctl.modelos[arq] = ctl.monaco.editor.createModel(txt, "python", ctl.monaco.Uri.parse(`file:///maisim/${arq}`));
     ctl.modelos[arq].onDidChangeContent(() => { if (!ctl.calado) agendaGuardar(); }); } else ctl.modelos[arq].setValue(txt); }
   else ctl.textos[arq] = txt;
 }
@@ -123,9 +123,9 @@ const TABELAS = {
 };
 const ICONE_TAB = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M2 6.2h12M2 9.8h12M6.5 6.2v7.3"/></svg>';
 ctl.tabela = null; ctl.ordem = {}; ctl.filtro = {};
-try { const g = JSON.parse(localStorage.getItem("pew-simu-ctl-tabelas") || "null");
+try { const g = JSON.parse(localStorage.getItem("maisim-simu-ctl-tabelas") || "null");
   if (g) { ctl.tabela = g.ativa in TABELAS ? g.ativa : null; ctl.ordem = g.ordem || {}; } } catch (e) { /* vale até recarregar */ }
-function guardaTabelas() { try { localStorage.setItem("pew-simu-ctl-tabelas", JSON.stringify({ ativa: ctl.tabela, ordem: ctl.ordem })); } catch (e) { /* ok */ } }
+function guardaTabelas() { try { localStorage.setItem("maisim-simu-ctl-tabelas", JSON.stringify({ ativa: ctl.tabela, ordem: ctl.ordem })); } catch (e) { /* ok */ } }
 function mostraTabela(k) { if (!(k in TABELAS)) return; ctl.tabela = k; guardaTabelas(); aplicaTabela(); desenhaAbas(); }
 function fechaTabela() { ctl.tabela = null; guardaTabelas(); aplicaTabela(); desenhaAbas(); }   // volta ao código
 function aplicaTabela() {                                // a área do código mostra a tabela à vista (ou o diagrama, ou o editor)
@@ -180,7 +180,7 @@ function vaiParaLinha(arq, linha) {
   mostraArquivo(arq);
   if (ctl.editor) { ctl.editor.revealLineInCenter(linha); ctl.editor.setPosition({ lineNumber: linha, column: 1 }); ctl.editor.focus(); }
 }
-const MODELO_OUTRO = `# Outro controlador do circuito (PEW / simu). Em "controladores" (no painel) ele ganha um nome, as medidas que lê (m) e
+const MODELO_OUTRO = `# Outro controlador do circuito (MaiSim / simu). Em "controladores" (no painel) ele ganha um nome, as medidas que lê (m) e
 # as atuações que escreve; ou vale em subcircuitos (uma instância por subcircuito, com os nomes sem o prefixo).
 #   envia("outro", {"x": valor})   manda uma mensagem a outro controlador (chega depois da latência da rede)
 #   recebe()                       as mensagens que chegaram: [{"de": nome, "t": instante do envio, "dados": {...}}]
@@ -245,7 +245,7 @@ async function apagaArquivo(a) {
 function insereNoCodigo(txt) {
   if (document.body.classList.contains("sim-rodando")) return;
   if (ctl.tabela) mostraArquivo(ctl.arq);                // de uma tabela: volta ao arquivo aberto e insere no cursor
-  if (ctl.editor) { ctl.editor.focus(); ctl.editor.trigger("pew", "type", { text: txt }); return; }
+  if (ctl.editor) { ctl.editor.focus(); ctl.editor.trigger("maisim", "type", { text: txt }); return; }
   if (ctl.texto) { const t = ctl.texto, i = t.selectionStart; t.setRangeText(txt, i, t.selectionEnd, "end"); t.focus(); agendaGuardar(); }
 }
 // erros (sintaxe, ou o da rodada/teste) em vermelho; a conferência do validador (p[...] sem parâmetro, m[...] que não é medida,
@@ -254,7 +254,7 @@ function marcaErros(erros, conferencia = (ctl.dados && ctl.dados.conferencia) ||
   if (ctl.editor && ctl.monaco) {                       // cada erro ou aviso no modelo do arquivo dele
     const S = ctl.monaco.MarkerSeverity;
     for (const [a, m] of Object.entries(ctl.modelos)) {
-      ctl.monaco.editor.setModelMarkers(m, "pew", (erros || []).filter((e) => arquivoDe(e) === a).map((e) => ({ startLineNumber: e.linha || 1, startColumn: e.coluna || 1,
+      ctl.monaco.editor.setModelMarkers(m, "maisim", (erros || []).filter((e) => arquivoDe(e) === a).map((e) => ({ startLineNumber: e.linha || 1, startColumn: e.coluna || 1,
         endLineNumber: e.linha || 1, endColumn: 1000, message: e.msg, severity: S.Error })).concat((conferencia || []).filter((c) => arquivoDe(c) === a).map((c) => ({
         startLineNumber: c.linha, startColumn: c.coluna, endLineNumber: c.linha, endColumn: Math.max(c.fim || c.coluna + 1, c.coluna + 1), message: c.msg, severity: S.Warning }))));
     }
@@ -281,8 +281,8 @@ async function criaEditor(c) {
   try {
     const monaco = ctl.monaco = await carregaMonaco();
     $("ctl-editor").innerHTML = "";
-    addEventListener("pew-tema", () => monaco.editor.setTheme(temaAtual() === "escuro" ? "vs-dark" : "vs"));   // o tema do PEW
-    for (const a of ctl.lista) { ctl.modelos[a] = monaco.editor.createModel(todos[a], "python", monaco.Uri.parse(`file:///pew/${a}`));
+    addEventListener("maisim-tema", () => monaco.editor.setTheme(temaAtual() === "escuro" ? "vs-dark" : "vs"));   // o tema do MaiSim
+    for (const a of ctl.lista) { ctl.modelos[a] = monaco.editor.createModel(todos[a], "python", monaco.Uri.parse(`file:///maisim/${a}`));
       ctl.modelos[a].onDidChangeContent(() => { if (!ctl.calado) agendaGuardar(); }); }
     ctl.editor = monaco.editor.create($("ctl-editor"), { model: ctl.modelos["controle.py"], automaticLayout: true, fontSize: 13, theme: temaAtual() === "escuro" ? "vs-dark" : "vs",
       minimap: { enabled: false }, scrollBeyondLastLine: false, tabSize: 4, insertSpaces: true, lineNumbersMinChars: 3,
@@ -683,8 +683,8 @@ function importsDe(a) {
   return nomes.map((n) => `${n}.py`).filter((f) => ctl.lista.includes(f)).map((f, k) => [f, pos(nomeDoArquivo(f)), k])
     .sort((x, y) => x[1] - y[1] || x[2] - y[2]).map(([f]) => f);
 }
-ctl.recolhidos = new Set(); try { ctl.recolhidos = new Set(JSON.parse(localStorage.getItem("pew-simu-ctl-recolhidos") || "[]")); } catch (e) { /* ok */ }
-ctl.cartoesFechados = new Set(); try { ctl.cartoesFechados = new Set(JSON.parse(localStorage.getItem("pew-simu-ctl-cartoes") || "[]")); } catch (e) { /* ok */ }
+ctl.recolhidos = new Set(); try { ctl.recolhidos = new Set(JSON.parse(localStorage.getItem("maisim-simu-ctl-recolhidos") || "[]")); } catch (e) { /* ok */ }
+ctl.cartoesFechados = new Set(); try { ctl.cartoesFechados = new Set(JSON.parse(localStorage.getItem("maisim-simu-ctl-cartoes") || "[]")); } catch (e) { /* ok */ }
 // a busca da coluna "arquivos": os arquivos com o texto no nome e as linhas de código com o texto (clique: abre na linha)
 function buscaArquivos() {
   const q = ($("ctl-arq-busca").value || "").trim(), ql = q.toLowerCase(), res = $("ctl-busca-res");
@@ -726,7 +726,7 @@ function zoomDiag(f, px, py) {                           // f: o fator; (px, py)
   aplicaVistaDiag();
 }
 function ligaVistaDiag() {
-  const rolo = $("ctl-diag-svg").parentElement, esc = () => rolo.offsetWidth / (rolo.getBoundingClientRect().width || 1);   // o zoom do PEW
+  const rolo = $("ctl-diag-svg").parentElement, esc = () => rolo.offsetWidth / (rolo.getBoundingClientRect().width || 1);   // o zoom do MaiSim
   let arr = null;
   rolo.addEventListener("pointerdown", (ev) => { if (ev.button !== 0 && ev.button !== 1) return; arr = { x0: ev.clientX, y0: ev.clientY, x: vistaDiag.x, y: vistaDiag.y, moveu: false, id: ev.pointerId }; });
   rolo.addEventListener("pointermove", (ev) => {
@@ -907,7 +907,7 @@ function abrePicker(nome, g, sum) {
   });
   ctl.pick.ancora = sum; posicionaPicker(); corpoPicker(); pk.querySelector(".filtro").focus();
 }
-function posicionaPicker() {                             // junto da linha clicada, com o zoom do PEW (a razão offsetWidth/largura medida)
+function posicionaPicker() {                             // junto da linha clicada, com o zoom do MaiSim (a razão offsetWidth/largura medida)
   const pk = $("ctl-pick"); if (!pk || !ctl.pick) return;
   const card = cartaoDe(ctl.pick.nome), sum = card && card.querySelector(`details[data-g="${ctl.pick.g}"] > summary`);
   const pn = $("painel-controle"), P = pn.getBoundingClientRect(), k = pn.offsetWidth / (P.width || 1);
@@ -951,7 +951,7 @@ function mostraVista(v) {
   v = v === "arq" ? "arq" : "var";
   $("ctl-v-var").hidden = v !== "var"; $("ctl-v-arq").hidden = v !== "arq";
   $("ctl-vistas").querySelectorAll("button").forEach((b) => { b.classList.toggle("ativo", b.dataset.vista === v); b.setAttribute("aria-selected", String(b.dataset.vista === v)); });
-  try { localStorage.setItem("pew-simu-ctl-vista", v); } catch (e) { /* vale até recarregar */ }
+  try { localStorage.setItem("maisim-simu-ctl-vista", v); } catch (e) { /* vale até recarregar */ }
 }
 function infoRede() {                                    // a latência da rede em amostras: chega na 1ª amostra depois do envio com t ≥ t + τ
   const dt = Number(sim.par.dt) || 1e-6, Ts = Math.max(1, Math.round((Number(String($("ctl-ts").value).replace(",", ".")) || 0) / dt)) * dt;
@@ -1001,7 +1001,7 @@ function infoAtraso() {
     if (!(a.destinos || []).length) linhas.push([`${a.nome} não chega a chave nem a fonte controlada: o atraso é tratado como o de uma fonte, sem garantia`, true]);
     for (const q of a.destinos || []) {
       const alvo = `${q.tipo} ${q.nome || q.gate || ""}`;
-      if (q.atraso == null) { linhas.push([`${a.nome} → ${alvo}: o caminho sai por um subcircuito que o PEW não achou (não compensado)`, true]); continue; }
+      if (q.atraso == null) { linhas.push([`${a.nome} → ${alvo}: o caminho sai por um subcircuito que o MaiSim não achou (não compensado)`, true]); continue; }
       const ef = desl + q.atraso;
       if (ef !== d) linhas.push([`${a.nome} → ${alvo}: sente em t + ${ef} × Δt (` + (q.atraso === lag ? `o Gecko leva no mínimo ${q.atraso} Δt por esse caminho`
         : "o mesmo CONST chega a destinos com atrasos diferentes; o que sente primeiro fica exato") + ")", true]);
@@ -1072,7 +1072,7 @@ function saidaControle(txt, tipo = "", ctx = null) {   // ctx: {arquivo, linha} 
   ctl.saida = { txt, tipo, ctx };
   $("ctl-saida-claude").style.display = tipo === "erro" ? "" : "none";
 }
-// o erro para colar (ou para o Claude do PEW): o texto da saída e o trecho do arquivo em volta da linha, com ▶ na do erro
+// o erro para colar (ou para o Claude do MaiSim): o texto da saída e o trecho do arquivo em volta da linha, com ▶ na do erro
 function textoDoErro() {
   const S = ctl.saida || { txt: "" }, ctx = S.ctx || {};
   const m = String(S.txt).match(/([\w.-]+\.py) linha (\d+)/);
@@ -1207,11 +1207,11 @@ function tagAtuador(g, x, y, nome, centrada = false) {   // centrada: x é o mei
       if (ctl.pick && ctl.pick.nome === nome && ctl.pick.g === dt.dataset.g) fechaPicker(); else abrePicker(nome, dt.dataset.g, sm); return; }
     const cb = ev.target.closest("[data-card]");
     if (cb) { const k = cb.dataset.card; ctl.cartoesFechados.has(k) ? ctl.cartoesFechados.delete(k) : ctl.cartoesFechados.add(k);
-      try { localStorage.setItem("pew-simu-ctl-cartoes", JSON.stringify([...ctl.cartoesFechados])); } catch (e) { /* ok */ }
+      try { localStorage.setItem("maisim-simu-ctl-cartoes", JSON.stringify([...ctl.cartoesFechados])); } catch (e) { /* ok */ }
       if (ctl.pick && ctl.pick.nome) fechaPicker(); desenhaControladores(); return; }
     const st = ev.target.closest("[data-seta]");
     if (st) { const k = st.dataset.seta; ctl.recolhidos.has(k) ? ctl.recolhidos.delete(k) : ctl.recolhidos.add(k);
-      try { localStorage.setItem("pew-simu-ctl-recolhidos", JSON.stringify([...ctl.recolhidos])); } catch (e) { /* ok */ } desenhaControladores(); return; }
+      try { localStorage.setItem("maisim-simu-ctl-recolhidos", JSON.stringify([...ctl.recolhidos])); } catch (e) { /* ok */ } desenhaControladores(); return; }
     const f = ev.target.closest("#ctl-ctls [data-fecha]"); if (f) { apagaArquivo(f.dataset.fecha); return; }
     const vai = ev.target.closest("#ctl-busca-res [data-vai]"); if (vai) { const i = vai.dataset.vai.lastIndexOf(":"); vaiParaLinha(vai.dataset.vai.slice(0, i), +vai.dataset.vai.slice(i + 1)); return; }
     const no_ = ev.target.closest("#ctl-ctls .ctl-no, #ctl-busca-res .ctl-no"); if (no_ && !ev.target.closest("[data-liga], [data-desliga]")) { mostraArquivo(no_.dataset.abre); return; }
@@ -1244,9 +1244,9 @@ function tagAtuador(g, x, y, nome, centrada = false) {   // centrada: x é o mei
   $("ctl-arq-busca").addEventListener("keydown", (ev) => { if (ev.key === "Escape") { ev.target.value = ""; buscaArquivos(); } });
   $("ctl-fora-bt").onclick = () => document.body.classList.add("codigo-aqui");   // editar também aqui (vale o último a guardar)
   $("ctl-lado-bt").onclick = () => poeLado(!$("painel-controle").classList.contains("sem-lado"));
-  let semLado = false; try { semLado = localStorage.getItem("pew-simu-ctl-sem-lado") === "1"; } catch (e) { /* ok */ }
+  let semLado = false; try { semLado = localStorage.getItem("maisim-simu-ctl-sem-lado") === "1"; } catch (e) { /* ok */ }
   poeLado(semLado);
-  let vistaGuardada = "var"; try { vistaGuardada = localStorage.getItem("pew-simu-ctl-vista") || "var"; } catch (e) { /* ok */ }
+  let vistaGuardada = "var"; try { vistaGuardada = localStorage.getItem("maisim-simu-ctl-vista") || "var"; } catch (e) { /* ok */ }
   mostraVista(vistaGuardada);
   $("ctl-rede-lat").addEventListener("input", infoRede);
   $("ctl-guia").onclick = () => window.open("static/guia.html", "_blank");

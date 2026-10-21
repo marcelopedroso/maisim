@@ -1,4 +1,4 @@
-// envia com o destino montado (instância de teste 5010 → 8768), achado de Marcelo em 19/10: o controle manda o theta às 6
+// envia com o destino montado (instância de teste 7200 → 7201), achado de Marcelo em 19/10: o controle manda o theta às 6
 // células num for — envia("sm_ap_%d" % k, …) — e o diagrama e os cartões não ligavam nada ("ta no for… mas mostrar no esquema
 // de ligar também"): "%" com o for sobre uma tupla, f-string com range(1, 4), "".format sem for (casa pelo molde com os
 // controladores que existem), "x_" + str(k) com o for sobre uma lista e uma variável de um for sobre nomes (que não existem:
@@ -30,8 +30,8 @@ const NOMES = ["sm_ap_1", "sm_ap_2", "sm_ap_3", "sm_an_1", "sm_an_2", "sm_an_3",
   try {
     b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 2300, height: 1100 } })).newPage();
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-    await pg.addInitScript(() => { try { localStorage.setItem("pew-simu-ctl-vista", "arq"); localStorage.removeItem("pew-simu-ctl-tabelas"); } catch (e) { /* ok */ } });
-    await pg.goto("http://localhost:5010/pew/simu/");
+    await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-ctl-vista", "arq"); localStorage.removeItem("maisim-simu-ctl-tabelas"); } catch (e) { /* ok */ } });
+    await pg.goto("http://localhost:7200/maisim/simu/");
     for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof dados !== "undefined" && dados && dados.editor)); k++) { if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }
     await pg.evaluate(async ([orq, sm, nomes]) => {
       const j = await api("editor/novo", { modo: "descartar" }); dados = j; folhaAtual = "0"; novoEstado(j);

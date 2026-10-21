@@ -1,4 +1,4 @@
-# Exemplo do PEW: buck com o PWM feito aqui no controle.py, e um PI de corrente atualizado uma vez por período.
+# Exemplo do MaiSim: buck com o PWM feito aqui no controle.py, e um PI de corrente atualizado uma vez por período.
 #
 # A cada Ts (no painel: 2 µs, com Δt = 1 µs), o código:
 #   1. gera a portadora dente de serra (0 → 1, a fsw) a partir do tempo t;

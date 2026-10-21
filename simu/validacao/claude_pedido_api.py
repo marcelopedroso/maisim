@@ -1,22 +1,22 @@
-"""O "pedir ao Claude" pela API, na instância de teste (8768), com o claude de mentira (validacao/claude_falso.py):
-suba o servidor de teste com PEW_CLAUDE_BIN=<este diretório>/claude_falso.py e PEW_CLAUDE_DIR numa pasta descartável.
+"""O "pedir ao Claude" pela API, na instância de teste (7201), com o claude de mentira (validacao/claude_falso.py):
+suba o servidor de teste com MAISIM_CLAUDE_BIN=<este diretório>/claude_falso.py e MAISIM_CLAUDE_DIR numa pasta descartável.
 Confere o uso da conta, as opções com que o claude roda (restrito, só os três arquivos), a conversa (nova e retomada),
 o contexto, a proposta (validada e testada, sem mexer no controle guardado), os erros, parar, anexos e a proteção das rotas."""
 import base64, json, os, subprocess, time, urllib.request
 from pathlib import Path
 
-B = "http://localhost:8768/pew/simu/"
-PID = subprocess.run("ss -ltnp | grep ':8768 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1", shell=True, capture_output=True, text=True).stdout.strip()
+B = "http://localhost:7201/maisim/simu/"
+PID = subprocess.run("ss -ltnp | grep ':7201 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1", shell=True, capture_output=True, text=True).stdout.strip()
 ENV = dict(x.split("=", 1) for x in Path(f"/proc/{PID}/environ").read_bytes().decode().split("\0") if "=" in x)
-assert ENV.get("PEW_CLAUDE_BIN", "").endswith("claude_falso.py"), "suba o servidor de teste com PEW_CLAUDE_BIN=…/claude_falso.py"
-CONF = Path(ENV["PEW_CLAUDE_DIR"])
-assert "pew_simu_teste" in str(CONF) or "/tmp/" in str(CONF), "PEW_CLAUDE_DIR tem de ser uma pasta descartável (reinicia_servidor_teste.sh)"
-CASA = Path(ENV["PEW_SIMU_CACHE"]) / "claude"
+assert ENV.get("MAISIM_CLAUDE_BIN", "").endswith("claude_falso.py"), "suba o servidor de teste com MAISIM_CLAUDE_BIN=…/claude_falso.py"
+CONF = Path(ENV["MAISIM_CLAUDE_DIR"])
+assert "maisim_teste" in str(CONF) or "/tmp/" in str(CONF), "MAISIM_CLAUDE_DIR tem de ser uma pasta descartável (reinicia_servidor_teste.sh)"
+CASA = Path(ENV["MAISIM_SIMU_CACHE"]) / "claude"
 CONF.mkdir(parents=True, exist_ok=True)
 
 
 def api(rota, corpo=None, cab=None):
-    h = {"Content-Type": "application/json", "X-PEW": "1", **(cab or {})}
+    h = {"Content-Type": "application/json", "X-MaiSim": "1", **(cab or {})}
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers=h)
     try:
         return json.loads(urllib.request.urlopen(req, timeout=120).read())
@@ -60,7 +60,7 @@ def pede(texto, c):
 
 
 import shutil, sys, datetime
-SALVOS = Path(ENV["PEW_SIMU_SALVOS"])
+SALVOS = Path(ENV["MAISIM_SALVOS"])
 REPO = Path(__file__).resolve().parent / "dados"           # o exemplo original, congelado (o do repositório é do Marcelo e muda)
 for f in ("exemplo_controle_pwm.ipes", "exemplo_controle_pwm.controle.json"):   # o exemplo na pasta de teste (desce_teste.sh a apaga)
     shutil.copy(REPO / f, SALVOS / f)
@@ -236,7 +236,7 @@ def principal():
     a = ultimo_pedido()["args"]
     ok("--session-id" in a and a[a.index("--session-id") + 1] != sid, "nova conversa: outra sessão")
 
-    # a memória do PEW: o Claude propõe, o usuário aplica, e ela vai nos pedidos seguintes (em qualquer conversa)
+    # a memória do MaiSim: o Claude propõe, o usuário aplica, e ela vai nos pedidos seguintes (em qualquer conversa)
     api("claude/memoria", {"texto": ""})
     e = pede("lembre que prefiro anti-windup por clamping", "memoria")
     p = e.get("proposta") or {}
@@ -251,15 +251,15 @@ def principal():
     ok(api("claude/memoria", {"texto": "x" * 20_001}).get("ERRO") == 409, "memória grande demais: recusada")
 
     # proteção das rotas
-    ok(api("claude/pedir", {"texto": "x"}, cab={"X-PEW": ""}).get("ERRO") == 403, "POST sem o cabeçalho da página: 403")
+    ok(api("claude/pedir", {"texto": "x"}, cab={"X-MaiSim": ""}).get("ERRO") == 403, "POST sem o cabeçalho da página: 403")
     ok(api("claude/pedido", cab={"Origin": "http://localhost:9999"}).get("ERRO") == 403, "GET de outra origem: 403")
     ok(api("claude/uso", cab={"Host": "evil.example"}).get("ERRO") == 403, "Host de fora (DNS rebinding): 403")
     antes = api("editor/controle")["controle"]
-    r = api("editor/controle", {"controle": dict(antes, codigo="import os\n")}, cab={"Origin": "http://evil.example", "X-PEW": ""})
-    r2 = api("editor/controle/testar", {"dt": 1e-6}, cab={"Origin": "http://localhost:9999", "X-PEW": ""})
+    r = api("editor/controle", {"controle": dict(antes, codigo="import os\n")}, cab={"Origin": "http://evil.example", "X-MaiSim": ""})
+    r2 = api("editor/controle/testar", {"dt": 1e-6}, cab={"Origin": "http://localhost:9999", "X-MaiSim": ""})
     ok(r.get("ERRO") == 403 and r2.get("ERRO") == 403 and api("editor/controle")["controle"]["codigo"] == antes["codigo"],
        "todo POST de outra origem: 403 (guardar e testar o controle não aceitam página de fora)")
-    ok(api("editor/controle", {"controle": antes}, cab={"X-PEW": ""}).get("ERRO") is None, "sem Origin (scripts locais, como estes testes): passa")
+    ok(api("editor/controle", {"controle": antes}, cab={"X-MaiSim": ""}).get("ERRO") is None, "sem Origin (scripts locais, como estes testes): passa")
 
 
 try:

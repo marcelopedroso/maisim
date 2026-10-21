@@ -1,4 +1,4 @@
-package pew;
+package maisim;
 
 import ch.technokrat.gecko.geckocircuits.allg.AbstractComponentTyp;
 import ch.technokrat.gecko.geckocircuits.allg.UserParameter;
@@ -13,14 +13,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Os parâmetros de cada tipo de componente do Gecko, tirados do próprio Gecko (como a PewGeometria): constrói um bloco de
+ * Os parâmetros de cada tipo de componente do Gecko, tirados do próprio Gecko (como a MaiSimGeometria): constrói um bloco de
  * cada tipo (TypeInfo.fabric(), sem a janela) e, para cada UserParameter registrado, grava o nome curto (o da interface
  * remota: getAccessibleParameters/setParameter), os nomes alternativos, o identificador com que ele vai para o arquivo
  * (getSaveIdentifier: a linha "<identificador> valor" e, ligado a uma variável global, "<identificador>$ParameterName $x"),
  * o índice no parameter[]/nameOpt[] antigo e o tipo do valor (só Double e Integer podem vir de uma variável $).
- * uso: java -Djava.awt.headless=true -cp gecko.jar:bin pew.PewParametros > parametros_gecko.json
+ * uso: java -Djava.awt.headless=true -cp gecko.jar:bin maisim.MaiSimParametros > parametros_gecko.json
  */
-public final class PewParametros {
+public final class MaiSimParametros {
 
     private static String js(Object o) {
         return "\"" + String.valueOf(o).replace("\\", "\\\\").replace("\"", "\\\"") + "\"";

@@ -1,9 +1,9 @@
-# a beira da folha principal (instância de teste 8768): o Gecko não aceita x nem y menor que 1 (põe em 1, sem avisar) — o caso
+# a beira da folha principal (instância de teste 7201): o Gecko não aceita x nem y menor que 1 (põe em 1, sem avisar) — o caso
 # do Marcelo (18/10): fontes em x = 1 arrastadas para a esquerda voltavam. Soltar além da beira abre espaço: o circuito todo
 # anda o que faltar, a peça fica onde foi solta em relação às outras, as conexões vão junto; um passo do desfazer; o grupo
 # também; dentro do subcircuito (folha de tamanho fixo) nada anda
 import json, urllib.request
-B = "http://localhost:8768/pew/simu/"
+B = "http://localhost:7201/maisim/simu/"
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(req, timeout=180).read())

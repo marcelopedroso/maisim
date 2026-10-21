@@ -1,4 +1,4 @@
-// um sinal que o controle usa muda de nome, pela tela (instância de teste 5010 → 8768), pedido de Marcelo em 19/10
+// um sinal que o controle usa muda de nome, pela tela (instância de teste 7200 → 7201), pedido de Marcelo em 19/10
 // ("quando a gente muda uma variável de nome e ela está sendo usada em algum código, tem como mudar todos os lugares? ou
 // pelo menos alertar num modal e confirmar"): o rótulo da saída do CONST mudado no painel → o modal diz de → para e onde;
 // "renomear no controle também" troca no código aberto no editor e nas atuações; "desfazer a mudança" volta o circuito;
@@ -12,8 +12,8 @@ const COD = 'def iniciar(p, e):\n    pass\n\n\ndef passo(t, m, p, e):\n    # u1:
   try {
     b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1700, height: 1000 } })).newPage();
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-    await pg.addInitScript(() => { try { localStorage.setItem("pew-simu-ctl-vista", "arq"); } catch (e) { /* ok */ } });
-    await pg.goto("http://localhost:5010/pew/simu/");
+    await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-ctl-vista", "arq"); } catch (e) { /* ok */ } });
+    await pg.goto("http://localhost:7200/maisim/simu/");
     for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof dados !== "undefined" && dados && dados.editor)); k++) { if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }
     await pg.evaluate(async (cod) => {
       const j = await api("editor/novo", { modo: "descartar" }); dados = j; folhaAtual = "0"; novoEstado(j);

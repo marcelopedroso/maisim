@@ -1,7 +1,7 @@
-"""As janelas de erro do Gecko do PEW, na tela escondida dele (PEW_GECKO_TELA, :99).
+"""As janelas de erro do Gecko do MaiSim, na tela escondida dele (MAISIM_TELA_X, :99).
 
 O Gecko às vezes abre uma janela de erro (JOptionPane, com OK) no meio de um pedido remoto — ao reabrir um arquivo com
-componentes fora da folha, por exemplo — e espera o OK. Ninguém vê essa tela: o pedido fica parado, e o PEW inteiro
+componentes fora da folha, por exemplo — e espera o OK. Ninguém vê essa tela: o pedido fica parado, e o MaiSim inteiro
 espera por ele (Marcelo, 19/10, ao colar uma perna de MMC abaixo da beira da folha). Aqui: achar essas janelas, guardar
 uma foto (para saber o que o Gecko disse) e fechar com OK — sem xdotool, pela libXtst (XTest) e pela libX11.
 """

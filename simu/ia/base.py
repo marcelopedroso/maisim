@@ -1,6 +1,6 @@
-"""A IA como peça trocável do PEW (etapa 2 do hub de IA; plano de 21/10 em ~/.claude/plans/expressive-painting-peacock.md).
+"""A IA como peça trocável do MaiSim (etapa 2 do hub de IA; plano de 21/10 em ~/.claude/plans/expressive-painting-peacock.md).
 
-O PEW monta a pasta de trabalho (CONTEXTO.md, o controle, a rodada, os anexos, a memória, os contextos salvos, CONVERSA.md)
+O MaiSim monta a pasta de trabalho (CONTEXTO.md, o controle, a rodada, os anexos, a memória, os contextos salvos, CONVERSA.md)
 e guarda a conversa no seu próprio registro: isso é igual para qualquer IA. O que muda de uma IA para outra fica aqui:
   como chamar a ferramenta dela (o comando de um pedido, de um resumo, do estado do login e do uso), onde fica a pasta de
   configuração (o login, isolado do resto da máquina), se a sessão de uma conversa já existe, e como ler o que ela escreve
@@ -28,13 +28,13 @@ class IA:
     variavel_pasta = ""           # a variável de ambiente que aponta a pasta de configuração da ferramenta
     modelos = ("",)               # "" = o padrão da conta
     esforcos = ("",)
-    tem_login = False             # o login é pelo PEW (estado/entra/codigo/sai abaixo); o do Claude é o do servidor
+    tem_login = False             # o login é pelo MaiSim (estado/entra/codigo/sai abaixo); o do Claude é o do servidor
 
     def __init__(self, binario, pasta):
         self.bin = str(binario)
         self.pasta = Path(pasta).resolve()
 
-    # ---- o ambiente do processo filho: lista branca + a pasta de configuração do PEW (nenhuma chave de outra IA vaza)
+    # ---- o ambiente do processo filho: lista branca + a pasta de configuração do MaiSim (nenhuma chave de outra IA vaza)
     def ambiente(self, **extra):
         env = {k: os.environ[k] for k in ENV_BRANCA if k in os.environ}
         if self.variavel_pasta:
@@ -95,7 +95,7 @@ class IA:
         return {"instalado": self.instalado(), "logado": False}
 
     def entra(self):
-        raise ValueError(f"{self.nome}: o login pelo PEW ainda não existe")
+        raise ValueError(f"{self.nome}: o login pelo MaiSim ainda não existe")
 
     def codigo(self, codigo):
         raise ValueError(f"{self.nome}: não há login em andamento")
@@ -104,4 +104,4 @@ class IA:
         pass
 
     def sai(self):
-        raise ValueError(f"{self.nome}: o login pelo PEW ainda não existe")
+        raise ValueError(f"{self.nome}: o login pelo MaiSim ainda não existe")

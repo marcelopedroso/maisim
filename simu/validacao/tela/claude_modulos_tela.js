@@ -1,5 +1,5 @@
-// etapa B (19/10, pedido de Marcelo): o Claude do PEW cria e edita os módulos — com o claude de mentira (cenário "modulos":
-// cria o pll.py, chama do controle.py na ordem e revisa o leitura.py), direto no servidor de teste 8768: a proposta com os 3
+// etapa B (19/10, pedido de Marcelo): o Claude do MaiSim cria e edita os módulos — com o claude de mentira (cenário "modulos":
+// cria o pll.py, chama do controle.py na ordem e revisa o leitura.py), direto no servidor de teste 7201: a proposta com os 3
 // arquivos (pll.py novo), a janela da diferença com uma aba por arquivo, ▷ testar com os módulos, aplicar (o pll.py entra
 // no editor e no servidor, como módulo), "ver a mudança" com os arquivos, voltar ao de antes (o pll.py sai), e as opções
 // do CLI (Write só em ./*.py); o modelo e o esforço escolhidos e o enviar desligado enquanto ele responde
@@ -7,20 +7,20 @@ const { chromium } = require("playwright");
 const fs = require("fs"), path = require("path"), { execSync } = require("child_process");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
-const pid = execSync(`ss -ltnp | grep ':8768 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1`).toString().trim();
+const pid = execSync(`ss -ltnp | grep ':7201 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1`).toString().trim();
 const ENV = Object.fromEntries(fs.readFileSync(`/proc/${pid}/environ`).toString().split("\0").filter((x) => x.includes("=")).map((x) => [x.slice(0, x.indexOf("=")), x.slice(x.indexOf("=") + 1)]));
-if (!(ENV.PEW_CLAUDE_BIN || "").endsWith("claude_falso.py") || !/pew_simu_teste|\/tmp\//.test(ENV.PEW_CLAUDE_DIR || "")) { console.log("FALHA suba o servidor de teste com o claude de mentira (reinicia_servidor_teste.sh)"); process.exit(1); }
-const CONF = ENV.PEW_CLAUDE_DIR, logado = (on) => { const f = path.join(CONF, "falso_logado"); if (on) fs.writeFileSync(f, ""); else fs.rmSync(f, { force: true }); };
+if (!(ENV.MAISIM_CLAUDE_BIN || "").endsWith("claude_falso.py") || !/maisim_teste|\/tmp\//.test(ENV.MAISIM_CLAUDE_DIR || "")) { console.log("FALHA suba o servidor de teste com o claude de mentira (reinicia_servidor_teste.sh)"); process.exit(1); }
+const CONF = ENV.MAISIM_CLAUDE_DIR, logado = (on) => { const f = path.join(CONF, "falso_logado"); if (on) fs.writeFileSync(f, ""); else fs.rmSync(f, { force: true }); };
 fs.mkdirSync(CONF, { recursive: true }); fs.writeFileSync(path.join(CONF, "falso_cenario"), "modulos"); logado(true);
 fs.rmSync(path.join(CONF, "falso_chamadas.jsonl"), { force: true });
 const limpa = () => { logado(false); fs.rmSync(path.join(CONF, "falso_cenario"), { force: true }); };
-const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: "POST", headers: { "Content-Type": "application/json", "X-PEW": "1" }, body: JSON.stringify(c) } : {}).then((x) => x.json()), [rota, corpo]);
+const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: "POST", headers: { "Content-Type": "application/json", "X-MaiSim": "1" }, body: JSON.stringify(c) } : {}).then((x) => x.json()), [rota, corpo]);
 (async () => {
   let b;
   try {
     b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 2300, height: 1000 } })).newPage();
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-    await pg.goto("http://localhost:8768/pew/simu/");
+    await pg.goto("http://localhost:7201/maisim/simu/");
     for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof dados !== "undefined" && dados && dados.editor)); k++) {
       if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }
     await api(pg, "editor/novo", { modo: "descartar" }); await api(pg, "claude/nova", {});

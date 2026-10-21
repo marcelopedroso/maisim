@@ -1,21 +1,21 @@
-"""Trocar de IA no meio da conversa (instância de teste 8768 com PEW_IA_TESTE=1: além do Claude de mentira, o "Eco", o
+"""Trocar de IA no meio da conversa (instância de teste 7201 com MAISIM_IA_TESTE=1: além do Claude de mentira, o "Eco", o
 mesmo claude de mentira com outra pasta de configuração), etapa 2 do hub de IA (21/10): cada IA retoma a SUA sessão quando
-volta; a que chega (ou que não viu o que a outra respondeu) recebe CONVERSA.md, a conversa no registro do PEW, e o pedido
+volta; a que chega (ou que não viu o que a outra respondeu) recebe CONVERSA.md, a conversa no registro do MaiSim, e o pedido
 cita; cada resposta guarda qual IA respondeu; /claude/ias lista as IAs."""
 import json, subprocess, time, urllib.request
 from pathlib import Path
-B = "http://localhost:8768/pew/simu/"
-PID = subprocess.run("ss -ltnp | grep ':8768 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1", shell=True, capture_output=True, text=True).stdout.strip()
+B = "http://localhost:7201/maisim/simu/"
+PID = subprocess.run("ss -ltnp | grep ':7201 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1", shell=True, capture_output=True, text=True).stdout.strip()
 ENV = dict(x.split("=", 1) for x in Path(f"/proc/{PID}/environ").read_bytes().decode().split("\0") if "=" in x)
-assert ENV.get("PEW_CLAUDE_BIN", "").endswith("claude_falso.py") and ENV.get("PEW_IA_TESTE") == "1", "suba o servidor de teste (reinicia_servidor_teste.sh)"
-CONF = Path(ENV["PEW_CLAUDE_DIR"])
-ECO = CONF.with_name("eco-pew")
-SALVOS, CASA = Path(ENV["PEW_SIMU_SALVOS"]), Path(ENV["PEW_SIMU_CACHE"]) / "claude"
+assert ENV.get("MAISIM_CLAUDE_BIN", "").endswith("claude_falso.py") and ENV.get("MAISIM_IA_TESTE") == "1", "suba o servidor de teste (reinicia_servidor_teste.sh)"
+CONF = Path(ENV["MAISIM_CLAUDE_DIR"])
+ECO = CONF.with_name("eco-maisim")
+SALVOS, CASA = Path(ENV["MAISIM_SALVOS"]), Path(ENV["MAISIM_SIMU_CACHE"]) / "claude"
 
 
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None,
-                                 headers={"Content-Type": "application/json", "X-PEW": "1"})
+                                 headers={"Content-Type": "application/json", "X-MaiSim": "1"})
     try:
         return json.loads(urllib.request.urlopen(req, timeout=180).read())
     except urllib.error.HTTPError as e:
@@ -69,7 +69,7 @@ try:
     sessoes = json.loads((CASA / "sessoes.json").read_text())
     s_eco = next((v.get("sessoes", {}).get("eco") for v in sessoes.values() if v.get("id") == sid), None)
     ok(s2[0] == "nova" and s2[1] == s_eco and s2[1] != sid and "CONVERSA.md" in prompt(a2) and h[-1].get("resposta") == "li a conversa: 1 pedido(s)"
-       and h[-1].get("ia") == "eco" and "Você é a IA do PEW (Eco (teste))" in a2[a2.index("--append-system-prompt") + 1],
+       and h[-1].get("ia") == "eco" and "Você é a IA do MaiSim (Eco (teste))" in a2[a2.index("--append-system-prompt") + 1],
        f"troca para o Eco: sessão própria ({str(s_eco)[:8]}…, guardada em sessoes.json), lê CONVERSA.md ({h[-1].get('resposta')!r}), marcada \"eco\", regras com o nome dele")
     api("claude/pedir", {"texto": "três", "dt": 1e-6, "tfim": 0.002, "ia": "claude"})
     e = espera()

@@ -1,10 +1,10 @@
-# Guia do Controle — PEW / simu
+# Guia do Controle — MaiSim / simu
 
-Este guia explica como o código de controle (`controle.py`, painel **Controle** do `/pew/simu`) conversa com a simulação
+Este guia explica como o código de controle (`controle.py`, painel **Controle** do `/maisim/simu`) conversa com a simulação
 no GeckoCIRCUITS. Ele cobre onde se configura cada coisa, a linha do tempo de uma amostra e o atraso de uma atuação até o
 circuito. Também traz os cuidados que evitam resultados errados, os dois exemplos prontos e, no fim, o roteiro para quem
-automatiza (inclusive o Claude Code). Os números citados foram medidos neste PEW: os scripts dos ensaios estão em
-`simu/pew_simu/validacao/` e as rodadas de referência dos exemplos em `simu/pew_simu/rodadas/`. O que ainda não foi
+automatiza (inclusive o Claude Code). Os números citados foram medidos neste MaiSim: os scripts dos ensaios estão em
+`simu/validacao/` e as rodadas de referência dos exemplos em `~/.local/share/maisim/rodadas/`. O que ainda não foi
 testado está marcado como tal.
 
 ## 1. O que acontece numa rodada
@@ -78,7 +78,7 @@ def passo(t, m, p, e):      # a cada Ts
 ### 3.0 Onde fica o painel
 
 O painel do controle abre na doca do simu (o botão `</>` do cabeçalho) ou numa **janela só dele**, pelo `</>` do trilho
-do PEW: para deixar o circuito num monitor e o código no outro. A janela do código fica ligada ao circuito aberto no
+do MaiSim: para deixar o circuito num monitor e o código no outro. A janela do código fica ligada ao circuito aberto no
 simu; o ▶ fica na janela do circuito (é ela que roda e chama os controladores), e a do código trava a edição durante a
 rodada. O botão no começo da barra do editor recolhe a coluna da esquerda (mais espaço para o código).
 
@@ -127,7 +127,7 @@ def passo(t, m, p, e):
 * **O tempo de cálculo é zero dentro da amostra.** Ler, calcular e escrever acontecem no mesmo instante simulado,
   quantos arquivos houver. O atraso real (conversão do ADC, cálculo, atualização do PWM) é o do painel (§4): `logo`,
   `amostra` (o clássico: calcula durante o período, atualiza no começo do próximo) ou uma latência τ.
-* **Os riscos que o PEW acusa:** nome de módulo do Python (`json.py`, `math.py`: erro, renomeie); `import` de arquivo que
+* **Os riscos que o MaiSim acusa:** nome de módulo do Python (`json.py`, `math.py`: erro, renomeie); `import` de arquivo que
   não existe (erro); `import` de um controlador (erro: o atraso entraria na malha); módulo que ninguém importa (aviso: não
   roda); imports em ciclo (aviso); módulo com `passo(t, m, p, e)` — cara de controlador (aviso); o mesmo módulo em dois
   controladores (aviso: cada um tem a sua cópia, sem memória comum). Erro dentro de um módulo aponta o arquivo e a linha
@@ -135,7 +135,7 @@ def passo(t, m, p, e):
 * **A ordem é conferida** no `passo()` de cada controlador: `leitura.passo()` é a 1ª chamada de módulo e `escrita.passo()`
   a última, e o `return` devolve o que o escrita devolveu (senão os limites do atuador ficam de fora); todo módulo chamado
   no `passo()` é iniciado no `iniciar()`. Desvio vira aviso na tela e no contexto do Claude, que corrige junto.
-* **O Claude do PEW** edita o `controle.py` e os módulos e cria módulos novos (só `.py` na pasta dele), seguindo o
+* **O Claude do MaiSim** edita o `controle.py` e os módulos e cria módulos novos (só `.py` na pasta dele), seguindo o
   contrato e a ordem; a proposta mostra a diferença de cada arquivo (uma aba por arquivo), aplicar leva os módulos, e
   "voltar ao de antes" e "ver a mudança" também. Ele não apaga arquivos nem transforma módulo em controlador.
 * **Controle de antes dos módulos** continua como era (só o `controle.py`); na árvore, "organizar como um DSP" cria o
@@ -152,7 +152,7 @@ editor (ou "+ arquivo") cria um módulo (§3.0.1); "virar controlador", na árvo
 renomeia (o controlador acompanha); o × apaga o arquivo e o controlador dele. Marcar uma atuação num controlador tira dos outros (um dono só).
 
 * **Isolados e em paralelo.** Cada controlador roda no seu processo Python: sem memória comum (o que um guarda num
-  módulo, o outro não vê). A cada amostra, o PEW entrega as medidas a todos ao mesmo tempo, eles calculam juntos e o PEW
+  módulo, o outro não vê). A cada amostra, o MaiSim entrega as medidas a todos ao mesmo tempo, eles calculam juntos e o MaiSim
   recolhe as atuações.
 * **Visão local imposta.** `m` só tem as medidas do controlador; ler outra é erro (`KeyError`, com o arquivo e a linha).
   Devolver uma atuação que não é dele também é erro. Cada atuação tem **um dono só**.
@@ -267,7 +267,7 @@ exemplo do buck tira a média do período no próprio código. Outra saída é a
    Gecko, que num circuito pequeno é rápido; num MMC grande o Gecko pesa mais). O painel faz a conta. O buck do exemplo
    (5 000 chamadas) levou de 5 a 13 s, e uma vez 19 s com a máquina ocupada. Numa medição, o atraso "amostra" levou
    5 s contra 10 s do "logo": a escrita cai no começo do trecho e o Gecko anda o período de uma vez.
-5. **Alternativa mais barata para PWM** (ainda sem exemplo pronto neste PEW): portadora e comparador em blocos do Gecko,
+5. **Alternativa mais barata para PWM** (ainda sem exemplo pronto neste MaiSim): portadora e comparador em blocos do Gecko,
    com o código escrevendo só o ciclo de trabalho, uma vez por período (Ts = 1/fsw). O bloco no meio entra na
    compensação (+1 passo).
 6. **Parâmetros de componente (R, L, …) não mudam no meio da rodada** no Gecko: a mudança não tem efeito. Para um
@@ -275,7 +275,7 @@ exemplo do buck tira a média do período no próprio código. Outra saída é a
 7. **GATE**: entrada > 0,5 liga a chave e ≤ 0,5 desliga (S, MOSFET, IGBT; `SimulationsKern.checkForSwitchAction`). O
    tiristor é diferente: > 0,5 dispara, e ele só bloqueia quando a corrente zera.
 8. **scope()**: os mesmos nomes desde a primeira amostra.
-9. **Uma rodada por vez** no Gecko do PEW (ele é um só).
+9. **Uma rodada por vez** no Gecko do MaiSim (ele é um só).
 10. **Confira contra uma referência**: um modelo pequeno resolvido à parte (como nos testes abaixo). Com o atraso
     trocado, a diferença tem de aparecer; senão, o teste não está medindo nada.
 
@@ -317,22 +317,22 @@ exemplo do buck tira a média do período no próprio código. Outra saída é a
 
 | Arquivo | O que é |
 |---|---|
-| `simu/gecko/pew/<modelo>.ipes` | o circuito (o Gecko o abre) |
-| `simu/gecko/pew/<modelo>.controle.json` | o controle do modelo: `ativo`, `Ts`, `atuacoes`, `parametros`, `atraso`, `acionamentos`, `codigo` (o controle.py), `arquivos` (os outros .py: módulos, e os controladores da lista), `controladores` e `rede` |
-| `simu/pew_simu/rodadas/<data>_<nome>/` | uma rodada: `<nome>.ipes` (o circuito exato), `controle.py` (e os outros .py), `controle.json`, `controle.log`, `scope_<nome>.npz` |
+| `<pasta dos circuitos>/<modelo>.ipes` | o circuito (o Gecko o abre) |
+| `<pasta dos circuitos>/<modelo>.controle.json` | o controle do modelo: `ativo`, `Ts`, `atuacoes`, `parametros`, `atraso`, `acionamentos`, `codigo` (o controle.py), `arquivos` (os outros .py: módulos, e os controladores da lista), `controladores` e `rede` |
+| `~/.local/share/maisim/rodadas/<data>_<nome>/` | uma rodada: `<nome>.ipes` (o circuito exato), `controle.py` (e os outros .py), `controle.json`, `controle.log`, `scope_<nome>.npz` |
 | `scope_<nome>.npz` | colunas `t`, as medidas, as variáveis do `scope()` e `meta` (JSON). No `meta`: `dt_gecko` é o Δt; `dt` e `Ts` são o intervalo entre as amostras do scope; `controle.Ts` é o do controle; e há `controle.atraso_passos`, `controle.escrita_passos`, `controle.destinos` e os `acionamentos` efetivos. |
-| `simu/pew_simu/controle_worker.py` | o processo que roda o código de um controlador (um por controlador; protocolo JSON por linha); importa os módulos da memória |
-| `simu/pew_simu/{controle,leitura,escrita,modulo}_modelo.py` | os modelos: o controle.py do circuito novo, o leitura.py, o escrita.py e o de um módulo novo |
-| `simu/pew_simu/servidor.py` | o laço da rodada (`_rodar`), o traçado (`destinos_controle`), a configuração (`confere_controle`) |
+| `simu/controle_worker.py` | o processo que roda o código de um controlador (um por controlador; protocolo JSON por linha); importa os módulos da memória |
+| `simu/{controle,leitura,escrita,modulo}_modelo.py` | os modelos: o controle.py do circuito novo, o leitura.py, o escrita.py e o de um módulo novo |
+| `simu/servidor.py` | o laço da rodada (`_rodar`), o traçado (`destinos_controle`), a configuração (`confere_controle`) |
 
 ## 8. Para automatizar (e para o Claude Code)
 
-O servidor do simu atende em `http://localhost:8767/pew/simu/` (o `npm run pew` o sobe). Tudo o que o painel faz passa
+O servidor do simu atende em `http://localhost:8767/maisim/simu/` (o `npm run maisim` o sobe). Tudo o que o painel faz passa
 por estas rotas (JSON):
 
 | Rota | Para quê |
 |---|---|
-| `POST editor/abrir {"arq": "simu/gecko/pew/exemplo_controle_pwm.ipes"}` | abre um modelo no Gecko do PEW (o controle dele vem junto). O servidor só recusa (e pede `"descartar": true`) quando o modelo mudou fora do editor, pela janela do Gecko. Mudança feita pelo editor e não salva se perde sem aviso: veja antes `GET editor/pendente` (`{"pendente": true}` = há o que salvar). |
+| `POST editor/abrir {"arq": "exemplos/exemplo_controle_pwm.ipes"}` | abre um modelo no Gecko do MaiSim (o controle dele vem junto). O servidor só recusa (e pede `"descartar": true`) quando o modelo mudou fora do editor, pela janela do Gecko. Mudança feita pelo editor e não salva se perde sem aviso: veja antes `GET editor/pendente` (`{"pendente": true}` = há o que salvar). |
 | `GET editor/controle` | a configuração (`controle`), erros e avisos do código, `entradas` (as medidas), `atuadores` (com `destinos` e `atraso_gecko`) |
 | `POST editor/controle {"controle": {...}}` | grava a configuração (recusada durante a rodada) |
 | `POST editor/rodar {"dt": "1e-6", "tfim": "0.01", "nome": "teste", "amostras": "100000"}` | começa a rodada (o controle vai junto se `ativo`) |
@@ -344,7 +344,7 @@ Roteiro de uma alteração no controle, sem a tela:
 ```python
 import json, time, urllib.request
 import numpy as np
-B = "http://localhost:8767/pew/simu/"
+B = "http://localhost:8767/maisim/simu/"
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None,
                                  headers={"Content-Type": "application/json"})
@@ -364,7 +364,7 @@ Regras para quem mexe no controle, gente ou agente:
 
 * Só escreva atuações marcadas no painel. Não mude parâmetros de componente no meio da rodada (seção 5, item 6).
 * Mantenha os nomes do `scope()` desde a primeira amostra.
-* O Gecko do PEW roda uma rodada por vez. Antes de rodar, veja se `editor/rodada` não está `rodando`.
+* O Gecko do MaiSim roda uma rodada por vez. Antes de rodar, veja se `editor/rodada` não está `rodando`.
 * Confira o resultado com números (médias, ondulação, frequência) e, quando der, contra uma referência independente.
   Registre falhas e avisos como vieram; não esconda nem arredonde para caber.
 * O texto para o usuário é em português.

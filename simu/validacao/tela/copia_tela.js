@@ -1,7 +1,7 @@
-// copiar, recortar e colar pela tela (instância de teste 5010 → 8768): Ctrl+C e Ctrl+V com o mouse no desenho (cola onde
+// copiar, recortar e colar pela tela (instância de teste 7200 → 7201): Ctrl+C e Ctrl+V com o mouse no desenho (cola onde
 // está o mouse, com os parâmetros e sem os rótulos de nó do original), Ctrl+X e colar (o mesmo nome), Ctrl+Z desfaz o
 // recorte; um subcircuito com o que tem dentro; um GATE colado noutra folha perde o acoplamento (na mesma, fica); um
-// terminal colado dentro do SM vai para a borda; Ctrl+C sem nada selecionado não é do PEW.
+// terminal colado dentro do SM vai para a borda; Ctrl+C sem nada selecionado não é do MaiSim.
 const { chromium } = require("playwright");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
@@ -10,7 +10,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   try {
     b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1500, height: 900 } })).newPage();
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-    await pg.goto("http://localhost:5010/pew/simu/");
+    await pg.goto("http://localhost:7200/maisim/simu/");
     for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof dados !== "undefined" && dados && dados.editor)); k++) {   // abre editando; se o
       if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }                    // servidor perguntar, descarta
     const api = (rota, corpo) => pg.evaluate(([r, c]) => api(r, c), [rota, corpo]);
@@ -50,9 +50,9 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     const r4 = await el("R.4");
     ok(r4 && r4.x === 23 && r4.y === 23, `com o mouse fora do desenho: colado ao lado do original, R.4 em (${r4 && [r4.x, r4.y]})`);
     await pg.evaluate(() => desfazer()); await pg.waitForTimeout(2000);
-    // Ctrl+C sem nada selecionado: não é do PEW (o navegador copia o texto marcado)
+    // Ctrl+C sem nada selecionado: não é do MaiSim (o navegador copia o texto marcado)
     await pg.evaluate(() => seleciona(null)); await pg.evaluate(() => msg("")); await pg.keyboard.press("Control+c"); await pg.waitForTimeout(400);
-    ok((await pg.textContent("#msg")) === "", "Ctrl+C sem componente selecionado: o PEW não faz nada");
+    ok((await pg.textContent("#msg")) === "", "Ctrl+C sem componente selecionado: o MaiSim não faz nada");
     // subcircuito com o que tem dentro; GATE: noutra folha perde o acoplamento, na mesma fica
     await cmd("CREATE", "SUBCIRCUIT.1", 40, 10, "SUBCIRCUIT");
     await cmd("CREATE", "SUBCIRCUIT.1#CIRCUIT_TERMINAL.1", 1, 9, "CIRCUIT_TERMINAL"); await cmd("CREATE", "SUBCIRCUIT.1#R.1", 20, 20, "R");

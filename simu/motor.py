@@ -1,4 +1,4 @@
-"""Cliente do motor do editor (motor/src/pew/PewMotor.java, 127.0.0.1:6120): uma conexão, um pedido de cada vez."""
+"""Cliente do motor do editor (motor/src/maisim/MaiSimMotor.java, 127.0.0.1:6120): uma conexão, um pedido de cada vez."""
 import socket
 import threading
 import time
@@ -9,7 +9,7 @@ class ErroMotor(Exception):
 
 
 class Motor:
-    def __init__(self, porta=6120):
+    def __init__(self, porta):
         self.porta, self.f, self.trava = porta, None, threading.Lock()
         self.vigia, self.janelas, self._desde, self._olho = None, [], None, None
 
@@ -52,7 +52,7 @@ class Motor:
                 except (OSError, ConnectionError) as e:
                     self.f = None
                     if tentativa == 2:
-                        raise ErroMotor(f"sem o motor do editor (o Gecko do PEW está no ar? simu/pew_gecko/sobe.sh): {e}")
+                        raise ErroMotor(f"sem o motor do editor (o Gecko do MaiSim está no ar? gecko/sobe.sh): {e}")
         r = r.rstrip("\n")
         if r.startswith("OK"):
             return r[3:]

@@ -1,12 +1,12 @@
-// instância de teste (8768): o exemplo do buck com PWM no controle.py — Δt do arquivo, destino das atuações, Ts × Δt, GATE
+// instância de teste (7201): o exemplo do buck com PWM no controle.py — Δt do arquivo, destino das atuações, Ts × Δt, GATE
 const { chromium } = require("playwright");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
 (async () => {
   const b = await chromium.launch();
-  const pg = await (await b.newContext({ viewport: { width: 1600, height: 950 } })).newPage(); await pg.addInitScript(() => { try { localStorage.setItem("pew-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
+  const pg = await (await b.newContext({ viewport: { width: 1600, height: 950 } })).newPage(); await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
   const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-  await pg.goto("http://localhost:8768/pew/simu/");
+  await pg.goto("http://localhost:7201/maisim/simu/");
   await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
   await pg.evaluate(() => { sim.par.dt = "5e-5"; sim.par.tfim = "0.04"; sim.par.nome = "pwm_tela"; sim.par.amostras = "100000"; });   // o que "sobrou" de outro modelo
   await pg.click("#bt-modelo"); await pg.waitForSelector(".lista-abrir .op"); await pg.fill(".busca-abrir", "exemplo_controle_pwm"); await pg.keyboard.press("Enter");

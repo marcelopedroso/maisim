@@ -1,6 +1,6 @@
-// o divisor entre o código e a conversa do Claude (instância de teste 5010 → 8768), pedido de Marcelo em 19/10: arrastar
+// o divisor entre o código e a conversa do Claude (instância de teste 7200 → 7201), pedido de Marcelo em 19/10: arrastar
 // muda o espaço da conversa (ao lado: largura; embaixo: altura), o divisor fica onde o mouse soltou (também com o zoom de
-// 110 % do PEW), o código fica com pelo menos 300 px, fica guardado ao recarregar, duplo clique volta ao padrão
+// 110 % do MaiSim), o código fica com pelo menos 300 px, fica guardado ao recarregar, duplo clique volta ao padrão
 const { chromium } = require("playwright");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
@@ -9,9 +9,9 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   try {
     b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 2300, height: 1000 } });
     const pg = await ctx.newPage(); const erros = []; pg.on("pageerror", (e) => erros.push(e.message));
-    await pg.addInitScript(() => { try { localStorage.setItem("pew-simu-travado", "1"); if (!sessionStorage.getItem("ja")) { localStorage.setItem("pew-escala", "1.1");
-      localStorage.removeItem("pew-simu-cc-w"); localStorage.removeItem("pew-simu-cc-h"); localStorage.setItem("pew-simu-claude-lugar", "lado"); sessionStorage.setItem("ja", "1"); } } catch (e) { /* ok */ } });
-    const abre = async () => { await pg.goto("http://localhost:5010/pew/simu/"); await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
+    await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); if (!sessionStorage.getItem("ja")) { localStorage.setItem("maisim-escala", "1.1");
+      localStorage.removeItem("maisim-simu-cc-w"); localStorage.removeItem("maisim-simu-cc-h"); localStorage.setItem("maisim-simu-claude-lugar", "lado"); sessionStorage.setItem("ja", "1"); } } catch (e) { /* ok */ } });
+    const abre = async () => { await pg.goto("http://localhost:7200/maisim/simu/"); await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
       await pg.evaluate(() => mostraDoca("controle")); await pg.waitForFunction(() => typeof ctl !== "undefined" && ctl.carregado && ctl.editor, null, { timeout: 30000 });
       if (!(await pg.evaluate(() => $("painel-controle").classList.contains("com-claude")))) await pg.click("#ctl-claude-bt");
       await pg.waitForTimeout(600); };
@@ -41,7 +41,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     await arrasta([a.dx, a.dy], [a.dx, a.dy - 120]);
     d = await med();
     ok(a.embaixo && d.ch > a.ch + 80 && Math.abs(d.dy - (a.dy - 120)) < 4, `embaixo: arrastar 120 px para cima aumenta a conversa de ${a.ch} para ${d.ch} px, o divisor onde o mouse soltou`);
-    await pg.click("#cc-lugar"); await pg.evaluate(() => { localStorage.removeItem("pew-simu-cc-w"); localStorage.removeItem("pew-simu-cc-h"); localStorage.removeItem("pew-escala"); });
+    await pg.click("#cc-lugar"); await pg.evaluate(() => { localStorage.removeItem("maisim-simu-cc-w"); localStorage.removeItem("maisim-simu-cc-h"); localStorage.removeItem("maisim-escala"); });
     ok(!erros.length, `sem erros de JS ${erros.join(" ; ")}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message}`); }
   finally { if (b) await b.close(); }

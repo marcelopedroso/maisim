@@ -1,4 +1,4 @@
-// a beira da folha principal pela tela (instância de teste 5010 → 8768): fontes em x = 1 (o caso do Marcelo, 18/10); arrastar
+// a beira da folha principal pela tela (instância de teste 7200 → 7201): fontes em x = 1 (o caso do Marcelo, 18/10); arrastar
 // uma para a esquerda, além da beira, a deixa onde foi solta — o circuito todo anda para caber (o Gecko não aceita x < 1) e a
 // vista anda junto: na tela nada pula; a mensagem explica; Ctrl+Z volta tudo
 const { chromium } = require("playwright");
@@ -9,7 +9,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   try {
     b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1500, height: 900 } })).newPage();
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-    await pg.goto("http://localhost:5010/pew/simu/");
+    await pg.goto("http://localhost:7200/maisim/simu/");
     for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof dados !== "undefined" && dados && dados.editor)); k++) {
       if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }
     await pg.evaluate(async () => { const j = await api("editor/novo", { modo: "descartar" }); ed.novo = "beira"; dados = j; folhaAtual = "0"; seleciona(null); novoEstado(j);

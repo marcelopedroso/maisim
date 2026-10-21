@@ -1,6 +1,7 @@
 import sys, importlib.util
 P = str(__import__("pathlib").Path(__file__).resolve().parents[1])   # simu/
 sys.path.insert(0, P)
+__import__("os").environ["MAISIM_PERFIL"] = "teste"   # o servidor lê config/teste.env (não o .env da sua máquina)
 spec = importlib.util.spec_from_file_location("srv", P + "/servidor.py"); srv = importlib.util.module_from_spec(spec); spec.loader.exec_module(srv)
 falhas = 0
 def ok(c, t):

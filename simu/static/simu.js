@@ -1,9 +1,9 @@
-// PEW / simu: desenho e edição do circuito; o GeckoCIRCUITS (backend) aplica, simula e grava o .ipes (ipes.py lê).
+// MaiSim / simu: desenho e edição do circuito; o GeckoCIRCUITS (backend) aplica, simula e grava o .ipes (ipes.py lê).
 // SVG na grade do Gecko (G px por unidade), arrastar move, roda dá zoom no ponto do mouse; SM (subcircuito): clique abre
-// a folha de dentro. Os scopes do Gecko ficam de fora (o /pew/scope faz esse papel).
+// a folha de dentro. Os scopes do Gecko ficam de fora (o /maisim/scope faz esse papel).
 "use strict";
 const G = 16, NS = "http://www.w3.org/2000/svg";
-// cores do desenho por tema (as da interface estão no CSS); o trilho do PEW troca o tema (<html data-tema>) e avisa com "pew-tema"
+// cores do desenho por tema (as da interface estão no CSS); o trilho do MaiSim troca o tema (<html data-tema>) e avisa com "maisim-tema"
 const TEMA_COR = {
   claro: { lk: "#2233aa", fioLK: "#2b4be0", ct: "#2e8b3d", fioCT: "#2e8b3d", rot: "#1b7f2a", par: "#b0249a", nome: "#1b1f24", sub: "#5b3fd1",
     cartao: "#fff", corpo: "#eef1ff", ctFundo: "#e4f5df", subFundo: "#f6f3ff", bordaSM: "#b9a8f0", grade: "#d5d9e0", seta: "#c2410c",
@@ -15,19 +15,19 @@ const TEMA_COR = {
     atuFundo: "#33280f", atuBorda: "#d97706", atuIcone: "#fbbf24", atuTexto: "#fcd34d" } };
 const temaAtual = () => (document.documentElement.dataset.tema === "escuro" ? "escuro" : "claro");
 const COR = Object.assign({}, TEMA_COR[temaAtual()]);
-addEventListener("pew-tema", () => {                    // o tema mudou: o desenho e a paleta com as cores novas
+addEventListener("maisim-tema", () => {                    // o tema mudou: o desenho e a paleta com as cores novas
   Object.assign(COR, TEMA_COR[temaAtual()]);
   if (typeof dados !== "undefined" && dados) desenha();
   if (typeof ed !== "undefined" && ed.catalogo) desenhaPaleta();
 });
 // o nome de um subcircuito (subcircuito é qualquer coisa, não só um submódulo): o que o usuário deu ao bloco; o padrão do
 // Gecko, SUBCIRCUIT.k, fica curto, Sub.k. O prefixo dos nomes de dentro (canais do scope, atuações) é o mesmo, com _
-// a janela do código (/pew/simu/?vista=codigo, pelo trilho): só o painel do controle, em tela cheia, ligado ao circuito
+// a janela do código (/maisim/simu/?vista=codigo, pelo trilho): só o painel do controle, em tela cheia, ligado ao circuito
 // aberto no simu (o mesmo servidor). O ▶ fica na janela do circuito; aqui, a rodada trava a edição e mostra o andamento.
 // As janelas conversam pelo BroadcastChannel: controle guardado, circuito mudou, rodada começou, a janela do código aberta
 const VISTA_CODIGO = new URLSearchParams(location.search).get("vista") === "codigo";
 if (VISTA_CODIGO) document.body.classList.add("vista-codigo");
-const canal = typeof BroadcastChannel === "function" ? new BroadcastChannel("pew-simu") : null;
+const canal = typeof BroadcastChannel === "function" ? new BroadcastChannel("maisim-simu") : null;
 const EU = Math.random().toString(36).slice(2);
 function avisa(tipo, extra = {}) { if (canal) try { canal.postMessage(Object.assign({ tipo, de: EU, codigo: VISTA_CODIGO }, extra)); } catch (e) { /* ok */ } }
 const nomeSub = (nome) => String(nome).replace(/^SUBCIRCUIT\.(\d+)$/, "Sub.$1");
@@ -89,13 +89,13 @@ function desenhaJuncoes(g, f) {
     no("circle", { class: "juncao", cx: x * G, cy: y * G, r: 0.24 * G, fill: d === "CONTROL" ? COR.fioCT : COR.fioLK }, g);
   }
 }
-// medidores: o nome com que o sinal vai para o /pew/scope (o rótulo da saída, ou o nome do bloco, como em rodar() no servidor)
+// medidores: o nome com que o sinal vai para o /maisim/scope (o rótulo da saída, ou o nome do bloco, como em rodar() no servidor)
 // dentro de um subcircuito, o nome leva o SM na frente (SM_1_vCSm), como em rodar() no servidor
 const canalScope = (e, fid = folhaAtual) => { const c = (e.saidas[0] || e.nome).replace(/[^A-Za-z0-9_]/g, "_");
   return fid === "0" ? c : `${prefixoSub(dados.folhas[fid].nome)}_${c}`; };
 const MEDIDOR = new Set(["VOLT", "AMP"]);
 // a tag (scope e controle): um ganho 1 do Gecko (r0 = 1) chamado TAG.k — repassa o sinal ligado na entrada, e o nome da saída é o
-// nome do sinal no /pew/scope e no m[...] do controle (como um medidor). Para levar um sinal para fora de um subcircuito
+// nome do sinal no /maisim/scope e no m[...] do controle (como um medidor). Para levar um sinal para fora de um subcircuito
 // (por um Control Terminal) e dar a ele o nome que quiser, ou marcar qualquer ponto de controle
 // o sinal deste componente fora do scope e do controle (marcado no painel; vai junto com a aparência do circuito)
 const foraDoScope = (e) => !!(dados && dados.fora && e.uid && dados.fora.includes(e.uid));
@@ -104,7 +104,7 @@ const foraDoScope = (e) => !!(dados && dados.fora && e.uid && dados.fora.include
 const ehSinal = (e, fid) => fid === "0" ? e.dom === "CONTROL" && !["TERM", "GATE", "SCOPE"].includes(e.tipo) && e.saidas.length > 0
   : MEDIDOR.has(e.tipo) || ehTag(e);
 const ehTag = (e) => e.tipo === "GAIN" && /^TAG\.\d+$/.test(e.nome);
-const TAG_ITEM = { enum: "PEW_TAG", dom: "CONTROL", typ: 7, classe: "ReglerGain", id: "TAG", nome: "Tag (scope e controle)", criar: "GAIN" };
+const TAG_ITEM = { enum: "MAISIM_TAG", dom: "CONTROL", typ: 7, classe: "ReglerGain", id: "TAG", nome: "Tag (scope e controle)", criar: "GAIN" };
 function medicoes(f) {                                 // o que está sendo medido nesta folha: corrente de quem, tensão de que nós
   const I = new Map(), V = new Map();
   for (const e of f.elementos) {
@@ -142,7 +142,7 @@ function marcaNo(g, x, y, [canal, sinal]) {            // num nó medido pelo vo
   texto(gg, 0.37, -0.72, "V" + sinal, { "text-anchor": "middle", fill: "#fff", "font-size": 0.42 * G, "font-weight": 700, "dominant-baseline": "middle" });
   texto(gg, 1.05, -0.72, canal, { fill: COR.texto2, "font-size": 0.45 * G, "dominant-baseline": "middle" });
 }
-function tagScope(g, x, y, canal, tipo, fora = false) {   // ao lado do medidor: o nome do sinal no /pew/scope, com a borda na cor do canal
+function tagScope(g, x, y, canal, tipo, fora = false) {   // ao lado do medidor: o nome do sinal no /maisim/scope, com a borda na cor do canal
   // fora do scope e do controle: apagada e tracejada (o sinal existe no circuito, mas não vira coluna nem m[...])
   const gg = no("g", Object.assign({ class: "tag-scope" + (fora ? " fora" : ""), transform: `translate(${x * G},${y * G})` }, fora ? { opacity: 0.4 } : {}), g), cor = corCanal(canal, tipo);
   const w = 0.95 + 0.33 * canal.length;
@@ -152,7 +152,7 @@ function tagScope(g, x, y, canal, tipo, fora = false) {   // ao lado do medidor:
 }
 // onde vai o nome (e o valor) de um componente de dois pinos: o deslocamento que o Gecko guarda (dxTxt, dyTxt). O padrão
 // dele, (2, 2), dado a todo componente criado, joga o texto para baixo e à direita — num componente deitado cai junto do
-// vizinho (o L.1 parecia do R.1). Com o padrão, o PEW põe o texto colado no corpo: deitado, em cima e centrado; em pé, à
+// vizinho (o L.1 parecia do R.1). Com o padrão, o MaiSim põe o texto colado no corpo: deitado, em cima e centrado; em pé, à
 // direita. Um texto posicionado à mão no Gecko fica onde está.
 function txtDe(e) {
   const [dx, dy] = e.txt || [0, 0];
@@ -283,7 +283,7 @@ function desenha() {
   for (const [x, y, m] of pontasFeitas) marcaNo(camRot, x, y, m);
   let n = 0;
   f.elementos.forEach((e, i) => {
-    if (e.tipo === "SCOPE") return;                                    // o /pew/scope faz esse papel
+    if (e.tipo === "SCOPE") return;                                    // o /maisim/scope faz esse papel
     if (e.dom === "CONTROL" && e.tipo !== "TERM" && !mostrar.controle) return;
     n++;
     const g = no("g", { class: (e.tipo === "SUBCIRCUIT" ? "el sub" : "el") + (ed.sel === e.nome || ed.multi.has(e.nome) ? " sel" : "") + (e.ativo === false ? " desativado" : ""), "data-i": i }, camEl);
@@ -353,7 +353,7 @@ function desenha() {
         const borda = t.lado === "e" ? e.x - 1 : e.x + 1;
         if (t.x !== borda) no("line", { x1: t.x * G, y1: t.y * G, x2: borda * G, y2: t.y * G, stroke: COR.ct, "stroke-width": 1.4 }, g);
         if (atuador && t.lado === "s") continue;                                                              // a etiqueta já diz o nome
-        if ((MEDIDOR.has(e.tipo) || ehTag(e)) && t.lado === "s") { if (mostrar.medicoes) tagScope(camRot, t.x + 0.35, t.y, canalScope(e), e.tipo, foraDoScope(e)); }   // regra: medidor (e tag) vai para o /pew/scope
+        if ((MEDIDOR.has(e.tipo) || ehTag(e)) && t.lado === "s") { if (mostrar.medicoes) tagScope(camRot, t.x + 0.35, t.y, canalScope(e), e.tipo, foraDoScope(e)); }   // regra: medidor (e tag) vai para o /maisim/scope
         else if (mostrar.rotulos && t.rotulo) rotulo(camRot, t.lado === "e" ? t.x - 0.2 : t.x + 0.2, t.y - 0.42, t.rotulo,
           { "text-anchor": t.lado === "e" ? "end" : "start", fill: COR.rot, "font-size": 0.5 * G });
       }
@@ -396,13 +396,13 @@ function reajustaAspecto() {
 }
 // recolher e expandir a paleta e o painel da direita (abinhas nas bordas); lembrado no navegador
 const paineis = { paleta: false, props: false };
-try { Object.assign(paineis, JSON.parse(localStorage.getItem("pew-simu-paineis") || "{}")); } catch (e) { /* ok */ }
+try { Object.assign(paineis, JSON.parse(localStorage.getItem("maisim-simu-paineis") || "{}")); } catch (e) { /* ok */ }
 function aplicaPaineis() {
   document.body.classList.toggle("paleta-fechada", paineis.paleta); document.body.classList.toggle("props-fechado", paineis.props);
   $("aba-paleta").textContent = paineis.paleta ? "›" : "‹"; $("aba-paleta").title = paineis.paleta ? "mostrar a paleta" : "recolher a paleta";
   $("aba-props").textContent = paineis.props ? "‹" : "›";
   $("aba-props").title = paineis.props ? "mostrar o painel da direita (componente e histórico)" : "recolher o painel da direita (componente e histórico)";
-  try { localStorage.setItem("pew-simu-paineis", JSON.stringify(paineis)); } catch (e) { /* ok */ }
+  try { localStorage.setItem("maisim-simu-paineis", JSON.stringify(paineis)); } catch (e) { /* ok */ }
   requestAnimationFrame(reajustaAspecto);
 }
 $("aba-paleta").onclick = () => { paineis.paleta = !paineis.paleta; aplicaPaineis(); };
@@ -556,7 +556,7 @@ function dica(ev, e) {
   addEventListener("resize", () => dados && ajusta());
 })();
 
-// ---------------------------------------------------------------- editor: o Gecko do PEW aplica cada mudança e o desenho vem do estado dele
+// ---------------------------------------------------------------- editor: o Gecko do MaiSim aplica cada mudança e o desenho vem do estado dele
 const ed = { ligado: false, sel: null, colocar: null, catalogo: null, aba: 0, fantasma: null, fioSel: null, todos: true, lib: [], sujo: false,
   multi: new Set(), multiFios: new Set(),        // a seleção de vários (Shift): nomes dos componentes e chaves das conexões
              fio: { modo: false, cantos: [], dom: null, mouse: null } };
@@ -565,10 +565,10 @@ function msg(t, tipo = "") { $("msg").textContent = t; $("msg").className = tipo
 // histórico: as últimas 20 mudanças e avisos (o que passa em verde ou vermelho no topo), embaixo do painel da direita
 const HIST_N = 20;
 let historico = [];
-try { historico = JSON.parse(sessionStorage.getItem("pew-simu-hist") || "[]"); } catch (e) { /* ok */ }
+try { historico = JSON.parse(sessionStorage.getItem("maisim-simu-hist") || "[]"); } catch (e) { /* ok */ }
 function anota(t, tipo) {
   historico.unshift({ t, tipo, h: new Date().toLocaleTimeString("pt-BR") }); historico = historico.slice(0, HIST_N);
-  try { sessionStorage.setItem("pew-simu-hist", JSON.stringify(historico)); } catch (e) { /* ok */ }
+  try { sessionStorage.setItem("maisim-simu-hist", JSON.stringify(historico)); } catch (e) { /* ok */ }
   const h = document.getElementById("hist"); if (h) h.outerHTML = caixaHist();
 }
 const escT = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -620,14 +620,14 @@ function folhaDe(e) {
 const qualificado = (e) => { const f = folhaDe(e); return f === "0" ? e.nome : `${dados.folhas[f].nome}#${e.nome}`; };
 const selecionado = () => dados && ed.sel ? dados.folhas[folhaAtual].elementos.find((e) => e.nome === ed.sel) : null;
 // a conexão com o servidor pode cair no caminho (a ponte Windows ↔ WSL deixa uma conexão morta, sem rastro): o pedido é
-// repetido uma vez. A mudança (POST) vai com uma etiqueta única (X-PEW-Pedido): se o primeiro chegou e só a resposta se
+// repetido uma vez. A mudança (POST) vai com uma etiqueta única (X-MaiSim-Pedido): se o primeiro chegou e só a resposta se
 // perdeu, o servidor devolve a mesma resposta sem fazer a mudança de novo. Sem conexão, a faixa "sem conexão" aparece
 const etiqueta = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 12));
 async function api(rota, corpo) {
   const id = corpo ? etiqueta() : null;
   let r;
   for (let tentativa = 0; ; tentativa++) {
-    try { r = await fetch(rota, corpo ? { method: "POST", headers: { "Content-Type": "application/json", "X-PEW-Pedido": id }, body: JSON.stringify(corpo) } : {}); break; }
+    try { r = await fetch(rota, corpo ? { method: "POST", headers: { "Content-Type": "application/json", "X-MaiSim-Pedido": id }, body: JSON.stringify(corpo) } : {}); break; }
     catch (e) {
       if (tentativa === 0) { await new Promise((ok) => setTimeout(ok, corpo ? 600 : 400)); continue; }
       avisoRede(true);
@@ -641,7 +641,7 @@ async function api(rota, corpo) {
   if (j && j.aviso_gecko) setTimeout(() => msg(j.aviso_gecko, "erro"), 80);   // a vigia fechou uma janela de erro do Gecko: depois do "ok"
   return j;
 }
-// a faixa "sem conexão com o PEW": aparece quando um pedido não passa nem repetido; "testar de novo" (e a cada 5 s, sozinha)
+// a faixa "sem conexão com o MaiSim": aparece quando um pedido não passa nem repetido; "testar de novo" (e a cada 5 s, sozinha)
 // pergunta ao servidor; com resposta, some
 let redeTimer = 0;
 function avisoRede(fora) {
@@ -649,7 +649,7 @@ function avisoRede(fora) {
   if (!fora) { if (f && f.style.display !== "none") { f.style.display = "none"; clearInterval(redeTimer); redeTimer = 0; msg("conexão com o servidor do simu de volta", "ok"); } return; }
   if (!f) {
     f = document.createElement("div"); f.id = "rede-aviso"; f.setAttribute("role", "alert");
-    f.innerHTML = `<b>sem conexão com o servidor do PEW</b> <span>— a ponte Windows ↔ WSL pode ter derrubado a conexão</span>
+    f.innerHTML = `<b>sem conexão com o servidor do MaiSim</b> <span>— a ponte Windows ↔ WSL pode ter derrubado a conexão</span>
       <button type="button">testar de novo</button><small></small>`;
     document.body.appendChild(f);
     f.querySelector("button").onclick = () => testaRede(true);
@@ -660,8 +660,8 @@ function avisoRede(fora) {
 async function testaRede(clicou) {
   const f = document.getElementById("rede-aviso"); if (!f) return;
   try { const r = await fetch("editor/rodada", { cache: "no-store" }); if (!r.ok) throw new Error(r.status); avisoRede(false); }
-  catch (e) { if (clicou) f.querySelector("small").innerHTML = "ainda sem resposta. Se não voltar em alguns segundos: feche e abra o PEW; se continuar, " +
-    "no PowerShell do Windows <code>wsl --shutdown</code> e, no WSL, <code>npm run pew</code> (salve antes, se der)."; }
+  catch (e) { if (clicou) f.querySelector("small").innerHTML = "ainda sem resposta. Se não voltar em alguns segundos: feche e abra o MaiSim; se continuar, " +
+    "no PowerShell do Windows <code>wsl --shutdown</code> e, no WSL, <code>npm run maisim</code> (salve antes, se der)."; }
 }
 // desfazer (Ctrl+Z): o servidor guarda o estado de antes de cada mudança (até 20) e o Gecko reabre o último
 function botaoDesfazer() {
@@ -818,7 +818,7 @@ async function liga(on) {
     msg(""); return carrega($("sel-modelo").value);
   }
   if (!ed.catalogo) { ed.catalogo = await (await fetch("static/catalogo.json")).json();
-    const med = ed.catalogo.abas.find((a) => a.aba === "Measure"); if (med) med.itens.unshift(TAG_ITEM);   // a tag do PEW, junto dos medidores
+    const med = ed.catalogo.abas.find((a) => a.aba === "Measure"); if (med) med.itens.unshift(TAG_ITEM);   // a tag do MaiSim, junto dos medidores
     desenhaPaleta(); carregaBiblioteca(); }
   if ($("sel-modelo").value === NOVO) return;
   msg("abrindo…");
@@ -852,7 +852,7 @@ function usaSimulacaoDoArquivo(j) {
   const s = j && j.simulacao;
   if (!s || !(s.dt > 0) || !(s.tfim > 0) || sim.par.modelo === j.arq) return "";
   sim.par.dt = String(s.dt); sim.par.tfim = String(s.tfim); sim.par.modelo = j.arq;
-  try { localStorage.setItem("pew-simu-sim", JSON.stringify(sim.par)); } catch (e) { /* ok */ }
+  try { localStorage.setItem("maisim-simu-sim", JSON.stringify(sim.par)); } catch (e) { /* ok */ }
   return `Δt = ${si(s.dt, "s")}, tempo final ${si(s.tfim, "s")} (do arquivo; mude na ⚙ ao lado do ▶)`;
 }
 function desenhaPaleta() {
@@ -860,7 +860,7 @@ function desenhaPaleta() {
   $("abas").innerHTML = c.abas.map((a, k) => `<button data-k="${k}" class="${k === ed.aba && !q ? "ativo" : ""}">${a.aba}</button>`).join("");
   $("abas").querySelectorAll("button").forEach((b) => b.onclick = () => { ed.aba = +b.dataset.k; $("busca").value = ""; desenhaPaleta(); });
   const itens = (q ? c.abas.flatMap((a) => a.itens.map((i) => Object.assign({ aba: a.aba }, i))).filter((i) => `${i.nome} ${i.id}`.toLowerCase().includes(q))
-                    : c.abas[ed.aba].itens).filter((i) => i.id !== "SCOPE");      // regra do PEW: medidor vai para o /pew/scope
+                    : c.abas[ed.aba].itens).filter((i) => i.id !== "SCOPE");      // regra do MaiSim: medidor vai para o /maisim/scope
   $("itens").innerHTML = itens.map((i) => `<div class="item${ed.colocar && ed.colocar.id === i.id ? " ativo" : ""}${i.lib ? " lib" : ""}" data-id="${i.id}" draggable="true"
     title="${i.lib ? `${i.nome} · subcircuito da biblioteca · ${i.info} · clique ou arraste para a folha` : `${i.nome} · tipo ${i.typ} · ${i.dom} · clique ou arraste para a folha`}">
     ${icone(i)}<span>${i.nome}</span>${i.lib ? `<small>${i.info}</small>` : ""}</div>`).join("") ||
@@ -944,7 +944,7 @@ async function mostraProps() {
   }
   const e = selecionado();
   if (!e) { P.innerHTML = `<div class="t">Clique num componente para ver e mudar os parâmetros. Arrastar move; R gira; Delete apaga.<br><br>
-    Cada mudança é aplicada na hora, e o desenho mostra o resultado. <b>Salvar como</b> (o disquete com lápis) grava em simu/gecko/pew/.</div>${caixaHist()}`; return; }
+    Cada mudança é aplicada na hora, e o desenho mostra o resultado. <b>Salvar como</b> (o disquete com lápis) grava nos seus circuitos.</div>${caixaHist()}`; return; }
   const vars = Object.keys(e.par).filter((k) => k.endsWith("_var")).map((k) => e.par[k]);
   P.innerHTML = `<h3>${e.nome}</h3><div class="t">${ehTag(e) ? "tag (scope e controle)" : e.nome_tipo || DESCR[e.tipo] || e.tipo} · (${e.x}, ${e.y})</div>
     <label><span>nome</span><input id="p-nome" value="${e.nome}"></label>
@@ -978,13 +978,13 @@ async function mostraProps() {
       <div class="aviso">entrada &gt; 0,5 liga a chave; ≤ 0,5 desliga (tiristor: &gt; 0,5 dispara, e ele só bloqueia quando a corrente zera). Ex.: um CONST que o controle escreve, 0 ou 1</div>` : ""}
     ${e.tipo === "AMP" ? `<h4>o que ele mede</h4><label><span>corrente de</span><input id="m-comp" value="${e.mede[0] || ""}" placeholder="procurar componente…" autocomplete="off"></label>` : ""}
     ${ehTag(e) ? `<h4>o que ela marca</h4><label><span>entrada (rótulo)</span><input data-in="0" value="${e.entradas[0] || ""}" placeholder="ou ligue por conexão"></label>
-      <div class="aviso">o sinal ligado na entrada (por conexão ou pelo rótulo) vai para o /pew/scope e para o m[…] do controle com o nome abaixo</div>` : ""}
-    ${ehSinal(e, folhaDe(e)) ? `<label class="no-scope" title="desmarcado: o sinal continua no circuito (sai por um terminal, alimenta blocos), mas não vira coluna no /pew/scope nem m[…] no controle"><input type="checkbox" id="p-noscope" ${foraDoScope(e) ? "" : "checked"}> no scope e no controle</label>` : ""}
+      <div class="aviso">o sinal ligado na entrada (por conexão ou pelo rótulo) vai para o /maisim/scope e para o m[…] do controle com o nome abaixo</div>` : ""}
+    ${ehSinal(e, folhaDe(e)) ? `<label class="no-scope" title="desmarcado: o sinal continua no circuito (sai por um terminal, alimenta blocos), mas não vira coluna no /maisim/scope nem m[…] no controle"><input type="checkbox" id="p-noscope" ${foraDoScope(e) ? "" : "checked"}> no scope e no controle</label>` : ""}
     ${MEDIDOR.has(e.tipo) || ehTag(e) ? `<h4>nome no scope</h4><label><span>sinal</span><input data-out="0" value="${e.saidas[0] || ""}" placeholder="${canalScope(e)}"></label>
       <div class="cor-canal" data-canal="${escT(canalScope(e))}"><span>cor do canal</span>${(e.tipo === "AMP" ? ["#0ea5e9", "#eab308", "#06b6d4", "#d946ef", "#22c55e", "#f97316"]
         : ["#eab308", "#06b6d4", "#d946ef", "#22c55e", "#0ea5e9", "#f97316"]).map((c) => `<button class="amostra${corCanal(canalScope(e), e.tipo) === c ? " ativo" : ""}" data-cor="${c}" style="--c:${c}" title="${c}"></button>`).join("")}
         <input type="color" value="${corCanal(canalScope(e), e.tipo)}" title="outra cor"><button class="padrao" title="voltar à cor padrão">padrão</button></div>
-      <div class="aviso">é com este nome que o sinal aparece no /pew/scope (todo medidor vai para lá; sem nome, ${canalScope(e)})</div>` : ""}
+      <div class="aviso">é com este nome que o sinal aparece no /maisim/scope (todo medidor vai para lá; sem nome, ${canalScope(e)})</div>` : ""}
     ${e.dom === "CONTROL" && e.tipo !== "TERM" && !MEDIDOR.has(e.tipo) && !ehTag(e) ? `<h4>rótulos dos terminais</h4>${e.entradas.map((r, i) => `<label><span>entrada ${i + 1}</span><input data-in="${i}" value="${r}"></label>`).join("")}
       ${e.saidas.map((r, i) => `<label><span>saída ${i + 1}</span><input data-out="${i}" value="${r}"></label>`).join("")}` : ""}
     ${caixaHist()}`;
@@ -1119,7 +1119,7 @@ async function mostraProps() {
 }
 $("bt-editar").onclick = async () => {
   await liga(!ed.ligado);
-  try { localStorage.setItem("pew-simu-travado", ed.ligado ? "0" : "1"); } catch (e) { /* vale até recarregar */ }
+  try { localStorage.setItem("maisim-simu-travado", ed.ligado ? "0" : "1"); } catch (e) { /* vale até recarregar */ }
 };
 (async () => { try { const j = await api("editor/rodada"); sim.ultimo = j.arquivo || j.ultimo || null;
   if (j.estado === "rodando" || j.estado === "pausada") acompanha(j); } catch (e) { /* sem rodada */ } })();
@@ -1138,17 +1138,17 @@ async function novoCircuito() {
     ed.novo = nome; ed.abertoSel = NOVO; dados = Object.assign(j, { arq: nome });
     folhaAtual = "0"; seleciona(null); novoEstado(j); ver = { x: 0, y: 0, w: 70 * G, h: 44 * G }; aplicaVer();
     if (typeof recarregaControle === "function") recarregaControle();
-    preencheModelos([...document.querySelectorAll("#sel-modelo option")].map((o) => o.value).filter((v) => v !== NOVO), NOVO);
+    preencheModelos(null, NOVO);
     const q = new URLSearchParams(location.search); q.delete("modelo"); history.replaceState(null, "", q.toString() ? "?" + q : location.pathname);
     msg(`${nome}: folha em branco, escolha componentes na paleta`, "ok");
   } catch (e) { msg(e.message, "erro"); }
 };
-// tela dividida: o /pew/scope ao lado (dividida na vertical) ou embaixo. Abre na última rodada (ao vivo enquanto simula), com
+// tela dividida: o /maisim/scope ao lado (dividida na vertical) ou embaixo. Abre na última rodada (ao vivo enquanto simula), com
 // ?so=rodada: só a seção e os sinais da rodada, sem os painéis do MMC
 const tela = { lado: "lado", w: null, h: null };
-try { Object.assign(tela, JSON.parse(localStorage.getItem("pew-simu-tela") || "{}")); } catch (e) { /* ok */ }
-const urlScope = (arq, so = true) => `/pew/scope/?${so ? "so=rodada" : ""}${arq ? `${so ? "&" : ""}a=${encodeURIComponent(arq)}` : ""}`.replace(/\?$/, "");
-function guardaTela() { try { localStorage.setItem("pew-simu-tela", JSON.stringify(tela)); } catch (e) { /* ok */ } }
+try { Object.assign(tela, JSON.parse(localStorage.getItem("maisim-simu-tela") || "{}")); } catch (e) { /* ok */ }
+const urlScope = (arq, so = true) => `/maisim/scope/?${so ? "so=rodada" : ""}${arq ? `${so ? "&" : ""}a=${encodeURIComponent(arq)}` : ""}`.replace(/\?$/, "");
+function guardaTela() { try { localStorage.setItem("maisim-simu-tela", JSON.stringify(tela)); } catch (e) { /* ok */ } }
 function posicionaScope(lado) {
   tela.lado = lado; guardaTela();
   const b = document.body.classList; b.toggle("scope-lado", lado === "lado"); b.toggle("scope-baixo", lado === "baixo");
@@ -1214,13 +1214,13 @@ async function salvaNaBiblioteca(e) {
     await carregaBiblioteca(); recarregaModelos($("sel-modelo").value);
   } catch (er) { msg(er.message, "erro"); }
 }
-// Salvar (Ctrl+S, disquete): por cima do arquivo aberto, se ele é do PEW (simu/gecko/pew/ ou da biblioteca); senão, Salvar como
+// Salvar (Ctrl+S, disquete): por cima do arquivo aberto, se ele é seu (os seus circuitos ou a biblioteca); senão, Salvar como
 function marcaSujo(s) { ed.sujo = !!s; $("bt-salvar").classList.toggle("sujo", ed.sujo); $("bt-salvar").title = ed.sujo ? "salvar (Ctrl+S) · há mudanças não salvas" : "salvar (Ctrl+S)"; }
 async function salvar() {
   if (!(await garanteEdicao())) return;
-  // o servidor diz se o arquivo aberto é do PEW; se ele não souber (reiniciado), vale o arquivo que a página mostra, se for do PEW
-  const sel = $("sel-modelo").value.match(/(^|\/)(pew|subcircuitos)\/([A-Za-z0-9_\-]+)\.ipes$/);
-  const d = (dados && dados.dono) || (sel && { pasta: sel[2], nome: sel[3] }), m = d && [null, d.pasta, d.nome];
+  // o servidor diz se o arquivo aberto é seu; se ele não souber (reiniciado), vale o da lista que a página mostra
+  const it = listaModelos.find((o) => o.arq === $("sel-modelo").value && o.pasta);
+  const d = (dados && dados.dono) || (it && { pasta: it.pasta, nome: it.nome.replace(/\.ipes$/, "") }), m = d && [null, d.pasta, d.nome];
   if (ed.novo || !m) return salvarComo();
   msg("salvando…");
   try { const j = await api("editor/salvar", { nome: m[2], pasta: m[1], sobrescrever: true }); novoEstado(j); marcaSujo(false); msg(`salvo: ${j.salvo}`, "ok");
@@ -1228,8 +1228,8 @@ async function salvar() {
   catch (e) { msg(e.message, "erro"); }
 }
 async function salvarComo() {
-  const r = await modal({ titulo: "Salvar como", texto: "O circuito é gravado em simu/gecko/pew/ e aparece na lista de modelos.",
-    campos: [{ nome: "nome", rotulo: "nome do arquivo", valor: ed.novo || ((dados.arq || "circuito").split("/").pop().replace(/\.ipes$/, "").replace(/^\(.*\)$/, "circuito") + "_pew") }], ok: "salvar" });
+  const r = await modal({ titulo: "Salvar como", texto: "O circuito é gravado nos seus circuitos (a pasta de dados do MaiSim) e aparece na lista.",
+    campos: [{ nome: "nome", rotulo: "nome do arquivo", valor: ed.novo || ((dados.arq || "circuito").split("/").pop().replace(/\.ipes$/, "").replace(/^\(.*\)$/, "circuito") + "_copia") }], ok: "salvar" });
   const nome = r && r.nome.trim(); if (!nome) return false;
   try { let j;
     try { j = await api("editor/salvar", { nome }); }
@@ -1313,7 +1313,7 @@ function expandeCantos(c) {
   return pts;
 }
 // terminal do SM solto num ponto de ligação (o gesto natural de "ligar ao nó"): o terminal fica onde está (na borda: o
-// lado do borne no bloco não muda) e o PEW desenha a conexão dele até o ponto, em L — horizontal primeiro ou vertical
+// lado do borne no bloco não muda) e o MaiSim desenha a conexão dele até o ponto, em L — horizontal primeiro ou vertical
 // primeiro, o que não passar por um terminal ou ponta de conexão (no Gecko, ponta em cima de conexão liga: seria uma
 // ligação que ninguém pediu). Os dois passam: não liga e diz onde
 async function ligaTerminal(e, alvo, domAlvo) {
@@ -1547,7 +1547,7 @@ async function garanteEdicao() { if (!ed.ligado) await liga(true); return ed.lig
 
 // ---------------------------------------------------------------- simulação: parâmetros, iniciar, pausar, continuar, parar, progresso
 const sim = { estado: "parada", timer: null, par: { dt: "1e-6", tfim: "0.04", nome: "rodada", amostras: "4000" } };
-try { Object.assign(sim.par, JSON.parse(localStorage.getItem("pew-simu-sim") || localStorage.getItem("pew-control-sim") || "{}")); } catch (e) { /* ok */ }
+try { Object.assign(sim.par, JSON.parse(localStorage.getItem("maisim-simu-sim") || "{}")); } catch (e) { /* ok */ }
 // ⚙ Parâmetros da simulação, em duas abas: "simulação" (Δt, tempo final… — valem ao iniciar) e "variáveis globais ($)", como
 // o Tools > Parameters do Gecko: criar, mudar, apagar (cada mudança vale na hora; Ctrl+Z desfaz). O $x abre na segunda aba
 async function parametrosSim(aba = "sim") {
@@ -1572,7 +1572,7 @@ async function parametrosSim(aba = "sim") {
     } });
   if (!r) return false;
   if (["dt", "tfim", "nome", "amostras"].every((k) => r[k] === undefined || String(r[k]) === String(sim.par[k]))) return true;   // fechou sem mudar a simulação
-  Object.assign(sim.par, r); try { localStorage.setItem("pew-simu-sim", JSON.stringify(sim.par)); } catch (e) { /* ok */ }
+  Object.assign(sim.par, r); try { localStorage.setItem("maisim-simu-sim", JSON.stringify(sim.par)); } catch (e) { /* ok */ }
   if (typeof infoTs === "function" && $("ctl-ts")) { infoTs(); infoAtraso(); }   // Ts = n × Δt no painel do controle
   msg(`simulação: Δt ${r.dt} s, até ${r.tfim} s`, "ok"); return true;
 }
@@ -1606,10 +1606,10 @@ function acompanha(j) {
   sim.estado = j.estado; estadoBotoesSim(); const pg = $("progresso");
   if (typeof travaControle === "function") travaControle(j.estado === "rodando" || j.estado === "pausada" || j.estado === "preparando");
   if (j.avisos && j.avisos.length) {
-    let vistos = {}; try { vistos = JSON.parse(sessionStorage.getItem("pew-simu-avisos") || "{}"); } catch (e) { /* ok */ }
+    let vistos = {}; try { vistos = JSON.parse(sessionStorage.getItem("maisim-simu-avisos") || "{}"); } catch (e) { /* ok */ }
     const chave = `${j.nome}|${j.inicio}`, ja = vistos[chave] || 0;
     for (const a of j.avisos.slice(ja)) anota(a, "erro");
-    if (j.avisos.length > ja) { vistos = { [chave]: j.avisos.length }; try { sessionStorage.setItem("pew-simu-avisos", JSON.stringify(vistos)); } catch (e) { /* ok */ } }
+    if (j.avisos.length > ja) { vistos = { [chave]: j.avisos.length }; try { sessionStorage.setItem("maisim-simu-avisos", JSON.stringify(vistos)); } catch (e) { /* ok */ } }
   }
   const vivo = j.estado === "rodando" || j.estado === "pausada" || j.estado === "preparando";
   if (vivo && !sim.avisou) { sim.avisou = true; avisa("rodada"); } else if (!vivo) sim.avisou = false;   // a outra janela acompanha
@@ -1746,7 +1746,7 @@ async function carrega(arq) {
   let j; try { j = await api("circuito?arq=" + encodeURIComponent(arq)); }   // leitura: repete uma vez se a conexão cair
   catch (e) { $("erro").textContent = e.message || "erro ao ler o modelo"; $("info").textContent = ""; return; }
   dados = j; folhaAtual = "0"; desenha(); ajusta();
-  try { localStorage.setItem("pew-simu-modelo", arq); } catch (e) { /* ok */ }
+  try { localStorage.setItem("maisim-simu-modelo", arq); } catch (e) { /* ok */ }
   const q = new URLSearchParams(location.search); q.set("modelo", arq); history.replaceState(null, "", "?" + q.toString());
 }
 $("bt-ajustar").onclick = ajusta;
@@ -1768,14 +1768,12 @@ new ResizeObserver(() => { const h = document.querySelector("header").offsetHeig
   if (dados) requestAnimationFrame(reajustaAspecto);    // o desenho muda de altura: a proporção (e o clique → grade) acompanha
 }).observe(document.querySelector("header"));
 const NOVO = "__novo__";
-const EH_PEW = /(^|\/)pew\/[^/]+\.ipes$/, EH_LIB = /(^|\/)subcircuitos\/[^/]+\.ipes$/;   // salvos pelo PEW e biblioteca (pela pasta do arquivo)
-function preencheModelos(lst, valor) {          // grupos: o circuito novo (se houver), os do repositório e os salvos pelo PEW
-  const op = (a) => `<option value="${a}">${a.replace(/^.*\/(pew|subcircuitos)\//, "").replace(/^simu\/gecko\//, "")}</option>`;
-  const pew = lst.filter((a) => EH_PEW.test(a)), bib = lst.filter((a) => EH_LIB.test(a)), repo = lst.filter((a) => !EH_PEW.test(a) && !EH_LIB.test(a));
+let listaModelos = [];                           // a última lista do servidor: {arq, nome, grupo, apagavel, pasta}, já em grupos
+function preencheModelos(lst, valor) {          // grupos: o circuito novo (se houver) e os do servidor, na ordem dele
+  if (lst) listaModelos = lst;
+  const grupos = [...new Set(listaModelos.map((o) => o.grupo))];
   $("sel-modelo").innerHTML = (ed.novo ? `<optgroup label="novo"><option value="${NOVO}">✱ ${ed.novo} (novo, não salvo)</option></optgroup>` : "") +
-    `<optgroup label="modelos do repositório">${repo.map(op).join("")}</optgroup>` +
-    (pew.length ? `<optgroup label="salvos pelo PEW">${pew.map(op).join("")}</optgroup>` : "") +
-    (bib.length ? `<optgroup label="biblioteca de subcircuitos">${bib.map(op).join("")}</optgroup>` : "");
+    grupos.map((g) => `<optgroup label="${escT(g)}">${listaModelos.filter((o) => o.grupo === g).map((o) => `<option value="${escT(o.arq)}">${escT(o.nome)}</option>`).join("")}</optgroup>`).join("");
   if (valor) $("sel-modelo").value = valor;
   mostraModelo();
 }
@@ -1787,13 +1785,11 @@ function mostraModelo() {
 async function abrirModelo() {
   let lst; try { lst = await api("modelos"); } catch (e) { msg(`não consegui listar os modelos: ${e.message}`, "erro"); return; }
   const itens = (ed.novo ? [{ v: NOVO, t: `✱ ${ed.novo} (novo, não salvo)`, g: "novo" }] : []).concat(
-    lst.map((a) => ({ v: a, t: a.replace(/^.*\/(pew|subcircuitos)\//, "").replace(/^simu\/gecko\//, ""), apagavel: EH_PEW.test(a) || EH_LIB.test(a),
-      g: EH_PEW.test(a) ? "salvos pelo PEW" : EH_LIB.test(a) ? "biblioteca de subcircuitos" : "modelos do repositório" }))
-    .sort((a, b) => ["novo", "modelos do repositório", "salvos pelo PEW", "biblioteca de subcircuitos"].indexOf(a.g) - ["novo", "modelos do repositório", "salvos pelo PEW", "biblioteca de subcircuitos"].indexOf(b.g)));
+    lst.map((o) => ({ v: o.arq, t: o.nome, apagavel: o.apagavel, g: o.grupo, bib: o.pasta === "subcircuitos" })));
   const atual = $("sel-modelo").value;
   const fundo = document.createElement("div"); fundo.className = "modal-fundo";
   fundo.innerHTML = `<div class="modal largo abrir" role="dialog" aria-modal="true"><h3>Abrir</h3>
-    <p>Os circuitos ficam sempre em <b>simu/gecko/</b>: os do repositório, cada um na sua pasta, e os salvos pelo PEW em simu/gecko/pew/.</p>
+    <p>Os <b>exemplos</b> vêm com o MaiSim; os <b>seus circuitos</b> (o que você salva) e a <b>biblioteca</b> ficam na pasta de dados; outras pastas entram pela configuração (MAISIM_PASTAS_CIRCUITOS).</p>
     <input class="busca-abrir" placeholder="procurar circuito…" autocomplete="off"><div class="lista-abrir"></div>
     <div class="modal-botoes"><button class="m-cancela">Cancelar</button></div></div>`;
   document.body.appendChild(fundo);
@@ -1831,7 +1827,7 @@ async function abrirModelo() {
       addEventListener("keydown", tecla, true);
       if (!sim) return;
       try { const j = await api("editor/apagar_arquivo", { arq: o.v }); itens.splice(itens.indexOf(o), 1); desenhaLista();
-        msg(`apagado: ${j.apagado} (na lixeira: ${j.lixeira})`, "ok"); if (o.v.includes("/subcircuitos/")) carregaBiblioteca(); recarregaModelos($("sel-modelo").value); }
+        msg(`apagado: ${j.apagado} (na lixeira: ${j.lixeira})`, "ok"); if (o.bib) carregaBiblioteca(); recarregaModelos($("sel-modelo").value); }
       catch (er) { msg(er.message, "erro"); }
       return;
     }
@@ -1856,13 +1852,14 @@ $("sel-modelo").onchange = async (e) => {
   const sel = $("sel-modelo");
   preencheModelos(lst);
   let quer = new URLSearchParams(location.search).get("modelo");
-  if (VISTA_CODIGO) { try { const e = await api("editor/estado"); if (e && lst.includes(e.arq)) quer = e.arq; } catch (e) { /* o último deste navegador */ } }
-  try { quer = quer || localStorage.getItem("pew-simu-modelo") || localStorage.getItem("pew-control-modelo"); } catch (e) { /* ok */ }
-  const arq = lst.includes(quer) ? quer : (lst.find((a) => a.includes("03_mmc_3sm_600V")) || lst[0]);
+  const arqs = lst.map((o) => o.arq);
+  if (VISTA_CODIGO) { try { const e = await api("editor/estado"); if (e && arqs.includes(e.arq)) quer = e.arq; } catch (e) { /* o último deste navegador */ } }
+  try { quer = quer || localStorage.getItem("maisim-simu-modelo"); } catch (e) { /* ok */ }
+  const arq = arqs.includes(quer) ? quer : (arqs.find((a) => a.endsWith("exemplo_controle_pwm.ipes")) || arqs[0]);   // a 1ª vez: o buck com PWM
   if (arq) { sel.value = arq; mostraModelo(); await carrega(arq); }
   // o cadeado começa aberto (editando), a não ser que tenha sido fechado neste navegador: assim o servidor conhece o circuito
   // (as medidas e atuações do controle) sem precisar lembrar de abrir a edição
-  let travado = false; try { travado = localStorage.getItem("pew-simu-travado") === "1"; } catch (e) { /* ok */ }
+  let travado = false; try { travado = localStorage.getItem("maisim-simu-travado") === "1"; } catch (e) { /* ok */ }
   if (arq && (VISTA_CODIGO || !travado) && !ed.ligado) await liga(true);
   if (VISTA_CODIGO) {                                    // a janela do código: o painel do controle e o aviso de que está aberta
     $("titulo-pagina").textContent = "código"; tituloCodigo();
@@ -1900,7 +1897,7 @@ if (canal) canal.onmessage = async (ev) => {
   else if (m.tipo === "codigo-fechado") marcaCodigoFora(false);
 };
 addEventListener("storage", (ev) => {                   // Δt e tempo final mudados na outra janela (o Ts do controle depende deles)
-  if (ev.key !== "pew-simu-sim") return;
+  if (ev.key !== "maisim-simu-sim") return;
   try { Object.assign(sim.par, JSON.parse(ev.newValue || "{}")); } catch (e) { /* ok */ }
   if (typeof infoTs === "function" && $("ctl-ts")) { infoTs(); infoAtraso(); }
 });

@@ -1,4 +1,4 @@
-"""O PEW não trava numa janela de erro do Gecko (instância de teste: servidor 8768, motor 6121, Gecko na tela :98), achado
+"""O MaiSim não trava numa janela de erro do Gecko (instância de teste: servidor 7201, motor 7204, Gecko na tela :72), achado
 de Marcelo em 19/10: colou a perna do MMC abaixo da beira da folha principal (160 × 100); ao reabrir o arquivo, o Gecko
 abriu "There are circuit components located outside the selected sheet size" na tela escondida dele e ficou esperando o
 OK — e cada reabrir seguinte (apagar, mover em grupo, desfazer) caía na mesma janela.
@@ -11,8 +11,8 @@ No fim, o servidor de teste sobe de novo (reinicia_servidor_teste.sh)."""
 import gzip, json, pathlib, re, subprocess, sys, time, urllib.request
 AQUI = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(AQUI.parent))
-B = "http://localhost:8768/pew/simu/"
-CACHE = pathlib.Path.home() / ".cache/pew_simu_teste"
+B = "http://localhost:7201/maisim/simu/"
+CACHE = pathlib.Path.home() / ".cache/maisim_teste"
 def api(rota, corpo=None):
     q = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     t0 = time.time()
@@ -30,7 +30,7 @@ def texto(arq):
 def rodape():
     return tuple(map(int, re.findall(r"\nworksheetSizeX (\d+)\s*\nworksheetSizeY (\d+)", texto(CACHE / "estado.ipes"))[-1]))
 import janelas_gecko
-ok(not janelas_gecko.janelas(":98"), "antes: nenhuma janela de erro aberta no Gecko de teste")
+ok(not janelas_gecko.janelas(":72"), "antes: nenhuma janela de erro aberta no Gecko de teste")
 # ---- parte A: pelo servidor
 api("editor/novo", {"modo": "descartar"})
 c("CREATE", "R.1", 10, 10, "R"); c("CREATE", "SUBCIRCUIT.1", 30, 10, "SUBCIRCUIT"); c("CREATE", "SUBCIRCUIT.1#R.2", 30, 10, "R")
@@ -47,24 +47,24 @@ ok(not r.get("ERRO") and r["_s"] < 20 and x == 10 + f1[0] + 40 and f2[0] >= x, f
 r = api("editor/desfazer", {})
 ok(not r.get("ERRO") and r["_s"] < 20, f"desfazer (o arquivo de antes, com a folha menor e tudo dentro): {r.get('desfeito')} em {r['_s']:.1f} s")
 r = api("editor/grupo", {"nomes": colado, "fios": [], "folha": "0", "acao": "apagar"})
-ok(not r.get("ERRO") and r["_s"] < 20 and not janelas_gecko.janelas(":98"), f"apagar o colado: em {r['_s']:.1f} s, sem janela no Gecko {r.get('erro', '')}")
+ok(not r.get("ERRO") and r["_s"] < 20 and not janelas_gecko.janelas(":72"), f"apagar o colado: em {r['_s']:.1f} s, sem janela no Gecko {r.get('erro', '')}")
 # ---- parte B: a vigia, direto no motor (sem a camada 1)
 modelo = texto(CACHE / "estado.ipes")
 m = list(re.finditer(r"\nworksheetSizeX (\d+)\s*\nworksheetSizeY (\d+)", modelo))[-1]
 fora = CACHE / "fora_da_folha.ipes"
 fora.write_bytes(gzip.compress((modelo[:m.start()] + "\nworksheetSizeX 20\nworksheetSizeY 20" + modelo[m.end():]).encode()))   # o SUBCIRCUIT em x = 30 fica fora
-pid = subprocess.run("ss -ltnp | grep ':8768 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1", shell=True, capture_output=True, text=True).stdout.strip()
+pid = subprocess.run("ss -ltnp | grep ':7201 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1", shell=True, capture_output=True, text=True).stdout.strip()
 if pid:
     subprocess.run(["kill", pid])
     for _ in range(40):
-        if ":8768 " not in subprocess.run(["ss", "-ltn"], capture_output=True, text=True).stdout: break
+        if ":7201 " not in subprocess.run(["ss", "-ltn"], capture_output=True, text=True).stdout: break
         time.sleep(0.25)
     time.sleep(1)
 from motor import Motor
 pasta = CACHE / "janelas_gecko"
 antes = set(pasta.glob("*.png")) if pasta.exists() else set()
-mo = Motor(6121)
-mo.vigia = lambda: [t for t, _ in janelas_gecko.fecha(":98", pasta)]
+mo = Motor(7204)
+mo.vigia = lambda: [t for t, _ in janelas_gecko.fecha(":72", pasta)]
 t0 = time.time()
 try:
     mo.cmd(f"OPEN {fora}"); erro = ""
@@ -72,7 +72,7 @@ except Exception as e:
     erro = str(e)
 dt = time.time() - t0
 fotos = set(pasta.glob("*.png")) - antes if pasta.exists() else set()
-ok(dt < 30 and "Error!" in mo.janelas and fotos and not janelas_gecko.janelas(":98"),
+ok(dt < 30 and "Error!" in mo.janelas and fotos and not janelas_gecko.janelas(":72"),
    f"sem a camada 1, o Gecko abre a janela; a vigia fecha com OK e o pedido volta em {dt:.1f} s (janelas {mo.janelas}, {len(fotos)} foto(s)) {erro}")
 try: mo.cmd("QUIT")
 except Exception: pass

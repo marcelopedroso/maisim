@@ -7,63 +7,99 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#6d28d9" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PEW — Power Electronics Workspace</title>
+    <title>MaiSim</title>
+    <meta name="description" content="Open-source power electronics simulation and control platform" />
     <script>
-        // o tema (o trilho escolhe e guarda em localStorage "pew-tema": sistema, claro ou escuro), aplicado antes de pintar
+        // o tema (o trilho escolhe e guarda em localStorage "maisim-tema": sistema, claro ou escuro), aplicado antes de pintar
         try {
-            const t = localStorage.getItem('pew-tema') || 'sistema'
+            const t = localStorage.getItem('maisim-tema') || 'sistema'
             const escuro = t === 'escuro' || (t === 'sistema' && matchMedia('(prefers-color-scheme: dark)').matches)
             document.documentElement.dataset.tema = escuro ? 'escuro' : 'claro'
         } catch (e) {                                   // sem localStorage: segue o sistema
             document.documentElement.dataset.tema = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'escuro' : 'claro'
         }
-        // o tamanho (+ e − no trilho, localStorage "pew-escala"), antes de pintar
-        try { const z = parseFloat(localStorage.getItem("pew-escala")); if (window.top === window.self && [0.8, 0.9, 1.1, 1.25, 1.4].includes(z)) document.documentElement.style.zoom = z; } catch (e) { /* 100 % */ }
+        // o tamanho (+ e − no trilho, localStorage "maisim-escala"), antes de pintar
+        try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.top === window.self && [0.8, 0.9, 1.1, 1.25, 1.4].includes(z)) document.documentElement.style.zoom = z; } catch (e) { /* 100 % */ }
     </script>
     <style>
         :root { --fundo:#f7f8fa; --cartao:#fff; --texto:#1b1f24; --sutil:#5b6470; --borda:#d9dde3; --acento:#6d28d9; color-scheme:light; }
         :root[data-tema="escuro"] { --fundo:#0f1115; --cartao:#171a21; --texto:#e6e8ec; --sutil:#9aa3ae; --borda:#2c323c; --acento:#8b5cf6; color-scheme:dark; }
         * { box-sizing:border-box; }
         body { margin:0; background:var(--fundo); color:var(--texto); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
-        main { max-width:980px; margin:0 auto; padding:48px 32px 48px calc(32px + var(--pew-nav-w, 0px)); }
+        main { max-width:980px; margin:0 auto; padding:48px 32px 48px calc(32px + var(--maisim-nav-w, 0px)); }
         header { display:flex; align-items:center; gap:14px; margin-bottom:28px; }
         header img { width:52px; height:48px; }
         h1 { margin:0; font-size:28px; } header p { margin:4px 0 0; color:var(--sutil); }
+        header p.frase { margin-top:2px; color:var(--acento); font-weight:600; font-size:14px; letter-spacing:.2px; }
         .cartoes { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:16px; }
         .cartao { display:block; padding:18px; border:1px solid var(--borda); border-radius:12px; background:var(--cartao);
                   color:inherit; text-decoration:none; transition:border-color .12s, transform .12s; }
         .cartao:hover { border-color:var(--acento); transform:translateY(-1px); }
         .cartao h2 { margin:0 0 6px; font-size:17px; color:var(--acento); } .cartao p { margin:0; color:var(--sutil); font-size:14px; line-height:1.45; }
         .cartao small { display:block; margin-top:10px; color:var(--sutil); font-size:12px; }
+        #recentes { margin-top:32px; } #recentes[hidden] { display:none; }
+        #recentes h2 { font-size:15px; margin:0 0 10px; color:var(--sutil); font-weight:600; letter-spacing:.3px; text-transform:uppercase; }
+        .rodadas { border:1px solid var(--borda); border-radius:12px; background:var(--cartao); overflow:hidden; }
+        .rodada { display:flex; align-items:center; gap:12px; padding:10px 16px; border-top:1px solid var(--borda); }
+        .rodada:first-child { border-top:0; }
+        .rodada .info { flex:1; min-width:0; } .rodada b { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .rodada .det { color:var(--sutil); font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .rodada a { flex:none; color:var(--acento); text-decoration:none; font-size:13px; font-weight:600; padding:5px 10px;
+                    border:1px solid var(--borda); border-radius:8px; } .rodada a:hover { border-color:var(--acento); }
+        @media (max-width:560px) { .rodada { flex-wrap:wrap; } .rodada .info { flex-basis:100%; } }
     </style>
 </head>
 
 <body>
     <main>
         <header>
-            <img src="/marca/pew-icone.svg" alt="" />
+            <img src="/marca/maisim-icone.svg" alt="" />
             <div>
-                <h1>Power Electronics Workspace</h1>
+                <h1>MaiSim</h1>
+                <p class="frase">Open-source power electronics simulation and control platform</p>
                 <p>Monte, simule e meça circuitos de eletrônica de potência — com o controle em Python e uma IA ao lado.</p>
             </div>
         </header>
         <div class="cartoes">
-            <a class="cartao" href="/pew/simu/">
+            <a class="cartao" href="/maisim/simu/">
                 <h2>Simu · monte e simule</h2>
                 <p>Monte circuitos pela paleta, ligue, meça e simule (o GeckoCIRCUITS é o cérebro); escreva o controle em Python e peça ajuda à IA.</p>
             </a>
-            <a class="cartao" href="/pew/scope/">
+            <a class="cartao" href="/maisim/scope/">
                 <h2>Scope · rodadas e medição</h2>
                 <p>A rodada ao vivo e as gravações, painéis configuráveis, zoom por painel, medição (média, Fourier, THD) e espectro.</p>
             </a>
-            <a class="cartao" href="/pew/gecko/">
-                <h2>GeckoCIRCUITS no navegador</h2>
-                <p>A janela do simulador por uma tela virtual, para conferir o circuito que o simu monta.</p>
-                <small>GeckoCIRCUITS: simulador de código aberto (GPLv3), github.com/geckocircuits/GeckoCIRCUITS</small>
-            </a>
         </div>
+        <section id="recentes" hidden>
+            <h2>Últimas simulações</h2>
+            <div class="rodadas"></div>
+        </section>
     </main>
-    <script src="/pew-nav.js"></script>
+    <script src="/maisim-nav.js"></script>
+    <script>
+        // as últimas rodadas (as do scope: as do simulador e as das pastas extras), com atalhos: ver no scope e, se o
+        // circuito de origem ainda existe, abrir no simu. Sem o scope no ar, a seção fica escondida.
+        (async () => {
+            const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+            const quando = (s) => { const d = new Date(s * 1000), h = new Date();
+                const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+                return d.toDateString() === h.toDateString() ? `hoje, ${hora}` : `${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}, ${hora}`; };
+            try {
+                const rods = (await (await fetch("/maisim/scope/rodadas")).json()).slice(0, 6);
+                if (!rods.length) return;
+                let mods = [];
+                try { mods = await (await fetch("/maisim/simu/modelos")).json(); } catch (e) { /* sem o simu: só o scope */ }
+                const circuito = (m) => { if (!m) return null; const base = m.split("/").pop();
+                    return mods.find((o) => o.arq === m) || mods.find((o) => o.arq.split("/").pop() === base) || null; };
+                document.querySelector("#recentes .rodadas").innerHTML = rods.map((r) => {
+                    const c = r.do_simu ? circuito(r.modelo) : null, nomeC = r.modelo ? r.modelo.split("/").pop().replace(/\.ipes$/, "") : "";
+                    return `<div class="rodada"><div class="info"><b>${esc(r.nome)}</b><div class="det">${esc([nomeC, quando(r.mtime)].filter(Boolean).join(" · "))}</div></div>` +
+                        `<a href="/maisim/scope/?a=${encodeURIComponent(r.arq)}">ver no scope</a>` +
+                        (c ? `<a href="/maisim/simu/?modelo=${encodeURIComponent(c.arq)}">abrir o circuito</a>` : "") + `</div>`; }).join("");
+                document.getElementById("recentes").hidden = false;
+            } catch (e) { /* sem o scope: sem a seção */ }
+        })();
+    </script>
 </body>
 
 </html>

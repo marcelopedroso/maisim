@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""PEW / simu: o circuito dos modelos do GeckoCIRCUITS desenhado no navegador, a partir do .ipes (ipes.py).
-Só biblioteca padrão. Tudo sob /pew/simu/ (página, static/, modelos, circuito?arq=…); / redireciona.
-O pew-app (PEW, porta 5000) encaminha /pew/simu para cá.
-uso (da raiz do projeto): python3 simu/servidor.py [--porta 8767]  →  http://localhost:8767/pew/simu/"""
+"""MaiSim / simu: o circuito dos modelos do GeckoCIRCUITS desenhado no navegador, a partir do .ipes (ipes.py).
+Só biblioteca padrão. Tudo sob /maisim/simu/ (página, static/, modelos, circuito?arq=…); / redireciona.
+O maisim-app (MaiSim, porta 5000) encaminha /maisim/simu para cá.
+uso (da raiz do projeto): python3 simu/servidor.py [--porta 8767]  →  http://localhost:8767/maisim/simu/"""
 import argparse
 import atexit
 import base64
@@ -25,10 +25,14 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "config"))
+import ler_config  # noqa: E402
+ler_config.aplica()                          # as portas e as pastas (config/padrao.env, o perfil, o .env), antes de ler o ambiente
+
 from ipes import monta
 from motor import ErroMotor, Motor
 import contextos
-import ia as ias_pew
+import ia as ias_maisim
 import janelas_gecko
 import resumo_rodada
 
@@ -38,17 +42,16 @@ from publica import PublicadorScope  # noqa: E402  (o mesmo publicador do run.py
 AQUI = Path(__file__).parent
 RAIZ = AQUI.parent                           # a raiz do projeto
 MODELOS = RAIZ / "exemplos"                  # os circuitos de exemplo (no repositório)
-DADOS = Path(os.environ.get("PEW_DADOS") or Path.home() / ".local" / "share" / "pew")   # os dados de quem usa (fora do repositório)
-PREFIXO = "/pew/simu"
-ANTIGO = "/pew/control"                    # o endereço de antes: redireciona
+DADOS = Path(os.environ["MAISIM_DADOS"])     # os dados de quem usa (fora do repositório)
+PREFIXO = "/maisim/simu"
 TIPOS = {".html": "text/html; charset=utf-8", ".js": "application/javascript", ".css": "text/css", ".json": "application/json",
          ".woff2": "font/woff2"}
-SALVOS = Path(os.environ.get("PEW_SIMU_SALVOS", DADOS / "pew"))     # onde o editor salva (aparece na lista de modelos)
-# PEW_SIMU_CACHE, PEW_MOTOR_PORTA e PEW_GECKO_TELA: outra instância (de teste) com o seu Gecko, sem mexer no do PEW
-ESTADO = Path(os.environ.get("PEW_SIMU_CACHE", Path.home() / ".cache" / "pew_simu")) / "estado.ipes"   # o Gecko salva aqui o que está aberto
-MOTOR = Motor(int(os.environ.get("PEW_MOTOR_PORTA", "6120")))
-TELA = os.environ.get("PEW_GECKO_TELA", ":99")
-editor = {"aberto": None}                    # o modelo que o editor abriu no Gecko do PEW (guardado em ABERTO: sobrevive a reiniciar)
+SALVOS = Path(os.environ.get("MAISIM_SALVOS") or DADOS / "circuitos")   # onde o editor salva (aparece na lista de modelos)
+# MAISIM_SIMU_CACHE, MAISIM_PORTA_MOTOR e MAISIM_TELA_X: outra instância (de teste) com o seu Gecko, sem mexer no do MaiSim
+ESTADO = Path(os.environ.get("MAISIM_SIMU_CACHE") or Path(os.environ["MAISIM_CACHE"]) / "simu") / "estado.ipes"   # o Gecko salva aqui o que está aberto
+MOTOR = Motor(int(os.environ["MAISIM_PORTA_MOTOR"]))
+TELA = os.environ["MAISIM_TELA_X"]
+editor = {"aberto": None}                    # o modelo que o editor abriu no Gecko do MaiSim (guardado em ABERTO: sobrevive a reiniciar)
 ABERTO = ESTADO.with_name("aberto.txt")
 try:
     editor["aberto"] = ABERTO.read_text().strip() or None
@@ -120,7 +123,7 @@ def ja_visto(agora):
 
 
 def mudou_fora():
-    """True se o Gecko do PEW tem algo que o editor não viu: compara com o último estado visto; sem estado visto (o servidor
+    """True se o Gecko do MaiSim tem algo que o editor não viu: compara com o último estado visto; sem estado visto (o servidor
     reiniciou), com o arquivo aberto, no disco — o "*" do título não serve (a interface remota deixa o "*" mesmo depois de
     salvar, e o aviso saía falso a cada reinício). Sem arquivo, o "*" é o que sobra."""
     tmp = ESTADO.with_name("conferencia.ipes")
@@ -170,9 +173,9 @@ def situacao_gecko():
 
 
 def salva_aberto():
-    """Grava o que está no Gecko (e o controle e as cores) no arquivo aberto — só arquivo da pasta do PEW."""
+    """Grava o que está no Gecko (e o controle e as cores) no arquivo aberto — só arquivo da pasta do MaiSim."""
     if not aberto_salvavel():
-        raise ErroMotor("o modelo aberto não está na pasta do PEW: use Salvar como")
+        raise ErroMotor("o modelo aberto não está na pasta do MaiSim: use Salvar como")
     dest = RAIZ / editor["aberto"]
     MOTOR.cmd(f"SAVEAS {dest}")
     salva_controle_junto(dest)
@@ -190,7 +193,7 @@ def lista_itens(itens):
 
 
 def aberto_salvavel():
-    """O arquivo aberto pode ser regravado pelo PEW? (só os da pasta do PEW: os modelos originais nunca)"""
+    """O arquivo aberto pode ser regravado pelo MaiSim? (só os da pasta do MaiSim: os modelos originais nunca)"""
     if not editor.get("aberto"):
         return False
     try:
@@ -200,7 +203,7 @@ def aberto_salvavel():
 
 
 def gecko_alterado():
-    """True se o modelo aberto no Gecko do PEW tem alteração não salva (título com "*")."""
+    """True se o modelo aberto no Gecko do MaiSim tem alteração não salva (título com "*")."""
     try:
         r = subprocess.run(["xwininfo", "-root", "-tree"], env=dict(os.environ, DISPLAY=TELA), capture_output=True, text=True, timeout=5)
         return bool(re.search(r"\.ipes\*", r.stdout))
@@ -209,9 +212,9 @@ def gecko_alterado():
 
 
 # ---------------------------------------------------------------- o Gecko não pode ficar esperando um OK que ninguém vê
-# (Marcelo, 19/10: colou a perna do MMC abaixo da beira da folha principal, de 160 × 100, e o PEW travou). Ao abrir um arquivo,
+# (Marcelo, 19/10: colou a perna do MMC abaixo da beira da folha principal, de 160 × 100, e o MaiSim travou). Ao abrir um arquivo,
 # o Gecko confere se tudo da folha principal cabe no tamanho gravado (worksheetSizeX/Y, no fim do arquivo); se não cabe, abre
-# uma janela de erro e espera o OK — na tela escondida do Gecko do PEW. O pedido fica parado, e o PEW inteiro com ele; e,
+# uma janela de erro e espera o OK — na tela escondida do Gecko do MaiSim. O pedido fica parado, e o MaiSim inteiro com ele; e,
 # como o tamanho não muda, todo reabrir seguinte (mover em grupo, apagar, desfazer, colar) cai na mesma janela.
 # Duas camadas: (1) abre(): antes de qualquer reabrir, a folha principal cresce para caber tudo (com folga); (2) a vigia do
 # motor: se um pedido demora, ela olha a tela do Gecko e fecha com OK uma janela de erro (a foto fica em janelas_gecko/), e
@@ -275,7 +278,7 @@ def aviso_janelas():
     if not js:
         return ""
     return (f"o Gecko abriu {'uma janela' if len(js) == 1 else f'{len(js)} janelas'} de erro ({', '.join(sorted(set(js)))}) na tela "
-            "dele, que você não vê, e ficou esperando o OK; o PEW fechou. Confira o desenho (Ctrl+Z volta)")
+            "dele, que você não vê, e ficou esperando o OK; o MaiSim fechou. Confira o desenho (Ctrl+Z volta)")
 
 
 def estado():
@@ -290,9 +293,9 @@ def estado():
         VISTO.write_text(hash_assinatura(editor["assinatura"]))   # o mesmo modelo não pergunta à toa
     except OSError:
         pass
-    r["arq"] = editor["aberto"] or "(o que estava aberto no Gecko do PEW)"
-    aberto = (RAIZ / editor["aberto"]).resolve() if editor["aberto"] else None       # arquivo do PEW? (Salvar grava por cima)
-    pasta = next((k for k, d in (("pew", SALVOS), ("subcircuitos", LIB)) if aberto and aberto.parent == d.resolve()), None)
+    r["arq"] = editor["aberto"] or "(o que estava aberto no Gecko do MaiSim)"
+    aberto = (RAIZ / editor["aberto"]).resolve() if editor["aberto"] else None       # arquivo do MaiSim? (Salvar grava por cima)
+    pasta = next((k for k, d in (("circuitos", SALVOS), ("subcircuitos", LIB)) if aberto and aberto.parent == d.resolve()), None)
     r["dono"] = {"pasta": pasta, "nome": aberto.stem} if pasta else None
     r["editor"] = True
     r["cores"] = cores_efetivas(r)                   # {canal: cor} (escolhida ou padrão)
@@ -510,7 +513,7 @@ def fio_muda(cantos, apagar=False, rotulo=None, folhas=None):
 # principal) e tudo o que está dentro dele (subcircuitos dentro de subcircuitos também) e as variáveis $; o próprio Gecko
 # abre e regrava esse arquivo. Usar = copiar o bloco e o conteúdo para o circuito aberto com identificadores novos e um
 # nome novo, juntando as variáveis $ que faltarem; o Gecko reabre e confere.
-LIB = Path(os.environ.get("PEW_SIMU_BIBLIOTECA", DADOS / "subcircuitos"))   # a instância de teste usa outra pasta
+LIB = Path(os.environ.get("MAISIM_BIBLIOTECA") or DADOS / "subcircuitos")   # a instância de teste usa outra pasta
 if not LIB.exists():                                   # a 1ª vez: a biblioteca começa com os subcircuitos de exemplo
     try:
         LIB.mkdir(parents=True)
@@ -555,7 +558,7 @@ def _globais(t):
 # é no arquivo, como o Gecko grava: a lista "optimizerName[] /$a/$b" + "optimizerValue[] 1.0 2.0"; no componente, a linha
 # "<identificador>$ParameterName $a" (antes da "<identificador> valor"; o Gecko só lê a primeira se a segunda existir) e o
 # nameOpt[] antigo, pelo índice. O nome que a tela mostra (o da interface remota: uMAX, f) → o identificador do arquivo
-# (amplitude, frequency) vem do próprio Gecko (motor/src/pew/PewParametros.java → parametros_gecko.json).
+# (amplitude, frequency) vem do próprio Gecko (motor/src/maisim/MaiSimParametros.java → parametros_gecko.json).
 PARAMETROS = {}
 try:
     PARAMETROS = {g["id"]: g["parametros"] for g in json.loads((Path(__file__).parent / "parametros_gecko.json").read_text()) if "erro" not in g}
@@ -1104,11 +1107,11 @@ def apaga_grupo(nomes, fios, folha):
 
 
 def apaga_arquivo(rel):
-    """Circuito salvo pelo PEW ou subcircuito da biblioteca: vai para a .lixeira da pasta dele (não some)."""
+    """Circuito salvo pelo MaiSim ou subcircuito da biblioteca: vai para a .lixeira da pasta dele (não some)."""
     arq = (RAIZ / str(rel)).resolve()
     pastas = [SALVOS.resolve(), LIB.resolve()]
     if arq.suffix != ".ipes" or not arq.is_file() or arq.parent not in pastas:
-        raise ErroMotor("só dá para apagar circuitos salvos pelo PEW e subcircuitos da biblioteca")
+        raise ErroMotor("só dá para apagar circuitos salvos pelo MaiSim e subcircuitos da biblioteca")
     lixo = arq.parent / ".lixeira"
     lixo.mkdir(exist_ok=True)
     dest = lixo / f"{arq.stem}_{time.strftime('%Y%m%d-%H%M%S')}.ipes"
@@ -1116,9 +1119,43 @@ def apaga_arquivo(rel):
     return dict(apagado=relativo(arq), lixeira=relativo(dest), biblioteca=lista_biblioteca())
 
 
+def pastas_extras():
+    """[(nome do grupo, pasta)]: as de MAISIM_PASTAS_CIRCUITOS ("nome=pasta" ou só a pasta, separadas por ":"; sem nome, o
+    da pasta) e, se o GeckoCIRCUITS original foi baixado (gecko/construir.sh), os exemplos que vêm com ele."""
+    r = []
+    for x in os.environ.get("MAISIM_PASTAS_CIRCUITOS", "").split(os.pathsep):
+        nome, _, p = x.strip().rpartition("=")
+        p = Path(p).expanduser() if p else None
+        if p and p.is_dir():
+            r.append((nome.strip() or p.name, p.resolve()))
+    g = RAIZ / "gecko" / "build" / "GeckoCIRCUITS" / "resources"
+    if g.is_dir():
+        r.append(("exemplos do GeckoCIRCUITS", g.resolve()))
+    return r
+
+
+def lista_modelos():
+    """Os circuitos que dá para abrir, em grupos: os exemplos (do repositório), os seus (salvos pelo editor), a biblioteca
+    de subcircuitos, as pastas extras. Cada um: arq (a chave: relativo à raiz, ou absoluto fora dela), nome (dentro da
+    pasta do grupo), grupo, apagavel (só os seus e os da biblioteca: vão para a .lixeira) e a pasta de gravação deles."""
+    itens, vistos = [], set()
+    def poe(grupo, pasta, arqs, gravacao=None):
+        for f in sorted(arqs):
+            if f.resolve() in vistos or any(s.startswith(".") for s in f.relative_to(pasta).parts):
+                continue
+            vistos.add(f.resolve())
+            itens.append(dict(arq=relativo(f), nome=str(f.relative_to(pasta)), grupo=grupo, apagavel=bool(gravacao), pasta=gravacao))
+    poe("exemplos", MODELOS, MODELOS.glob("*.ipes"))
+    poe("meus circuitos", SALVOS, SALVOS.glob("*.ipes"), "circuitos")
+    poe("biblioteca de subcircuitos", LIB, LIB.glob("*.ipes"), "subcircuitos")
+    for nome, p in pastas_extras():                  # até três níveis de subpastas (ex.: a pasta de cada circuito)
+        poe(nome, p, [f for f in p.rglob("*.ipes") if len(f.relative_to(p).parts) <= 4])
+    return itens
+
+
 def modelo_ok(arq):
-    """Um .ipes que o PEW pode abrir: sob simu/gecko/ (ou nas pastas de salvos e da biblioteca, se estiverem fora)."""
-    return any(p.resolve() in arq.parents for p in (MODELOS, SALVOS, LIB))
+    """Um .ipes que o MaiSim pode abrir: nos exemplos, nos seus circuitos, na biblioteca ou numa das pastas extras."""
+    return any(p.resolve() in arq.parents for p in (MODELOS, SALVOS, LIB, *(d for _, d in pastas_extras())))
 
 
 def relativo(arq):
@@ -1145,7 +1182,7 @@ def fonte_sinal(nome, sinal, folhas=None):
     return acopla(nome, [sinal, "NIX_NIX_NIX", "0"], folhas=folhas, dominio="LK")
 
 
-# ---------------------------------------------------------------- controle (painel "Controle" do /pew/simu)
+# ---------------------------------------------------------------- controle (painel "Controle" do /maisim/simu)
 # O código Python do usuário roda num processo à parte (controle_worker.py). A cada Ts o laço da rodada lê as medidas
 # (GETM), chama passo(t, m, p, e), escreve as atuações nos blocos CONST marcados (SETM, parâmetro "const") e anda Ts no
 # Gecko. A configuração fica numa cópia de trabalho (cache) e, ao salvar o circuito, ao lado do .ipes
@@ -1229,7 +1266,7 @@ NOMES_RESERVADOS = set(sys.stdlib_module_names) | {"numpy", "scipy", "controle",
 
 
 def _importavel(nome):
-    """Um módulo do Python ou instalado (fora a pasta do PEW, que o processo do controle não enxerga)."""
+    """Um módulo do Python ou instalado (fora a pasta do MaiSim, que o processo do controle não enxerga)."""
     if nome in sys.stdlib_module_names:
         return True
     import importlib.util
@@ -1299,7 +1336,7 @@ def analisa_modulos(c):
     erros, avisos, imports = [], [], {}
     for k in mods:
         if k[:-3] in NOMES_RESERVADOS:
-            erros.append({"arquivo": k, "linha": 1, "coluna": 1, "msg": f"o nome {k[:-3]} é de um módulo do Python (ou do PEW): renomeie o arquivo"})
+            erros.append({"arquivo": k, "linha": 1, "coluna": 1, "msg": f"o nome {k[:-3]} é de um módulo do Python (ou do MaiSim): renomeie o arquivo"})
     for arq, cod in arqs.items():
         try:
             arv = ast.parse(cod)
@@ -1368,7 +1405,7 @@ def instancias_controle(c, r):
         visoes = []
         for sub in q["subcircuitos"]:
             if r is None:
-                erros.append(f"o controlador {q['nome']} vale em subcircuitos: abra a edição (lápis) para o PEW conhecê-los")
+                erros.append(f"o controlador {q['nome']} vale em subcircuitos: abra a edição (lápis) para o MaiSim conhecê-los")
                 break
             fids = [k for k, f in r["folhas"].items() if k != "0" and f["nome"] == sub]
             if not fids:
@@ -1695,7 +1732,7 @@ def prefixo_sub(nome):
 
 
 def eh_tag(e):
-    """A tag do PEW (scope e controle): um ganho 1 chamado TAG.k — a saída dela é um sinal no scope e no m[...] do controle."""
+    """A tag do MaiSim (scope e controle): um ganho 1 chamado TAG.k — a saída dela é um sinal no scope e no m[...] do controle."""
     return e["tipo"] == "GAIN" and bool(re.match(r"^TAG\.\d+$", e["nome"]))
 
 
@@ -2141,7 +2178,7 @@ def destinos_fora_do_passo(a, pedido, escrita):
     for q in a["destinos"]:
         alvo = f"{q['tipo']} {q['nome'] or q.get('gate', '')}" + (f" ({q['folha']})" if q.get("folha") not in (None, "principal") else "")
         if q["atraso"] is None:
-            out.append((alvo, None, "o caminho sai por um subcircuito que o PEW não achou: o atraso do outro lado não é compensado"))
+            out.append((alvo, None, "o caminho sai por um subcircuito que o MaiSim não achou: o atraso do outro lado não é compensado"))
         elif escrita + q["atraso"] != pedido:
             out.append((alvo, escrita + q["atraso"], f"o Gecko leva no mínimo {q['atraso']} Δt por esse caminho" if q["atraso"] == a["atraso_gecko"]
                         else "o mesmo CONST chega a destinos com atrasos diferentes no Gecko; o que sente primeiro fica exato"))
@@ -2455,8 +2492,8 @@ class Controladores:
             tb.fecha()
 
 
-RODADAS = Path(os.environ.get("PEW_SIMU_RODADAS", DADOS / "rodadas"))   # scope_*.npz das rodadas (o /pew/scope lista tudo sob simu/)
-SCOPE = os.environ.get("PEW_SCOPE_URL", "http://localhost:8765")
+RODADAS = Path(os.environ.get("MAISIM_RODADAS") or DADOS / "rodadas")   # scope_*.npz das rodadas (o /maisim/scope lista tudo sob simu/)
+SCOPE = os.environ.get("MAISIM_PUBLICA_SCOPE") or f"http://localhost:{os.environ['MAISIM_PORTA_SCOPE']}"   # onde as rodadas são publicadas ao vivo
 
 
 rodada = {"estado": "parada"}                 # parada | rodando | pausada | fim | erro; t, tfim, progresso, arquivo …
@@ -2511,7 +2548,7 @@ def rodar(c, ctl_de_fora=None):
 
 
 def _rodar(c, ctl_de_fora=None):
-    """Começa a simulação do circuito aberto (em segundo plano) e publica no /pew/scope: ao vivo e scope_<nome>.npz
+    """Começa a simulação do circuito aberto (em segundo plano) e publica no /maisim/scope: ao vivo e scope_<nome>.npz
     (Comparar), com o .ipes exato ao lado. Sinais: a saída de cada bloco de controle da folha principal (medidores e o
     resto), com o nome do rótulo da saída, e os medidores de dentro dos subcircuitos (SM_1_<rótulo>). Pausar, continuar e parar entre um bloco de passos e outro."""
     dt, tfim = float(c.get("dt", 1e-6)), float(c.get("tfim", 0.04))
@@ -2559,7 +2596,7 @@ def _rodar(c, ctl_de_fora=None):
             if a["nome"] not in ctl["atuacoes"]:
                 continue
             if not a["destinos"]:
-                avisos_rodada.append(f"a atuação {a['nome']} não chega a chave nem a fonte controlada (pelo traçado do PEW): o atraso é "
+                avisos_rodada.append(f"a atuação {a['nome']} não chega a chave nem a fonte controlada (pelo traçado do MaiSim): o atraso é "
                                      "tratado como o de uma fonte (1 Δt do Gecko), sem garantia")
             for alvo, passo_, motivo in destinos_fora_do_passo(a, d_atu, desl[a["nome"]]):
                 avisos_rodada.append(f"atuação {a['nome']} → {alvo}: " + (motivo if passo_ is None else
@@ -2578,7 +2615,7 @@ def _rodar(c, ctl_de_fora=None):
                 raise ErroMotor(f"acionamento: não há bloco CONST {alvo} no circuito")
             escritas_ev.setdefault(max(0, j_ev - lag[alvo]), []).append(f"{blocos_const[alvo]}:const:{q['valor']!r}")
             a = next(x for x in todos_atu if x["nome"] == alvo)   # o que não dá para compensar, avisado (uma vez cada)
-            fora = [] if a["destinos"] else [("", None, "o CONST não chega a chave nem a fonte controlada (pelo traçado do PEW): "
+            fora = [] if a["destinos"] else [("", None, "o CONST não chega a chave nem a fonte controlada (pelo traçado do MaiSim): "
                                                           "o atraso é tratado como o de uma fonte, sem garantia")]
             for alvo2, passo_, motivo in fora + destinos_fora_do_passo(a, j_ev, max(0, j_ev - lag[alvo])):
                 txt = f"acionamento de {alvo} em {q['t']} s" + (f" → {alvo2}" if alvo2 else "") + ": " + (
@@ -2625,7 +2662,7 @@ def _rodar(c, ctl_de_fora=None):
         except ErroControle:
             log.close()
             raise
-    meta = dict(planta="gecko-pew", rotulo=nome, modelo=editor["aberto"] or "novo (sem arquivo)", dt=dt * m, Ts=dt * m, n_fino=1,
+    meta = dict(planta="gecko-maisim", rotulo=nome, modelo=editor["aberto"] or "novo (sem arquivo)", dt=dt * m, Ts=dt * m, n_fino=1,
                 dt_gecko=dt, tfim=tfim, sinais=[{"canal": k, "elemento": el} for el, k in sinais],
                 cores=cores_efetivas(r),
                 acionamentos=acionamentos_efetivos)
@@ -2778,7 +2815,7 @@ def _rodar(c, ctl_de_fora=None):
             pub.fecha(arq)                                       # grava o .npz antes de dizer "fim" (a tela abre o arquivo)
             rodada.update(segundos=round(time.time() - rodada["inicio"], 2), amostras=len(pub.tudo.get("t", [])))
             fim_ = locals().get("final") or dict(estado="erro", erro="a rodada terminou sem estado")
-            try:                                         # os "olhos" do Claude do PEW: o resumo ao lado do .npz
+            try:                                         # os "olhos" do Claude do MaiSim: o resumo ao lado do .npz
                 resumo_rodada.escreve(arq, pasta, estado=dict(fim_, segundos=rodada.get("segundos")),
                                       saida_controle=rodada.get("saida_controle") or "")
             except Exception as e:
@@ -2985,22 +3022,22 @@ def executa(op, a, r=None):
 
 
 
-# ---------------------------------------------------------------- Claude do PEW (login; o "pedir ao Claude" vem depois)
-# O PEW usa o CLI oficial (`claude`), sem modificação, com uma pasta de configuração só dele (CLAUDE_CONFIG_DIR =
-# ~/.claude-pew, fora do repositório: uma busca ou um zip da pasta da tese não levam a credencial): o login do PEW não
+# ---------------------------------------------------------------- Claude do MaiSim (login; o "pedir ao Claude" vem depois)
+# O MaiSim usa o CLI oficial (`claude`), sem modificação, com uma pasta de configuração só dele (CLAUDE_CONFIG_DIR =
+# ~/.claude-maisim, fora do repositório: uma busca ou um zip da pasta da tese não levam a credencial): o login do MaiSim não
 # mexe no ~/.claude do usuário. O login é o do próprio CLI (`claude auth
 # login`, que imprime o link e lê o código colado pela entrada padrão, e ao mesmo tempo espera o retorno automático num
 # localhost): a autenticação acontece na página da Anthropic; o servidor só mostra os links e, se o retorno automático não
 # chegar, repassa ao CLI o código que o usuário colar. O servidor nunca lê nem guarda a credencial (quem grava
-# .claude-pew/.credentials.json é o CLI). O processo filho recebe um ambiente limpo (lista branca): variáveis de uma sessão
+# .claude-maisim/.credentials.json é o CLI). O processo filho recebe um ambiente limpo (lista branca): variáveis de uma sessão
 # do Claude Code (ANTHROPIC_BASE_URL, CLAUDE_CODE_*…) ou uma ANTHROPIC_API_KEY não vazam para ele. Conferido com o CLI 2.1.273.
-# As IAs do PEW (ia/, etapa 2 do hub de IA): cada uma é uma peça com o seu comando, a sua pasta de configuração e a
+# As IAs do MaiSim (ia/, etapa 2 do hub de IA): cada uma é uma peça com o seu comando, a sua pasta de configuração e a
 # leitura da saída dela; o resto (a pasta de trabalho, o registro da conversa, os contextos) é igual para todas.
-IAS = ias_pew.registro()                                     # o Claude; na instância de teste (PEW_IA_TESTE=1), também o Eco
+IAS = ias_maisim.registro()                                     # o Claude; na instância de teste (MAISIM_IA_TESTE=1), também o Eco
 CLAUDE = IAS["claude"]
 for _a in IAS.values():                                      # a lista de modelos do Antigravity etc. (em segundo plano)
     threading.Thread(target=_a.ao_iniciar, daemon=True).start()
-CLAUDE_DIR, CLAUDE_BIN = CLAUDE.pasta, CLAUDE.bin           # PEW_CLAUDE_DIR / PEW_CLAUDE_BIN: testes
+CLAUDE_DIR, CLAUDE_BIN = CLAUDE.pasta, CLAUDE.bin           # MAISIM_CLAUDE_DIR / MAISIM_CLAUDE_BIN: testes
 CLAUDE_URL_AUTO = ESTADO.with_name("claude_url_auto.txt")   # o claude_navegador.sh grava aqui a URL de retorno automático
 claude_login = {}                                            # o login em andamento (um por vez): proc, andamento, urls, erro…
 trava_claude = threading.Lock()
@@ -3008,12 +3045,12 @@ ESC = re.compile(r"\x1b\]8;;[^\x07]*\x07|\x1b\[[0-9;?]*[A-Za-z]")   # hiperlink 
 
 
 def ambiente_claude(**extra):
-    """O ambiente do `claude` filho, por lista branca, com a pasta de configuração do PEW (ia/claude.py)."""
+    """O ambiente do `claude` filho, por lista branca, com a pasta de configuração do MaiSim (ia/claude.py)."""
     return CLAUDE.ambiente(**extra)
 
 
 def claude_estado():
-    """O login do Claude do PEW (`claude auth status --json` na pasta do PEW) e o login em andamento, se houver."""
+    """O login do Claude do MaiSim (`claude auth status --json` na pasta do MaiSim) e o login em andamento, se houver."""
     out = {"pasta": str(CLAUDE_DIR).replace(str(Path.home()), "~", 1), "instalado": Path(CLAUDE_BIN).exists(), "logado": False}
     if out["instalado"] and pedido_rodando() and estado_cache["v"]:    # um pedido rodando: o estado guardado (sem outro `claude`)
         out.update(estado_cache["v"])
@@ -3074,7 +3111,7 @@ def claude_login_inicia():
             CLAUDE_URL_AUTO.unlink(missing_ok=True)
             proc = subprocess.Popen([CLAUDE_BIN, "auth", "login", "--claudeai"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                     stderr=subprocess.STDOUT, cwd=str(CLAUDE_DIR), start_new_session=True,
-                                    env=ambiente_claude(BROWSER=str(AQUI / "claude_navegador.sh"), PEW_CLAUDE_URL_ARQ=str(CLAUDE_URL_AUTO)))
+                                    env=ambiente_claude(BROWSER=str(AQUI / "claude_navegador.sh"), MAISIM_CLAUDE_URL_ARQ=str(CLAUDE_URL_AUTO)))
             claude_login.clear()
             claude_login.update(proc=proc, andamento=True, desde=time.time(), url_auto=None, url_manual=None, erro=None, mensagem=None)
             threading.Thread(target=_le_login, args=(proc,), daemon=True).start()
@@ -3145,7 +3182,7 @@ def claude_sai():
 def ia_com_login(ia):
     a = IAS.get(str(ia or ""))
     if a is None or not a.tem_login:
-        raise ErroMotor(f"IA desconhecida (ou sem login pelo PEW): {ia}")
+        raise ErroMotor(f"IA desconhecida (ou sem login pelo MaiSim): {ia}")
     return a
 
 
@@ -3164,21 +3201,21 @@ def ia_conta(ia, acao, *args):
         raise ErroMotor(str(e))
 
 
-# ---------------------------------------------------------------- Claude do PEW: uso da conta e "pedir ao Claude" (passo 3b)
-# O usuário monta o circuito; o Claude do PEW cuida só do controle. Cada conversa (uma por circuito, até "nova conversa")
-# tem uma pasta própria, que é o cwd do `claude` (a retomada de uma sessão exige o mesmo cwd). A cada pedido o PEW reescreve
+# ---------------------------------------------------------------- Claude do MaiSim: uso da conta e "pedir ao Claude" (passo 3b)
+# O usuário monta o circuito; o Claude do MaiSim cuida só do controle. Cada conversa (uma por circuito, até "nova conversa")
+# tem uma pasta própria, que é o cwd do `claude` (a retomada de uma sessão exige o mesmo cwd). A cada pedido o MaiSim reescreve
 # nela o estado atual: controle.py, parametros.json, acionamentos.json, CONTEXTO.md (o circuito, as medidas, as atuações,
 # Ts, Δt e tfim) e o GUIA_CONTROLE.md. Os anexos (PDF de artigo, foto) ficam em anexos/ e o Claude Code os lê direto.
 # O `claude` roda restrito: --restricted (sem terminal nem internet; os arquivos ficam na pasta), só Read/Glob/Grep/Edit,
 # Edit só nesses três arquivos, --permission-mode dontAsk + --permission-prompts none (o que pediria permissão é negado).
-# No fim, o PEW lê os arquivos de volta, valida e testa a proposta (iniciar e 3 passo, sem simular) e a tela mostra a
+# No fim, o MaiSim lê os arquivos de volta, valida e testa a proposta (iniciar e 3 passo, sem simular) e a tela mostra a
 # diferença: o usuário aplica ou descarta. A credencial continua só com o CLI (o servidor não a lê).
 CLAUDE_CASA = ESTADO.with_name("claude")
 CLAUDE_CONVERSAS = CLAUDE_CASA / "conversas"
 CLAUDE_SESSOES = CLAUDE_CASA / "sessoes.json"
 EDITAVEIS = ("controle.py", "parametros.json", "acionamentos.json", "controladores.json", "memoria.md")
-CONTEXTOS = contextos.pasta_padrao()               # os contextos salvos (contextos.py): dados do PEW, fora do repositório
-CLAUDE_MEMORIA = CLAUDE_CASA / "memoria.md"      # a memória do PEW: vale em todas as conversas (o usuário edita; o Claude propõe)
+CONTEXTOS = contextos.pasta_padrao()               # os contextos salvos (contextos.py): dados do MaiSim, fora do repositório
+CLAUDE_MEMORIA = CLAUDE_CASA / "memoria.md"      # a memória do MaiSim: vale em todas as conversas (o usuário edita; o Claude propõe)
 ANEXO_TIPOS = {".pdf", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".txt", ".md", ".csv"}
 ANEXO_MAX = 25 * 1024 * 1024                      # por arquivo (um PDF de artigo cabe com folga)
 ANEXOS_MAX = 12
@@ -3225,14 +3262,14 @@ def limpa_trava_login(idade=5, ia=None):
     print(f"a trava de login órfã {t} foi tirada", flush=True)
     return True
 trava_sessoes = threading.Lock()                  # sessoes.json: ler-mudar-gravar (ordem: trava_claude → trava_sessoes, nunca o contrário)
-REGRAS_CLAUDE = """Você é o Claude do PEW, dentro do PEW (Power Electronics Workspace), um simulador de eletrônica de potência em
+REGRAS_CLAUDE = """Você é o Claude do MaiSim, um simulador de eletrônica de potência em
 que o GeckoCIRCUITS resolve o circuito. Quem monta o circuito é o usuário; você cuida só do CONTROLE dele, e ajuda a pensar
 o conceito do controle (malhas, ganhos, modulação, lógica no tempo, controles combinados).
 
 A pasta de trabalho tem:
 - CONTEXTO.md: o circuito aberto (componentes, valores e nós), as medidas m["..."] que o código lê, as atuações (blocos
   CONST que o código escreve, e aonde chegam), Ts, Δt e o tempo final, os parâmetros, os acionamentos e o código atual.
-  O PEW reescreve este arquivo a cada pedido com o estado atual: leia-o SEMPRE antes de responder.
+  O MaiSim reescreve este arquivo a cada pedido com o estado atual: leia-o SEMPRE antes de responder.
 - controle.py: o código. iniciar(p, e) roda uma vez; passo(t, m, p, e) roda a cada Ts e devolve {atuação: valor}.
   e é um dicionário de estado seu, p os parâmetros (p["Ts"] é o Ts efetivo), m as medidas no instante t.
   scope("nome", valor) manda uma variável para o scope (o mesmo conjunto de nomes em toda amostra).
@@ -3266,11 +3303,11 @@ A pasta de trabalho tem:
   janela) e a evolução por janela; o estado final e a saída do controle; e as séries reduzidas (t, valor). Use para
   conferir o que o pedido e os critérios pedem, com números (diga o canal e a janela): não peça ao usuário números que
   estão aqui. Procure o canal com Grep (ex.: "| Vcc |") em vez de ler o arquivo inteiro.
-- Modo autônomo (quando o usuário o liga no pedido): ao fim de cada resposta sua, o PEW simula a versão que está na pasta,
+- Modo autônomo (quando o usuário o liga no pedido): ao fim de cada resposta sua, o MaiSim simula a versão que está na pasta,
   sem aplicar no controle do usuário, e te chama de novo com o resumo; corrija e siga. Quando terminar — os critérios
   passaram, ou falta uma decisão do usuário —, explique e escreva [PRONTO] numa linha, no fim da resposta. Fora desse
   modo, não escreva [PRONTO].
-- memoria.md: a memória do PEW, que vale em todas as conversas e circuitos: preferências e lições do usuário (como ele
+- memoria.md: a memória do MaiSim, que vale em todas as conversas e circuitos: preferências e lições do usuário (como ele
   gosta dos controles, convenções, o que deu certo ou errado). Leia SEMPRE e siga. Quando o usuário pedir para lembrar
   algo, ou deixar clara uma preferência que valha para os próximos controles, acrescente uma linha curta e geral (sem
   os detalhes deste circuito); ele aprova junto com a proposta.
@@ -3285,7 +3322,7 @@ A pasta de trabalho tem:
     (ex.: $u = k_p e + k_i \\int e\\,dt$ → `u = kp * erro + e["integ"]`, em pi.py:12).
 
 Escreva as atuações como chaves literais de um dicionário no passo() do controle.py — u = {"g": g} no fluxo com
-escrita.py (return escrita.passo(u, …)), ou return {"g": g}: é assim que o PEW as reconhece e marca. Você pode editar controle.py, os outros .py da pasta (módulos e controladores), parametros.json, acionamentos.json e
+escrita.py (return escrita.passo(u, …)), ou return {"g": g}: é assim que o MaiSim as reconhece e marca. Você pode editar controle.py, os outros .py da pasta (módulos e controladores), parametros.json, acionamentos.json e
 memoria.md, e CRIAR módulos novos (nome.py: letras, números e _, sem nome de módulo do Python como math.py ou json.py): não
 há terminal nem internet, e o circuito não muda por aqui. Um arquivo novo é sempre um módulo: um por função (pll.py,
 pi_tensao.py…), no contrato iniciar(p) → estado e passo(entrada, p, estado) → saída, chamado pelo controle.py (ou por outro
@@ -3297,13 +3334,13 @@ recebe percorre recebe() e guarda o último valor no seu e (vale até a próxima
 A ORDEM de uma amostra é sempre a mesma, como num DSP, no passo() do controle.py: 1) x = leitura.passo(m, p, e["leitura"])
 primeiro; 2) os módulos de controle, cada um recebendo o que o anterior devolveu (pll, depois o PI que usa o ângulo…);
 3) return escrita.passo(u, p, e["escrita"]) por último, devolvendo as atuações. Todo módulo chamado no passo() é iniciado
-no iniciar() (e["pll"] = pll.iniciar(p)). Se o código atual fugir disso — o CONTEXTO.md lista o que o PEW avisa —, corrija
+no iniciar() (e["pll"] = pll.iniciar(p)). Se o código atual fugir disso — o CONTEXTO.md lista o que o MaiSim avisa —, corrija
 junto com o pedido e diga o que corrigiu. Use só as medidas e as atuações do CONTEXTO.md, sem inventar outras. Se o pedido precisar de algo que o
 circuito não tem (outra medida, outra chave, um bloco CONST), diga o que o usuário deve montar e faça o resto. Mantenha o
 que já funciona no código, a menos que o pedido seja trocar. Se o pedido vier de um artigo, implemente o controle dele
 adaptado a este circuito e diga o que foi adaptado.
 
-O PEW valida e testa a sua proposta (iniciar e 3 passo, sem simular) e mostra a diferença ao usuário, que decide aplicar.
+O MaiSim valida e testa a sua proposta (iniciar e 3 passo, sem simular) e mostra a diferença ao usuário, que decide aplicar.
 Você não roda nada. Responda em português, curto e direto: o que mudou, por quê, os valores escolhidos (e de onde vieram)
 e o que conferir na simulação."""
 
@@ -3501,10 +3538,10 @@ def claude_nova():
 
 # ---- contextos salvos (contextos.py; Marcelo, 21/10: "salvar isso na memória não volátil… usar em outras conversas")
 # o resumo pela IA, opcional, DEPOIS de salvar (o salvar nunca depende dele) e invisível: um `claude` à parte, na pasta do
-# contexto, só com leitura, lendo a conversa guardada pelo PEW (não a sessão de uma IA: qualquer IA poderá fazer igual no
+# contexto, só com leitura, lendo a conversa guardada pelo MaiSim (não a sessão de uma IA: qualquer IA poderá fazer igual no
 # hub); não entra na conversa nem na sessão dela. Falhou: tenta de novo uma vez no erro passageiro do login; senão, fica
 # "falhou" e a biblioteca oferece gerar de novo (Marcelo: "invisível… mas tem que ser SEM RISCO de falha")
-RESUMO_IA_PEDIDO = ("Resuma a conversa do PEW guardada nesta pasta, para outra conversa (ou outra IA) continuar daqui. Leia conversa.md "
+RESUMO_IA_PEDIDO = ("Resuma a conversa do MaiSim guardada nesta pasta, para outra conversa (ou outra IA) continuar daqui. Leia conversa.md "
                     "(a conversa inteira) e, se ajudar, resumo.md (a nota de quem salvou), controle/ e rodada/resumo.md. Não escreva "
                     "arquivos. Responda só com o resumo, em markdown, nestas seções: ## Objetivo; ## O que foi feito; ## Resultado (com os "
                     "números: canal, janela e rodada); ## Decisões (e por quê); ## O que falta. Completo nos números e nas decisões, curto "
@@ -3629,7 +3666,7 @@ def claude_contextos():
     for c in lst:
         r = c.get("resumo_ia") or {}
         if r.get("estado") == "gerando" and c["id"] not in resumos_ativos:
-            c["resumo_ia"] = dict(r, estado="falhou", erro="interrompido (o PEW reiniciou no meio)")
+            c["resumo_ia"] = dict(r, estado="falhou", erro="interrompido (o MaiSim reiniciou no meio)")
     return {"contextos": lst, "usados": list(conv.get("contextos") or []),
             "anteriores": conversas_anteriores(conv["id"]), "conversa": conv["id"]}
 
@@ -3682,7 +3719,7 @@ def claude_contexto_usa(cid, usar):
 
 
 def claude_contexto_importa(dados_b64, nome):
-    """Um .pewctx de um colega na biblioteca (importa primeiro, depois a lista: a lista já o mostra)."""
+    """Um .maisimctx de um colega na biblioteca (importa primeiro, depois a lista: a lista já o mostra)."""
     cid = _ctx(lambda: contextos.importa(CONTEXTOS, base64.b64decode(dados_b64 or "", validate=True), nome))
     return dict(claude_contextos(), id=cid)
 
@@ -3692,9 +3729,9 @@ def num_txt(x):
 
 
 def claude_contexto(c, dt, tfim):
-    """O CONTEXTO.md: o que o Claude precisa saber do circuito aberto e do controle, gerado do estado do PEW."""
+    """O CONTEXTO.md: o que o Claude precisa saber do circuito aberto e do controle, gerado do estado do MaiSim."""
     ult = editor.get("ultimo")
-    L = ["# Contexto do PEW", "", "Gerado pelo PEW a cada pedido, com o estado atual. Só leitura.", ""]
+    L = ["# Contexto do MaiSim", "", "Gerado pelo MaiSim a cada pedido, com o estado atual. Só leitura.", ""]
     L += [f"- Circuito aberto: `{editor.get('aberto') or '(sem arquivo)'}`",
           f"- Passo do Gecko: Δt = {num_txt(dt)} s; tempo final da simulação: tfim = {num_txt(tfim)} s"]
     nTs = max(1, arred(c["Ts"] / dt)) if dt > 0 else 1
@@ -3705,7 +3742,7 @@ def claude_contexto(c, dt, tfim):
           f"- Atraso da atuação: {at.get('modo', 'logo')} → o circuito sente a atuação calculada em t no instante t + {d_at} × Δt"
           + (f" (latência pedida τ = {num_txt(at.get('tempo'))} s, limitada a [Δt, Ts])" if at.get("modo") == "tempo" else "")
           + " (logo = t + Δt; amostra = t + Ts, como num DSP; tempo = t + τ)",
-          "- Controle ligado na simulação: " + ("sim" if c["ativo"] else 'não (o PEW liga ao aplicar: "usar este controle ao simular")'), ""]
+          "- Controle ligado na simulação: " + ("sim" if c["ativo"] else 'não (o MaiSim liga ao aplicar: "usar este controle ao simular")'), ""]
     if not ult:
         L += ["O circuito não está aberto na edição: as medidas e as atuações não são conhecidas agora.", ""]
     else:
@@ -3734,10 +3771,10 @@ def claude_contexto(c, dt, tfim):
                               f"é o sinal da fonte controlada {q['nome']}{onde(q)}" if q["tipo"] == "fonte" else f"sai pelo subcircuito {q['nome']}")
                              for q in a["destinos"]) or "não chega a uma chave nem a uma fonte"
             lag = a["atraso_gecko"]
-            comp = (f"o Gecko leva {lag} Δt a mais até o circuito, e o PEW compensa" if lag <= d_at else
-                    f"o Gecko leva {lag} Δt a mais e o PEW só compensa {d_at}: o circuito sente {lag - d_at} Δt depois do pedido")
+            comp = (f"o Gecko leva {lag} Δt a mais até o circuito, e o MaiSim compensa" if lag <= d_at else
+                    f"o Gecko leva {lag} Δt a mais e o MaiSim só compensa {d_at}: o circuito sente {lag - d_at} Δt depois do pedido")
             L.append(f"- `\"{a['nome']}\"` (bloco {a['bloco']}): {dest}; {comp}"
-                     + ("" if a["nome"] in marcadas else " — AINDA NÃO MARCADA no painel: escreva-a como chave literal no dicionário de saída (u = {\"nome\": …} ou return {…}) e o PEW marca ao aplicar"))
+                     + ("" if a["nome"] in marcadas else " — AINDA NÃO MARCADA no painel: escreva-a como chave literal no dicionário de saída (u = {\"nome\": …} ou return {…}) e o MaiSim marca ao aplicar"))
         if not atu:
             L.append("- nenhuma: o circuito não tem bloco CONST (o usuário precisa pôr um, com a saída rotulada, ligado a um GATE ou a uma fonte controlada)")
         L += ["", "## Circuito (componentes de potência e os nós de cada terminal)", ""]
@@ -3776,7 +3813,7 @@ def claude_contexto(c, dt, tfim):
     erros, avisos = verifica_codigo(c["codigo"])
     conf = [] if erros or not ult else confere_codigo(c["codigo"], c["parametros"], c["atuacoes"], [k for _, k in sinais_da_rodada(ult)], atuadores_disponiveis(ult))
     if erros or avisos or conf:
-        L += ["", "## O que o PEW acusa no código atual", ""]
+        L += ["", "## O que o MaiSim acusa no código atual", ""]
         L += [f"- linha {x.get('linha', '?')}: {x['msg']}" for x in list(erros) + list(conf)] + [f"- {a}" for a in avisos]
     if c.get("controladores"):                        # vários controladores: o Claude vê todos e muda pelo controladores.json
         L += ["", "## Controladores (controladores.json: cada um no seu processo, isolado; calculam juntos a cada amostra; o que cada um lê e escreve você muda lá)", ""]
@@ -3791,7 +3828,7 @@ def claude_contexto(c, dt, tfim):
               "- controle.py: o controlador (o orquestrador: ler → calcular → escrever)"]
         L += [f"- {k}: {'controlador (processo à parte)' if k in arquivos_controladores(c) else 'módulo (roda no processo de quem importa, na mesma amostra)'}"
               for k in arquivos_de(c) if k != "controle.py"]
-        L += [f"- o PEW acusa: {x['arquivo']} linha {x['linha']}: {x['msg']}" for x in erros_m] + [f"- o PEW avisa: {a}" for a in avisos_m]
+        L += [f"- o MaiSim acusa: {x['arquivo']} linha {x['linha']}: {x['msg']}" for x in erros_m] + [f"- o MaiSim avisa: {a}" for a in avisos_m]
     if c.get("arquivos"):
         L += ["", "Os arquivos estão na pasta: leia os que o pedido envolver."]
     L += ["", "## Código atual (controle.py)", "", "```python", c["codigo"].rstrip(), "```", ""]
@@ -3824,7 +3861,7 @@ MODELOS_CLAUDE, ESFORCOS_CLAUDE = CLAUDE.modelos, CLAUDE.esforcos     # os de ca
 
 AUTONOMO_MAX = 20                                       # voltas do modo autônomo por pedido
 
-# o lembrete do formato, no fim de cada pedido (Marcelo, 20/10: numa conversa longa o Claude do PEW seguia o costume das
+# o lembrete do formato, no fim de cada pedido (Marcelo, 20/10: numa conversa longa o Claude do MaiSim seguia o costume das
 # respostas antigas — as leis do artigo numa tabela, em crases — mesmo com a regra no prompt de sistema)
 LEMBRETE_FORMATO = ("Formato: modelagem e teoria em equação LaTeX ($…$ na linha, $$…$$ em destaque), também dentro de tabelas "
                     "— ω, ∫, Σ, θ, chapéus e índices em LaTeX (\\omega, \\int, \\sum, \\hat{I}, V_{dc}), nunca entre crases; "
@@ -3833,7 +3870,7 @@ LEMBRETE_FORMATO = ("Formato: modelagem e teoria em equação LaTeX ($…$ na li
 
 def claude_pede(texto, dt, tfim, modelo="", esforco="", autonomo=0, ia="claude"):
     """Começa um pedido (um por vez): reescreve a pasta da conversa com o estado atual e roda o `claude` restrito.
-    autonomo = N > 0: o modo em que o PEW simula cada versão proposta (sem aplicar) e chama o Claude de novo com o resumo,
+    autonomo = N > 0: o modo em que o MaiSim simula cada versão proposta (sem aplicar) e chama o Claude de novo com o resumo,
     até ele dizer [PRONTO] ou acabarem as N rodadas (Marcelo, 19/10: "ter os dois já pode ser vantagem")."""
     modelo, esforco = str(modelo or ""), str(esforco or "")
     try:
@@ -3897,7 +3934,7 @@ def _claude_comeca(texto, dt, tfim, vez, modelo="", esforco="", ia="claude"):
     tem_rodada = bool(ult) and resumo_rodada.copia_para(ult, pasta)
     anexos = [a["nome"] for a in lista_anexos(pasta)]
     vistos = set(conv.get("anexos_vistos") or [])
-    nota = "(PEW: os arquivos da pasta foram reescritos com o estado atual; leia o CONTEXTO.md antes."
+    nota = "(MaiSim: os arquivos da pasta foram reescritos com o estado atual; leia o CONTEXTO.md antes."
     if tem_rodada:
         nota += f" ULTIMA_RODADA.md: o resumo da rodada mais nova ({ult.name}); as séries em ULTIMA_RODADA/<canal>.csv."
     else:
@@ -3909,7 +3946,7 @@ def _claude_comeca(texto, dt, tfim, vez, modelo="", esforco="", ia="claude"):
         nota += (" Contextos salvos carregados nesta conversa (leia o contexto.md de cada um antes de responder; a conversa daquele "
                  "momento em conversa.md, o controle de então em controle/ — referência, o controle em uso é o desta pasta): "
                  + ", ".join(f"contextos/{u['id']}/contexto.md ({u['titulo']})" for u in usados) + ".")
-    # a conversa até aqui no registro do PEW (de qualquer IA): CONVERSA.md, citado quando esta IA não a viu — trocou de IA
+    # a conversa até aqui no registro do MaiSim (de qualquer IA): CONVERSA.md, citado quando esta IA não a viu — trocou de IA
     # no meio da conversa, ou a sessão dela não existe (etapa 2 do hub de IA)
     hist = historico(conv["id"])
     if hist:
@@ -3936,14 +3973,14 @@ def sessao_da_ia(chave, conv, ia):
         if not v or v.get("id") != conv["id"]:
             return str(uuid.uuid4())
         s = v.setdefault("sessoes", {})
-        if not re.fullmatch(r"[0-9A-Za-z_-]{8,80}", str(s.get(ia, ""))):   # um uuid do PEW, ou o id que a IA deu (o agy)
+        if not re.fullmatch(r"[0-9A-Za-z_-]{8,80}", str(s.get(ia, ""))):   # um uuid do MaiSim, ou o id que a IA deu (o agy)
             s[ia] = str(uuid.uuid4())
             grava_sessoes(d)
         return s[ia]
 
 
 def guarda_sessao_da_ia(chave, conv_id, ia, sid):
-    """A IA que dá ela mesma o id da sessão (o Antigravity: conversation_id): o PEW guarda o que ela devolveu, para retomar."""
+    """A IA que dá ela mesma o id da sessão (o Antigravity: conversation_id): o MaiSim guarda o que ela devolveu, para retomar."""
     if ia == "claude" or not re.fullmatch(r"[0-9A-Za-z_-]{8,80}", str(sid or "")):
         return
     with trava_sessoes:
@@ -3955,8 +3992,8 @@ def guarda_sessao_da_ia(chave, conv_id, ia, sid):
 
 
 def regras_da(a):
-    """As regras do PEW para a IA (as mesmas para todas; só o nome dela no começo)."""
-    return REGRAS_CLAUDE if a.id == "claude" else REGRAS_CLAUDE.replace("Você é o Claude do PEW", f"Você é a IA do PEW ({a.nome})", 1)
+    """As regras do MaiSim para a IA (as mesmas para todas; só o nome dela no começo)."""
+    return REGRAS_CLAUDE if a.id == "claude" else REGRAS_CLAUDE.replace("Você é o Claude do MaiSim", f"Você é a IA do MaiSim ({a.nome})", 1)
 
 
 def _claude_lanca(prompt, c, dt, vez, chave, conv, pasta, anexos, memoria, modelo="", esforco="", ia="claude"):
@@ -4117,14 +4154,14 @@ def _acompanha_claude(proc, antes, dt, chave, pasta, anexos, memoria="", ia="cla
 
 def _claude_continua(antes, dt, chave, pasta, memoria, vez):
     """Modo autônomo: a chamada chegou ao limite de passos no meio da versão — chama de novo, na mesma conversa, para
-    terminar de onde parou (os arquivos da pasta estão como ele deixou); o PEW simula quando ele terminar."""
+    terminar de onde parou (os arquivos da pasta estão como ele deixou); o MaiSim simula quando ele terminar."""
     with trava_claude:
         if claude_pedido.get("vez") != vez or not claude_pedido.get("andamento"):
             return
         auto = dict(claude_pedido.get("auto") or {})
         claude_pedido.update(pedido="(modo autônomo: continua depois do limite de passos)", fala="", resposta=None)
-    prompt = (f"(PEW, modo autônomo) A chamada anterior chegou ao limite de {CLAUDE_PASSOS} passos. Os arquivos da pasta estão "
-              "como você deixou. Continue de onde parou e termine a versão; quando você terminar, o PEW a simula e te devolve o resumo. "
+    prompt = (f"(MaiSim, modo autônomo) A chamada anterior chegou ao limite de {CLAUDE_PASSOS} passos. Os arquivos da pasta estão "
+              "como você deixou. Continue de onde parou e termine a versão; quando você terminar, o MaiSim a simula e te devolve o resumo. "
               + LEMBRETE_FORMATO)
     _, conv, _ = conversa_atual()
     try:
@@ -4137,7 +4174,7 @@ def _claude_continua(antes, dt, chave, pasta, memoria, vez):
 
 def _claude_volta_autonoma(antes, dt, chave, pasta, memoria, vez):
     """Uma volta do modo autônomo: simula a versão proposta (sem aplicar: o controle do usuário não muda), põe o resumo na
-    pasta do Claude e o chama de novo na mesma conversa. Quem roda o código é o PEW, no mesmo processo à parte do
+    pasta do Claude e o chama de novo na mesma conversa. Quem roda o código é o MaiSim, no mesmo processo à parte do
     "testar"; o Claude continua só com Read/Edit/Write nos arquivos da pasta."""
     def vivo():
         with trava_claude:
@@ -4182,7 +4219,7 @@ def _claude_volta_autonoma(antes, dt, chave, pasta, memoria, vez):
         claude_pedido["eventos"] = (claude_pedido["eventos"] + [f"rodada {i}: {est}" + (f" ({rodada.get('erro')})" if rodada.get("erro") else "")])[-40:]
         claude_pedido.update(pedido=f"(modo autônomo: resultado da rodada {i} de {auto['max']})", fala="", resposta=None)
     estado_txt = est + (f" — erro: {rodada.get('erro')}" if rodada.get("erro") else "")
-    prompt = (f"(PEW, modo autônomo) A rodada {i} de {auto['max']} da sua versão terminou: {estado_txt}. "
+    prompt = (f"(MaiSim, modo autônomo) A rodada {i} de {auto['max']} da sua versão terminou: {estado_txt}. "
               + ("O resumo está em ULTIMA_RODADA.md e as séries em ULTIMA_RODADA/<canal>.csv. " if tem else "Não há resumo desta rodada. ")
               + "Os arquivos da pasta continuam com a sua versão (o controle do usuário não mudou). Confira os critérios com os "
               "números (diga de qual canal e janela), corrija e devolva a versão seguinte. Se terminou — os critérios passaram, "
@@ -4415,27 +4452,27 @@ def claude_mudanca(i):
     return dict(h[i]["mudanca"], pedido=h[i].get("pedido") or "", desfeita=bool(h[i].get("desfeita")))
 
 
-PORTAS_PAGINA = {int(os.environ.get("PEW_PORTA", 5000))}  # a página do PEW (Vite) e, no main(), a porta deste servidor
+PORTAS_PAGINA = {int(os.environ["MAISIM_PORTA_PAGINA"])}  # a página do MaiSim (Vite) e, no main(), a porta deste servidor
 
 
-def origens_pew():
+def origens_maisim():
     return {f"http://{h}:{p}" for h in ("localhost", "127.0.0.1", "[::1]") for p in PORTAS_PAGINA}
 
 
 def pedido_local(h, post):
-    """Rotas do Claude: só a página do PEW, na própria máquina. Host local (barra DNS rebinding); Origin, se veio, igual a
-    uma das origens do PEW, com a porta (outra página em localhost:N não serve: pelo Vite, o CORS dele deixaria passar);
-    Sec-Fetch-Site, se veio, same-origin; e, nos POST, o cabeçalho X-PEW (sem CORS, um site não consegue mandá-lo)."""
+    """Rotas do Claude: só a página do MaiSim, na própria máquina. Host local (barra DNS rebinding); Origin, se veio, igual a
+    uma das origens do MaiSim, com a porta (outra página em localhost:N não serve: pelo Vite, o CORS dele deixaria passar);
+    Sec-Fetch-Site, se veio, same-origin; e, nos POST, o cabeçalho X-MaiSim (sem CORS, um site não consegue mandá-lo)."""
     host = (h.headers.get("Host") or "").rsplit(":", 1)[0].strip("[]").lower()
     origem = h.headers.get("Origin")
     sitio = h.headers.get("Sec-Fetch-Site")
-    if host not in ("localhost", "127.0.0.1", "::1") or (origem is not None and origem.lower() not in origens_pew()) \
+    if host not in ("localhost", "127.0.0.1", "::1") or (origem is not None and origem.lower() not in origens_maisim()) \
             or (sitio is not None and sitio not in ("same-origin", "none")):
         return False
-    return not post or h.headers.get("X-PEW") == "1"
+    return not post or h.headers.get("X-MaiSim") == "1"
 
 
-# os pedidos de mudança já atendidos (a etiqueta X-PEW-Pedido → a resposta), para a página repetir sem fazer duas vezes
+# os pedidos de mudança já atendidos (a etiqueta X-MaiSim-Pedido → a resposta), para a página repetir sem fazer duas vezes
 pedidos_feitos = OrderedDict()
 trava_pedidos = threading.Lock()
 
@@ -4461,11 +4498,6 @@ class Manipulador(BaseHTTPRequestHandler):
 
     def do_GET(self):
         u = urlparse(self.path)
-        if u.path == ANTIGO or u.path.startswith(ANTIGO + "/"):
-            self.send_response(302)
-            self.send_header("Location", PREFIXO + u.path[len(ANTIGO):] + (("?" + u.query) if u.query else ""))
-            self.end_headers()
-            return
         rota = u.path[len(PREFIXO):] if u.path.startswith(PREFIXO + "/") else u.path
         self._rota = None
         if u.path in ("/", PREFIXO):
@@ -4484,7 +4516,7 @@ class Manipulador(BaseHTTPRequestHandler):
                     "/claude/contexto", "/claude/contexto/exportar", "/claude/ias", "/claude/ia/uso"):
             if not pedido_local(self, False):
                 return self._resposta(403, {"erro": "só da própria máquina"})
-            if rota == "/claude/ias":                  # as IAs do PEW (ia/): o seletor da conversa e as contas (o estado do
+            if rota == "/claude/ias":                  # as IAs do MaiSim (ia/): o seletor da conversa e as contas (o estado do
                 return self._resposta(200, [{"id": a.id, "nome": a.nome, "instalado": a.instalado(), "modelos": list(a.modelos),   # login
                                              "esforcos": list(a.esforcos), "tem_login": a.tem_login, "rotulos": a.rotulos(),   # das outras IAs:
                                              **({"estado": a.estado()} if a.tem_login else {})} for a in IAS.values()])  # arquivos, rápido
@@ -4495,7 +4527,7 @@ class Manipulador(BaseHTTPRequestHandler):
                 return self._editor(claude_contextos)
             if rota == "/claude/contexto":             # um contexto: meta, contexto.md, conversa.md e os arquivos
                 return self._editor(lambda: _ctx(lambda: contextos.le(CONTEXTOS, q.get("id", ""))))
-            if rota == "/claude/contexto/exportar":    # o .pewctx (zip); anexos=0 deixa os anexos de fora
+            if rota == "/claude/contexto/exportar":    # o .maisimctx (zip); anexos=0 deixa os anexos de fora
                 try:
                     return self._resposta(200, contextos.exporta(CONTEXTOS, q.get("id", ""), q.get("anexos", "1") != "0"), "application/zip")
                 except (ValueError, FileNotFoundError) as e:
@@ -4504,7 +4536,7 @@ class Manipulador(BaseHTTPRequestHandler):
                 return self._resposta(200, claude_uso(forca="forca" in parse_qs(u.query)))
             if rota == "/claude/pedido":               # o pedido ao Claude em andamento (ou o último) e a conversa do circuito
                 return self._editor(claude_pedido_estado)
-            if rota == "/claude/memoria":              # a memória do PEW (todas as conversas)
+            if rota == "/claude/memoria":              # a memória do MaiSim (todas as conversas)
                 return self._resposta(200, {"texto": le_memoria()})
             if rota == "/claude/mudanca":              # o que mudou numa proposta aplicada (?i= o pedido na conversa)
                 q = parse_qs(u.query).get("i", [""])[0]
@@ -4513,9 +4545,7 @@ class Manipulador(BaseHTTPRequestHandler):
         if rota == "/guia":                            # o guia do controle (o "?" do painel o mostra em static/guia.html)
             return self._resposta(200, (AQUI / "GUIA_CONTROLE.md").read_bytes(), "text/markdown; charset=utf-8")
         if rota == "/modelos":
-            lst = sorted({relativo(f) for f in [*MODELOS.glob("*.ipes"), *SALVOS.glob("*.ipes"), *LIB.glob("*.ipes")]})
-            lst.sort(key=lambda a: (RAIZ / a).resolve().parent == SALVOS.resolve())   # os salvos pelo editor no fim
-            return self._resposta(200, lst)
+            return self._resposta(200, lista_modelos())
         if rota == "/circuito":
             rel = parse_qs(u.query).get("arq", [""])[0]
             arq = (RAIZ / rel).resolve()
@@ -4529,7 +4559,7 @@ class Manipulador(BaseHTTPRequestHandler):
             return self._resposta(200, r)
         if rota == "/editor/controle":
             return self._resposta(200, painel_controle())
-        if rota == "/editor/pendente":               # o Gecko do PEW tem algo não salvo? (para quem vai derrubá-lo: npm run pew)
+        if rota == "/editor/pendente":               # o Gecko do MaiSim tem algo não salvo? (para quem vai derrubá-lo: npm run maisim)
             try:                                     # o circuito, o controle e as cores, contra o arquivo aberto (situacao_gecko)
                 sit = situacao_gecko()
                 return self._resposta(200, {"pendente": sit["pendente"], "arquivo": editor["aberto"], "itens": sit["itens"],
@@ -4596,10 +4626,10 @@ class Manipulador(BaseHTTPRequestHandler):
 
     def do_POST(self):
         """Um pedido de mudança pode chegar duas vezes: quando a conexão cai no caminho (a ponte Windows ↔ WSL), a página repete
-        com a mesma etiqueta (X-PEW-Pedido). Se o primeiro chegou, volta a resposta dele — a mudança não é feita de novo; se
+        com a mesma etiqueta (X-MaiSim-Pedido). Se o primeiro chegou, volta a resposta dele — a mudança não é feita de novo; se
         ele ainda está em andamento, espera por ele."""
         self._pedido_id = None
-        pid = str(self.headers.get("X-PEW-Pedido", ""))
+        pid = str(self.headers.get("X-MaiSim-Pedido", ""))
         if not re.match(r"^[A-Za-z0-9-]{8,64}$", pid):
             return self._do_post()
         with trava_pedidos:
@@ -4625,19 +4655,19 @@ class Manipulador(BaseHTTPRequestHandler):
 
     def _do_post(self):
         u = urlparse(self.path)
-        rota = next((u.path[len(x):] for x in (PREFIXO, ANTIGO) if u.path.startswith(x + "/")), u.path)
+        rota = u.path[len(PREFIXO):] if u.path.startswith(PREFIXO + "/") else u.path
         self._rota = rota
-        # todo POST (guardar e testar o controle, rodar, editar…): só a página do PEW, na própria máquina — sem isso, uma
-        # página de fora mandaria um controle.py e o testaria (código rodando aqui); o X-PEW, só nas rotas do Claude
+        # todo POST (guardar e testar o controle, rodar, editar…): só a página do MaiSim, na própria máquina — sem isso, uma
+        # página de fora mandaria um controle.py e o testaria (código rodando aqui); o X-MaiSim, só nas rotas do Claude
         if not pedido_local(self, rota.startswith("/claude/")):
-            return self._resposta(403, {"erro": "só pela página do PEW, na própria máquina"})
+            return self._resposta(403, {"erro": "só pela página do MaiSim, na própria máquina"})
         try:
             corpo = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
         except ValueError:
             return self._resposta(400, {"erro": "JSON inválido"})
-        if rota.startswith("/claude/"):                # o login do Claude do PEW
+        if rota.startswith("/claude/"):                # o login do Claude do MaiSim
             if not pedido_local(self, True):
-                return self._resposta(403, {"erro": "só pela página do PEW, na própria máquina"})
+                return self._resposta(403, {"erro": "só pela página do MaiSim, na própria máquina"})
             acoes = {"/claude/login": claude_login_inicia, "/claude/codigo": lambda: claude_login_codigo(corpo.get("codigo", "")),
                      "/claude/cancelar": lambda: (claude_login_cancela(), claude_estado())[1], "/claude/sair": claude_sai,
                      # as contas das outras IAs (o Gemini): {"ia": id}
@@ -4686,7 +4716,7 @@ class Manipulador(BaseHTTPRequestHandler):
                 if mesmo and modo in ("", "manter"):     # o mesmo arquivo: nunca reabre (só no descartar) — entrar de novo na edição
                     sit = situacao_gecko()              # não pode jogar fora nada; o controle e as cores de trabalho ficam
                     if modo == "" and sit["circuito"] and not sit["visto"]:
-                        raise ErroConflito(f"{nome_aberto()} tem, no Gecko do PEW, mudanças que este editor não viu (pela janela do Gecko, "
+                        raise ErroConflito(f"{nome_aberto()} tem, no Gecko do MaiSim, mudanças que este editor não viu (pela janela do Gecko, "
                                            "ou de antes de o servidor reiniciar)", conflito=True, mesmo=True, aberto=editor.get("aberto"),
                                            salvavel=aberto_salvavel(), itens=sit["itens"])
                     r = estado()
@@ -4957,9 +4987,9 @@ class Manipulador(BaseHTTPRequestHandler):
                 nome = str(corpo.get("nome", "")).strip()
                 if not re.match(r"^[A-Za-z0-9_\-]{1,60}$", nome):
                     raise ErroMotor("nome do arquivo: letras, números, _ e -, até 60")
-                pasta = {"pew": SALVOS, "subcircuitos": LIB}.get(str(corpo.get("pasta", "pew")))   # o PEW só grava nessas duas
+                pasta = {"circuitos": SALVOS, "subcircuitos": LIB}.get(str(corpo.get("pasta", "circuitos")))   # o MaiSim só grava nessas duas
                 if pasta is None:
-                    raise ErroMotor("pasta: pew ou subcircuitos")
+                    raise ErroMotor("pasta: circuitos ou subcircuitos")
                 pasta.mkdir(parents=True, exist_ok=True)
                 dest = pasta / f"{nome}.ipes"
                 if dest.exists() and not corpo.get("sobrescrever"):
@@ -4980,15 +5010,15 @@ class Manipulador(BaseHTTPRequestHandler):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--porta", type=int, default=8767)
+    ap.add_argument("--porta", type=int, default=int(os.environ["MAISIM_PORTA_SIMU"]))
     a = ap.parse_args()
-    PORTAS_PAGINA.add(a.porta)                       # a página aberta direto neste servidor também é do PEW
+    PORTAS_PAGINA.add(a.porta)                       # a página aberta direto neste servidor também é do MaiSim
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))   # kill: sai pelo atexit (o login em andamento não fica órfão)
     atexit.register(claude_login_cancela)
     atexit.register(claude_para)
     srv = ThreadingHTTPServer(("127.0.0.1", a.porta), Manipulador)
     srv.daemon_threads = True
-    print(f"pew-simu em http://localhost:{a.porta}{PREFIXO}/", flush=True)
+    print(f"maisim-simu em http://localhost:{a.porta}{PREFIXO}/", flush=True)
     threading.Thread(target=recupera_rodada_interrompida, daemon=True).start()
     srv.serve_forever()
 

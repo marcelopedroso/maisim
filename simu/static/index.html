@@ -7,17 +7,17 @@
 <link rel="stylesheet" href="static/katex/katex.min.css">
 <meta name="theme-color" content="#6d28d9">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PEW · simu</title>
+<title>MaiSim · simu</title>
 <script>
-// tema do PEW (o trilho escolhe e guarda em localStorage "pew-tema"): aplicado já, antes de pintar
-try { const t = localStorage.getItem("pew-tema") || "sistema";
+// tema do MaiSim (o trilho escolhe e guarda em localStorage "maisim-tema"): aplicado já, antes de pintar
+try { const t = localStorage.getItem("maisim-tema") || "sistema";
   document.documentElement.dataset.tema = t === "escuro" || (t === "sistema" && matchMedia("(prefers-color-scheme: dark)").matches) ? "escuro" : "claro"; }
 catch (e) { document.documentElement.dataset.tema = "claro"; }
-// o tamanho do PEW (+ e − no trilho, localStorage "pew-escala"), também antes de pintar; só na janela de cima
-try { const z = parseFloat(localStorage.getItem("pew-escala")); if (window.top === window.self && [0.8, 0.9, 1.1, 1.25, 1.4].includes(z)) document.documentElement.style.zoom = z; } catch (e) { /* 100 % */ }
+// o tamanho do MaiSim (+ e − no trilho, localStorage "maisim-escala"), também antes de pintar; só na janela de cima
+try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.top === window.self && [0.8, 0.9, 1.1, 1.25, 1.4].includes(z)) document.documentElement.style.zoom = z; } catch (e) { /* 100 % */ }
 </script>
 <style>
-  /* tema (o trilho do PEW escolhe: sistema, claro ou escuro → <html data-tema>); as cores do desenho ficam no simu.js (TEMA_COR) */
+  /* tema (o trilho do MaiSim escolhe: sistema, claro ou escuro → <html data-tema>); as cores do desenho ficam no simu.js (TEMA_COR) */
   :root { --fundo:#f7f8fa; --cartao:#fff; --texto:#1b1f24; --sutil:#5b6470; --borda:#d9dde3; --acento:#6d28d9; --cab:48px;
           --campo:#fff; --suave:#eef2f6; --suave2:#eef1f4; --suave3:#f5f6f8; --borda2:#dfe3e8; --fraco:#8a939d; --desenho:#fff;
           --ok:#1b7f2a; --ok-bg:#e6f4ea; --ok-borda:#9ccfa6; --erro:#b42318; --erro-bg:#fdeceb; --erro-borda:#e8a2a0;
@@ -44,8 +44,8 @@ try { const z = parseFloat(localStorage.getItem("pew-escala")); if (window.top =
   button { cursor:pointer; } button.ativo { background:var(--acento); color:#fff; border-color:var(--acento); }
   #trilha { color:var(--sutil); white-space:nowrap; } #trilha a { color:var(--acento); cursor:pointer; text-decoration:underline; }
   #info { margin-left:auto; color:var(--sutil); white-space:nowrap; text-align:right; }
-  #tela { position:absolute; top:var(--cab); left:var(--pew-nav-w, 0px); right:var(--w-scope); bottom:0; }
-  header { position:absolute; top:0; left:var(--pew-nav-w, 0px); right:0; }
+  #tela { position:absolute; top:var(--cab); left:var(--maisim-nav-w, 0px); right:var(--w-scope); bottom:0; }
+  header { position:absolute; top:0; left:var(--maisim-nav-w, 0px); right:0; }
   #svg { width:100%; height:100%; display:block; background:var(--desenho); cursor:grab; user-select:none; }   /* só o desenho (não os ícones do menu) */
   #svg.arrastando { cursor:grabbing; }
   .el { cursor:default; } .el:hover .corpo { stroke-width:2.6; } .sub { cursor:pointer; } .sub:hover rect.caixa { fill:var(--acento-suave); }
@@ -58,9 +58,9 @@ try { const z = parseFloat(localStorage.getItem("pew-escala")); if (window.top =
   /* paleta e painel da direita: larguras em variáveis (recolher = 0) */
   :root { --w-paleta:250px; --w-props:300px; }
   body.paleta-fechada { --w-paleta:0px; } body.props-fechado { --w-props:0px; }
-  body.editando #tela { left:calc(var(--pew-nav-w, 0px) + var(--w-paleta)); right:calc(var(--w-props) + var(--w-scope)); }
+  body.editando #tela { left:calc(var(--maisim-nav-w, 0px) + var(--w-paleta)); right:calc(var(--w-props) + var(--w-scope)); }
   #paleta, #props { display:none; position:absolute; top:var(--cab); bottom:0; background:var(--cartao); overflow:auto; font-size:13px; }
-  body.editando #paleta { display:block; left:var(--pew-nav-w, 0px); width:var(--w-paleta); border-right:1px solid var(--borda); padding:8px; }
+  body.editando #paleta { display:block; left:var(--maisim-nav-w, 0px); width:var(--w-paleta); border-right:1px solid var(--borda); padding:8px; }
   body.editando #props { display:block; right:var(--w-scope); width:var(--w-props); border-left:1px solid var(--borda); padding:10px 12px; }
   #abas { display:flex; flex-wrap:wrap; gap:3px; margin-bottom:6px; }
   #abas button { font-size:11px; padding:2px 6px; } #abas button.ativo { background:var(--acento-suave); color:var(--acento); border-color:var(--acento-borda); }
@@ -112,20 +112,20 @@ try { const z = parseFloat(localStorage.getItem("pew-escala")); if (window.top =
   /* tela dividida: o scope ao lado (dividida na vertical) ou embaixo; --w-/--h-escolhida vêm do arrasto da divisória */
   :root { --h-scope:0px; --w-scope:0px; }
   body.com-scope.scope-baixo { --h-scope:var(--h-escolhida, 46vh); }
-  body.com-scope.scope-lado { --w-scope:min(var(--w-escolhida, 46vw), calc(100vw - var(--pew-nav-w, 0px) - 360px)); }
-  body.editando.com-scope.scope-lado { --w-scope:min(var(--w-escolhida, 46vw), calc(100vw - var(--pew-nav-w, 0px) - var(--w-paleta) - var(--w-props) - 320px)); }   /* o desenho fica com 320 px ou mais */
+  body.com-scope.scope-lado { --w-scope:min(var(--w-escolhida, 46vw), calc(100vw - var(--maisim-nav-w, 0px) - 360px)); }
+  body.editando.com-scope.scope-lado { --w-scope:min(var(--w-escolhida, 46vw), calc(100vw - var(--maisim-nav-w, 0px) - var(--w-paleta) - var(--w-props) - 320px)); }   /* o desenho fica com 320 px ou mais */
   body.editando.paleta-fechada #paleta, body.editando.props-fechado #props { display:none; }
   /* abinhas nas bordas: recolher e expandir a paleta e o painel da direita */
   .aba-borda { display:none; position:absolute; top:calc(var(--cab) + 10px); z-index:30; width:20px; height:44px; padding:0; border:1px solid var(--borda);
                background:var(--cartao); color:var(--sutil); font-size:13px; line-height:1; box-shadow:0 2px 8px var(--sombra); }
   .aba-borda:hover { color:var(--acento); background:var(--suave); }
   body.editando .aba-borda { display:block; }
-  #aba-paleta { left:calc(var(--pew-nav-w, 0px) + var(--w-paleta)); border-left:0; border-radius:0 8px 8px 0; }
+  #aba-paleta { left:calc(var(--maisim-nav-w, 0px) + var(--w-paleta)); border-left:0; border-radius:0 8px 8px 0; }
   #aba-props { right:calc(var(--w-props) + var(--w-scope)); border-right:0; border-radius:8px 0 0 8px; }
   #tela, #paleta, #props { bottom:var(--h-scope) !important; }
   #painel-scope { display:none; position:absolute; background:var(--fundo); }
   body.com-scope #painel-scope { display:flex; }
-  body.scope-baixo #painel-scope { flex-direction:column; left:var(--pew-nav-w, 0px); right:0; bottom:0; height:var(--h-scope); border-top:1px solid var(--borda); }
+  body.scope-baixo #painel-scope { flex-direction:column; left:var(--maisim-nav-w, 0px); right:0; bottom:0; height:var(--h-scope); border-top:1px solid var(--borda); }
   body.scope-lado #painel-scope { flex-direction:row; top:var(--cab); right:0; bottom:0; width:var(--w-scope); border-left:1px solid var(--borda); }
   #divisoria { flex:0 0 7px; cursor:row-resize; background:linear-gradient(var(--suave2), var(--borda2)); }
   body.scope-lado #divisoria { cursor:col-resize; background:linear-gradient(90deg, var(--suave2), var(--borda2)); }
@@ -145,7 +145,7 @@ try { const z = parseFloat(localStorage.getItem("pew-escala")); if (window.top =
   body.vista-codigo #g-scope, body.vista-codigo #trilha, body.vista-codigo #bt-novo, body.vista-codigo #bt-editar, body.vista-codigo #divisoria,
   body.vista-codigo #abas-doca, body.vista-codigo #info { display:none !important; }
   body.vista-codigo header { display:none !important; }   /* só o código, sem o cabeçalho (o trilho some na janela aberta por ele: janela=1) */
-  body.vista-codigo #painel-scope { display:flex !important; top:0 !important; left:var(--pew-nav-w, 0px) !important; right:0 !important; bottom:0 !important;
+  body.vista-codigo #painel-scope { display:flex !important; top:0 !important; left:var(--maisim-nav-w, 0px) !important; right:0 !important; bottom:0 !important;
     width:auto !important; height:auto !important; border:0 !important; }
   /* na janela do circuito, com a janela do código aberta: um lugar só editando o código */
   #painel-controle { position:relative; }
@@ -194,7 +194,7 @@ try { const z = parseFloat(localStorage.getItem("pew-escala")); if (window.top =
   #ctl-claude-bt.ativo { background:var(--acento-suave); color:var(--acento); border-color:var(--acento-borda); }
   .mascote { color:var(--acento); --diodo-fundo:var(--acento-suave); vertical-align:middle; flex:0 0 auto; overflow:visible; }
   .mascote.pensando { --brilho:cc-brilho 1.4s ease-in-out infinite; }
-  /* o diodo com o brilho de IA, animado: o "carregando" do PEW (Marcelo, 21/10) — a corrente passa pelos terminais, as
+  /* o diodo com o brilho de IA, animado: o "carregando" do MaiSim (Marcelo, 21/10) — a corrente passa pelos terminais, as
      faíscas piscam e giram, o brilho muda de cor */
   .diodo-ia { display:inline-block; vertical-align:middle; overflow:visible; color:var(--acento); flex:0 0 auto; }
   .diodo-ia .dia-corpo { fill:var(--acento-suave); }
@@ -217,7 +217,7 @@ try { const z = parseFloat(localStorage.getItem("pew-escala")); if (window.top =
   #cc-uso .alto { color:var(--erro); font-weight:600; } #cc-uso .medio { color:var(--aviso); font-weight:600; }
   .cc-topo button { font-size:11px; padding:1px 7px; } #cc-fechar { padding:0 7px; }
   /* o topo da conversa numa coluna estreita (a conversa embaixo do código a 1366 px: 380 px para 450 de botões, e a página
-     rolava para o lado): menos espaço, os botões mais justos e, mais estreito ainda, só o ícone no lugar de "IA do PEW" */
+     rolava para o lado): menos espaço, os botões mais justos e, mais estreito ainda, só o ícone no lugar de "IA do MaiSim" */
   #ctl-claude { container:ccpainel / inline-size; }
   @container ccpainel (max-width: 470px) {
     #ctl-claude .cc-topo { gap:4px; padding:5px 6px; } #ctl-claude .cc-topo > b { display:none; }
@@ -540,7 +540,7 @@ try { const z = parseFloat(localStorage.getItem("pew-escala")); if (window.top =
   .modal-botoes button { padding:6px 14px; border-radius:8px; font-size:13px; }
   button.primario { background:#7c3aed; border-color:#7c3aed; color:#fff; } button.primario:hover { background:#6d28d9; }
   button.primario:disabled { background:var(--suave); border-color:var(--borda); color:var(--fraco); cursor:not-allowed; }   /* desligado tem de parecer desligado (Marcelo, 19/10) */
-  /* os seletores da conversa (IA, modelo, esforço, simular sozinho) no padrão do PEW: cantos redondos, a seta própria, o
+  /* os seletores da conversa (IA, modelo, esforço, simular sozinho) no padrão do MaiSim: cantos redondos, a seta própria, o
      acento ao passar e no foco; onde o navegador deixa (Chrome 135+, appearance: base-select), a lista aberta também */
   .cc-botoes select { appearance:none; -webkit-appearance:none; font:inherit; font-size:11.5px; line-height:1.3; color:var(--texto); max-width:130px;
     padding:3px 22px 3px 8px; border:1px solid var(--borda); border-radius:7px; cursor:pointer; text-overflow:ellipsis;
@@ -568,19 +568,19 @@ try { const z = parseFloat(localStorage.getItem("pew-escala")); if (window.top =
   #itens .item span { flex:1; } #props .botoes .perigo { margin-left:auto; }
   #msg a { color:var(--acento); }
   #props select { font:inherit; font-size:12px; padding:2px 4px; border:1px solid var(--borda); border-radius:5px; width:100%; }
-  #erro { position:absolute; top:calc(var(--cab) + 20px); left:calc(var(--pew-nav-w, 0px) + 20px); color:var(--erro); font-size:14px; }
+  #erro { position:absolute; top:calc(var(--cab) + 20px); left:calc(var(--maisim-nav-w, 0px) + 20px); color:var(--erro); font-size:14px; }
 </style>
 </head>
 <body>
 <header>
-  <h1><a href="/" title="PEW: início">pew</a> / <span id="titulo-pagina">simu</span></h1>
+  <h1><a href="/" title="MaiSim: início">maisim</a> / <span id="titulo-pagina">simu</span></h1>
   <select id="sel-modelo" hidden></select>
   <div class="cab-grupo" id="g-arquivo">
   <button id="bt-modelo" title="o circuito aberto · clique para abrir outro (com busca)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M1.5 4.5v8h13v-7H8L6.5 3.5h-5z"/></svg><span></span>▾</button>
   <div class="grupo-bt icones">
   <button id="bt-novo" title="novo circuito (folha em branco)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 1.5H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V5.5z"/><path d="M9 1.5v4h4"/><path d="M8 8.2v4M6 10.2h4"/></svg></button>
   <button id="bt-salvar" title="salvar (Ctrl+S)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M2.5 2.5h9l2 2v9h-11z"/><path d="M5 2.5v3.5h5.5V2.5"/><rect x="4.5" y="9" width="7" height="4.5" rx=".5"/></svg></button>
-  <button id="bt-salvar-como" title="salvar como… (com outro nome, na pasta do PEW)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 13.5H2.5v-11h9l2 2V7"/><path d="M5 2.5v3.5h5.5V2.5"/><path d="M9.5 13.6l.4-1.8 3.4-3.4 1.4 1.4-3.4 3.4z"/></svg></button>
+  <button id="bt-salvar-como" title="salvar como… (com outro nome, na pasta do MaiSim)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 13.5H2.5v-11h9l2 2V7"/><path d="M5 2.5v3.5h5.5V2.5"/><path d="M9.5 13.6l.4-1.8 3.4-3.4 1.4 1.4-3.4 3.4z"/></svg></button>
   <button id="bt-editar" title="travado: só ver · clique para editar"><svg class="cad-fechado" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.2" y="7" width="9.6" height="6.8" rx="1.3"/><path d="M5.3 7V5.1a2.7 2.7 0 0 1 5.4 0V7"/></svg><svg class="cad-aberto" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.2" y="7" width="9.6" height="6.8" rx="1.3"/><path d="M5.3 7V5.1a2.7 2.7 0 0 1 5.2-1"/></svg></button>
   </div>
   </div>
@@ -601,13 +601,13 @@ try { const z = parseFloat(localStorage.getItem("pew-escala")); if (window.top =
     <button id="bt-parar" title="parar a simulação" disabled><svg viewBox="0 0 16 16"><rect x="3.5" y="3.5" width="9" height="9" rx="1" fill="currentColor"/></svg></button>
   </div>
   <div class="grupo-bt" id="g-scope">
-    <button id="bt-scope" title="scope: mostrar ou esconder o /pew/scope na mesma janela (abre na última rodada, só com os sinais dela)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M5 14c2-6 3-6 4 0s2 6 4 0 3-6 4 0 2 4 2 4"/></svg></button>
+    <button id="bt-scope" title="scope: mostrar ou esconder o /maisim/scope na mesma janela (abre na última rodada, só com os sinais dela)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M5 14c2-6 3-6 4 0s2 6 4 0 3-6 4 0 2 4 2 4"/></svg></button>
     <button id="bt-ctl" title="controle: o código Python que lê as medidas e escreve as atuações a cada Ts (na mesma janela)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-5 5 5 5"/><path d="M16 7l5 5-5 5"/><path d="M13.5 4.5l-3 15"/></svg></button>
     <button id="bt-lado" title="scope ao lado (tela dividida na vertical)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><path d="M9 2.5v11"/><path d="M9 2.5h4a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H9z" fill="currentColor" fill-opacity=".35"/></svg></button>
     <button id="bt-baixo" title="scope embaixo (tela dividida na horizontal)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><path d="M1.5 8.5h13"/><path d="M1.5 8.5h13V12a1.5 1.5 0 0 1-1.5 1.5H3A1.5 1.5 0 0 1 1.5 12z" fill="currentColor" fill-opacity=".35"/></svg></button>
   </div>
   <div class="grupo-bt icones" id="g-claude">
-    <button id="bt-claude" title="IA do PEW"><svg class="mascote" width="22" height="22" aria-hidden="true"><use href="#pew-claude"/></svg></button>
+    <button id="bt-claude" title="IA do MaiSim"><svg class="mascote" width="22" height="22" aria-hidden="true"><use href="#maisim-claude"/></svg></button>
   </div>
   <div id="progresso" title="simulação"><div class="barra"><i></i></div><span></span></div>
   <span id="msg"></span>
@@ -621,7 +621,7 @@ try { const z = parseFloat(localStorage.getItem("pew-escala")); if (window.top =
 <div id="props"></div>
 <div id="painel-scope"><div id="divisoria"></div><div id="doca">
   <div id="abas-doca"><button data-aba="scope">scope</button><button data-aba="controle">controle</button></div>
-  <iframe id="if-scope" title="pew / scope"></iframe>
+  <iframe id="if-scope" title="maisim / scope"></iframe>
   <div id="painel-controle" class="oculto">
     <div id="ctl-lado">
       <label class="ctl-ativo" title="a simulação chama o seu passo() a cada Ts e escreve as atuações"><input type="checkbox" id="ctl-ativo"> usar este controle ao simular</label>
@@ -646,7 +646,7 @@ try { const z = parseFloat(localStorage.getItem("pew-escala")); if (window.top =
     </div>
     <div id="ctl-codigo">
       <div id="ctl-trava" style="display:none">simulação rodando: o código e o painel ficam travados até ela parar (a rodada usa o código do início)</div>
-      <div id="ctl-barra"><button id="ctl-lado-bt" title="recolher a coluna (variáveis e arquivos): mais espaço para o código" aria-pressed="false"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><rect x="1.8" y="2.5" width="12.4" height="11" rx="1.6"/><path d="M6 2.5v11"/><path class="seta" d="M4.6 6.4 3.2 8l1.4 1.6" stroke-linecap="round"/></svg></button><span id="ctl-abas" role="tablist" aria-label="arquivos do controle"></span><span id="ctl-estado"></span><button id="ctl-claude-bt" title="pedir à IA: ela lê o circuito e o código e propõe o controle (ganhos, lógica no tempo, o controle de um artigo anexado…); você vê a diferença e aplica"><svg class="mascote" width="17" height="17" aria-hidden="true"><use href="#pew-claude"/></svg> IA</button><button id="ctl-testar" title="testar: roda iniciar() e 3 passo() sem simular (medidas zeradas) e mostra o que o código devolveria, ou o erro com a linha">▷<span class="rot"> testar</span></button><button id="ctl-modelo" title="trocar pelo modelo vazio">modelo</button><button id="ctl-quebra" title="quebra de linha: as linhas longas continuam embaixo, sem rolar para o lado (Alt+Z)" aria-pressed="false"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5h12"/><path d="M2 8h9.5a2.25 2.25 0 0 1 0 4.5H8"/><path d="M9.5 11 8 12.5 9.5 14"/><path d="M2 12.5h3.5"/></svg></button><button id="ctl-guia" title="guia do controle: tempo e atraso, Ts × Δt, cuidados, exemplos, automação">?</button></div>
+      <div id="ctl-barra"><button id="ctl-lado-bt" title="recolher a coluna (variáveis e arquivos): mais espaço para o código" aria-pressed="false"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><rect x="1.8" y="2.5" width="12.4" height="11" rx="1.6"/><path d="M6 2.5v11"/><path class="seta" d="M4.6 6.4 3.2 8l1.4 1.6" stroke-linecap="round"/></svg></button><span id="ctl-abas" role="tablist" aria-label="arquivos do controle"></span><span id="ctl-estado"></span><button id="ctl-claude-bt" title="pedir à IA: ela lê o circuito e o código e propõe o controle (ganhos, lógica no tempo, o controle de um artigo anexado…); você vê a diferença e aplica"><svg class="mascote" width="17" height="17" aria-hidden="true"><use href="#maisim-claude"/></svg> IA</button><button id="ctl-testar" title="testar: roda iniciar() e 3 passo() sem simular (medidas zeradas) e mostra o que o código devolveria, ou o erro com a linha">▷<span class="rot"> testar</span></button><button id="ctl-modelo" title="trocar pelo modelo vazio">modelo</button><button id="ctl-quebra" title="quebra de linha: as linhas longas continuam embaixo, sem rolar para o lado (Alt+Z)" aria-pressed="false"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5h12"/><path d="M2 8h9.5a2.25 2.25 0 0 1 0 4.5H8"/><path d="M9.5 11 8 12.5 9.5 14"/><path d="M2 12.5h3.5"/></svg></button><button id="ctl-guia" title="guia do controle: tempo e atraso, Ts × Δt, cuidados, exemplos, automação">?</button></div>
       <div id="ctl-editor"></div>
       <div id="ctl-diagrama" hidden>
         <div class="ct-topo"><b>Arquitetura do controle</b><span class="ctl-i" tabindex="0" title="lido do painel e do código: à esquerda as medidas que cada DSP lê; no meio os DSPs (cada controlador, na ordem das mensagens: quem manda antes de quem recebe), com os módulos que ele chama; as setas roxas são as mensagens (envia/recebe), com o que vai e a latência da rede; à direita as atuações que cada um escreve e o que elas comandam. Clique num DSP para abrir o código dele.">i</span>
@@ -668,27 +668,27 @@ try { const z = parseFloat(localStorage.getItem("pew-escala")); if (window.top =
             <th data-col="obs">Observação</th><th class="estreita"></th></tr></thead><tbody id="ctl-ac"></tbody></table>
         </div>
       </div>
-      <div id="ctl-saida-caixa" style="display:none"><div id="ctl-saida-bts"><button id="ctl-saida-copia" title="copiar a saída — num erro, com o trecho do código em volta da linha (▶)">copiar</button><button id="ctl-saida-claude" title="abrir o pedido à IA do PEW com este erro e o trecho do código (você revisa e envia)">pedir à IA</button><button id="ctl-saida-fecha" title="fechar a saída (o ▷ testar abre de novo)" aria-label="fechar a saída">✕</button></div><pre id="ctl-saida"></pre></div>
+      <div id="ctl-saida-caixa" style="display:none"><div id="ctl-saida-bts"><button id="ctl-saida-copia" title="copiar a saída — num erro, com o trecho do código em volta da linha (▶)">copiar</button><button id="ctl-saida-claude" title="abrir o pedido à IA do MaiSim com este erro e o trecho do código (você revisa e envia)">pedir à IA</button><button id="ctl-saida-fecha" title="fechar a saída (o ▷ testar abre de novo)" aria-label="fechar a saída">✕</button></div><pre id="ctl-saida"></pre></div>
     </div>
     <div id="ctl-fora"><div>o código está aberto na <b>janela do código</b><br>(as mudanças de lá aparecem aqui)<br><button id="ctl-fora-bt" title="editar o código também nesta janela (vale o que for guardado por último)">editar aqui também</button></div></div>
   <div id="ctl-claude" aria-label="pedir à IA"><div id="cc-divisor" title="arraste para mudar o espaço da conversa e do código (duplo clique: volta ao padrão)"></div>
-      <div class="cc-topo"><svg class="mascote" width="21" height="21" aria-hidden="true"><use href="#pew-claude"/></svg><b>IA do PEW</b><span id="cc-uso" title="uso da sua conta do Claude (o mesmo do /usage)"></span>
-        <button id="cc-lugar" title="conversa ao lado do código ou embaixo dele"></button><button id="cc-salvar" title="salvar esta conversa como contexto: o resumo (a IA escreve, você revisa), a conversa, o controle e a rodada — fica guardado para outras conversas">salvar</button><button id="cc-contextos" title="os contextos salvos: usar nesta conversa, abrir, exportar, importar; e as conversas anteriores">contextos</button><button id="cc-memoria" title="a memória da IA do PEW: preferências e lições, em todas as conversas">memória</button><button id="cc-nova" title="nova conversa: a IA esquece esta (os anexos saem; a memória fica)">nova</button><button id="cc-fechar" title="fechar a conversa">×</button></div>
+      <div class="cc-topo"><svg class="mascote" width="21" height="21" aria-hidden="true"><use href="#maisim-claude"/></svg><b>IA do MaiSim</b><span id="cc-uso" title="uso da sua conta do Claude (o mesmo do /usage)"></span>
+        <button id="cc-lugar" title="conversa ao lado do código ou embaixo dele"></button><button id="cc-salvar" title="salvar esta conversa como contexto: o resumo (a IA escreve, você revisa), a conversa, o controle e a rodada — fica guardado para outras conversas">salvar</button><button id="cc-contextos" title="os contextos salvos: usar nesta conversa, abrir, exportar, importar; e as conversas anteriores">contextos</button><button id="cc-memoria" title="a memória da IA do MaiSim: preferências e lições, em todas as conversas">memória</button><button id="cc-nova" title="nova conversa: a IA esquece esta (os anexos saem; a memória fica)">nova</button><button id="cc-fechar" title="fechar a conversa">×</button></div>
       <div id="cc-msgs"></div>
       <div id="cc-nota" class="cc-nota"></div>
       <div id="cc-anexos"></div>
       <div class="cc-entrada">
         <textarea id="cc-texto" rows="3" placeholder="Peça à IA… (Ctrl+Enter envia)" title="Ctrl+Enter envia; arraste ou cole um PDF ou uma imagem para anexar"></textarea>
         <div class="cc-botoes"><button type="button" class="cc-anexar" id="cc-anexar" title="anexar PDF de artigo, imagem ou texto (ou arraste para a conversa, ou cole uma imagem)"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 11v6M9 14h6"/></svg></button><input type="file" id="cc-arq" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.txt,.md,.csv" hidden>
-          <span id="cc-aviso"></span><select id="cc-ia" style="display:none"><option value="claude">Claude</option></select><select id="cc-modelo"><option value="">modelo: padrão</option><option value="fable">Fable</option><option value="opus">Opus</option><option value="sonnet">Sonnet</option><option value="haiku">Haiku</option></select><select id="cc-esforco"><option value="">esforço: padrão</option><option value="low">baixo</option><option value="medium">médio</option><option value="high">alto</option><option value="xhigh">muito alto</option><option value="max">máximo</option></select><select id="cc-auto" title="a IA simula sozinha: a cada versão, o PEW roda a simulação com ela (sem aplicar no seu controle), devolve o resumo e ela corrige, até dizer que terminou ou acabarem as rodadas. O código dela roda sem você olhar cada versão; o seu controle só muda quando você aplicar. Volta a “não” ao recarregar a página."><option value="0">simular sozinho: não</option><option value="3">simular sozinho: até 3</option><option value="5">simular sozinho: até 5</option><option value="10">simular sozinho: até 10</option><option value="20">simular sozinho: até 20</option></select><button id="cc-parar" class="perigo" style="display:none" title="parar o pedido">parar</button><button id="cc-enviar" class="primario" title="enviar (Ctrl+Enter)">enviar</button></div>
+          <span id="cc-aviso"></span><select id="cc-ia" style="display:none"><option value="claude">Claude</option></select><select id="cc-modelo"><option value="">modelo: padrão</option><option value="fable">Fable</option><option value="opus">Opus</option><option value="sonnet">Sonnet</option><option value="haiku">Haiku</option></select><select id="cc-esforco"><option value="">esforço: padrão</option><option value="low">baixo</option><option value="medium">médio</option><option value="high">alto</option><option value="xhigh">muito alto</option><option value="max">máximo</option></select><select id="cc-auto" title="a IA simula sozinha: a cada versão, o MaiSim roda a simulação com ela (sem aplicar no seu controle), devolve o resumo e ela corrige, até dizer que terminou ou acabarem as rodadas. O código dela roda sem você olhar cada versão; o seu controle só muda quando você aplicar. Volta a “não” ao recarregar a página."><option value="0">simular sozinho: não</option><option value="3">simular sozinho: até 3</option><option value="5">simular sozinho: até 5</option><option value="10">simular sozinho: até 10</option><option value="20">simular sozinho: até 20</option></select><button id="cc-parar" class="perigo" style="display:none" title="parar o pedido">parar</button><button id="cc-enviar" class="primario" title="enviar (Ctrl+Enter)">enviar</button></div>
       </div>
     </div>
   </div>
 </div></div>
-<!-- o ícone do Claude do PEW: um diodo com o brilho de "IA" (sem rosto). A cor vem de color (currentColor), o fundo do
+<!-- o ícone do Claude do MaiSim: um diodo com o brilho de "IA" (sem rosto). A cor vem de color (currentColor), o fundo do
      triângulo de --diodo-fundo, e o brilho pulsa com --brilho (só onde o Claude está trabalhando) -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <symbol id="pew-diodo" viewBox="0 0 24 22">
+  <symbol id="maisim-diodo" viewBox="0 0 24 22">
     <path d="M1 14H4.2M18.6 14H23" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
     <path d="M4.2 7L17.2 14L4.2 21Z" fill="var(--diodo-fundo, #ede9fe)" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
     <path d="M18.6 7V21" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
@@ -697,10 +697,10 @@ try { const z = parseFloat(localStorage.getItem("pew-escala")); if (window.top =
     </g>
     <path d="M15.6 1C15.75 2 16 2.25 17 2.4 16 2.55 15.75 2.8 15.6 3.8 15.45 2.8 15.2 2.55 14.2 2.4 15.2 2.25 15.45 2 15.6 1Z" fill="currentColor"/>
   </symbol>
-  <!-- o ícone da IA do PEW (21/10, Marcelo: "agora vai ser genérica a nossa IA… diodo com balãozinho"): o balão (a conversa)
-       com o diodo (o PEW) e a faísca (a IA), que pulsa com --brilho; antes, um balão de conversa com o brilho dentro (nosso; nunca o logotipo da Anthropic, ver
-       marca/LEIA.md no pew-app); o brilho pulsa com --brilho -->
-  <symbol id="pew-claude" viewBox="0 0 24 24">
+  <!-- o ícone da IA do MaiSim (21/10, Marcelo: "agora vai ser genérica a nossa IA… diodo com balãozinho"): o balão (a conversa)
+       com o diodo (o MaiSim) e a faísca (a IA), que pulsa com --brilho; antes, um balão de conversa com o brilho dentro (nosso; nunca o logotipo da Anthropic, ver
+       marca/LEIA.md no maisim-app); o brilho pulsa com --brilho -->
+  <symbol id="maisim-claude" viewBox="0 0 24 24">
     <path d="M4.5 4.5h15a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-8.5l-4.5 3.6v-3.6h-2a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2z" fill="var(--diodo-fundo, #ede9fe)" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
     <path d="M6 11.2H8.1M13.6 11.2H15.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
     <path d="M8.1 8L13 11.2L8.1 14.4Z" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
@@ -719,16 +719,16 @@ try { const z = parseFloat(localStorage.getItem("pew-escala")); if (window.top =
 <script src="static/katex/katex.min.js"></script>
 <script src="static/claude_chat.js"></script>
 <script src="static/claude_contextos.js"></script>
-<script src="/pew-nav.js" onerror="this.remove()"></script>
+<script src="/maisim-nav.js" onerror="this.remove()"></script>
 <script>
-// o trilho do PEW: se não montou (uma falha passageira ao carregar o script — a ponte Windows ↔ WSL), tenta de novo, até 5
-// vezes (1,5 s, 3 s, 6 s, 12 s, 24 s); fora do PEW (porta do módulo) o arquivo não existe e nada acontece; embutido (tela
+// o trilho do MaiSim: se não montou (uma falha passageira ao carregar o script — a ponte Windows ↔ WSL), tenta de novo, até 5
+// vezes (1,5 s, 3 s, 6 s, 12 s, 24 s); fora do MaiSim (porta do módulo) o arquivo não existe e nada acontece; embutido (tela
 // dividida) e a janela à parte (janela=1, sem trilho de propósito) não montam
 (function trilho(n, espera) {
   setTimeout(() => {
-    if (window.top !== window.self || document.getElementById("pew-nav") || /[?&]janela=1/.test(location.search)) return;
-    if (window.pewNav) { window.pewNav.montar(); return; }
-    const s = document.createElement("script"); s.src = "/pew-nav.js?de-novo=" + Date.now(); s.onerror = () => s.remove(); document.body.appendChild(s);
+    if (window.top !== window.self || document.getElementById("maisim-nav") || /[?&]janela=1/.test(location.search)) return;
+    if (window.maisimNav) { window.maisimNav.montar(); return; }
+    const s = document.createElement("script"); s.src = "/maisim-nav.js?de-novo=" + Date.now(); s.onerror = () => s.remove(); document.body.appendChild(s);
     if (n > 1) trilho(n - 1, espera * 2);
   }, espera);
 })(5, 1500);

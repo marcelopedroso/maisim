@@ -1,19 +1,19 @@
 """A amostra de t = 0 (21/10): antes do 1º passo as saídas do Gecko valiam 0, e o controle recebia zeros em passo(t = 0) —
-no porte do controle do artigo, os SMs nasceriam com v_C = 0. Agora o PEW dá um passo de prova, lê o estado inicial e
-recomeça a simulação (INIT de novo). Na instância de teste (8768), com o buck do exemplo e a chave fechada em t = 0:
+no porte do controle do artigo, os SMs nasceriam com v_C = 0. Agora o MaiSim dá um passo de prova, lê o estado inicial e
+recomeça a simulação (INIT de novo). Na instância de teste (7201), com o buck do exemplo e a chave fechada em t = 0:
   - o controle recebe em t = 0 o estado do 1º passo do Gecko (v_sw ≈ 100 V, não 0), e o scope mostra o mesmo;
   - esse estado é exatamente o de t = Δt de uma rodada com Ts = Δt (o 1º passo), e o resto da rodada é o de sempre;
   - sem controle (só o scope), a 1ª amostra também é o estado inicial."""
 import json, time, urllib.request
 from pathlib import Path
 import numpy as np
-B = "http://localhost:8768/pew/simu/"
-T = Path.home() / ".cache/pew_simu_teste"
+B = "http://localhost:7201/maisim/simu/"
+T = Path.home() / ".cache/maisim_teste"
 
 
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None,
-                                 headers={"Content-Type": "application/json", "X-PEW": "1"})
+                                 headers={"Content-Type": "application/json", "X-MaiSim": "1"})
     try:
         return json.loads(urllib.request.urlopen(req, timeout=300).read())
     except urllib.error.HTTPError as e:
@@ -27,7 +27,7 @@ def ok(c, t):
 
 dados = Path(__file__).resolve().parent / "dados"
 for f in ("exemplo_controle_pwm.ipes", "exemplo_controle_pwm.controle.json"):
-    (T / "pew" / f).write_bytes((dados / f).read_bytes())
+    (T / "circuitos" / f).write_bytes((dados / f).read_bytes())
 COD = ("def iniciar(p, e):\n    pass\n\n\ndef passo(t, m, p, e):\n    scope('vsw_visto', m['v_sw']); scope('iL_visto', m['i_L'])\n"
        "    return {'g': 1.0 if (t % 1e-4) < 5e-5 else 0.0}\n")
 
@@ -36,7 +36,7 @@ FIXO = "def iniciar(p, e):\n    pass\n\n\ndef passo(t, m, p, e):\n    return {'g
 
 
 def roda(nome, ts, ativo=True, cod=COD):
-    r = api("editor/abrir", {"arq": str(T / "pew" / "exemplo_controle_pwm.ipes"), "modo": "descartar"}); assert "ERRO" not in r, r
+    r = api("editor/abrir", {"arq": str(T / "circuitos" / "exemplo_controle_pwm.ipes"), "modo": "descartar"}); assert "ERRO" not in r, r
     r = api("editor/cmd", {"op": "SETP", "args": ["CONST.1", "const", 1.0]}); assert "ERRO" not in r, r   # a chave fechada em t = 0
     cfg = {"ativo": ativo, "Ts": ts, "atuacoes": ["g"], "parametros": [], "codigo": cod, "atraso": {"modo": "logo", "tempo": 0}, "acionamentos": []}
     r = api("editor/controle", {"controle": cfg}); assert "ERRO" not in r, r
@@ -59,5 +59,5 @@ ok(all(np.array_equal(a2[k][1:n], b2[k][2:2 * n:2]) for k in ("v_sw", "v_o", "i_
    f"o resto da rodada não muda com o passo de prova (chave sempre fechada: Ts = 2Δt e Ts = Δt batem nos {n - 1} instantes comuns)")
 c = roda("t0_sem", 2e-6, ativo=False)
 ok(c["v_sw"][0] > 99.9, f"sem controle (só o scope): a 1ª amostra é o estado inicial (v_sw {c['v_sw'][0]:.3f} V)")
-api("editor/abrir", {"arq": str(T / "pew" / "exemplo_controle_pwm.ipes"), "modo": "descartar"})
+api("editor/abrir", {"arq": str(T / "circuitos" / "exemplo_controle_pwm.ipes"), "modo": "descartar"})
 raise SystemExit(1 if falhas else 0)

@@ -1,17 +1,18 @@
-# pew-scope — scope web da co-simulação
+# maisim-scope — scope web da co-simulação
 Substitui os scopes do Gecko (que não abriram no WSL e guardam cada ponto de 1 µs) e mostra o que o Gecko não tem: a
 corrente de braço estimada pelos SMs ao lado da real e da referência, N̂, P* e Q*, e a comparação de duas rodadas.
 
-**Subir:** `python3 simu/scope/servidor.py` e abrir **http://localhost:8765/pew/scope/** (`/`, `/pew-scope` e
-`/pew/scope` redirecionam). Dentro do PEW (pew-app, `npm run dev` em power-eletronics/pew-app): **http://localhost:5000/pew/scope/**,
-que o Vite encaminha para cá (`PEW_SCOPE_URL` troca o destino). A página usa endereços relativos a `/pew/scope/`, e as
-rotas antigas na raiz continuam (o `run.py --scope` publica em `/publicar`).
-**Publicar uma rodada:** `run.py … --scope http://localhost:8765` (ao vivo; grava `scope_<tag>.npz` na pasta de saída).
+**Subir:** pelo MaiSim inteiro (`npm run maisim` em `app/`) e abrir **http://localhost:7100/maisim/scope/**, que a página
+encaminha para o scope (MAISIM_PORTA_SCOPE, 7102); sozinho: `python3 scope/servidor.py` e
+**http://localhost:7102/maisim/scope/**. A página usa endereços relativos a `/maisim/scope/`, e as rotas na raiz
+continuam (quem publica rodadas de fora usa `/publicar`).
+**Publicar uma rodada:** `scope/publica.py` (`PublicadorScope("http://localhost:7102")`): ao vivo, e o scope grava
+`scope_<tag>.npz`. As rodadas do simulador aparecem sozinhas (MAISIM_RODADAS); outras pastas: MAISIM_SCOPE_PASTAS.
 
 ## Uso
 - **Ao vivo**: a rodada em andamento (quem abre no meio recebe o que já veio). **Comparar**: A em cores, B (opcional)
-  em preto tracejado; a lista mostra "planta · pasta · data hora". Link direto: `/pew/scope/?a=<npz>&b=<npz>&x=<ms>,<ms>`;
-  com `&so=rodada` (como o /pew/simu abre o scope) ou numa rodada do /pew/simu, só os painéis com sinais da rodada
+  em preto tracejado; a lista mostra "planta · pasta · data hora". Link direto: `/maisim/scope/?a=<npz>&b=<npz>&x=<ms>,<ms>`;
+  com `&so=rodada` (como o /maisim/simu abre o scope) ou numa rodada do /maisim/simu, só os painéis com sinais da rodada
   aparecem, e o índice só lista as suas seções (o layout guardado não muda). O gráfico acompanha a largura do cartão
   (ResizeObserver: painel criado com o scope escondido, tela dividida, índice aberto).
 - A página abre com os painéis padrão em seções (porta CC e rede; correntes de braço; v_c; PWM; N̂); cada painel tem **Sinais ▾** (variáveis agrupadas: porta CC, potência, rede,
@@ -61,16 +62,16 @@ rotas antigas na raiz continuam (o `run.py --scope` publica em `/publicar`).
 - **Abrir uma gravação**: a página pede `rodada.bin` (binário: os valores exatos do .npz em float64, sem o
   arredondamento de 6 casas do JSON; NaN continua NaN; padrões de chaveamento como inteiros de 32 bits quando é exato)
   e, se o servidor for antigo, cai no `rodada` (JSON). Na gravação do Gecko de 600 V (84 canais, 94 MB): servidor 1,0 s
-  contra 6,1 s do JSON; até os painéis 2,8 s direto e 3,3 s pelo PEW, contra 9–12 s e 16–17 s. Conferido: decodificado
+  contra 6,1 s do JSON; até os painéis 2,8 s direto e 3,3 s pelo MaiSim, contra 9–12 s e 16–17 s. Conferido: decodificado
   igual ao .npz bit a bit; medição contra smauto.metrics nos dados exatos ≤ 9·10⁻¹³ da fundamental.
 
-- **Rodadas de fora do MMC** (ex.: /pew/simu): os canais que não são do catálogo do MMC aparecem em "Sinais da
-  rodada" no Sinais ▾, e um painel com eles é posto no topo se nenhum painel os mostra. Numa rodada do /pew/simu, os
+- **Rodadas de fora do MMC** (ex.: /maisim/simu): os canais que não são do catálogo do MMC aparecem em "Sinais da
+  rodada" no Sinais ▾, e um painel com eles é posto no topo se nenhum painel os mostra. Numa rodada do /maisim/simu, os
   painéis sem dados (os do MMC) se escondem. Ao vivo, painel sem dados não força mais remontar tudo a cada lote.
 
 - **Conexão ao vivo só com a aba à vista** (18/10, chat do simu; pedido de Marcelo: "a lateral some, demora"): o
   navegador abre no máximo 6 conexões HTTP/1.1 por endereço (localhost:5000), somando as abas, e cada `EventSource` do
-  ao vivo segura uma. Com 6 abas do scope, ou do simu com o scope embutido, a próxima página do PEW ficava na fila,
+  ao vivo segura uma. Com 6 abas do scope, ou do simu com o scope embutido, a próxima página do MaiSim ficava na fila,
   sem o trilho. Medido numa instância isolada: com 6 abas à vista, a página inicial não carrega em 6 s; com elas
   escondidas, carrega em ~0,1 s. Agora o `scope.js` fecha o `EventSource` quando a aba vai para o segundo plano
   (`visibilitychange`) e reconecta ao voltar. O servidor manda a rodada desde o começo para quem chega, então nada se
@@ -84,9 +85,9 @@ rotas antigas na raiz continuam (o `run.py --scope` publica em `/publicar`).
   * O reenvio para quem conecta é serializado **fora da trava** (antes, dentro): uma rodada grande não para o
     servidor. A foto e a inscrição na fila continuam juntas, então a ordem dos eventos não muda.
   * Revisado por workflow adversarial (8 achados confirmados, todos corrigidos). Teste:
-    `pew_simu/validacao/tela/fila_tema_tela.js` 24/24, numa instância isolada (`pew_simu/validacao/sobe_fila.sh`). O
+    `simu/validacao/tela/fila_tema_tela.js` 24/24, numa instância isolada (`simu/validacao/sobe_fila.sh`). O
     segundo plano é simulado (`document.hidden` + `visibilitychange`); a fila de 6 conexões é a real do Chromium.
-  * O servidor do scope em uso só pega a numeração depois de reiniciado (`npm run pew`).
+  * O servidor do scope em uso só pega a numeração depois de reiniciado (`npm run maisim`).
 
 - **Cores** (18/10, chat do simu; pedido de Marcelo):
   * **Comparar**: B tinha todos os sinais em preto tracejado (`#111`) e, com vários sinais, não dava para saber quem era
@@ -95,11 +96,11 @@ rotas antigas na raiz continuam (o `run.py --scope` publica em `/publicar`).
   * **A cor de cada sinal**: em Sinais ▾, uma amostra ao lado do ×1 abre a paleta das clássicas (14: vermelho,
     vermelho escuro, laranja, marrom, ouro, verde, verde escuro, ciano, azul, azul escuro, roxo, magenta, cinza,
     preto), um campo `#rrggbb` (Enter; `#rgb` também), o seletor livre do navegador e "padrão" (volta à paleta pela
-    ordem). Vale para o mesmo sinal em todos os painéis e fica no navegador (`pew-scope-cores`).
+    ordem). Vale para o mesmo sinal em todos os painéis e fica no navegador (`maisim-scope-cores`).
   * Defeito achado no caminho: um clique num botão que o próprio menu redesenha fechava o menu, porque o botão já tinha
     saído da página quando o clique chegava ao documento. O fechamento agora olha o caminho do clique na hora em que
     ele aconteceu (`composedPath`).
-  * Teste: `pew_simu/validacao/tela/scope_cores_tela.js` 10/10, na instância isolada (`sobe_fila.sh`), só lendo duas
+  * Teste: `simu/validacao/tela/scope_cores_tela.js` 10/10, na instância isolada (`sobe_fila.sh`), só lendo duas
     gravações do simu.
 
 ## Arquivos
@@ -114,7 +115,7 @@ Próximos: medidas no cursor.
   mudança no layout. Agora quem decide é a existência dos sinais na rodada (`mostravel`, pelos dados), não ter gráfico.
 - O "+ Painel" do topo, em "só a rodada", vai para o fim da seção da rodada (antes ia para o fim do layout, numa seção do
   MMC escondida).
-- Prova: `pew_simu/validacao/tela/scope_painel_tela.js` 6/6 na instância isolada (falha no código antigo: o painel
+- Prova: `simu/validacao/tela/scope_painel_tela.js` 6/6 na instância isolada (falha no código antigo: o painel
   montado escondido, com 300 px); `fila_tema_tela.js` 24/24.
 
 ## Comparar com intervalos diferentes (19/10, achado de Marcelo)
@@ -127,8 +128,8 @@ Próximos: medidas no cursor.
   entre amostras — qualquer Δt, intervalo, começo ou duração. O status avisa ("intervalos diferentes (A 100 µs, B 200
   µs): cada uma nos seus instantes"). A medição de cada rodada usa o intervalo dela. O modo fino (canais do gateway do
   MMC) fica desligado quando as grades diferem.
-- A lista das gravações mostra o circuito e o intervalo: "PEW / simu · marcelo_1 · Teste2 · 19/10 09:48 · 200 µs".
-- Prova: `pew_simu/validacao/tela/comparar_tela.js` 6/6 na instância isolada — a mesma senoide de 50 Hz com 100 µs e com
+- A lista das gravações mostra o circuito e o intervalo: "MaiSim / simu · marcelo_1 · Teste2 · 19/10 09:48 · 200 µs".
+- Prova: `simu/validacao/tela/comparar_tela.js` 6/6 na instância isolada — a mesma senoide de 50 Hz com 100 µs e com
   200 µs: a B nos instantes dela com erro máximo de 3e-13 V (no código antigo, 360 V: o teste falha nele), a medição com o
   intervalo de cada uma, a lista, e A × A sem aviso. `scope_painel_tela.js` 6/6 e `fila_tema_tela.js` 24/24.
 
@@ -145,7 +146,7 @@ Próximos: medidas no cursor.
   * **⠿ da seção**: arrasta a seção inteira, com os painéis dela; cai antes da seção que estiver abaixo do mouse, ou no
     fim, se não houver nenhuma (a linha azul mostra onde). No **índice**, o nome da seção também arrasta (layout longo:
     sem rolar a página durante o arrasto).
-- Prova: `pew_simu/validacao/tela/scope_recolher_tela.js` 15/15 na instância isolada (três seções sobre uma gravação
+- Prova: `simu/validacao/tela/scope_recolher_tela.js` 15/15 na instância isolada (três seções sobre uma gravação
   pequena): recolher a seção e o painel, guardados ao recarregar, abrir de novo com o gráfico; expandir (1324 × 1280 px
   numa janela de 1400 × 1300) e voltar ao tamanho exato por Esc e pelo clique fora; a S3 para antes da S1, a S1 para o fim,
   a ordem guardada; o nome da S1 no índice para o topo; e o arrastar de painel dentro de um iframe, como na doca do simu.

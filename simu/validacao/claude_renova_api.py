@@ -1,19 +1,19 @@
-"""A corrida da renovação do login (instância de teste 8768, claude de mentira), Marcelo em 21/10: o "gerar com a IA" logo
+"""A corrida da renovação do login (instância de teste 7201, claude de mentira), Marcelo em 21/10: o "gerar com a IA" logo
 depois do F5 caiu em "Failed to refresh OAuth token: another Claude Code process is refreshing it" — a página pedia o
 estado (auth status) e o uso (/usage) enquanto o pedido partia. Agora: durante um pedido, o estado e o uso respondem com o
 guardado, sem outro `claude`; e o erro passageiro da renovação tenta de novo sozinho, uma vez (uma entrada só na conversa)."""
 import json, os, subprocess, time, urllib.request
 from pathlib import Path
-B = "http://localhost:8768/pew/simu/"
-PID = subprocess.run("ss -ltnp | grep ':8768 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1", shell=True, capture_output=True, text=True).stdout.strip()
+B = "http://localhost:7201/maisim/simu/"
+PID = subprocess.run("ss -ltnp | grep ':7201 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1", shell=True, capture_output=True, text=True).stdout.strip()
 ENV = dict(x.split("=", 1) for x in Path(f"/proc/{PID}/environ").read_bytes().decode().split("\0") if "=" in x)
-assert ENV.get("PEW_CLAUDE_BIN", "").endswith("claude_falso.py"), "suba o servidor de teste com o claude de mentira (reinicia_servidor_teste.sh)"
-CONF, SALVOS = Path(ENV["PEW_CLAUDE_DIR"]), Path(ENV["PEW_SIMU_SALVOS"])
+assert ENV.get("MAISIM_CLAUDE_BIN", "").endswith("claude_falso.py"), "suba o servidor de teste com o claude de mentira (reinicia_servidor_teste.sh)"
+CONF, SALVOS = Path(ENV["MAISIM_CLAUDE_DIR"]), Path(ENV["MAISIM_SALVOS"])
 
 
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None,
-                                 headers={"Content-Type": "application/json", "X-PEW": "1"})
+                                 headers={"Content-Type": "application/json", "X-MaiSim": "1"})
     try:
         return json.loads(urllib.request.urlopen(req, timeout=180).read())
     except urllib.error.HTTPError as e:
@@ -79,7 +79,7 @@ try:
     pedidos = [a for a in chamadas() if "-p" in a and "/usage" not in a]
     ok(len(pedidos) == 2 and "Failed to refresh OAuth token" in (e["conversa"]["historico"][-1].get("erro") or ""),
        f"falhou de novo: para depois de 1 nova tentativa ({len(pedidos)} chamadas) e mostra o erro")
-    # a trava de renovação órfã (um `claude` saiu no meio): o PEW tira antes de lançar — mas não se alguém usa a pasta
+    # a trava de renovação órfã (um `claude` saiu no meio): o MaiSim tira antes de lançar — mas não se alguém usa a pasta
     trava = CONF / ".oauth_refresh.lock"
     (CONF / "falso_cenario").write_text("trava")
     trava.mkdir(exist_ok=True); os.utime(trava, (time.time() - 60, time.time() - 60))
@@ -96,7 +96,7 @@ try:
         api("claude/pedir", {"texto": "com a trava de um processo vivo", "dt": 1e-6, "tfim": 0.002})
         e = espera()
         ok(trava.exists() and "Failed to refresh OAuth token" in (e["conversa"]["historico"][-1].get("erro") or ""),
-           "trava com um processo vivo usando a pasta: o PEW não mexe (o erro aparece, depois de tentar de novo)")
+           "trava com um processo vivo usando a pasta: o MaiSim não mexe (o erro aparece, depois de tentar de novo)")
     finally:
         dono.kill()
         trava.rmdir()

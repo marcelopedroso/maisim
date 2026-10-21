@@ -1,4 +1,4 @@
-// Comparar com intervalos diferentes (instância isolada: Vite 5011 → scope de teste 8775; ../sobe_fila.sh), achado de
+// Comparar com intervalos diferentes (instância isolada: Vite 7210 → scope de teste 7211; ../sobe_fila.sh), achado de
 // Marcelo em 19/10: a mesma senoide de 50 Hz gravada com 100 µs (A) e com 200 µs (B). Antes, a amostra k da B ia no
 // instante da k da A (a B no dobro da velocidade); agora cada uma nos seus instantes, com o aviso, a medição da B com o
 // intervalo dela e a lista com o circuito e o intervalo. Com os mesmos instantes, nada muda (sem aviso)
@@ -11,7 +11,7 @@ const SM = path.resolve(__dirname, "../../.."), PASTA = path.join(__dirname, "..
 const grava = (nome, dt) => { const arq = path.join(PASTA, `scope_${nome}.npz`);
   execFileSync("python3", ["-c", `import numpy as np, json
 t = np.arange(0, 0.04 + 1e-12, ${dt}); w = 2 * np.pi * 50
-meta = {"planta": "gecko-pew", "rotulo": "${nome}", "modelo": "simu/gecko/pew/circuito_teste.ipes", "dt": ${dt}, "Ts": ${dt}, "n_fino": 1, "dt_gecko": 1e-6, "tfim": 0.04,
+meta = {"planta": "gecko-maisim", "rotulo": "${nome}", "modelo": "circuito_teste.ipes", "dt": ${dt}, "Ts": ${dt}, "n_fino": 1, "dt_gecko": 1e-6, "tfim": 0.04,
         "sinais": [{"canal": "Va", "elemento": "VOLT.1"}], "acionamentos": []}
 np.savez(${JSON.stringify(arq)}, meta=np.array(json.dumps(meta)), t=t, Va=180*np.cos(w*t))`]); return path.relative(SM, arq); };
 (async () => {
@@ -21,7 +21,7 @@ np.savez(${JSON.stringify(arq)}, meta=np.array(json.dumps(meta)), t=t, Va=180*np
     const A = grava("cem", 1e-4), B = grava("duzentos", 2e-4);
     b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1500, height: 950 } })).newPage();
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message));
-    const abre = async (a, bb) => { await pg.goto(`http://localhost:5011/pew/scope/?so=rodada&a=${encodeURIComponent(a)}&b=${encodeURIComponent(bb)}`);
+    const abre = async (a, bb) => { await pg.goto(`http://localhost:7210/maisim/scope/?so=rodada&a=${encodeURIComponent(a)}&b=${encodeURIComponent(bb)}`);
       await pg.waitForFunction(() => [...document.querySelectorAll(".cartao")].some((c) => c._painel && c._painel.u), null, { timeout: 30000 }); await pg.waitForTimeout(500); };
     await abre(A, B);
     const st = await pg.textContent("#status");
@@ -38,7 +38,7 @@ np.savez(${JSON.stringify(arq)}, meta=np.array(json.dumps(meta)), t=t, Va=180*np
     ok(dts[0] === 1e-4 && dts[1] === 2e-4 && dts[2] === 100, `medição: A com ${dts[0] * 1e6} µs, B com ${dts[1] * 1e6} µs (${dts[2]} amostras num período de 20 ms)`);
     // a lista: o circuito e o intervalo
     const ops = await pg.evaluate(() => [...document.querySelectorAll("#sel-a option")].map((o) => o.textContent).filter((x) => /cem|duzentos/.test(x)));
-    ok(ops.some((x) => /^PEW \/ simu · circuito_teste · cem · .* · 100 µs$/.test(x)) && ops.some((x) => / · duzentos · .* · 200 µs$/.test(x)), `lista: ${ops.join(" | ")}`);
+    ok(ops.some((x) => /^MaiSim \/ simu · circuito_teste · cem · .* · 100 µs$/.test(x)) && ops.some((x) => / · duzentos · .* · 200 µs$/.test(x)), `lista: ${ops.join(" | ")}`);
     // os mesmos instantes: como sempre, sem aviso
     await abre(A, A);
     ok(!/intervalos diferentes/.test(await pg.textContent("#status")) && await pg.evaluate(() => uniao === null), "A × A: os mesmos instantes, sem aviso (casar pela amostra, o de sempre)");

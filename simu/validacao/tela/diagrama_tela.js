@@ -1,4 +1,4 @@
-// o diagrama da arquitetura do controle (instância de teste 5010 → 8768), pedido de Marcelo em 19/10 ("um diagrama, tipo
+// o diagrama da arquitetura do controle (instância de teste 7200 → 7201), pedido de Marcelo em 19/10 ("um diagrama, tipo
 // um flow, mostrando o que ele lê e o que sai dele, o que sai de um e entra no outro"): o botão na aba arquivos mostra o
 // diagrama no lugar do código; os DSPs em colunas pela ordem das mensagens; as medidas de cada um (a de um DSP só, encostada
 // nele); as mensagens com o que vai e a latência (um rótulo só quando vai o mesmo a vários); as atuações à direita, com o
@@ -13,8 +13,8 @@ const ORQ = CTL('    envia("dsp_a", {"theta": 1.0})\n    envia("dsp_b", {"theta"
   try {
     b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 2300, height: 1000 } })).newPage();
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-    await pg.addInitScript(() => { try { localStorage.setItem("pew-simu-ctl-vista", "arq"); localStorage.removeItem("pew-simu-ctl-tabelas"); } catch (e) { /* ok */ } });
-    await pg.goto("http://localhost:5010/pew/simu/");
+    await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-ctl-vista", "arq"); localStorage.removeItem("maisim-simu-ctl-tabelas"); } catch (e) { /* ok */ } });
+    await pg.goto("http://localhost:7200/maisim/simu/");
     for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof dados !== "undefined" && dados && dados.editor)); k++) { if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }
     const monta = (todasB) => pg.evaluate(async ([orq, ctl0, todasB]) => {
       const q = (nome, arquivo, medidas, atuacoes, todas = false) => ({ nome, arquivo, todas, medidas, atuacoes, subcircuitos: [] });

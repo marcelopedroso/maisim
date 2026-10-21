@@ -1,6 +1,6 @@
-"""O login pelo terminal de uma IA (o Gemini CLI, o Antigravity CLI): o PEW abre a ferramenta interativa num terminal (pty),
+"""O login pelo terminal de uma IA (o Gemini CLI, o Antigravity CLI): o MaiSim abre a ferramenta interativa num terminal (pty),
 responde aos menus conhecidos, mostra na tela o link que ela imprime e repassa o código que a pessoa colar. A credencial é
-gravada pela própria ferramenta; o PEW só acompanha o terminal e fecha a ferramenta quando o login termina.
+gravada pela própria ferramenta; o MaiSim só acompanha o terminal e fecha a ferramenta quando o login termina.
 
 Cada peça diz: o comando e o ambiente do login (login_argv, login_env), o link (LOGIN_URL), as respostas automáticas
 (LOGIN_RESPOSTAS: [(expressão, teclas)], cada uma uma vez), os erros (LOGIN_ERROS), a forma do código (LOGIN_CODIGO), e
@@ -60,7 +60,7 @@ class LoginPorTerminal:
             em_andamento = p is not None and p.poll() is None
             if not em_andamento:
                 self._prepara_login()
-                vazio = self.pasta / "pew" / "login"           # o cwd do login: uma pasta vazia (nada a ler ali)
+                vazio = self.pasta / "maisim" / "login"           # o cwd do login: uma pasta vazia (nada a ler ali)
                 vazio.mkdir(mode=0o700, parents=True, exist_ok=True)
                 mestre, escravo = os.openpty()
                 fcntl.ioctl(escravo, termios.TIOCSWINSZ, struct.pack("HHHH", 50, 2000, 0, 0))   # largo: o link numa linha só
@@ -124,7 +124,7 @@ class LoginPorTerminal:
             if fim or erro:
                 break
         try:
-            os.killpg(proc.pid, signal.SIGTERM)              # a ferramenta interativa continuaria aberta: o PEW fecha
+            os.killpg(proc.pid, signal.SIGTERM)              # a ferramenta interativa continuaria aberta: o MaiSim fecha
         except OSError:
             pass
         try:

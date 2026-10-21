@@ -1,17 +1,17 @@
-// módulos pela tela (instância de teste 5010 → 8768), pedido de Marcelo em 19/10: o circuito novo vem com leitura.py e
+// módulos pela tela (instância de teste 7200 → 7201), pedido de Marcelo em 19/10: o circuito novo vem com leitura.py e
 // escrita.py (módulos) e o controle.py que os chama; "+ arquivo" cria um módulo (aviso enquanto ninguém o importa);
 // "▷ testar" roda o fluxo; "virar controlador" e "virar módulo"; num controle de antes dos módulos, "organizar como um DSP"
 // cria os dois arquivos sem mexer no controle.py
 const { chromium } = require("playwright");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
-const PI = require("os").homedir() + "/.cache/pew_simu_teste/pew/exemplo_controle_pi.ipes";
+const PI = require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_controle_pi.ipes";
 (async () => {
   let b;
   try {
     b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1600, height: 950 } })).newPage();
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-    await pg.goto("http://localhost:5010/pew/simu/");
+    await pg.goto("http://localhost:7200/maisim/simu/");
     for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof dados !== "undefined" && dados && dados.editor)); k++) {
       if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }
     await pg.evaluate(async () => { const j = await api("editor/novo", { modo: "descartar" }); dados = j; folhaAtual = "0"; novoEstado(j); await recarregaControle(); mostraDoca("controle"); });

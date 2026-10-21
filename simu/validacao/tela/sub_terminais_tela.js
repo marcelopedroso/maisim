@@ -1,15 +1,15 @@
-// terminais de subcircuito pela tela (instância de teste 5010 → 8768), o caso do Marcelo (18/10): dois de potência e um de
+// terminais de subcircuito pela tela (instância de teste 7200 → 7201), o caso do Marcelo (18/10): dois de potência e um de
 // controle postos no meio da folha do SM — cada um encosta na borda e nenhum cai no borne de outro; arrastar o terminal
 // (a prévia já encostada na borda) muda o lado do borne; o painel do terminal (nome, posição, apagar; girar não); os nomes
 // no bloco sem se cobrirem; o tamanho do bloco pelo painel; e o aviso de bornes juntos (arquivo antigo).
 const { chromium } = require("playwright");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
-const B = "http://localhost:5010/pew/simu/";
+const B = "http://localhost:7200/maisim/simu/";
 (async () => {
   let b;
   try {
-    b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1500, height: 900 } })).newPage(); await pg.addInitScript(() => { try { localStorage.setItem("pew-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
+    b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1500, height: 900 } })).newPage(); await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
     const api = (rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(c) } : {}).then((x) => x.json()), [rota, corpo]);
     await pg.goto(B); await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
@@ -58,7 +58,7 @@ const B = "http://localhost:5010/pew/simu/";
     await pg.fill("#p-nome", "entrada"); await pg.press("#p-nome", "Enter"); await pg.evaluate(() => $("p-nome").dispatchEvent(new Event("change"))); await pg.waitForTimeout(1200);
     s1 = await bloco();
     ok("entrada" in s1.bornes && !("CIRCUIT_TERMINAL.1" in s1.bornes), `renomeado pelo painel: o borne é "entrada" (${Object.keys(s1.bornes)})`);
-    // soltar o terminal num ponto de ligação (o gesto de "ligar ao nó"): ele encosta na borda e o PEW liga uma conexão até o ponto
+    // soltar o terminal num ponto de ligação (o gesto de "ligar ao nó"): ele encosta na borda e o MaiSim liga uma conexão até o ponto
     await poe("Circuit", "R", 15, 20);                                   // R.1 em pé: terminais em (15, 18) e (15, 22)
     const arrasta = async (de, para) => { const [a0, b0] = await tela(...de), [a1, b1] = await tela(...para);
       await pg.mouse.move(a0, b0); await pg.mouse.down(); for (let k = 1; k <= 8; k++) await pg.mouse.move(a0 + (a1 - a0) * k / 8, b0 + (b1 - b0) * k / 8);

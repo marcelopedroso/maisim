@@ -20,7 +20,7 @@ def ref(d, j_dist, k_ref, euler):
     return i
 j_dist, k_ref = int(round(7.0123e-3 / dt)), -(-int(round(5.03e-3 / dt)) // n)
 for nome, d, jd, kr in (("A_logo", 1, None, 10**9), ("B_amostra", n, j_dist, k_ref)):
-    arq = sorted(glob.glob(str(Path.home() / f".cache/pew_simu_teste/rodadas/*_{nome}/scope_{nome}.npz")))[-1]
+    arq = sorted(glob.glob(str(Path.home() / f".cache/maisim_teste/rodadas/*_{nome}/scope_{nome}.npz")))[-1]
     z = np.load(arq); iL = z["i_L"]; K = len(iL) - 1
     for euler in (False, True):
         e = np.max(np.abs(iL[:K] - ref(d, jd, kr, euler)[::n][:K]))

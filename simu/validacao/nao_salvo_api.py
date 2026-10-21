@@ -1,7 +1,7 @@
-"""Mudanças não salvas (circuito, controle, cores) ao abrir, no novo e no pendente — instância de teste (8768)."""
+"""Mudanças não salvas (circuito, controle, cores) ao abrir, no novo e no pendente — instância de teste (7201)."""
 import json, urllib.request, subprocess, os, sys
 from pathlib import Path
-B = "http://localhost:8768/pew/simu/"
+B = "http://localhost:7201/maisim/simu/"
 SOBE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "..", "..", "tmp")   # (não usado)
 REINICIA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reinicia_servidor_teste.sh")
 def api(rota, corpo=None):
@@ -12,12 +12,12 @@ falhas = 0
 def ok(c, t):
     global falhas; print(("OK   " if c else "FALHA"), t); falhas += (not c)
 c = lambda op, args: api("editor/cmd", {"op": op, "args": args})
-SALVOS = Path.home() / ".cache/pew_simu_teste/pew"
+SALVOS = Path.home() / ".cache/maisim_teste/circuitos"
 A, PI = str(SALVOS / "nao_salvo_a.ipes"), "exemplos/exemplo_controle_pi.ipes"
-# um arquivo da pasta do PEW (salvável), sem controle nem cores
+# um arquivo da pasta do MaiSim (salvável), sem controle nem cores
 api("editor/novo", {"modo": "descartar"}); c("CREATE", ["R.1", 10, 10, "R"]); c("CREATE", ["U.1", 4, 10, "U"])
 for n, i, o in (("U.1", "a", "gnd"), ("R.1", "a", "gnd")): c("INNODE", [n, 0, i]); c("OUTNODE", [n, 0, o])
-api("editor/salvar", {"nome": "nao_salvo_a", "pasta": "pew", "sobrescrever": True})
+api("editor/salvar", {"nome": "nao_salvo_a", "pasta": "circuitos", "sobrescrever": True})
 ok(api("editor/pendente").get("pendente") is False, "salvo: nada pendente")
 # 1. mesmo arquivo: nunca reabre; mudança vista fica sem perguntar
 c("SETP", ["U.1", "upperLimit", 50.0])
@@ -28,7 +28,7 @@ ctl = api("editor/controle")["controle"]; ctl["parametros"] = [{"nome": "k", "va
 api("editor/controle", {"controle": ctl})
 r = api("editor/abrir", {"arq": A}); k = api("editor/controle")["controle"]["parametros"]
 ok("ERRO" not in r and k == [{"nome": "k", "valor": 3.0, "unidade": ""}], f"controle mexido + reabrir o mesmo: o controle fica ({k})")
-p = api("editor/pendente"); ok(p.get("pendente") is True and p.get("itens") == ["o controle"], f"pendente (npm run pew): {p.get('motivo')}")
+p = api("editor/pendente"); ok(p.get("pendente") is True and p.get("itens") == ["o controle"], f"pendente (npm run maisim): {p.get('motivo')}")
 # 3. abrir outro com o controle não salvo: pergunta; salvar e abrir grava o controle junto
 r = api("editor/abrir", {"arq": PI}); ok(r.get("ERRO") == 409 and r.get("itens") == ["o controle"] and r.get("salvavel"), f"abrir outro: pergunta ({r.get('erro')})")
 r = api("editor/abrir", {"arq": PI, "modo": "salvar"})
@@ -54,7 +54,7 @@ api("editor/abrir", {"arq": A, "modo": "descartar"}); c("MOVE", ["R.1", 14, 10])
 subprocess.run([REINICIA])
 r = api("editor/abrir", {"arq": A}); ok("ERRO" not in r and r.get("mantido"), "edição do editor, servidor reiniciado, reabrir: fica, sem perguntar")
 # 7. mudança que o editor não viu (simulada: o "visto" apagado e o servidor reiniciado): pergunta manter/descartar
-(Path.home() / ".cache/pew_simu_teste/visto.txt").write_text("outro")
+(Path.home() / ".cache/maisim_teste/visto.txt").write_text("outro")
 subprocess.run([REINICIA])
 r = api("editor/abrir", {"arq": A}); ok(r.get("ERRO") == 409 and r.get("mesmo") is True, f"mudança não vista: pergunta ({r.get('erro')})")
 r = api("editor/abrir", {"arq": A, "modo": "manter"}); x = next(e["x"] for e in r["folhas"]["0"]["elementos"] if e["nome"] == "R.1")

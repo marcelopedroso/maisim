@@ -1,11 +1,11 @@
-"""Os nomes de FORA de um subcircuito não vão junto (instância de teste 8768), achado de Marcelo em 19/10: o SM-HB da
+"""Os nomes de FORA de um subcircuito não vão junto (instância de teste 7201), achado de Marcelo em 19/10: o SM-HB da
 biblioteca chegava com vap, EXT_S3 e VC_SM3 (os nós do MMC de onde foi salvo) — ligado por rótulo, sem fio à vista, a
 qualquer nó com esse nome. O Gecko guarda o nome de fora no bloco e nos terminais de dentro (e refaz o do bloco pelos
 terminais). Confere: inserir da biblioteca (um arquivo de antes, com os nomes), colar um SM do exemplo da cascata e salvar na
 biblioteca — o bloco e os terminais de dentro sem os nomes de fora; o SM original continua com os dele."""
 import json, os, shutil, urllib.request
 from pathlib import Path
-B = "http://localhost:8768/pew/simu/"
+B = "http://localhost:7201/maisim/simu/"
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(req, timeout=300).read())
@@ -13,7 +13,7 @@ def api(rota, corpo=None):
 falhas = 0
 def ok(c, t):
     global falhas; print(("OK   " if c else "FALHA"), t); falhas += (not c)
-LIB = Path(os.path.expanduser("~/.cache/pew_simu_teste/subcircuitos")); LIB.mkdir(parents=True, exist_ok=True)
+LIB = Path(os.path.expanduser("~/.cache/maisim_teste/subcircuitos")); LIB.mkdir(parents=True, exist_ok=True)
 REPO = Path(__file__).resolve().parents[2] / "exemplos"
 def fora(r, nome, folha="0"):
     """(rótulos de fora no bloco, rótulos de fora nos terminais de dentro) do subcircuito nome"""
@@ -30,7 +30,7 @@ bl, de = fora(r, sub) if sub else (["?"], ["?"])
 ok(sub and not bl and not de, f"inserido da biblioteca ({sub}): sem nomes de fora no bloco {bl} nem nos terminais de dentro {de} {r.get('erro', '')}")
 # 2. colar um SM do exemplo da cascata (as células dele têm nomes de fora de verdade)
 mmc0 = REPO / "exemplo_cascata_hb.ipes"                                            # subcircuitos com nomes de fora (EXT_Sk, VC_SMk)
-mmc = LIB.parent / "pew" / "cascata_teste.ipes"                                       # o servidor só abre das pastas dele
+mmc = LIB.parent / "circuitos" / "cascata_teste.ipes"                                       # o servidor só abre das pastas dele
 mmc.parent.mkdir(parents=True, exist_ok=True); shutil.copy(mmc0, mmc)
 r = api("editor/abrir", {"arq": str(mmc), "modo": "descartar"})
 smo = next(e for e in r["folhas"]["0"]["elementos"] if e["tipo"] == "SUBCIRCUIT" and fora(r, e["nome"])[0])

@@ -1,16 +1,16 @@
-"""Os contextos salvos do PEW (Marcelo, 21/10: "um resultado muito bom… não podemos perder: um botãozinho para salvar isso
+"""Os contextos salvos do MaiSim (Marcelo, 21/10: "um resultado muito bom… não podemos perder: um botãozinho para salvar isso
 na memória não volátil, até para usar em outras conversas", e depois em outras IAs e com o time de pesquisa).
 
-Um contexto é uma pasta em PEW_CONTEXTOS (padrão ~/.local/share/pew/contextos — dados do PEW, fora do repositório e do
+Um contexto é uma pasta em MAISIM_CONTEXTOS (padrão ~/.local/share/maisim/contextos — dados do MaiSim, fora do repositório e do
 cache), uma por contexto:
   meta.json     versão do formato, título, etiquetas, circuito, quando, IA, modelo, autor, a conversa de origem, o que tem
   contexto.md   o título e a nota de quem salvou (o que achou importante lembrar; resumo.md guarda o texto da nota)
-  conversa.md   a conversa (pedido e resposta, com o modelo e o gasto), tirada do histórico do PEW
+  conversa.md   a conversa (pedido e resposta, com o modelo e o gasto), tirada do histórico do MaiSim
   controle/     o controle daquele momento (controle.json e os .py), como em rodadas/<rodada>/
   rodada/       resumo.md e serie/ da rodada mais nova (os "olhos")
   anexos/       os anexos da conversa (opcional)
 Usar num pedido: o contexto é copiado para a pasta da conversa, em contextos/<id>/, e o pedido diz para ler o contexto.md.
-Exportar/importar: um .pewctx (zip da pasta); nada do que vem é executado (o controle só entra se aplicado como proposta).
+Exportar/importar: um .maisimctx (zip da pasta); nada do que vem é executado (o controle só entra se aplicado como proposta).
 """
 import io
 import json
@@ -25,13 +25,13 @@ from pathlib import Path
 
 VERSAO = 1
 ID = re.compile(r"[\w][\w.\-]{0,95}")
-MAX_ARQS = 500                       # arquivos num .pewctx
-MAX_BYTES = 80 * 2**20               # o .pewctx descompactado
+MAX_ARQS = 500                       # arquivos num .maisimctx
+MAX_BYTES = 80 * 2**20               # o .maisimctx descompactado
 MAX_TEXTO = 400_000                  # resumo, título e etiquetas
 
 
 def pasta_padrao():
-    return Path(os.environ.get("PEW_CONTEXTOS") or Path.home() / ".local" / "share" / "pew" / "contextos")
+    return Path(os.environ.get("MAISIM_CONTEXTOS") or Path(os.environ.get("MAISIM_DADOS") or Path.home() / ".local" / "share" / "maisim") / "contextos")
 
 
 def slug(t):
@@ -126,7 +126,7 @@ def contexto_md(meta, resumo, resumo_ia=""):
 
 
 def conversa_md(hist, titulo=""):
-    """A conversa do histórico do PEW em markdown: cada pedido, quem respondeu e a resposta (ou o erro)."""
+    """A conversa do histórico do MaiSim em markdown: cada pedido, quem respondeu e a resposta (ou o erro)."""
     L = [f"# Conversa{f' — {titulo}' if titulo else ''}", ""]
     for k, h in enumerate(hist or [], 1):
         quando = time.strftime("%d/%m/%Y %H:%M", time.localtime(h["quando"])) if isinstance(h.get("quando"), (int, float)) else ""
@@ -248,7 +248,7 @@ def apaga(base, cid):
 
 
 def exporta(base, cid, anexos=True):
-    """O .pewctx: o zip da pasta do contexto (sem os anexos, se pedido)."""
+    """O .maisimctx: o zip da pasta do contexto (sem os anexos, se pedido)."""
     d = base / _confere_id(cid)
     if not (d / "meta.json").is_file():
         raise FileNotFoundError(f"não há o contexto {cid}")
@@ -262,34 +262,34 @@ def exporta(base, cid, anexos=True):
 
 
 def importa(base, dados, nome=""):
-    """Põe um .pewctx na biblioteca (com um id novo se já houver um igual). Confere tudo antes de escrever: uma pasta só,
+    """Põe um .maisimctx na biblioteca (com um id novo se já houver um igual). Confere tudo antes de escrever: uma pasta só,
     sem caminho absoluto nem "..", até MAX_ARQS arquivos e MAX_BYTES descompactados, meta.json válido e contexto.md."""
     try:
         z = zipfile.ZipFile(io.BytesIO(dados))
     except zipfile.BadZipFile:
-        raise ValueError("não é um .pewctx (zip) válido")
+        raise ValueError("não é um .maisimctx (zip) válido")
     infos = [i for i in z.infolist() if not i.is_dir()]
     if not infos or len(infos) > MAX_ARQS:
-        raise ValueError(f"o .pewctx tem {len(infos)} arquivos (até {MAX_ARQS})")
+        raise ValueError(f"o .maisimctx tem {len(infos)} arquivos (até {MAX_ARQS})")
     if sum(i.file_size for i in infos) > MAX_BYTES:
-        raise ValueError(f"o .pewctx passa de {MAX_BYTES // 2**20} MB descompactado")
+        raise ValueError(f"o .maisimctx passa de {MAX_BYTES // 2**20} MB descompactado")
     topos = set()
     for i in infos:
         p = Path(i.filename)
         if p.is_absolute() or ".." in p.parts or not p.parts or "\\" in i.filename:
-            raise ValueError(f"caminho inválido no .pewctx: {i.filename}")
+            raise ValueError(f"caminho inválido no .maisimctx: {i.filename}")
         topos.add(p.parts[0])
     if len(topos) != 1:
-        raise ValueError("o .pewctx deve ter uma pasta só (um contexto)")
+        raise ValueError("o .maisimctx deve ter uma pasta só (um contexto)")
     topo = topos.pop()
     nomes = {Path(i.filename).relative_to(topo).as_posix(): i for i in infos if len(Path(i.filename).parts) > 1}
     if "meta.json" not in nomes or "contexto.md" not in nomes:
-        raise ValueError("o .pewctx não tem meta.json e contexto.md")
+        raise ValueError("o .maisimctx não tem meta.json e contexto.md")
     try:
         meta = json.loads(z.read(nomes["meta.json"]))
         assert isinstance(meta, dict) and isinstance(meta.get("titulo"), str)
     except (ValueError, AssertionError):
-        raise ValueError("meta.json inválido no .pewctx")
+        raise ValueError("meta.json inválido no .maisimctx")
     base.mkdir(parents=True, exist_ok=True)
     tmp = base / f".tmp_{uuid.uuid4().hex}"
     try:

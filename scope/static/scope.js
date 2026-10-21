@@ -1,4 +1,4 @@
-// pew-scope: painéis configuráveis (uPlot) em seções, cursor sincronizado no tempo, zoom X/Y/área e ⟲ em cada painel
+// maisim-scope: painéis configuráveis (uPlot) em seções, cursor sincronizado no tempo, zoom X/Y/área e ⟲ em cada painel
 // (o tempo é comum aos painéis ligados; um painel solto tem o seu), Ctrl + roda, pulsos de PWM e formas de onda medidas no
 // Gecko com a resolução do passo fino no zoom, salvar PNG.
 // Modos "Ao vivo" (SSE) e "Comparar" (A em cores; B na cor do mesmo sinal, mais clara e tracejada).
@@ -11,12 +11,12 @@ const PALETA = ["#1f77b4", "#d62728", "#2ca02c", "#ff7f0e", "#9467bd", "#8c564b"
 const CLASSICAS = [["vermelho", "#e41a1c"], ["vermelho escuro", "#8b0000"], ["laranja", "#ff7f0e"], ["marrom", "#8c564b"], ["ouro", "#b8860b"],
   ["verde", "#2ca02c"], ["verde escuro", "#006400"], ["ciano", "#17becf"], ["azul", "#1f77b4"], ["azul escuro", "#0b3d91"], ["roxo", "#9467bd"],
   ["magenta", "#d62ab0"], ["cinza", "#7f7f7f"], ["preto", "#111111"]];
-let coresSinal = (() => { try { return JSON.parse(localStorage.getItem("pew-scope-cores") || "{}") || {}; } catch (e) { return {}; } })();
+let coresSinal = (() => { try { return JSON.parse(localStorage.getItem("maisim-scope-cores") || "{}") || {}; } catch (e) { return {}; } })();
 const corValida = (c) => /^#[0-9a-fA-F]{6}$/.test(c) ? c.toLowerCase() : /^#[0-9a-fA-F]{3}$/.test(c) ? ("#" + c.slice(1).split("").map((x) => x + x).join("")).toLowerCase() : null;
 function corDoSinal(canal, idx) { return corValida(coresSinal[canal] || "") || PALETA[idx % PALETA.length]; }
 function poeCorSinal(canal, cor) {                       // cor null: volta ao padrão (a paleta pela ordem)
   if (cor) coresSinal[canal] = cor; else delete coresSinal[canal];
-  try { localStorage.setItem("pew-scope-cores", JSON.stringify(coresSinal)); } catch (e) { /* só nesta página */ }
+  try { localStorage.setItem("maisim-scope-cores", JSON.stringify(coresSinal)); } catch (e) { /* só nesta página */ }
   for (const p of paineis()) if (p.sinais.includes(canal)) criaGrafico(p);
 }
 // B (Comparar): a cor do mesmo sinal, misturada com o branco — dá para saber quem é quem com vários sinais
@@ -24,7 +24,7 @@ function corClara(cor, t = 0.5) {
   const n = parseInt(cor.slice(1), 16), mix = (v) => Math.round(v + (255 - v) * t);
   return "#" + [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => mix(v).toString(16).padStart(2, "0")).join("");
 }
-// o tema do PEW (<html data-tema>, posto pelo index.html antes de pintar): as cores do que é desenhado no canvas (eixos,
+// o tema do MaiSim (<html data-tema>, posto pelo index.html antes de pintar): as cores do que é desenhado no canvas (eixos,
 // grade, espectro, faixa de medição, acionamentos, PNG); as da página estão no CSS
 const COR_TEMA = {
   claro: { eixo: "#3d4550", grade: "rgba(0,0,0,.07)", texto: "#5b6470", textoForte: "#3d4550", textoFraco: "#8a939d", gradeForte: "#dde2e8",
@@ -36,7 +36,7 @@ const COR_TEMA = {
 const temaAtual = () => (document.documentElement.dataset.tema === "escuro" ? "escuro" : "claro");
 const cores = () => COR_TEMA[temaAtual()];
 const LIMITE_FINO_MS = 40;
-const CHAVE_LAYOUT = "pew-scope-layout-v3";
+const CHAVE_LAYOUT = "maisim-scope-layout-v3";
 // medidas no Gecko a cada passo fino. EA … ECA: tensão PWM do conversor calculada das tensões medidas nas pontas das
 // cadeias de SMs, e_k = (v_kp + v_kn − V_dc)/2 e e_ab = e_a − e_b. VAB … VCA: tensão nos terminais (depois dos indutores
 // de braço), das rodadas gravadas antes de 17/10 11:47
@@ -174,7 +174,7 @@ function catalogo() {
     add(g, `varm_${b}`, "tensão do braço, PWM (V)");
     for (let j = 1; j <= nSM(); j++) { add(g, `vc_${b}_${j}`, `v_c SM${j} (V)`); add(g, `s_${b}_${j}`, `pulso SM${j}`); add(g, `sig_${b}_${j}`, `σ SM${j} (média na janela)`); }
   }
-  // qualquer outro canal da rodada (ex.: rodadas do /pew/simu, com os nomes dos rótulos dos medidores)
+  // qualquer outro canal da rodada (ex.: rodadas do /maisim/simu, com os nomes dos rótulos dos medidores)
   const conhecidos = new Set(lst.map((c) => c.canal));
   for (const k of Object.keys(F.dados).sort()) {
     if (k === "t" || conhecidos.has(k) || /^(pwm_|pwmn_|fino_)/.test(k)) continue;
@@ -685,7 +685,7 @@ const ICONE_EXPANDE = svg(`<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>`);
 const ICONE_VOLTA = svg(`<path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/>`);
 const dragDe = (modo) => ({ x: modo !== "y", y: modo !== "x", setScale: false, dist: 3 });
 
-// acionamentos de uma rodada do /pew/simu (meta.acionamentos: t em s, alvo, valor): linha vertical tracejada e o rótulo
+// acionamentos de uma rodada do /maisim/simu (meta.acionamentos: t em s, alvo, valor): linha vertical tracejada e o rótulo
 function marcaAcionamentos(u) {
   const C = cores(), conjuntos = [[A, C.acA, C.acAtxt, ""], [B, C.acB, C.acBtxt, " · B"]];   // A em laranja; B em cinza
   const g = u.ctx, r = devicePixelRatio || 1, topo = u.bbox.top, base = u.bbox.top + u.bbox.height;
@@ -761,7 +761,7 @@ function criaGrafico(p) {
           }
         }
         if (!sincronizando) agenda([p]);
-      }],   // faixa da medição; acionamentos da rodada (PEW / simu)
+      }],   // faixa da medição; acionamentos da rodada (MaiSim / simu)
     },
   };
   p.u = new uPlot(opts, dadosPainel(p), p.area);
@@ -907,7 +907,7 @@ function expande(p, sim) {
   if (sim && expandido && expandido !== p) expande(expandido, false);
   if (!sim && !p.expandido) return;
   p.expandido = !!sim; expandido = sim ? p : null;
-  const esq = parseFloat(getComputedStyle(document.body).paddingLeft) || 0;     // o trilho do PEW, se houver
+  const esq = parseFloat(getComputedStyle(document.body).paddingLeft) || 0;     // o trilho do MaiSim, se houver
   p.el.style.left = sim ? `${esq + 10}px` : "";
   p.el.classList.toggle("expandido", !!sim); document.body.classList.toggle("com-expandido", !!sim);
   $("fundo-exp").hidden = !sim; marcaExpande(p);
@@ -1106,10 +1106,11 @@ function grupos() {                                    // seções na ordem, com
   for (const x of itens) { if (x.tipo === "secao") gs.push({ s: x, k: ++k, ps: [] }); else gs[gs.length - 1].ps.push(x); }
   return gs[0].ps.length ? gs : gs.slice(1);
 }
-// só a rodada: numa rodada do /pew/simu (ou com ?so=rodada, como o simu abre o scope) os painéis sem nenhum sinal dela
+// só a rodada: numa rodada do /maisim/simu (ou com ?so=rodada, como o simu abre o scope) os painéis sem nenhum sinal dela
 // (os do MMC) somem, e as suas seções também, no índice inclusive; o layout guardado não muda
 const SO_RODADA = new URLSearchParams(location.search).get("so") === "rodada";
-const soDaRodada = () => SO_RODADA || !!(A && A.meta && A.meta.planta === "gecko-pew");
+const DO_SIMU = (m) => !!m && (m.planta === "gecko-maisim" || m.planta === "gecko-pew");   // rodadas do simulador (gecko-pew: as do tempo do PEW)
+const soDaRodada = () => SO_RODADA || !!(A && DO_SIMU(A.meta));
 // um painel some se nenhum dos sinais dele existe na rodada (pelos dados, não por já ter gráfico: marcar o 1º sinal de um
 // painel novo guarda o layout antes de montar o gráfico, e o painel sumia até a próxima mudança — achado de Marcelo, 19/10)
 const temSinal = (F, c) => !!(F && F.dados && grossa(F, c));
@@ -1177,14 +1178,14 @@ function medeCab() { document.documentElement.style.setProperty("--cab-h", `${do
   $("ck-unica").onchange = (e) => { indice.unica = e.target.checked; guardaLayout(); };
   $("bt-indice").onclick = () => { indice.aberto = !indice.aberto; document.body.classList.toggle("com-indice", indice.aberto); guardaLayout(); setTimeout(redimensiona, 0); };
 })();
-// rodada com sinais fora do catálogo do MMC (ex.: /pew/simu) e nenhum painel mostrando: um painel com eles no topo
+// rodada com sinais fora do catálogo do MMC (ex.: /maisim/simu) e nenhum painel mostrando: um painel com eles no topo
 // (não grava no layout; fica se você mexer em algo do layout)
 function garantePainelDaRodada() {
   if (!A || !A.dados) return;
   const gen = catalogo().filter((c) => c.grupo === "Sinais da rodada").map((c) => c.canal);
   if (!gen.length || paineis().some((p) => p.sinais.some((c) => gen.includes(c)))) return;
   adicionaSecao(`Rodada ${A.meta.rotulo || ""}`.trim(), 0);
-  adicionaPainel({ titulo: A.meta.planta === "gecko-pew" ? `Sinais da rodada ${A.meta.rotulo || ""} (PEW / simu)` : "Sinais da rodada", sinais: gen.slice(0, 8), largura: 1 }, 1);
+  adicionaPainel({ titulo: DO_SIMU(A.meta) ? `Sinais da rodada ${A.meta.rotulo || ""} (MaiSim / simu)` : "Sinais da rodada", sinais: gen.slice(0, 8), largura: 1 }, 1);
 }
 // o gráfico acompanha a largura do cartão (painel criado com o scope escondido, tela dividida no simu, índice aberto…)
 const obsLargura = new ResizeObserver((ents) => {
@@ -1236,7 +1237,7 @@ function salvaTodos() {
   const g = out.getContext("2d"); g.fillStyle = cores().fundo; g.fillRect(0, 0, out.width, out.height);
   let y = 0;
   linhas.forEach((l, i) => { let x = 0; for (const c of l) { g.drawImage(c, x, y); x += c.width + gap; } y += altL[i] + gap; });
-  baixa(out, `pew-scope_${nomeArq((A && A.meta && A.meta.planta) || "")}_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.png`);
+  baixa(out, `maisim-scope_${nomeArq((A && A.meta && A.meta.planta) || "")}_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.png`);
 }
 function baixa(canvas, nome) { const a = document.createElement("a"); a.href = canvas.toDataURL("image/png"); a.download = nome; a.click(); }
 
@@ -1244,7 +1245,7 @@ function baixa(canvas, nome) { const a = document.createElement("a"); a.href = c
 let fonteEventos = null, redesenhoPendente = false, repeticao = false, timerEscondida = null;
 let esperaEscondida = 30000;                 // aba escondida por mais que isto (ms): fecha a conexão ao vivo (ver abaixo)
 function status(txt) { $("status").textContent = txt; }
-const nomePlanta = (m) => m.planta === "gecko-pew" ? `PEW / simu · ${m.rotulo || ""}` : (m.planta || "");
+const nomePlanta = (m) => DO_SIMU(m) ? `MaiSim / simu · ${m.rotulo || ""}` : (m.planta || "");
 function redesenha() {
   if (redesenhoPendente || pausado) return;
   redesenhoPendente = true;
@@ -1285,7 +1286,7 @@ function conectaVivo() {
 }
 // a conexão ao vivo só com a aba à vista: o navegador abre no máximo 6 conexões por endereço (somando as abas, HTTP/1.1)
 // e cada EventSource aberto segura uma; com 6 abas do scope (ou do simu com o scope embutido) em segundo plano, a próxima
-// página do PEW ficava na fila, sem o trilho. Escondida por mais de 30 s, a aba fecha a sua; ao voltar, reconecta e o
+// página do MaiSim ficava na fila, sem o trilho. Escondida por mais de 30 s, a aba fecha a sua; ao voltar, reconecta e o
 // servidor manda a rodada desde o começo (trocar de aba rápido não fecha nada nem reenvia a rodada)
 document.addEventListener("visibilitychange", () => {
   clearTimeout(timerEscondida); timerEscondida = null;
@@ -1315,7 +1316,7 @@ async function carrega(arq) {
     const r = await fetch("rodada.bin?arq=" + encodeURIComponent(arq));
     if (r.ok) {
       const buf = await r.arrayBuffer(), dv = new DataView(buf);
-      if (buf.byteLength >= 8 && dv.getUint32(0, false) === 0x50455742) {          // "PEWB"
+      if (buf.byteLength >= 8 && dv.getUint32(0, false) === 0x4D414953) {          // "MAIS"
         const H = dv.getUint32(4, true), cab = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 8, H)));
         const base = Math.ceil((8 + H) / 8) * 8, dados = {};
         for (const k of cab.canais) dados[k.nome] = new TIPOS_BIN[k.tipo](buf, base + k.desloc, k.n);
@@ -1406,11 +1407,11 @@ document.addEventListener("keydown", (e) => {
 });
 $("fundo-exp").onclick = () => { if (expandido) expande(expandido, false); };
 let tRes = null;
-// o tema mudou (o trilho grava "pew-tema" — o evento storage chega a esta página também dentro do simu; "sistema" segue o
-// sistema; o pew-nav.js, quando está nesta página, avisa com "pew-tema"): as cores novas e os gráficos redesenhados
+// o tema mudou (o trilho grava "maisim-tema" — o evento storage chega a esta página também dentro do simu; "sistema" segue o
+// sistema; o maisim-nav.js, quando está nesta página, avisa com "maisim-tema"): as cores novas e os gráficos redesenhados
 function acompanhaTema() {
   let t = "sistema";
-  try { t = localStorage.getItem("pew-tema") || "sistema"; } catch (e) { /* ok */ }
+  try { t = localStorage.getItem("maisim-tema") || "sistema"; } catch (e) { /* ok */ }
   const novo = t === "escuro" || (t === "sistema" && matchMedia("(prefers-color-scheme: dark)").matches) ? "escuro" : "claro";
   if (novo !== document.documentElement.dataset.tema) document.documentElement.dataset.tema = novo;
   if (novo === temaDesenhado) return;
@@ -1421,13 +1422,13 @@ function acompanhaTema() {
   }
 }
 let temaDesenhado = temaAtual();
-window.addEventListener("storage", (e) => { if (e.key === "pew-tema") acompanhaTema(); });
-window.addEventListener("pew-tema", acompanhaTema);
+window.addEventListener("storage", (e) => { if (e.key === "maisim-tema") acompanhaTema(); });
+window.addEventListener("maisim-tema", acompanhaTema);
 try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", acompanhaTema); } catch (e) { /* ok */ }
 window.addEventListener("resize", () => { clearTimeout(tRes); tRes = setTimeout(() => { medeCab(); redimensiona(); if (expandido) expande(expandido, true); }, 150); });
 
-// endereço: /pew/scope/?a=<arquivo>&b=<arquivo>&x=<min>,<max> (ms) abre direto no modo Comparar, com zoom;
-// os pedidos ao servidor usam caminhos relativos (eventos, rodadas…), para funcionar também atrás do pew-app
+// endereço: /maisim/scope/?a=<arquivo>&b=<arquivo>&x=<min>,<max> (ms) abre direto no modo Comparar, com zoom;
+// os pedidos ao servidor usam caminhos relativos (eventos, rodadas…), para funcionar também atrás do maisim-app
 (async () => {
   const q = new URLSearchParams(location.search);
   await listaRodadas();

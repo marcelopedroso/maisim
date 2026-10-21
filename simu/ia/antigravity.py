@@ -1,13 +1,13 @@
-"""O Google Antigravity como IA do PEW: o Antigravity CLI oficial (`agy`, conferido no 1.4.4), com a conta Google da pessoa
-(grátis, Google AI Pro ou Ultra: vale o limite do plano dela no Antigravity), numa casa só do PEW (HOME = ~/.agy-pew: o agy
+"""O Google Antigravity como IA do MaiSim: o Antigravity CLI oficial (`agy`, conferido no 1.4.4), com a conta Google da pessoa
+(grátis, Google AI Pro ou Ultra: vale o limite do plano dela no Antigravity), numa casa só do MaiSim (HOME = ~/.agy-maisim: o agy
 guarda tudo em $HOME/.gemini/…; o ~/.gemini da pessoa não muda). Por ele, os modelos Gemini e os outros que o Antigravity
 oferece. Desde ~jun/2026 o Gemini CLI não atende contas pessoais (a recusa que o Marcelo viu em 21/10); o Antigravity atende.
 
 Pedido: `agy -p` em stream-json, com --sandbox (o terminal restrito) e sem os comandos de barra. No modo sem janela, o agy
 libera ler e escrever na pasta de trabalho (a da conversa) e nega o resto (terminal, web, fora da pasta: "perguntar" vira
-negado sem janela). A conversa do agy tem o id dele (conversation_id), guardado pelo PEW e retomado com --conversation.
-Login: o agy interativo num terminal (pty): o PEW escolhe "Google OAuth" no menu, mostra o link e repassa o código que a
-página do Google mostra; o agy escreve "Successfully authenticated as <e-mail>" e o PEW guarda só o e-mail."""
+negado sem janela). A conversa do agy tem o id dele (conversation_id), guardado pelo MaiSim e retomado com --conversation.
+Login: o agy interativo num terminal (pty): o MaiSim escolhe "Google OAuth" no menu, mostra o link e repassa o código que a
+página do Google mostra; o agy escreve "Successfully authenticated as <e-mail>" e o MaiSim guarda só o e-mail."""
 import calendar
 import json
 import os
@@ -23,8 +23,8 @@ from .login_pty import LoginPorTerminal
 ESTADO_AGY = (".gemini", "antigravity-cli")
 NEGA = ["command(*)", "unsandboxed(*)", "read_url(*)", "execute_url(*)", "mcp(*)"]
 PARADA = re.compile(r'a tool required the "([^"]+)" permission that headless mode cannot prompt for')
-REGRA_AGY = ("\n\nNo PEW você NÃO tem terminal, navegador nem acesso a arquivos fora desta pasta: não tente (o pedido para "
-             "sem resposta). Leia e edite só os arquivos desta pasta; o PEW testa e simula o código.")
+REGRA_AGY = ("\n\nNo MaiSim você NÃO tem terminal, navegador nem acesso a arquivos fora desta pasta: não tente (o pedido para "
+             "sem resposta). Leia e edite só os arquivos desta pasta; o MaiSim testa e simula o código.")
 
 
 def _quando(iso):
@@ -47,23 +47,23 @@ def _sem_links_locais(texto):
 
 
 def _ferramenta(nome):
-    """O nome de uma ferramenta do agy → o do PEW (a linha "lendo controle.py" da tela)."""
+    """O nome de uma ferramenta do agy → o do MaiSim (a linha "lendo controle.py" da tela)."""
     n = str(nome or "").lower()
     if n in ("run_command", "send_command_input"):
         return "terminal (negado)"
     if n in ("search_web", "read_url_content", "open_browser_url"):
         return "web"
-    for chave, pew in (("grep", "Grep"), ("list_dir", "Glob"), ("find_by_name", "Glob"), ("glob", "Glob"), ("sed_file", "Edit"),
+    for chave, nosso in (("grep", "Grep"), ("list_dir", "Glob"), ("find_by_name", "Glob"), ("glob", "Glob"), ("sed_file", "Edit"),
                        ("replace", "Edit"), ("edit", "Edit"), ("write", "Write"), ("create", "Write"), ("view", "Read"), ("read", "Read")):
         if chave in n:
-            return pew
+            return nosso
     return nome or "ferramenta"
 
 
 class Antigravity(LoginPorTerminal, IA):
     id = "antigravity"
     nome = "Google Antigravity"
-    variavel_pasta = "HOME"                        # o agy usa $HOME/.gemini/…: a casa do PEW isola a configuração e o login
+    variavel_pasta = "HOME"                        # o agy usa $HOME/.gemini/…: a casa do MaiSim isola a configuração e o login
     esforcos = ("",)                               # o esforço vem no nome do modelo do agy (…-low, …-medium, …-high)
     tem_login = True
 
@@ -78,10 +78,10 @@ class Antigravity(LoginPorTerminal, IA):
         self._uso, self._trava_uso = None, threading.Lock()
 
     def _conta(self):
-        return self.pasta / "pew" / "conta.json"
+        return self.pasta / "maisim" / "conta.json"
 
     def _token(self):
-        # o login do agy (conferido em 21/10 com a conta do Marcelo: um arquivo, sem chaveiro no WSL). O PEW só vê se existe
+        # o login do agy (conferido em 21/10 com a conta do Marcelo: um arquivo, sem chaveiro no WSL). O MaiSim só vê se existe
         return self.pasta.joinpath(*ESTADO_AGY, "antigravity-oauth-token")
 
     # ---- o login
@@ -89,7 +89,7 @@ class Antigravity(LoginPorTerminal, IA):
         return [self.bin]
 
     def _prepara(self):
-        """As regras de negação do PEW na configuração do agy (só na casa do PEW). Conferido em 21/10 com a conta do Marcelo:
+        """As regras de negação do MaiSim na configuração do agy (só na casa do MaiSim). Conferido em 21/10 com a conta do Marcelo:
         sem elas, o 1º uso do terminal faz o agy parar o pedido sem resposta; com elas, ele recebe "negado" e segue. Ler e
         escrever fora da pasta o agy já nega sem janela (e para o pedido); o /tmp ele deixa escrever."""
         arq = self.pasta.joinpath(*ESTADO_AGY, "settings.json")
@@ -104,7 +104,7 @@ class Antigravity(LoginPorTerminal, IA):
         novo = {**atual, "permissions": {**perm, "deny": nega}}
         if novo != atual:
             arq.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-            tmp = arq.with_name(f".{arq.name}.pew")
+            tmp = arq.with_name(f".{arq.name}.tmp")
             tmp.write_text(json.dumps(novo, ensure_ascii=False, indent=2) + "\n")
             os.chmod(tmp, 0o600)
             os.replace(tmp, arq)
@@ -114,9 +114,9 @@ class Antigravity(LoginPorTerminal, IA):
         self._prepara()
         self._ok_desde = None
 
-    # ---- os modelos da conta (agy models), guardados pelo PEW; a lista muda com o plano e com o tempo
+    # ---- os modelos da conta (agy models), guardados pelo MaiSim; a lista muda com o plano e com o tempo
     def _modelos_arq(self):
-        return self.pasta / "pew" / "modelos.json"
+        return self.pasta / "maisim" / "modelos.json"
 
     def atualiza_modelos(self):
         try:
@@ -138,7 +138,7 @@ class Antigravity(LoginPorTerminal, IA):
         with self._trava_uso:
             if not forca and self._uso and time.time() - self._uso["quando"] < 60:
                 return self._uso
-            vazio = self.pasta / "pew" / "uso"
+            vazio = self.pasta / "maisim" / "uso"
             vazio.mkdir(mode=0o700, parents=True, exist_ok=True)
             try:
                 r = subprocess.run([self.bin, "-p", "/usage", "--output-format", "json"], env=self.ambiente(), cwd=str(vazio),
@@ -200,7 +200,7 @@ class Antigravity(LoginPorTerminal, IA):
 
     def email_do_log(self):
         """A conta que o agy escreve no log dele a cada vez que roda ("OAuth: authenticated successfully as <e-mail>"; achado
-        em 21/10). É o log, não a credencial: o PEW lê o mais novo que tiver a linha."""
+        em 21/10). É o log, não a credencial: o MaiSim lê o mais novo que tiver a linha."""
         pasta = self.pasta.joinpath(*ESTADO_AGY, "log")
         try:
             logs = sorted(pasta.glob("cli-*.log"), reverse=True)[:8]
@@ -246,7 +246,7 @@ class Antigravity(LoginPorTerminal, IA):
         if m:
             o_que = {"command": "o terminal", "read_file": "ler um arquivo fora da pasta", "write_file": "escrever fora da pasta",
                      "read_url": "abrir uma página da web", "execute_url": "o navegador", "mcp": "uma ferramenta externa"}.get(m.group(1), m.group(1))
-            return (f"o {self.nome} tentou {o_que}, que o PEW não deixa, e parou sem responder. Peça de novo; se precisar, diga "
+            return (f"o {self.nome} tentou {o_que}, que o MaiSim não deixa, e parou sem responder. Peça de novo; se precisar, diga "
                     "para ele usar só os arquivos desta pasta.")
         if re.search(r"not logged in|no stored credentials|Authentication required|authentication failed or timed out", texto or "", re.I):
             self._conta().unlink(missing_ok=True)       # o agy não aceitou o login guardado: a tela pede para entrar de novo
@@ -256,12 +256,12 @@ class Antigravity(LoginPorTerminal, IA):
 
     # ---- o pedido e o resumo
     def sessao_existe(self, sid):
-        # o id é o do agy (o PEW guarda o conversation_id da 1ª resposta); antes disso, o sorteado pelo PEW não existe lá
+        # o id é o do agy (o MaiSim guarda o conversation_id da 1ª resposta); antes disso, o sorteado pelo MaiSim não existe lá
         return bool(sid) and any(self.pasta.joinpath(*ESTADO_AGY, "conversations").glob(f"{sid}*"))
 
     def comando(self, prompt, sessao, retoma, regras, modelo="", esforco="", passos=100, editaveis=(), pasta=None):
         self._prepara()
-        texto = prompt if retoma else f"{regras}{REGRA_AGY}\n\n---\n\n{prompt}"   # as regras do PEW no começo da conversa
+        texto = prompt if retoma else f"{regras}{REGRA_AGY}\n\n---\n\n{prompt}"   # as regras do MaiSim no começo da conversa
         return [self.bin, "-p", texto, "--output-format", "stream-json", "--sandbox", "--disable-slash-commands",
                 *(["--model", modelo] if modelo else []), *(["--effort", esforco] if esforco else []),
                 *(["--conversation", sessao] if retoma else [])]

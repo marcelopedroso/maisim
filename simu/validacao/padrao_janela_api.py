@@ -1,5 +1,5 @@
-"""O padrão dentro da amostra (instância de teste 8768), Marcelo em 20/10 ("é pra simular o controle do artigo"): o timer
-de PWM de cada SM do artigo compara a portadora com m a cada Δt (1 µs) numa janela de controle de Ts = 20 µs; no PEW, a
+"""O padrão dentro da amostra (instância de teste 7201), Marcelo em 20/10 ("é pra simular o controle do artigo"): o timer
+de PWM de cada SM do artigo compara a portadora com m a cada Δt (1 µs) numa janela de controle de Ts = 20 µs; no MaiSim, a
 atuação pode vir como uma lista de Ts/Δt valores, um por Δt. Circuito: fonte controlada pelo CONST "s" num R (a corrente
 é o valor da fonte, sem dinâmica), Δt = 1 µs, Ts = 8 µs.
 - lista com valores iguais = o mesmo número: a série é a mesma, nos modos de atraso "logo" e "amostra";
@@ -7,7 +7,7 @@ atuação pode vir como uma lista de Ts/Δt valores, um por Δt. Circuito: fonte
 - lista do tamanho errado: erro que diz Ts/Δt."""
 import json, time, urllib.request
 import numpy as np
-B = "http://localhost:8768/pew/simu/"
+B = "http://localhost:7201/maisim/simu/"
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(req, timeout=300).read())

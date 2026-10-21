@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Guia do Controle</title>
-<!-- o guia do controle (GUIA_CONTROLE.md, servido em /pew/simu/guia), renderizado; sem a biblioteca, o texto puro -->
+<!-- o guia do controle (GUIA_CONTROLE.md, servido em /maisim/simu/guia), renderizado; sem a biblioteca, o texto puro -->
 <script>
-// o tema do PEW (o trilho escolhe; localStorage "pew-tema"): sistema, claro ou escuro
-try { const t = localStorage.getItem("pew-tema") || "sistema";
+// o tema do MaiSim (o trilho escolhe; localStorage "maisim-tema"): sistema, claro ou escuro
+try { const t = localStorage.getItem("maisim-tema") || "sistema";
   document.documentElement.dataset.tema = t === "escuro" || (t === "sistema" && matchMedia("(prefers-color-scheme: dark)").matches) ? "escuro" : "claro"; }
 catch (e) { /* claro */ }
 </script>

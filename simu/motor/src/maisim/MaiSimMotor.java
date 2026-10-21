@@ -1,4 +1,4 @@
-package pew;
+package maisim;
 
 import ch.technokrat.gecko.GeckoRemoteInterface;
 
@@ -13,30 +13,30 @@ import java.rmi.registry.LocateRegistry;
 import java.util.Arrays;
 
 /**
- * Motor do editor do PEW: liga a interface web ao GeckoCIRCUITS (o "cérebro") pela interface remota (RMI) do próprio
+ * Motor do editor do MaiSim: liga a interface web ao GeckoCIRCUITS (o "cérebro") pela interface remota (RMI) do próprio
  * Gecko, para criar, apagar, mover, girar, parametrizar, rotular e salvar componentes; quem grava o .ipes é o Gecko.
  * CREATE nome x y tipo (tipo no fim, pode ter espaço); PARAMS devolve as entradas separadas por "||".
  * Protocolo de linhas (igual em espírito à gecko-bridge da co-simulação, mas separado dela): um pedido por linha,
  * resposta "OK …" ou "ERR …". Escuta só em 127.0.0.1.
  *
- * uso: java -cp gecko.jar:bin pew.PewMotor [--gecko-port 43050] [--porta 6120]
+ * uso: java -cp gecko.jar:bin maisim.MaiSimMotor [--gecko-port 7103] [--porta 7104]   (as portas de config/padrao.env)
  */
-public final class PewMotor {
+public final class MaiSimMotor {
     private final GeckoRemoteInterface g;
 
-    private PewMotor(GeckoRemoteInterface g) { this.g = g; }
+    private MaiSimMotor(GeckoRemoteInterface g) { this.g = g; }
 
     public static void main(String[] args) throws Exception {
-        int portaGecko = 43050, porta = 6120;
+        int portaGecko = 7103, porta = 7104;
         for (int i = 0; i < args.length; i++) {
             if (args[i].equals("--gecko-port")) portaGecko = Integer.parseInt(args[++i]);
             else if (args[i].equals("--porta")) porta = Integer.parseInt(args[++i]);
         }
         GeckoRemoteInterface g = (GeckoRemoteInterface) LocateRegistry.getRegistry("localhost", portaGecko).lookup("GeckoRemoteInterface");
         g.connect();
-        PewMotor m = new PewMotor(g);
+        MaiSimMotor m = new MaiSimMotor(g);
         try (ServerSocket ss = new ServerSocket(porta, 10, InetAddress.getByName("127.0.0.1"))) {
-            System.out.println("PewMotor: Gecko na porta " + portaGecko + ", ouvindo em 127.0.0.1:" + porta);
+            System.out.println("MaiSimMotor: Gecko na porta " + portaGecko + ", ouvindo em 127.0.0.1:" + porta);
             while (true) {
                 try (Socket s = ss.accept();
                      BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream(), StandardCharsets.UTF_8));

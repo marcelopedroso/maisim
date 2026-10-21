@@ -1,15 +1,15 @@
 """Os exemplos que vêm com o GeckoCIRCUITS original (gecko/build/GeckoCIRCUITS, baixado pelo gecko/construir.sh) no
-simulador, um por um, na instância de teste (8768): abre, confere o desenho (pontas soltas) e roda um trecho curto
+simulador, um por um, na instância de teste (7201): abre, confere o desenho (pontas soltas) e roda um trecho curto
 (até 2000 passos do dt do próprio arquivo). Cada arquivo distinto vai uma vez (há cópias em pastas diferentes); a cópia
 fica na pasta de circuitos do servidor de teste só durante o ensaio. Resultado: uma linha por exemplo e o resumo, e a
-tabela em ~/.cache/pew_simu_teste/exemplos_gecko.json."""
+tabela em ~/.cache/maisim_teste/exemplos_gecko.json."""
 import hashlib, json, math, os, shutil, sys, time, urllib.request
 from pathlib import Path
-B = "http://localhost:8768/pew/simu/"
+B = "http://localhost:7201/maisim/simu/"
 RAIZ = Path(__file__).resolve().parents[2]
 FONTE = RAIZ / "gecko" / "build" / "GeckoCIRCUITS"
-T = Path.home() / ".cache" / "pew_simu_teste"
-SALVOS = T / "pew"
+T = Path.home() / ".cache" / "maisim_teste"
+SALVOS = T / "circuitos"
 def api(rota, corpo=None, espera=300):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(req, timeout=espera).read())

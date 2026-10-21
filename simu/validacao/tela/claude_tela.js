@@ -1,15 +1,15 @@
-// o botão do Claude do PEW (instância de teste, pasta descartável): estado, entrar → links, código (Enter), foco e aviso que
+// o botão do Claude do MaiSim (instância de teste, pasta descartável): estado, entrar → links, código (Enter), foco e aviso que
 // sobrevivem ao acompanhamento, cancelar; a tela de conectado (simulada) com Esc na confirmação de sair; falha de rede
 const { chromium } = require("playwright");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
 (async () => {
-  const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1500, height: 900 } }); const pg = await ctx.newPage(); await pg.addInitScript(() => { try { localStorage.setItem("pew-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
+  const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1500, height: 900 } }); const pg = await ctx.newPage(); await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
   const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-  await pg.goto("http://localhost:8768/pew/simu/");
+  await pg.goto("http://localhost:7201/maisim/simu/");
   await pg.waitForFunction(() => typeof cla !== "undefined" && cla.estado, null, { timeout: 30000 });
   const b0 = await pg.evaluate(() => ({ title: $("bt-claude").title, logado: $("bt-claude").classList.contains("logado"), raio: getComputedStyle($("bt-claude")).borderTopLeftRadius }));
-  ok(b0.title === "IA do PEW — Claude: entrar" && !b0.logado && b0.raio === "6px", `botão: "${b0.title}" · cantos ${b0.raio}`);
+  ok(b0.title === "IA do MaiSim — Claude: entrar" && !b0.logado && b0.raio === "6px", `botão: "${b0.title}" · cantos ${b0.raio}`);
   await pg.click("#bt-claude"); await pg.waitForSelector(".modal.cla #cla-entrar");
   ok(/pasta só dele/.test(await pg.textContent(".modal.cla")), "janela: explica a pasta própria");
   await pg.click("#cla-entrar"); await pg.waitForSelector("#cla-auto[href]", { timeout: 30000 });
@@ -32,7 +32,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   // uma interceptação só, com o modo numa variável: trocar por unroute + route deixava um intervalo em que um pedido de
   // estado chegava ao servidor de verdade (desconectado) e a tela, com razão, mostrava isso
   let modoEstado = "logado";
-  await pg.route("**/claude/estado", (r) => modoEstado === "falha" ? r.abort() : modoEstado === "real" ? r.continue() : r.fulfill({ contentType: "application/json", body: JSON.stringify({ pasta: "~/.claude-pew", instalado: true, logado: true, email: "teste@exemplo", plano: "max" }) }));
+  await pg.route("**/claude/estado", (r) => modoEstado === "falha" ? r.abort() : modoEstado === "real" ? r.continue() : r.fulfill({ contentType: "application/json", body: JSON.stringify({ pasta: "~/.claude-maisim", instalado: true, logado: true, email: "teste@exemplo", plano: "max" }) }));
   await pg.click("#bt-claude"); await pg.waitForSelector("#cla-sair");
   ok(/Conectado como teste@exemplo · plano max/.test(await pg.textContent(".modal.cla")) && await pg.evaluate(() => $("bt-claude").classList.contains("logado")), "conectado: e-mail, plano, ponto verde");
   await pg.click("#cla-sair"); await pg.waitForFunction(() => document.querySelectorAll(".modal-fundo").length === 2);

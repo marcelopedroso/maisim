@@ -1,4 +1,4 @@
-// seleção de vários pela tela (instância de teste 5010 → 8768): Shift + arrastar no vazio (retângulo) seleciona componentes
+// seleção de vários pela tela (instância de teste 7200 → 7201): Shift + arrastar no vazio (retângulo) seleciona componentes
 // e conexões; arrastar um deles move o grupo e a conexão de dentro continua ligada; Shift + clique põe e tira; Ctrl+C e
 // Ctrl+V colam o grupo onde está o mouse (com a conexão, já selecionado); Delete apaga o grupo; Ctrl+Z volta; Esc tira.
 const { chromium } = require("playwright");
@@ -9,7 +9,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   try {
     b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1500, height: 900 } })).newPage();
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-    await pg.goto("http://localhost:5010/pew/simu/");
+    await pg.goto("http://localhost:7200/maisim/simu/");
     for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof dados !== "undefined" && dados && dados.editor)); k++) {
       if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }
     await pg.evaluate(async () => {

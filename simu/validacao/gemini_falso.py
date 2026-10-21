@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Um `gemini` de mentira para testar o Gemini como IA do PEW sem a conta Google (PEW_GEMINI_BIN apontando para cá).
+"""Um `gemini` de mentira para testar o Gemini como IA do MaiSim sem a conta Google (MAISIM_GEMINI_BIN apontando para cá).
 
 O cenário vem de arquivos na pasta de configuração (GEMINI_CLI_HOME, a descartável da instância de teste):
   falso_cenario    o pedido: ganho | le_conversa | recusa | cota | limite | lento | resumo_falha | inelegivel
@@ -24,7 +24,7 @@ pol_arq = args[args.index("--admin-policy") + 1] if "--admin-policy" in args els
 pol = Path(pol_arq).read_text() if pol_arq and Path(pol_arq).exists() else ""
 with open(casa / "falso_chamadas.jsonl", "a") as f:
     f.write(json.dumps({"args": args, "cwd": os.getcwd(), "env": sorted(os.environ), "politica": pol,
-                        "politica_base": (g / "policies" / "pew_base.toml").read_text() if (g / "policies" / "pew_base.toml").exists() else "",
+                        "politica_base": (g / "policies" / "maisim_base.toml").read_text() if (g / "policies" / "maisim_base.toml").exists() else "",
                         "gemini_md": Path("GEMINI.md").read_text()[:200] if Path("GEMINI.md").exists() else None,
                         "tty": os.isatty(0), "no_browser": os.environ.get("NO_BROWSER")}) + "\n")
 cenario = (casa / "falso_cenario").read_text().strip() if (casa / "falso_cenario").exists() else "ganho"
@@ -70,8 +70,8 @@ if not (g / "oauth_creds.json").exists():                # como o CLI 0.63.0 sem
 if "--skip-trust" not in args:
     print("Error: this folder is not trusted (use --skip-trust)", file=sys.stderr)
     sys.exit(1)
-if 'toolName = "*"\ndecision = "deny"' not in pol:      # sem a política do PEW, o de mentira se recusa (o teste vê)
-    print("gemini_falso: sem a política do PEW (--admin-policy)", file=sys.stderr)
+if 'toolName = "*"\ndecision = "deny"' not in pol:      # sem a política do MaiSim, o de mentira se recusa (o teste vê)
+    print("gemini_falso: sem a política do MaiSim (--admin-policy)", file=sys.stderr)
     sys.exit(3)
 
 if cenario == "inelegivel":                             # a recusa do Google a contas pessoais (21/10), como o CLI 0.63/0.65 a imprime
@@ -85,7 +85,7 @@ stats = {"total_tokens": 1500, "input_tokens": 1200, "output_tokens": 300, "cach
          "tool_calls": 2, "models": {"gemini-falso-2.5": {"total_tokens": 1500, "input_tokens": 1200, "output_tokens": 300}}}
 
 # ---------------------------------------------------------------- o resumo de um contexto salvo (-o json, uma saída)
-if "Resuma a conversa do PEW guardada nesta pasta" in prompt:
+if "Resuma a conversa do MaiSim guardada nesta pasta" in prompt:
     assert saida == "json" and "argsPattern" not in pol, "resumo: JSON e só leitura"
     if cenario == "resumo_falha":
         print(json.dumps({"session_id": "x", "error": {"type": "TerminalQuotaError", "message": "You have exhausted your daily quota", "code": 1}}, indent=2),
@@ -98,7 +98,7 @@ if "Resuma a conversa do PEW guardada nesta pasta" in prompt:
     sys.exit(0)
 
 if saida != "stream-json":
-    print("gemini_falso: o pedido do PEW é em stream-json", file=sys.stderr)
+    print("gemini_falso: o pedido do MaiSim é em stream-json", file=sys.stderr)
     sys.exit(4)
 
 # a sessão onde o CLI a guarda: .gemini/tmp/<projeto>/chats/session-<quando>-<8 primeiros do id>.json

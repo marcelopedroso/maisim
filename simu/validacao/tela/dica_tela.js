@@ -1,8 +1,8 @@
-// a dica (tooltip) do PEW na instância de teste 5010: depois de uma dica curta colada na borda direita, a do "testar" não pode ficar espremida (ela era medida no lugar da anterior)
+// a dica (tooltip) do MaiSim na instância de teste 7200: depois de uma dica curta colada na borda direita, a do "testar" não pode ficar espremida (ela era medida no lugar da anterior)
 const { chromium } = require("playwright");
 (async () => {
-  const b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1500, height: 900 } })).newPage(); await pg.addInitScript(() => { try { localStorage.setItem("pew-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
-  await pg.goto("http://localhost:5010/pew/simu/"); await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
+  const b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1500, height: 900 } })).newPage(); await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
+  await pg.goto("http://localhost:7200/maisim/simu/"); await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
   await pg.click("#bt-ctl"); await pg.waitForTimeout(1500);
   const larg = async (sel) => { await pg.hover(sel); await pg.waitForTimeout(600); const r = await pg.evaluate(() => { const c = document.getElementById("dica-ui").getBoundingClientRect(); return [Math.round(c.width), Math.round(c.left), Math.round(c.right)]; }); await pg.mouse.move(5, 5); await pg.waitForTimeout(200); return r; };
   await pg.evaluate(() => { const x = document.createElement("button"); x.id = "curta"; x.title = "ok"; x.textContent = "·";

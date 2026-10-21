@@ -1,41 +1,41 @@
-// o Gemini na tela (etapa 3 do hub de IA, 21/10), direto no servidor de teste 8768 com o gemini de mentira (PEW_GEMINI_BIN=
-// …/validacao/gemini_falso.py, PEW_GEMINI_DIR descartável — nunca a conta Google de verdade): a janela das contas com o Claude e
+// o Gemini na tela (etapa 3 do hub de IA, 21/10), direto no servidor de teste 7201 com o gemini de mentira (MAISIM_GEMINI_BIN=
+// …/validacao/gemini_falso.py, MAISIM_GEMINI_DIR descartável — nunca a conta Google de verdade): a janela das contas com o Claude e
 // o Gemini, o login do Gemini (link, código errado, código certo), o seletor de IA na conversa com os modelos de cada uma
 // (a escolha fica no navegador), um pedido respondido pelo Gemini (o nome na resposta), e sair.
 const { chromium } = require("playwright");
 const fs = require("fs"), path = require("path"), { execSync } = require("child_process");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
-const pid = execSync(`ss -ltnp | grep ':8768 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1`).toString().trim();
+const pid = execSync(`ss -ltnp | grep ':7201 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1`).toString().trim();
 const ENV = Object.fromEntries(fs.readFileSync(`/proc/${pid}/environ`).toString().split("\0").filter((x) => x.includes("=")).map((x) => [x.slice(0, x.indexOf("=")), x.slice(x.indexOf("=") + 1)]));
-if (!(ENV.PEW_GEMINI_BIN || "").endsWith("gemini_falso.py") || !/pew_simu_teste|\/tmp\//.test(ENV.PEW_GEMINI_DIR || "")) { console.log("FALHA suba o servidor de teste (reinicia_servidor_teste.sh): o gemini de mentira numa pasta descartável"); process.exit(1); }
-const GEM = ENV.PEW_GEMINI_DIR, CONF = ENV.PEW_CLAUDE_DIR, FOTOS = process.env.PEW_FOTOS || "";
+if (!(ENV.MAISIM_GEMINI_BIN || "").endsWith("gemini_falso.py") || !/maisim_teste|\/tmp\//.test(ENV.MAISIM_GEMINI_DIR || "")) { console.log("FALHA suba o servidor de teste (reinicia_servidor_teste.sh): o gemini de mentira numa pasta descartável"); process.exit(1); }
+const GEM = ENV.MAISIM_GEMINI_DIR, CONF = ENV.MAISIM_CLAUDE_DIR, FOTOS = process.env.MAISIM_FOTOS || "";
 fs.mkdirSync(GEM, { recursive: true }); fs.writeFileSync(path.join(GEM, "falso_cenario"), "ganho");
 fs.rmSync(path.join(CONF, "falso_logado"), { force: true });          // o Claude desconectado: a conversa vai pelo Gemini
 const REPO = path.resolve(__dirname, "../dados");
-for (const f of ["exemplo_controle_pwm.ipes", "exemplo_controle_pwm.controle.json"]) fs.copyFileSync(path.join(REPO, f), path.join(ENV.PEW_SIMU_SALVOS, f));
-const URL = "http://localhost:8768/pew/simu/?modelo=" + encodeURIComponent(path.join(ENV.PEW_SIMU_SALVOS, "exemplo_controle_pwm.ipes"));
-const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: "POST", headers: { "Content-Type": "application/json", "X-PEW": "1" }, body: JSON.stringify(c) } : {}).then((x) => x.json()), [rota, corpo]);
+for (const f of ["exemplo_controle_pwm.ipes", "exemplo_controle_pwm.controle.json"]) fs.copyFileSync(path.join(REPO, f), path.join(ENV.MAISIM_SALVOS, f));
+const URL = "http://localhost:7201/maisim/simu/?modelo=" + encodeURIComponent(path.join(ENV.MAISIM_SALVOS, "exemplo_controle_pwm.ipes"));
+const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: "POST", headers: { "Content-Type": "application/json", "X-MaiSim": "1" }, body: JSON.stringify(c) } : {}).then((x) => x.json()), [rota, corpo]);
 const foto = (pg, nome) => (FOTOS ? pg.screenshot({ path: path.join(FOTOS, nome) }) : null);
 (async () => {
  let b;
  try {
   b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1600, height: 950 }, colorScheme: "light" }); const pg = await ctx.newPage();
-  await pg.addInitScript(() => { try { localStorage.setItem("pew-simu-travado", "1"); } catch (e) { /* ok */ } });
+  await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } });
   const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
   await pg.goto(URL);
   await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
   await api(pg, "claude/ia/sair", { ia: "gemini" });
-  await api(pg, "editor/abrir", { arq: path.join(ENV.PEW_SIMU_SALVOS, "exemplo_controle_pwm.ipes"), modo: "descartar" });
+  await api(pg, "editor/abrir", { arq: path.join(ENV.MAISIM_SALVOS, "exemplo_controle_pwm.ipes"), modo: "descartar" });
   await api(pg, "claude/nova", {});
-  await pg.evaluate(() => { for (const k of ["pew-simu-cc-ia", "pew-simu-cc-modelo", "pew-simu-cc-modelo-gemini"]) localStorage.removeItem(k); });   // começa do padrão (uma vez)
+  await pg.evaluate(() => { for (const k of ["maisim-simu-cc-ia", "maisim-simu-cc-modelo", "maisim-simu-cc-modelo-gemini"]) localStorage.removeItem(k); });   // começa do padrão (uma vez)
   await pg.reload(); await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas && cla.estado && cla.ias.length, null, { timeout: 30000 });
 
   // a janela das contas: o Claude e o Gemini
   await pg.click("#bt-claude"); await pg.waitForSelector(".modal.cla #iac-gemini [data-ia-acao=entrar]");
   const j = await pg.evaluate(() => ({ h3: document.querySelector(".modal.cla h3").textContent, secoes: [...document.querySelectorAll(".modal.cla section.cla-ia h4")].map((x) => x.firstChild.textContent.trim()),
     texto: $("iac-gemini").textContent, termos: ($("iac-gemini").querySelector("a[href]") || {}).href, claude: !!document.querySelector(".modal.cla #cla-entrar") }));
-  ok(j.h3 === "IA do PEW — contas" && j.secoes.join(",") === "Claude,Google Antigravity,Gemini" && j.claude, `a janela das contas: ${j.secoes.join(", ")} (o entrar do Claude continua)`);
+  ok(j.h3 === "IA do MaiSim — contas" && j.secoes.join(",") === "Claude,Google Antigravity,Gemini" && j.claude, `a janela das contas: ${j.secoes.join(", ")} (o entrar do Claude continua)`);
   ok(/não atende mais contas pessoais/.test(j.texto) && /Antigravity/.test(j.texto) && /pasta só dele/.test(j.texto) && /gemini-code-assist\/resources\/privacy-notices/.test(j.termos || ""),
     "Gemini desconectado: o aviso de que contas pessoais vão pelo Antigravity, a pasta própria e os avisos de privacidade (link)");
   await foto(pg, "gemini_contas.png");
@@ -61,7 +61,7 @@ const foto = (pg, nome) => (FOTOS ? pg.screenshot({ path: path.join(FOTOS, nome)
   await pg.selectOption("#cc-modelo", "sonnet");
   await pg.selectOption("#cc-ia", "gemini"); await pg.waitForTimeout(300);
   const s1 = await pg.evaluate(() => ({ mod: [...$("cc-modelo").options].map((o) => o.value + "=" + o.textContent), esf: getComputedStyle($("cc-esforco")).display, uso: $("cc-uso").textContent,
-    vazio: !!document.querySelector(".cc-vazio .cc-oi b"), guardado: localStorage.getItem("pew-simu-cc-ia") }));
+    vazio: !!document.querySelector(".cc-vazio .cc-oi b"), guardado: localStorage.getItem("maisim-simu-cc-ia") }));
   ok(s1.mod.join("|") === "=modelo: automático|pro=Pro|flash=Flash|flash-lite=Flash-Lite" && s1.esf === "none" && s1.guardado === "gemini",
     `Gemini escolhido: os modelos dele (${s1.mod.map((m) => m.split("=")[1]).join(", ")}), sem o esforço, guardado no navegador`);
   ok(s1.vazio && !/entre com a sua conta/.test(await pg.textContent("#cc-msgs")) && s1.uso === "", "Gemini conectado: a conversa pronta para pedir (sem o uso da conta do Claude)");
@@ -95,7 +95,7 @@ const foto = (pg, nome) => (FOTOS ? pg.screenshot({ path: path.join(FOTOS, nome)
   await pg.click(".modal-fundo:last-child .m-ok");
   await pg.waitForSelector("#iac-gemini [data-ia-acao=entrar]", { timeout: 20000 });
   const fim = await api(pg, "claude/ias");
-  ok(!fim.find((a) => a.id === "gemini").estado.logado && !fs.existsSync(path.join(GEM, ".gemini", "oauth_creds.json")), "sair: o Gemini desconectado (o login saiu da pasta do PEW)");
+  ok(!fim.find((a) => a.id === "gemini").estado.logado && !fs.existsSync(path.join(GEM, ".gemini", "oauth_creds.json")), "sair: o Gemini desconectado (o login saiu da pasta do MaiSim)");
   await pg.keyboard.press("Escape");
   ok(!erros.length, `sem erros de JS nem diálogos ${erros.join(" ; ")}`);
  } catch (e) { ok(false, `o teste parou: ${e.message.split("\n")[0]}`); }

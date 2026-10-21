@@ -1,4 +1,4 @@
-// o Claude do PEW propõe controladores, pela tela (servidor de teste 8768, claude de mentira, cenário "controladores"),
+// o Claude do MaiSim propõe controladores, pela tela (servidor de teste 7201, claude de mentira, cenário "controladores"),
 // pedido de Marcelo em 19/10 ("3 DSPs… por fibra óptica… uma trava no Claude"): o cartão diz os controladores novos e a
 // rede; a janela da diferença também; aplicar põe os 3 controladores no painel (a árvore com dsp_a.py e dsp_b.py na raiz)
 // e no servidor, com a atuação marcada; ↶ voltar ao de antes tira os controladores
@@ -6,10 +6,10 @@ const { chromium } = require("playwright");
 const fs = require("fs"), path = require("path"), { execSync } = require("child_process");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
-const pid = execSync(`ss -ltnp | grep ':8768 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1`).toString().trim();
+const pid = execSync(`ss -ltnp | grep ':7201 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1`).toString().trim();
 const ENV = Object.fromEntries(fs.readFileSync(`/proc/${pid}/environ`).toString().split("\0").filter((x) => x.includes("=")).map((x) => [x.slice(0, x.indexOf("=")), x.slice(x.indexOf("=") + 1)]));
-if (!(ENV.PEW_CLAUDE_BIN || "").endsWith("claude_falso.py") || !/pew_simu_teste|\/tmp\//.test(ENV.PEW_CLAUDE_DIR || "")) { console.log("FALHA suba o servidor de teste com o claude de mentira (reinicia_servidor_teste.sh)"); process.exit(1); }
-const CONF = ENV.PEW_CLAUDE_DIR;
+if (!(ENV.MAISIM_CLAUDE_BIN || "").endsWith("claude_falso.py") || !/maisim_teste|\/tmp\//.test(ENV.MAISIM_CLAUDE_DIR || "")) { console.log("FALHA suba o servidor de teste com o claude de mentira (reinicia_servidor_teste.sh)"); process.exit(1); }
+const CONF = ENV.MAISIM_CLAUDE_DIR;
 fs.mkdirSync(CONF, { recursive: true }); fs.writeFileSync(path.join(CONF, "falso_cenario"), "controladores"); fs.writeFileSync(path.join(CONF, "falso_logado"), "");
 const limpa = () => { for (const f of ["falso_cenario", "falso_logado"]) fs.rmSync(path.join(CONF, f), { force: true }); };
 const ORQ = 'def iniciar(p, e):\n    pass\n\n\ndef passo(t, m, p, e):\n    envia("dsp_a", {"x": 2.0})\n    envia("dsp_b", {"x": 3.0})\n    return {}\n';
@@ -18,8 +18,8 @@ const ORQ = 'def iniciar(p, e):\n    pass\n\n\ndef passo(t, m, p, e):\n    envia
   try {
     b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 2300, height: 1000 } })).newPage();
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-    await pg.addInitScript(() => { try { localStorage.setItem("pew-simu-ctl-vista", "arq"); } catch (e) { /* ok */ } });
-    await pg.goto("http://localhost:8768/pew/simu/");
+    await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-ctl-vista", "arq"); } catch (e) { /* ok */ } });
+    await pg.goto("http://localhost:7201/maisim/simu/");
     for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof dados !== "undefined" && dados && dados.editor)); k++) { if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }
     await pg.evaluate(async (orq) => {
       await api("editor/novo", { modo: "descartar" }); await apiClaude("nova", {});

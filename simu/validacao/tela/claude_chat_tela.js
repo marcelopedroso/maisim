@@ -1,28 +1,28 @@
-// "pedir ao Claude" na tela (direto no servidor de teste 8768: as rotas do Claude só aceitam a origem do PEW ou a dele; com o claude de mentira: o servidor de teste sobe com
-// PEW_CLAUDE_BIN=…/validacao/claude_falso.py e PEW_CLAUDE_DIR numa pasta descartável): a conversa no painel do controle,
+// "pedir ao Claude" na tela (direto no servidor de teste 7201: as rotas do Claude só aceitam a origem do MaiSim ou a dele; com o claude de mentira: o servidor de teste sobe com
+// MAISIM_CLAUDE_BIN=…/validacao/claude_falso.py e MAISIM_CLAUDE_DIR numa pasta descartável): a conversa no painel do controle,
 // o uso da conta, a proposta (diferença, aplicar, voltar), a trava da simulação, anexos (📎 e arrastar) e o ✦
 const { chromium } = require("playwright");
 const fs = require("fs"), path = require("path"), { execSync } = require("child_process");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
-const pid = execSync(`ss -ltnp | grep ':8768 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1`).toString().trim();
+const pid = execSync(`ss -ltnp | grep ':7201 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1`).toString().trim();
 const ENV = Object.fromEntries(fs.readFileSync(`/proc/${pid}/environ`).toString().split("\0").filter((x) => x.includes("=")).map((x) => [x.slice(0, x.indexOf("=")), x.slice(x.indexOf("=") + 1)]));
-if (!(ENV.PEW_CLAUDE_BIN || "").endsWith("claude_falso.py") || !/pew_simu_teste|\/tmp\//.test(ENV.PEW_CLAUDE_DIR || "")) { console.log("FALHA suba o servidor de teste com PEW_CLAUDE_BIN=…/claude_falso.py e PEW_CLAUDE_DIR descartável"); process.exit(1); }
-const CONF = ENV.PEW_CLAUDE_DIR, logado = (on) => { const f = path.join(CONF, "falso_logado"); if (on) fs.writeFileSync(f, ""); else fs.rmSync(f, { force: true }); };
+if (!(ENV.MAISIM_CLAUDE_BIN || "").endsWith("claude_falso.py") || !/maisim_teste|\/tmp\//.test(ENV.MAISIM_CLAUDE_DIR || "")) { console.log("FALHA suba o servidor de teste com MAISIM_CLAUDE_BIN=…/claude_falso.py e MAISIM_CLAUDE_DIR descartável"); process.exit(1); }
+const CONF = ENV.MAISIM_CLAUDE_DIR, logado = (on) => { const f = path.join(CONF, "falso_logado"); if (on) fs.writeFileSync(f, ""); else fs.rmSync(f, { force: true }); };
 fs.mkdirSync(CONF, { recursive: true }); fs.writeFileSync(path.join(CONF, "falso_cenario"), "ganho"); logado(true);
 const REPO = path.resolve(__dirname, "../dados");   // o exemplo original, congelado (o do repositório é do Marcelo e muda); vai para a pasta de teste
-for (const f of ["exemplo_controle_pwm.ipes", "exemplo_controle_pwm.controle.json"]) fs.copyFileSync(path.join(REPO, f), path.join(ENV.PEW_SIMU_SALVOS, f));
+for (const f of ["exemplo_controle_pwm.ipes", "exemplo_controle_pwm.controle.json"]) fs.copyFileSync(path.join(REPO, f), path.join(ENV.MAISIM_SALVOS, f));
 const limpa = () => { logado(false); fs.rmSync(path.join(CONF, "falso_cenario"), { force: true }); };
-const URL = "http://localhost:8768/pew/simu/?modelo=" + encodeURIComponent(path.join(ENV.PEW_SIMU_SALVOS, "exemplo_controle_pwm.ipes"));
-const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: "POST", headers: { "Content-Type": "application/json", "X-PEW": "1" }, body: JSON.stringify(c) } : {}).then((x) => x.json()), [rota, corpo]);
+const URL = "http://localhost:7201/maisim/simu/?modelo=" + encodeURIComponent(path.join(ENV.MAISIM_SALVOS, "exemplo_controle_pwm.ipes"));
+const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: "POST", headers: { "Content-Type": "application/json", "X-MaiSim": "1" }, body: JSON.stringify(c) } : {}).then((x) => x.json()), [rota, corpo]);
 (async () => {
  let b;
  try {
-  b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1600, height: 950 }, colorScheme: "light" }); const pg = await ctx.newPage(); await pg.addInitScript(() => { try { localStorage.setItem("pew-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
+  b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1600, height: 950 }, colorScheme: "light" }); const pg = await ctx.newPage(); await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
   const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
   await pg.goto(URL);
   await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
-  await api(pg, "editor/abrir", { arq: path.join(ENV.PEW_SIMU_SALVOS, "exemplo_controle_pwm.ipes"), modo: "descartar" });
+  await api(pg, "editor/abrir", { arq: path.join(ENV.MAISIM_SALVOS, "exemplo_controle_pwm.ipes"), modo: "descartar" });
   await api(pg, "claude/nova", {});
   await pg.reload(); await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
   await pg.click("#bt-editar"); await pg.waitForTimeout(600); while (await pg.$(".modal-fundo")) { await pg.click(".modal .m-extra, .modal .m-ok"); await pg.waitForTimeout(800); }
@@ -35,7 +35,7 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
   ok(lay.chat.width > 200 && lay.chat.height > 150 && lay.ed.width > 300, `conversa aberta (${Math.round(lay.chat.width)}×${Math.round(lay.chat.height)}), editor com ${Math.round(lay.ed.width)} px`);
   // onde fica: ao lado do código (3 colunas, o padrão) ou embaixo; com o painel estreito, desce sozinha
   const onde = () => pg.evaluate(() => { const c = $("ctl-claude").getBoundingClientRect(), e = $("ctl-editor").getBoundingClientRect();
-    return { lado: c.left >= e.right - 1, embaixo: c.top >= e.bottom - 1, larg: $("painel-controle").clientWidth, ed: Math.round(e.width), guardado: localStorage.getItem("pew-simu-claude-lugar") }; });
+    return { lado: c.left >= e.right - 1, embaixo: c.top >= e.bottom - 1, larg: $("painel-controle").clientWidth, ed: Math.round(e.width), guardado: localStorage.getItem("maisim-simu-claude-lugar") }; });
   const o1 = await onde();
   ok(o1.larg < 820 ? o1.embaixo : o1.lado, `padrão "ao lado": painel de ${o1.larg} px → ${o1.lado ? "3 colunas" : "embaixo (estreito)"}`);
   await pg.setViewportSize({ width: 2400, height: 950 }); await pg.waitForTimeout(700);
@@ -81,7 +81,7 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
   ok(m1.ativo === "uni" && m1.frac > 0.9, `abre unificado, como o git diff (o editor ocupa ${Math.round(m1.frac * 100)}% da largura)`);
   await pg.click('.cc-dif-modo button[data-modo="lado"]'); await pg.waitForTimeout(500);
   const m2 = await modo();
-  ok(m2.ativo === "lado" && m2.frac < 0.6 && await pg.evaluate(() => localStorage.getItem("pew-simu-dif-modo")) === "lado", `lado a lado (a proposta em ${Math.round(m2.frac * 100)}%), lembrado`);
+  ok(m2.ativo === "lado" && m2.frac < 0.6 && await pg.evaluate(() => localStorage.getItem("maisim-simu-dif-modo")) === "lado", `lado a lado (a proposta em ${Math.round(m2.frac * 100)}%), lembrado`);
   await pg.click('.cc-dif-modo button[data-modo="uni"]'); await pg.waitForTimeout(300);
   await pg.screenshot({ path: "claude_chat_diferenca.png" });
   await pg.keyboard.press("Escape"); await pg.waitForTimeout(300);
@@ -110,14 +110,14 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
   ok(/voltou ao de antes/.test(await pg.evaluate(() => document.querySelector(".cc-prop").innerText)), "o cartão diz que voltou");
   ok(/aplicada e desfeita/.test(await pg.evaluate(() => document.querySelector(".cc-meta:last-of-type") && [...document.querySelectorAll(".cc-meta")].pop().textContent)) && !!(await pg.$(".cc-mud")),
     "no histórico: \"aplicada e desfeita\", e a mudança continua para ver");
-  // a memória do PEW: o botão abre e guarda; uma proposta só de memória aparece no cartão e entra ao aplicar
+  // a memória do MaiSim: o botão abre e guarda; uma proposta só de memória aparece no cartão e entra ao aplicar
   await api(pg, "claude/memoria", { texto: "" });
   await pg.click("#cc-memoria"); await pg.waitForSelector(".cc-mem textarea");
   await pg.fill(".cc-mem textarea", "- ganhos em V/A\n"); await pg.click(".cc-mem .m-guardar"); await pg.waitForTimeout(400);
   ok(!(await pg.$(".cc-mem")) && (await api(pg, "claude/memoria")).texto === "- ganhos em V/A\n", "memória: escrita pelo botão e guardada");
   fs.writeFileSync(path.join(CONF, "falso_cenario"), "memoria");
   await pg.fill("#cc-texto", "lembre que prefiro clamping"); await pg.press("#cc-texto", "Control+Enter");
-  await pg.waitForFunction(() => /memória do PEW: \+1/.test((document.querySelector(".cc-prop") || {}).innerText || ""), null, { timeout: 20000 });
+  await pg.waitForFunction(() => /memória do MaiSim: \+1/.test((document.querySelector(".cc-prop") || {}).innerText || ""), null, { timeout: 20000 });
   const cm = await pg.evaluate(() => ({ txt: document.querySelector(".cc-prop").innerText, ver: !!$("cc-ver"), testar: !!$("cc-testar") }));
   ok(/clamping/.test(cm.txt) && !cm.ver && !cm.testar, "proposta só de memória: a linha nova no cartão, sem 'ver diferença' nem 'testar' (o código não muda)");
   await pg.click("#cc-aplicar"); await pg.waitForTimeout(800);
@@ -148,7 +148,7 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
   await pg.click("#cla-pedir"); await pg.waitForTimeout(800);
   ok(await pg.evaluate(() => !document.querySelector(".modal-fundo") && $("painel-controle").classList.contains("com-claude") && document.activeElement === $("cc-texto")), "pedir ao Claude: abre a conversa, com o cursor na caixa");
   // escuro
-  const tema = (t) => pg.evaluate((x) => { document.documentElement.dataset.tema = x; dispatchEvent(new CustomEvent("pew-tema", { detail: { tema: x } })); }, t);   // sem o trilho (porta do servidor)
+  const tema = (t) => pg.evaluate((x) => { document.documentElement.dataset.tema = x; dispatchEvent(new CustomEvent("maisim-tema", { detail: { tema: x } })); }, t);   // sem o trilho (porta do servidor)
   await tema("escuro"); await pg.waitForTimeout(600);
   ok(await pg.evaluate(() => getComputedStyle($("ctl-claude")).backgroundColor) === "rgb(23, 26, 33)", "a conversa segue o tema escuro");
   await pg.screenshot({ path: "claude_chat_escuro.png" });
@@ -157,9 +157,9 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
   logado(false); await pg.reload(); await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
   await pg.click("#bt-ctl"); await pg.waitForFunction(() => ctl.carregado, null, { timeout: 30000 }); await pg.click("#ctl-claude-bt");
   const entrar = await pg.waitForSelector("#cc-entrar", { timeout: 20000 }).then(() => true).catch(() => false);   // o auth status de verdade leva uns segundos
-  ok(entrar, "sem login: a conversa pede para entrar no Claude do PEW");
+  ok(entrar, "sem login: a conversa pede para entrar no Claude do MaiSim");
   ok(!erros.length, `sem erros de JS nem diálogos ${erros.join(" ; ")}`);
-  await api(pg, "claude/nova", {}); await api(pg, "editor/abrir", { arq: path.join(ENV.PEW_SIMU_SALVOS, "exemplo_controle_pwm.ipes"), modo: "descartar" });
+  await api(pg, "claude/nova", {}); await api(pg, "editor/abrir", { arq: path.join(ENV.MAISIM_SALVOS, "exemplo_controle_pwm.ipes"), modo: "descartar" });
  } catch (e) { ok(false, `o teste caiu: ${e.message}`); }
  finally { limpa(); if (b) await b.close(); }
  process.exit(falhas ? 1 : 0);

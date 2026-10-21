@@ -1,22 +1,22 @@
-// pontas do voltímetro no componente escolhido (instância de teste 8768, com uma cópia do circuito do Marcelo)
+// pontas do voltímetro no componente escolhido (instância de teste 7201, com uma cópia do circuito do Marcelo)
 const { chromium } = require("playwright");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
 (async () => {
-  const b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1500, height: 900 } })).newPage(); await pg.addInitScript(() => { try { localStorage.setItem("pew-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
+  const b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1500, height: 900 } })).newPage(); await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
   const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-  const ARQ = require("os").homedir() + "/.cache/pew_simu_teste/pew/pontas_teste.ipes";
+  const ARQ = require("os").homedir() + "/.cache/maisim_teste/circuitos/pontas_teste.ipes";
   // o circuito do teste, montado aqui: antes era uma cópia de um circuito do Marcelo, só na pasta de teste — e um teste
   // rodando junto com outro (19/10) o sobrescreveu com um circuito vazio. Fonte U.1 e resistor R.1 em paralelo (nós + e
   // −, como no circuito dele), o voltímetro VOLT.1 entre eles; salvo como pontas_teste (o resto do teste abre, mexe e salva por cima)
-  const S = "http://localhost:8768/pew/simu/", post = (r, c) => fetch(S + r, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(c) }).then((x) => x.json());
+  const S = "http://localhost:7201/maisim/simu/", post = (r, c) => fetch(S + r, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(c) }).then((x) => x.json());
   await post("editor/novo", { modo: "descartar" });
   for (const a of [["U.1", 10, 10, "U"], ["R.1", 20, 10, "R"], ["VOLT.1", 30, 10, "VOLT"]]) await post("editor/cmd", { op: "CREATE", args: a });
   for (const n of ["U.1", "R.1"]) { await post("editor/cmd", { op: "INNODE", args: [n, 0, "+"] }); await post("editor/cmd", { op: "OUTNODE", args: [n, 0, "-"] }); }
   await post("editor/mede", { nome: "VOLT.1", tipo: "V", no1: "+", no2: "-" });
-  const mont = await post("editor/salvar", { nome: "pontas_teste", pasta: "pew", sobrescrever: true });
+  const mont = await post("editor/salvar", { nome: "pontas_teste", pasta: "circuitos", sobrescrever: true });
   if (!mont.salvo) { console.log("FALHA não deu para montar o circuito do teste", JSON.stringify(mont).slice(0, 200)); process.exit(1); }
-  await pg.goto(`http://localhost:8768/pew/simu/?modelo=${encodeURIComponent(ARQ)}`);
+  await pg.goto(`http://localhost:7201/maisim/simu/?modelo=${encodeURIComponent(ARQ)}`);
   await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
   await pg.click("#bt-editar"); await pg.waitForTimeout(600); while (await pg.$(".modal-fundo")) { await pg.click(".modal .m-ok"); await pg.waitForTimeout(800); }
   await pg.waitForFunction(() => dados && dados.editor, null, { timeout: 30000 });
@@ -27,7 +27,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   const marcas = () => pg.evaluate(() => [...document.querySelectorAll("#svg g.medido")].filter((g) => g.querySelector("rect")).map((g) => [g.querySelector("text").textContent, g.getAttribute("transform")]));
   const antes = await marcas();
   await pg.evaluate(() => seleciona(dados.folhas["0"].elementos.find((x) => x.nome === "VOLT.1"))); await pg.waitForSelector('input[data-ponta="+"]');
-  // o campo com busca do PEW (não o <select> nativo): ao clicar, as sugestões (até 5); digitar filtra
+  // o campo com busca do MaiSim (não o <select> nativo): ao clicar, as sugestões (até 5); digitar filtra
   await pg.click('input[data-ponta="+"]'); await pg.waitForTimeout(200);
   const sug = () => pg.$$eval('input[data-ponta="+"] + .sugestoes .sug b', (l) => l.map((x) => x.textContent));
   const s1 = await sug();
@@ -44,7 +44,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   ok(JSON.stringify(antes) !== JSON.stringify(depois) && depois.some((m) => m[0] === "V+" && m[1] === esperado[0]) && depois.some((m) => m[0] === "V−" && m[1] === esperado[1]),
      `marcas: antes (automático) ${JSON.stringify(antes)} → depois (U.1) ${JSON.stringify(depois)}`);
   await pg.screenshot({ path: "pontas.png" });
-  const sv = await pg.evaluate(() => api("editor/salvar", { nome: "pontas_teste", pasta: "pew", sobrescrever: true }));
+  const sv = await pg.evaluate(() => api("editor/salvar", { nome: "pontas_teste", pasta: "circuitos", sobrescrever: true }));
   const re = await pg.evaluate((a) => api("editor/abrir", { arq: a, modo: "descartar" }), ARQ);
   const canal = await pg.evaluate(() => canalScope(dados.folhas["0"].elementos.find((x) => x.nome === "VOLT.1")));
   ok(re.pontas[canal] && re.pontas[canal]["+"] === "U.1" && re.pontas[canal]["-"] === "U.1", `salvar e reabrir: ${JSON.stringify(re.pontas)}`);

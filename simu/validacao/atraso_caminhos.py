@@ -1,9 +1,9 @@
 """Compensação do atraso do Gecko nos quatro caminhos do CONST até o destino: CONST → GATE, CONST → GAIN → GATE (buck,
 chave) e CONST → fonte, CONST → GAIN → fonte (RL). Um acionamento do CONST em t = 8 µs (Δt = 1 µs) tem de ser sentido pelo
-circuito a partir do passo 8 nos quatro (sem a compensação: passos 7, 8, 8 e 9). Instância de teste (8768)."""
+circuito a partir do passo 8 nos quatro (sem a compensação: passos 7, 8, 8 e 9). Instância de teste (7201)."""
 import json, urllib.request, subprocess, sys
 import numpy as np
-B = "http://localhost:8768/pew/simu/"
+B = "http://localhost:7201/maisim/simu/"
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(req, timeout=300).read())

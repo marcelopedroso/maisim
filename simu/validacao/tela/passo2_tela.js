@@ -1,12 +1,12 @@
-// instância de teste (8768): abrir o exemplo pelo Abrir, painel com atraso e acionamentos, trava durante a rodada
+// instância de teste (7201): abrir o exemplo pelo Abrir, painel com atraso e acionamentos, trava durante a rodada
 const { chromium } = require("playwright");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
 (async () => {
   const b = await chromium.launch();
-  const pg = await (await b.newContext({ viewport: { width: 1600, height: 950 } })).newPage(); await pg.addInitScript(() => { try { localStorage.setItem("pew-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
+  const pg = await (await b.newContext({ viewport: { width: 1600, height: 950 } })).newPage(); await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
   const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-  await pg.goto("http://localhost:8768/pew/simu/");
+  await pg.goto("http://localhost:7201/maisim/simu/");
   await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
   // abrir o exemplo pelo Abrir (com busca)
   await pg.click("#bt-modelo"); await pg.waitForSelector(".lista-abrir .op"); await pg.fill(".busca-abrir", "exemplo_controle_pi"); await pg.keyboard.press("Enter");
@@ -20,7 +20,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     alvos: [...document.querySelectorAll('#ctl-ac .ctl-ac:first-child [data-k="alvo"] option')].map((o) => o.value), linha1: codigoAtual().split("\n")[0] }));
   ok(p.ativo && p.atraso === "amostra" && /100 × Δt/.test(p.info), `exemplo aberto com o controle: atraso "${p.atraso}" · ${p.info}`);
   ok(p.acs.join(" | ") === "0.012 p:i_ref 8 | 0.022 CONST:v_dist 20", `acionamentos: ${p.acs.join(" | ")} · alvos possíveis: ${p.alvos.join(", ")}`);
-  ok(/Exemplo do PEW/.test(p.linha1), `código do exemplo no editor: ${p.linha1}`);
+  ok(/Exemplo do MaiSim/.test(p.linha1), `código do exemplo no editor: ${p.linha1}`);
   // adicionar e tirar um acionamento; latência mostra o campo
   await pg.evaluate(() => mostraTabela("ac")); await pg.waitForTimeout(300);     // os acionamentos ficam numa tabela, numa aba (19/10)
   await pg.click("#ctl-ac-novo"); await pg.waitForTimeout(700);

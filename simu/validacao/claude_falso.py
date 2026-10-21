@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Um `claude` de mentira para testar o "pedir ao Claude" sem gastar a conta (PEW_CLAUDE_BIN apontando para cá).
+"""Um `claude` de mentira para testar o "pedir ao Claude" sem gastar a conta (MAISIM_CLAUDE_BIN apontando para cá).
 
 O servidor passa ao filho só um ambiente de lista branca, então o cenário vem de arquivos na pasta de configuração
 (CLAUDE_CONFIG_DIR, a descartável da instância de teste):
@@ -24,7 +24,7 @@ with open(conf / "falso_chamadas.jsonl", "a") as f:
     f.write(json.dumps({"args": args, "cwd": os.getcwd()}) + "\n")
 
 if args[:2] == ["auth", "status"] and (conf / "falso_logado").exists():
-    print(json.dumps({"loggedIn": True, "authMethod": "claude.ai", "email": "teste@pew.local", "subscriptionType": "max"}))
+    print(json.dumps({"loggedIn": True, "authMethod": "claude.ai", "email": "teste@maisim.local", "subscriptionType": "max"}))
     sys.exit(0)
 if "-p" not in args:
     os.execv(REAL, [REAL] + args)
@@ -44,7 +44,7 @@ if "stream-json" in args and "--verbose" not in args:   # como o CLI 2.1.273
     sys.exit(1)
 
 cenario = (conf / "falso_cenario").read_text().strip() if (conf / "falso_cenario").exists() else "ganho"
-if "Resuma a conversa do PEW guardada nesta pasta" in prompt:   # o resumo pela IA de um contexto salvo: JSON, sem sessão, só leitura
+if "Resuma a conversa do MaiSim guardada nesta pasta" in prompt:   # o resumo pela IA de um contexto salvo: JSON, sem sessão, só leitura
     assert "--no-session-persistence" in args and args[args.index("--tools") + 1] == "Read,Glob,Grep", "resumo: sem sessão e só leitura"
     if (conf / "falso_resumo_lento").exists():
         time.sleep(float((conf / "falso_resumo_lento").read_text() or 3))
@@ -97,7 +97,7 @@ if cenario == "renova" and not (conf / "falso_renovou").exists():   # a 1ª vez:
     sai({"type": "result", "subtype": "success", "is_error": True, "session_id": sid,
          "result": "Failed to refresh OAuth token: another Claude Code process is refreshing it or exited mid-refresh. This is usually transient; retry in a minute"})
     sys.exit(1)
-if "guardar como um CONTEXTO do PEW" in prompt:          # o resumo para salvar o contexto: só texto, nenhum arquivo mexido
+if "guardar como um CONTEXTO do MaiSim" in prompt:          # o resumo para salvar o contexto: só texto, nenhum arquivo mexido
     cenario = "resumo"
 if cenario == "lento":
     fala("pensando devagar…")
@@ -188,7 +188,7 @@ elif cenario in ("controladores", "dois_donos"):        # 3 DSPs: o controle.py 
     cj["rede"] = {"latencia": 2e-5}
     Path("controladores.json").write_text(json.dumps(cj, indent=1))
     resposta = "Criei **dsp_a** e **dsp_b** como controladores (fibra de 20 µs); o dsp_a escreve u_ctrl."
-elif cenario == "memoria":                                # o pedido de lembrar: uma linha na memória do PEW
+elif cenario == "memoria":                                # o pedido de lembrar: uma linha na memória do MaiSim
     usa("Edit", file_path="memoria.md")
     Path("memoria.md").write_text(Path("memoria.md").read_text() + "- prefiro anti-windup por clamping\n")
     resposta = "Anotei na memória: anti-windup por clamping."

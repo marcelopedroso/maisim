@@ -1,12 +1,12 @@
-"""Desativar um componente (instância de teste 8768), pedido de Marcelo em 19/10 ("um check: preparado no circuito, mas
+"""Desativar um componente (instância de teste 7201), pedido de Marcelo em 19/10 ("um check: preparado no circuito, mas
 desabilitado, na cor cinza"): o enabled do Gecko (0 desativado, 1 ativo, 2 em curto; gravado como enabledShorted). Confere:
-SETP <comp> enabled 0 chega ao Gecko e ao arquivo (o PEW lê ativo = false), vale para bloco de controle, o Ctrl+Z volta, e
+SETP <comp> enabled 0 chega ao Gecko e ao arquivo (o MaiSim lê ativo = false), vale para bloco de controle, o Ctrl+Z volta, e
 a SIMULAÇÃO o respeita: fonte de 10 V com dois resistores de 5 Ω em paralelo dá 4 A; com um desativado, 2 A."""
 import json, os, time, urllib.request
 from pathlib import Path
 import numpy as np
 RAIZ_PROJ = str(Path(__file__).resolve().parents[2])   # a raiz do projeto (validacao → simu → raiz)
-B = "http://localhost:8768/pew/simu/"
+B = "http://localhost:7201/maisim/simu/"
 def api(rota, corpo=None):
     q = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(q, timeout=300).read())
@@ -34,7 +34,7 @@ i0, j0 = roda("desativar_ambos")
 ok(i0 is not None and abs(i0 - 4.0) < 0.01, f"os dois resistores: |i_U| = {i0} A (10 V / 2,5 Ω) {j0.get('erro', '')}")
 r = c("SETP", "R.2", "enabled", 0)
 e = el(r, "R.2")
-ok(e and e["ativo"] is False and not e["curto"] and "enabledShorted 0" in e["bruto"], "SETP R.2 enabled 0: o PEW lê ativo = false (enabledShorted 0 no arquivo)")
+ok(e and e["ativo"] is False and not e["curto"] and "enabledShorted 0" in e["bruto"], "SETP R.2 enabled 0: o MaiSim lê ativo = false (enabledShorted 0 no arquivo)")
 i1, j1 = roda("desativar_um")
 ok(i1 is not None and abs(i1 - 2.0) < 0.01, f"R.2 desativado: |i_U| = {i1} A (só o R.1) — o Gecko simula como se ele não existisse {j1.get('erro', '')}")
 r = api("editor/desfazer", {})
@@ -42,7 +42,7 @@ ok(el(r, "R.2")["ativo"] is True, "Ctrl+Z: o R.2 volta ativo")
 r = c("SETP", "GAIN.1", "enabled", 0)
 ok(el(r, "GAIN.1")["ativo"] is False, "bloco de controle (GAIN.1) também desativa")
 r = c("SETP", "R.1", "enabled", 2)
-ok(el(r, "R.1")["curto"] is True and el(r, "R.1")["ativo"] is False, "em curto (enabled 2): o PEW lê curto = true")
+ok(el(r, "R.1")["curto"] is True and el(r, "R.1")["ativo"] is False, "em curto (enabled 2): o MaiSim lê curto = true")
 api("editor/novo", {"modo": "descartar"})
 print("falhas:", falhas)
 raise SystemExit(1 if falhas else 0)

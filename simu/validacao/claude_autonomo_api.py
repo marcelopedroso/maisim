@@ -1,25 +1,25 @@
-"""Os "olhos" do Claude do PEW e o modo autônomo (instância de teste 8768, claude de mentira, cenário "autonomo"), pedido de
-Marcelo em 19/10: o Claude do PEW implementou a Etapa 1 da estratégia e parou pedindo os números "que só você consegue
+"""Os "olhos" do Claude do MaiSim e o modo autônomo (instância de teste 7201, claude de mentira, cenário "autonomo"), pedido de
+Marcelo em 19/10: o Claude do MaiSim implementou a Etapa 1 da estratégia e parou pedindo os números "que só você consegue
 ler"; "ter os dois já pode ser vantagem".
 Olhos: toda rodada grava resumo.md e serie/<canal>.csv ao lado do .npz; no pedido seguinte, a pasta do Claude tem
 ULTIMA_RODADA.md e ULTIMA_RODADA/, e o pedido diz qual rodada é.
-Modo autônomo (até 3 rodadas): o Claude faz a versão 1; o PEW a simula (Claude_1) sem aplicar; ele lê o resumo, faz a
-versão 2; o PEW a simula (Claude_2); ele diz [PRONTO]. As rodadas usam a versão dele, o controle do usuário não muda, a
+Modo autônomo (até 3 rodadas): o Claude faz a versão 1; o MaiSim a simula (Claude_1) sem aplicar; ele lê o resumo, faz a
+versão 2; o MaiSim a simula (Claude_2); ele diz [PRONTO]. As rodadas usam a versão dele, o controle do usuário não muda, a
 conversa é retomada (--resume) e a proposta final é a última versão. Parar no meio de uma rodada do Claude para a rodada."""
 import json, shutil, subprocess, time, urllib.request
 from pathlib import Path
-B = "http://localhost:8768/pew/simu/"
-PID = subprocess.run("ss -ltnp | grep ':8768 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1", shell=True, capture_output=True, text=True).stdout.strip()
+B = "http://localhost:7201/maisim/simu/"
+PID = subprocess.run("ss -ltnp | grep ':7201 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1", shell=True, capture_output=True, text=True).stdout.strip()
 ENV = dict(x.split("=", 1) for x in Path(f"/proc/{PID}/environ").read_bytes().decode().split("\0") if "=" in x)
-assert ENV.get("PEW_CLAUDE_BIN", "").endswith("claude_falso.py"), "suba o servidor de teste com o claude de mentira (reinicia_servidor_teste.sh)"
-CONF = Path(ENV["PEW_CLAUDE_DIR"])
-assert "pew_simu_teste" in str(CONF) or "/tmp/" in str(CONF)
-CASA = Path(ENV["PEW_SIMU_CACHE"]) / "claude"
-RODADAS = Path(ENV["PEW_SIMU_RODADAS"])
-SALVOS = Path(ENV["PEW_SIMU_SALVOS"])
+assert ENV.get("MAISIM_CLAUDE_BIN", "").endswith("claude_falso.py"), "suba o servidor de teste com o claude de mentira (reinicia_servidor_teste.sh)"
+CONF = Path(ENV["MAISIM_CLAUDE_DIR"])
+assert "maisim_teste" in str(CONF) or "/tmp/" in str(CONF)
+CASA = Path(ENV["MAISIM_SIMU_CACHE"]) / "claude"
+RODADAS = Path(ENV["MAISIM_RODADAS"])
+SALVOS = Path(ENV["MAISIM_SALVOS"])
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None,
-                                 headers={"Content-Type": "application/json", "X-PEW": "1"})
+                                 headers={"Content-Type": "application/json", "X-MaiSim": "1"})
     try: return json.loads(urllib.request.urlopen(req, timeout=180).read())
     except urllib.error.HTTPError as e: return {"ERRO": e.code, **json.loads(e.read() or b"{}")}
 falhas = 0

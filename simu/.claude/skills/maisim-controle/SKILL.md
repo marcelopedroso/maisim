@@ -1,12 +1,12 @@
 ---
-name: pew-controle
-description: Escrever, revisar ou depurar o código de controle (controle.py) do painel Controle do PEW / simu, que roda em co-simulação com o GeckoCIRCUITS — passo(t, m, p, e), atuações em blocos CONST, Ts × Δt, atraso da atuação, acionamentos, PWM no código, e rodar/conferir simulações pela API HTTP do simu.
-when_to_use: Quando o pedido envolver o controle.py do PEW, o painel Controle do /pew/simu, um <modelo>.controle.json, uma rodada em simu/pew_simu/rodadas/, ou como o controle conversa com a simulação no Gecko.
+name: maisim-controle
+description: Escrever, revisar ou depurar o código de controle (controle.py) do painel Controle do MaiSim / simu, que roda em co-simulação com o GeckoCIRCUITS — passo(t, m, p, e), atuações em blocos CONST, Ts × Δt, atraso da atuação, acionamentos, PWM no código, e rodar/conferir simulações pela API HTTP do simu.
+when_to_use: Quando o pedido envolver o controle.py do MaiSim, o painel Controle do /maisim/simu, um <modelo>.controle.json, uma rodada em ~/.local/share/maisim/rodadas/, ou como o controle conversa com a simulação no Gecko.
 ---
 
-# Controle do PEW / simu (controle.py ↔ Gecko)
+# Controle do MaiSim / simu (controle.py ↔ Gecko)
 
-O guia completo é `sm-autonomo/simu/pew_simu/GUIA_CONTROLE.md`. Ele traz a linha do tempo, onde configurar cada coisa,
+O guia completo é `simu/GUIA_CONTROLE.md`. Ele traz a linha do tempo, onde configurar cada coisa,
 a tabela de atrasos medidos, a lista de conferência, os exemplos validados e a API HTTP. Leia-o antes de mudar código de
 controle ou tirar conclusões sobre o tempo. O essencial:
 
@@ -41,11 +41,11 @@ controle ou tirar conclusões sobre o tempo. O essencial:
   período ou amostre no meio).
 
 ## Rodar e conferir (sem a tela)
-Servidor: `http://localhost:8767/pew/simu/`.
+Servidor: `http://localhost:8767/maisim/simu/`.
 - Configuração: `GET editor/controle`, `POST editor/controle {"controle": {...}}` (recusado durante a rodada).
 - Rodada: `POST editor/rodar {"dt", "tfim", "nome", "amostras"}`, depois consulte `GET editor/rodada` até `fim` ou `erro`.
 - Resultado: `scope_<nome>.npz` (caminho relativo a `sm-autonomo/`), com `meta` em JSON.
 
-O Gecko do PEW roda **uma rodada por vez**: veja `editor/rodada` antes de rodar. Confira com números (médias,
+O Gecko do MaiSim roda **uma rodada por vez**: veja `editor/rodada` antes de rodar. Confira com números (médias,
 ondulação, frequência) e, quando der, contra uma referência independente (Euler implícito, como o Gecko). O teste tem de
 distinguir o atraso certo do errado. Registre falhas e avisos como vieram. O texto para o usuário é em português.

@@ -1,5 +1,5 @@
-"""O Gemini como IA do PEW (etapa 3 do hub de IA, 21/10), na instância de teste (8768, PEW_IA_TESTE=1) com o gemini de
-mentira (gemini_falso.py, PEW_GEMINI_BIN) numa pasta descartável — nunca a conta Google de verdade:
+"""O Gemini como IA do MaiSim (etapa 3 do hub de IA, 21/10), na instância de teste (7201, MAISIM_IA_TESTE=1) com o gemini de
+mentira (gemini_falso.py, MAISIM_GEMINI_BIN) numa pasta descartável — nunca a conta Google de verdade:
   o login (o link do Google e o código colado, num terminal; o código errado; sair), o pedido restrito (a política de
   ferramentas no nível de administrador e a segunda trava no do usuário, GEMINI.md com as regras, o ambiente limpo, a
   sessão por id), a resposta montada dos pedaços, a proposta, o que ele tentou fora da trava (negado), os erros (cota,
@@ -7,19 +7,19 @@ mentira (gemini_falso.py, PEW_GEMINI_BIN) numa pasta descartável — nunca a co
 Por fim, a política gerada passa pelo leitor de políticas do Gemini CLI de verdade (sem login, numa pasta temporária)."""
 import json, os, re, shutil, subprocess, tempfile, time, urllib.request
 from pathlib import Path
-B = "http://localhost:8768/pew/simu/"
-PID = subprocess.run("ss -ltnp | grep ':8768 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1", shell=True, capture_output=True, text=True).stdout.strip()
+B = "http://localhost:7201/maisim/simu/"
+PID = subprocess.run("ss -ltnp | grep ':7201 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1", shell=True, capture_output=True, text=True).stdout.strip()
 ENV = dict(x.split("=", 1) for x in Path(f"/proc/{PID}/environ").read_bytes().decode().split("\0") if "=" in x)
-assert ENV.get("PEW_GEMINI_BIN", "").endswith("gemini_falso.py") and ENV.get("PEW_IA_TESTE") == "1", "suba o servidor de teste (reinicia_servidor_teste.sh)"
-GEM = Path(ENV["PEW_GEMINI_DIR"])
-assert GEM.resolve() != (Path.home() / ".gemini-pew").resolve(), "a instância de teste nunca usa o ~/.gemini-pew"
-CONF = Path(ENV["PEW_CLAUDE_DIR"])
-SALVOS, CASA, CTX = Path(ENV["PEW_SIMU_SALVOS"]), Path(ENV["PEW_SIMU_CACHE"]) / "claude", Path(ENV["PEW_CONTEXTOS"])
+assert ENV.get("MAISIM_GEMINI_BIN", "").endswith("gemini_falso.py") and ENV.get("MAISIM_IA_TESTE") == "1", "suba o servidor de teste (reinicia_servidor_teste.sh)"
+GEM = Path(ENV["MAISIM_GEMINI_DIR"])
+assert GEM.resolve() != (Path.home() / ".gemini-maisim").resolve(), "a instância de teste nunca usa o ~/.gemini-maisim"
+CONF = Path(ENV["MAISIM_CLAUDE_DIR"])
+SALVOS, CASA, CTX = Path(ENV["MAISIM_SALVOS"]), Path(ENV["MAISIM_SIMU_CACHE"]) / "claude", Path(ENV["MAISIM_CONTEXTOS"])
 
 
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None,
-                                 headers={"Content-Type": "application/json", "X-PEW": "1"})
+                                 headers={"Content-Type": "application/json", "X-MaiSim": "1"})
     try:
         return json.loads(urllib.request.urlopen(req, timeout=180).read())
     except urllib.error.HTTPError as e:
@@ -73,7 +73,7 @@ try:
     # ---------------------------------------------------------------- a lista e o login
     g = gemini()
     ok(g.get("tem_login") and g.get("instalado") and g.get("modelos") == ["", "pro", "flash", "flash-lite"] and not g["estado"]["logado"]
-       and g["estado"]["pasta"].endswith("gemini-pew"), f"/claude/ias: o Gemini, com login pelo PEW, deslogado (pasta {g.get('estado', {}).get('pasta')})")
+       and g["estado"]["pasta"].endswith("gemini-maisim"), f"/claude/ias: o Gemini, com login pelo MaiSim, deslogado (pasta {g.get('estado', {}).get('pasta')})")
     api("editor/abrir", {"arq": str(SALVOS / "exemplo_controle_pwm.ipes"), "modo": "descartar"})
     api("claude/nova", {})
     r = pede("um pedido sem login")
@@ -97,7 +97,7 @@ try:
        f"código certo: conectado como {e.get('email')}; o CLI interativo foi fechado ({len(vivos)} vivos)")
     st = json.loads((GEM / ".gemini" / "settings.json").read_text())
     ok(st["security"]["auth"]["selectedType"] == "oauth-personal" and st["privacy"]["usageStatisticsEnabled"] is False
-       and st["general"]["enableAutoUpdate"] is False, "a configuração na pasta do PEW: conta Google, sem estatísticas de uso, sem atualização sozinha")
+       and st["general"]["enableAutoUpdate"] is False, "a configuração na pasta do MaiSim: conta Google, sem estatísticas de uso, sem atualização sozinha")
 
     # ---------------------------------------------------------------- o pedido
     cenario("ganho")
@@ -122,18 +122,18 @@ try:
     ok(re.fullmatch(r"[0-9a-f-]{36}", sid_g) and sid_g != sid_conv and any(v.get("sessoes", {}).get("gemini") == sid_g for v in sess.values()),
        f"a sessão do Gemini é dele (guardada em sessoes.json: {sid_g[:8]}…)")
     pasta = Path(c["cwd"])
-    ok(pasta == CASA / "conversas" / sid_conv and str(c["gemini_md"]).startswith("Você é a IA do PEW (Gemini)"),
-       "na pasta da conversa, com as regras do PEW em GEMINI.md")
+    ok(pasta == CASA / "conversas" / sid_conv and str(c["gemini_md"]).startswith("Você é a IA do MaiSim (Gemini)"),
+       "na pasta da conversa, com as regras do MaiSim em GEMINI.md")
     pol, base = c["politica"], c["politica_base"]
     m = re.search(r"argsPattern = '([^']*)'", pol)
     ok('toolName = "*"\ndecision = "deny"\npriority = 1' in pol and 'toolName = ["read_file", "read_many_files", "list_directory", "glob", "grep_search"]' in pol
        and 'toolName = ["write_file", "replace"]' in pol and m and str(pasta).replace("/", "\\/").replace(".", "\\.") in m.group(1),
        "a política (administrador): nega tudo; libera ler, listar e procurar; escrever só com o argsPattern desta pasta")
     ok('toolName = "*"\ndecision = "deny"' in base and "argsPattern" not in base and "write_file" not in base,
-       "a segunda trava (usuário, .gemini/policies/pew_base.toml): só leitura")
+       "a segunda trava (usuário, .gemini/policies/maisim_base.toml): só leitura")
     vaza = [k for k in c["env"] if re.match(r"(ANTHROPIC|CLAUDE|GEMINI_API|GOOGLE|OPENAI|VERTEX)", k)]
     ok(not vaza and "GEMINI_CLI_HOME" in c["env"] and "NODE_OPTIONS" in c["env"],
-       f"ambiente limpo: nenhuma chave de IA vaza ({vaza or 'nada'}), GEMINI_CLI_HOME na pasta do PEW, o prazo de conexão do Node (NODE_OPTIONS)")
+       f"ambiente limpo: nenhuma chave de IA vaza ({vaza or 'nada'}), GEMINI_CLI_HOME na pasta do MaiSim, o prazo de conexão do Node (NODE_OPTIONS)")
     api("claude/descartar", {})
 
     # 2º pedido: retoma a sessão dele, sem CONVERSA.md (não houve troca)
@@ -159,7 +159,7 @@ try:
     ctx_antes = (pasta / "CONTEXTO.md").read_text()
     e = pede("mexa em tudo")
     rec = [x for x in e.get("eventos", []) if x.startswith("recusado:")]
-    ok(e.get("resposta") == "escritas que passaram: 0 de 4" and len(rec) == 4 and "o PEW não deixa" in rec[0] and len(e.get("negados") or []) == 4,
+    ok(e.get("resposta") == "escritas que passaram: 0 de 4" and len(rec) == 4 and "o MaiSim não deixa" in rec[0] and len(e.get("negados") or []) == 4,
        f"escrever /etc/passwd, CONTEXTO.md, ../fora.py e sub/x.py: as 4 negadas ({e.get('resposta')!r}; {len(e.get('negados') or [])} na lista)")
     ok((pasta / "CONTEXTO.md").read_text() == ctx_antes and not (pasta.parent / "fora.py").exists() and not (pasta / "sub").exists(),
        "nada foi escrito fora da trava")
@@ -186,7 +186,7 @@ try:
             break
         time.sleep(0.5)
     res = (CTX / cid / "resumo_ia.md").read_text() if cid and (CTX / cid / "resumo_ia.md").exists() else ""
-    cr = [c for c in chamadas() if "Resuma a conversa do PEW guardada nesta pasta" in " ".join(c["args"])]
+    cr = [c for c in chamadas() if "Resuma a conversa do MaiSim guardada nesta pasta" in " ".join(c["args"])]
     ok(m.get("resumo_ia", {}).get("estado") == "pronto" and "Gemini leu conversa.md: 8 pedido(s)" in res and m.get("ia") == "gemini"
        and cr and cr[-1]["cwd"] == str(CTX / cid) and "argsPattern" not in cr[-1]["politica"] and "--output-format" in cr[-1]["args"]
        and cr[-1]["args"][cr[-1]["args"].index("--output-format") + 1] == "json",
@@ -204,20 +204,20 @@ try:
     # sair
     e = api("claude/ia/sair", {"ia": "gemini"})
     ok(not e.get("logado") and not (GEM / ".gemini" / "oauth_creds.json").exists() and not (GEM / ".gemini" / "google_accounts.json").exists(),
-       "sair: os arquivos do login saem da pasta do PEW (o mesmo que o logout do CLI)")
+       "sair: os arquivos do login saem da pasta do MaiSim (o mesmo que o logout do CLI)")
     r = pede("depois de sair")
     ok(r.get("ERRO") == 409 and "entre com a conta do Gemini" in r.get("erro", ""), "depois de sair, o pedido ao Gemini é recusado")
     r = api("claude/ia/entrar", {"ia": "claude"})
-    ok(r.get("ERRO") == 409, f"as rotas de conta são só das IAs com login pelo PEW ({r.get('erro')})")
+    ok(r.get("ERRO") == 409, f"as rotas de conta são só das IAs com login pelo MaiSim ({r.get('erro')})")
 
     # a política gerada no leitor do Gemini CLI de verdade (numa pasta temporária, sem login: só carrega e lista)
     real = shutil.which("gemini") or next(iter(sorted((Path.home() / ".nvm" / "versions" / "node").glob("*/bin/gemini"))), None)
     if real:
-        tmp = Path(tempfile.mkdtemp(prefix="pew-gemini-pol-"))
+        tmp = Path(tempfile.mkdtemp(prefix="maisim-gemini-pol-"))
         try:
             (tmp / ".gemini" / "policies").mkdir(parents=True)
             (tmp / ".gemini" / "settings.json").write_text((GEM / ".gemini" / "settings.json").read_text())
-            (tmp / ".gemini" / "policies" / "pew_base.toml").write_text(base)
+            (tmp / ".gemini" / "policies" / "maisim_base.toml").write_text(base)
             (tmp / "pol.toml").write_text(pol)
             (tmp / "conv").mkdir()
             env = {"PATH": f"{Path(real).parent}:/usr/bin:/bin", "HOME": str(Path.home()), "GEMINI_CLI_HOME": str(tmp), "NO_COLOR": "1", "TERM": "dumb"}

@@ -5,14 +5,15 @@
   em lotes); o servidor guarda a rodada corrente e repassa aos navegadores abertos (GET /eventos, SSE).
 - Comparar: lista as rodadas gravadas (scope_*.npz, que o run.py grava ao fim de uma rodada com --scope) e entrega os
   dados de qualquer uma (GET /rodadas, GET /rodada?arq=...), para sobrepor duas no navegador.
-Endereços: tudo sob /pew/scope/ (página, static/, eventos, rodadas, rodada, apagar, publicar), para o pew-app (PEW,
-porta 5000) encaminhar /pew/scope para cá; as rotas antigas na raiz continuam (o run.py publica em /publicar) e
-/, /pew-scope e /pew/scope redirecionam para /pew/scope/ (a página usa endereços relativos a ele).
-uso (da raiz do projeto): python3 scope/servidor.py [--porta 8765]  →  abrir http://localhost:8765/pew/scope/"""
+Endereços: tudo sob /maisim/scope/ (página, static/, eventos, rodadas, rodada, apagar, publicar), para o maisim-app (MaiSim,
+porta 5000) encaminhar /maisim/scope para cá; as rotas antigas na raiz continuam (o run.py publica em /publicar) e
+/, /maisim-scope e /maisim/scope redirecionam para /maisim/scope/ (a página usa endereços relativos a ele).
+uso (da raiz do projeto): python3 scope/servidor.py [--porta 8765]  →  abrir http://localhost:8765/maisim/scope/"""
 import argparse
 import json
 import os
 import struct
+import sys
 import time
 import queue
 import threading
@@ -22,13 +23,17 @@ from urllib.parse import parse_qs, urlparse
 
 import numpy as np
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "config"))
+import ler_config  # noqa: E402
+ler_config.aplica()                          # as portas e as pastas (config/padrao.env, o perfil, o .env)
+
 AQUI = Path(__file__).parent
 RAIZ = AQUI.parent                          # a raiz do projeto
-DADOS = Path(os.environ.get("PEW_DADOS") or Path.home() / ".local" / "share" / "pew")   # os dados de quem usa (fora do repositório)
-# onde procurar scope_*.npz: as rodadas do simu (PEW_SIMU_RODADAS, a mesma pasta que o simu usa) e, se quiser, outras pastas
-# (PEW_SCOPE_PASTAS, separadas por ":", ex.: as rodadas de um projeto seu)
-BUSCA = [Path(os.environ.get("PEW_SIMU_RODADAS") or DADOS / "rodadas")] + \
-        [Path(x).expanduser() for x in os.environ.get("PEW_SCOPE_PASTAS", "").split(os.pathsep) if x]
+DADOS = Path(os.environ["MAISIM_DADOS"])     # os dados de quem usa (fora do repositório)
+# onde procurar scope_*.npz: as rodadas do simu (MAISIM_RODADAS, a mesma pasta que o simu usa) e, se quiser, outras pastas
+# (MAISIM_SCOPE_PASTAS, separadas por ":", ex.: as rodadas de um projeto seu)
+BUSCA = [Path(os.environ.get("MAISIM_RODADAS") or DADOS / "rodadas")] + \
+        [Path(x).expanduser() for x in os.environ.get("MAISIM_SCOPE_PASTAS", "").split(os.pathsep) if x]
 
 
 def caminho(rel):
@@ -49,7 +54,7 @@ def permitido(arq):
     return any(b.resolve() in arq.parents for b in BUSCA)
 TIPOS = {".html": "text/html; charset=utf-8", ".js": "application/javascript", ".css": "text/css"}
 
-PREFIXO = "/pew/scope"
+PREFIXO = "/maisim/scope"
 vivo = {"meta": None, "dados": {}, "fim": False, "n": 0}
 PARTIDA = time.strftime("%Y%m%d%H%M%S")   # com o número da rodada, identifica cada rodada publicada (mesmo depois de reiniciar)
 clientes = []
@@ -63,16 +68,28 @@ def difunde(evento, obj):
             q.put(msg)
 
 
+DO_SIMU = ("gecko-maisim", "gecko-pew")         # rodadas do simulador (gecko-pew: as gravadas quando ele se chamava PEW)
+
+
+def resumo_meta(f):
+    """O que a página inicial mostra de uma rodada: o nome dela, o circuito de origem e se é do simulador."""
+    try:
+        meta = json.loads(str(np.load(f, allow_pickle=False)["meta"]))
+    except Exception:
+        meta = {}
+    return {"nome": str(meta.get("rotulo") or f.parent.name), "modelo": str(meta.get("modelo") or ""), "do_simu": meta.get("planta") in DO_SIMU}
+
+
 def rotulo_rodada(f):
     """Nome legível de uma rodada gravada: planta · pasta · data e hora."""
     try:
         meta = json.loads(str(np.load(f, allow_pickle=False)["meta"]))
     except Exception:
         meta = {}
-    planta = {"gecko": "Gecko", "python": "planta Python", "gecko-pew": "PEW / simu"}.get(meta.get("planta", ""), meta.get("planta", "?"))
+    planta = "MaiSim / simu" if meta.get("planta") in DO_SIMU else {"gecko": "Gecko", "python": "planta Python"}.get(meta.get("planta", ""), meta.get("planta", "?"))
     pasta = f.parent.name.replace("2026-10-17_", "").replace("_", " ")
     circuito = ""
-    if meta.get("planta") == "gecko-pew":
+    if meta.get("planta") in DO_SIMU:
         pasta = meta.get("rotulo", pasta)
         circuito = Path(str(meta.get("modelo") or "")).stem      # o circuito (Marcelo, 19/10: as rodadas se chamavam todas Teste2)
     intervalo = meta.get("Ts") or meta.get("dt")              # o intervalo entre as amostras guardadas (comparar: ver se casam)
@@ -95,7 +112,7 @@ def le_npz(caminho):
 
 
 def le_npz_bin(caminho):
-    """Gravação em binário para o navegador (GET rodada.bin): b"PEWB", uint32 com o tamanho do cabeçalho JSON, o
+    """Gravação em binário para o navegador (GET rodada.bin): b"MAIS", uint32 com o tamanho do cabeçalho JSON, o
     cabeçalho {meta, canais: [{nome, tipo, n, desloc}]}, e os vetores little-endian, cada um alinhado a 8 bytes; desloc
     conta a partir do início dos dados = 8 + cabeçalho arredondado para cima a múltiplo de 8. Valores exatos do .npz
     (float64, sem o arredondamento de 6 casas do JSON; NaN continua NaN). Vetor de inteiros guardado em float (padrão de
@@ -124,7 +141,7 @@ def le_npz_bin(caminho):
         desloc += v.nbytes
     cab = json.dumps({"meta": meta, "canais": canais}, separators=(",", ":")).encode()
     base = (8 + len(cab) + 7) // 8 * 8
-    return b"PEWB" + struct.pack("<I", len(cab)) + cab + bytes(base - 8 - len(cab)), canais, vetores, desloc
+    return b"MAIS" + struct.pack("<I", len(cab)) + cab + bytes(base - 8 - len(cab)), canais, vetores, desloc
 
 
 class Manipulador(BaseHTTPRequestHandler):
@@ -141,13 +158,13 @@ class Manipulador(BaseHTTPRequestHandler):
         self.wfile.write(corpo)
 
     def _rota(self):
-        """(url, rota sem o prefixo /pew/scope): /pew/scope/eventos e /eventos dão a mesma rota."""
+        """(url, rota sem o prefixo /maisim/scope): /maisim/scope/eventos e /eventos dão a mesma rota."""
         u = urlparse(self.path)
         return u, (u.path[len(PREFIXO):] if u.path.startswith(PREFIXO + "/") else u.path)
 
     def do_GET(self):
         u, rota = self._rota()
-        if u.path in ("/", "/index.html", "/pew-scope", "/pew-scope/", PREFIXO):
+        if u.path in ("/", "/index.html", "/maisim-scope", "/maisim-scope/", PREFIXO):
             self.send_response(302)
             self.send_header("Location", PREFIXO + "/" + (("?" + u.query) if u.query else ""))
             self.end_headers()
@@ -164,7 +181,7 @@ class Manipulador(BaseHTTPRequestHandler):
             for base in BUSCA:
                 for f in (base.rglob("scope_*.npz") if base.is_dir() else []):
                     lst.append({"arq": nome(f), "mtime": f.stat().st_mtime, "tamanho": f.stat().st_size,
-                                "rotulo": rotulo_rodada(f)})
+                                "rotulo": rotulo_rodada(f), **resumo_meta(f)})
             return self._resposta(200, sorted(lst, key=lambda x: -x["mtime"]))
         if rota in ("/rodada", "/rodada.bin"):
             rel = parse_qs(u.query).get("arq", [""])[0]
@@ -249,7 +266,7 @@ class Manipulador(BaseHTTPRequestHandler):
         return self._resposta(200, {"ok": True})
 
     def _apagar(self):
-        """Apaga gravações do pew-scope pedidas pela tela: só scope_*.npz dentro de simu/ ou etapas/ (nada mais)."""
+        """Apaga gravações do maisim-scope pedidas pela tela: só scope_*.npz dentro de simu/ ou etapas/ (nada mais)."""
         corpo = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
         apagados, recusados = [], []
         for rel in corpo.get("arqs", []):
@@ -267,11 +284,11 @@ class Manipulador(BaseHTTPRequestHandler):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--porta", type=int, default=8765)
+    ap.add_argument("--porta", type=int, default=int(os.environ["MAISIM_PORTA_SCOPE"]))
     a = ap.parse_args()
     srv = ThreadingHTTPServer(("127.0.0.1", a.porta), Manipulador)
     srv.daemon_threads = True
-    print(f"pew-scope em http://localhost:{a.porta}{PREFIXO}/", flush=True)
+    print(f"maisim-scope em http://localhost:{a.porta}{PREFIXO}/", flush=True)
     srv.serve_forever()
 
 

@@ -1,7 +1,7 @@
-"""Monta o buck do exemplo de PWM no servidor de teste (8768): Vdc → S.1 → sw → L.1 → o → R.1 → gnd; D.1 de roda livre
+"""Monta o buck do exemplo de PWM no servidor de teste (7201): Vdc → S.1 → sw → L.1 → o → R.1 → gnd; D.1 de roda livre
 (gnd → sw); CONST.1 ("g") → GATE.1 → S.1; VOLT v_sw (sw − gnd), VOLT v_o (o − gnd), AMP i_L (L.1)."""
 import json, urllib.request, gzip, sys
-B = "http://localhost:8768/pew/simu/"
+B = "http://localhost:7201/maisim/simu/"
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(req, timeout=300).read())

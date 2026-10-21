@@ -6,11 +6,11 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#6d28d9">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PEW · gecko</title>
+<title>MaiSim · gecko</title>
 <style>
   :root { --barra: 34px; }
   html, body { margin:0; height:100%; background:#1b1f24; color:#e6e9ee; font-family:system-ui, -apple-system, "Segoe UI", sans-serif; overflow:hidden; }
-  #barra { position:fixed; top:0; left:var(--pew-nav-w, 0px); right:0; height:var(--barra); display:flex; align-items:center; gap:14px;
+  #barra { position:fixed; top:0; left:var(--maisim-nav-w, 0px); right:0; height:var(--barra); display:flex; align-items:center; gap:14px;
            padding:0 12px; background:#111418; border-bottom:1px solid #2a2f37; font-size:13px; box-sizing:border-box; }
   #barra b { color:#c4b5fd; }
   #estado::before { content:""; display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; background:#e8a33d; }
@@ -18,17 +18,17 @@
   #barra .cred { margin-left:auto; color:#8a939d; font-size:12px; }
   #barra button { font:inherit; font-size:12px; background:#232831; color:#e6e9ee; border:1px solid #2a2f37; border-radius:6px; padding:3px 9px; cursor:pointer; }
   #barra button:hover { background:#2b2440; }
-  #tela { position:fixed; top:var(--barra); left:var(--pew-nav-w, 0px); right:0; bottom:0; }
+  #tela { position:fixed; top:var(--barra); left:var(--maisim-nav-w, 0px); right:0; bottom:0; }
 </style>
 </head>
 <body>
-<div id="barra"><b>pew / gecko</b><span id="estado">conectando…</span>
+<div id="barra"><b>maisim / gecko</b><span id="estado">conectando…</span>
   <span class="cred">GeckoCIRCUITS, simulador de código aberto · tela virtual (Xvfb) pelo noVNC</span>
   <button id="cheia" title="tela cheia (Esc sai)">tela cheia</button></div>
 <div id="tela"></div>
 <script type="module">
 // a tela do Gecko pelo cliente do noVNC (núcleo do pacote do sistema, em ./novnc); websocket no mesmo caminho da página
-// (/pew/gecko/websockify pelo PEW, /websockify direto na 6080); reconecta sozinho se cair
+// (/maisim/gecko/websockify pelo MaiSim, /websockify direto na porta da tela, MAISIM_PORTA_TELA); reconecta sozinho se cair
 import RFB from "./novnc/core/rfb.js";
 const est = document.getElementById("estado");
 const url = (location.protocol === "https:" ? "wss://" : "ws://") + location.host + location.pathname.replace(/[^/]*$/, "") + "websockify";
@@ -39,14 +39,14 @@ function conecta() {
   rfb.scaleViewport = true; rfb.resizeSession = false;
   rfb.addEventListener("connect", () => { est.className = "ok"; est.textContent = "conectado"; rfb.focus(); });
   rfb.addEventListener("disconnect", () => {
-    est.className = "erro"; est.textContent = "sem conexão (o Gecko do PEW está no ar? sobe.sh) · tentando de novo…";
+    est.className = "erro"; est.textContent = "sem conexão (o Gecko do MaiSim está no ar? sobe.sh) · tentando de novo…";
     setTimeout(conecta, 2500);
   });
-  rfb.addEventListener("desktopname", (e) => { document.title = "PEW · gecko"; });
+  rfb.addEventListener("desktopname", (e) => { document.title = "MaiSim · gecko"; });
 }
 conecta();
 document.getElementById("cheia").onclick = () => document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
 </script>
-<script src="/pew-nav.js" onerror="this.remove()"></script>
+<script src="/maisim-nav.js" onerror="this.remove()"></script>
 </body>
 </html>

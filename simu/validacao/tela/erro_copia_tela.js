@@ -1,4 +1,4 @@
-// copiar o erro e pedir ao Claude (página de teste 5010 → 8768), Marcelo em 20/10 ("quando der um erro podia ter copiar
+// copiar o erro e pedir ao Claude (página de teste 7200 → 7201), Marcelo em 20/10 ("quando der um erro podia ter copiar
 // erro… até copiava com prompt pra colar no Claude"): na saída do controle, "copiar" leva o erro e o trecho do arquivo em
 // volta da linha (▶ na do erro); "pedir ao Claude" abre a conversa com o pedido escrito e não envia; numa saída que não é
 // erro, o "pedir ao Claude" some e o "copiar" leva o texto. Sem fotos.
@@ -13,10 +13,10 @@ const BOM = 'def iniciar(p, e):\n    pass\n\n\ndef passo(t, m, p, e):\n    retur
   try {
     b = await chromium.launch();
     const ctx = await b.newContext({ viewport: { width: 1600, height: 950 } });
-    await ctx.grantPermissions(["clipboard-read", "clipboard-write"], { origin: "http://localhost:5010" });
+    await ctx.grantPermissions(["clipboard-read", "clipboard-write"], { origin: "http://localhost:7200" });
     const pg = await ctx.newPage();
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-    await pg.goto("http://localhost:5010/pew/simu/");
+    await pg.goto("http://localhost:7200/maisim/simu/");
     for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof dados !== "undefined" && dados && dados.editor)); k++) { if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }
     const prepara = async (cod, mod) => { await pg.evaluate(async ([cod, mod]) => {
       const j = await api("editor/novo", { modo: "descartar" }); dados = j; folhaAtual = "0"; novoEstado(j);

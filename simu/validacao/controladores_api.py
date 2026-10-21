@@ -1,4 +1,4 @@
-"""Vários controladores (passo 1 do controle distribuído), na instância de teste (8768), com o PI de corrente do exemplo
+"""Vários controladores (passo 1 do controle distribuído), na instância de teste (7201), com o PI de corrente do exemplo
 (exemplo_controle_pi, congelado em dados/). A prova é de equivalência: aquisição + controle em processos separados, que
 calculam juntos e conversam pela rede, têm de dar EXATAMENTE o mesmo que um controlador único que usa a medida de D
 amostras atrás (D = 1 com latência 0; D = 3 com latência 2,5·Ts). E: isolamento (um não vê a memória do outro), paralelo
@@ -9,8 +9,8 @@ import json, os, time, urllib.request
 from pathlib import Path
 import numpy as np
 RAIZ_PROJ = str(Path(__file__).resolve().parents[2])   # a raiz do projeto (validacao → simu → raiz)
-B = "http://localhost:8768/pew/simu/"
-T = os.path.expanduser("~/.cache/pew_simu_teste")
+B = "http://localhost:7201/maisim/simu/"
+T = os.path.expanduser("~/.cache/maisim_teste")
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(req, timeout=300).read())
@@ -19,7 +19,7 @@ falhas = 0
 def ok(c, t):
     global falhas; print(("OK   " if c else "FALHA"), t); falhas += (not c)
 
-PI = f"{T}/pew/exemplo_controle_pi.ipes"
+PI = f"{T}/circuitos/exemplo_controle_pi.ipes"
 r = api("editor/abrir", {"arq": PI, "modo": "descartar"})
 base = api("editor/controle")["controle"]
 Ts = base["Ts"]
@@ -114,12 +114,12 @@ ok(not t.get("ok") and "cada valor é um número, None ou uma lista de números"
 api("editor/controle", {"controle": dist(0.0)})
 sv = api("editor/salvar", {"nome": "teste_controladores", "sobrescrever": True})
 api("editor/novo", {"modo": "descartar"})
-api("editor/abrir", {"arq": f"{T}/pew/teste_controladores.ipes", "modo": "descartar"})
+api("editor/abrir", {"arq": f"{T}/circuitos/teste_controladores.ipes", "modo": "descartar"})
 c2 = api("editor/controle")["controle"]
 ok(c2.get("arquivos", {}).get("aquisicao.py") == AQ and [q["nome"] for q in c2.get("controladores", [])] == ["aquisicao", "controle"],
    f"salvo e aberto de novo: arquivos {list(c2.get('arquivos', {}))}, controladores {[q['nome'] for q in c2.get('controladores', [])]}")
 for x in ("teste_controladores.ipes", "teste_controladores.controle.json"):
-    try: os.remove(f"{T}/pew/{x}")
+    try: os.remove(f"{T}/circuitos/{x}")
     except OSError: pass
 
 # um controlador por subcircuito na cascata (exemplo, só lendo): cada instância vê vCSm (sem o prefixo) e o p["subcircuito"]

@@ -1,11 +1,11 @@
-// quebra de linha no editor do controle (página de teste 5010 → 8768): o botão ao lado do "?" e Alt+Z ligam e desligam a
+// quebra de linha no editor do controle (página de teste 7200 → 7201): o botão ao lado do "?" e Alt+Z ligam e desligam a
 // quebra; a escolha fica no navegador; o código não muda; a trava da simulação não desliga o botão
 const { chromium } = require("playwright");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
-const URL = "http://localhost:5010/pew/simu/?modelo=" + encodeURIComponent(require("os").homedir() + "/.cache/pew_simu_teste/pew/exemplo_controle_pwm.ipes");
+const URL = "http://localhost:7200/maisim/simu/?modelo=" + encodeURIComponent(require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_controle_pwm.ipes");
 (async () => {
-  const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1400, height: 900 }, colorScheme: "light" }); const pg = await ctx.newPage(); await pg.addInitScript(() => { try { localStorage.setItem("pew-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
+  const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1400, height: 900 }, colorScheme: "light" }); const pg = await ctx.newPage(); await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
   const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
   const abre = async () => {
     await pg.goto(URL);
@@ -14,9 +14,9 @@ const URL = "http://localhost:5010/pew/simu/?modelo=" + encodeURIComponent(requi
   };
   const estado = () => pg.evaluate(() => { const bt = $("ctl-quebra"), ed = ctl.editor, L = ed.getLayoutInfo();
     return { ativo: bt.classList.contains("ativo"), aria: bt.getAttribute("aria-pressed"), wrap: ed.getRawOptions().wordWrap,
-      larg: ed.getScrollWidth(), vis: L.contentWidth, guardado: (() => { try { return localStorage.getItem("pew-simu-quebra"); } catch (e) { return "?"; } })(),
+      larg: ed.getScrollWidth(), vis: L.contentWidth, guardado: (() => { try { return localStorage.getItem("maisim-simu-quebra"); } catch (e) { return "?"; } })(),
       vizinho: bt.nextElementSibling && bt.nextElementSibling.id, codigo: ed.getValue() }; });
-  await pg.goto(URL); await pg.evaluate(() => { try { localStorage.removeItem("pew-simu-quebra"); } catch (e) {} });
+  await pg.goto(URL); await pg.evaluate(() => { try { localStorage.removeItem("maisim-simu-quebra"); } catch (e) {} });
   await abre();
   // o Monaco mede a largura das linhas depois de desenhá-las: espera a medida (até 5 s) antes de comparar
   await pg.waitForFunction(() => ctl.editor.getScrollWidth() > ctl.editor.getLayoutInfo().contentWidth, null, { timeout: 5000 }).catch(() => {});
@@ -57,11 +57,11 @@ const URL = "http://localhost:5010/pew/simu/?modelo=" + encodeURIComponent(requi
   await pg.evaluate(() => travaControle(false));
   await pg.mouse.move(0, 0); await pg.hover("#ctl-quebra"); await pg.waitForTimeout(700);
   const dica = await pg.evaluate(() => { const d = $("dica-ui"); return d.classList.contains("vis") ? d.innerHTML : ""; });
-  ok(/quebra de linha/.test(dica) && /<kbd>Alt\+Z<\/kbd>/.test(dica), `dica no padrão do PEW, com a tecla: ${dica.replace(/<[^>]+>/g, "|")}`);
-  const p2 = await ctx.newPage(); await p2.addInitScript(() => { try { localStorage.setItem("pew-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */ p2.on("pageerror", (e) => erros.push(e.message));
+  ok(/quebra de linha/.test(dica) && /<kbd>Alt\+Z<\/kbd>/.test(dica), `dica no padrão do MaiSim, com a tecla: ${dica.replace(/<[^>]+>/g, "|")}`);
+  const p2 = await ctx.newPage(); await p2.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */ p2.on("pageerror", (e) => erros.push(e.message));
   await p2.route(/monaco-editor/, (r) => r.abort());
   await p2.goto(URL); await p2.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
-  await p2.evaluate(() => { try { localStorage.setItem("pew-simu-quebra", "1"); } catch (e) {} });
+  await p2.evaluate(() => { try { localStorage.setItem("maisim-simu-quebra", "1"); } catch (e) {} });
   await p2.reload(); await p2.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
   await p2.click("#bt-ctl"); await p2.waitForFunction(() => ctl.carregado && ctl.texto, null, { timeout: 40000 });
   const ws = () => p2.evaluate(() => ({ ws: getComputedStyle(ctl.texto).whiteSpace, ativo: $("ctl-quebra").classList.contains("ativo"), cod: ctl.texto.value }));
@@ -72,6 +72,6 @@ const URL = "http://localhost:5010/pew/simu/?modelo=" + encodeURIComponent(requi
     `sem o Monaco (caixa de texto simples): abre com a quebra guardada (${t0.ws}), o botão desliga (${t1.ws}), Alt+Z liga (${t2.ws})`);
   await p2.close();
   ok(!erros.length, `sem erros de JS nem diálogos ${erros.join(" ; ")}`);
-  await pg.evaluate(() => { try { localStorage.removeItem("pew-simu-quebra"); } catch (e) {} });
+  await pg.evaluate(() => { try { localStorage.removeItem("maisim-simu-quebra"); } catch (e) {} });
   await b.close(); process.exit(falhas ? 1 : 0);
 })();

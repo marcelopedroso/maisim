@@ -1,5 +1,5 @@
-// scope: recolher e expandir, arrastar seções (pedido de Marcelo, 19/10) — na instância isolada (Vite 5011 → scope de
-// teste 8775; ../sobe_fila.sh). Um layout de três seções (S1: Va, S2: Vb, S3: theta) sobre uma gravação pequena só para o
+// scope: recolher e expandir, arrastar seções (pedido de Marcelo, 19/10) — na instância isolada (Vite 7210 → scope de
+// teste 7211; ../sobe_fila.sh). Um layout de três seções (S1: Va, S2: Vb, S3: theta) sobre uma gravação pequena só para o
 // ensaio, apagada no fim. Confere: a seta da seção esconde os painéis dela e conta quantos são; a seta do painel deixa
 // só o título; os dois ficam guardados ao recarregar; ⤢ expande o painel para a janela (Esc, o botão e o clique fora
 // voltam ao tamanho de antes); a ⠿ da seção a leva inteira, com os painéis, para antes de outra seção ou para o fim; o
@@ -21,12 +21,12 @@ const LAYOUT = { colunas: 1, indice: { aberto: false, unica: false, secao: -1 },
     fs.mkdirSync(PASTA, { recursive: true });
     execFileSync("python3", ["-c", `import numpy as np, json
 t = np.arange(0, 0.06, 1e-4); w = 2 * np.pi * 50
-meta = {"planta": "gecko-pew", "rotulo": "recolher_teste", "dt": 1e-4, "Ts": 1e-4, "n_fino": 1, "dt_gecko": 1e-6, "tfim": 0.06,
+meta = {"planta": "gecko-maisim", "rotulo": "recolher_teste", "dt": 1e-4, "Ts": 1e-4, "n_fino": 1, "dt_gecko": 1e-6, "tfim": 0.06,
         "sinais": [{"canal": "Va", "elemento": "VOLT.1"}, {"canal": "Vb", "elemento": "VOLT.2"}], "acionamentos": []}
 np.savez(${JSON.stringify(ARQ)}, meta=np.array(json.dumps(meta)), t=t, Va=180*np.cos(w*t), Vb=180*np.cos(w*t - 2*np.pi/3), theta=(w*t) % (2*np.pi))`]);
-    const url = "http://localhost:5011/pew/scope/?so=rodada&a=" + encodeURIComponent(path.relative(SM, ARQ));
+    const url = "http://localhost:7210/maisim/scope/?so=rodada&a=" + encodeURIComponent(path.relative(SM, ARQ));
     b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1400, height: 1300 } });
-    await ctx.addInitScript((L) => { try { if (!sessionStorage.getItem("ja")) { localStorage.setItem("pew-scope-layout-v3", L); sessionStorage.setItem("ja", "1"); } } catch (e) { /* ok */ } }, JSON.stringify(LAYOUT));
+    await ctx.addInitScript((L) => { try { if (!sessionStorage.getItem("ja")) { localStorage.setItem("maisim-scope-layout-v3", L); sessionStorage.setItem("ja", "1"); } } catch (e) { /* ok */ } }, JSON.stringify(LAYOUT));
     const pg = await ctx.newPage(); const erros = []; pg.on("pageerror", (e) => erros.push(e.message));
     const abre = async () => { await pg.goto(url); await pg.waitForFunction(() => [...document.querySelectorAll(".cartao")].filter((c) => c._painel && c._painel.u).length === 3, null, { timeout: 30000 }); await pg.waitForTimeout(300); };
     await abre();
@@ -36,7 +36,7 @@ np.savez(${JSON.stringify(ARQ)}, meta=np.array(json.dumps(meta)), t=t, Va=180*np
         return [p.titulo, { visivel: !c.classList.contains("oculto") && r.height > 0, w: Math.round(r.width), h: Math.round(r.height), gw: p.u ? Math.round(p.u.width) : 0, gh: p.u ? Math.round(p.u.height) : 0,
           area: c.querySelector(".area").offsetHeight, fixo: getComputedStyle(c).position === "fixed" }]; })),
       n: Object.fromEntries([...document.querySelectorAll(".secao")].map((s) => [s.querySelector(".titulo-secao").value, s.querySelector(".n-rec").textContent])),
-      guardado: JSON.parse(localStorage.getItem("pew-scope-layout-v3")) }));
+      guardado: JSON.parse(localStorage.getItem("maisim-scope-layout-v3")) }));
     const secao = (t) => `.secao:has(.titulo-secao[value="${t}"])`;
     // arrastar como uma pessoa: desce o botão, anda em passos, solta (o dragAndDrop do Playwright não começa o arrasto se
     // precisar rolar a página; aqui a janela é alta o bastante para tudo ficar à vista)
@@ -101,7 +101,7 @@ np.savez(${JSON.stringify(ARQ)}, meta=np.array(json.dumps(meta)), t=t, Va=180*np
     await pg.click("#bt-indice");
     // 7. o painel pela ⠿ dentro de um iframe (como na doca do simu): P_Vb para antes do P_Va
     const pf = await ctx.newPage(); pf.on("pageerror", (x) => erros.push(x.message));
-    await pf.goto("http://localhost:5011/");
+    await pf.goto("http://localhost:7210/");
     await pf.evaluate((u) => { document.body.innerHTML = `<iframe src="${u}" style="position:fixed;left:0;top:0;width:1100px;height:1250px;border:0"></iframe>`; }, url);
     const fr = await (await pf.waitForSelector("iframe")).contentFrame();
     await fr.waitForFunction(() => [...document.querySelectorAll(".cartao")].filter((c) => c._painel && c._painel.u).length === 3, null, { timeout: 30000 });

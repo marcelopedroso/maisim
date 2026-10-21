@@ -1,5 +1,5 @@
 """Monta o exemplo genérico com subcircuitos: três células meia-ponte (o SM-HB da biblioteca) em cascata, com carga RL e um
-degrau de carga, e salva na pasta do servidor de teste (8768) como exemplo_cascata_hb. É o circuito com subcircuitos dos
+degrau de carga, e salva na pasta do servidor de teste (7201) como exemplo_cascata_hb. É o circuito com subcircuitos dos
 testes (antes eles usavam um MMC da tese) e um exemplo para quem usa o simulador.
 
   SUBCIRCUIT.1..3 (SM-HB): +vSm em cima, −vSm embaixo, em série: vo → n1 → n2 → gnd
@@ -9,7 +9,7 @@ testes (antes eles usavam um MMC da tese) e um exemplo para quem usa o simulador
   vo → L.1 → o → R.1 → gnd; o → S.1 → c → R.2 → gnd (CONST.1 → CONST_CARGA → GATE.1 → S.1: o degrau de carga)
   medidas: v_o (vo − gnd), i_o (corrente de L.1) e, de cada célula, vCSm e vSm (os medidores de dentro do SM-HB)"""
 import json, urllib.request, sys
-B = "http://localhost:8768/pew/simu/"
+B = "http://localhost:7201/maisim/simu/"
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(req, timeout=300).read())
@@ -101,4 +101,4 @@ r = api("editor/estado"); print("encaixe", r["encaixe"])
 print({e["nome"]: [t.get("rotulo") for t in e["terminais"]] for e in r["folhas"]["0"]["elementos"] if e["tipo"] == "SUBCIRCUIT"})
 print("globais", sorted(r.get("globais", {})))
 if "--salvar" in sys.argv:
-    print(ok(api("editor/salvar", {"nome": "exemplo_cascata_hb", "pasta": "pew", "sobrescrever": True}), "salvar"))
+    print(ok(api("editor/salvar", {"nome": "exemplo_cascata_hb", "pasta": "circuitos", "sobrescrever": True}), "salvar"))

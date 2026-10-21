@@ -1,4 +1,4 @@
-// as mensagens entre os controladores nos cartões (instância de teste 5010 → 8768), pedido de Marcelo em 19/10 ("mostrar
+// as mensagens entre os controladores nos cartões (instância de teste 7200 → 7201), pedido de Marcelo em 19/10 ("mostrar
 // quando um DSP recebe uma variável de outro… o theta vem do PLL… ter essa cadeia"): lidas do código — envia("destino",
 // {"chave": …}) no arquivo do controlador e nos módulos que ele importa; quem manda o mesmo a vários numa linha só; o que
 // cada um recebe; a latência; os avisos (destino que não é controlador; recebe mensagem e não chama recebe()); comentário
@@ -18,8 +18,8 @@ const ARQS = {
   try {
     b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1900, height: 1000 } })).newPage();
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-    await pg.addInitScript(() => { try { localStorage.setItem("pew-simu-ctl-vista", "arq"); } catch (e) { /* ok */ } });
-    await pg.goto("http://localhost:5010/pew/simu/");
+    await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-ctl-vista", "arq"); } catch (e) { /* ok */ } });
+    await pg.goto("http://localhost:7200/maisim/simu/");
     for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof dados !== "undefined" && dados && dados.editor)); k++) { if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }
     await pg.evaluate(async (a) => {
       const j = await api("editor/novo", { modo: "descartar" }); dados = j; folhaAtual = "0"; novoEstado(j);

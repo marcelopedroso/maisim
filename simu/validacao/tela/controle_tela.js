@@ -1,4 +1,4 @@
-// instância de teste (8768): painel Controle com o PI de corrente do RL
+// instância de teste (7201): painel Controle com o PI de corrente do RL
 const { chromium } = require("playwright");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
@@ -16,9 +16,9 @@ def passo(t, m, p, e):
 `;
 (async () => {
   const b = await chromium.launch();
-  const pg = await (await b.newContext({ viewport: { width: 1600, height: 950 } })).newPage(); await pg.addInitScript(() => { try { localStorage.setItem("pew-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
+  const pg = await (await b.newContext({ viewport: { width: 1600, height: 950 } })).newPage(); await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
   const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-  await pg.goto("http://localhost:8768/pew/simu/?modelo=exemplos%2Fexemplo_cascata_hb.ipes");
+  await pg.goto("http://localhost:7201/maisim/simu/?modelo=exemplos%2Fexemplo_cascata_hb.ipes");
   await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
   await pg.click("#bt-editar"); await pg.waitForTimeout(400); if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok");
   await pg.waitForFunction(() => dados && dados.editor, null, { timeout: 30000 });

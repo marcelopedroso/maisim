@@ -1,6 +1,6 @@
-"""Monta o exemplo do buck com PWM no controle.py, com as conexões desenhadas, e salva (pasta pew do servidor 8768)."""
+"""Monta o exemplo do buck com PWM no controle.py, com as conexões desenhadas, e salva (pasta circuitos do servidor de teste)."""
 import json, urllib.request, sys
-B = "http://localhost:8768/pew/simu/"
+B = "http://localhost:7201/maisim/simu/"
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(req, timeout=300).read())

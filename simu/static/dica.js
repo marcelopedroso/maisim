@@ -1,4 +1,4 @@
-// PEW / simu — dicas (tooltips) no padrão do PEW, no lugar da caixinha nativa do navegador.
+// MaiSim / simu — dicas (tooltips) no padrão do MaiSim, no lugar da caixinha nativa do navegador.
 // Vale para todo elemento com title: ao passar o mouse, o title vai para data-dica (o navegador não mostra a dele) e volta ao
 // sair — o código que lê ou troca .title continua funcionando; se o title mudar com o mouse em cima, a dica acompanha.
 // Atalhos entre parênteses viram teclas: "pausar (Espaço)" → pausar [Espaço].
@@ -18,7 +18,7 @@
     caixa.style.left = "0px"; caixa.style.top = "0px";
     const r = alvo.getBoundingClientRect(), c = caixa.getBoundingClientRect(), m = 8;
     let x = r.left + r.width / 2 - c.width / 2, y = r.bottom + m;
-    if (alvo.closest("#pew-nav")) { x = r.right + m; y = r.top + r.height / 2 - c.height / 2; }   // no trilho do PEW: ao lado, como as dele
+    if (alvo.closest("#maisim-nav")) { x = r.right + m; y = r.top + r.height / 2 - c.height / 2; }   // no trilho do MaiSim: ao lado, como as dele
     // sem espaço embaixo, ou no quarto de baixo da tela (a caixa de pedido da conversa): em cima. Só a conta do espaço não
     // bastava: com a janela do navegador passando por baixo da barra do Windows, a dica ia para baixo e ficava escondida
     // (Marcelo, 21/10: a dica do seletor de IA)

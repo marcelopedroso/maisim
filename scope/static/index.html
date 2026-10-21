@@ -6,13 +6,13 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#6d28d9">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>pew-scope</title>
+<title>maisim-scope</title>
 <script>
-// o tamanho do PEW (+ e − no trilho, localStorage "pew-escala"), antes de pintar; embutido no simu (iframe), não: o simu já escala
-try { const z = parseFloat(localStorage.getItem("pew-escala")); if (window.top === window.self && [0.8, 0.9, 1.1, 1.25, 1.4].includes(z)) document.documentElement.style.zoom = z; } catch (e) { /* 100 % */ }
-// o tema do PEW (o trilho escolhe e guarda em localStorage "pew-tema": sistema, claro ou escuro), antes de pintar; também
+// o tamanho do MaiSim (+ e − no trilho, localStorage "maisim-escala"), antes de pintar; embutido no simu (iframe), não: o simu já escala
+try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.top === window.self && [0.8, 0.9, 1.1, 1.25, 1.4].includes(z)) document.documentElement.style.zoom = z; } catch (e) { /* 100 % */ }
+// o tema do MaiSim (o trilho escolhe e guarda em localStorage "maisim-tema": sistema, claro ou escuro), antes de pintar; também
 // embutido no simu (Marcelo, 20/10: "a aba scope não está respeitando os temas"); o scope.js acompanha as trocas
-try { const t = localStorage.getItem("pew-tema") || "sistema";
+try { const t = localStorage.getItem("maisim-tema") || "sistema";
   document.documentElement.dataset.tema = t === "escuro" || (t === "sistema" && matchMedia("(prefers-color-scheme: dark)").matches) ? "escuro" : "claro"; }
 catch (e) { document.documentElement.dataset.tema = "claro"; }
 </script>
@@ -184,7 +184,7 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
 <body>
 <header>
   <div class="linha">
-    <h1><a href="/" title="PEW: início (no pew-app)">pew</a> / scope</h1>
+    <h1><a href="/" title="MaiSim: início ">maisim</a> / scope</h1>
     <div class="grupo"><button id="bt-vivo" class="ativo">Ao vivo</button><button id="bt-comparar">Comparar</button></div>
     <div class="grupo"><label>A <select id="sel-a" class="sel-rodada"></select></label>
       <label>B <select id="sel-b" class="sel-rodada"></select></label><button id="bt-carregar">Carregar</button></div>
@@ -224,14 +224,14 @@ A em cores; B em preto tracejado.">?</button>
 </div>
 <div id="fundo-exp" hidden></div>
 <div id="janela-apagar"><div class="caixa">
-  <div class="topo">Apagar gravações do pew-scope <span id="ap-total" style="font-weight:400;color:var(--sutil)"></span></div>
+  <div class="topo">Apagar gravações do maisim-scope <span id="ap-total" style="font-weight:400;color:var(--sutil)"></span></div>
   <div class="lista" id="ap-lista"></div>
   <div class="rodape"><span id="ap-marcadas" style="margin-right:auto;color:var(--sutil)"></span>
     <button id="ap-fechar">Cancelar</button><button id="ap-ok" class="perigo">Apagar marcadas</button></div>
 </div></div>
 <script src="static/uPlot.iife.min.js"></script>
 <script src="static/scope.js"></script>
-<!-- menu lateral do PEW, servido pelo pew-app; aberta direto na 8765, a página segue sem ele -->
-<script src="/pew-nav.js" onerror="this.remove()"></script>
+<!-- menu lateral do MaiSim, servido pelo maisim-app; aberta direto na 8765, a página segue sem ele -->
+<script src="/maisim-nav.js" onerror="this.remove()"></script>
 </body>
 </html>

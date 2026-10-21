@@ -1,4 +1,4 @@
-// a saída do "▷ testar" fecha (instância de teste 5010 → 8768), pergunta de Marcelo em 19/10 ("depois de testar, como
+// a saída do "▷ testar" fecha (instância de teste 7200 → 7201), pergunta de Marcelo em 19/10 ("depois de testar, como
 // fechar o console?"): o ✕ no canto esconde a saída e devolve o espaço ao código; o ▷ testar abre de novo; o ✕ não cobre
 // o texto (a primeira linha continua inteira à vista)
 const { chromium } = require("playwright");
@@ -10,7 +10,7 @@ const S = process.argv[2];
   try {
     b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1600, height: 950 } })).newPage();
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-    await pg.goto("http://localhost:5010/pew/simu/");
+    await pg.goto("http://localhost:7200/maisim/simu/");
     for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof dados !== "undefined" && dados && dados.editor)); k++) {
       if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }
     await pg.evaluate(async () => { const j = await api("editor/novo", { modo: "descartar" }); dados = j; folhaAtual = "0"; novoEstado(j); await recarregaControle(); mostraDoca("controle"); });

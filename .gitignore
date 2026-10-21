@@ -11,4 +11,5 @@ simu/validacao/tmp_*/
 simu/validacao/tela/*.png
 *.png.tmp
 # nada de dados de uso nem logins no repositório (ficam em ~/.local/share, ~/.cache e nas pastas das IAs)
-.claude-pew/
+.claude-maisim/
+.env

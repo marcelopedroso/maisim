@@ -1,9 +1,9 @@
-"""Terminais de subcircuito na instância de teste (8768): o terminal encosta na borda da folha como no Gecko (a borda é o
+"""Terminais de subcircuito na instância de teste (7201): o terminal encosta na borda da folha como no Gecko (a borda é o
 lado do borne no bloco), nunca cai num borne ocupado (vai para o livre mais perto; sem livre, erro antes de mexer), anda
 com dx == dy (o Gecko ignora esse passo) e pode ser criado já num lado que não é o padrão; renomear e apagar; tamanho do
 bloco (não deixa juntar bornes); e a prova: fios de fora até os bornes desenhados e a corrente sai V/R."""
 import json, subprocess, time, urllib.request
-B = "http://localhost:8768/pew/simu/"
+B = "http://localhost:7201/maisim/simu/"
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(req, timeout=300).read())
@@ -120,7 +120,7 @@ cmd("CREATE", "SUBCIRCUIT.1", 20, 10, "SUBCIRCUIT")
 for n, y, tipo in (("CIRCUIT_TERMINAL.1", 9, "CIRCUIT_TERMINAL"), ("CIRCUIT_TERMINAL.2", 16, "CIRCUIT_TERMINAL"), ("CONTROL_TERMINAL.1", 24, "CONTROL_TERMINAL")):
     cmd("CREATE", "SUBCIRCUIT.1#" + n, 1, y, tipo)
 sv = api("editor/salvar", {"nome": "teste_sub_juntos", "sobrescrever": True})
-arq = os.path.expanduser("~/.cache/pew_simu_teste/pew/teste_sub_juntos.ipes")
+arq = os.path.expanduser("~/.cache/maisim_teste/circuitos/teste_sub_juntos.ipes")
 b = open(arq, "rb").read(); gz = b[:2] == b"\x1f\x8b"; t = (gzip.decompress(b) if gz else b).decode()
 m = re.search(r"<ElementCONTROL>\n(?:(?!<\\ElementCONTROL>).)*?idStringDialog CONTROL_TERMINAL\.1\n.*?<\\ElementCONTROL>", t, re.S)
 bl = m and re.sub(r"\ny 24\n", "\ny 19\n", m.group(0))                      # 19: o mesmo borne do CIRCUIT_TERMINAL.2 (⌊5 · 19 / 40⌋ = 2)

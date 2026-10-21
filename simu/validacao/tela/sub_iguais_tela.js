@@ -1,4 +1,4 @@
-// o bloco do subcircuito na folha de cima (instância de teste 5010 → 8768), dois achados de Marcelo em 19/10:
+// o bloco do subcircuito na folha de cima (instância de teste 7200 → 7201), dois achados de Marcelo em 19/10:
 // 1. "uma ligação +Vcc ficou presa no SM.ap.1: apaguei o fio mas não consigo tirar do borne" — era a ligação por rótulo, que
 //    a tela não deixava mudar: agora o painel do bloco tem o rótulo de fora de cada borne (apagar solta; escrever liga), só
 //    neste subcircuito (o igual a ele continua com o dele);
@@ -13,7 +13,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   try {
     b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1600, height: 1000 } })).newPage();
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-    await pg.goto("http://localhost:5010/pew/simu/");
+    await pg.goto("http://localhost:7200/maisim/simu/");
     for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof dados !== "undefined" && dados && dados.editor)); k++) { if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }
     await pg.evaluate(async () => {                        // SUBCIRCUIT.1 com um terminal (+Vcc por fora) e uma cópia igual
       const j = await api("editor/novo", { modo: "descartar" }); dados = j; folhaAtual = "0"; novoEstado(j);

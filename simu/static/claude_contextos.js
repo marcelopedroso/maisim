@@ -1,8 +1,8 @@
-// PEW / simu — os contextos salvos (Marcelo, 21/10: "um botãozinho para salvar isso na memória não volátil… usar em outras
+// MaiSim / simu — os contextos salvos (Marcelo, 21/10: "um botãozinho para salvar isso na memória não volátil… usar em outras
 // conversas"; servidor: contextos.py e as rotas claude/contexto*). "salvar": a conversa vira um contexto (a nota de quem
 // salva — "a pessoa escreve o que acha importante", sem resumo pela IA —, a conversa, o controle e a rodada daquele
 // momento); "contextos": a biblioteca — usar nesta
-// conversa (a IA lê a nota e a conversa em todo pedido), abrir, editar, exportar (.pewctx), importar e apagar — e as conversas
+// conversa (a IA lê a nota e a conversa em todo pedido), abrir, editar, exportar (.maisimctx), importar e apagar — e as conversas
 // anteriores (as que o "nova" deixou), que também podem ser salvas.
 const cx = { lista: null, aba: "salvos", filtro: "" };
 
@@ -25,7 +25,7 @@ async function cxSalvar(sid = null, tituloSugerido = "") {
   const hist = atual ? conv.historico || [] : [];
   const titulo = tituloSugerido || `${cxCircuito(conv.circuito) || "conversa"} ${new Date().toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`;
   const m = cxModal("cx-salvar", `<h3>Salvar ${atual ? "esta conversa" : "a conversa anterior"} como contexto</h3>
-    <p class="cc-dica-t">Fica guardado no PEW (fora do repositório): use em outra conversa — e, depois, em outra IA — ou exporte para o time.</p>
+    <p class="cc-dica-t">Fica guardado no MaiSim (fora do repositório): use em outra conversa — e, depois, em outra IA — ou exporte para o time.</p>
     <label class="cx-l">título <input class="cx-titulo" maxlength="200"></label>
     <label class="cx-l">etiquetas <input class="cx-etiquetas" placeholder="separadas por vírgula (ex.: controle, ensaio, artigo)"></label>
     <div class="cx-inclui">incluir: <label><input type="checkbox" class="cx-i" data-k="conversa" checked> a conversa</label>
@@ -56,8 +56,8 @@ async function cxSalvar(sid = null, tituloSugerido = "") {
 async function cxBiblioteca() {
   const m = cxModal("cx-bib", `<h3>Contextos</h3>
     <div class="cx-abas"><button data-aba="salvos">salvos</button><button data-aba="anteriores" title="as conversas que o “nova” deixou (continuam guardadas): salve uma como contexto">conversas anteriores</button>
-      <input class="cx-filtro" placeholder="filtrar (título, etiqueta, circuito)"><button class="cx-importar" title="importar um contexto de um colega (.pewctx)">importar…</button>
-      <input type="file" class="cx-arq" accept=".pewctx,.zip" hidden></div>
+      <input class="cx-filtro" placeholder="filtrar (título, etiqueta, circuito)"><button class="cx-importar" title="importar um contexto de um colega (.maisimctx)">importar…</button>
+      <input type="file" class="cx-arq" accept=".maisimctx,.pewctx,.zip" hidden></div>
     <div class="cx-corpo"></div><div class="cx-status cc-dica-t"></div>
     <div class="modal-botoes"><button class="m-fechar">fechar</button></div>`);
   m.q(".m-fechar").onclick = m.fecha;
@@ -80,7 +80,7 @@ async function cxBiblioteca() {
             ${(c.etiquetas || []).map((t) => `<span class="cx-tag">${escT(t)}</span>`).join("")}</div>
           ${cxLinhaIA(c)}
           <div class="cx-bts"><button data-a="usar" title="${usado ? "parar de usar nesta conversa" : "usar nesta conversa: a IA lê a nota e a conversa em todo pedido"}">${usado ? "em uso ✓" : "usar nesta conversa"}</button>
-            <button data-a="abrir">abrir</button><button data-a="exportar" title="baixar o .pewctx para mandar a um colega">exportar</button><button data-a="apagar" class="cx-perigo">apagar</button></div></div>`;
+            <button data-a="abrir">abrir</button><button data-a="exportar" title="baixar o .maisimctx para mandar a um colega">exportar</button><button data-a="apagar" class="cx-perigo">apagar</button></div></div>`;
       }).join("") : `<div class="cc-vazio">${L.contextos.length ? "nada com esse filtro" : "nenhum contexto salvo ainda: “salvar” na conversa guarda o primeiro"}</div>`;
     } else {
       const itens = L.anteriores.filter((c) => !f || [c.primeiro, c.circuito].join(" ").toLowerCase().includes(f));
@@ -160,15 +160,15 @@ async function cxAbrir(id, depois) {
   };
 }
 
-// exportar: mostra o que vai (a conversa pode ter informação pessoal) e baixa o .pewctx
+// exportar: mostra o que vai (a conversa pode ter informação pessoal) e baixa o .maisimctx
 async function cxExportar(c) {
   let d; try { d = await apiClaude(`contexto?id=${encodeURIComponent(c.id)}`); } catch (err) { cc.aviso = err.message; return; }
   const temAnexos = d.arquivos.some((a) => a.nome.startsWith("anexos/"));
   const m = cxModal("cx-exportar", `<h3>Exportar “${escT(c.titulo)}”</h3>
-    <p class="cc-dica-t">Vai um arquivo .pewctx para mandar a um colega do time. Confira o que vai — a conversa inteira vai junto.</p>
+    <p class="cc-dica-t">Vai um arquivo .maisimctx para mandar a um colega do time. Confira o que vai — a conversa inteira vai junto.</p>
     <div class="cc-dica-t cx-lista-arq">${d.arquivos.map((a) => `<div data-anexo="${a.nome.startsWith("anexos/") ? 1 : 0}">${escT(a.nome)} · ${cxTam(a.tamanho)}</div>`).join("")}</div>
     ${temAnexos ? `<label><input type="checkbox" class="cx-com-anexos" checked> com os anexos</label>` : ""}
-    <div class="modal-botoes"><button class="m-fechar">cancelar</button><button class="m-guardar primario">baixar .pewctx</button></div>`);
+    <div class="modal-botoes"><button class="m-fechar">cancelar</button><button class="m-guardar primario">baixar .maisimctx</button></div>`);
   m.q(".m-fechar").onclick = m.fecha;
   if (m.q(".cx-com-anexos")) m.q(".cx-com-anexos").onchange = (ev) => m.fundo.querySelectorAll('[data-anexo="1"]').forEach((x) => { x.style.textDecoration = ev.target.checked ? "" : "line-through"; });
   m.q(".m-guardar").onclick = async () => {
@@ -176,7 +176,7 @@ async function cxExportar(c) {
     const r = await fetch(`claude/contexto/exportar?id=${encodeURIComponent(c.id)}&anexos=${anexos ? 1 : 0}`);
     if (!r.ok) { m.q(".cc-dica-t").textContent = ((await r.json().catch(() => ({}))).erro) || r.statusText; return; }
     const url = URL.createObjectURL(await r.blob()), a = document.createElement("a");
-    a.href = url; a.download = `${c.id}.pewctx`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+    a.href = url; a.download = `${c.id}.maisimctx`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
     m.fecha();
   };
 }

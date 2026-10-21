@@ -1,11 +1,11 @@
-# variáveis globais ($) pela API (instância de teste 8768): criar, ligar um parâmetro (como no Gecko: digitar $Vdc no campo),
+# variáveis globais ($) pela API (instância de teste 7201): criar, ligar um parâmetro (como no Gecko: digitar $Vdc no campo),
 # a simulação usar o valor da variável (e mudar com ela), desligar (o parâmetro volta a ser número), apagar (quem usava fica
 # com o valor), dentro de um subcircuito, Ctrl+Z, e os erros (nome sem $, repetida, parâmetro que não é número)
 import json, os, urllib.request, time
 from pathlib import Path
 import numpy as np
 RAIZ_PROJ = str(Path(__file__).resolve().parents[2])   # a raiz do projeto (validacao → simu → raiz)
-B = "http://localhost:8768/pew/simu/"
+B = "http://localhost:7201/maisim/simu/"
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(req, timeout=180).read())

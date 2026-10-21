@@ -5,11 +5,11 @@ const REINICIA = require("path").resolve(__dirname, "../reinicia_servidor_teste.
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
 (async () => {
-  const b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1500, height: 900 } })).newPage(); await pg.addInitScript(() => { try { localStorage.setItem("pew-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
+  const b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1500, height: 900 } })).newPage(); await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
   const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-  const ARQ = require("os").homedir() + "/.cache/pew_simu_teste/pew/valida_tela.ipes";
+  const ARQ = require("os").homedir() + "/.cache/maisim_teste/circuitos/valida_tela.ipes";
   // o circuito do teste, montado aqui (antes era uma sobra na pasta da instância de teste): U.1 → S.1 → R.1, CONST_1 → GATE.1 → S.1
-  const api = (rota, corpo) => fetch("http://localhost:8768/pew/simu/" + rota, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo) }).then((r) => r.json());
+  const api = (rota, corpo) => fetch("http://localhost:7201/maisim/simu/" + rota, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo) }).then((r) => r.json());
   const cmd = (op, args) => api("editor/cmd", { op, args });
   await api("editor/novo", { descartar: true });
   for (const a of [["U.1", 4, 10, "U"], ["S.1", 10, 6, "S"], ["R.1", 16, 10, "R"], ["CONST.1", 4, 18, "CONST"], ["GATE.1", 12, 18, "GATE"], ["VOLT.1", 24, 10, "VOLT"]]) await cmd("CREATE", a);
@@ -18,9 +18,9 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   await api("editor/mede", { nome: "GATE.1", tipo: "G", componente: "S.1" });
   await cmd("OUTNODE", ["VOLT.1", 0, "v_R"]); await api("editor/mede", { nome: "VOLT.1", tipo: "V", no1: "b", no2: "gnd" });
   await api("editor/controle", { controle: { ativo: true, Ts: 1e-4, atuacoes: ["CONST_1"], parametros: [], codigo: "def passo(t, m, p, e):\n    return {}\n" } });
-  const salvo = await api("editor/salvar", { nome: "valida_tela", pasta: "pew", sobrescrever: true });
+  const salvo = await api("editor/salvar", { nome: "valida_tela", pasta: "circuitos", sobrescrever: true });
   ok(!salvo.erro && salvo.salvo, `circuito do teste salvo: ${salvo.salvo || salvo.erro}`);
-  await pg.goto(`http://localhost:8768/pew/simu/?modelo=${encodeURIComponent(ARQ)}`);
+  await pg.goto(`http://localhost:7201/maisim/simu/?modelo=${encodeURIComponent(ARQ)}`);
   await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
   await pg.click("#bt-editar"); await pg.waitForTimeout(500); if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok");
   await pg.waitForFunction(() => dados && dados.editor, null, { timeout: 30000 });
@@ -31,7 +31,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     poeCodigo('"CONST_1"# comentário\ndef iniciar(p, e):\n    pass\n\n\ndef passo(t, m, p, e):\n    fase = (t * p["f_clk"] + 1e-9) % 1.0\n    return {"CONST_1": 1.0 if fase < p["duty"] else 0.0}\n'); });
   await pg.evaluate(() => guardaControle()); await pg.waitForTimeout(400);
   const v = await pg.evaluate(() => ({ estado: $("ctl-estado").textContent, cls: $("ctl-estado").className,
-    marcas: monaco.editor.getModelMarkers({ owner: "pew" }).map((m) => [m.startLineNumber, m.startColumn, m.endColumn, m.severity]) }));
+    marcas: monaco.editor.getModelMarkers({ owner: "maisim" }).map((m) => [m.startLineNumber, m.startColumn, m.endColumn, m.severity]) }));
   ok(/2 avisos no código/.test(v.estado) && v.cls === "aviso" && JSON.stringify(v.marcas) === JSON.stringify([[7, 17, 27, 4], [8, 38, 47, 4]]), `validador: "${v.estado.slice(0, 70)}…" · marcas ${JSON.stringify(v.marcas)}`);
   await pg.click("#ctl-testar"); await pg.waitForFunction(() => !/testando/.test($("ctl-saida").textContent), null, { timeout: 30000 });
   let sa = await pg.evaluate(() => ({ t: $("ctl-saida").textContent, c: $("ctl-saida").className }));
@@ -40,7 +40,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   // cria os parâmetros: avisos somem, testar mostra o clock
   await pg.evaluate(() => { ctl.dados.controle.parametros = [{ nome: "f_clk", valor: 1000, unidade: "Hz" }, { nome: "duty", valor: 0.5, unidade: "" }]; desenhaLigacoes(); });
   await pg.evaluate(() => guardaControle()); await pg.waitForTimeout(300);
-  ok(await pg.evaluate(() => $("ctl-estado").textContent) === "guardado" && await pg.evaluate(() => monaco.editor.getModelMarkers({ owner: "pew" }).length) === 0, "com f_clk e duty: guardado, sem sublinhados");
+  ok(await pg.evaluate(() => $("ctl-estado").textContent) === "guardado" && await pg.evaluate(() => monaco.editor.getModelMarkers({ owner: "maisim" }).length) === 0, "com f_clk e duty: guardado, sem sublinhados");
   await pg.click("#ctl-testar"); await pg.waitForFunction(() => !/testando/.test($("ctl-saida").textContent), null, { timeout: 30000 });
   sa = await pg.evaluate(() => ({ t: $("ctl-saida").textContent, c: $("ctl-saida").className }));
   ok(sa.c === "ok" && /teste ok/.test(sa.t) && (sa.t.match(/CONST_1 = 1/g) || []).length === 3, `testar: ${sa.t.split("\n").slice(0, 2).join(" | ")}`);
@@ -57,7 +57,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   ok(!(await pg.$(".modal-fundo")) && await pg.evaluate(() => dados.folhas["0"].elementos.find((e) => e.nome === "R.1").x) === 22, "servidor reiniciado: entra na edição sem perguntar, com a mudança");
   // mudança que o editor não viu (simulada: a lembrança apagada): pergunta; o foco começa em "manter" e Enter mantém
   await pg.click("#bt-editar"); await pg.waitForTimeout(500);
-  require("fs").writeFileSync(require("os").homedir() + "/.cache/pew_simu_teste/visto.txt", "outro"); execFileSync(REINICIA);
+  require("fs").writeFileSync(require("os").homedir() + "/.cache/maisim_teste/visto.txt", "outro"); execFileSync(REINICIA);
   await pg.click("#bt-editar"); await pg.waitForSelector(".modal .m-extra", { timeout: 30000 }); await pg.waitForTimeout(200);
   const bts = await pg.$$eval(".modal .modal-botoes button", (l) => l.map((x) => x.textContent));
   const foco = await pg.evaluate(() => document.activeElement && document.activeElement.textContent);
@@ -81,7 +81,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   ok(/salvar valida_tela\.ipes e criar/.test(bt3.join("|")) && /descartar e criar/.test(bt3.join("|")), `novo: ${bt3.join(" · ")}`);
   await pg.keyboard.press("Escape"); await pg.waitForTimeout(600);
   ok(await pg.evaluate(() => dados.folhas["0"].elementos.some((e) => e.nome === "R.1")), "Esc no novo: o circuito continua");
-  await pg.evaluate((a) => api("editor/abrir", { arq: a, modo: "descartar" }), require("os").homedir() + "/.cache/pew_simu_teste/pew/valida_tela.ipes");
+  await pg.evaluate((a) => api("editor/abrir", { arq: a, modo: "descartar" }), require("os").homedir() + "/.cache/maisim_teste/circuitos/valida_tela.ipes");
   ok(!erros.length, `sem erros de JS nem diálogos ${erros.join(" ; ")}`);
   await b.close(); process.exit(falhas ? 1 : 0);
 })();

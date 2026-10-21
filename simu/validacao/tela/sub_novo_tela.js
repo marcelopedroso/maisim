@@ -1,14 +1,14 @@
-// subcircuito criado do zero pela tela (instância de teste 5010 → 8768): pôr o bloco (aba Subcircuit), entrar nele vazio
+// subcircuito criado do zero pela tela (instância de teste 7200 → 7201): pôr o bloco (aba Subcircuit), entrar nele vazio
 // (duplo clique; antes, a folha de um SM vazio não existia e não dava para entrar), pôr dois terminais e um resistor,
 // rotular os bornes de fora, ligar uma fonte e simular: a corrente tem de ser V/R. Depois, salvar na biblioteca.
 const { chromium } = require("playwright");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
-const B = "http://localhost:5010/pew/simu/";
+const B = "http://localhost:7200/maisim/simu/";
 (async () => {
   let b;
   try {
-    b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1500, height: 900 } })).newPage(); await pg.addInitScript(() => { try { localStorage.setItem("pew-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
+    b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1500, height: 900 } })).newPage(); await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
     const api = (rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(c) } : {}).then((x) => x.json()), [rota, corpo]);
     await pg.goto(B); await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
@@ -72,7 +72,7 @@ const B = "http://localhost:5010/pew/simu/";
     // salvar na biblioteca (o subcircuito novo vira reutilizável)
     const lib = await api("editor/biblioteca", { acao: "salvar", nome: "SUBCIRCUIT.1", nome_lib: "teste_sub_novo", sobrescrever: true });
     ok(!lib.erro, `salvo na biblioteca: ${lib.erro || "ok"}`);
-    require("fs").rmSync(require("path").join(require("os").homedir(), ".cache/pew_simu_teste/subcircuitos/teste_sub_novo.ipes"), { force: true });
+    require("fs").rmSync(require("path").join(require("os").homedir(), ".cache/maisim_teste/subcircuitos/teste_sub_novo.ipes"), { force: true });
     ok(!erros.length, `sem erros de JS nem diálogos ${erros.join(" ; ")}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message}`); }
   finally { if (b) await b.close(); }

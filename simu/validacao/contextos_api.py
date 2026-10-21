@@ -1,22 +1,22 @@
-"""Os contextos salvos (instância de teste 8768, claude de mentira), Marcelo em 21/10 ("um botãozinho para salvar isso na
+"""Os contextos salvos (instância de teste 7201, claude de mentira), Marcelo em 21/10 ("um botãozinho para salvar isso na
 memória não volátil… usar em outras conversas"): salvar a conversa (a nota de quem salva, a conversa, o controle e a rodada; sem resumo pela IA),
 listar, ler, renomear, usar numa conversa nova (a pasta recebe contextos/<id>/ e o pedido cita), salvar uma conversa
-anterior (que o "nova" deixou), exportar e importar o .pewctx (e recusar um malicioso), apagar. Nada no repositório."""
+anterior (que o "nova" deixou), exportar e importar o .maisimctx (e recusar um malicioso), apagar. Nada no repositório."""
 import base64, io, json, os, subprocess, time, urllib.request, zipfile
 from pathlib import Path
-B = "http://localhost:8768/pew/simu/"
-PID = subprocess.run("ss -ltnp | grep ':8768 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1", shell=True, capture_output=True, text=True).stdout.strip()
+B = "http://localhost:7201/maisim/simu/"
+PID = subprocess.run("ss -ltnp | grep ':7201 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1", shell=True, capture_output=True, text=True).stdout.strip()
 ENV = dict(x.split("=", 1) for x in Path(f"/proc/{PID}/environ").read_bytes().decode().split("\0") if "=" in x)
-assert ENV.get("PEW_CLAUDE_BIN", "").endswith("claude_falso.py"), "suba o servidor de teste com o claude de mentira (reinicia_servidor_teste.sh)"
-CONF, CTX = Path(ENV["PEW_CLAUDE_DIR"]), Path(ENV.get("PEW_CONTEXTOS", ""))
-assert "pew_simu_teste" in str(CTX), f"a pasta dos contextos tem de ser a da instância de teste (veio {CTX})"
-CASA, SALVOS = Path(ENV["PEW_SIMU_CACHE"]) / "claude", Path(ENV["PEW_SIMU_SALVOS"])
+assert ENV.get("MAISIM_CLAUDE_BIN", "").endswith("claude_falso.py"), "suba o servidor de teste com o claude de mentira (reinicia_servidor_teste.sh)"
+CONF, CTX = Path(ENV["MAISIM_CLAUDE_DIR"]), Path(ENV.get("MAISIM_CONTEXTOS", ""))
+assert "maisim_teste" in str(CTX), f"a pasta dos contextos tem de ser a da instância de teste (veio {CTX})"
+CASA, SALVOS = Path(ENV["MAISIM_SIMU_CACHE"]) / "claude", Path(ENV["MAISIM_SALVOS"])
 REPO = Path(__file__).resolve().parents[2]
 
 
 def api(rota, corpo=None, cru=False):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None,
-                                 headers={"Content-Type": "application/json", "X-PEW": "1"})
+                                 headers={"Content-Type": "application/json", "X-MaiSim": "1"})
     try:
         r = urllib.request.urlopen(req, timeout=180).read()
         return r if cru else json.loads(r)
@@ -106,21 +106,21 @@ try:
     # exportar e importar de volta
     z = api(f"claude/contexto/exportar?id={cid}&anexos=1", cru=True)
     nomes = sorted(zipfile.ZipFile(io.BytesIO(z)).namelist()) if isinstance(z, bytes) else []
-    r = api("claude/contexto/importar", {"nome": f"{cid}.pewctx", "dados": base64.b64encode(z).decode()})
+    r = api("claude/contexto/importar", {"nome": f"{cid}.maisimctx", "dados": base64.b64encode(z).decode()})
     cid3 = r.get("id", "")
     ids.append(cid3)
     m3 = json.loads((CTX / cid3 / "meta.json").read_text()) if cid3 else {}
     iguais = cid3 and all((CTX / cid / n.split("/", 1)[1]).read_bytes() == (CTX / cid3 / n.split("/", 1)[1]).read_bytes()
                           for n in nomes if not n.endswith("meta.json"))
-    ok(cid3 and cid3 != cid and iguais and m3.get("importado", {}).get("arquivo") == f"{cid}.pewctx",
+    ok(cid3 and cid3 != cid and iguais and m3.get("importado", {}).get("arquivo") == f"{cid}.maisimctx",
        f"exportar ({len(nomes)} arquivos) e importar de volta: {cid3}, igual, com a origem no meta")
     ruim = io.BytesIO()
     with zipfile.ZipFile(ruim, "w") as zz:
         zz.writestr("x/meta.json", json.dumps({"titulo": "mal"})); zz.writestr("x/contexto.md", "# mal"); zz.writestr("x/../../fora.txt", "!")
-    r1 = api("claude/contexto/importar", {"nome": "mal.pewctx", "dados": base64.b64encode(ruim.getvalue()).decode()})
-    r2 = api("claude/contexto/importar", {"nome": "nada.pewctx", "dados": base64.b64encode(b"isto nao e zip").decode()})
+    r1 = api("claude/contexto/importar", {"nome": "mal.maisimctx", "dados": base64.b64encode(ruim.getvalue()).decode()})
+    r2 = api("claude/contexto/importar", {"nome": "nada.maisimctx", "dados": base64.b64encode(b"isto nao e zip").decode()})
     ok(r1.get("ERRO") == 409 and "inválido" in r1.get("erro", "") and r2.get("ERRO") == 409 and not (CTX.parent / "fora.txt").exists(),
-       f"importar um .pewctx malicioso ou que não é zip: recusado ({r1.get('erro')} | {r2.get('erro')})")
+       f"importar um .maisimctx malicioso ou que não é zip: recusado ({r1.get('erro')} | {r2.get('erro')})")
     # o resumo pela IA, opcional, depois de salvar e invisível (Marcelo, 21/10: "invisível… mas SEM RISCO de falha")
     (CONF / "falso_resumo_lento").write_text("2")
     (CONF / "falso_cenario").write_text("ganho")
@@ -143,7 +143,7 @@ try:
         time.sleep(0.5)
     res_ia = (CTX / cid4 / "resumo_ia.md").read_text() if (CTX / cid4 / "resumo_ia.md").exists() else ""
     ctx4 = (CTX / cid4 / "contexto.md").read_text()
-    cham = [c for c in chamadas_falso(True) if "Resuma a conversa do PEW guardada nesta pasta" in " ".join(c["args"])]
+    cham = [c for c in chamadas_falso(True) if "Resuma a conversa do MaiSim guardada nesta pasta" in " ".join(c["args"])]
     ok(m4.get("resumo_ia", {}).get("estado") == "pronto" and "li conversa.md: 1 pedido(s)" in res_ia and "## Resumo pela IA" in ctx4 and "### Objetivo" in ctx4
        and len(api("claude/pedido")["conversa"]["historico"]) == n_hist and cham and cham[0]["cwd"] == str(CTX / cid4)
        and "--no-session-persistence" in cham[0]["args"] and cham[0]["args"][cham[0]["args"].index("--tools") + 1] == "Read,Glob,Grep",
@@ -173,7 +173,7 @@ try:
        "apagar: some da biblioteca e da conversa que o usava")
     ids.remove(cid)
     git_depois = subprocess.run(["git", "status", "--porcelain"], cwd=REPO, capture_output=True, text=True).stdout
-    ok(git_depois == git_antes and not (Path.home() / ".local/share/pew/contextos" / cid2).exists(), "nada no repositório nem na pasta de contextos de verdade")
+    ok(git_depois == git_antes and not (Path.home() / ".local/share/maisim/contextos" / cid2).exists(), "nada no repositório nem na pasta de contextos de verdade")
 finally:
     for i in ids:
         if i:

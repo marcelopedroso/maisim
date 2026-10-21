@@ -1,26 +1,26 @@
-"""O Google Antigravity como IA do PEW (21/10), na instância de teste (8768, PEW_IA_TESTE=1) com o agy de mentira
-(agy_falso.py, PEW_AGY_BIN) numa casa descartável — nunca a conta Google de verdade nem o ~/.agy-pew:
+"""O Google Antigravity como IA do MaiSim (21/10), na instância de teste (7201, MAISIM_IA_TESTE=1) com o agy de mentira
+(agy_falso.py, MAISIM_AGY_BIN) numa casa descartável — nunca a conta Google de verdade nem o ~/.agy-maisim:
   o login (o menu respondido sozinho, o link, o código errado, o código certo, e a página que devolve o código sozinha),
-  os modelos da conta (agy models) com o nome na tela, o pedido (as opções, a casa do PEW, as regras de negação na
-  configuração, as regras do PEW só no começo da conversa), a resposta sem os links file:///, a proposta, a conversa do agy
+  os modelos da conta (agy models) com o nome na tela, o pedido (as opções, a casa do MaiSim, as regras de negação na
+  configuração, as regras do MaiSim só no começo da conversa), a resposta sem os links file:///, a proposta, a conversa do agy
   guardada e retomada, a troca com o Claude, o terminal negado (e ele segue), a parada por permissão (explicada), o erro,
   o login perdido, o resumo de um contexto e sair."""
 import json, re, shutil, subprocess, time, urllib.request
 from pathlib import Path
-B = "http://localhost:8768/pew/simu/"
-PID = subprocess.run("ss -ltnp | grep ':8768 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1", shell=True, capture_output=True, text=True).stdout.strip()
+B = "http://localhost:7201/maisim/simu/"
+PID = subprocess.run("ss -ltnp | grep ':7201 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1", shell=True, capture_output=True, text=True).stdout.strip()
 ENV = dict(x.split("=", 1) for x in Path(f"/proc/{PID}/environ").read_bytes().decode().split("\0") if "=" in x)
-assert ENV.get("PEW_AGY_BIN", "").endswith("agy_falso.py") and ENV.get("PEW_IA_TESTE") == "1", "suba o servidor de teste (reinicia_servidor_teste.sh)"
-CASA_AGY = Path(ENV["PEW_AGY_DIR"])
-assert CASA_AGY.resolve() != (Path.home() / ".agy-pew").resolve(), "a instância de teste nunca usa o ~/.agy-pew"
+assert ENV.get("MAISIM_AGY_BIN", "").endswith("agy_falso.py") and ENV.get("MAISIM_IA_TESTE") == "1", "suba o servidor de teste (reinicia_servidor_teste.sh)"
+CASA_AGY = Path(ENV["MAISIM_AGY_DIR"])
+assert CASA_AGY.resolve() != (Path.home() / ".agy-maisim").resolve(), "a instância de teste nunca usa o ~/.agy-maisim"
 AGY = CASA_AGY / ".gemini" / "antigravity-cli"
-CONF = Path(ENV["PEW_CLAUDE_DIR"])
-SALVOS, CASA, CTX = Path(ENV["PEW_SIMU_SALVOS"]), Path(ENV["PEW_SIMU_CACHE"]) / "claude", Path(ENV["PEW_CONTEXTOS"])
+CONF = Path(ENV["MAISIM_CLAUDE_DIR"])
+SALVOS, CASA, CTX = Path(ENV["MAISIM_SALVOS"]), Path(ENV["MAISIM_SIMU_CACHE"]) / "claude", Path(ENV["MAISIM_CONTEXTOS"])
 
 
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None,
-                                 headers={"Content-Type": "application/json", "X-PEW": "1"})
+                                 headers={"Content-Type": "application/json", "X-MaiSim": "1"})
     try:
         return json.loads(urllib.request.urlopen(req, timeout=180).read())
     except urllib.error.HTTPError as e:
@@ -76,8 +76,8 @@ try:
     # ---------------------------------------------------------------- a lista e o login
     a = agy()
     ok(a.get("nome") == "Google Antigravity" and a.get("instalado") and a.get("tem_login") and not a["estado"]["logado"]
-       and a["estado"]["pasta"].endswith("agy-pew") and a.get("esforcos") == [""],
-       f"/claude/ias: o Google Antigravity, com login pelo PEW, deslogado, o esforço no nome do modelo (pasta {a.get('estado', {}).get('pasta')})")
+       and a["estado"]["pasta"].endswith("agy-maisim") and a.get("esforcos") == [""],
+       f"/claude/ias: o Google Antigravity, com login pelo MaiSim, deslogado, o esforço no nome do modelo (pasta {a.get('estado', {}).get('pasta')})")
     api("editor/abrir", {"arq": str(SALVOS / "exemplo_controle_pwm.ipes"), "modo": "descartar"})
     api("claude/nova", {})
     r = pede("um pedido sem login")
@@ -107,14 +107,14 @@ try:
     api("claude/ia/sair", {"ia": "antigravity"})
     (CASA_AGY / "falso_login").write_text("auto")
     entra_ate_o_link()
-    for _ in range(60):                                    # sem colar nada: o arquivo do login aparece e o PEW fecha o agy
+    for _ in range(60):                                    # sem colar nada: o arquivo do login aparece e o MaiSim fecha o agy
         e = agy()["estado"]
         if e.get("logado") and not (e.get("login") or {}).get("andamento"):
             break
         time.sleep(0.25)
     time.sleep(0.5)
     ok(e.get("logado") and (e.get("login") or {}).get("mensagem") == "login feito" and e.get("email") == "teste@gmail.com" and not vivos(),
-       f"a página do Antigravity devolve o código sozinha: o PEW reconhece pelo arquivo do login, a conta vem do log do agy ({e.get('email')}), e fecha o agy")
+       f"a página do Antigravity devolve o código sozinha: o MaiSim reconhece pelo arquivo do login, a conta vem do log do agy ({e.get('email')}), e fecha o agy")
     (CASA_AGY / "falso_conta").write_text("outra.conta@gmail.com")
     api("claude/ia/uso?ia=antigravity&forca=1")            # o agy roda de novo (e o log dele diz a conta de agora)
     ok(agy()["estado"].get("email") == "outra.conta@gmail.com", "a conta é a do log mais novo do agy (trocou de conta: a tela acompanha)")
@@ -139,10 +139,10 @@ try:
     ok(sem_texto == ["-p", "--output-format", "stream-json", "--sandbox", "--disable-slash-commands", "--model", "gemini-falso-high"],
        f"agy com exatamente estas opções: {sem_texto}")
     prompt1 = a_[a_.index("-p") + 1]
-    ok(prompt1.startswith("Você é a IA do PEW (Google Antigravity)") and "NÃO tem terminal" in prompt1,
-       "a 1ª chamada leva as regras do PEW no começo (e o aviso: sem terminal, sem nada fora da pasta)")
+    ok(prompt1.startswith("Você é a IA do MaiSim (Google Antigravity)") and "NÃO tem terminal" in prompt1,
+       "a 1ª chamada leva as regras do MaiSim no começo (e o aviso: sem terminal, sem nada fora da pasta)")
     ok(set(c["settings"].get("permissions", {}).get("deny", [])) >= {"command(*)", "unsandboxed(*)", "read_url(*)", "execute_url(*)", "mcp(*)"},
-       f"as regras de negação na configuração do agy (casa do PEW): {c['settings'].get('permissions')}")
+       f"as regras de negação na configuração do agy (casa do MaiSim): {c['settings'].get('permissions')}")
     vaza = [k for k in c["env"] if re.match(r"(ANTHROPIC|CLAUDE|GEMINI_API|GOOGLE|OPENAI|VERTEX)", k)]
     ok(not vaza and Path(c["cwd"]) == CASA / "conversas" / sid_conv, f"ambiente limpo ({vaza or 'nada vaza'}), na pasta da conversa")
     sess = json.loads((CASA / "sessoes.json").read_text())
@@ -165,10 +165,10 @@ try:
     cenario("terminal")
     e = pede("rode o controle no terminal")
     ok("Segui sem o terminal" in str(e.get("resposta")) and not e.get("erro") and "terminal (negado)" in e.get("eventos", []),
-       f"o terminal: negado pela regra do PEW e ele segue ({str(e.get('resposta'))[:50]}…)")
+       f"o terminal: negado pela regra do MaiSim e ele segue ({str(e.get('resposta'))[:50]}…)")
     cenario("fora")
     e = pede("escreva fora da pasta")
-    ok("tentou escrever fora da pasta, que o PEW não deixa, e parou" in str(e.get("erro")), f"escrever fora: o agy para e o PEW explica ({str(e.get('erro'))[:70]}…)")
+    ok("tentou escrever fora da pasta, que o MaiSim não deixa, e parou" in str(e.get("erro")), f"escrever fora: o agy para e o MaiSim explica ({str(e.get('erro'))[:70]}…)")
     cenario("erro")
     e = pede("sem cota")
     ok("quota exceeded" in str(e.get("erro")), f"o erro do agy ({e.get('erro')})")
@@ -192,8 +192,8 @@ try:
     ok(r.get("ERRO") == 409 and "entre com a conta do Google Antigravity" in r.get("erro", ""), "sem o arquivo do login: o pedido pede para entrar")
     (AGY / "antigravity-oauth-token").write_text("falso")
     e = api("claude/ia/sair", {"ia": "antigravity"})
-    ok(not e.get("logado") and not (AGY / "antigravity-oauth-token").exists() and not e.get("email") and not (CASA_AGY / "pew" / "conta.json").exists(),
-       "sair: o arquivo do login sai da casa do PEW e a conta some da tela")
+    ok(not e.get("logado") and not (AGY / "antigravity-oauth-token").exists() and not e.get("email") and not (CASA_AGY / "maisim" / "conta.json").exists(),
+       "sair: o arquivo do login sai da casa do MaiSim e a conta some da tela")
 finally:
     for f in ("falso_logado", "falso_cenario"):
         (CONF / f).unlink(missing_ok=True)

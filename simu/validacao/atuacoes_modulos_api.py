@@ -1,5 +1,5 @@
-"""Atuações no fluxo de módulos (instância de teste 8768, com o claude de mentira): o achado de Marcelo em 19/10 — o
-controle.py monta u = {"sm_ap_1_s": …} e devolve escrita.passo(u, …); ao aplicar a proposta do Claude do PEW, o PEW só
+"""Atuações no fluxo de módulos (instância de teste 7201, com o claude de mentira): o achado de Marcelo em 19/10 — o
+controle.py monta u = {"sm_ap_1_s": …} e devolve escrita.passo(u, …); ao aplicar a proposta do Claude do MaiSim, o MaiSim só
 procurava as chaves num return {…} literal, não marcava nada, e o testar avisava "não é atuação marcada (a rodada
 pararia)". Confere: a proposta marca a atuação escrita em u = {…} (e em u["x"] = …, dict(x=…) e num módulo); o return {…}
 de antes continua marcando; um dicionário com chave que não é atuador não marca nada; o validador do editor sublinha a
@@ -7,17 +7,17 @@ chave de atuador não marcada fora do return; e, marcada, o testar não avisa ma
 import json, os, subprocess, time, urllib.request
 from pathlib import Path
 
-B = "http://localhost:8768/pew/simu/"
-PID = subprocess.run("ss -ltnp | grep ':8768 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1", shell=True, capture_output=True, text=True).stdout.strip()
+B = "http://localhost:7201/maisim/simu/"
+PID = subprocess.run("ss -ltnp | grep ':7201 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1", shell=True, capture_output=True, text=True).stdout.strip()
 ENV = dict(x.split("=", 1) for x in Path(f"/proc/{PID}/environ").read_bytes().decode().split("\0") if "=" in x)
-assert ENV.get("PEW_CLAUDE_BIN", "").endswith("claude_falso.py"), "suba o servidor de teste com o claude de mentira (reinicia_servidor_teste.sh)"
-CONF = Path(ENV["PEW_CLAUDE_DIR"])
-assert "pew_simu_teste" in str(CONF) or "/tmp/" in str(CONF), "PEW_CLAUDE_DIR tem de ser uma pasta descartável"
+assert ENV.get("MAISIM_CLAUDE_BIN", "").endswith("claude_falso.py"), "suba o servidor de teste com o claude de mentira (reinicia_servidor_teste.sh)"
+CONF = Path(ENV["MAISIM_CLAUDE_DIR"])
+assert "maisim_teste" in str(CONF) or "/tmp/" in str(CONF), "MAISIM_CLAUDE_DIR tem de ser uma pasta descartável"
 
 
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None,
-                                 headers={"Content-Type": "application/json", "X-PEW": "1"})
+                                 headers={"Content-Type": "application/json", "X-MaiSim": "1"})
     try:
         return json.loads(urllib.request.urlopen(req, timeout=180).read())
     except urllib.error.HTTPError as e:

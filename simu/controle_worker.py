@@ -1,4 +1,4 @@
-"""Processo de UM controlador do /pew/simu (painel "Controle"): o servidor manda pedidos em JSON, um por linha, e lê uma
+"""Processo de UM controlador do /maisim/simu (painel "Controle"): o servidor manda pedidos em JSON, um por linha, e lê uma
 resposta por linha. Cada controlador (cada instância) roda no seu processo: isolado (sem memória comum com os outros) e em
 paralelo com eles (o servidor manda a amostra a todos e depois recolhe). Um erro ou um laço infinito no código do usuário
 não derruba o servidor (que mata o processo se ele não responder no prazo). O print() do usuário vai para a saída de erro
@@ -117,7 +117,7 @@ class Modulos(importlib.abc.MetaPathFinder, importlib.abc.Loader):
 
 modulos = Modulos()
 sys.meta_path.insert(0, modulos)
-if sys.path and sys.path[0] and Path_ok(sys.path[0]):           # a pasta do PEW (a deste arquivo) não é importável pelo usuário
+if sys.path and sys.path[0] and Path_ok(sys.path[0]):           # a pasta do MaiSim (a deste arquivo) não é importável pelo usuário
     sys.path.pop(0)
 
 
@@ -181,7 +181,7 @@ for pedido_txt in sys.stdin:
                                    f"{', '.join(sorted(mapa)) or 'nenhuma'})")
                 if isinstance(v, (list, tuple)) or getattr(v, "ndim", 0) == 1:
                     # o padrão dentro da amostra: um valor por Δt do Gecko (o timer de PWM do SM, que compara a portadora
-                    # a cada Δt com m fixo na amostra — Marcelo, 20/10: rodar no PEW o controle do artigo)
+                    # a cada Δt com m fixo na amostra — Marcelo, 20/10: rodar no MaiSim o controle do artigo)
                     v = [float(x) for x in v]
                     if not v or not all(math.isfinite(x) for x in v):
                         raise ValueError(f"a atuação {k} (padrão dentro da amostra) veio vazia ou com valor não finito")

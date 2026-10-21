@@ -1,4 +1,4 @@
-// a tag (scope e controle) pela tela (instância de teste 5010 → 8768), no PI do exemplo (congelado em validacao/dados):
+// a tag (scope e controle) pela tela (instância de teste 7200 → 7201), no PI do exemplo (congelado em validacao/dados):
 // pela paleta (Measure), ligada ao i_L pelo rótulo, com o nome "corrente": aparece no scope com esse nome e é igual ao i_L,
 // é uma medida do controle (m["corrente"]); dentro de um subcircuito, ganha o prefixo dele (como os medidores)
 const { chromium } = require("playwright");
@@ -6,13 +6,13 @@ const path = require("path");
 const { execFileSync } = require("child_process");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
-const PI = require("os").homedir() + "/.cache/pew_simu_teste/pew/exemplo_controle_pi.ipes";
+const PI = require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_controle_pi.ipes";
 (async () => {
   let b;
   try {
     b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1500, height: 900 } })).newPage();
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-    await pg.goto("http://localhost:5010/pew/simu/?modelo=" + encodeURIComponent(PI));
+    await pg.goto("http://localhost:7200/maisim/simu/?modelo=" + encodeURIComponent(PI));
     for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof dados !== "undefined" && dados && dados.editor)); k++) {   // abre editando
       if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }
     await pg.evaluate(async (pi) => { novoEstado(await api("editor/abrir", { arq: pi, modo: "descartar" })); ajusta(); }, PI);

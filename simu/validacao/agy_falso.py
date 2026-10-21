@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Um `agy` (Antigravity CLI) de mentira para testar o Google Antigravity como IA do PEW sem a conta Google (PEW_AGY_BIN
+"""Um `agy` (Antigravity CLI) de mentira para testar o Google Antigravity como IA do MaiSim sem a conta Google (MAISIM_AGY_BIN
 apontando para cá). Imita o agy 1.4.4 como ele se comportou com a conta do Marcelo em 21/10.
 
 A casa é o HOME (a descartável da instância de teste). Arquivos de controle nela:
@@ -9,7 +9,7 @@ A casa é o HOME (a descartável da instância de teste). Arquivos de controle n
   falso_chamadas.jsonl   cada chamada (argumentos, pasta, as chaves do ambiente, a configuração), para o teste conferir
 O login: o menu "Select login method" (Enter = Google OAuth), o link do Google, "paste the authorization code below:"; o
 código "4/codigo-bom-123" grava o arquivo do login (.gemini/antigravity-cli/antigravity-oauth-token); outro dá invalid_grant.
-O pedido (-p): stream-json aninhado ({"event": "step_update", "step_update": {...}}), e OBEDECE às regras do PEW: com
+O pedido (-p): stream-json aninhado ({"event": "step_update", "step_update": {...}}), e OBEDECE às regras do MaiSim: com
 "command(*)" negado na configuração, o terminal volta negado e ele segue; sem a regra, para sem resposta (como o agy)."""
 import json
 import os
@@ -120,7 +120,7 @@ else:
 uso = {"input_tokens": 2000, "output_tokens": 300, "thinking_tokens": 50, "cache_read_tokens": 1000, "total_tokens": 3350}
 
 # ---------------------------------------------------------------- o resumo de um contexto salvo (-o json)
-if "Resuma a conversa do PEW guardada nesta pasta" in prompt:
+if "Resuma a conversa do MaiSim guardada nesta pasta" in prompt:
     assert saida == "json", "resumo: JSON"
     if cenario == "resumo_falha":
         print(json.dumps({"conversation_id": cid, "status": "ERROR", "response": "", "error": "quota exceeded"}, indent=2))
@@ -186,8 +186,8 @@ elif cenario == "le_conversa":
         n = len(re.findall(r"(?m)^## \d+\. Pedido", Path("CONVERSA.md").read_text()))
         resposta = f"li a conversa: {n} pedido(s)"
     else:
-        resposta = "sem CONVERSA.md" + (" (com as regras do PEW)" if "Você é a IA do PEW" in prompt else "")
-elif cenario == "terminal":                                    # tenta o terminal: com a regra do PEW, negado e segue; sem, para
+        resposta = "sem CONVERSA.md" + (" (com as regras do MaiSim)" if "Você é a IA do MaiSim" in prompt else "")
+elif cenario == "terminal":                                    # tenta o terminal: com a regra do MaiSim, negado e segue; sem, para
     usa("run_command", CommandLine="python3 controle.py")
     if "command(*)" not in nega:
         para("command")

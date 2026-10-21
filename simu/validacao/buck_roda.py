@@ -1,7 +1,7 @@
 """Roda o buck com o PWM no controle.py e confere: v_sw só 0/Vdc (± quedas), fsw, ⟨i_L⟩, ondulação."""
 import json, time, urllib.request, sys
 import numpy as np
-B = "http://localhost:8768/pew/simu/"
+B = "http://localhost:7201/maisim/simu/"
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(req, timeout=600).read())

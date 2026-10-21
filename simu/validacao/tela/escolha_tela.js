@@ -1,4 +1,4 @@
-// a telinha de escolha do que um controlador lê e escreve (instância de teste 5010 → 8768), pedido de Marcelo em 19/10
+// a telinha de escolha do que um controlador lê e escreve (instância de teste 7200 → 7201), pedido de Marcelo em 19/10
 // ("com centenas de variáveis fica ruim de clicar… um dropdown com filtro e multiselect; e clicar no .py abre o código"):
 // clicar em "lê …" abre a telinha junto da linha (também com o zoom de 110 %); filtrar; marcar os filtrados de uma vez
 // (um guardar só); desmarcar um; em "escreve", a atuação de outro controlador aparece "(de …)" e marcar tira de lá;
@@ -12,8 +12,8 @@ const CTL = 'def iniciar(p, e):\n    pass\n\n\ndef passo(t, m, p, e):\n    retur
   try {
     b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1900, height: 1000 } })).newPage();
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-    await pg.addInitScript(() => { try { localStorage.setItem("pew-simu-ctl-vista", "arq"); localStorage.setItem("pew-escala", "1.1"); } catch (e) { /* ok */ } });
-    await pg.goto("http://localhost:5010/pew/simu/");
+    await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-ctl-vista", "arq"); localStorage.setItem("maisim-escala", "1.1"); } catch (e) { /* ok */ } });
+    await pg.goto("http://localhost:7200/maisim/simu/");
     for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof dados !== "undefined" && dados && dados.editor)); k++) { if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }
     await pg.evaluate(async (ctl0) => {                  // 12 CONST: cada saída é uma medida (e uma atuação)
       const j = await api("editor/novo", { modo: "descartar" }); dados = j; folhaAtual = "0"; novoEstado(j);
@@ -68,7 +68,7 @@ const CTL = 'def iniciar(p, e):\n    pass\n\n\ndef passo(t, m, p, e):\n    retur
     ok(!(await pk()), "clique fora fecha a telinha");
     await pg.click('#ctl-ctls .ctl-no[data-abre="dsp_b.py"] .nome'); await pg.waitForTimeout(300);
     ok(await pg.evaluate(() => ctl.arq) === "dsp_b.py", "clicar no dsp_b.py abre o código");
-    await pg.evaluate(async () => { localStorage.removeItem("pew-escala"); await api("editor/novo", { modo: "descartar" }); });
+    await pg.evaluate(async () => { localStorage.removeItem("maisim-escala"); await api("editor/novo", { modo: "descartar" }); });
     ok(!erros.length, `sem erros de JS nem diálogos ${erros.join(" ; ")}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message}`); }
   finally { if (b) await b.close(); }
