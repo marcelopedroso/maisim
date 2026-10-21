@@ -1,0 +1,46 @@
+{
+ "ativo": true,
+ "Ts": 0.0001,
+ "atuacoes": [
+  "u_ctrl"
+ ],
+ "parametros": [
+  {
+   "nome": "Kp",
+   "valor": 12.5664,
+   "unidade": "V/A"
+  },
+  {
+   "nome": "Ki",
+   "valor": 1256.64,
+   "unidade": "V/(A·s)"
+  },
+  {
+   "nome": "i_ref",
+   "valor": 5.0,
+   "unidade": "A"
+  },
+  {
+   "nome": "Vmax",
+   "valor": 100.0,
+   "unidade": "V"
+  }
+ ],
+ "codigo": "# Exemplo do PEW: controle de corrente PI num RL, com anti-windup.\n# Circuito: fonte controlada pelo sinal u_ctrl -> R (1 ohm) -> L (10 mH) -> fonte de perturbacao v_dist -> volta.\n# Ganhos por cancelamento do polo do RL (Kp = L*wc, Ki = R*wc): a corrente segue a referencia como um 1a ordem de tau = 1/wc.\n# Acionamentos (no painel): a referencia vai de 5 A para 8 A em 12 ms e a perturbacao de 20 V entra em 22 ms.\n# Repare: a resposta a referencia e rapida (tau = 1/wc ~ 0,8 ms), mas a perturbacao e rejeitada devagar (~10 ms):\n# o cancelamento do polo do RL faz o polo L/R voltar na resposta a perturbacao. Aumente Ki e veja a diferenca.\n\ndef iniciar(p, e):\n    e[\"integral\"] = 0.0\n\n\ndef passo(t, m, p, e):\n    erro = p[\"i_ref\"] - m[\"i_L\"]\n    u = p[\"Kp\"] * erro + p[\"Ki\"] * (e[\"integral\"] + erro * p[\"Ts\"])\n    if abs(u) < p[\"Vmax\"]:                  # anti-windup: so integra se a saida nao estiver saturada\n        e[\"integral\"] += erro * p[\"Ts\"]\n    u = max(-p[\"Vmax\"], min(p[\"Vmax\"], u))\n    scope(\"i_ref\", p[\"i_ref\"])\n    scope(\"erro\", erro)\n    return {\"u_ctrl\": u}\n",
+ "atraso": {
+  "modo": "amostra",
+  "tempo": 0.0
+ },
+ "acionamentos": [
+  {
+   "t": 0.012,
+   "alvo": "p:i_ref",
+   "valor": 8.0
+  },
+  {
+   "t": 0.022,
+   "alvo": "CONST:v_dist",
+   "valor": 20.0
+  }
+ ]
+}

@@ -1,0 +1,1028 @@
+{
+ "fonte": "MDPGeckoCIRCUITS, SchematischeEingabeAuswahl2 + CircuitTyp/ControlTyp/SpecialTyp + I18nKeys",
+ "abas": [
+  {
+   "aba": "Circuit",
+   "itens": [
+    {
+     "enum": "LK_U",
+     "dom": "LK",
+     "typ": 4,
+     "classe": "VoltageSourceElectric",
+     "id": "U",
+     "nome": "Voltage Source U[V]"
+    },
+    {
+     "enum": "LK_I",
+     "dom": "LK",
+     "typ": 5,
+     "classe": "CurrentSourceCircuit",
+     "id": "I",
+     "nome": "Current Source I[A]"
+    },
+    {
+     "enum": "LK_R",
+     "dom": "LK",
+     "typ": 1,
+     "classe": "ResistorCircuit",
+     "id": "R",
+     "nome": "Resistor R [Ohm]"
+    },
+    {
+     "enum": "LK_C",
+     "dom": "LK",
+     "typ": 3,
+     "classe": "CapacitorCircuit",
+     "id": "C",
+     "nome": "Capacitor C [F]"
+    },
+    {
+     "enum": "LK_L",
+     "dom": "LK",
+     "typ": 2,
+     "classe": "InductorWOCoupling",
+     "id": "L",
+     "nome": "Inductor L [H]"
+    },
+    {
+     "enum": "LK_LKOP2",
+     "dom": "LK",
+     "typ": 12,
+     "classe": "InductorCoupable",
+     "id": "Lc",
+     "nome": "Inductor Coupling Lc [H]"
+    },
+    {
+     "enum": "LK_M",
+     "dom": "LK",
+     "typ": 9,
+     "classe": "MutualInductance",
+     "id": "K",
+     "nome": "Magnetic Coupling k"
+    },
+    {
+     "enum": "LK_S",
+     "dom": "LK",
+     "typ": 7,
+     "classe": "IdealSwitch",
+     "id": "S",
+     "nome": "Ideal Switch"
+    },
+    {
+     "enum": "LK_IGBT",
+     "dom": "LK",
+     "typ": 10,
+     "classe": "IGBT",
+     "id": "IGBT",
+     "nome": "IGBT"
+    },
+    {
+     "enum": "LK_MOSFET",
+     "dom": "LK",
+     "typ": 28,
+     "classe": "MOSFET",
+     "id": "MOSFET",
+     "nome": "MOSFET"
+    },
+    {
+     "enum": "LK_D",
+     "dom": "LK",
+     "typ": 6,
+     "classe": "Diode",
+     "id": "D",
+     "nome": "Diode"
+    },
+    {
+     "enum": "LK_THYR",
+     "dom": "LK",
+     "typ": 8,
+     "classe": "Thyristor",
+     "id": "THYR",
+     "nome": "Thyristor"
+    },
+    {
+     "enum": "LK_BJT",
+     "dom": "LK",
+     "typ": 33,
+     "classe": "BJT",
+     "id": "BJT",
+     "nome": "Bipolar Transistor"
+    },
+    {
+     "enum": "LK_OPV1",
+     "dom": "LK",
+     "typ": 22,
+     "classe": "OperationalAmplifier",
+     "id": "OP-AMP",
+     "nome": "Operational Amplifier"
+    },
+    {
+     "enum": "LK_TRANS",
+     "dom": "LK",
+     "typ": 23,
+     "classe": "IdealTransformer",
+     "id": "Trans",
+     "nome": "Ideal Transformer"
+    }
+   ]
+  },
+  {
+   "aba": "Motor & EMI",
+   "itens": [
+    {
+     "enum": "LK_MOTOR",
+     "dom": "LK",
+     "typ": 14,
+     "classe": "MotorDC",
+     "id": "M-DC",
+     "nome": "DC Machine"
+    },
+    {
+     "enum": "LK_MOTOR_PERM",
+     "dom": "LK",
+     "typ": 51,
+     "classe": "MotorPermanent",
+     "id": "PM-DC",
+     "nome": "PM DC Machine"
+    },
+    {
+     "enum": "LK_MOTOR_PMSM",
+     "dom": "LK",
+     "typ": 15,
+     "classe": "MotorPMSM",
+     "id": "PMSM",
+     "nome": "PMSM"
+    },
+    {
+     "enum": "LK_MOTOR_SMSALIENT",
+     "dom": "LK",
+     "typ": 16,
+     "classe": "MotorSmSalient",
+     "id": "SM-SAL",
+     "nome": "SM-SAL"
+    },
+    {
+     "enum": "LK_MOTOR_SMROUND",
+     "dom": "LK",
+     "typ": 17,
+     "classe": "MotorSmRound",
+     "id": "SM-RO",
+     "nome": "SM-RO"
+    },
+    {
+     "enum": "LK_MOTOR_IMC",
+     "dom": "LK",
+     "typ": 20,
+     "classe": "MotorInductionMachine",
+     "id": "IM",
+     "nome": "Induction Machine"
+    },
+    {
+     "enum": "LK_MOTOR_IMA",
+     "dom": "LK",
+     "typ": 18,
+     "classe": "MotorImCage",
+     "id": "IM-CAGE",
+     "nome": "IM-CAGE"
+    },
+    {
+     "enum": "LK_MOTOR_IMSAT",
+     "dom": "LK",
+     "typ": 21,
+     "classe": "MotorImSat",
+     "id": "IM-SAT",
+     "nome": "IM-SAT"
+    },
+    {
+     "enum": "LK_LISN",
+     "dom": "LK",
+     "typ": 13,
+     "classe": "LISN",
+     "id": "LISN",
+     "nome": "LISN"
+    }
+   ]
+  },
+  {
+   "aba": "Subcircuit",
+   "itens": [
+    {
+     "enum": "SUBCIRCUIT",
+     "dom": "SPECIAL",
+     "typ": 27,
+     "classe": "SubcircuitBlock",
+     "id": "SUBCIRCUIT",
+     "nome": "Subcircuit"
+    },
+    {
+     "enum": "LK_TERMINAL",
+     "dom": "LK",
+     "typ": 29,
+     "classe": "TerminalCircuit",
+     "id": "CIRCUIT_TERMINAL",
+     "nome": "Circuit Terminal"
+    },
+    {
+     "enum": "TH_TERMINAL",
+     "dom": "THERM",
+     "typ": 49,
+     "classe": "ThTerminal",
+     "id": "THERM_TERMINAL",
+     "nome": "Thermal Terminal"
+    },
+    {
+     "enum": "C_TERMINAL",
+     "dom": "CONTROL",
+     "typ": 78,
+     "classe": "ReglerTERMINAL",
+     "id": "CONTROL_TERMINAL",
+     "nome": "Control Terminal"
+    },
+    {
+     "enum": "REL_TERMINAL",
+     "dom": "REL",
+     "typ": 30,
+     "classe": "RelTerminal",
+     "id": "RELUCTANCE_TERMINAL",
+     "nome": "Reluctance Terminal"
+    },
+    {
+     "enum": "LK_GLOBAL_TERMINAL",
+     "dom": "LK",
+     "typ": 31,
+     "classe": "CircuitGlobalTerminal",
+     "id": "CKT_GLOBAL",
+     "nome": "Global Circuit Terminal"
+    },
+    {
+     "enum": "TH_GLOBAL_TERMINAL",
+     "dom": "THERM",
+     "typ": 50,
+     "classe": "ThGlobalTerminal",
+     "id": "TH_GLOBAL",
+     "nome": "Global Thermal Terminal"
+    },
+    {
+     "enum": "C_GLOBAL_TERMINAL",
+     "dom": "CONTROL",
+     "typ": 81,
+     "classe": "ControlGlobalTerminal",
+     "id": "GLOBAL_CONTROL",
+     "nome": "Global Control Terminal"
+    },
+    {
+     "enum": "REL_GLOBAL_TERMINAL",
+     "dom": "REL",
+     "typ": 32,
+     "classe": "ReluctanceGlobalTerminal",
+     "id": "REL_GLOBAL",
+     "nome": "Global Reluctance Terminal"
+    },
+    {
+     "enum": "C_MUX",
+     "dom": "CONTROL",
+     "typ": 84,
+     "classe": "ReglerMUX",
+     "id": "MUX",
+     "nome": "Control MUX"
+    },
+    {
+     "enum": "C_DEMUX",
+     "dom": "CONTROL",
+     "typ": 85,
+     "classe": "ReglerDemux",
+     "id": "DEMUX",
+     "nome": "Control DEMUX"
+    }
+   ]
+  },
+  {
+   "aba": "Thermal",
+   "itens": [
+    {
+     "enum": "TH_TEMP",
+     "dom": "THERM",
+     "typ": 45,
+     "classe": "VoltageSourceThermalTemperature",
+     "id": "DT",
+     "nome": "Defined Temperature [°C]"
+    },
+    {
+     "enum": "TH_FLOW",
+     "dom": "THERM",
+     "typ": 44,
+     "classe": "HeatFlowCurrentSource",
+     "id": "HEAT-SOURCE",
+     "nome": "Heat Source [W]"
+    },
+    {
+     "enum": "TH_PvCHIP",
+     "dom": "THERM",
+     "typ": 41,
+     "classe": "ThermPvChip",
+     "id": "Pv",
+     "nome": "Component Loss [W]"
+    },
+    {
+     "enum": "TH_RTH",
+     "dom": "THERM",
+     "typ": 46,
+     "classe": "ResistorThermal",
+     "id": "Rth",
+     "nome": "Resistor Rth [K/W]"
+    },
+    {
+     "enum": "TH_CTH",
+     "dom": "THERM",
+     "typ": 47,
+     "classe": "CapacitorThermal",
+     "id": "Cth",
+     "nome": "Capacitor Cth [J/K]"
+    },
+    {
+     "enum": "TH_AMBIENT",
+     "dom": "THERM",
+     "typ": 48,
+     "classe": "ThermAmbient",
+     "id": "TREF",
+     "nome": "Reference Temperature"
+    }
+   ]
+  },
+  {
+   "aba": "Reluctance",
+   "itens": [
+    {
+     "enum": "REL_RELUCTANCE",
+     "dom": "REL",
+     "typ": 24,
+     "classe": "ResistorReluctance",
+     "id": "Rel",
+     "nome": "Reluctance"
+    },
+    {
+     "enum": "NONLIN_REL",
+     "dom": "REL",
+     "typ": 52,
+     "classe": "NonLinearReluctance",
+     "id": "NLRel",
+     "nome": "Nonlinear Reluctance"
+    },
+    {
+     "enum": "REL_MMF",
+     "dom": "REL",
+     "typ": 26,
+     "classe": "VoltageSourceReluctanceMMF",
+     "id": "MMF",
+     "nome": "MMF [amp-turns]"
+    },
+    {
+     "enum": "REL_INDUCTOR",
+     "dom": "REL",
+     "typ": 25,
+     "classe": "ReluctanceInductor",
+     "id": "LRel",
+     "nome": "Inductor-Reluctance"
+    }
+   ]
+  },
+  {
+   "aba": "Control",
+   "itens": [
+    {
+     "enum": "C_GAIN",
+     "dom": "CONTROL",
+     "typ": 7,
+     "classe": "ReglerGain",
+     "id": "GAIN",
+     "nome": "GAIN"
+    },
+    {
+     "enum": "C_PT1",
+     "dom": "CONTROL",
+     "typ": 8,
+     "classe": "ReglerPT1",
+     "id": "PT1",
+     "nome": "PT1"
+    },
+    {
+     "enum": "C_PT2",
+     "dom": "CONTROL",
+     "typ": 9,
+     "classe": "ReglerPT2",
+     "id": "PT2",
+     "nome": "PT2"
+    },
+    {
+     "enum": "C_INT",
+     "dom": "CONTROL",
+     "typ": 64,
+     "classe": "ReglerIntegrator",
+     "id": "INT",
+     "nome": "Integrator"
+    },
+    {
+     "enum": "C_PI",
+     "dom": "CONTROL",
+     "typ": 10,
+     "classe": "ReglerPI",
+     "id": "PI",
+     "nome": "PI"
+    },
+    {
+     "enum": "C_PD",
+     "dom": "CONTROL",
+     "typ": 29,
+     "classe": "ReglerPD",
+     "id": "PD",
+     "nome": "PD"
+    },
+    {
+     "enum": "C_HYS",
+     "dom": "CONTROL",
+     "typ": 11,
+     "classe": "ReglerHysteresis",
+     "id": "HYS",
+     "nome": "Hysteresis"
+    },
+    {
+     "enum": "C_LIMIT",
+     "dom": "CONTROL",
+     "typ": 27,
+     "classe": "ReglerLimit",
+     "id": "LIMIT",
+     "nome": "Limiter"
+    },
+    {
+     "enum": "C_ADD",
+     "dom": "CONTROL",
+     "typ": 12,
+     "classe": "ReglerAdd",
+     "id": "ADD",
+     "nome": "Addition"
+    },
+    {
+     "enum": "C_SUB",
+     "dom": "CONTROL",
+     "typ": 13,
+     "classe": "ReglerSubtraction",
+     "id": "SUB",
+     "nome": "Subtraction"
+    },
+    {
+     "enum": "C_MUL",
+     "dom": "CONTROL",
+     "typ": 14,
+     "classe": "ReglerMUL",
+     "id": "MUL",
+     "nome": "Multiplication"
+    },
+    {
+     "enum": "C_DIV",
+     "dom": "CONTROL",
+     "typ": 15,
+     "classe": "ReglerDivision",
+     "id": "DIV",
+     "nome": "Division"
+    },
+    {
+     "enum": "C_MIN",
+     "dom": "CONTROL",
+     "typ": 49,
+     "classe": "ReglerMIN",
+     "id": "MIN",
+     "nome": "Minimum"
+    },
+    {
+     "enum": "C_MAX",
+     "dom": "CONTROL",
+     "typ": 50,
+     "classe": "ReglerMAX",
+     "id": "MAX",
+     "nome": "Maximum"
+    },
+    {
+     "enum": "C_SIGN",
+     "dom": "CONTROL",
+     "typ": 51,
+     "classe": "ReglerSignum",
+     "id": "SGN",
+     "nome": "Signum function"
+    },
+    {
+     "enum": "C_TF",
+     "dom": "CONTROL",
+     "typ": 74,
+     "classe": "ReglerTransferFunction",
+     "id": "TF",
+     "nome": "Transfer Function H(s)"
+    }
+   ]
+  },
+  {
+   "aba": "Measure",
+   "itens": [
+    {
+     "enum": "C_SCOPE",
+     "dom": "CONTROL",
+     "typ": 5,
+     "classe": "ReglerOSZI",
+     "id": "SCOPE",
+     "nome": "Scope"
+    },
+    {
+     "enum": "C_VOLTMETER",
+     "dom": "CONTROL",
+     "typ": 1,
+     "classe": "ReglerVOLT",
+     "id": "VOLT",
+     "nome": "Voltage Measurement [V]"
+    },
+    {
+     "enum": "C_AMPMETER",
+     "dom": "CONTROL",
+     "typ": 2,
+     "classe": "ReglerAmperemeter",
+     "id": "AMP",
+     "nome": "Current Measurement [A]"
+    },
+    {
+     "enum": "C_MMFMETER",
+     "dom": "CONTROL",
+     "typ": 79,
+     "classe": "ReglerMMF",
+     "id": "MMF_MEAS",
+     "nome": "MMF Measurement [A]"
+    },
+    {
+     "enum": "C_FLUXMETER",
+     "dom": "CONTROL",
+     "typ": 80,
+     "classe": "ReglerFluxMeter",
+     "id": "FLUX",
+     "nome": "Flux Measurement [Wb]"
+    },
+    {
+     "enum": "C_TEMP",
+     "dom": "CONTROL",
+     "typ": 16,
+     "classe": "ReglerTEMP",
+     "id": "TEMP",
+     "nome": "Temperature Measurement"
+    },
+    {
+     "enum": "C_FLOW",
+     "dom": "CONTROL",
+     "typ": 17,
+     "classe": "ReglerFlowMeter",
+     "id": "FLOW",
+     "nome": "Heatflow Measurement [W]"
+    },
+    {
+     "enum": "C_VIEWMOT",
+     "dom": "CONTROL",
+     "typ": 62,
+     "classe": "ReglerVIEWMOT",
+     "id": "VIEWMOT",
+     "nome": "Machine-Internal"
+    },
+    {
+     "enum": "C_CISPR16",
+     "dom": "CONTROL",
+     "typ": 60,
+     "classe": "ReglerCISPR16",
+     "id": "CISPR16",
+     "nome": "EMI Test Receiver"
+    },
+    {
+     "enum": "C_SPACE_VECTOR",
+     "dom": "CONTROL",
+     "typ": 63,
+     "classe": "ReglerSpaceVector",
+     "id": "SV",
+     "nome": "Space Vector Diagram"
+    },
+    {
+     "enum": "C_U_ZI",
+     "dom": "CONTROL",
+     "typ": 73,
+     "classe": "ReglerU_ZI",
+     "id": "UZI",
+     "nome": "U-Z*i Diagram"
+    }
+   ]
+  },
+  {
+   "aba": "Digital",
+   "itens": [
+    {
+     "enum": "C_NOT",
+     "dom": "CONTROL",
+     "typ": 18,
+     "classe": "ReglerNOT",
+     "id": "NOT",
+     "nome": "NOT"
+    },
+    {
+     "enum": "C_AND",
+     "dom": "CONTROL",
+     "typ": 19,
+     "classe": "ReglerAnd",
+     "id": "AND",
+     "nome": "AND"
+    },
+    {
+     "enum": "C_OR",
+     "dom": "CONTROL",
+     "typ": 20,
+     "classe": "ReglerOr",
+     "id": "OR",
+     "nome": "OR"
+    },
+    {
+     "enum": "C_XOR",
+     "dom": "CONTROL",
+     "typ": 21,
+     "classe": "ReglerExclusiveOr",
+     "id": "XOR",
+     "nome": "XOR"
+    },
+    {
+     "enum": "C_DELAY",
+     "dom": "CONTROL",
+     "typ": 25,
+     "classe": "ReglerDelay",
+     "id": "DELAY",
+     "nome": "Delay"
+    },
+    {
+     "enum": "C_SAMPLEHOLD",
+     "dom": "CONTROL",
+     "typ": 26,
+     "classe": "ReglerSampleHold",
+     "id": "SHLD",
+     "nome": "Sample-Hold"
+    },
+    {
+     "enum": "C_COUNTER",
+     "dom": "CONTROL",
+     "typ": 53,
+     "classe": "ReglerCounter",
+     "id": "COUNTER",
+     "nome": "Counter"
+    },
+    {
+     "enum": "C_GE",
+     "dom": "CONTROL",
+     "typ": 45,
+     "classe": "ReglerGreaterEqual",
+     "id": "GE",
+     "nome": "Greater-Equal (>=)"
+    },
+    {
+     "enum": "C_GT",
+     "dom": "CONTROL",
+     "typ": 46,
+     "classe": "ReglerGreaterThan",
+     "id": "GT",
+     "nome": "Greater (>)"
+    },
+    {
+     "enum": "C_EQ",
+     "dom": "CONTROL",
+     "typ": 47,
+     "classe": "ReglerEqual",
+     "id": "EQ",
+     "nome": "Equal (==)"
+    },
+    {
+     "enum": "C_NE",
+     "dom": "CONTROL",
+     "typ": 48,
+     "classe": "ReglerNE",
+     "id": "NE",
+     "nome": "Not Equal (!=)"
+    }
+   ]
+  },
+  {
+   "aba": "Math",
+   "itens": [
+    {
+     "enum": "C_ADD",
+     "dom": "CONTROL",
+     "typ": 12,
+     "classe": "ReglerAdd",
+     "id": "ADD",
+     "nome": "Addition"
+    },
+    {
+     "enum": "C_SUB",
+     "dom": "CONTROL",
+     "typ": 13,
+     "classe": "ReglerSubtraction",
+     "id": "SUB",
+     "nome": "Subtraction"
+    },
+    {
+     "enum": "C_MUL",
+     "dom": "CONTROL",
+     "typ": 14,
+     "classe": "ReglerMUL",
+     "id": "MUL",
+     "nome": "Multiplication"
+    },
+    {
+     "enum": "C_DIV",
+     "dom": "CONTROL",
+     "typ": 15,
+     "classe": "ReglerDivision",
+     "id": "DIV",
+     "nome": "Division"
+    },
+    {
+     "enum": "C_ABS",
+     "dom": "CONTROL",
+     "typ": 32,
+     "classe": "ReglerAbsolutValue",
+     "id": "ABS",
+     "nome": "Absolute"
+    },
+    {
+     "enum": "C_SIGN",
+     "dom": "CONTROL",
+     "typ": 51,
+     "classe": "ReglerSignum",
+     "id": "SGN",
+     "nome": "Signum function"
+    },
+    {
+     "enum": "C_ROUND",
+     "dom": "CONTROL",
+     "typ": 33,
+     "classe": "ReglerRound",
+     "id": "ROUND",
+     "nome": "Round"
+    },
+    {
+     "enum": "C_SQR",
+     "dom": "CONTROL",
+     "typ": 42,
+     "classe": "ReglerSQR",
+     "id": "SQR",
+     "nome": "Square"
+    },
+    {
+     "enum": "C_SQRT",
+     "dom": "CONTROL",
+     "typ": 43,
+     "classe": "ReglerSQRT",
+     "id": "SQRT",
+     "nome": "SQRT"
+    },
+    {
+     "enum": "C_POW",
+     "dom": "CONTROL",
+     "typ": 44,
+     "classe": "ReglerPOW",
+     "id": "POW",
+     "nome": "POW"
+    },
+    {
+     "enum": "C_EXP",
+     "dom": "CONTROL",
+     "typ": 40,
+     "classe": "ReglerExponential",
+     "id": "EXP",
+     "nome": "EXP"
+    },
+    {
+     "enum": "C_LN",
+     "dom": "CONTROL",
+     "typ": 41,
+     "classe": "ReglerLN",
+     "id": "LN",
+     "nome": "LN"
+    },
+    {
+     "enum": "C_SIN",
+     "dom": "CONTROL",
+     "typ": 34,
+     "classe": "ReglerSIN",
+     "id": "SIN",
+     "nome": "SIN"
+    },
+    {
+     "enum": "C_COS",
+     "dom": "CONTROL",
+     "typ": 36,
+     "classe": "ReglerCosine",
+     "id": "COS",
+     "nome": "COS"
+    },
+    {
+     "enum": "C_TAN",
+     "dom": "CONTROL",
+     "typ": 38,
+     "classe": "ReglerTAN",
+     "id": "TAN",
+     "nome": "TAN"
+    },
+    {
+     "enum": "C_ASIN",
+     "dom": "CONTROL",
+     "typ": 35,
+     "classe": "ReglerAreaSine",
+     "id": "ASIN",
+     "nome": "ASIN"
+    },
+    {
+     "enum": "C_ACOS",
+     "dom": "CONTROL",
+     "typ": 37,
+     "classe": "ReglerAreaCosine",
+     "id": "ACOS",
+     "nome": "ACOS"
+    },
+    {
+     "enum": "C_ATAN",
+     "dom": "CONTROL",
+     "typ": 39,
+     "classe": "ReglerAreaTangens",
+     "id": "ATAN",
+     "nome": "ATAN"
+    },
+    {
+     "enum": "C_SDFT",
+     "dom": "CONTROL",
+     "typ": 82,
+     "classe": "ReglerSlidingDFT",
+     "id": "SDFT",
+     "nome": "SDFT"
+    }
+   ]
+  },
+  {
+   "aba": "Source/Sink",
+   "itens": [
+    {
+     "enum": "C_SIGNALSOURCE",
+     "dom": "CONTROL",
+     "typ": 4,
+     "classe": "ReglerSignalSource",
+     "id": "SIGNAL",
+     "nome": "Signal Source"
+    },
+    {
+     "enum": "C_CONST",
+     "dom": "CONTROL",
+     "typ": 3,
+     "classe": "ReglerConstant",
+     "id": "CONST",
+     "nome": "Constant value"
+    },
+    {
+     "enum": "C_SWITCH",
+     "dom": "CONTROL",
+     "typ": 6,
+     "classe": "ReglerGate",
+     "id": "GATE",
+     "nome": "Gate Control"
+    },
+    {
+     "enum": "C_TO_EXTERNAL",
+     "dom": "CONTROL",
+     "typ": 22,
+     "classe": "ReglerToEXTERNAL",
+     "id": "ToEXT",
+     "nome": "Export Data to Simulink"
+    },
+    {
+     "enum": "C_FROM_EXTERNAL",
+     "dom": "CONTROL",
+     "typ": 23,
+     "classe": "ReglerFromEXTERNAL",
+     "id": "FromEXT",
+     "nome": "Import Data from Simulink"
+    },
+    {
+     "enum": "C_DATA_EXPORT",
+     "dom": "CONTROL",
+     "typ": 75,
+     "classe": "ReglerSaveData",
+     "id": "DataExport",
+     "nome": "Data export to file"
+    },
+    {
+     "enum": "C_SOURCE_IMPORT_DATA",
+     "dom": "CONTROL",
+     "typ": 89,
+     "classe": "ReglerImportFromFile",
+     "id": "FILE",
+     "nome": "Data from File"
+    },
+    {
+     "enum": "C_SOURCE_RANDOM",
+     "dom": "CONTROL",
+     "typ": 90,
+     "classe": "ReglerRandomWalk",
+     "id": "RANDOM",
+     "nome": "Random Walk"
+    }
+   ]
+  },
+  {
+   "aba": "Special",
+   "itens": [
+    {
+     "enum": "C_JAVA_FUNCTION",
+     "dom": "CONTROL",
+     "typ": 61,
+     "classe": "ReglerJavaFunction",
+     "id": "JAVA",
+     "nome": "Java-Function"
+    },
+    {
+     "enum": "C_NATIVE_C_FUNCTION",
+     "dom": "CONTROL",
+     "typ": 88,
+     "classe": "ReglerNativeC",
+     "id": "C DLL",
+     "nome": "C/C++ Function"
+    },
+    {
+     "enum": "C_SMALL_SIG",
+     "dom": "CONTROL",
+     "typ": 87,
+     "classe": "ReglerSmallSignalAnalysis",
+     "id": "ANALYSIS",
+     "nome": "Small signal analysis"
+    },
+    {
+     "enum": "C_ABCDQ",
+     "dom": "CONTROL",
+     "typ": 65,
+     "classe": "ReglerABCDQ",
+     "id": "ABCDQ",
+     "nome": "abc>>dq transformation"
+    },
+    {
+     "enum": "C_DQABC",
+     "dom": "CONTROL",
+     "typ": 66,
+     "classe": "ReglerDQABC",
+     "id": "DQABC",
+     "nome": "dq>>abc transformation"
+    },
+    {
+     "enum": "C_TIME",
+     "dom": "CONTROL",
+     "typ": 58,
+     "classe": "ReglerTIME",
+     "id": "TIME",
+     "nome": "Simulation Time"
+    },
+    {
+     "enum": "C_SPARSEMATRIX",
+     "dom": "CONTROL",
+     "typ": 59,
+     "classe": "ReglerSPARSEMATRIX",
+     "id": "SPARSEMATRIX",
+     "nome": "Sparse control"
+    },
+    {
+     "enum": "C_PMSM_CONTROL",
+     "dom": "CONTROL",
+     "typ": 76,
+     "classe": "ReglerPMSMCONTROL",
+     "id": "PMSM_CTRL",
+     "nome": "PMSM controller"
+    },
+    {
+     "enum": "C_PMSM_MODULATOR",
+     "dom": "CONTROL",
+     "typ": 77,
+     "classe": "ReglerPMSM_Modulator",
+     "id": "PMSM_MOD",
+     "nome": "PMSM modulator"
+    },
+    {
+     "enum": "C_THYR_CTRL",
+     "dom": "CONTROL",
+     "typ": 72,
+     "classe": "ReglerThyristorControl",
+     "id": "THYRISTOR_CONTROL",
+     "nome": "Thyristor Control"
+    },
+    {
+     "enum": "TEXTFIELD",
+     "dom": "SPECIAL",
+     "typ": 70,
+     "classe": "TextFieldBlock",
+     "id": "TEXT",
+     "nome": "Text Field"
+    }
+   ]
+  }
+ ]
+}

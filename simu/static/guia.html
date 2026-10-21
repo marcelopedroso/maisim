@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guia do Controle</title>
+<!-- o guia do controle (GUIA_CONTROLE.md, servido em /pew/simu/guia), renderizado; sem a biblioteca, o texto puro -->
+<script>
+// o tema do PEW (o trilho escolhe; localStorage "pew-tema"): sistema, claro ou escuro
+try { const t = localStorage.getItem("pew-tema") || "sistema";
+  document.documentElement.dataset.tema = t === "escuro" || (t === "sistema" && matchMedia("(prefers-color-scheme: dark)").matches) ? "escuro" : "claro"; }
+catch (e) { /* claro */ }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<style>
+  :root { --texto:#1f2328; --sutil:#59636e; --borda:#d1d9e0; --fundo:#ffffff; --codigo:#f6f8fa; --link:#0b5cad; }
+  :root[data-tema="escuro"] { --texto:#e6e9ee; --sutil:#9aa4af; --borda:#3a424c; --fundo:#15191e; --codigo:#1f252c; --link:#a78bfa; color-scheme:dark; }
+  body { margin:0; background:var(--fundo); color:var(--texto); font:15px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width:920px; margin:0 auto; padding:24px 16px 64px; }
+  h1 { font-size:26px; border-bottom:1px solid var(--borda); padding-bottom:8px; }
+  h2 { font-size:20px; margin-top:32px; border-bottom:1px solid var(--borda); padding-bottom:4px; }
+  h3 { font-size:16.5px; margin-top:24px; }
+  a { color:var(--link); }
+  code { font:13px ui-monospace, SFMono-Regular, Menlo, monospace; background:var(--codigo); padding:1px 5px; border-radius:4px; }
+  pre { background:var(--codigo); padding:12px 14px; border-radius:6px; overflow-x:auto; line-height:1.45; }
+  pre code { background:none; padding:0; }
+  .tabela { overflow-x:auto; }
+  table { border-collapse:collapse; margin:12px 0; font-size:14px; }
+  th, td { border:1px solid var(--borda); padding:6px 10px; vertical-align:top; text-align:left; }
+  th { background:var(--codigo); }
+  li { margin:3px 0; }
+</style>
+</head>
+<body>
+<main id="guia">carregando o guia…</main>
+<script>
+(async () => {
+  const el = document.getElementById("guia");
+  try {
+    const r = await fetch("../guia");
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const md = await r.text();
+    if (window.marked) {
+      el.innerHTML = marked.parse(md);
+      el.querySelectorAll("table").forEach((t) => { const d = document.createElement("div"); d.className = "tabela"; t.replaceWith(d); d.appendChild(t); });
+    } else {
+      const pre = document.createElement("pre"); pre.textContent = md; el.replaceChildren(pre);
+    }
+  } catch (e) { el.textContent = `não consegui carregar o guia (${e.message})`; }
+})();
+</script>
+</body>
+</html>

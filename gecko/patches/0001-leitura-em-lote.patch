@@ -1,0 +1,103 @@
+diff --git a/pom.xml b/pom.xml
+index 1809b378..38214886 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -99,6 +99,13 @@
+   </dependencies>
+ 
+   <build>
++    <plugins>
++      <plugin>
++        <!-- activates the jar-with-dependencies execution configured below in pluginManagement,
++             so `mvn package` always produces a single self-contained runnable jar -->
++        <artifactId>maven-assembly-plugin</artifactId>
++      </plugin>
++    </plugins>
+     <pluginManagement><!-- lock down plugins versions to avoid using Maven defaults (may be moved to parent pom) -->
+       <plugins>
+         <plugin>
+diff --git a/src/main/java/ch/technokrat/gecko/GeckoRemoteInterface.java b/src/main/java/ch/technokrat/gecko/GeckoRemoteInterface.java
+index 2d6b7ced..90ca1cfb 100644
+--- a/src/main/java/ch/technokrat/gecko/GeckoRemoteInterface.java
++++ b/src/main/java/ch/technokrat/gecko/GeckoRemoteInterface.java
+@@ -146,6 +146,24 @@ public interface GeckoRemoteInterface extends Remote {
+     @Declaration("double getOutput(String elementName)")
+     double getOutput(String elementName) throws RemoteException;
+ 
++    /**
++     * Batch version of getOutput(String): reads the single output of several control blocks in ONE remote call
++     * (one RMI round trip instead of one per block). Element i of the result is getOutput(elementNames[i]).
++     */
++    @Category(MethodCategory.SIGNAL_PROCESSING)
++    @Documentation(I18nKeys.GET_OUTPUT_SINGLE_PARAMETER)
++    @Declaration("double[] getOutputs(String[] elementNames)")
++    double[] getOutputs(String[] elementNames) throws RemoteException;
++
++    /**
++     * Batch version of setParameter: sets parameterNames[i] of elementNames[i] to values[i], for every i, in ONE
++     * remote call. The three arrays must have the same length.
++     */
++    @Category(MethodCategory.COMPONENT_PROPERTIES)
++    @Documentation(I18nKeys.SET_PARAMETER_DOCUMENTATION)
++    @Declaration("void setParameterMany(String[] elementNames, String[] parameterNames, double[] values)")
++    void setParameterMany(String[] elementNames, String[] parameterNames, double[] values) throws RemoteException;
++
+     @Category(MethodCategory.SIMULATION_START)
+     @Documentation(I18nKeys.INIT_SIMULATION_WO_PARAMETERS)
+     @Declaration("void initSimulation()")
+diff --git a/src/main/java/ch/technokrat/gecko/GeckoRemoteTestingDummy.java b/src/main/java/ch/technokrat/gecko/GeckoRemoteTestingDummy.java
+index c411d723..460f1c2e 100644
+--- a/src/main/java/ch/technokrat/gecko/GeckoRemoteTestingDummy.java
++++ b/src/main/java/ch/technokrat/gecko/GeckoRemoteTestingDummy.java
+@@ -150,6 +150,15 @@ public class GeckoRemoteTestingDummy implements GeckoRemoteInterface {
+         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+     }
+ 
++    @Override
++    public double[] getOutputs(String[] elementNames) throws RemoteException {
++        return new double[elementNames.length];
++    }
++
++    @Override
++    public void setParameterMany(String[] elementNames, String[] parameterNames, double[] values) throws RemoteException {
++    }
++
+     @Override
+     public double getOutput(String elementName) throws RemoteException {
+         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+diff --git a/src/main/java/ch/technokrat/gecko/geckoscript/AbstractGeckoCustom.java b/src/main/java/ch/technokrat/gecko/geckoscript/AbstractGeckoCustom.java
+index 3a840367..b980e562 100644
+--- a/src/main/java/ch/technokrat/gecko/geckoscript/AbstractGeckoCustom.java
++++ b/src/main/java/ch/technokrat/gecko/geckoscript/AbstractGeckoCustom.java
+@@ -471,6 +471,31 @@ public abstract class AbstractGeckoCustom implements GeckoRemoteInterface {
+         return outputValue;
+     }
+ 
++    /**
++     * batch version of getOutput(String): one remote call for several control blocks
++     */
++    @Override
++    public final double[] getOutputs(final String[] elementNames) {
++        final double[] values = new double[elementNames.length];
++        for (int i = 0; i < elementNames.length; i++) {
++            values[i] = getOutput(elementNames[i]);
++        }
++        return values;
++    }
++
++    /**
++     * batch version of setParameter: one remote call for several (element, parameter, value) entries
++     */
++    @Override
++    public final void setParameterMany(final String[] elementNames, final String[] parameterNames, final double[] values) {
++        if (elementNames.length != parameterNames.length || elementNames.length != values.length) {
++            throw new IllegalArgumentException("setParameterMany: the three arrays must have the same length");
++        }
++        for (int i = 0; i < elementNames.length; i++) {
++            setParameter(elementNames[i], parameterNames[i], values[i]);
++        }
++    }
++
+     @Override
+     @SuppressWarnings("PMD") // CHECKSTYLE:OFF I cannot rename this method, since it is already used by Gecko-Users!
+     public final void set_Tend(final double Tend) {

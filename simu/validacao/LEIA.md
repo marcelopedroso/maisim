@@ -1,0 +1,152 @@
+# Validação do Controle (PEW / simu)
+
+Estes são os ensaios que sustentam os números do `GUIA_CONTROLE.md` e do `LEIA.md` (passos 1, 2 e 2b do Controle). Todos
+rodam numa **instância de teste** isolada, que não mexe no Gecko nem no scope do PEW:
+
+| Peça | Endereço |
+|---|---|
+| tela virtual | Xvfb `:98` |
+| Gecko | porta 43060 |
+| motor | porta 6121 |
+| servidor do simu | porta 8768 |
+| arquivos | `~/.cache/pew_simu_teste/` |
+
+```bash
+cd ~/doutorado/sm-autonomo/simu/pew_simu/validacao && ./sobe_teste.sh
+```
+
+```bash
+cd ~/doutorado/sm-autonomo/simu/pew_simu/validacao && ./desce_teste.sh
+```
+
+Rode um ensaio por vez, porque o Gecko de teste é um só. Os ensaios Python usam numpy, e os de tela usam o Playwright
+(`NODE_PATH` apontando para um `node_modules` que o tenha).
+
+## Ensaios pela API (Python)
+
+| Script | O que confere | Resultado registrado |
+|---|---|---|
+| `casos_tracado.py` | offline (sem servidor): o traçado dos destinos nos modelos reais e nos casos da revisão do passo 2b — GATE sem chave, elemento desativado, terminal de SM só por rótulo, terminal global, fonte do outro lado do terminal, motivos dos avisos | 12 verificações |
+| `claude_offline.py` | offline: o filtro das rotas do Claude (`pedido_local`: 13 combinações de Host, Origin, Sec-Fetch-Site e X-PEW) e a leitura da saída do `claude auth login` (sucesso e falha, com um processo que imita o CLI) | 15 verificações |
+| `nao_salvo_api.py` | mudanças não salvas (circuito, controle, cores) ao abrir, no novo, no pendente e depois de reiniciar o servidor | 15/15 |
+| `assinatura_api.py` | a comparação Gecko × arquivo: sem falso alarme ao abrir e depois de rodar; pega o que a versão anterior não via | 8/8 |
+| `sub_terminais_api.py` | terminal de subcircuito: encosta na borda, borne livre, lado cheio, passo dx = dy, renomear, apagar, tamanho do bloco, arquivo antigo com bornes juntos, fios até os bornes desenhados e 10 A | 23/23 |
+| `biblioteca_rotulos_api.py` | os nomes de fora de um subcircuito não vão junto: inserir da biblioteca (um arquivo de antes, com vap/EXT_S3/VC_SM3), colar um SM do modelo 03 (o original fica com os dele) e salvar na biblioteca — o bloco e os terminais de dentro limpos | 3/3 |
+| `modulos_api.py` | módulos (todo .py que não é controlador): o circuito novo com leitura → controle → escrita; o PI em módulos **bit a bit igual** ao PI num arquivo só; os riscos (nome do Python, import inexistente, import de controlador, módulo não importado, ciclo, cara de controlador); erro no módulo com arquivo e linha; o controle antigo abre como era (e a ordem: leitura 1º, escrita último, o return do escrita, iniciar de cada módulo)  · salvar como leva os módulos e reabrir os traz | 18/18 |
+| `move_api.py` | a beira da folha principal (o Gecko põe em 1 o que vier menor): soltar além dela abre espaço — o circuito todo anda o que faltar, a conexão junto, o SM por dentro igual, Ctrl+Z num passo, o grupo também, no SM nada anda | 8/8 |
+| `claude_controladores_api.py` | o Claude do PEW cria controladores (controladores.json), com o claude de mentira: dois donos acusado, a proposta com 3 controladores e a fibra de 20 µs, a atuação marcada, o CLI, ▷ testar, aplicar, o histórico, e a rodada com os 3 DSPs (i_L 0 até a mensagem chegar, 2 A no fim) | 9/9 |
+| `atuacoes_modulos_api.py` | atuações no fluxo de módulos, com o claude de mentira: a proposta marca a atuação escrita em `u = {…}` + `return escrita.passo(u, …)` (o caso do Marcelo, 19/10; antes nada era marcado), em `u["x"] = …`, `dict(x=…)`, numa chave do escrita.py e no `return {…}`; dicionário com chave que não é atuador não marca; o validador sublinha a não marcada; marcada, o testar não avisa | 9/9 |
+| `claude_autonomo_api.py` | os olhos e o modo autônomo do Claude do PEW (claude de mentira, cenário "autonomo"): a rodada grava resumo.md e serie/; o pedido seguinte leva ULTIMA_RODADA.md; até 3 rodadas: versão 1 → Claude_1 → lê o resumo → versão 2 → Claude_2 → [PRONTO], --resume, o controle do usuário intacto, a proposta final; o limite de passos no meio da versão (continua de onde parou); parar no meio da rodada | 14/14 |
+| `segue_codigo_api.py` | os cartões seguem o código (e mais de 30 arquivos): lê o que o código lê (também por NOME = "x" num módulo), escreve o que o passo() devolve (também return f({…})); o que não existe no esquema sai; as variáveis do código que não existem no esquema (arquivo:linha); trocar tira o aviso; a função dentro do passo() não é acusada; 40 arquivos e 41 controladores aceitos | 10/10 |
+| `renomear_api.py` | um sinal que o controle usa muda de nome: a resposta diz de → para e onde (código entre aspas, cartões, atuações, acionamentos); editor/controle/renomeia troca tudo de uma vez; os N SMs iguais; o SM renomeado; desfazer pergunta de volta | 11/11 |
+| `janela_gecko_api.py` | o PEW não trava numa janela de erro do Gecko: colar e mover além da beira de baixo e da direita fazem a folha principal crescer (sem janela); desfazer e apagar seguem; sem essa camada (direto no motor, com o servidor de teste parado uns segundos), a vigia fecha a janela e guarda a foto; o servidor de teste sobe de novo no fim | 7/7 |
+| `colar_sms_api.py` | colar dentro de subcircuitos iguais ("mudar os N juntos"): a cópia vai para todos com o mesmo nome e a mesma posição, continuam iguais, um passo do desfazer; numa folha só, como antes | 5/5 |
+| `desativar_api.py` | desativar um componente (enabled do Gecko): simulado, dois resistores de 5 Ω em paralelo numa fonte de 10 V dão 4 A e, com um desativado, 2 A; o arquivo com enabledShorted 0; Ctrl+Z; bloco de controle; em curto lido | 6/6 |
+| `variaveis_api.py` | variáveis globais ($): criar, ligar uDC e uMAX sem confundir, criada no ligar, simulado i = $Vdc/$R (e acompanha a mudança), desligar, Ctrl+Z, apagar (quem usava fica com o valor), no subcircuito, a última da lista (não NaN) | 16/16 |
+| `ponta_migra_api.py` | a ponta, a garra e a cor seguem o medidor quando o nome no scope muda (renomear o sinal; renomear o subcircuito) | 3/3 |
+| `controladores_api.py` | vários controladores: aquisição + controle ≡ controlador único com a medida atrasada (bit a bit, latência 0 e 2,5·Ts); isolamento; paralelo; visão local; dono único; salvar/abrir; um por subcircuito no MMC | 17/17 |
+| `validador_offline.py` | o validador do controle (offline) | 11/11 |
+| `teste_controle.py` | passo 1: PI de corrente num RL (fonte controlada) × referência independente | atuação 1 Δt depois da amostra; erro ~1e-4 A (referência por exponencial exata) |
+| `teste_passo2.py` | passo 2: atrasos logo, amostra e latência; acionamentos de CONST e de `p[...]`; malha aberta; CONST devolvidos. Referência por **Euler implícito** (como o Gecko), tolerância 1e-9 A | 1,4e-13 a 1,6e-13 A; malha aberta 1,4e-12 A; com o atraso errado, 0,18 a 0,63 A |
+| `teste_revisao.py` | as correções da revisão do passo 2 (rode depois do `teste_passo2.py`, que deixa o circuito aberto) | 0 falhas |
+| `pi_euler.py` | o resíduo do PI some com Euler implícito (lê as rodadas `A_logo` e `B_amostra` do `teste_passo2.py`) | 9,4e-5 → 1,4e-13 A |
+| `atraso_caminhos.py` | compensação do atraso do Gecko em CONST → GATE, → GAIN → GATE, → fonte e → GAIN → fonte | os quatro sentem no passo pedido (8) |
+| `atraso_sub.py` | o mesmo através do SM do modelo 03 (CONST_S1 → terminal → AND → GATE) | sente no passo pedido |
+| `buck_exemplo.py` | monta o exemplo `exemplo_controle_pwm` (com conexões desenhadas) e o salva na pasta de teste | encaixe: 14 pontas, nenhuma solta |
+| `buck_valida.py <nome>` | roda o exemplo aberto e mede v_sw, fsw, ⟨i_L⟩, d e ondulação (grava `buck_ultima.npz`) | v_sw só 0/100 V; 200,0 µs; 10,008 e 15,026 A |
+| `buck_ref.py buck_ultima.npz '<p>' '<acionamentos>' <passo>` | referência independente do buck (o mesmo controle, Euler implícito, chave e diodo uF + rON), com a chave sentindo a partir do passo k·n + `<passo>` | logo (1): 1,0e-5 A; amostra (2): 1,0e-5 A; os outros, cerca de 0,26 A |
+| `buck_monta.py`, `buck_roda.py`, `buck_pwm.py` | o buck só com rótulos e o PWM em malha aberta (d fixo), usados na primeira conferência | ondulação de 5,06 A a d = 0,5 (teoria 5,0 A) |
+| `buck_pi.py` | o código de controle do exemplo (o mesmo do `.controle.json`) | — |
+
+Os parâmetros do buck para o `buck_ref.py` são:
+
+```
+'{"fsw": 5000, "Vdc": 100, "i_ref": 10, "Kp": 1.885, "Ki": 3770, "dmax": 0.95}' '[{"t": 0.005, "alvo": "p:i_ref", "valor": 15}]'
+```
+
+## Reiniciar só o servidor de teste
+
+`reinicia_servidor_teste.sh` (re)sobe só o servidor do simu da instância de teste (8768), com o ambiente dela. O
+`sobe_teste.sh` e os testes que reiniciam o servidor (`nao_salvo_api.py`, `tela/validador_tela.js`) usam este script;
+antes, usavam um script na pasta temporária de uma sessão, que some com ela. O Claude do PEW da instância de teste
+**nunca** usa o login de verdade: pasta descartável `~/.cache/pew_simu_teste/claude-pew` (o `desce_teste.sh` apaga) e
+o claude de mentira. Antes, o `sobe_teste.sh` não definia a pasta, e o teste de login, que clica em "sair", teria
+desconectado o Claude do PEW de verdade.
+
+## Base dos testes
+
+`dados/exemplo_controle_pwm.*` é o exemplo original, congelado: os testes o copiam para a pasta da instância de
+teste. O `exemplo_controle_pwm` de `simu/gecko/pew/` é do Marcelo e muda; não usar como base.
+
+## Pedir ao Claude sem gastar a conta
+
+O servidor de teste sobe com `PEW_CLAUDE_BIN=<esta pasta>/claude_falso.py` e `PEW_CLAUDE_DIR` numa pasta descartável. O
+`claude_falso.py` imita o stream-json do CLI 2.1.273. O cenário (ganho, metade, perigo, quebra, json_ruim, lento, anexo,
+erro, recusa) vem do arquivo `falso_cenario` nessa pasta, e `falso_logado` faz o `auth status` dizer conectado. Login e
+logout vão para o CLI de verdade (o `claude_tela.js` continua valendo). Cada chamada fica em `falso_chamadas.jsonl`,
+para conferir as opções.
+
+| Script | O que confere |
+|---|---|
+| `claude_pedido_api.py` | uso; opções restritas; contexto; proposta sem executar e teste a pedido (prova pela marca que o código deixaria); retomada (inclusive com a sessão apagada); erros; parar sem órfão (e o pedido seguinte retoma); anexos; salvar como e folha nova; nova conversa; proteção das rotas e de todo POST (49) |
+
+## Ensaios de tela (`tela/`, Playwright)
+
+O simu abre editando (cadeado aberto); os ensaios antigos começam travados (`pew-simu-travado` = 1 num `addInitScript`) e
+clicam no cadeado para editar, como antes. O `codigo_tela.js` confere o padrão (aberto).
+
+| Script | O que confere |
+|---|---|
+| `controle_tela.js` | passo 1: painel, editor, atuações, rodada (11 verificações) |
+| `passo2_tela.js` | passo 2: exemplo do PI, atraso, acionamentos, trava durante a rodada (11) |
+| `revisao_tela.js` | as correções da revisão do passo 2 (7) |
+| `pwm_tela.js` | passo 2b: Δt do arquivo ao abrir, destino da atuação, Ts × Δt, GATE, rodada do buck (9) |
+| `claude_tela.js` | passo 3a: o botão ✦ e a janela de login (links, Enter, foco e aviso durante o acompanhamento, cancelar, conectado simulado, Esc na confirmação, falha de rede, cabeçalho estreito). Suba a instância de teste com `PEW_CLAUDE_DIR` numa pasta descartável | 17 verificações |
+| `cabecalho_tela.js` | cabeçalho só de ícones, olho, quebra em linhas, dicas (17) |
+| `validador_tela.js` | validador, ▷ testar e as perguntas de mudanças não salvas (Enter mantém, cancelar volta) (13) |
+| `ajustes_tela.js` | atalhos mudos no controle.py, dica e iframe, proporção do desenho, plano B do trilho (6; usa a 5010 → 8768) |
+| `cores_tela.js` | marcas de medição e cor do canal (8) |
+| `guia_tela.js` | o "?" abre o guia renderizado, sem rolagem lateral no celular (3) |
+| `pontas_tela.js` | ponta (+) e garra (−) no componente escolhido, campo com busca (6) |
+| `tema_tela.js` | tema sistema/claro/escuro pelo trilho; toda variável de cor com valor nos dois temas; faixa do SM, ícones da paleta e etiqueta ⚙ no escuro (11) |
+| `divisor_tela.js` | o divisor entre o código e a conversa do Claude, com o zoom de 110 %: ao lado (largura) e embaixo (altura), o divisor onde o mouse solta, o código com pelo menos 300 px, guardado ao recarregar, duplo clique volta ao padrão (7) |
+| `claude_modulos_tela.js` | etapa B, com o Claude de mentira (cenário modulos): a proposta com 3 arquivos (pll.py novo), as opções do CLI (Write só em ./*.py), a diferença com uma aba por arquivo, ▷ testar com os módulos, aplicar (o pll.py como módulo), ver a mudança, voltar (o pll.py sai) (8) |
+| `claude_chat_tela.js` | pedir ao Claude na tela, com o Claude de mentira (direto na 8768): conversa, uso no topo, proposta, diferença no Monaco, ▷ testar, aplicar e voltar, "ver a mudança" no histórico depois de aplicar (e "aplicada e desfeita"), trava, anexos (botão e arrastar), barras de uso no ícone, escuro, sem login (25) |
+| `quebra_tela.js` | quebra de linha no editor do controle: botão, Alt+Z (sem escrever no código), guardada, com a trava, sem o Monaco (12) |
+| `scope_cores_tela.js` | cores do scope na instância isolada (`../sobe_fila.sh`, com duas gravações próprias, apagadas no fim — antes usava as duas mais recentes do simu, que podem não ter sinal em comum): no Comparar, B na cor do mesmo sinal, mais clara e tracejada; a cor de um sinal pela paleta, por #hex (inválido marcado), padrão, lembrada ao recarregar (10) |
+| `escala_tela.js` | tamanho do PEW (+ e − no trilho): limites 80–140 %, guardado e aplicado antes de pintar, clique no desenho com 125 %, scope embutido sem zoom dobrado, página inicial sim e seminário não, ícone novo do simu (12) |
+| `sub_novo_tela.js` | subcircuito criado do zero pela tela: entrar vazio, terminais e R dentro, bornes, simular (10 A), nomes Sub_1_… e renomeado, biblioteca (10) |
+| `diagrama_zoom_tela.js` | o diagrama como no Figma: inteiro na vista, +, Ctrl + roda no ponto do mouse, arrastar (soltar em cima do DSP não abre), a roda rola, clique abre o código, a vista fica, ajustar, 100 % (10) |
+| `envia_for_tela.js` | envia com o destino montado ("sm_ap_%d" % k num for, f-string com range, .format pelo molde, + str(k), variável de um for sobre nomes): os cartões dizem para quem vai e o diagrama tem as setas (8) |
+| `sem_esquema_tela.js` | "a variável x do código (arquivo:linha) não existe no esquema": o link abre o código; trocar por… (a lista do que existe, a mais parecida primeiro, com filtro; Enter troca e o editor acompanha); o cartão segue o código (7) |
+| `renomear_tela.js` | o modal "O controle usa o nome antigo" ao mudar o rótulo de um CONST que o código usa: renomear no controle também (o editor de código acompanha), desfazer a mudança, deixar como está (6) |
+| `sub_iguais_tela.js` | o bloco do subcircuito na folha de cima: os rótulos dos bornes (apagar solta, escrever liga, só neste), o tamanho nos iguais com "mudar os N iguais juntos" (um Ctrl+Z), desmarcado só ele, "igualar a este", BlockSizeY pelos parâmetros recalcula os bornes (12) |
+| `sub_terminais_tela.js` | terminais de subcircuito pela tela: os pontos de Marcelo encostam na borda em bornes diferentes, arrasto com prévia na borda, painel sem girar, renomear, nomes no bloco sem sobreposição, tamanho do bloco, marca de bornes juntos, soltar o terminal num nó liga (15) |
+| `controladores_tela.js` | vários controladores pela tela: abas de arquivo, coluna variáveis/arquivos com a árvore, + controlador, lê/escreve, rede, medidas da aba, erro na aba certa, testar, renomear/apagar, proposta do Claude no controle.py, rodada (19) |
+| `dica_tela.js` | a dica (tooltip) depois de outra colada na borda direita não fica espremida (1) |
+| `codigo_tela.js` | o cadeado (aberto por padrão, fechar lembrado), recolher a coluna do controle, o item "código" no trilho e a janela do código com a do circuito: só o controle, sem o ▶, as duas acompanham (código, circuito, rodada) e o aviso de código fora; o scope do trilho em janela à parte (16) |
+| `app_tela.js` | o PEW instalável como app: o manifesto no início, no simu e no scope (as páginas do trilho), e o Chrome dizendo que dá para instalar (3) |
+| `modulos_tela.js` | módulos pela tela: o circuito novo (leitura.py e escrita.py), ▷ testar com o fluxo, "+ arquivo" cria módulo (aviso até alguém importar), virar controlador e virar módulo, "organizar como um DSP" num controle antigo ; o × da aba fecha (o arquivo fica na lista), clicar na lista reabre (11) |
+| `beira_tela.js` | fontes em x = 1 arrastadas além da beira: ficam onde o mouse soltou (o circuito anda, a vista junto, nada pula), a mensagem, Ctrl+Z (5) |
+| `giro_tela.js` | girar: R gira o resistor; no CONST e no subcircuito (o Gecko não gira bloco de controle nem subcircuito) o botão "girar" fica apagado e explica, o R avisa, nada muda e nada de "girado" no histórico (7) |
+| `claude_controladores_tela.js` | o Claude do PEW propõe 3 DSPs pela tela: o cartão e a diferença listam os controladores e a rede, aplicar põe no painel (a árvore com os novos na raiz) e no servidor, voltar tira (5) |
+| `diagrama_tela.js` | o diagrama da arquitetura: o botão, as colunas pela ordem das mensagens, a medida local encostada no DSP, as setas com um rótulo só e a latência, as atuações com o que comandam, "todas as medidas" num bloco, o código mudando, clicar no DSP abre o código, ✕ (10) |
+| `escolha_tela.js` | a telinha de escolha nos cartões (lê, escreve): junto da linha com zoom 110 %, ~5 linhas à vista e rolagem, filtro, marcar os filtrados numa gravação só, desmarcar com a telinha aberta, o resumo curto, Esc, "(de dsp_a)" e o dono único, clique fora, o .py abre o código (13) |
+| `mensagens_tela.js` | as mensagens entre os controladores nos cartões, lidas do código: "envia theta, w → dsp_a, dsp_b" numa linha, destino inexistente com ⚠, comentário não conta, envia de dentro de um módulo (dict(…)), recebe de dois, ⚠ quando não chama recebe() e o aviso sumindo quando passa a chamar; a mensagem numa variável (msg = {…}, msg["z"] = …), o que cada um lê (a chave não lida apagada) e o tooltip com o código (6) |
+| `arvore_tela.js` | a árvore dos arquivos pelos imports, no caso do Marcelo (leitura → pll → modulações → escrita, as modulações importando pwm.py, um modulacao.py sem uso): a ordem do passo() e não a dos import, o aninhamento, "(acima)", "sem uso", ▾ recolher (fica), clicar abre, a busca por nome e por texto (leva à linha), Esc, os botões da barra com 26 px, e com controladores + "sem uso" redesenha sem quebrar e guarda; o compartilhado (⇄ igual em todo lugar, a seção com "usado por", o clique realça todas, sem o aviso de importado por dois), o +/− do cartão (esconde só o cartão, fica ao redesenhar) (13) |
+| `tabelas_tela.js` | variáveis em tabelas, como os arquivos: o índice na coluna (com o ⚠ da atuação não marcada e do acionamento num CONST escrito pelo código), a tabela no lugar do código, sem aba (volta: o item de novo, o ✕, um arquivo), "no código" com arquivo:linha (comentário não conta; a lista de nomes do leitura.py conta), editar grava, ordenar e filtrar só mudam a vista, ir à linha, marcar a atuação, a etiqueta ⚙ em cima do CONST, + e ×, a tabela à vista ao recarregar (16) |
+| `saida_tela.js` | a saída do ▷ testar: abre, o ✕ não cobre o texto, fecha e devolve o espaço ao código, o ▷ testar abre de novo (5) |
+| `desativar_tela.js` | a caixinha "desativado" no painel do componente: o desenho cinza com a dica, Ctrl+Z, bloco de controle, desmarcar, o histórico (7) |
+| `variaveis_tela.js` | variáveis globais ($) pela tela: $nome no campo do parâmetro liga (a nova é criada com o valor), só o parâmetro certo (uDC × uMAX); o ⚙ com as abas simulação e variáveis; mudar com Enter, criar, apagar (a usada pergunta), o $x abre na aba, apagar as sem uso, um número desliga, nome inválido recusado, o ⧉ copia o nome e colar no parâmetro liga (15) |
+| `rede_tela.js` | conexão que cai no caminho: o Vite fecha a conexão a cada resposta; leitura e mudança repetidas uma vez, a mudança com a mesma etiqueta (`X-PEW-Pedido`): feita uma vez só, mesmo com a resposta perdida; sem conexão, o erro claro e a faixa com "testar de novo" (6) |
+| `selecao_tela.js` | seleção de vários (Shift): retângulo, arrastar o grupo com a conexão ligada, Ctrl+Z num passo, Shift + clique, copiar/colar o grupo, Delete com uma pergunta, Esc (9) |
+| `copia_tela.js` | copiar, recortar e colar: onde está o mouse, com os parâmetros e sem os rótulos; recortar mantém o nome e Ctrl+Z desfaz; fora do desenho, ao lado; subcircuito com o de dentro; GATE noutra folha sem a chave; terminal colado vai à borda; Ctrl+C sem seleção é do navegador (13) |
+| `tag_tela.js` | a tag (scope e controle): pela paleta, ligada ao i_L com o nome "corrente" — idêntica ao i_L na rodada, m["corrente"] no controle, prefixo dentro do subcircuito; "no scope e no controle" desmarcado tira o sinal (e volta); entrar no SM tira a seleção; renomear o subcircuito pelo painel (11) |
+| `comparar_tela.js` | Comparar com intervalos diferentes, na instância **isolada** (`../sobe_fila.sh`): a mesma senoide com 100 µs (A) e 200 µs (B) — a B nos instantes dela (o código antigo a esticava: o teste falha nele), o aviso, a medição com o intervalo de cada uma, a lista com o circuito e o intervalo, A × A sem aviso. Cria as gravações e apaga no fim (6) |
+| `scope_recolher_tela.js` | recolher, expandir e arrastar no scope, na instância **isolada** (`../sobe_fila.sh`), com um layout de três seções sobre uma gravação pequena (apagada no fim): a seta da seção esconde os painéis e conta; a do painel deixa só o título; guardados ao recarregar e abertos de novo com gráfico; ⤢ ocupa a janela (sem o ✕ de remover) e Esc e o clique fora voltam ao tamanho exato; a ⠿ da seção a leva com os painéis (antes de outra, para o fim), a ordem guardada; o nome da seção no índice arrasta; o arrastar de painel dentro de um iframe, como na doca do simu (15) |
+| `scope_painel_tela.js` | scope em "só a rodada", na instância **isolada** (`../sobe_fila.sh`): "+ Painel" e marcar o 1º sinal — o painel continua à vista com o gráfico (antes sumia até a próxima mudança no layout; o teste falha no código antigo); o "+ Painel" do topo vai para a seção da rodada; os painéis do MMC continuam fora. Cria uma gravação pequena só para o ensaio e apaga no fim (6) |
+| `fila_tema_tela.js` | página inicial e scope, na instância **isolada** (`../sobe_fila.sh`: Vite 5011 → scope de teste 8775; `../desce_fila.sh` derruba): trilho antes do React, tema do React seguindo o trilho, "pew-theme" antigo migrado, botão do seminário; o scope fecha a conexão ao vivo com a aba escondida e reconecta na mesma rodada; com 6 abas do scope à vista a página inicial fica na fila e com elas escondidas carrega; escondida por pouco não fecha; rodada nova com a mesma meta (à vista e escondida); navegador sem localStorage (24). O segundo plano é simulado (`document.hidden` + `visibilitychange`) |
+
+```bash
+cd ~/doutorado/sm-autonomo/simu/pew_simu/validacao/tela && NODE_PATH=~/ns-test/node_modules node pwm_tela.js
+```

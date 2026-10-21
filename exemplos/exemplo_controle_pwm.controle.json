@@ -1,0 +1,71 @@
+{
+ "ativo": true,
+ "Ts": 2e-06,
+ "atuacoes": [
+  "g"
+ ],
+ "parametros": [
+  {
+   "nome": "fsw",
+   "valor": 5000.0,
+   "unidade": "Hz"
+  },
+  {
+   "nome": "Vdc",
+   "valor": 100.0,
+   "unidade": "V"
+  },
+  {
+   "nome": "i_ref",
+   "valor": 10.0,
+   "unidade": "A"
+  },
+  {
+   "nome": "Kp",
+   "valor": 3.1416,
+   "unidade": "V/A"
+  },
+  {
+   "nome": "Ki",
+   "valor": 6283.2,
+   "unidade": "V/(A·s)"
+  },
+  {
+   "nome": "R",
+   "valor": 2.0,
+   "unidade": "Ohm"
+  },
+  {
+   "nome": "k_ff",
+   "valor": 1.0,
+   "unidade": ""
+  },
+  {
+   "nome": "dmax",
+   "valor": 0.95,
+   "unidade": ""
+  }
+ ],
+ "codigo": "# Buck (chopper) com carga RL: o PWM é feito aqui no controle.py e a malha de corrente média é um PI com\n# feedforward de referência, atualizado uma vez por período de chaveamento.\n#\n# A cada Ts (no painel: 2 µs, com Δt = 1 µs), o código:\n#   1. gera a portadora dente de serra (0 → 1, a fsw) a partir do tempo t;\n#   2. soma i_L para tirar a média do período de chaveamento (a ondulação aqui é ~3 A em 10 A: um ponto só erraria);\n#   3. no começo de cada período, atualiza o ciclo de trabalho d = d_ff + (Kp·erro + Ki·integral)/Vdc,\n#      com o erro sobre a média do período anterior;\n#   4. compara a portadora com d e devolve o comando da chave: g = 1 (S.1 liga) ou 0 (desliga).\n# A atuação \"g\" é o CONST.1, que entra no GATE.1, acoplado à chave S.1 (liga com entrada > 0,5).\n#\n# Ajuste (planta i_L/d = Vdc/(R + sL); o 1/Vdc do controlador cancela o ganho do conversor → planta 1/(R + sL)):\n#   - Ki/Kp = R/L = 2000 rad/s: o zero do PI cancela o polo da carga, e a malha aberta vira Kp/(sL);\n#   - cruzamento em fc = fsw/10 = 500 Hz (antes 300 Hz) → Kp = 2π·fc·L = 3,1416 e Ki = Kp·R/L = 6283.\n#     O atraso da malha (média centrada no período anterior + duty só no período seguinte) é ~Tsw = 200 µs,\n#     que a 500 Hz consome 36° de fase e deixa ~54° de margem. Acima de fsw/10 a média do período deixa de\n#     representar a dinâmica e o ajuste perde sentido;\n#   - feedforward d_ff = k_ff·R·i_ref/Vdc: é o duty de regime, tirado direto do modelo. Com ele o degrau de\n#     referência (e a partida) já aparecem no duty no mesmo período, sem esperar a integral percorrer o ponto\n#     de operação. k_ff = 0 volta ao comportamento só com PI, para comparar;\n#   - anti-windup por recálculo: quando d satura, a integral é refeita a partir do duty que realmente saiu,\n#     em vez de só congelar — assim a saída deixa a saturação sem atraso.\n#\n# O que o ajuste não muda: d só existe em passos de Ts·fsw (2 µs × 5 kHz = 1 %), então o PI alterna entre dois\n# degraus vizinhos (t_on de 40/42 µs em d ≈ 0,2), e a ondulação de 3,2 A pico a pico vem de L·fsw, não do controle.\n\ndef iniciar(p, e):\n    e[\"periodo\"] = -1      # índice do período de chaveamento em curso\n    e[\"soma\"] = 0.0        # soma de i_L no período (para a média)\n    e[\"n\"] = 0\n    e[\"integral\"] = 0.0\n    e[\"i_med\"] = 0.0       # média de i_L no último período\n    e[\"erro\"] = 0.0\n    # parte já no duty de regime: a partida não espera a integral subir\n    e[\"d\"] = min(p[\"dmax\"], max(0.0, p[\"k_ff\"] * p[\"R\"] * p[\"i_ref\"] / p[\"Vdc\"]))\n\n\ndef passo(t, m, p, e):\n    fsw = p[\"fsw\"]\n    k = int(t * fsw + 1e-9)                 # período de chaveamento atual (o 1e-9 evita erro de arredondamento na borda)\n    portadora = t * fsw - k                 # dente de serra, 0 → 1\n\n    if k != e[\"periodo\"]:                   # começou um período novo: atualiza o duty com a média do anterior\n        if e[\"n\"] > 0:\n            i_med = e[\"soma\"] / e[\"n\"]\n            erro = p[\"i_ref\"] - i_med\n            d_ff = p[\"k_ff\"] * p[\"R\"] * p[\"i_ref\"] / p[\"Vdc\"]   # duty de regime (modelo da carga)\n            integral = e[\"integral\"] + erro / fsw               # passo de integração = Tsw (atualiza 1×/período)\n            d = d_ff + (p[\"Kp\"] * erro + p[\"Ki\"] * integral) / p[\"Vdc\"]\n            d_sat = min(p[\"dmax\"], max(0.0, d))\n            if d != d_sat and p[\"Ki\"] != 0.0:                   # anti-windup: refaz a integral pelo duty saturado\n                integral = (p[\"Vdc\"] * (d_sat - d_ff) - p[\"Kp\"] * erro) / p[\"Ki\"]\n            e[\"integral\"] = integral\n            e[\"d\"] = d_sat\n            e[\"i_med\"] = i_med\n            e[\"erro\"] = erro\n        e[\"periodo\"], e[\"soma\"], e[\"n\"] = k, 0.0, 0\n\n    e[\"soma\"] += m[\"i_L\"]\n    e[\"n\"] += 1\n\n    g = 1.0 if portadora < e[\"d\"] else 0.0  # PWM: a chave fica ligada enquanto a portadora está abaixo de d\n    scope(\"portadora\", portadora)            # scope(): os mesmos nomes em toda amostra (as colunas se fixam na 1ª)\n    scope(\"d\", e[\"d\"])\n    scope(\"i_med\", e[\"i_med\"])\n    scope(\"i_ref\", p[\"i_ref\"])\n    scope(\"erro\", e[\"erro\"])\n    return {\"g\": g}\n",
+ "atraso": {
+  "modo": "logo",
+  "tempo": 0.0
+ },
+ "acionamentos": [
+  {
+   "t": 0.005,
+   "alvo": "p:i_ref",
+   "valor": 15.0
+  },
+  {
+   "t": 0.0075,
+   "alvo": "p:i_ref",
+   "valor": 8.0
+  }
+ ],
+ "arquivos": {},
+ "controladores": [],
+ "rede": {
+  "latencia": 0.0
+ }
+}

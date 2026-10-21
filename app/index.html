@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=1" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#6d28d9" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PEW — Power Electronics Workspace</title>
+    <script>
+        // o tema (o trilho escolhe e guarda em localStorage "pew-tema": sistema, claro ou escuro), aplicado antes de pintar
+        try {
+            const t = localStorage.getItem('pew-tema') || 'sistema'
+            const escuro = t === 'escuro' || (t === 'sistema' && matchMedia('(prefers-color-scheme: dark)').matches)
+            document.documentElement.dataset.tema = escuro ? 'escuro' : 'claro'
+        } catch (e) {                                   // sem localStorage: segue o sistema
+            document.documentElement.dataset.tema = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'escuro' : 'claro'
+        }
+        // o tamanho (+ e − no trilho, localStorage "pew-escala"), antes de pintar
+        try { const z = parseFloat(localStorage.getItem("pew-escala")); if (window.top === window.self && [0.8, 0.9, 1.1, 1.25, 1.4].includes(z)) document.documentElement.style.zoom = z; } catch (e) { /* 100 % */ }
+    </script>
+    <style>
+        :root { --fundo:#f7f8fa; --cartao:#fff; --texto:#1b1f24; --sutil:#5b6470; --borda:#d9dde3; --acento:#6d28d9; color-scheme:light; }
+        :root[data-tema="escuro"] { --fundo:#0f1115; --cartao:#171a21; --texto:#e6e8ec; --sutil:#9aa3ae; --borda:#2c323c; --acento:#8b5cf6; color-scheme:dark; }
+        * { box-sizing:border-box; }
+        body { margin:0; background:var(--fundo); color:var(--texto); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
+        main { max-width:980px; margin:0 auto; padding:48px 32px 48px calc(32px + var(--pew-nav-w, 0px)); }
+        header { display:flex; align-items:center; gap:14px; margin-bottom:28px; }
+        header img { width:52px; height:48px; }
+        h1 { margin:0; font-size:28px; } header p { margin:4px 0 0; color:var(--sutil); }
+        .cartoes { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:16px; }
+        .cartao { display:block; padding:18px; border:1px solid var(--borda); border-radius:12px; background:var(--cartao);
+                  color:inherit; text-decoration:none; transition:border-color .12s, transform .12s; }
+        .cartao:hover { border-color:var(--acento); transform:translateY(-1px); }
+        .cartao h2 { margin:0 0 6px; font-size:17px; color:var(--acento); } .cartao p { margin:0; color:var(--sutil); font-size:14px; line-height:1.45; }
+        .cartao small { display:block; margin-top:10px; color:var(--sutil); font-size:12px; }
+    </style>
+</head>
+
+<body>
+    <main>
+        <header>
+            <img src="/marca/pew-icone.svg" alt="" />
+            <div>
+                <h1>Power Electronics Workspace</h1>
+                <p>Monte, simule e meça circuitos de eletrônica de potência — com o controle em Python e uma IA ao lado.</p>
+            </div>
+        </header>
+        <div class="cartoes">
+            <a class="cartao" href="/pew/simu/">
+                <h2>Simu · monte e simule</h2>
+                <p>Monte circuitos pela paleta, ligue, meça e simule (o GeckoCIRCUITS é o cérebro); escreva o controle em Python e peça ajuda à IA.</p>
+            </a>
+            <a class="cartao" href="/pew/scope/">
+                <h2>Scope · rodadas e medição</h2>
+                <p>A rodada ao vivo e as gravações, painéis configuráveis, zoom por painel, medição (média, Fourier, THD) e espectro.</p>
+            </a>
+            <a class="cartao" href="/pew/gecko/">
+                <h2>GeckoCIRCUITS no navegador</h2>
+                <p>A janela do simulador por uma tela virtual, para conferir o circuito que o simu monta.</p>
+                <small>GeckoCIRCUITS: simulador de código aberto (GPLv3), github.com/geckocircuits/GeckoCIRCUITS</small>
+            </a>
+        </div>
+    </main>
+    <script src="/pew-nav.js"></script>
+</body>
+
+</html>

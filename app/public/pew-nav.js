@@ -1,0 +1,139 @@
+// Menu lateral do PEW (Power Electronics Workspace): trilho fixo à esquerda com Início, Simu, Código e Scope.
+// Servido pelo pew-app em /pew-nav.js e carregado pelas páginas dos módulos (/pew/scope, /pew/gecko, …). Aberta fora do
+// PEW (direto na porta do módulo), a página não acha o arquivo e segue sem o menu. Páginas do React chamam
+// window.pewNav.montar() / desmontar() (só a página inicial usa; os seminários ficam sem o menu).
+(() => {
+  if (window.pewNav || window.top !== window.self) return;     // embutido (tela dividida): sem menu
+  const L = 56;
+  const svg = (d) => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  const ITENS = [
+    { href: "/", rotulo: "Início", ativo: (p) => p === "/",
+      icone: svg('<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>') },
+    // a janela do Gecko (/pew/gecko/, a tela remota dele) saiu do trilho (18/10, Marcelo: "nem precisa mais"): o simu faz tudo
+    // pelo Gecko escondido; a página continua no endereço e no cartão da página inicial, para conferir
+    { href: "/pew/simu/", rotulo: "Simu · monte e simule", ativo: (p, q) => (p.startsWith("/pew/simu") && !/[?&]vista=codigo/.test(q)) || p.startsWith("/pew/control"),
+      icone: svg('<path d="M2.5 8h4.3l1.6-3.6 3 7.2 3-7.2 1.6 3.6h5.5v12.6H2.5z"/><path d="M9.6 13.3l6.2 3.6-6.2 3.6z" fill="currentColor" stroke="none"/>') },   // um circuito (resistor na malha) e o "simular"
+    // o código do controle numa janela só dele (para outro monitor): ligado ao circuito aberto no simu; o ▶ fica no simu
+    { href: "/pew/simu/?vista=codigo", rotulo: "Código · o controle em outra janela", janela: "pew-codigo", ativo: (p, q) => p.startsWith("/pew/simu") && /[?&]vista=codigo/.test(q),
+      icone: svg('<path d="M8.5 7 3.5 12l5 5M15.5 7l5 5-5 5M13.6 4.5 10.4 19.5"/>') },
+    // o scope também numa janela só dele (para outro monitor, ao vivo enquanto o circuito roda)
+    { href: "/pew/scope/", rotulo: "Scope · rodadas e medição", janela: "pew-scope", ativo: (p) => p.startsWith("/pew/scope"),
+      icone: svg('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M5 14c2-6 3-6 4 0s2 6 4 0 3-6 4 0 2 4 2 4"/>') },
+  ];
+  // a marca do PEW: o diodo com o brilho de IA (public/marca/)
+  const MARCA = '<path d="M1 14H4.2M18.6 14H23" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4.2 7L17.2 14L4.2 21Z" fill="#2b2440" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M18.6 7V21" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M10.6 0.6C11 3.3 11.7 4 14.4 4.4 11.7 4.8 11 5.5 10.6 8.2 10.2 5.5 9.5 4.8 6.8 4.4 9.5 4 10.2 3.3 10.6 0.6Z" fill="currentColor"/><path d="M15.6 1C15.75 2 16 2.25 17 2.4 16 2.55 15.75 2.8 15.6 3.8 15.45 2.8 15.2 2.55 14.2 2.4 15.2 2.25 15.45 2 15.6 1Z" fill="currentColor"/>';
+  const css = `
+  #pew-nav { position:fixed; left:0; top:0; bottom:0; width:${L}px; z-index:2147483000; background:#15181d;
+             border-right:1px solid #2a2f37; display:flex; flex-direction:column; align-items:center; gap:6px; padding:10px 0;
+             font-family:system-ui,-apple-system,"Segoe UI",sans-serif; box-sizing:border-box; }
+  #pew-nav .marca { color:#c4b5fd; font-weight:800; font-size:9.5px; letter-spacing:.1em; margin:2px 0 8px; text-decoration:none;
+             display:flex; flex-direction:column; align-items:center; gap:2px; }
+  #pew-nav .marca svg { display:block; }
+  #pew-nav .item { position:relative; width:42px; height:42px; display:flex; align-items:center; justify-content:center;
+             color:#aab2bd; border-radius:10px; text-decoration:none; }
+  #pew-nav .item:hover { background:#232831; color:#fff; }
+  #pew-nav .item.ativo { background:#2b2440; color:#fff; }
+  #pew-nav .item.ativo::before { content:""; position:absolute; left:-7px; top:9px; bottom:9px; width:3px; border-radius:2px; background:#8b5cf6; }
+  #pew-nav .item.fora { opacity:.35; cursor:default; }
+  #pew-nav .item::after { content:attr(data-rotulo); position:absolute; left:50px; top:50%; transform:translateY(-50%);
+             white-space:nowrap; background:#15181d; color:#fff; font-size:12px; padding:4px 9px; border-radius:6px;
+             border:1px solid #2a2f37; opacity:0; pointer-events:none; transition:opacity .12s; }
+  #pew-nav .item:hover::after { opacity:1; }
+  body.com-pew-nav { padding-left:${L}px !important; box-sizing:border-box; }
+  #pew-nav .escala { margin-top:auto; display:flex; flex-direction:column; align-items:center; gap:1px; }
+  #pew-nav .escala .item { height:26px; border:0; background:transparent; cursor:pointer; font:600 17px/1 system-ui, sans-serif; }
+  #pew-nav .escala .item:disabled { opacity:.3; cursor:default; } #pew-nav .escala .item:disabled:hover { background:transparent; color:#aab2bd; }
+  #pew-nav .escala .pct { color:#8a94a0; font-size:10px; font-variant-numeric:tabular-nums; }
+  #pew-nav .tema { border:0; background:transparent; cursor:pointer; font:inherit; }`;
+  // tema do PEW inteiro: sistema (segue o Windows), claro ou escuro. Guardado no navegador (localStorage "pew-tema", o mesmo
+  // para todas as páginas do PEW na porta dele); aplicado em <html data-tema="claro|escuro">; as páginas ouvem "pew-tema"
+  const TEMAS = ["sistema", "claro", "escuro"];
+  const ROTULO_TEMA = { sistema: "Tema: como o sistema (clique: claro)", claro: "Tema: claro (clique: escuro)", escuro: "Tema: escuro (clique: como o sistema)" };
+  const ICONE_TEMA = {
+    sistema: svg('<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>'),
+    claro: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
+    escuro: svg('<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>') };
+  const escolhaTema = () => { try { const t = localStorage.getItem("pew-tema"); return TEMAS.includes(t) ? t : "sistema"; } catch (e) { return "sistema"; } };
+  const midiaEscura = window.matchMedia ? matchMedia("(prefers-color-scheme: dark)") : null;
+  function aplicaTema() {
+    const t = escolhaTema(), escuro = t === "escuro" || (t === "sistema" && !!(midiaEscura && midiaEscura.matches));
+    const antes = document.documentElement.dataset.tema;
+    document.documentElement.dataset.tema = escuro ? "escuro" : "claro";
+    const b = document.querySelector("#pew-nav .tema");
+    if (b) { b.innerHTML = ICONE_TEMA[t]; b.dataset.rotulo = ROTULO_TEMA[t]; b.setAttribute("aria-label", ROTULO_TEMA[t]); }
+    if (antes !== document.documentElement.dataset.tema) window.dispatchEvent(new CustomEvent("pew-tema", { detail: { tema: document.documentElement.dataset.tema, escolha: t } }));
+  }
+  // tamanho do PEW (o nosso "zoom", independente do do navegador): + e − no pé do trilho, de 80 % a 140 %, guardado no
+  // navegador (localStorage "pew-escala") como o tema; zoom do CSS na página inteira (o desenho e o editor acertam o
+  // clique: conferido). Fora: /pew/gecko (a tela remota do Gecko ficaria borrada) e as páginas sem o trilho (seminários,
+  // que têm o A−/A+ deles)
+  const ESCALAS = [0.8, 0.9, 1, 1.1, 1.25, 1.4];
+  const escolhaEscala = () => { try { const v = parseFloat(localStorage.getItem("pew-escala")); return ESCALAS.includes(v) ? v : 1; } catch (e) { return 1; } };
+  const comEscala = () => !location.pathname.startsWith("/pew/gecko");
+  function aplicaEscala() {
+    const v = document.getElementById("pew-nav") && comEscala() ? escolhaEscala() : 1, raiz = document.documentElement;
+    const antes = parseFloat(raiz.style.zoom) || 1;
+    if (v === 1) raiz.style.removeProperty("zoom"); else raiz.style.zoom = String(v);
+    const n = document.querySelector("#pew-nav .escala");
+    if (n) {
+      n.querySelector(".pct").textContent = `${Math.round(v * 100)}%`;
+      const k = ESCALAS.indexOf(v);
+      n.querySelector(".mais").disabled = k === ESCALAS.length - 1; n.querySelector(".menos").disabled = k <= 0;
+      n.querySelector(".mais").dataset.rotulo = `Tamanho do PEW: ${Math.round(v * 100)}% (clique: maior)`;
+      n.querySelector(".menos").dataset.rotulo = `Tamanho do PEW: ${Math.round(v * 100)}% (clique: menor)`;
+    }
+    if (antes !== v) { window.dispatchEvent(new CustomEvent("pew-escala", { detail: { escala: v } })); window.dispatchEvent(new Event("resize")); }
+  }
+  function mudaEscala(passo) {
+    const k = Math.max(0, Math.min(ESCALAS.length - 1, ESCALAS.indexOf(escolhaEscala()) + passo));
+    try { localStorage.setItem("pew-escala", String(ESCALAS[k])); } catch (e) { /* só nesta página */ }
+    aplicaEscala();
+  }
+  window.addEventListener("storage", (e) => { if (e.key === "pew-escala") aplicaEscala(); });   // outra aba do PEW mudou o tamanho
+  if (midiaEscura) midiaEscura.addEventListener("change", aplicaTema);
+  window.addEventListener("storage", (e) => { if (e.key === "pew-tema") aplicaTema(); });   // outra aba do PEW trocou o tema
+  function montar() {
+    if (document.getElementById("pew-nav")) return;
+    if (!document.getElementById("pew-nav-css")) { const s = document.createElement("style"); s.id = "pew-nav-css"; s.textContent = css; document.head.appendChild(s); }
+    const p = location.pathname, nav = document.createElement("nav");
+    nav.id = "pew-nav";
+    nav.innerHTML = `<a class="marca" href="/" title="PEW: Power Electronics Workspace"><svg viewBox="0 0 24 22" width="30" height="27.5" fill="none" aria-hidden="true">${MARCA}</svg>PEW</a>` + ITENS.map((it) =>
+      `<a class="item${it.ativo(p, location.search) ? " ativo" : ""}${it.pronto === false ? " fora" : ""}" href="${it.pronto === false ? "#" : it.href}" data-rotulo="${it.rotulo}"
+          aria-label="${it.rotulo}"${it.janela ? ` data-janela="${it.janela}"` : ""}>${it.icone}</a>`).join("");
+    nav.querySelectorAll("a.fora").forEach((a) => a.addEventListener("click", (e) => e.preventDefault()));
+    // o código e o scope abrem numa janela à parte (a mesma, se já estiver aberta), para ir ao outro monitor; já nela, o clique fica nela
+    nav.querySelectorAll("a[data-janela]").forEach((a) => a.addEventListener("click", (e) => {
+      if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || a.classList.contains("ativo")) return;
+      e.preventDefault(); const url = a.href + (a.href.includes("?") ? "&" : "?") + "janela=1";   // janela=1: a janela vem sem o trilho
+      const w = window.open(url, a.dataset.janela, "popup,width=1200,height=900"); if (w) w.focus(); else location.href = url; }));
+    nav.insertAdjacentHTML("beforeend", (comEscala() ? `<div class="escala"><button class="item mais" type="button" aria-label="PEW maior">+</button>
+      <span class="pct"></span><button class="item menos" type="button" aria-label="PEW menor">−</button></div>` : "") + `<button class="item tema" type="button"></button>`);
+    if (comEscala()) { nav.querySelector(".mais").addEventListener("click", () => mudaEscala(1)); nav.querySelector(".menos").addEventListener("click", () => mudaEscala(-1)); }
+    if (!comEscala()) nav.querySelector(".tema").style.marginTop = "auto";
+    nav.querySelector(".tema").addEventListener("click", () => {
+      const prox = TEMAS[(TEMAS.indexOf(escolhaTema()) + 1) % TEMAS.length];
+      try { localStorage.setItem("pew-tema", prox); } catch (e) { /* ok */ }
+      aplicaTema();
+    });
+    document.body.prepend(nav);
+    // a janela à parte (scope, código), aberta pelo trilho: sem o trilho à vista (ele continua montado: o tema e o tamanho
+    // do PEW valem nela também, e mudam junto com as outras janelas)
+    const soJanela = new URLSearchParams(location.search).get("janela") === "1";
+    if (soJanela) nav.style.display = "none";
+    aplicaTema(); aplicaEscala();
+    if (soJanela) return;
+    document.body.classList.add("com-pew-nav");
+    document.documentElement.style.setProperty("--pew-nav-w", `${L}px`);
+    window.dispatchEvent(new Event("resize"));            // páginas com gráficos se reajustam à largura nova
+  }
+  function desmontar() {
+    const n = document.getElementById("pew-nav"); if (n) n.remove();
+    aplicaEscala();                                       // sem o trilho (seminário), sem o nosso zoom
+    document.body.classList.remove("com-pew-nav");
+    document.documentElement.style.removeProperty("--pew-nav-w");
+    window.dispatchEvent(new Event("resize"));
+  }
+  window.pewNav = { montar, desmontar, aplicaTema, aplicaEscala };
+  const eu = document.currentScript;
+  if (!(eu && eu.dataset.manual)) { if (document.body) montar(); else document.addEventListener("DOMContentLoaded", montar); }
+})();

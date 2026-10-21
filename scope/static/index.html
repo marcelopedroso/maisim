@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=1">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#6d28d9">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pew-scope</title>
+<script>
+// o tamanho do PEW (+ e − no trilho, localStorage "pew-escala"), antes de pintar; embutido no simu (iframe), não: o simu já escala
+try { const z = parseFloat(localStorage.getItem("pew-escala")); if (window.top === window.self && [0.8, 0.9, 1.1, 1.25, 1.4].includes(z)) document.documentElement.style.zoom = z; } catch (e) { /* 100 % */ }
+// o tema do PEW (o trilho escolhe e guarda em localStorage "pew-tema": sistema, claro ou escuro), antes de pintar; também
+// embutido no simu (Marcelo, 20/10: "a aba scope não está respeitando os temas"); o scope.js acompanha as trocas
+try { const t = localStorage.getItem("pew-tema") || "sistema";
+  document.documentElement.dataset.tema = t === "escuro" || (t === "sistema" && matchMedia("(prefers-color-scheme: dark)").matches) ? "escuro" : "claro"; }
+catch (e) { document.documentElement.dataset.tema = "claro"; }
+</script>
+<link rel="stylesheet" href="static/uPlot.min.css">
+<style>
+  /* tema (claro e escuro, como no simu); as cores dos eixos, da grade e das marcas no canvas ficam no scope.js (COR_TEMA) */
+  :root { --fundo:#f7f8fa; --cartao:#fff; --texto:#1b1f24; --sutil:#5b6470; --borda:#d9dde3; --acento:#1f4e79;
+          --campo:#fff; --suave:#eef2f6; --suave2:#eef0f3; --atual:#e3ebf4; --erro:#b42318; --erro-bg:#fef2f2; --erro-borda:#dc2626;
+          --aviso:#b35c00; --aviso2:#8a5300; --aviso-bg:#fff4e5; --aviso-borda:#e8a33d; --selecao:rgba(0,0,0,.07); color-scheme:light; }
+  :root[data-tema="escuro"] { --fundo:#0f1115; --cartao:#171a21; --texto:#e6e8ec; --sutil:#9aa3ae; --borda:#2c323c; --acento:#8b5cf6;
+          --campo:#1d212a; --suave:#232833; --suave2:#232831; --atual:#2b2440; --erro:#f87171; --erro-bg:#3a1416; --erro-borda:#f87171;
+          --aviso:#fbbf24; --aviso2:#fcd34d; --aviso-bg:#33280f; --aviso-borda:#6b5419; --selecao:rgba(255,255,255,.09); color-scheme:dark; }
+  .u-select { background:var(--selecao) !important; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--fundo); color:var(--texto); }
+  header { position:sticky; top:0; z-index:20; background:var(--cartao); border-bottom:1px solid var(--borda);
+           padding:8px 16px; display:flex; flex-direction:column; gap:6px; }
+  .linha { display:flex; flex-wrap:wrap; gap:6px 14px; align-items:center; font-size:13px; }
+  header h1 { font-size:16px; margin:0 8px 0 0; color:var(--acento); }
+  header h1 a { color:inherit; text-decoration:none; } header h1 a:hover { text-decoration:underline; }
+  .grupo { display:flex; gap:4px; align-items:center; flex-wrap:wrap; }
+  select, button, input[type=text] { font: inherit; font-size:13px; padding:3px 8px; border:1px solid var(--borda);
+           border-radius:6px; background:var(--campo); color:var(--texto); }
+  button { cursor:pointer; } button.ativo { background:var(--acento); color:#fff; border-color:var(--acento); }
+  #status { color:var(--sutil); }
+  .sel-rodada { max-width: 360px; }
+  main { padding:10px 16px 40px; flex:1; min-width:0; }
+  #corpo { display:flex; align-items:flex-start; }
+  #indice { display:none; position:sticky; top:var(--cab-h, 80px); flex:0 0 240px; height:calc(100vh - var(--cab-h, 80px));
+            overflow:auto; padding:10px 6px 30px 10px; border-right:1px solid var(--borda); background:var(--cartao); font-size:13px; }
+  body.com-indice #indice { display:block; }
+  #indice .unica { display:block; color:var(--sutil); font-size:12px; padding:0 6px 6px; border-bottom:1px solid var(--borda); }
+  #indice .s { font-weight:700; color:var(--sutil); text-transform:uppercase; font-size:11px; letter-spacing:.04em; margin:10px 0 2px;
+               cursor:pointer; padding:4px 6px; border-radius:5px; }
+  #indice .s.atual { background:var(--atual); color:var(--acento); }
+  #indice .s.alvo-depois { box-shadow: inset 0 -3px 0 0 var(--acento); }
+  #indice .p { padding:2px 6px 2px 14px; cursor:pointer; border-radius:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #indice .p:hover, #indice .s:hover { background:var(--suave); }
+  .oculto { display:none !important; }
+  .cartao, .secao { scroll-margin-top: calc(var(--cab-h, 80px) + 8px); }
+  .cartao.realce { box-shadow:0 0 0 3px #e8a33d; }
+  #bt-ajuda { border-radius:50%; width:26px; padding:3px 0; font-weight:700; color:var(--sutil); cursor:help; }
+  #paineis { display:grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap:10px; }
+  #paineis > .cartao { grid-column: span var(--span, 3); container-type:inline-size; }
+  .secao { grid-column: 1 / -1; display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:14px 0 0; padding:4px 0;
+           border-bottom:2px solid var(--borda); }
+  .secao .titulo-secao { font-size:14px; font-weight:700; color:var(--sutil); text-transform:uppercase; letter-spacing:.04em;
+           border:1px solid transparent; background:transparent; min-width:260px; flex:1; padding:3px 6px; }
+  .secao .titulo-secao:hover, .secao .titulo-secao:focus { border-color:var(--borda); background:var(--campo); }
+  .secao .dica { display:none; width:100%; color:var(--sutil); font-size:12px; border:1px dashed var(--borda); border-radius:6px;
+           padding:14px; text-align:center; }
+  .secao.vazia .dica { display:block; }
+  .b-arrasta { cursor:grab; color:var(--sutil); font-size:16px; padding:0 4px; user-select:none; }
+  .cartao.arrastando { opacity:.4; }
+  .alvo-antes { box-shadow: -4px 0 0 0 var(--acento); }
+  .alvo-depois { box-shadow: 4px 0 0 0 var(--acento); }
+  .secao.alvo-depois { box-shadow: 0 3px 0 0 var(--acento); }
+  /* recolher (seção e painel), arrastar a seção, expandir o painel (19/10) */
+  .cab .b-rec, .secao .b-rec { border:0; background:transparent; padding:0 2px; color:var(--sutil); display:inline-flex; align-items:center; }
+  .b-rec:hover, .cab .b-exp:hover { color:var(--acento); } .b-rec svg { transition:transform .15s; }
+  .cartao.recolhido .cab .b-rec svg, .secao.recolhida .b-rec svg { transform:rotate(-90deg); }
+  .cartao.recolhido { align-self:start; }
+  .cartao.recolhido:not(.expandido) > :not(.cab):not(.menu) { display:none; }
+  .cartao.recolhido:not(.expandido) .cab { margin-bottom:0; }
+  .cartao.recolhido:not(.expandido) .ferr { display:none; }
+  .secao .n-rec { display:none; color:var(--sutil); font-size:12px; white-space:nowrap; }
+  .secao.recolhida .n-rec { display:inline; } .secao.recolhida { border-bottom-style:dashed; }
+  .secao.recolhida .dica { display:none; }
+  .secao.arrastando, #indice .s.arrastando { opacity:.4; }
+  .secao.alvo-antes { box-shadow: 0 -3px 0 0 var(--acento); }
+  #paineis.alvo-fim { box-shadow: 0 3px 0 0 var(--acento); }
+  #indice .s.alvo-antes { box-shadow: inset 0 3px 0 0 var(--acento); }
+  #indice .lista.alvo-fim { box-shadow: inset 0 -3px 0 0 var(--acento); }
+  #indice .s.recolhida::before { content:"▸ "; }
+  .cab .b-exp { display:inline-flex; align-items:center; padding:2px 5px; color:var(--sutil); }
+  .cartao.expandido { position:fixed; z-index:45; top:10px; right:10px; bottom:10px; left:10px; overflow:auto; box-shadow:0 12px 48px rgba(0,0,0,.3); }
+  .cartao.expandido .b-arrasta, .cartao.expandido .cab .b-rec, .cartao.expandido .b-rem { display:none; }   /* o ✕ ao lado do voltar apagaria o painel */
+  #fundo-exp { position:fixed; inset:0; z-index:44; background:rgba(15,20,30,.35); }
+  body.com-expandido { overflow:hidden; }
+  .menu-y { width:220px; display:flex; flex-direction:column; gap:6px; }
+  .menu-y input { width:110px; margin-left:6px; }
+  .cartao { background:var(--cartao); border:1px solid var(--borda); border-radius:8px; padding:6px; min-width:0; position:relative; }
+  .cab { display:flex; flex-wrap:wrap; gap:4px 6px; align-items:center; margin-bottom:4px; }
+  .cab input.titulo { flex:1 1 120px; min-width:80px; font-weight:600; border-color:transparent; }
+  .ferr { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:4px 6px; align-items:center; margin-left:auto; }
+  .cab button, .zoom { white-space:nowrap; flex-shrink:0; }
+  @container (max-width: 560px) { .zoom .rot { display:none; } }
+  @container (max-width: 640px) {                     /* painel estreito: ✕ na linha do título, ferramentas embaixo */
+    .cab .b-rem, .cab .b-exp { order:1; } .cab .ferr { order:2; flex-basis:100%; gap:4px; } .cab .ferr button { padding:2px 5px; } }
+  .menu-opc { width:250px; }
+  .menu-opc .seg { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:4px; }
+  .menu-opc button { font-size:12px; padding:2px 8px; }
+  .cab input.titulo:hover, .cab input.titulo:focus { border-color:var(--borda); }
+  .cab button { padding:2px 7px; }
+  .zoom { display:inline-flex; align-items:center; }
+  .zoom .rot { font-size:11px; color:var(--sutil); margin-right:4px; }
+  .zoom button { border-radius:0; margin-left:-1px; min-width:30px; }
+  .zoom button:nth-child(2) { border-radius:6px 0 0 6px; margin-left:0; }
+  .zoom button:last-child { border-radius:0 6px 6px 0; }
+  .zoom button.ativo { position:relative; z-index:1; }
+  button.b-solto { min-width:30px; }
+  button.b-solto { color:var(--sutil); }
+  .medicao { border-top:1px solid var(--borda); margin-top:6px; padding:6px 4px 2px; font-size:12px; }
+  .med-cab { display:flex; flex-wrap:wrap; gap:4px 10px; align-items:center; }
+  .med-cab input { width:84px; padding:1px 4px; font-size:12px; }
+  .med-cab input.m-n { width:52px; } .med-cab input.m-f0 { width:64px; } .med-cab input.m-hs { width:96px; }
+  .med-cab input[type=checkbox] { width:auto; margin:0 2px 0 0; vertical-align:-2px; }
+  .med-cab input.m-imp-n, .med-cab input.m-par-n { width:52px; }
+  .med-cab button { padding:1px 7px; font-size:12px; }
+  .med-cab .m-fecha { margin-left:auto; }
+  .med-jan { color:var(--sutil); font-variant-numeric:tabular-nums; }
+  .med-dica { color:var(--sutil); font-size:11px; margin-left:auto; }
+  .med-cab .med-dica + .m-fecha { margin-left:0; }
+  .med-tab { overflow-x:auto; }
+  .med-tab table { border-collapse:collapse; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .med-tab th, .med-tab td { padding:2px 6px; text-align:right; border-bottom:1px solid var(--suave2); vertical-align:top; }
+  .med-tab th { font-weight:600; color:var(--sutil); font-size:11px; }
+  .med-tab th span, .med-tab td span { font-weight:400; color:var(--sutil); font-size:10px; }
+  .med-tab td.nome, .med-tab th:first-child { text-align:left; }
+  .med-tab { margin-top:4px; }
+  .med-tab td.nome i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; vertical-align:-1px; }
+  .med-tab td.erro { text-align:left; color:var(--erro); }
+  .med-tab td.nome { cursor:pointer; }
+  .med-tab tr.soma td { border-top:2px solid var(--borda); font-weight:600; }      /* Σ: a soma dos sinais da tabela */
+  .med-tab td.nome-soma { text-align:left; cursor:help; } .med-tab tr.soma td.erro { font-weight:400; color:var(--sutil); }
+  .med-tab tr.fora td { opacity:.4; }
+  .esp { position:relative; margin-top:6px; border-top:1px dashed var(--borda); padding-top:4px; }
+  .esp-cab { display:flex; gap:12px; align-items:center; font-size:12px; color:var(--sutil); }
+  .esp-cab input[type=number] { width:64px; padding:1px 4px; font-size:12px; }
+  .esp canvas { display:block; }
+  .esp-dica { display:none; position:absolute; z-index:5; background:var(--cartao); border:1px solid var(--borda); border-radius:6px;
+              box-shadow:0 4px 16px rgba(0,0,0,.12); padding:6px 8px; font-size:12px; pointer-events:none; white-space:nowrap; }
+  .esp-dica i { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:5px; }
+  button.b-solto.solto { background:var(--aviso-bg); color:var(--aviso); border-color:var(--aviso-borda); }
+  .menu { position:absolute; top:36px; right:6px; z-index:30; width:340px; max-height:420px; overflow:auto;
+          background:var(--cartao); border:1px solid var(--borda); border-radius:8px; box-shadow:0 6px 24px rgba(0,0,0,.12); padding:8px; font-size:13px; }
+  .menu h4 { margin:8px 0 2px; font-size:12px; color:var(--sutil); text-transform:uppercase; letter-spacing:.03em; }
+  .menu label { display:block; padding:1px 2px; cursor:pointer; }
+  .menu .fino { color:var(--aviso2); font-size:11px; }
+  .menu .item { display:flex; align-items:center; gap:4px; }
+  .menu .item label { flex:1; }
+  .menu .item .x { color:var(--sutil); }
+  .menu input.ganho { width:62px; padding:1px 4px; font-size:12px; }
+  .menu button.cor-sinal { width:16px; height:16px; padding:0; border-radius:50%; border:2px solid var(--cartao); box-shadow:0 0 0 1px var(--sutil); cursor:pointer; flex:0 0 auto; }
+  .menu .paleta { display:flex; flex-wrap:wrap; gap:4px; padding:5px 4px 7px 22px; }
+  .menu .paleta .amostra { width:18px; height:18px; padding:0; border-radius:4px; border:1px solid rgba(0,0,0,.15); cursor:pointer; }
+  .menu .paleta .amostra.atual { outline:2px solid var(--texto); outline-offset:1px; }
+  .menu .paleta-hex { display:flex; align-items:center; gap:4px; width:100%; margin-top:3px; }
+  .menu .paleta-hex .hex { width:78px; font:12px ui-monospace, monospace; padding:1px 4px; } .menu .paleta-hex .hex.ruim { border-color:var(--erro-borda); background:var(--erro-bg); }
+  .menu .paleta-hex .livre { width:26px; height:22px; padding:0; border:0; background:none; cursor:pointer; }
+  .menu .paleta-hex .padrao { font-size:11px; padding:1px 6px; margin-left:auto; }
+  .dica { font-size:12px; color:var(--sutil); margin:0 0 8px; }
+  .vazio { color:var(--sutil); font-size:13px; padding:30px; text-align:center; }
+  #janela-apagar { position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:50; display:none; align-items:flex-start; justify-content:center; padding-top:60px; }
+  #janela-apagar.aberta { display:flex; }
+  #janela-apagar .caixa { background:var(--cartao); border-radius:10px; width:min(820px, 94vw); max-height:80vh; display:flex; flex-direction:column;
+           box-shadow:0 10px 40px rgba(0,0,0,.25); }
+  #janela-apagar .topo, #janela-apagar .rodape { padding:10px 14px; display:flex; gap:10px; align-items:center; }
+  #janela-apagar .topo { border-bottom:1px solid var(--borda); font-weight:600; }
+  #janela-apagar .rodape { border-top:1px solid var(--borda); justify-content:flex-end; }
+  #janela-apagar .lista { overflow:auto; padding:6px 14px; font-size:13px; }
+  #janela-apagar label { display:grid; grid-template-columns: 22px 1fr 80px; gap:6px; padding:4px 0; border-bottom:1px solid var(--suave2); cursor:pointer; }
+  #janela-apagar .tam { text-align:right; color:var(--sutil); }
+  #janela-apagar .cam { grid-column: 2 / 4; color:var(--sutil); font-size:11px; }
+  button.perigo { background:#b42318; color:#fff; border-color:#b42318; }
+  @media (max-width: 900px) { #paineis > .cartao { grid-column: 1 / -1; } #indice { flex-basis:180px; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="linha">
+    <h1><a href="/" title="PEW: início (no pew-app)">pew</a> / scope</h1>
+    <div class="grupo"><button id="bt-vivo" class="ativo">Ao vivo</button><button id="bt-comparar">Comparar</button></div>
+    <div class="grupo"><label>A <select id="sel-a" class="sel-rodada"></select></label>
+      <label>B <select id="sel-b" class="sel-rodada"></select></label><button id="bt-carregar">Carregar</button></div>
+    <span id="status">aguardando…</span>
+  </div>
+  <div class="linha">
+    <button id="bt-indice" title="índice das seções e painéis, ao lado (clique para ir direto a um gráfico)">☰ Índice</button>
+    <label title="durante a rodada ao vivo, não reajusta as escalas"><input type="checkbox" id="ck-fixar"> Fixar eixos</label>
+    <label title="para de redesenhar (os dados continuam chegando)"><input type="checkbox" id="ck-pausar"> Pausar</label>
+    <div class="grupo">
+      <button id="bt-painel">+ Painel</button>
+      <button id="bt-secao" title="novo título de seção no fim">+ Seção</button>
+      <button id="bt-porlinha" title="quantos painéis por linha, para todos (cada painel muda o seu no menu ⋯)">Por linha: 2</button>
+      <button id="bt-padrao" title="volta aos painéis padrão">Layout padrão</button>
+      <button id="bt-salvar" title="salva todos os painéis numa imagem PNG">Salvar figura</button>
+      <button id="bt-apagar" title="escolher gravações (scope_*.npz) para apagar do disco">Apagar gravações…</button>
+    </div>
+    <button id="bt-ajuda" title="Zoom em cada painel: escolha X (tempo), Y (vertical) ou área e arraste no gráfico; ⟲ ou duplo clique volta a ver tudo naquele painel.
+Ctrl + roda: zoom no tempo. Ctrl + Shift + roda: vertical.
+O tempo é comum aos painéis ligados (corrente); clique na corrente para dar a um painel o seu próprio tempo (corrente partida, laranja).
+Medir: média, série de Fourier, THD e espectro num intervalo; Shift + arrastar no gráfico escolhe o intervalo.
+Sinais ▾ troca as variáveis; Y fixo guarda uma escala vertical; ⋯ tem largura, altura e PNG do painel.
+A alça ⠿ arrasta o painel para outro lugar, outra seção ou para uma seção no índice; a ⠿ da seção a leva inteira, com os painéis (no índice, arraste o nome da seção).
+A seta ▾ recolhe a seção (os painéis somem até abrir de novo) ou o painel (fica só o título); fica guardado no layout.
+⤢ expande o painel para a janela inteira; Esc, ⤡ ou um clique fora volta.
+Sinais de passo fino (pulsos, tensões PWM, medidas do Gecko) aparecem a cada 1 µs com zoom abaixo de 40 ms; com zoom maior, como média em cada janela de 20 µs.
+A em cores; B em preto tracejado.">?</button>
+  </div>
+</header>
+<div id="corpo">
+<nav id="indice"><label class="unica" title="mostra só a seção escolhida no índice, como abas"><input type="checkbox" id="ck-unica"> uma seção por vez</label>
+  <div class="lista"></div></nav>
+<main>
+  <div id="paineis"></div>
+  <div id="so-vazio" class="vazio" hidden>Aguardando os sinais da rodada… inicie a simulação no simu (Simulação ▸ Iniciar, ou Ctrl+Enter).</div>
+</main>
+</div>
+<div id="fundo-exp" hidden></div>
+<div id="janela-apagar"><div class="caixa">
+  <div class="topo">Apagar gravações do pew-scope <span id="ap-total" style="font-weight:400;color:var(--sutil)"></span></div>
+  <div class="lista" id="ap-lista"></div>
+  <div class="rodape"><span id="ap-marcadas" style="margin-right:auto;color:var(--sutil)"></span>
+    <button id="ap-fechar">Cancelar</button><button id="ap-ok" class="perigo">Apagar marcadas</button></div>
+</div></div>
+<script src="static/uPlot.iife.min.js"></script>
+<script src="static/scope.js"></script>
+<!-- menu lateral do PEW, servido pelo pew-app; aberta direto na 8765, a página segue sem ele -->
+<script src="/pew-nav.js" onerror="this.remove()"></script>
+</body>
+</html>
