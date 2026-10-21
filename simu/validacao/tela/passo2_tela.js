@@ -43,7 +43,9 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   await pg.waitForFunction(() => sim.estado === "fim" || sim.estado === "erro", null, { timeout: 120000 });
   const fim = await pg.evaluate(() => ({ estado: sim.estado, corpo: document.body.classList.contains("sim-rodando"), leitura: ctl.editor.getOption(monaco.editor.EditorOption.readOnly) }));
   ok(fim.estado === "fim" && !fim.corpo && !fim.leitura, `fim: destravado (${JSON.stringify(fim)})`);
-  // ⏹ no meio também destrava
+  // ⏹ no meio também destrava — numa rodada longa (1 s), para o ⏹ chegar com ela rodando (a de 40 ms acabava antes do
+  // clique numa máquina mais rápida, como a do GitHub Actions, e o estado ficava "fim", não "parada")
+  await pg.evaluate(() => { sim.par.tfim = "1"; });
   await pg.click("#bt-play"); await pg.waitForFunction(() => sim.estado === "rodando", null, { timeout: 20000 }); await pg.waitForTimeout(300);
   await pg.click("#bt-parar"); await pg.waitForFunction(() => sim.estado === "parada", null, { timeout: 60000 });
   ok(await pg.evaluate(() => !document.body.classList.contains("sim-rodando") && !ctl.editor.getOption(monaco.editor.EditorOption.readOnly)), "⏹ no meio: destravado");
