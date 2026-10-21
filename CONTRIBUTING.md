@@ -1,35 +1,41 @@
-# Como o código entra no MaiSim
+# How code gets into MaiSim
 
-1. **Sempre por PR.** Todo trabalho num ramo (`git switch -c <assunto>`), enviado com `git push -u origin <assunto>` e
-   aberto como PR para o `main` (`gh pr create --fill`). Nunca push direto no `main`: a proteção do ramo no GitHub barra
-   (PR obrigatório, a verificação obrigatória, vale também para administradores, histórico linear, sem force-push), e o
-   gancho `.githooks/pre-push` avisa antes, na máquina (ative uma vez por cópia: `git config core.hooksPath .githooks`).
-2. **A verificação de cada PR** (workflow `verify`, `.github/workflows/verify.yml`; o teste obrigatório é o job `tests (quick)`): o GitHub Actions sobe a instância de teste (o
-   GeckoCIRCUITS numa tela virtual, o simulador, o scope, a página) e roda o conjunto rápido dos testes
-   (`simu/validacao/ci.sh rapido`: os offline e o essencial de API e de tela, com o Playwright). Passou → o próprio
-   Actions junta o PR no `main` (squash: um commit por PR) e apaga o ramo. Não junta sozinho: PR em rascunho, PR com o
-   rótulo `do-not-merge`, e PR de quem não é o dono do repositório (esse espera a revisão). O merge vale só para o commit
-   que foi testado. Um rascunho que fica pronto roda a verificação de novo (e é juntado se passar).
-   **O Codex revisa cada PR** (o app do ChatGPT no GitHub): os comentários dele são respondidos no próprio PR —
-   corrigidos no ramo, ou explicado por que não — e a conversa é resolvida. Antes de juntar, o Actions espera a revisão
-   do Codex terminar (até 10 min; passou disso, segue sem ela) e não junta com conversa aberta (`.github/scripts/wait_for_codex.py`; a proteção do `main` também
-   exige as conversas resolvidas). Se o job `merge into main` falhar por isso: resolva as conversas e rode o job de novo
-   (ou envie a correção no ramo, que roda a verificação inteira outra vez).
-3. **Depois do merge, a bateria inteira** (workflow `full suite`, `.github/workflows/full-suite.yml`, `simu/validacao/ci.sh completo`: tela, API,
-   offline e o scope ao vivo). Se falhar, abre um issue com o link dos registros e das fotos.
-4. **Versão:** o arquivo `VERSION` ([SemVer](https://semver.org/lang/pt-BR/)). Um PR que muda o `VERSION`, depois do
-   merge e da bateria verde, vira a tag `vX.Y.Z` e uma Release no GitHub com as notas geradas dos PRs.
+1. **Always through a PR.** All work goes on a branch (`git switch -c <topic>`), pushed with `git push -u origin <topic>`
+   and opened as a PR against `main` (`gh pr create --fill`). Never push straight to `main`: the branch protection on
+   GitHub blocks it (PR required, the required check, applies to administrators too, linear history, no force-push),
+   and the `.githooks/pre-push` hook warns you before that, on your machine (enable it once per clone:
+   `git config core.hooksPath .githooks`).
+2. **Every PR is verified** (workflow `verify`, `.github/workflows/verify.yml`; the required check is the job
+   `tests (quick)`): GitHub Actions starts the test instance (GeckoCIRCUITS on a virtual display, the simulator, the
+   scope, the web page) and runs the quick test set (`simu/validacao/ci.sh rapido`: the offline tests plus the essential
+   API and UI tests, with Playwright). Passed → Actions itself merges the PR into `main` (squash: one commit per PR) and
+   deletes the branch. It does not merge on its own: draft PRs, PRs with the `do-not-merge` label, and PRs from anyone
+   other than the repository owner (those wait for review). The merge only applies to the commit that was tested. A
+   draft that is marked ready runs the verification again (and is merged if it passes).
+   **Codex reviews every PR** (the ChatGPT app on GitHub): its comments are answered on the PR itself, either fixed on
+   the branch or explained why not, and the conversation is resolved. Before merging, Actions waits for the Codex
+   review to finish (up to 10 min; after that it goes on without it) and does not merge while a conversation is open
+   (`.github/scripts/wait_for_codex.py`; the `main` protection also requires conversations to be resolved). If the
+   `merge into main` job fails for that reason: resolve the conversations and re-run the job (or push the fix to the
+   branch, which runs the whole verification again).
+3. **After the merge, the full suite** (workflow `full suite`, `.github/workflows/full-suite.yml`,
+   `simu/validacao/ci.sh completo`: UI, API, offline and the live scope). If it fails, it opens an issue with a link to
+   the logs and screenshots.
+4. **Version:** the `VERSION` file ([SemVer](https://semver.org)). A PR that changes `VERSION` becomes, after the merge
+   and a green full suite, the tag `vX.Y.Z` and a GitHub Release with notes generated from the PRs.
 
-## Os testes na sua máquina
+## Running the tests on your machine
 
 ```bash
-simu/validacao/sobe_teste.sh          # a instância de teste (portas 7200–7206, perfil config/teste.env)
-simu/validacao/ci.sh rapido           # o que a verificação de um PR roda (~10 min)
-simu/validacao/ci.sh completo         # a bateria inteira (~70 min)
-simu/validacao/ci.sh inicio_tela      # só os testes dados
-simu/validacao/desce_teste.sh         # derruba a instância de teste
+simu/validacao/sobe_teste.sh          # start the test instance (ports 7200–7206, profile config/teste.env)
+simu/validacao/ci.sh rapido           # what a PR's verification runs (~10 min)
+simu/validacao/ci.sh completo         # the full suite (~70 min)
+simu/validacao/ci.sh inicio_tela      # only the given tests
+simu/validacao/desce_teste.sh         # stop the test instance
 ```
 
-Os testes rodam só na instância de teste, nunca no MaiSim de uso (7100): as IAs são as de mentira
-(`simu/validacao/*_falso.py`) e as pastas são descartáveis (`~/.cache/maisim_teste`). O `claude_tela` (o link do login de
-verdade do Claude) roda só na máquina, não no Actions.
+The tests only run on the test instance, never on the MaiSim you use (7100): the AIs are fake ones
+(`simu/validacao/*_falso.py`) and the folders are disposable (`~/.cache/maisim_teste`). `claude_tela` (the real Claude
+login link) only runs on your machine, not on Actions.
+
+The documentation of the modules (the `LEIA.md` files) and the user interface are in Portuguese.
