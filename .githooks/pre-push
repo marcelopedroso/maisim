@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# MaiSim: não deixa enviar direto para o main — tudo entra por PR, com a verificação do GitHub Actions (CONTRIBUTING.md).
+# Ativar uma vez por cópia do repositório: git config core.hooksPath .githooks
+# Numa emergência, com o OK do dono do repositório: MAISIM_PUSH_MAIN=1 git push …
+while read -r _ _ ref_remota _; do
+  if [ "$ref_remota" = "refs/heads/main" ] && [ "${MAISIM_PUSH_MAIN:-}" != 1 ]; then
+    echo "maisim: push direto no main bloqueado — envie um ramo e abra um PR:" >&2
+    echo "  git push -u origin <ramo> && gh pr create --fill" >&2
+    exit 1
+  fi
+done
+exit 0

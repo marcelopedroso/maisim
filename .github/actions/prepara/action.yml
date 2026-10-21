@@ -1,0 +1,53 @@
+name: prepara a instância de teste do MaiSim
+description: >-
+  Java 11, Node 22, os pacotes do sistema, o GeckoCIRCUITS (o original no commit fixo + o patch, guardado em cache), a
+  página (Vite), o Playwright e o Claude Code (sem login: o claude de mentira dos testes só repassa a ele o login e o
+  estado), e a instância de teste no ar (simu/validacao/sobe_teste.sh, perfil config/teste.env).
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: "11"
+    - uses: actions/setup-node@v4
+      with:
+        node-version: "22"
+        cache: npm
+        cache-dependency-path: app/package-lock.json
+    - name: pacotes do sistema (tela virtual, xwininfo, XTest, numpy)
+      shell: bash
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq xvfb x11-utils libxtst6 python3-numpy > /dev/null
+    - name: cache do GeckoCIRCUITS montado
+      uses: actions/cache@v4
+      with:
+        path: |
+          gecko/build/gecko-lote.jar
+          gecko/build/.patches
+        key: gecko-${{ hashFiles('gecko/construir.sh', 'gecko/patches/**') }}
+    - name: cache do Maven
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2/repository
+        key: m2-${{ hashFiles('gecko/construir.sh', 'gecko/patches/**') }}
+        restore-keys: m2-
+    - name: o GeckoCIRCUITS (o original no commit fixo + o patch da leitura em lote)
+      shell: bash
+      run: bash gecko/construir.sh
+    - name: a página (Vite)
+      shell: bash
+      run: npm ci --prefix app --no-audit --no-fund
+    - name: Playwright (Chromium) e o Claude Code
+      shell: bash
+      run: |
+        mkdir -p ~/ns-test && cd ~/ns-test
+        npm init -y > /dev/null
+        npm install --no-audit --no-fund playwright@1.62.0 > /dev/null
+        npx playwright install --with-deps chromium > /dev/null
+        curl -fsSL https://claude.ai/install.sh | bash > /dev/null
+        ~/.local/bin/claude --version
+    - name: a instância de teste no ar
+      shell: bash
+      run: bash simu/validacao/sobe_teste.sh

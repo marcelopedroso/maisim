@@ -1,0 +1,75 @@
+# Depois de cada merge no main: a bateria inteira (simu/validacao/ci.sh completo — tela, API, offline e o scope ao vivo
+# na instância isolada). Passou e o VERSION mudou → a tag vX.Y.Z e a Release com as notas. Falhou → um issue.
+# Chamada pela verificação (depois de juntar um PR) ou por um push no main (um merge feito na página do GitHub).
+name: bateria
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: bateria-main
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  bateria:
+    name: bateria inteira
+    runs-on: ubuntu-22.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/prepara
+      - name: os testes
+        run: bash simu/validacao/ci.sh completo
+      - name: o resumo
+        if: always()
+        run: |
+          { echo '```'; cat ~/.cache/maisim_teste/bateria/resumo.txt 2>/dev/null || echo "(sem resumo)"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: os registros e as fotos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: registros-bateria
+          path: |
+            ~/.cache/maisim_teste/bateria/
+            ~/.cache/maisim_teste/*.log
+          retention-days: 30
+          if-no-files-found: ignore
+
+  versao:
+    name: versão (tag e release)
+    needs: bateria
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: a tag e a Release, se o VERSION mudou
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v="v$(tr -d ' \n' < VERSION)"
+          if git rev-parse -q --verify "refs/tags/$v" > /dev/null; then echo "$v já existe: nada a fazer"; exit 0; fi
+          gh release create "$v" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "MaiSim $v" --generate-notes
+
+  avisa:
+    name: avisa a falha
+    needs: bateria
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: um issue com o link da execução
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "A bateria falhou no main (${GITHUB_SHA::7})" \
+            --body "A bateria inteira falhou depois do merge de ${GITHUB_SHA::7}. O resumo e os registros (com as fotos dos testes de tela): $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
