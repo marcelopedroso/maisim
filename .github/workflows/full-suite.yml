@@ -1,0 +1,75 @@
+# After every merge into main: the full test suite (simu/validacao/ci.sh completo — UI, API, offline and the live scope
+# on the isolated instance). Green and VERSION changed → the vX.Y.Z tag and a Release with notes. Red → an issue.
+# Started by verify.yml (after merging a PR) or by a push to main (a merge made on the GitHub page).
+name: full suite
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: full-suite-main
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  suite:
+    name: full test suite
+    runs-on: ubuntu-22.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/prepare
+      - name: run the tests
+        run: bash simu/validacao/ci.sh completo
+      - name: summary
+        if: always()
+        run: |
+          { echo '```'; cat ~/.cache/maisim_teste/bateria/resumo.txt 2>/dev/null || echo "(no summary)"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: upload logs and screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: logs-full-suite
+          path: |
+            ~/.cache/maisim_teste/bateria/
+            ~/.cache/maisim_teste/*.log
+          retention-days: 30
+          if-no-files-found: ignore
+
+  release:
+    name: release (tag and notes)
+    needs: suite
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: tag and Release, if VERSION changed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v="v$(tr -d ' \n' < VERSION)"
+          if git rev-parse -q --verify "refs/tags/$v" > /dev/null; then echo "$v already exists: nothing to do"; exit 0; fi
+          gh release create "$v" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "MaiSim $v" --generate-notes
+
+  report:
+    name: report failure
+    needs: suite
+    if: failure()
+    runs-on: ubuntu-24.04
+    permissions:
+      issues: write
+    steps:
+      - name: open an issue with the run link
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "Full suite failed on main (${GITHUB_SHA::7})" \
+            --body "The full test suite failed after the merge of ${GITHUB_SHA::7}. Summary and logs (with the UI test screenshots): $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
