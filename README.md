@@ -2,76 +2,78 @@
 
 # MaiSim
 
-**Plataforma aberta de simulação e controle de eletrônica de potência, com IA.** *(Open-source power electronics
-simulation and control platform.)*
+**Open-source power electronics simulation and control platform, with AI.**
 
-O MaiSim roda no navegador, na sua máquina, com o [GeckoCIRCUITS](https://github.com/geckocircuits/GeckoCIRCUITS) como
-motor de simulação. Você monta o circuito, escreve o controle em Python, roda e mede, e pode pedir ajuda a uma IA
-(Claude Code ou Google Antigravity) que enxerga o circuito, o controle e as rodadas.
+MaiSim runs in your browser, on your own machine, with [GeckoCIRCUITS](https://github.com/geckocircuits/GeckoCIRCUITS)
+as its simulation engine. You build the circuit, write the control code in Python, run and measure, and you can ask an
+AI assistant (Claude Code or Google Antigravity) that sees the circuit, the control code and the runs.
 
-| Peça | O que faz | Documentação |
+> The documentation inside the modules (`LEIA.md` files) and the user interface are in Portuguese for now.
+
+| Module | What it does | Docs |
 |---|---|---|
-| **simu** (`/maisim/simu`) | o editor do circuito (paleta, fios, subcircuitos, variáveis globais), o controle em Python amostrado a cada Ts, as rodadas e a conversa com a IA | [`simu/LEIA.md`](simu/LEIA.md), [`simu/GUIA_CONTROLE.md`](simu/GUIA_CONTROLE.md) |
-| **scope** (`/maisim/scope`) | os gráficos das rodadas: ao vivo, comparar duas rodadas, seções e painéis, visões exportáveis | [`scope/LEIA.md`](scope/LEIA.md) |
-| **gecko** (`/maisim/gecko`) | o GeckoCIRCUITS de verdade numa tela virtual, aberto no navegador (noVNC) | [`gecko/LEIA.md`](gecko/LEIA.md) |
-| **app** | a página inicial e o menu lateral (Vite), que encaminha para as outras peças; instalável como app (PWA) | [`app/public/marca/LEIA.md`](app/public/marca/LEIA.md) |
+| **simu** (`/maisim/simu`) | the circuit editor (palette, wires, subcircuits, global variables), Python control sampled every Ts, runs, and the AI chat | [`simu/LEIA.md`](simu/LEIA.md), [`simu/GUIA_CONTROLE.md`](simu/GUIA_CONTROLE.md) |
+| **scope** (`/maisim/scope`) | plots of the runs: live, compare two runs, sections and panels, exportable views | [`scope/LEIA.md`](scope/LEIA.md) |
+| **gecko** (`/maisim/gecko`) | the real GeckoCIRCUITS window on a virtual display, opened in the browser (noVNC) | [`gecko/LEIA.md`](gecko/LEIA.md) |
+| **app** | the home page and side menu (Vite), which routes to the other modules; installable as an app (PWA) | [`app/public/marca/LEIA.md`](app/public/marca/LEIA.md) |
 
-Os exemplos prontos estão em [`exemplos/`](exemplos/) (controle PI, PWM e três células meia-ponte em cascata, com subcircuitos).
+Ready-made examples live in [`exemplos/`](exemplos/) (PI control, PWM, and three half-bridge cells in cascade using
+subcircuits).
 
-## Requisitos
+## Requirements
 
-Linux (testado no Ubuntu 22.04 e no WSL2):
+Linux (tested on Ubuntu 22.04 and WSL2):
 
-- **Python 3** com **numpy**;
-- **Java 11 (JDK)**, **Maven** e **git**, para montar o GeckoCIRCUITS;
-- **Node.js 22**, para a página;
-- a tela virtual e o noVNC: `xvfb x11vnc novnc websockify x11-utils libxtst6` (e `openbox`, opcional, para as janelas
-  do Gecko terem borda e abrirem maximizadas).
+- **Python 3** with **numpy**;
+- **Java 11 (JDK)**, **Maven** and **git**, to build GeckoCIRCUITS;
+- **Node.js 22**, for the web page;
+- the virtual display and noVNC: `xvfb x11vnc novnc websockify x11-utils libxtst6` (plus `openbox`, optional, so the
+  Gecko windows get borders and open maximized).
 
 ```bash
 sudo apt install -y python3 python3-numpy openjdk-11-jdk maven git xvfb x11vnc novnc websockify x11-utils libxtst6 openbox
 ```
 
-A IA é opcional: o [Claude Code](https://claude.com/claude-code) (`claude`) e/ou o Google Antigravity instalados. O
-login é feito pela própria tela do MaiSim e fica numa pasta separada (`~/.claude-maisim`, `~/.agy-maisim`), sem mexer
-no seu login de sempre.
+AI is optional: install [Claude Code](https://claude.com/claude-code) (`claude`) and/or Google Antigravity. You sign in
+from MaiSim's own screen, and the login is kept in a separate folder (`~/.claude-maisim`, `~/.agy-maisim`), so your
+usual login is not touched.
 
-## Instalar e abrir
+## Install and run
 
 ```bash
 git clone https://github.com/marcelopedroso/maisim.git && cd maisim
-gecko/construir.sh            # o GeckoCIRCUITS original num commit fixo + o patch do MaiSim → gecko/build/gecko-lote.jar
-npm ci --prefix app           # a página
-cd app && npm run maisim      # sobe tudo; Ctrl+C derruba o que ele subiu
+gecko/construir.sh            # upstream GeckoCIRCUITS at a pinned commit + MaiSim's patch → gecko/build/gecko-lote.jar
+npm ci --prefix app           # the web page
+cd app && npm run maisim      # starts everything; Ctrl+C stops what it started
 ```
 
-Abra **http://localhost:7100**. As portas (7100–7106, só em `localhost`) e as pastas ficam em
-[`config/padrao.env`](config/padrao.env); para mudar algo na sua máquina, crie um `.env` na raiz só com o que muda.
+Open **http://localhost:7100**. Ports (7100–7106, `localhost` only) and folders are set in
+[`config/padrao.env`](config/padrao.env); to change something on your machine, create a `.env` at the repository root
+with only what changes.
 
-O que é seu (circuitos, subcircuitos, rodadas, contextos da IA) fica em `~/.local/share/maisim`; o que dá para refazer
-(estado do editor, conversas, registros, o Gecko), em `~/.cache/maisim`.
+Your data (circuits, subcircuits, runs, AI contexts) lives in `~/.local/share/maisim`; what can be rebuilt (editor
+state, conversations, logs, Gecko), in `~/.cache/maisim`.
 
-## Testes e contribuição
+## Tests and contributing
 
-Tudo entra por PR, com os testes rodando no GitHub Actions (os de API em Python e os de tela com o Playwright, numa
-instância de teste isolada). O fluxo, a versão e como rodar os testes na sua máquina estão em
-[`CONTRIBUTING.md`](CONTRIBUTING.md) e em [`simu/validacao/LEIA.md`](simu/validacao/LEIA.md).
+Everything goes in through pull requests, with the tests running on GitHub Actions (API tests in Python and UI tests
+with Playwright, on an isolated test instance). The workflow, versioning and how to run the tests locally are described
+in [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`simu/validacao/LEIA.md`](simu/validacao/LEIA.md).
 
-## Licença
+## License
 
-[GNU GPL v3](LICENSE). Autor: Marcelo Pedroso.
+[GNU GPL v3](LICENSE). Author: Marcelo Pedroso.
 
-## Créditos
+## Credits
 
-- **[GeckoCIRCUITS](https://github.com/geckocircuits/GeckoCIRCUITS)** (GPLv3): o simulador de circuitos por trás do
-  MaiSim. O `gecko/construir.sh` baixa o original num commit fixo e aplica o patch de [`gecko/patches/`](gecko/patches/)
-  (a leitura e a escrita em lote pela interface remota); o código dele não está neste repositório.
-- **[KaTeX](https://katex.org)** (MIT): as equações nas respostas da IA, em [`simu/static/katex/`](simu/static/katex/)
-  com a licença dele.
-- **[noVNC](https://novnc.com)** (MPL 2.0) e **websockify** (LGPLv3), do sistema: a tela do Gecko no navegador.
-- **[Vite](https://vite.dev)** (MIT): o servidor da página. **[Playwright](https://playwright.dev)** (Apache 2.0): os
-  testes de tela.
-- **IA:** o MaiSim chama os programas oficiais do [Claude Code](https://claude.com/claude-code) (Anthropic) e do Google
-  Antigravity, sem modificá-los; cada um segue os próprios termos de uso. O MaiSim não é afiliado a nenhuma dessas
-  empresas.
-- **Marca:** ideia e direção de Marcelo Pedroso, desenho feito com o Claude ([`app/public/marca/`](app/public/marca/)).
+- **[GeckoCIRCUITS](https://github.com/geckocircuits/GeckoCIRCUITS)** (GPLv3): the circuit simulator behind MaiSim.
+  `gecko/construir.sh` downloads upstream at a pinned commit and applies the patch in [`gecko/patches/`](gecko/patches/)
+  (batch read and write through the remote interface); its source code is not part of this repository.
+- **[KaTeX](https://katex.org)** (MIT): equations in the AI answers, shipped in [`simu/static/katex/`](simu/static/katex/)
+  with its license.
+- **[noVNC](https://novnc.com)** (MPL 2.0) and **websockify** (LGPLv3), from the system: the Gecko display in the browser.
+- **[Vite](https://vite.dev)** (MIT): the web page server. **[Playwright](https://playwright.dev)** (Apache 2.0): the UI
+  tests.
+- **AI:** MaiSim calls the official [Claude Code](https://claude.com/claude-code) (Anthropic) and Google Antigravity
+  programs, unmodified; each follows its own terms of use. MaiSim is not affiliated with any of these companies.
+- **Logo:** concept and direction by Marcelo Pedroso, drawn with Claude ([`app/public/marca/`](app/public/marca/)).
