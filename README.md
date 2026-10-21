@@ -2,13 +2,15 @@
 
 # MaiSim
 
+**English** | [Português](README.pt-BR.md)
+
 **Open-source power electronics simulation and control platform, with AI.**
 
 MaiSim runs in your browser, on your own machine, with [GeckoCIRCUITS](https://github.com/geckocircuits/GeckoCIRCUITS)
 as its simulation engine. You build the circuit, write the control code in Python, run and measure, and you can ask an
 AI assistant (Claude Code or Google Antigravity) that sees the circuit, the control code and the runs.
 
-> The documentation inside the modules (`LEIA.md` files) and the user interface are in Portuguese for now.
+> The documentation inside the modules (the `LEIA.md` files) and the user interface are in Portuguese for now.
 
 | Module | What it does | Docs |
 |---|---|---|
