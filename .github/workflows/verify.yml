@@ -82,7 +82,9 @@ jobs:
         run: |
           gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --squash --delete-branch --match-head-commit "$TESTED"
           # issues the PR closes ("Closes #N"): GitHub does not close them when the merge is made with the Actions token
-          for n in $(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json closingIssuesReferences -q '.closingIssuesReferences[].number'); do
+          # (only this repository's: "Fixes other/repo#N" must not close our #N)
+          for n in $(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json closingIssuesReferences \
+                       -q '.closingIssuesReferences[] | select(.url | startswith("https://github.com/" + env.GITHUB_REPOSITORY + "/issues/")) | .number'); do
             gh issue close "$n" --repo "$GITHUB_REPOSITORY" --comment "Closed by #$PR (merged by verify)." || true
           done
           gh workflow run full-suite.yml --repo "$GITHUB_REPOSITORY" --ref main
