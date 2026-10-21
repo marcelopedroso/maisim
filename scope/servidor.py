@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Scope web da co-simulação (MVP). Só biblioteca padrão: HTTP + Server-Sent Events.
 
-- Ao vivo: uma rodada do run.py com --scope http://localhost:8765 publica cada passo de controle (POST /publicar,
+- Ao vivo: uma rodada com --scope http://localhost:7102 (MAISIM_PORTA_SCOPE) publica cada passo de controle (POST /publicar,
   em lotes); o servidor guarda a rodada corrente e repassa aos navegadores abertos (GET /eventos, SSE).
 - Comparar: lista as rodadas gravadas (scope_*.npz, que o run.py grava ao fim de uma rodada com --scope) e entrega os
   dados de qualquer uma (GET /rodadas, GET /rodada?arq=...), para sobrepor duas no navegador.
-Endereços: tudo sob /maisim/scope/ (página, static/, eventos, rodadas, rodada, apagar, publicar), para o maisim-app (MaiSim,
-porta 5000) encaminhar /maisim/scope para cá; as rotas antigas na raiz continuam (o run.py publica em /publicar) e
+Endereços: tudo sob /maisim/scope/ (página, static/, eventos, rodadas, rodada, apagar, publicar), para a página do MaiSim
+(MAISIM_PORTA_PAGINA, 7100) encaminhar /maisim/scope para cá; as rotas antigas na raiz continuam (o run.py publica em /publicar) e
 /, /maisim-scope e /maisim/scope redirecionam para /maisim/scope/ (a página usa endereços relativos a ele).
-uso (da raiz do projeto): python3 scope/servidor.py [--porta 8765]  →  abrir http://localhost:8765/maisim/scope/"""
+uso (da raiz do projeto): python3 scope/servidor.py [--porta 7102]  →  abrir http://localhost:7102/maisim/scope/"""
 import argparse
 import json
 import os

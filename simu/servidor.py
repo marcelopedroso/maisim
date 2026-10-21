@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """MaiSim / simu: o circuito dos modelos do GeckoCIRCUITS desenhado no navegador, a partir do .ipes (ipes.py).
 Só biblioteca padrão. Tudo sob /maisim/simu/ (página, static/, modelos, circuito?arq=…); / redireciona.
-O maisim-app (MaiSim, porta 5000) encaminha /maisim/simu para cá.
-uso (da raiz do projeto): python3 simu/servidor.py [--porta 8767]  →  http://localhost:8767/maisim/simu/"""
+A página do MaiSim (MAISIM_PORTA_PAGINA, 7100) encaminha /maisim/simu para cá.
+uso (da raiz do projeto): python3 simu/servidor.py [--porta 7101]  →  http://localhost:7101/maisim/simu/"""
 import argparse
 import atexit
 import base64

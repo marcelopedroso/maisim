@@ -16,11 +16,11 @@ rodam numa **instância de teste** isolada, que não mexe no Gecko nem no scope 
 | arquivos | `~/.cache/maisim_teste/` |
 
 ```bash
-cd ~/doutorado/sm-autonomo/simu/validacao && ./sobe_teste.sh
+cd simu/validacao && ./sobe_teste.sh
 ```
 
 ```bash
-cd ~/doutorado/sm-autonomo/simu/validacao && ./desce_teste.sh
+cd simu/validacao && ./desce_teste.sh
 ```
 
 Rode um ensaio por vez, porque o Gecko de teste é um só. Os ensaios Python usam numpy, e os de tela usam o Playwright
@@ -152,5 +152,5 @@ clicam no cadeado para editar, como antes. O `codigo_tela.js` confere o padrão 
 | `fila_tema_tela.js` | página inicial e scope, na instância **isolada** (`../sobe_fila.sh`: Vite 7210 → scope de teste 7211; `../desce_fila.sh` derruba): trilho antes do React, tema do React seguindo o trilho, "maisim-theme" antigo migrado, botão do seminário; o scope fecha a conexão ao vivo com a aba escondida e reconecta na mesma rodada; com 6 abas do scope à vista a página inicial fica na fila e com elas escondidas carrega; escondida por pouco não fecha; rodada nova com a mesma meta (à vista e escondida); navegador sem localStorage (24). O segundo plano é simulado (`document.hidden` + `visibilitychange`) |
 
 ```bash
-cd ~/doutorado/sm-autonomo/simu/validacao/tela && NODE_PATH=~/ns-test/node_modules node pwm_tela.js
+cd simu/validacao/tela && NODE_PATH=~/ns-test/node_modules node pwm_tela.js
 ```

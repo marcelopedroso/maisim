@@ -1,0 +1,88 @@
+# Every PR: the quick test set (simu/validacao/ci.sh rapido) on the test instance. Green → Actions itself merges the PR
+# into main (squash, branch deleted) and starts the full suite (full-suite.yml) — only for PRs by the repository owner,
+# from a branch of this repository, not drafts and without the "do-not-merge" label (or the old "nao-juntar"); anyone else's PR waits for review.
+# The merge only applies to the commit that was tested (--match-head-commit: a new commit in between is refused), and it
+# also runs when a draft becomes ready (ready_for_review). Before merging, it waits for the Codex review to finish and
+# refuses to merge with open conversations (.github/scripts/wait_for_codex.py). merge_group: also runs in GitHub's merge
+# queue, if it is ever turned on. (A merge made with the Actions token does not trigger "push" in other workflows;
+# workflow_dispatch does.)
+name: verify
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+  workflow_dispatch:
+
+concurrency:
+  group: verify-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: tests (quick)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/prepare
+      - name: run the tests
+        run: bash simu/validacao/ci.sh rapido
+      - name: summary
+        if: always()
+        run: |
+          { echo '```'; cat ~/.cache/maisim_teste/bateria/resumo.txt 2>/dev/null || echo "(no summary)"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: upload logs and screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: logs-verify
+          path: |
+            ~/.cache/maisim_teste/bateria/
+            ~/.cache/maisim_teste/*.log
+          retention-days: 14
+          if-no-files-found: ignore
+
+  merge:
+    name: merge into main
+    needs: tests
+    if: >-
+      github.event_name == 'pull_request'
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && github.event.pull_request.user.login == github.repository_owner
+      && !github.event.pull_request.draft
+      && !contains(github.event.pull_request.labels.*.name, 'do-not-merge')
+      && !contains(github.event.pull_request.labels.*.name, 'nao-juntar')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+      - name: wait for the Codex review and check conversations
+        timeout-minutes: 15
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: python3 .github/scripts/wait_for_codex.py
+      - name: squash into main and start the full suite
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          TESTED: ${{ github.event.pull_request.head.sha }}
+        run: |
+          gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --squash --delete-branch --match-head-commit "$TESTED"
+          # issues the PR closes ("Closes #N"): GitHub does not close them when the merge is made with the Actions token
+          for n in $(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json closingIssuesReferences -q '.closingIssuesReferences[].number'); do
+            gh issue close "$n" --repo "$GITHUB_REPOSITORY" --comment "Closed by #$PR (merged by verify)." || true
+          done
+          gh workflow run full-suite.yml --repo "$GITHUB_REPOSITORY" --ref main
