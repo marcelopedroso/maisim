@@ -1,12 +1,17 @@
 # A verificação de cada PR: o conjunto rápido dos testes (simu/validacao/ci.sh rapido) na instância de teste. Passou →
 # o próprio Actions junta o PR no main (squash, o ramo apagado) e chama a bateria inteira (bateria.yml) — só PR do dono
 # do repositório, de um ramo dele, fora de rascunho e sem o rótulo "nao-juntar"; PR de outra pessoa espera a revisão.
-# (Um merge feito pelo token do Actions não dispara o "push" de outros workflows; o workflow_dispatch, sim.)
+# O merge só vale para o commit que foi testado (--match-head-commit: um commit novo no meio do caminho é recusado), e
+# roda também quando um rascunho fica pronto (ready_for_review). merge_group: a verificação também na fila de merge do
+# GitHub, se um dia for ligada. (Um merge feito pelo token do Actions não dispara o "push" de outros workflows; o
+# workflow_dispatch, sim.)
 name: verificação
 
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
   workflow_dispatch:
 
 concurrency:
@@ -22,7 +27,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/prepara
       - name: os testes
         run: bash simu/validacao/ci.sh rapido
@@ -32,7 +37,7 @@ jobs:
           { echo '```'; cat ~/.cache/maisim_teste/bateria/resumo.txt 2>/dev/null || echo "(sem resumo)"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - name: os registros e as fotos
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: registros-verificacao
           path: |
@@ -50,7 +55,7 @@ jobs:
       && github.event.pull_request.user.login == github.repository_owner
       && !github.event.pull_request.draft
       && !contains(github.event.pull_request.labels.*.name, 'nao-juntar')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
       pull-requests: write
@@ -60,6 +65,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
+          TESTADO: ${{ github.event.pull_request.head.sha }}
         run: |
-          gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --squash --delete-branch
+          gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --squash --delete-branch --match-head-commit "$TESTADO"
           gh workflow run bateria.yml --repo "$GITHUB_REPOSITORY" --ref main

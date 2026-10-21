@@ -1,14 +1,17 @@
 # Como o código entra no MaiSim
 
 1. **Sempre por PR.** Todo trabalho num ramo (`git switch -c <assunto>`), enviado com `git push -u origin <assunto>` e
-   aberto como PR para o `main` (`gh pr create --fill`). Nunca push direto no `main`: o gancho `.githooks/pre-push` barra
-   (ative uma vez por cópia: `git config core.hooksPath .githooks`); quando o repositório for público, a proteção do ramo
-   no GitHub também.
+   aberto como PR para o `main` (`gh pr create --fill`). Nunca push direto no `main`: a proteção do ramo no GitHub barra
+   (PR obrigatório, a verificação obrigatória, vale também para administradores, histórico linear, sem force-push), e o
+   gancho `.githooks/pre-push` avisa antes, na máquina (ative uma vez por cópia: `git config core.hooksPath .githooks`).
 2. **A verificação de cada PR** (`.github/workflows/verificacao.yml`): o GitHub Actions sobe a instância de teste (o
    GeckoCIRCUITS numa tela virtual, o simulador, o scope, a página) e roda o conjunto rápido dos testes
    (`simu/validacao/ci.sh rapido`: os offline e o essencial de API e de tela, com o Playwright). Passou → o próprio
    Actions junta o PR no `main` (squash: um commit por PR) e apaga o ramo. Não junta sozinho: PR em rascunho, PR com o
-   rótulo `nao-juntar`, e PR de quem não é o dono do repositório (esse espera a revisão).
+   rótulo `nao-juntar`, e PR de quem não é o dono do repositório (esse espera a revisão). O merge vale só para o commit
+   que foi testado. Um rascunho que fica pronto roda a verificação de novo (e é juntado se passar).
+   **O Codex revisa cada PR** (o app do ChatGPT no GitHub): os comentários dele são respondidos no próprio PR —
+   corrigidos no ramo, ou explicado por que não.
 3. **Depois do merge, a bateria inteira** (`.github/workflows/bateria.yml`, `simu/validacao/ci.sh completo`: tela, API,
    offline e o scope ao vivo). Se falhar, abre um issue com o link dos registros e das fotos.
 4. **Versão:** o arquivo `VERSION` ([SemVer](https://semver.org/lang/pt-BR/)). Um PR que muda o `VERSION`, depois do
