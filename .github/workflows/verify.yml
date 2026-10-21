@@ -1,6 +1,6 @@
 # Every PR: the quick test set (simu/validacao/ci.sh rapido) on the test instance. Green → Actions itself merges the PR
 # into main (squash, branch deleted) and starts the full suite (full-suite.yml) — only for PRs by the repository owner,
-# from a branch of this repository, not drafts and without the "do-not-merge" label; anyone else's PR waits for review.
+# from a branch of this repository, not drafts and without the "do-not-merge" label (or the old "nao-juntar"); anyone else's PR waits for review.
 # The merge only applies to the commit that was tested (--match-head-commit: a new commit in between is refused), and it
 # also runs when a draft becomes ready (ready_for_review). Before merging, it waits for the Codex review to finish and
 # refuses to merge with open conversations (.github/scripts/wait_for_codex.py). merge_group: also runs in GitHub's merge
@@ -56,6 +56,7 @@ jobs:
       && github.event.pull_request.user.login == github.repository_owner
       && !github.event.pull_request.draft
       && !contains(github.event.pull_request.labels.*.name, 'do-not-merge')
+      && !contains(github.event.pull_request.labels.*.name, 'nao-juntar')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
