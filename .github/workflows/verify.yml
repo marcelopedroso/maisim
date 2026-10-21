@@ -61,7 +61,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      issues: read
+      issues: write
       actions: write
     steps:
       - uses: actions/checkout@v7
@@ -80,4 +80,8 @@ jobs:
           TESTED: ${{ github.event.pull_request.head.sha }}
         run: |
           gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --squash --delete-branch --match-head-commit "$TESTED"
+          # issues the PR closes ("Closes #N"): GitHub does not close them when the merge is made with the Actions token
+          for n in $(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json closingIssuesReferences -q '.closingIssuesReferences[].number'); do
+            gh issue close "$n" --repo "$GITHUB_REPOSITORY" --comment "Closed by #$PR (merged by verify)." || true
+          done
           gh workflow run full-suite.yml --repo "$GITHUB_REPOSITORY" --ref main
