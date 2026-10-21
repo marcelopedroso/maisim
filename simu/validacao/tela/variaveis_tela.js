@@ -82,7 +82,8 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     const d = await pg.evaluate(() => { const e = dados.folhas["0"].elementos.find((x) => x.nome === "U.1"); return { var: e.par.dcValue_var, v: e.par.dcValue, campo: document.querySelector('#p-params input[data-p="uDC"]').value }; });
     ok(/^= 42/.test(c) && !d.var && d.v === 5 && d.campo === "5", `antes "${c}"; o número 5 no campo desliga: uDC = ${d.v}, sem variável`);
     // nome inválido no campo: recusa e volta
-    await pg.fill('#p-params input[data-p="uDC"]', "$1x"); await pg.press('#p-params input[data-p="uDC"]', "Tab"); await pg.waitForTimeout(600);
+    await pg.fill('#p-params input[data-p="uDC"]', "$1x"); await pg.press('#p-params input[data-p="uDC"]', "Tab");
+    await pg.waitForFunction(() => /nome da variável/.test($("msg").textContent), null, { timeout: 10000 }).catch(() => {});   // a resposta do servidor (não um tempo fixo: no Actions, 600 ms às vezes não bastava)
     ok(/nome da variável/.test(await pg.textContent("#msg")) && (await pg.inputValue('#p-params input[data-p="uDC"]')) === "5", "$1x no campo: recusado, o campo volta ao 5");
     // limpa: o circuito em branco e as variáveis que o teste criou saem (o "novo" não apaga variáveis)
     await pg.evaluate(async () => { await api("editor/novo", { modo: "descartar" }); });
