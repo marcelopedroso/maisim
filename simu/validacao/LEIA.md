@@ -1,5 +1,9 @@
 # Validação do Controle (MaiSim / simu)
 
+**Num comando só:** `./ci.sh rapido` (o que a verificação de cada PR roda no GitHub Actions), `./ci.sh completo` (a
+bateria inteira, que roda depois de cada merge no `main`; `./bateria.sh` é o mesmo) ou `./ci.sh <teste>…` — com a
+instância de teste no ar (`./sobe_teste.sh`). Ver `CONTRIBUTING.md` na raiz.
+
 Estes são os ensaios que sustentam os números do `GUIA_CONTROLE.md` e do `LEIA.md` (passos 1, 2 e 2b do Controle). Todos
 rodam numa **instância de teste** isolada, que não mexe no Gecko nem no scope do MaiSim:
 
