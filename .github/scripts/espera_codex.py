@@ -5,7 +5,8 @@ merge enquanto houver conversa aberta no PR.
 - O Codex mantém no PR um comentário-resumo com o estado da revisão (<!-- codex-review-state:v1 {...} -->). Enquanto
   ele diz "running", espera. Terminou → segue.
 - Sem resumo do Codex depois de SEM_CODEX segundos da abertura do PR → segue (o Codex não está revisando este PR).
-- Ainda "running" depois de LIMITE segundos → falha (rode o job de novo, ou comente "@codex review").
+- Ainda "running" depois de LIMITE segundos → segue sem ela, com um aviso (o Codex às vezes fica preso em "running";
+  os testes são a trava de verdade, e o que ele comentar depois vira um PR de correção).
 - Por fim, conta as conversas abertas (review threads não resolvidas). Alguma → falha com a lista: corrija ou responda e
   resolva cada uma, depois rode de novo o job "juntar no main". A proteção do main ("conversation resolution") barraria
   o merge de qualquer jeito; aqui a mensagem fica clara.
@@ -25,7 +26,7 @@ CODEX = "chatgpt-codex-connector[bot]"
 ESTADO = re.compile(r"<!-- codex-review-state:v1 (\{.*?\}) -->", re.S)
 INTERVALO = 20
 SEM_CODEX = 5 * 60
-LIMITE = 25 * 60
+LIMITE = 10 * 60
 
 REPO = os.environ["GITHUB_REPOSITORY"]
 PR = os.environ["PR"]
@@ -78,9 +79,8 @@ def main():
             print(f"codex: revisão terminada ({cr.get('status')}, commit {str(cr.get('commit_sha'))[:7]})")
             break
         if time.monotonic() - inicio > LIMITE:
-            print(f"::error::o Codex ainda está revisando depois de {LIMITE // 60} min — rode este job de novo "
-                  "(ou comente \"@codex review\" no PR)")
-            return 1
+            print(f"::warning::o Codex ainda está revisando depois de {LIMITE // 60} min — segue sem esperar por ele")
+            break
         print("codex: revisando…" if estado else "codex: esperando o resumo da revisão…", flush=True)
         time.sleep(INTERVALO)
 

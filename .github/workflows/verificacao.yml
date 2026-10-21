@@ -57,7 +57,7 @@ jobs:
       && !github.event.pull_request.draft
       && !contains(github.event.pull_request.labels.*.name, 'nao-juntar')
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 20
     permissions:
       contents: write
       pull-requests: write
@@ -68,7 +68,7 @@ jobs:
         with:
           sparse-checkout: .github/scripts
       - name: espera a revisão do Codex e confere as conversas
-        timeout-minutes: 30
+        timeout-minutes: 15
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
