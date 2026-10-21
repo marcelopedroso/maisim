@@ -1354,6 +1354,33 @@ $("bt-porlinha").onclick = () => {
 };
 $("bt-padrao").onclick = () => { try { localStorage.removeItem(CHAVE_LAYOUT); } catch (e) { /* ok */ } indice = { aberto: indice.aberto, unica: false, secao: -1 }; montaTudo(); guardaLayout(); };
 $("bt-salvar").onclick = salvaTodos;
+// ---- as visões (os painéis, as seções e as cores dos sinais) num arquivo: levar para outro MaiSim, mandar a um colega,
+// ou trazer as do PEW (o mesmo formato "scope-visoes")
+$("bt-exportar").onclick = () => {
+  guardaLayout();
+  let layout = null; try { layout = JSON.parse(localStorage.getItem(CHAVE_LAYOUT) || "null"); } catch (e) { /* sem layout guardado */ }
+  const v = { formato: "scope-visoes", versao: 1, de: "MaiSim", exportado: new Date().toISOString(), layout, cores: coresSinal };
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(v, null, 1)], { type: "application/json" }));
+  a.download = `visoes_scope_${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  status(`visões exportadas: ${((layout && layout.itens) || []).length} painéis e seções, ${Object.keys(coresSinal).length} cores`);
+};
+$("bt-importar").onclick = () => $("arq-visoes").click();
+$("arq-visoes").onchange = async (e) => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  let v; try { v = JSON.parse(await f.text()); } catch (er) { status(`importar visões: ${f.name} não é um JSON`); return; }
+  const itensV = v && v.formato === "scope-visoes" && v.layout && Array.isArray(v.layout.itens) ? v.layout.itens : null;
+  if (!itensV || !itensV.length || itensV.length > 500 || !itensV.every((x) => x && typeof x === "object" && (typeof x.secao === "string" || Array.isArray(x.sinais)))) {
+    status(`importar visões: ${f.name} não é um arquivo de visões do scope`); return; }
+  if (!confirm(`Trocar as visões deste scope pelas de ${f.name}${v.de ? " (do " + v.de + ")" : ""}: ${itensV.length} painéis e seções?`)) return;
+  const cores = {};
+  for (const [k, c] of Object.entries(v.cores && typeof v.cores === "object" ? v.cores : {})) { const cv = corValida(String(c)); if (cv && /^[\w.$+\-]{1,120}$/.test(k)) cores[k] = cv; }
+  try { localStorage.setItem(CHAVE_LAYOUT, JSON.stringify(v.layout)); localStorage.setItem("maisim-scope-cores", JSON.stringify(cores)); }
+  catch (er) { status("importar visões: o navegador não deixou guardar"); return; }
+  coresSinal = cores; montaTudo();
+  status(`visões importadas de ${f.name}: ${itensV.length} painéis e seções, ${Object.keys(cores).length} cores`);
+};
 // ---- apagar gravações (só scope_*.npz; o servidor recusa qualquer outra coisa)
 const mb = (b) => (b / 1e6).toFixed(b >= 1e7 ? 0 : 1) + " MB";
 async function abreApagar() {

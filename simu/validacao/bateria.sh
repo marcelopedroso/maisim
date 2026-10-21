@@ -6,7 +6,7 @@ V="$(cd "$(dirname "$0")" && pwd)"; L=~/.cache/maisim_teste/bateria; mkdir -p $L
 export NODE_PATH=${NODE_PATH:-$HOME/ns-test/node_modules}
 bash $V/reinicia_servidor_teste.sh; sleep 1
 cd $V/tela
-for t in largura_tela agy_tela gemini_tela contextos_tela erro_copia_tela claude_tex_tela scope_soma_tela scope_tema_tela diagrama_zoom_tela envia_for_tela sem_esquema_tela renomear_tela sub_iguais_tela desativar_tela diagrama_tela escolha_tela mensagens_tela claude_controladores_tela arvore_tela tabelas_tela saida_tela giro_tela claude_modulos_tela modulos_tela divisor_tela beira_tela variaveis_tela selecao_tela copia_tela tag_tela rede_tela app_tela inicio_tela codigo_tela controladores_tela \
+for t in largura_tela agy_tela gemini_tela contextos_tela erro_copia_tela claude_tex_tela scope_soma_tela scope_tema_tela scope_visoes_tela diagrama_zoom_tela envia_for_tela sem_esquema_tela renomear_tela sub_iguais_tela desativar_tela diagrama_tela escolha_tela mensagens_tela claude_controladores_tela arvore_tela tabelas_tela saida_tela giro_tela claude_modulos_tela modulos_tela divisor_tela beira_tela variaveis_tela selecao_tela copia_tela tag_tela rede_tela app_tela inicio_tela codigo_tela controladores_tela \
          dica_tela sub_terminais_tela sub_novo_tela claude_chat_tela escala_tela quebra_tela pontas_tela tema_tela cores_tela cabecalho_tela \
          validador_tela ajustes_tela claude_tela pwm_tela controle_tela passo2_tela revisao_tela guia_tela; do
   timeout 600 node $t.js > $L/$t.log 2>&1; echo "$t: saída $? · $(grep -c '^OK' $L/$t.log) OK $(grep -v '^OK' $L/$t.log | head -3 | tr '\n' ' ')"

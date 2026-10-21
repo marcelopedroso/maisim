@@ -199,6 +199,9 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
       <button id="bt-secao" title="novo título de seção no fim">+ Seção</button>
       <button id="bt-porlinha" title="quantos painéis por linha, para todos (cada painel muda o seu no menu ⋯)">Por linha: 2</button>
       <button id="bt-padrao" title="volta aos painéis padrão">Layout padrão</button>
+      <button id="bt-exportar" title="baixa um arquivo com os painéis, as seções e as cores dos sinais (para outro MaiSim ou um colega)">Exportar visões</button>
+      <button id="bt-importar" title="troca os painéis, as seções e as cores pelos de um arquivo exportado (do MaiSim ou do PEW)">Importar visões…</button>
+      <input type="file" id="arq-visoes" accept=".json,application/json" hidden>
       <button id="bt-salvar" title="salva todos os painéis numa imagem PNG">Salvar figura</button>
       <button id="bt-apagar" title="escolher gravações (scope_*.npz) para apagar do disco">Apagar gravações…</button>
     </div>
