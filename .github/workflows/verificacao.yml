@@ -2,7 +2,8 @@
 # o próprio Actions junta o PR no main (squash, o ramo apagado) e chama a bateria inteira (bateria.yml) — só PR do dono
 # do repositório, de um ramo dele, fora de rascunho e sem o rótulo "nao-juntar"; PR de outra pessoa espera a revisão.
 # O merge só vale para o commit que foi testado (--match-head-commit: um commit novo no meio do caminho é recusado), e
-# roda também quando um rascunho fica pronto (ready_for_review). merge_group: a verificação também na fila de merge do
+# roda também quando um rascunho fica pronto (ready_for_review). Antes de juntar, espera a revisão do Codex terminar e
+# recusa o merge com conversas abertas (.github/scripts/espera_codex.py). merge_group: a verificação também na fila de merge do
 # GitHub, se um dia for ligada. (Um merge feito pelo token do Actions não dispara o "push" de outros workflows; o
 # workflow_dispatch, sim.)
 name: verificação
@@ -56,11 +57,22 @@ jobs:
       && !github.event.pull_request.draft
       && !contains(github.event.pull_request.labels.*.name, 'nao-juntar')
     runs-on: ubuntu-24.04
+    timeout-minutes: 40
     permissions:
       contents: write
       pull-requests: write
+      issues: read
       actions: write
     steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+      - name: espera a revisão do Codex e confere as conversas
+        timeout-minutes: 30
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: python3 .github/scripts/espera_codex.py
       - name: squash no main e a bateria inteira
         env:
           GH_TOKEN: ${{ github.token }}
