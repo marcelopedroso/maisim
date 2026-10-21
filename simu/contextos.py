@@ -68,6 +68,13 @@ def _le_meta(d):
         return None
 
 
+def _grava_meta(d, m):
+    """Grava o meta.json de uma vez (arquivo ao lado + troca): quem lê no meio (a página, a cada segundo) nunca o vê vazio."""
+    tmp = d / f".meta_{uuid.uuid4().hex}.tmp"
+    tmp.write_text(json.dumps(m, ensure_ascii=False, indent=1) + "\n")
+    os.replace(tmp, d / "meta.json")
+
+
 def lista(base):
     """Os contextos salvos, o mais novo primeiro: meta + id, tamanho e o que tem."""
     out = []
@@ -217,7 +224,7 @@ def poe_resumo_ia(base, cid, estado, texto=None, erro=None, modelo=None):
         (d / "resumo_ia.md").write_text(texto)
     res = (d / "resumo.md").read_text() if (d / "resumo.md").is_file() else ""
     (d / "contexto.md").write_text(contexto_md(m, res, _ia(d)))
-    (d / "meta.json").write_text(json.dumps(m, ensure_ascii=False, indent=1) + "\n")
+    _grava_meta(d, m)
     return m
 
 
@@ -236,7 +243,7 @@ def muda(base, cid, titulo=None, etiquetas=None, resumo=None):
         res = str(resumo)[:MAX_TEXTO]
         (d / "resumo.md").write_text(res)
     (d / "contexto.md").write_text(contexto_md(m, res, _ia(d)))
-    (d / "meta.json").write_text(json.dumps(m, ensure_ascii=False, indent=1) + "\n")
+    _grava_meta(d, m)
     return dict(m, id=cid)
 
 
