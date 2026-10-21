@@ -327,7 +327,7 @@ exemplo do buck tira a média do período no próprio código. Outra saída é a
 
 ## 8. Para automatizar (e para o Claude Code)
 
-O servidor do simu atende em `http://localhost:8767/maisim/simu/` (o `npm run maisim` o sobe). Tudo o que o painel faz passa
+O servidor do simu atende em `http://localhost:7101/maisim/simu/` (MAISIM_PORTA_SIMU; o `npm run maisim` o sobe). Tudo o que o painel faz passa
 por estas rotas (JSON):
 
 | Rota | Para quê |
@@ -344,7 +344,7 @@ Roteiro de uma alteração no controle, sem a tela:
 ```python
 import json, time, urllib.request
 import numpy as np
-B = "http://localhost:8767/maisim/simu/"
+B = "http://localhost:7101/maisim/simu/"
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None,
                                  headers={"Content-Type": "application/json"})
@@ -357,7 +357,7 @@ j = api("editor/rodar", {"dt": "1e-6", "tfim": "0.01", "nome": "teste", "amostra
 while j["estado"] in ("preparando", "rodando", "pausada"):
     time.sleep(0.5); j = api("editor/rodada")
 print(j["estado"], j.get("erro"), j.get("avisos"))
-d = np.load(j["arquivo"])                          # caminho relativo à pasta sm-autonomo (ou absoluto)
+d = np.load(j["arquivo"])                          # caminho relativo à raiz do projeto (ou absoluto)
 ```
 
 Regras para quem mexe no controle, gente ou agente:

@@ -4,9 +4,9 @@ subcircuitos (SMs), sem a janela do Gecko. Os scopes do Gecko ficam de fora (o /
 O Gecko é o cérebro (backend): a interface é nossa, e cada edição vira um pedido ao próprio Gecko, que aplica e grava o
 .ipes. Feito: ver o circuito; catálogo da paleta; motor do editor. A seguir: a paleta e a edição na tela.
 
-**Subir:** `python3 simu/servidor.py` (da raiz de sm-autonomo; porta 8767). **Abrir:** pelo MaiSim,
-**http://localhost:5000/maisim/simu/** (menu lateral ou cartão "Simu: monte e simule"; o maisim-app encaminha
-/maisim/simu, `MAISIM_SIMU_URL` troca o destino), ou direto em http://localhost:8767/maisim/simu/. Até 18/10 o módulo se chamava
+**Subir:** pelo MaiSim inteiro (`npm run maisim` em `app/`), ou só ele: `python3 simu/servidor.py` (da raiz do projeto;
+porta MAISIM_PORTA_SIMU, 7101). **Abrir:** pelo MaiSim, **http://localhost:7100/maisim/simu/** (menu lateral ou cartão "Simu: monte e simule"; o maisim-app encaminha
+/maisim/simu, `MAISIM_SIMU_URL` troca o destino), ou direto em http://localhost:7101/maisim/simu/. Até 18/10 o módulo se chamava
 /maisim/control (pasta `pew_control`): o endereço antigo redireciona para o novo.
 
 ## Uso
@@ -389,7 +389,7 @@ Na tela, "conexão" (pedido de Marcelo: botão, dicas, painel e mensagens); no c
   também passaria na frente do login.
 - **Proteção das rotas `/claude/*`**:
   * Host local (barra DNS rebinding);
-  * `Origin`, se vier, igual a uma origem do MaiSim **com a porta** (`localhost:5000` ou a porta do próprio servidor). Pelo
+  * `Origin`, se vier, igual a uma origem do MaiSim **com a porta** (`localhost:7100`, MAISIM_PORTA_PAGINA, ou a porta do próprio servidor). Pelo
     Vite, outra página em `localhost:N` passaria pelo CORS dele, e daria para ler o e-mail, deslogar ou logar o MaiSim
     noutra conta;
   * `Sec-Fetch-Site`, se vier, `same-origin`;

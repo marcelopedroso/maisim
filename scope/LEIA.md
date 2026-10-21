@@ -70,7 +70,7 @@ continuam (quem publica rodadas de fora usa `/publicar`).
   painéis sem dados (os do MMC) se escondem. Ao vivo, painel sem dados não força mais remontar tudo a cada lote.
 
 - **Conexão ao vivo só com a aba à vista** (18/10, chat do simu; pedido de Marcelo: "a lateral some, demora"): o
-  navegador abre no máximo 6 conexões HTTP/1.1 por endereço (localhost:5000), somando as abas, e cada `EventSource` do
+  navegador abre no máximo 6 conexões HTTP/1.1 por endereço (localhost:7100), somando as abas, e cada `EventSource` do
   ao vivo segura uma. Com 6 abas do scope, ou do simu com o scope embutido, a próxima página do MaiSim ficava na fila,
   sem o trilho. Medido numa instância isolada: com 6 abas à vista, a página inicial não carrega em 6 s; com elas
   escondidas, carrega em ~0,1 s. Agora o `scope.js` fecha o `EventSource` quando a aba vai para o segundo plano

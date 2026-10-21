@@ -41,10 +41,10 @@ controle ou tirar conclusões sobre o tempo. O essencial:
   período ou amostre no meio).
 
 ## Rodar e conferir (sem a tela)
-Servidor: `http://localhost:8767/maisim/simu/`.
+Servidor: `http://localhost:7101/maisim/simu/` (MAISIM_PORTA_SIMU).
 - Configuração: `GET editor/controle`, `POST editor/controle {"controle": {...}}` (recusado durante a rodada).
 - Rodada: `POST editor/rodar {"dt", "tfim", "nome", "amostras"}`, depois consulte `GET editor/rodada` até `fim` ou `erro`.
-- Resultado: `scope_<nome>.npz` (caminho relativo a `sm-autonomo/`), com `meta` em JSON.
+- Resultado: `scope_<nome>.npz` (caminho relativo à raiz do projeto), com `meta` em JSON.
 
 O Gecko do MaiSim roda **uma rodada por vez**: veja `editor/rodada` antes de rodar. Confira com números (médias,
 ondulação, frequência) e, quando der, contra uma referência independente (Euler implícito, como o Gecko). O teste tem de
