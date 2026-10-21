@@ -49,6 +49,7 @@ TIPOS = {".html": "text/html; charset=utf-8", ".js": "application/javascript", "
 SALVOS = Path(os.environ.get("MAISIM_SALVOS") or DADOS / "circuitos")   # onde o editor salva (aparece na lista de modelos)
 # MAISIM_SIMU_CACHE, MAISIM_PORTA_MOTOR e MAISIM_TELA_X: outra instância (de teste) com o seu Gecko, sem mexer no do MaiSim
 ESTADO = Path(os.environ.get("MAISIM_SIMU_CACHE") or Path(os.environ["MAISIM_CACHE"]) / "simu") / "estado.ipes"   # o Gecko salva aqui o que está aberto
+ESTADO.parent.mkdir(parents=True, exist_ok=True)   # numa instalação nova a pasta não existe, e o Gecko não a cria ao salvar
 MOTOR = Motor(int(os.environ["MAISIM_PORTA_MOTOR"]))
 TELA = os.environ["MAISIM_TELA_X"]
 editor = {"aberto": None}                    # o modelo que o editor abriu no Gecko do MaiSim (guardado em ABERTO: sobrevive a reiniciar)
@@ -122,13 +123,22 @@ def ja_visto(agora):
         return False
 
 
+def salva_conferencia():
+    """O que está no Gecko agora, num arquivo (conferencia.ipes) para comparar; se o Gecko não conseguiu gravar (ele abre
+    uma janela de aviso e deixa o arquivo vazio ou nem o cria), um erro que a tela mostra, em vez de derrubar o pedido."""
+    tmp = ESTADO.with_name("conferencia.ipes")
+    tmp.unlink(missing_ok=True)
+    MOTOR.cmd(f"SAVEAS {tmp}")
+    if not tmp.is_file() or tmp.stat().st_size < 200:
+        raise ErroMotor(f"o Gecko não conseguiu gravar {tmp} para conferir o circuito (veja a janela de aviso dele)")
+    return tmp
+
+
 def mudou_fora():
     """True se o Gecko do MaiSim tem algo que o editor não viu: compara com o último estado visto; sem estado visto (o servidor
     reiniciou), com o arquivo aberto, no disco — o "*" do título não serve (a interface remota deixa o "*" mesmo depois de
     salvar, e o aviso saía falso a cada reinício). Sem arquivo, o "*" é o que sobra."""
-    tmp = ESTADO.with_name("conferencia.ipes")
-    MOTOR.cmd(f"SAVEAS {tmp}")
-    agora = assinatura(monta(tmp))
+    agora = assinatura(monta(salva_conferencia()))
     if editor.get("assinatura") is not None or VISTO.exists():
         return not ja_visto(agora)
     arq = (RAIZ / editor["aberto"]) if editor.get("aberto") else None
@@ -148,9 +158,7 @@ def situacao_gecko():
     """O que não está salvo, em relação ao arquivo aberto: o circuito (o Gecko difere do arquivo no disco; sem arquivo, tem
     algum elemento), o controle de trabalho (difere do <nome>.controle.json; sem arquivo, está em uso) e as cores dos canais
     (diferem do <nome>.cores.json; sem arquivo, alguma escolhida). E se o editor já viu o circuito como está (visto)."""
-    tmp = ESTADO.with_name("conferencia.ipes")
-    MOTOR.cmd(f"SAVEAS {tmp}")
-    r = monta(tmp)
+    r = monta(salva_conferencia())
     agora = assinatura(r)
     arq = (RAIZ / editor["aberto"]) if editor.get("aberto") else None
     if arq is not None and arq.is_file():
