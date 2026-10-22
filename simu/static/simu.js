@@ -248,6 +248,7 @@ function valorPrincipal(e) {
 
 // ---------------------------------------------------------------- folha
 function desenha() {
+  document.body.classList.toggle("sem-circuito", !!(dados && dados.fechado));
   const svg = $("svg"); svg.innerHTML = ""; rotulosFeitos = new Set();
   const f = dados.folhas[folhaAtual];
   no("defs", {}, svg).innerHTML = `<pattern id="grade" width="${G}" height="${G}" patternUnits="userSpaceOnUse"><circle cx="0" cy="0" r="0.9" fill="${COR.grade}"/></pattern>`;
@@ -411,6 +412,7 @@ function aplicaPaineis() {
 }
 $("aba-paleta").onclick = () => { paineis.paleta = !paineis.paleta; aplicaPaineis(); };
 $("aba-props").onclick = () => { paineis.props = !paineis.props; aplicaPaineis(); };
+function mostraPainelProps() { if (paineis.props) { paineis.props = false; aplicaPaineis(); } }   // o painel recolhido volta
 aplicaPaineis();
 function abre(fid) {                                 // entrar ou sair de uma folha: a seleção (e o painel dela) fica para trás
   folhaAtual = fid; ed.sel = null; ed.fioSel = null; ed.multi.clear(); ed.multiFios.clear(); esconde(); desenha(); ajusta(); if (ed.ligado) mostraProps(); }
@@ -516,10 +518,13 @@ function dica(ev, e) {
     const md = ed.ligado && ev.target.closest && ev.target.closest(".medido[data-medidor]");   // a marca de um medidor: abre o medidor
     if (md) { const m = dados.folhas[folhaAtual].elementos.find((x) => x.nome === md.dataset.medidor); if (m) { seleciona(m); return; } }
     const fw = ed.ligado && ev.target.closest && ev.target.closest(".fio");
-    if (fw) { selecionaFio(dados.folhas[folhaAtual].fios[+fw.dataset.k]); return; }
+    if (fw) { const w = dados.folhas[folhaAtual].fios[+fw.dataset.k]; const ja = ed.fioSel === chaveFio(w) && !ed.multiFios.size;
+      selecionaFio(w); if (ja) mostraPainelProps(); return; }
     const g = ev.target.closest && ev.target.closest(".el");
     const e = g ? dados.folhas[folhaAtual].elementos[+g.dataset.i] : null;
-    if (ed.ligado) { seleciona(e); if (!e || e.tipo !== "SUBCIRCUIT") return; if (!ev.detail || ev.detail < 2) return; }   // editando: duplo clique abre o SM
+    const ja = e && ed.sel === e.nome && !ed.multi.size;              // clicar de novo no selecionado: abre o painel da direita
+    if (ed.ligado) { seleciona(e); if (ja && !(e.tipo === "SUBCIRCUIT" && ev.detail >= 2)) mostraPainelProps();
+      if (!e || e.tipo !== "SUBCIRCUIT") return; if (!ev.detail || ev.detail < 2) return; }   // editando: duplo clique abre o SM
     if (e && e.tipo === "SUBCIRCUIT" && dados.folhas[e.uid]) abre(e.uid);
   });
   svg.addEventListener("mouseleave", esconde);
@@ -823,12 +828,13 @@ async function liga(on) {
     if (ed.novo && !(await confirma("Circuito novo não salvo", `Sair da edição descarta <b>${ed.novo}</b>, que não foi salvo. Para guardar: salvar como (o disquete com lápis).`, "sair sem salvar", true))) {
       ed.ligado = true; document.body.classList.add("editando"); poeCadeado(true); return; }
     if (ed.novo) { ed.novo = null; await recarregaModelos(); }
-    msg(""); return carrega($("sel-modelo").value);
+    msg(""); if (!$("sel-modelo").value) { desenha(); return; }   // fechado: nada a ler
+    return carrega($("sel-modelo").value);
   }
   if (!ed.catalogo) { ed.catalogo = await (await fetch("static/catalogo.json")).json();
     const med = ed.catalogo.abas.find((a) => a.aba === "Measure"); if (med) med.itens.unshift(TAG_ITEM);   // a tag do MaiSim, junto dos medidores
     desenhaPaleta(); carregaBiblioteca(); }
-  if ($("sel-modelo").value === NOVO) return;
+  if ($("sel-modelo").value === NOVO || !$("sel-modelo").value) return;   // novo, ou fechado: nada a abrir
   msg("abrindo…");
   try {
     let j; const alvo = $("sel-modelo").value;
@@ -1568,7 +1574,29 @@ document.querySelectorAll(".menu-sup > button").forEach((b) => b.onclick = (ev) 
   if (!aberto) { m.classList.add("aberto"); estadoMenus(); }
 });
 addEventListener("mousedown", (ev) => { if (!ev.target.closest(".menu-sup")) document.querySelectorAll(".menu-sup").forEach((x) => x.classList.remove("aberto")); });
-const ACOES = { abrir: () => abrirModelo(), salvar1: () => salvar(), novo: () => garanteEdicao().then((ok) => ok && novoCircuito()), salvar: () => garanteEdicao().then((ok) => ok && salvarComo()),
+// fechar o circuito (Marcelo, 22/10: "para não ficar sempre um aberto"): o Gecko vazio, nada selecionado na lista; o
+// arquivo fica como foi salvo (com mudanças não salvas, pergunta como ao abrir outro)
+async function fechaCircuito() {
+  if (simulando()) { msg("simulando: pare a simulação para fechar o circuito", "erro"); return; }
+  try { let j;
+    try { j = await api("editor/fechar", {}); }
+    catch (e) { const modo = await perguntaNaoSalvo(e, "fechar"); if (!modo) { msg("fechar cancelado", ""); return; }
+      j = await api("editor/fechar", modo === "salvou" ? {} : { modo }); }
+    mostraFechado(j); msg("circuito fechado", "ok");
+    avisa("circuito", { arq: null, outro: true, sujo: false });
+  } catch (e) { msg(e.message, "erro"); }
+}
+function mostraFechado(j) {
+  ed.novo = null; ed.abertoSel = null; $("sel-modelo").value = ""; mostraModelo();
+  dados = j; folhaAtual = "0"; seleciona(null); marcaSujo(false); desenha(); ver = { x: 0, y: 0, w: 70 * G, h: 44 * G }; aplicaVer();
+  try { localStorage.removeItem("maisim-simu-modelo"); } catch (e) { /* ok */ }
+  const q = new URLSearchParams(location.search); q.delete("modelo"); history.replaceState(null, "", q.toString() ? "?" + q : location.pathname);
+  if (typeof recarregaControle === "function") recarregaControle();
+  tituloCodigo();
+}
+$("vz-novo").onclick = () => ACOES.novo();
+$("vz-abrir").onclick = () => ACOES.abrir();
+const ACOES = { abrir: () => abrirModelo(), fechar: fechaCircuito, salvar1: () => salvar(), novo: () => garanteEdicao().then((ok) => ok && novoCircuito()), salvar: () => garanteEdicao().then((ok) => ok && salvarComo()),
   editar: () => liga(!ed.ligado), parametros: parametrosSim, globais: variaveisGlobais, iniciar: iniciaSim,
   pausar: () => controlaSim("pausar"), continuar: () => controlaSim("continuar"), parar: () => controlaSim("parar") };
 document.querySelectorAll(".suspenso button[data-acao]").forEach((b) => b.onclick = () => {
@@ -1576,6 +1604,7 @@ document.querySelectorAll(".suspenso button[data-acao]").forEach((b) => b.onclic
 function estadoMenus() { }                             // (os menus Arquivo e Simulação saíram: tudo virou botão no cabeçalho)
 $("bt-param").onclick = () => parametrosSim();
 $("bt-novo").onclick = ACOES.novo;
+$("bt-fechar").onclick = ACOES.fechar;
 $("bt-salvar-como").onclick = ACOES.salvar;
 $("bt-globais").onclick = () => variaveisGlobais();
 async function garanteEdicao() { if (!ed.ligado) await liga(true); return ed.ligado; }
@@ -1850,7 +1879,7 @@ function preencheModelos(lst, valor) {          // grupos: o circuito novo (se h
 // o modelo aberto, num botão: clicar abre a lista com busca. O <select> escondido guarda a escolha.
 function mostraModelo() {
   const o = $("sel-modelo").selectedOptions[0];
-  $("bt-modelo").querySelector("span").textContent = o ? o.textContent : "(nenhum modelo)";
+  $("bt-modelo").querySelector("span").textContent = o ? o.textContent : "nenhum circuito aberto";
 }
 async function abrirModelo() {
   let lst; try { lst = await api("modelos"); } catch (e) { msg(`não consegui listar os modelos: ${e.message}`, "erro"); return; }
@@ -1925,12 +1954,15 @@ $("sel-modelo").onchange = async (e) => {
   const arqs = lst.map((o) => o.arq);
   if (VISTA_CODIGO) { try { const e = await api("editor/estado"); if (e && arqs.includes(e.arq)) quer = e.arq; } catch (e) { /* o último deste navegador */ } }
   try { quer = quer || localStorage.getItem("maisim-simu-modelo"); } catch (e) { /* ok */ }
-  const arq = arqs.includes(quer) ? quer : (arqs.find((a) => a.endsWith("exemplo_controle_pwm.ipes")) || arqs[0]);   // a 1ª vez: o buck com PWM
+  let fechado = false;                                   // fechado no editor e nada pedido no endereço: começa vazio
+  if (!new URLSearchParams(location.search).get("modelo")) try { fechado = (await api("editor/aberto")).fechado; } catch (e) { /* o de sempre */ }
+  const arq = fechado ? null : arqs.includes(quer) ? quer : (arqs.find((a) => a.endsWith("exemplo_controle_pwm.ipes")) || arqs[0]);   // a 1ª vez: o buck com PWM
   if (arq) { sel.value = arq; mostraModelo(); await carrega(arq); }
+  else if (fechado) { try { mostraFechado(await api("editor/estado")); } catch (e) { /* ok */ } }
   // o cadeado começa aberto (editando), a não ser que tenha sido fechado neste navegador: assim o servidor conhece o circuito
   // (as medidas e atuações do controle) sem precisar lembrar de abrir a edição
   let travado = false; try { travado = localStorage.getItem("maisim-simu-travado") === "1"; } catch (e) { /* ok */ }
-  if (arq && (VISTA_CODIGO || !travado) && !ed.ligado) await liga(true);
+  if ((arq || fechado) && (VISTA_CODIGO || !travado) && !ed.ligado) await liga(true);
   if (VISTA_CODIGO) {                                    // a janela do código: o painel do controle e o aviso de que está aberta
     $("titulo-pagina").textContent = "código"; tituloCodigo();
     mostraDoca("controle"); avisa("codigo"); setInterval(() => avisa("codigo"), 3000);
@@ -1949,6 +1981,7 @@ function marcaCodigoFora(on) {                          // na janela do circuito
 async function circuitoMudou(m) {                       // a outra janela mudou o circuito (ou abriu outro): o desenho e o controle acompanham
   try {
     const j = await api("editor/estado"), outro = !!(m.outro && m.arq && m.arq !== ed.abertoSel);   // a mesma janela reabrindo o mesmo: nada a refazer
+    if (j.fechado) { mostraFechado(j); return; }                                        // a outra janela fechou o circuito
     if (outro && m.arq !== $("sel-modelo").value && [...$("sel-modelo").options].some((o) => o.value === m.arq)) { $("sel-modelo").value = m.arq; mostraModelo(); }
     if (m.arq) ed.abertoSel = m.arq;
     const fol = folhaAtual; dados = j; if (!dados.folhas[fol]) folhaAtual = "0";

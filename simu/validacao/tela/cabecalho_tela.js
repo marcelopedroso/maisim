@@ -15,7 +15,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     arquivo: [...document.querySelectorAll("#g-arquivo button")].map((x) => x.id).join(" "), ver: [...document.querySelectorAll("#g-ver button")].map((x) => x.id).join(" "),
     sim: [...document.querySelectorAll("#g-sim button")].map((x) => x.id).join(" "),
     texto: [...document.querySelectorAll("header button")].filter((x) => x.id !== "bt-modelo" && x.id !== "bt-globais" && x.textContent.trim()).map((x) => x.id) }));
-  ok(c.menus === 0 && c.arquivo === "bt-modelo bt-novo bt-salvar bt-salvar-como bt-editar" && c.ver === "bt-ajustar bt-tudo bt-controle bt-rotulos bt-medicoes bt-corrente"
+  ok(c.menus === 0 && c.arquivo === "bt-modelo bt-novo bt-salvar bt-salvar-como bt-fechar bt-editar" && c.ver === "bt-ajustar bt-tudo bt-controle bt-rotulos bt-medicoes bt-corrente"
      && c.sim === "bt-param bt-globais bt-play bt-pausa bt-parar" && !c.texto.length, `grupos: ${c.grupos} · botões com texto: ${c.texto.join(",") || "nenhum"}`);
   const t = await pg.evaluate(() => ({ svg: !!document.querySelector("#trilha .topo svg"), title: document.querySelector("#trilha .topo").getAttribute("title") }));
   ok(t.svg && /folha principal/.test(t.title), `Main virou o ícone de topo ("${t.title}")`);

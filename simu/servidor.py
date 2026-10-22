@@ -61,6 +61,20 @@ except OSError:
     pass
 
 
+# fechado (Marcelo, 22/10: "fechar o circuito, para não ficar sempre um aberto"): o Gecko vazio e o simu sem circuito
+# nenhum, até abrir um, começar um novo ou pôr um componente; sobrevive a reiniciar (o arquivo FECHADO)
+FECHADO = ESTADO.with_name("fechado")
+editor["fechado"] = FECHADO.exists()
+
+
+def marca_fechado(sim):
+    editor["fechado"] = bool(sim)
+    try:
+        FECHADO.touch() if sim else FECHADO.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
 def marca_aberto(rel):
     editor["aberto"] = rel
     try:
@@ -307,6 +321,7 @@ def estado():
     pasta = next((k for k, d in (("circuitos", SALVOS), ("subcircuitos", LIB)) if aberto and aberto.parent == d.resolve()), None)
     r["dono"] = {"pasta": pasta, "nome": aberto.stem} if pasta else None
     r["editor"] = True
+    r["fechado"] = editor.get("fechado", False)
     r["cores"] = cores_efetivas(r)                   # {canal: cor} (escolhida ou padrão)
     r["cores_escolhidas"] = le_cores()
     r["pontas"] = le_pontas()                        # {canal: {"+": componente, "-": componente}}
@@ -4713,6 +4728,8 @@ class Manipulador(BaseHTTPRequestHandler):
             return self._resposta(200, (AQUI / "GUIA_CONTROLE.md").read_bytes(), "text/markdown; charset=utf-8")
         if rota == "/modelos":
             return self._resposta(200, lista_modelos())
+        if rota == "/editor/aberto":                   # leve (sem pedir nada ao Gecko): o que o editor tem aberto, ou fechado
+            return self._resposta(200, {"aberto": editor.get("aberto"), "fechado": bool(editor.get("fechado"))})
         if rota == "/circuito":
             rel = parse_qs(u.query).get("arq", [""])[0]
             arq = (RAIZ / rel).resolve()
@@ -4869,11 +4886,13 @@ class Manipulador(BaseHTTPRequestHandler):
         # simulando, nada muda o circuito nem o que vai para o scope (22/10: a ponta, o "fora", a cor e apagar arquivo escapavam)
         if rota in ("/editor/abrir", "/editor/cmd", "/editor/cmds", "/editor/novo", "/editor/mede", "/editor/salvar", "/editor/fio", "/editor/desfazer",
                     "/editor/biblioteca", "/editor/fonte_sinal", "/editor/copiar", "/editor/colar", "/editor/grupo", "/editor/variavel",
-                    "/editor/ponta", "/editor/fora", "/editor/cor", "/editor/apagar_arquivo"):
+                    "/editor/ponta", "/editor/fora", "/editor/cor", "/editor/apagar_arquivo", "/editor/fechar"):
             try:
                 ocupado()
             except ErroMotor as e:
                 return self._resposta(409, {"erro": str(e)})
+            if editor.get("fechado") and rota not in ("/editor/fechar", "/editor/novo", "/editor/abrir", "/editor/salvar", "/editor/apagar_arquivo", "/editor/desfazer"):
+                marca_fechado(False)                   # o 1º componente: deixa de estar fechado (abrir e novo cuidam disso eles mesmos)
         if rota == "/editor/abrir":                    # modo: (nada) | descartar | manter (o mesmo modelo, com as mudanças do Gecko) | salvar
             def abrir():
                 arq = (RAIZ / str(corpo.get("arq", ""))).resolve()
@@ -4896,13 +4915,14 @@ class Manipulador(BaseHTTPRequestHandler):
                     raise ErroMotor("manter as mudanças só vale para o modelo que já está aberto no Gecko")
                 if modo == "salvar":                    # grava o modelo do Gecko no arquivo dele e então abre o pedido
                     salva_aberto()
-                elif modo == "":
+                elif modo == "" and not editor.get("fechado"):   # fechado: nada a perder
                     sit = situacao_gecko()
                     if sit["pendente"]:
                         raise ErroConflito(f"{nome_aberto()} tem {lista_itens(sit['itens'])} sem salvar; abrir outro modelo descarta",
                                            conflito=True, mesmo=False, aberto=editor.get("aberto"), salvavel=aberto_salvavel(), itens=sit["itens"])
                 abre(arq)
                 marca_aberto(relativo(arq))
+                marca_fechado(False)
                 carrega_controle_de(arq)                # o controle salvo junto (<nome>.controle.json), ou o padrão
                 carrega_aparencia_de(arq)               # e a aparência (<nome>.aparencia.json)
                 esquece(tudo=True)                      # outro modelo: o desfazer recomeça
@@ -5081,20 +5101,25 @@ class Manipulador(BaseHTTPRequestHandler):
                     r["terminal"] = confere_terminal(r, planos[0])
                 return r
             return self._editor(com_desfazer(cmds, corpo.get("descr") or "lote", manter_se_falhar=True))   # parte pode ter sido aplicada
-        if rota == "/editor/novo":
+        if rota in ("/editor/novo", "/editor/fechar"):
+            fechar = rota == "/editor/fechar"
             def novo():                                # modo: (nada) | descartar | salvar — como no abrir
                 modo = str(corpo.get("modo") or ("descartar" if corpo.get("descartar") else ""))
                 if modo == "salvar":
                     salva_aberto()
-                elif modo != "descartar":
+                elif modo != "descartar" and not editor.get("fechado"):
                     sit = situacao_gecko()
                     if sit["pendente"]:
-                        raise ErroConflito(f"{nome_aberto()} tem {lista_itens(sit['itens'])} sem salvar; começar um circuito novo descarta",
+                        raise ErroConflito(f"{nome_aberto()} tem {lista_itens(sit['itens'])} sem salvar; "
+                                           f"{'fechar' if fechar else 'começar um circuito novo'} descarta",
                                            conflito=True, mesmo=False, novo=True, aberto=editor.get("aberto"), salvavel=aberto_salvavel(),
                                            itens=sit["itens"])
                 MOTOR.cmd("CLEAR")
                 marca_aberto(None)
                 editor["novo_desde"] = time.time()   # as rodadas deste circuito novo (vão junto quando ele ganhar nome)
+                marca_fechado(fechar)
+                if fechar:
+                    pilha.clear()                    # fechado não se desfaz (o circuito está no arquivo, se foi salvo)
                 claude_esquece("(sem arquivo)")      # folha nova: conversa nova com o Claude
                 esquece_vistas("")                   # e sem o que foi nas mensagens da folha sem arquivo de antes
                 grava_controle(controle_padrao())
@@ -5102,7 +5127,7 @@ class Manipulador(BaseHTTPRequestHandler):
                 r = estado()
                 marca_base()
                 return r
-            return self._editor(com_desfazer(novo, "folha em branco"))
+            return self._editor(novo if fechar else com_desfazer(novo, "folha em branco"))
         if rota == "/editor/mede":
             def mede():
                 nome, tipo = str(corpo.get("nome", "")), str(corpo.get("tipo", ""))
@@ -5145,6 +5170,8 @@ class Manipulador(BaseHTTPRequestHandler):
                 raise ErroMotor("ação da conexão: novo, apagar ou rotulo")
             return self._editor(com_desfazer(fio, corpo.get("descr") or "conexão", manter_se_falhar=True))
         if rota == "/editor/rodar":
+            if editor.get("fechado"):
+                return self._resposta(409, {"erro": "nenhum circuito aberto: abra um ou comece um novo"})
             return self._editor(lambda: rodar(corpo))
         if rota == "/editor/rodada/guardar":          # {arq: o scope_*.npz, guardar: true|false}: "por cima" não a substitui
             return self._editor(lambda: guarda_rodada(str(corpo.get("arq", "")), corpo.get("guardar", True) is not False))
