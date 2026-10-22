@@ -82,6 +82,16 @@ const esconde = (pg, sim) => pg.evaluate((h) => {         // a aba vai para o se
   await publica({ tipo: "inicio", meta: { planta: "teste-fila", rotulo: "fila 3" } }); await sc.waitForTimeout(800);
   ok(await sc.evaluate(() => A && A.meta.rotulo === "fila 3"), "rodada com outra meta: troca como antes");
   await publica({ tipo: "fim" }); await sc.close();
+  // o scope pelo trilho (sem ?so nem ?a): com a rodada já terminada, vazio; no simu (?so=rodada), a última; com uma rodada
+  // em andamento, ao vivo (Marcelo, 22/10: "se tiver uma simulação rodando; se não tiver nada, vir vazio")
+  const olha = async (url) => { const p = await ctx.newPage(); await p.goto(B + url); await p.waitForTimeout(2000);
+    const r = await p.evaluate(() => ({ rot: A && A.meta ? A.meta.rotulo : null, st: document.getElementById("status").textContent })); await p.close(); return r; };
+  const trilho = await olha("/maisim/scope/"), noSimu = await olha("/maisim/scope/?so=rodada");
+  await publica({ tipo: "inicio", meta: { planta: "teste-fila", rotulo: "fila 4" } }); await publica({ tipo: "dados", lote: { t: [0, 1e-4], x: [1, 2] } });
+  const rodando = await olha("/maisim/scope/");
+  await publica({ tipo: "fim" });
+  ok(trilho.rot === null && /nenhuma simulação rodando/.test(trilho.st) && noSimu.rot === "fila 3" && rodando.rot === "fila 4",
+    `scope pelo trilho: terminada → vazio ("${trilho.st.slice(0, 40)}…"); no simu, a última (${noSimu.rot}); em andamento → ao vivo (${rodando.rot})`);
   // 4) 6 abas do scope: à vista, a página inicial fica na fila; escondidas, carrega
   const abas = [];
   for (let k = 0; k < 6; k++) { const p = await ctx.newPage(); await p.goto(B + "/maisim/scope/"); await p.waitForTimeout(500); abas.push(p); }

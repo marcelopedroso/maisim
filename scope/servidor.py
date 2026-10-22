@@ -291,12 +291,15 @@ class Manipulador(BaseHTTPRequestHandler):
             self.send_header("Connection", "keep-alive")
             self.end_headers()
             q = queue.Queue()
+            so_ativa = parse_qs(u.query).get("ativa") == ["1"]   # ?ativa=1 (o scope aberto pelo trilho): a já terminada não vem
             with trava:                          # quem chega no meio recebe o que já veio: a foto e a inscrição juntas (o que
                 foto = None                      # chegar depois vai para a fila, na ordem); o JSON sai fora da trava, para
-                if vivo["meta"] is not None:     # uma rodada grande não parar o servidor a cada aba que volta
+                if vivo["meta"] is not None and not (so_ativa and vivo["fim"]):   # uma rodada grande não parar o servidor a cada aba que volta
                     foto = (vivo["meta"], {k: list(v) for k, v in vivo["dados"].items()}, vivo["fim"])
                 clientes.append(q)
             try:
+                self.wfile.write(b": ok\n\n")         # um byte já: a página sabe que conectou (o proxy da página só abre com dados)
+                self.wfile.flush()
                 if foto is not None:
                     meta, dados, fim = foto
                     self.wfile.write(f"event: inicio\ndata: {json.dumps(meta)}\n\n".encode())

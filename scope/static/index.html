@@ -67,6 +67,11 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
   .secao.vazia .dica { display:block; }
   .b-arrasta { cursor:grab; color:var(--sutil); font-size:16px; padding:0 4px; user-select:none; }
   .cartao.arrastando { opacity:.4; }
+  /* a alça de esticar, no canto de baixo à direita (aparece ao passar o mouse no painel) */
+  .cartao .b-alca { position:absolute; right:1px; bottom:1px; width:14px; height:14px; cursor:nwse-resize; opacity:0; transition:opacity .12s; touch-action:none;
+                    background:linear-gradient(135deg, transparent 0 45%, var(--sutil) 45% 52%, transparent 52% 66%, var(--sutil) 66% 73%, transparent 73%); }
+  .cartao:hover .b-alca, .cartao.esticando .b-alca { opacity:.75; } .cartao.esticando { outline:2px dashed var(--acento); outline-offset:2px; user-select:none; }
+  .cartao.expandido .b-alca, .cartao.recolhido .b-alca { display:none; }
   .alvo-antes { box-shadow: -4px 0 0 0 var(--acento); }
   .alvo-depois { box-shadow: 4px 0 0 0 var(--acento); }
   .secao.alvo-depois { box-shadow: 0 3px 0 0 var(--acento); }
@@ -164,6 +169,9 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
   .menu .paleta-hex .hex { width:78px; font:12px ui-monospace, monospace; padding:1px 4px; } .menu .paleta-hex .hex.ruim { border-color:var(--erro-borda); background:var(--erro-bg); }
   .menu .paleta-hex .livre { width:26px; height:22px; padding:0; border:0; background:none; cursor:pointer; }
   .menu .paleta-hex .padrao { font-size:11px; padding:1px 6px; margin-left:auto; }
+  .menu .espessuras { display:flex; align-items:center; gap:4px; width:100%; margin-top:4px; font-size:11px; color:var(--sutil); }
+  .menu .espessuras .espessura { display:flex; align-items:center; width:30px; height:20px; padding:0 4px; border:1px solid var(--borda); border-radius:4px; background:none; cursor:pointer; }
+  .menu .espessuras .espessura i { display:block; width:100%; border-radius:2px; } .menu .espessuras .espessura.atual { outline:2px solid var(--texto); outline-offset:1px; }
   .dica { font-size:12px; color:var(--sutil); margin:0 0 8px; }
   .vazio { color:var(--sutil); font-size:13px; padding:30px; text-align:center; }
   #janela-apagar { position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:50; display:none; align-items:flex-start; justify-content:center; padding:40px 16px 20px; box-sizing:border-box; }
@@ -202,7 +210,7 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
 <body>
 <header>
   <div class="linha">
-    <h1><a href="/" title="MaiSim: início ">maisim</a> / scope</h1>
+    <h1>Scope</h1>
     <div class="grupo"><button id="bt-vivo" class="ativo">Ao vivo</button><button id="bt-comparar">Comparar</button></div>
     <div class="grupo"><label>A <select id="sel-a" class="sel-rodada"></select></label>
       <label>B <select id="sel-b" class="sel-rodada"></select></label><button id="bt-carregar">Carregar</button></div>
