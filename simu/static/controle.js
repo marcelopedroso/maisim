@@ -805,20 +805,67 @@ function desenhaDiagrama() {
   const locais = {};
   for (const e of entradas.values()) { const [n] = e.dsps; if (e.dsps.size === 1 && nivel[n] > 0) { (locais[n] = locais[n] || []).push(e); e.local = n; } }
   const globais = [...entradas.values()].filter((e) => !e.local);
-  const X0 = (globais.length ? Math.max(...globais.map((e) => larg(e.rot))) : 0) + 70, WD = 176;
-  const LC = WD + 90 + Math.max(120, ...Object.values(locais).flat().map((e) => larg(e.rot) + 30));
+  const WD = 176, ROT0 = 88, RAIA = 7;                // ROT0: o corredor da direita começa depois do rótulo da mensagem
+  // 1) as caixas: a altura e o lugar na coluna (o x vem depois: depende dos corredores das mensagens). A ordem na coluna: quem
+  // conversa fica junto (Marcelo, 21/10, o MMC: cada célula troca mensagens com as vizinhas do braço; na ordem da lista, as
+  // vizinhas ficavam longe e as linhas se amontoavam): cada grupo de DSPs ligados por mensagens na mesma coluna, percorrido a
+  // partir da ponta (o de menos ligações) — uma corrente fica em fila. Os grupos, na ordem da lista
+  const viz = Object.fromEntries(nomes.map((n) => [n, new Set()])), pos = (n) => nomes.indexOf(n), feito = new Set(), ordem = [];
+  for (const n of nomes) for (const e of msgs[n].envia) if (e.para in viz && e.para !== n && nivel[e.para] === nivel[n]) { viz[n].add(e.para); viz[e.para].add(n); }
+  const anda = (v) => { feito.add(v); ordem.push(v); [...viz[v]].sort((a, b) => pos(a) - pos(b)).forEach((w) => { if (!feito.has(w)) anda(w); }); };
+  for (const n of nomes) if (!feito.has(n)) {
+    const grupo = new Set(), junta = (v) => { if (grupo.has(v)) return; grupo.add(v); viz[v].forEach(junta); }; junta(n);
+    anda([...grupo].sort((a, b) => viz[a].size - viz[b].size || pos(a) - pos(b))[0]);
+  }
   const caixas = {}, alturaCol = Array(nCol).fill(0);
-  for (const q of cs) {
+  for (const q of ordem.map((n) => cs[pos(n)])) {
     const mods = modsDe(q), linhas = 2 + (mods.length ? 1 : 0) + ((q.subcircuitos || []).length ? 1 : 0), h = 14 + linhas * 16;
     const nl = (locais[q.nome] || []).length, vaga = Math.max(h, h / 2 + 8 + nl * 26);
-    const col = nivel[q.nome]; caixas[q.nome] = { q, mods, x: X0 + col * LC, y: alturaCol[col], w: WD, h }; alturaCol[col] += vaga + 40;
+    const col = nivel[q.nome]; caixas[q.nome] = { q, mods, col, x: 0, y: alturaCol[col], w: WD, h }; alturaCol[col] += vaga + 40;
   }
   const H = Math.max(80, ...alturaCol.map((h) => h - 40), globais.length * 30, saidas.size * 40);
   for (let col = 0; col < nCol; col++) {                // cada coluna centrada na altura
-    const qs = Object.values(caixas).filter((b) => nivel[b.q.nome] === col), alto = alturaCol[col] - 40, dy = (H - alto) / 2;
+    const qs = Object.values(caixas).filter((b) => b.col === col), alto = alturaCol[col] - 40, dy = (H - alto) / 2;
     qs.forEach((b) => { b.y += dy; });
   }
   const meio = (b) => b.y + b.h / 2;
+  // 2) as mensagens (Marcelo, 21/10: "entrar sempre num lado e sair do outro"): toda mensagem sai pela direita de quem manda
+  // e entra pela esquerda de quem recebe. Para a frente, uma curva. Na mesma coluna, em ângulo reto: pelo corredor à direita
+  // da coluna até o vão junto de quem recebe, atravessa o vão e entra pela esquerda. Para trás (a resposta ao controle), um
+  // laço por cima (ou por baixo) do desenho, como a realimentação num diagrama de blocos. Cada linha numa raia (RAIA px) dos
+  // corredores, dos vãos e dos laços, sem se sobrepor às que dividem o mesmo trecho; as mais curtas mais perto das caixas.
+  const grupos = {}, rotas = [], raias = {};
+  for (const q of cs) {                                 // o mesmo conteúdo para vários = um rótulo só, na saída
+    const a = caixas[q.nome], gs = grupos[q.nome] = [];
+    for (const m of msgs[q.nome].envia) { const b = caixas[m.para]; if (!b || b === a) continue;
+      const rot = m.chaves.length ? m.chaves.join(", ") : "mensagem", g0 = gs.find((x) => x.rot === rot);
+      if (g0) { g0.para.push(m.para); g0.codigo.push(...m.codigo); } else gs.push({ rot, para: [m.para], chaves: m.chaves, codigo: [...m.codigo] }); }
+    gs.forEach((gr, gi) => { gr.sy = meio(a) - 8 + (gi - (gs.length - 1) / 2) * 14;
+      for (const p of gr.para) { const b = caixas[p]; rotas.push({ de: q.nome, para: p, a, b, sy: gr.sy, tipo: b.col > a.col ? "frente" : b.col === a.col ? "coluna" : "volta" }); } });
+  }
+  const raia = (canal, i0, i1) => {                     // a primeira raia do canal livre neste trecho
+    const l = raias[canal] = raias[canal] || [], [u, v] = i0 < i1 ? [i0, i1] : [i1, i0]; let k = 0;
+    while ((l[k] || []).some(([x, y]) => u < y + 6 && x < v + 6)) k++;
+    (l[k] = l[k] || []).push([u, v]); return k;
+  };
+  const longe = (r) => Math.abs(meio(r.b) - r.sy) + (r.tipo === "volta" ? 1e6 : 0);
+  for (const r of rotas.filter((x) => x.tipo !== "frente").sort((x, y) => longe(x) - longe(y))) {
+    const { a, b } = r;
+    if (r.tipo === "coluna") {                         // o vão do lado de quem manda: em cima de quem recebe se vem de cima
+      const deCima = a.y < b.y, k = raia(`V${r.para}${deCima ? "c" : "b"}`, 0, 1);
+      r.yv = deCima ? b.y - 14 - k * 6 : b.y + b.h + 14 + k * 6; r.ent = deCima ? b.y + 8 : b.y + b.h - 8;
+    } else {                                           // o laço: por cima se quem manda está na metade de cima
+      const cima = meio(a) <= H / 2, k = raia(cima ? "T" : "B", b.col, a.col + 0.5);
+      r.yv = cima ? -24 - k * RAIA : H + 24 + k * RAIA; r.ent = cima ? b.y + 8 : b.y + b.h - 8; r.laco = cima ? "T" : "B";
+    }
+    r.rd = raia(`R${a.col}`, r.sy, r.yv); r.re = raia(`L${b.col}`, r.yv, r.ent);
+  }
+  const nRaias = (canal) => (raias[canal] || []).length;
+  // 3) o x das colunas: o corredor da direita de uma, o da esquerda da seguinte e as medidas encostadas cabem entre elas
+  const loc = Math.max(120, ...Object.values(locais).flat().map((e) => larg(e.rot) + 30));
+  const X0 = (globais.length ? Math.max(...globais.map((e) => larg(e.rot))) : 0) + 70 + nRaias("L0") * RAIA, colX = [X0];
+  for (let c = 1; c < nCol; c++) colX[c] = colX[c - 1] + WD + Math.max(90, ROT0 + nRaias(`R${c - 1}`) * RAIA + 20) + nRaias(`L${c}`) * RAIA + loc;
+  Object.values(caixas).forEach((b) => { b.x = colX[b.col]; });
   // entradas e saídas: na altura (média) dos DSPs ligados, sem se encostar (Marcelo, 21/10: empilhadas no meio, as linhas
   // das atuações cruzavam o desenho todo e não dava para ver de onde vem e para onde vai): desce o que encosta e, se passar
   // do fim, sobe o que for preciso
@@ -828,12 +875,12 @@ function desenhaDiagrama() {
     return l; };
   const media = (e) => [...e.dsps].reduce((s, n) => s + meio(caixas[n]), 0) / e.dsps.size;
   const ents = empilha(new Map(globais.map((e) => [e.k, e])), 30), sais = empilha(saidas, 40);
-  // os arcos das mensagens na mesma coluna (ver abaixo) da última coluna: as atuações ficam depois deles
-  const ultima = cs.filter((q) => nivel[q.nome] === nCol - 1), arco = (a, b) => 18 + Math.min(150, Math.abs(b.y + 12 - (meio(a) - 8)) * 0.18);
-  const arcoMax = Math.max(0, ...ultima.flatMap((q) => msgs[q.nome].envia.filter((m) => m.para !== q.nome && nivel[m.para] === nCol - 1).map((m) => 0.75 * arco(caixas[q.nome], caixas[m.para]) + 40)));
-  const XA = X0 + nCol * LC - LC + WD + 80 + arcoMax, W =XA + Math.max(120, ...sais.map((e) => Math.max(larg(e.rot), 11 + 5.6 * Math.min(28, (e.curta || "").length)))) + 16;
+  const XA = colX[nCol - 1] + WD + Math.max(80, ROT0 + nRaias(`R${nCol - 1}`) * RAIA + 30);   // as atuações: depois do corredor
+  const W = XA + Math.max(120, ...sais.map((e) => Math.max(larg(e.rot), 11 + 5.6 * Math.min(28, (e.curta || "").length)))) + 16;
+  const topo = nRaias("T") ? 30 + nRaias("T") * RAIA : 0, fundo = nRaias("B") ? 30 + nRaias("B") * RAIA : 0;
   // o desenho
-  svg.innerHTML = ""; svg.setAttribute("width", W + 12); svg.setAttribute("height", H + 30); svg.setAttribute("viewBox", `-8 -12 ${W + 12} ${H + 30}`);
+  svg.innerHTML = ""; svg.setAttribute("width", W + 12); svg.setAttribute("height", H + 30 + topo + fundo);
+  svg.setAttribute("viewBox", `-8 ${-12 - topo} ${W + 12} ${H + 30 + topo + fundo}`);
   // as dicas no padrão do MaiSim (dica.js, pelo atributo title), não a caixinha do navegador que o <title> do SVG mostra
   const dica = (g, t) => g.setAttribute("title", t);
   const el = (tag, at, pai = svg, txt) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(at)) e.setAttribute(k, v); if (txt != null) e.textContent = txt; pai.appendChild(e); return e; };
@@ -842,6 +889,14 @@ function desenhaDiagrama() {
   const mk2 = el("marker", { id: "cd-seta-a", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 6, markerHeight: 6, orient: "auto" }, defs);
   el("path", { d: "M0 0L10 5L0 10z", fill: COR.atuBorda }, mk2);
   const curva = (x1, y1, x2, y2) => { const dx = Math.max(30, (x2 - x1) / 2); return `M${x1} ${y1}C${x1 + dx} ${y1},${x2 - dx} ${y2},${x2} ${y2}`; };
+  const orto = (pts, r = 8) => {                       // em ângulo reto, com os cantos arredondados
+    let d = `M${pts[0][0]} ${pts[0][1]}`;
+    for (let i = 1; i < pts.length - 1; i++) {
+      const [x0, y0] = pts[i - 1], [x, y] = pts[i], [x1, y1] = pts[i + 1], l0 = Math.hypot(x - x0, y - y0) || 1, l1 = Math.hypot(x1 - x, y1 - y) || 1, k = Math.min(r, l0 / 2, l1 / 2);
+      d += `L${x - (x - x0) / l0 * k} ${y - (y - y0) / l0 * k}Q${x} ${y} ${x + (x1 - x) / l1 * k} ${y + (y1 - y) / l1 * k}`;
+    }
+    const [xf, yf] = pts[pts.length - 1]; return `${d}L${xf} ${yf}`;
+  };
   const camLig = el("g", {}), camMsg = el("g", {}), camNos = el("g", {});
   const medida = (e, x, y, x2, y2) => {                // o chip da medida e a linha até o DSP
     const g = el("g", { class: "med no", "data-nos": [e.k, ...e.dsps].join("|") }, camNos), w = larg(e.rot);
@@ -849,9 +904,9 @@ function desenhaDiagrama() {
     if (e.dica) dica(g, e.dica);
     for (const n of e.dsps) el("path", { class: "lig", d: curva(x + w, y + 11, x2 != null ? x2 : caixas[n].x, y2 != null ? y2 : meio(caixas[n])), "data-nos": `${e.k}|${n}` }, camLig);
   };
-  for (const e of ents) medida(e, X0 - 80 - larg(e.rot), e.y);
-  for (const [n, l] of Object.entries(locais)) { const b = caixas[n];
-    l.forEach((e, i) => { const y = meio(b) + 8 + i * 26; medida(e, b.x - 26 - larg(e.rot), y, b.x, Math.min(y + 11, b.y + b.h - 8)); }); }
+  for (const e of ents) medida(e, X0 - 80 - nRaias("L0") * RAIA - larg(e.rot), e.y);
+  for (const [n, l] of Object.entries(locais)) { const b = caixas[n], dx = 26 + nRaias(`L${b.col}`) * RAIA;   // depois do corredor da esquerda
+    l.forEach((e, i) => { const y = meio(b) + 8 + i * 26; medida(e, b.x - dx - larg(e.rot), y, b.x, meio(b) + 4 + i * 6); }); }
   for (const e of sais) {                               // DSP → atuações
     const g = el("g", { class: "atu no", "data-nos": [e.k, ...e.dsps].join("|") }, camNos), w = larg(e.rot);
     el("rect", { x: XA, y: e.y, width: w, height: 22, rx: 11, fill: COR.atuFundo, stroke: COR.atuBorda }, g);
@@ -859,31 +914,22 @@ function desenhaDiagrama() {
     if (e.curta || e.dica) { const t = e.curta || e.dica; el("text", { class: "dest", x: XA + 4, y: e.y + 34, fill: "var(--sutil)" }, g, t.length > 28 ? t.slice(0, 27) + "…" : t); dica(g, e.dica || t); }
     for (const n of e.dsps) { const b = caixas[n]; el("path", { class: "esc", d: curva(b.x + b.w, meio(b), XA - 2, e.y + 11), stroke: COR.atuBorda, "marker-end": "url(#cd-seta-a)", "data-nos": `${n}|${e.k}` }, camLig); }
   }
-  for (const q of cs) {                                 // as mensagens entre os DSPs: o mesmo conteúdo para vários = um rótulo só, na saída
-    const a = caixas[q.nome], grupos = [];
-    for (const m of msgs[q.nome].envia) { const b = caixas[m.para]; if (!b || b === a) continue;
-      const rot = m.chaves.length ? m.chaves.join(", ") : "mensagem", g0 = grupos.find((x) => x.rot === rot);
-      if (g0) { g0.para.push(m.para); g0.codigo.push(...m.codigo); } else grupos.push({ rot, para: [m.para], chaves: m.chaves, codigo: [...m.codigo] }); }
-    grupos.forEach((gr, gi) => {
-      const sy = meio(a) - 8 + (gi - (grupos.length - 1) / 2) * 14;
-      for (const p of gr.para) { const b = caixas[p];
-        // para a frente: da direita de um à esquerda do outro; na mesma coluna: um arco pela direita, mais aberto quanto mais
-        // longe (os vizinhos não viram uma linha só); para trás (a resposta ao controle): da esquerda dele à direita do outro, por baixo
-        const dpath = b.x > a.x ? curva(a.x + a.w, sy, b.x - 2, meio(b) - 10)
-          : b.x === a.x ? (() => { const y1 = sy, y2 = b.y + 12, x = a.x + a.w + 18 + Math.min(150, Math.abs(y2 - y1) * 0.18);
-            return `M${a.x + a.w} ${y1}C${x} ${y1},${x} ${y2},${b.x + b.w + 2} ${y2}`; })()
-          : (() => { const y1 = a.y + 10, y2 = b.y + b.h - 8, x1 = a.x, x2 = b.x + b.w + 2, dx = Math.max(30, (x1 - x2) / 2);
-            return `M${x1} ${y1}C${x1 - dx} ${y1},${x2 + dx} ${y2},${x2} ${y2}`; })();
-        el("path", { class: `msg${b.x < a.x ? " volta" : ""}`, d: dpath, "marker-end": "url(#cd-seta)", "data-nos": `${q.nome}|${p}` }, camMsg); }
-      const wr = Math.max(larg(gr.rot, 6.8), larg(quando, 5.4)), lx = a.x + a.w + 8 + wr / 2, ly = sy - 1;   // em cima da linha, logo na saída
-      const g = el("g", { "data-nos": [q.nome, ...gr.para].join("|") }, camMsg);
-      dica(g, [`${q.nome} → ${gr.para.join(", ")}: ${gr.chaves.length ? gr.chaves.join(", ") : "(o conteúdo não dá para ler do código)"} · ${quandoLongo}`,
-        ...[...new Set(gr.codigo)].map((x) => `  ${x}`),
-        ...gr.para.map((p) => { const le = gr.chaves.filter((k) => msgs[p].le.has(k)), nao = gr.chaves.filter((k) => !msgs[p].le.has(k));
-          return `${p} lê: ${le.join(", ") || "nada disso"}${nao.length ? ` · chega e não lê: ${nao.join(", ")}` : ""}`; })].join("\n"));
-      el("rect", { class: "fundo-rot", x: lx - wr / 2, y: ly - 13, width: wr, height: 28, rx: 5 }, g);
-      el("text", { class: "rot", x: lx, y: ly, "text-anchor": "middle" }, g, gr.rot); el("text", { class: "lat", x: lx, y: ly + 12, "text-anchor": "middle" }, g, quando);
-    });
+  for (const r of rotas) {                              // as linhas das mensagens
+    const { a, b } = r;
+    const d = r.tipo === "frente" ? curva(a.x + a.w, r.sy, b.x - 2, meio(b) - 10)
+      : orto([[a.x + a.w, r.sy], [a.x + a.w + ROT0 + r.rd * RAIA, r.sy], [a.x + a.w + ROT0 + r.rd * RAIA, r.yv],
+        [b.x - 12 - r.re * RAIA, r.yv], [b.x - 12 - r.re * RAIA, r.ent], [b.x - 2, r.ent]]);
+    el("path", { class: `msg${r.tipo === "volta" ? " volta" : ""}`, d, "marker-end": "url(#cd-seta)", "data-nos": `${r.de}|${r.para}` }, camMsg);
+  }
+  for (const q of cs) for (const gr of grupos[q.nome]) {   // os rótulos, logo na saída (por cima das linhas)
+    const a = caixas[q.nome], wr = Math.max(larg(gr.rot, 6.8), larg(quando, 5.4)), lx = a.x + a.w + 8 + wr / 2, ly = gr.sy - 1;
+    const g = el("g", { "data-nos": [q.nome, ...gr.para].join("|") }, camMsg);
+    dica(g, [`${q.nome} → ${gr.para.join(", ")}: ${gr.chaves.length ? gr.chaves.join(", ") : "(o conteúdo não dá para ler do código)"} · ${quandoLongo}`,
+      ...[...new Set(gr.codigo)].map((x) => `  ${x}`),
+      ...gr.para.map((p) => { const le = gr.chaves.filter((k) => msgs[p].le.has(k)), nao = gr.chaves.filter((k) => !msgs[p].le.has(k));
+        return `${p} lê: ${le.join(", ") || "nada disso"}${nao.length ? ` · chega e não lê: ${nao.join(", ")}` : ""}`; })].join("\n"));
+    el("rect", { class: "fundo-rot", x: lx - wr / 2, y: ly - 13, width: wr, height: 28, rx: 5 }, g);
+    el("text", { class: "rot", x: lx, y: ly, "text-anchor": "middle" }, g, gr.rot); el("text", { class: "lat", x: lx, y: ly + 12, "text-anchor": "middle" }, g, quando);
   }
   for (const b of Object.values(caixas)) {              // as caixas dos DSPs por cima
     const q = b.q, g = el("g", { class: "dsp no", "data-arq": q.arquivo, "data-nos": q.nome }, camNos);

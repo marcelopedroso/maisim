@@ -74,10 +74,15 @@ const ORQ = CTL('    envia("dsp_a", {"theta": 1.0})\n    envia("dsp_b", {"theta"
     v = await le();
     const cic = await pg.evaluate(() => { const svg = $("ctl-diag-svg"), R = svg.parentElement.getBoundingClientRect(), dentro = (g) => { const r = g.getBoundingClientRect(); return r.left >= R.left && r.right <= R.right && r.top >= R.top && r.width > 20; };
       const cy = (s) => { const r = svg.querySelector(s).getBBox(); return r.y + r.height / 2; };
-      return { W: +svg.getAttribute("width"), vistos: [...svg.querySelectorAll(".dsp")].every(dentro), k: vistaDiag.k,
+      const cx = (n) => svg.querySelector(`.dsp[data-nos="${n}"] rect`).getBBox();
+      const lados = [...svg.querySelectorAll("path.msg")].map((p) => { const [de, para] = p.dataset.nos.split("|"), n = p.getTotalLength(), i = p.getPointAtLength(0), f = p.getPointAtLength(n);
+        return { m: p.dataset.nos, sai: Math.abs(i.x - (cx(de).x + cx(de).width)) < 1, entra: Math.abs(f.x - (cx(para).x - 2)) < 1 }; });
+      return { W: +svg.getAttribute("width"), vistos: [...svg.querySelectorAll(".dsp")].every(dentro), k: vistaDiag.k, lados,
         alinhada: Math.abs(cy('.atu[data-nos^="s05"] rect') - cy('.dsp[data-nos="dsp_a"] rect')) < 12 }; });
     ok(v.dsps.controle.x < v.dsps.dsp_a.x && v.dsps.dsp_a.x === v.dsps.dsp_b.x && cic.W < 1300 && cic.vistos && cic.alinhada,
       `em ciclo: o controle numa coluna, dsp_a e dsp_b na seguinte (largura ${Math.round(cic.W)} px); "ajustar" (${Math.round(cic.k * 100)} %) deixa os DSPs à vista; a s05 na altura do dsp_a`);
+    ok(cic.lados.length === 5 && cic.lados.every((l) => l.sai && l.entra),     // Marcelo, 21/10: "entrar sempre num lado e sair do outro"
+      `toda mensagem sai pela direita de quem manda e entra pela esquerda de quem recebe (para a frente, na mesma coluna e a de volta ao controle): ${cic.lados.map((l) => `${l.m} ${l.sai && l.entra ? "✓" : "✗"}`).join(", ")}`);
     await pg.hover('#ctl-diag-svg .dsp[data-nos="dsp_b"] rect'); await pg.waitForTimeout(200);
     const foco = await pg.evaluate(() => { const svg = $("ctl-diag-svg"), ap = (s) => svg.querySelector(s).classList.contains("apagado");
       return { dspA: ap('.dsp[data-nos="dsp_a"]'), ctl: ap('.dsp[data-nos="controle"]'), s04: ap('.med[data-nos^="s04"]'), s06: ap('.atu[data-nos^="s06"]'), s01: ap('.med[data-nos^="s01"]'),
