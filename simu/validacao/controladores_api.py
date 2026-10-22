@@ -65,6 +65,10 @@ for D, lat in ((1, 0.0), (3, 2.5 * Ts)):
         ok(sorted(x for x in os.listdir(pasta) if x.endswith(".py")) == ["aquisicao.py", "controle.py"], f"a pasta da rodada guarda os dois arquivos: {sorted(os.listdir(pasta))}")
         meta = json.loads(str(b["meta"])) if "meta" in b else {}
         ok([c["nome"] for c in meta.get("controle", {}).get("controladores", [])] == ["aquisicao", "controle"], "o meta da rodada diz os controladores e a rede")
+        # o que foi nas mensagens (Marcelo, 22/10: o diagrama mostra as chaves de verdade): a rodada registra, o painel devolve
+        mv = api("editor/controle").get("mensagens_vistas") or {}
+        ok(mv.get("fonte") == "rodada" and mv.get("pares") == {"aquisicao|controle": ["i"]} and mv.get("atual") is True,
+           f"o que foi nas mensagens, da rodada: {json.dumps({k: mv.get(k) for k in ('fonte', 'pares', 'atual')})}")
 # e o sem atraso não é igual (o teste distingue): o controlador único do exemplo, com a medida da própria amostra
 j0, c0 = roda2("um_sem_atraso", base)
 ok(c0 is not None and b is not None and not np.array_equal(c0["i_L"], b["i_L"]), "o controlador único sem atraso dá outra curva (a comparação distingue)")

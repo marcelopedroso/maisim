@@ -1651,7 +1651,7 @@ function acompanha(j) {
     for (const a of j.avisos.slice(ja)) anota(a, "erro");
     if (j.avisos.length > ja) { vistos = { [chave]: j.avisos.length }; try { sessionStorage.setItem("maisim-simu-avisos", JSON.stringify(vistos)); } catch (e) { /* ok */ } }
   }
-  const vivo = j.estado === "rodando" || j.estado === "pausada" || j.estado === "preparando";
+  const vivo = j.estado === "rodando" || j.estado === "pausada" || j.estado === "preparando", estavaViva = sim.vivoAntes; sim.vivoAntes = vivo;
   if (vivo && !sim.avisou) { sim.avisou = true; avisa("rodada"); } else if (!vivo) sim.avisou = false;   // a outra janela acompanha
   pg.classList.toggle("ativo", vivo); pg.classList.toggle("pausada", j.estado === "pausada");
   const dd = pg.querySelector(".sim-diodo");              // o diodo animado (claude.js), o "carregando" do MaiSim
@@ -1668,6 +1668,7 @@ function acompanha(j) {
           $("progresso").classList.remove("ativo"); if (typeof travaControle === "function") travaControle(false); }
       }
     }, 400); return; }
+  if ((j.estado === "fim" || j.estado === "parada") && estavaViva && typeof atualizaVistas === "function") atualizaVistas();   // o que foi nas mensagens
   if (j.estado === "fim" || j.estado === "parada") {
     $("msg").innerHTML = `${j.estado === "fim" ? "rodada" : "rodada parada"} ${j.nome}: ${j.amostras} amostras de ${(j.sinais || []).join(", ")} em ${j.segundos} s · ` +
       `<a href="${urlScope(j.arquivo, false)}" target="_blank">abrir em nova aba</a>`;

@@ -7,6 +7,7 @@ import argparse
 import atexit
 import base64
 import gzip
+import hashlib
 import json
 import math
 import sys
@@ -2224,6 +2225,52 @@ def atuadores_disponiveis(r):
     return out
 
 
+# o que foi de fato nas mensagens entre os controladores (Marcelo, 22/10: no diagrama, o rótulo dizia só "mensagem" quando
+# o conteúdo era montado em outro arquivo — envia("controle", c["sobe"]), com o dicionário feito num laço no módulo): a cada
+# "testar" e a cada rodada, as chaves de cada par de/para, por circuito, com a assinatura do código daquele momento (o diagrama
+# diz quando o código mudou depois). Fica no cache (sobrevive a reiniciar); nada vai para o circuito do usuário
+VISTAS = ESTADO.with_name("mensagens_vistas.json")
+
+
+def assinatura_codigo(c):
+    return hashlib.sha1(json.dumps(arquivos_de(c), sort_keys=True).encode()).hexdigest()[:16]
+
+
+def guarda_vistas(trab, c, fonte):
+    if not trab or not trab.vistas:
+        return
+    try:
+        d = json.loads(VISTAS.read_text()) if VISTAS.exists() else {}
+    except (OSError, ValueError):
+        d = {}
+    d[str(editor.get("aberto") or "")] = dict(fonte=fonte, quando=time.strftime("%Y-%m-%d %H:%M"), assinatura=assinatura_codigo(c),
+                                              pares={k: list(v) for k, v in trab.vistas.items()})
+    try:
+        VISTAS.parent.mkdir(parents=True, exist_ok=True)
+        tmp = VISTAS.with_suffix(".tmp")
+        tmp.write_text(json.dumps(d, ensure_ascii=False))
+        os.replace(tmp, VISTAS)
+    except OSError:
+        pass
+
+
+def esquece_vistas(chave):
+    try:
+        d = json.loads(VISTAS.read_text()) if VISTAS.exists() else {}
+        if d.pop(chave, None) is not None:
+            VISTAS.write_text(json.dumps(d, ensure_ascii=False))
+    except (OSError, ValueError):
+        pass
+
+
+def vistas_do_circuito(c):
+    try:
+        v = json.loads(VISTAS.read_text()).get(str(editor.get("aberto") or "")) if VISTAS.exists() else None
+    except (OSError, ValueError):
+        v = None
+    return dict(v, atual=v.get("assinatura") == assinatura_codigo(c)) if v else None
+
+
 def painel_controle(c=None):
     c = c or le_controle()
     ult = editor.get("ultimo")
@@ -2251,7 +2298,7 @@ def painel_controle(c=None):
     return dict(controle=c, erros=erros, avisos=erros_ctl + avisos + avisos_ctl, erros_controladores=erros_ctl, conferencia=conferencia,
                 entradas=entradas, atuadores=atu, modelo=MODELO_CONTROLE, circuito=bool(ult),
                 modelos={"leitura.py": MODELO_LEITURA, "escrita.py": MODELO_ESCRITA, "modulo": MODELO_MODULO},
-                modulos=sorted(modulos_de(c)), sem_esquema=variaveis_sem_esquema(c, ult), do_codigo=do_codigo,
+                modulos=sorted(modulos_de(c)), sem_esquema=variaveis_sem_esquema(c, ult), do_codigo=do_codigo, mensagens_vistas=vistas_do_circuito(c),
                 instancias=[{"nome": i["nome"], "arquivo": i["arquivo"], "controlador": (i.get("p") or {}).get("controlador"),
                              "subcircuito": (i.get("p") or {}).get("subcircuito"), "medidas": sorted(i["medidas"]) if i["medidas"] is not None else None,
                              "atuacoes": sorted(i["atuacoes"]) if i["atuacoes"] is not None else None} for i in insts])
@@ -2291,6 +2338,8 @@ def testa_controle(dt, n=3, c=None, pasta_nome="teste_controle"):
             res = trab.pede({"op": "passo", "t": k * Ts, "m": {x: 0.0 for x in entradas}})
             s_ = {x: (v if math.isfinite(v) else None) for x, v in res["s"].items()}   # NaN/infinito no scope(): null (JSON válido)
             passos.append({"t": k * Ts, "a": res["a"], "s": s_, "fora": sorted(x for x in res["a"] if x not in marcadas)})
+        if pasta_nome == "teste_controle":               # o do painel (o da proposta da IA não é o código guardado)
+            guarda_vistas(trab, c, "testar")
     finally:
         if trab:
             trab.fecha()
@@ -2451,6 +2500,7 @@ class Controladores:
         if isinstance(insts, str):                       # só um código: o controle.py de sempre
             insts = [{"nome": "controle", "arquivo": "controle.py", "codigo": insts, "medidas": None, "atuacoes": None}]
         self.insts, self.latencia, self.fila, self.seq, self.trabs = insts, float(latencia), [], 0, []
+        self.vistas = {}                                 # "de|para" → as chaves que foram nas mensagens, na ordem do código (mensagens_vistas)
         nomes, prefixar = [i["nome"] for i in insts], len(insts) > 1
         try:
             for i in insts:
@@ -2490,6 +2540,7 @@ class Controladores:
             a.update(r["a"])
             sc.update(r["s"])
             for env in r.get("env") or []:
+                self.vistas.setdefault(f'{i["nome"]}|{env["para"]}', {}).update(dict.fromkeys(env["dados"]))
                 self.seq += 1
                 novas.append((t + self.latencia, self.seq, env["para"], {"de": i["nome"], "t": t, "dados": env["dados"]}))
         self.fila += novas                               # só depois de todos: nada chega na mesma amostra
@@ -2804,6 +2855,7 @@ def _rodar(c, ctl_de_fora=None):
             final = dict(estado="erro", erro=str(e))
         finally:
             if trab:
+                guarda_vistas(trab, ctl, "rodada")
                 trab.fecha()
                 log.close()
                 try:
@@ -4964,6 +5016,7 @@ class Manipulador(BaseHTTPRequestHandler):
                 MOTOR.cmd("CLEAR")
                 marca_aberto(None)
                 claude_esquece("(sem arquivo)")      # folha nova: conversa nova com o Claude
+                esquece_vistas("")                   # e sem o que foi nas mensagens da folha sem arquivo de antes
                 grava_controle(controle_padrao())
                 grava_aparencia({})
                 r = estado()
