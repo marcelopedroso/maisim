@@ -59,6 +59,13 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     // 6. Esc tira a seleção
     await arrasta([7, 5], [23, 16], true); await pg.keyboard.press("Escape"); await pg.waitForTimeout(300);
     ok((await est()).multi.length === 0 && (await pg.evaluate(() => folhaAtual)) === "0", "Esc tira a seleção (e não sai da folha)");
+    // 7. o painel da direita recolhido: o 1º clique só seleciona; clicar de novo no selecionado abre o painel (Marcelo, 22/10)
+    const fechado = () => pg.evaluate(() => document.body.classList.contains("props-fechado"));
+    await pg.click("#aba-props"); await pg.waitForTimeout(300); const rec = await fechado();
+    const [qx, qy] = await tela(40, 10); await pg.mouse.click(qx, qy); await pg.waitForTimeout(400);
+    const um = await fechado(), sel = await pg.evaluate(() => ed.sel);
+    await pg.mouse.click(qx, qy); await pg.waitForTimeout(400);
+    ok(rec && um && sel === "C.1" && !(await fechado()) && /C\.1/.test((await est()).props), `recolhido, o 1º clique seleciona o C.1 e o painel fica fechado; o 2º abre o painel com o C.1`);
     await pg.evaluate(async () => { await api("editor/novo", { modo: "descartar" }); });
     ok(!erros.length, `sem erros de JS nem diálogos ${erros.join(" ; ")}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message}`); }
