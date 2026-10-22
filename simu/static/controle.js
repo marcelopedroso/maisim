@@ -705,18 +705,43 @@ function buscaArquivos() {
 // o diagrama como no Figma (Marcelo, 19/10: "clicar e arrastar, dar zoom + −"): arrastar move; a roda rola (Shift: para o lado);
 // Ctrl + roda (ou a pinça do touchpad) dá zoom no ponto do mouse; − / % / + / ajustar na barra. Até alguém mexer, o desenho
 // cabe inteiro (e acompanha o código e o tamanho da tela); depois, a vista fica onde foi deixada
-const vistaDiag = { k: 1, x: 0, y: 0, mexida: false };
+const vistaDiag = { k: 1, x: 0, y: 0, mexida: false,   // linhas: "juntas" (um ponto por bloco) | "separadas" (um ponto por ligação)
+  linhas: (() => { try { return localStorage.getItem("maisim-simu-diag-linhas") === "separadas" ? "separadas" : "juntas"; } catch (e) { return "juntas"; } })() };
 function aplicaVistaDiag() {
   const svg = $("ctl-diag-svg"); if (!svg) return;
   svg.style.transform = `translate(${vistaDiag.x}px, ${vistaDiag.y}px) scale(${vistaDiag.k})`;
   if ($("cd-zoom")) $("cd-zoom").textContent = `${Math.round(vistaDiag.k * 100)}%`;
 }
-function ajustaDiag() {                                  // cabe inteiro, centrado (no máximo 100 %)
+function ajustaDiag() {                                  // cabe inteiro, centrado (no máximo 100 %); se nem a 10 % cabe, o começo dele
   const svg = $("ctl-diag-svg"), rolo = svg && svg.parentElement; if (!rolo || !rolo.clientWidth) return;
   const W = +svg.getAttribute("width") || 1, H = +svg.getAttribute("height") || 1, cw = rolo.clientWidth, ch = rolo.clientHeight;
   const k = Math.max(0.1, Math.min(1, (cw - 24) / W, (ch - 24) / H));
-  Object.assign(vistaDiag, { k, x: (cw - W * k) / 2, y: Math.max(12, (ch - H * k) / 2), mexida: false });
+  Object.assign(vistaDiag, { k, x: Math.max(12, (cw - W * k) / 2), y: Math.max(12, (ch - H * k) / 2), mexida: false });
   aplicaVistaDiag();
+}
+// as colunas do diagrama (o nível de cada DSP): quem manda antes de quem recebe. Os que trocam mensagens em ciclo (Marcelo,
+// 21/10: o controle manda a todos os SMs e alguns respondem — cada volta empurrava todos uma coluna, os 19 iam parar na
+// 19ª e o "ajustar" encolhia um desenho de 7700 px quase vazio) formam um grupo (componente fortemente conexo, Tarjan): o
+// grupo vem depois de quem manda para ele e, dentro dele, cada um fica na distância (em mensagens) de quem entra no grupo
+// — quem recebe de fora, ou o primeiro da lista. Sem ciclo, é o caminho mais longo, como antes.
+function colunasDiag(nomes, sai) {
+  const idx = {}, low = {}, naPilha = new Set(), pilha = [], grupos = []; let k = 0;
+  const visita = (v) => {
+    idx[v] = low[v] = k++; pilha.push(v); naPilha.add(v);
+    for (const w of sai(v)) { if (!(w in idx)) { visita(w); low[v] = Math.min(low[v], low[w]); } else if (naPilha.has(w)) low[v] = Math.min(low[v], idx[w]); }
+    if (low[v] === idx[v]) { const g = []; let w; do { w = pilha.pop(); naPilha.delete(w); g.push(w); } while (w !== v); grupos.push(g); }
+  };
+  for (const v of nomes) if (!(v in idx)) visita(v);
+  const nivel = {};
+  for (const g of grupos.reverse()) {                    // o Tarjan entrega os grupos do fim para o começo
+    const base = Object.fromEntries(g.map((v) => [v, -1]));
+    for (const u of Object.keys(nivel)) for (const w of sai(u)) if (w in base) base[w] = Math.max(base[w], nivel[u] + 1);
+    const ordem = g.slice().sort((a, b) => nomes.indexOf(a) - nomes.indexOf(b));
+    const fila = ordem.filter((v) => base[v] >= 0); if (!fila.length) fila.push(ordem[0]);
+    fila.forEach((v) => { nivel[v] = Math.max(0, base[v]); });
+    for (let i = 0; i < fila.length; i++) for (const w of sai(fila[i])) if (w in base && !(w in nivel)) { nivel[w] = Math.max(nivel[fila[i]] + 1, base[w]); fila.push(w); }
+  }
+  return nivel;
 }
 function zoomDiag(f, px, py) {                           // f: o fator; (px, py): o ponto que fica parado (no rolo; padrão: o meio)
   const rolo = $("ctl-diag-svg").parentElement;
@@ -748,6 +773,14 @@ function ligaVistaDiag() {
   $("cd-mais").onclick = () => zoomDiag(1.25);
   $("cd-menos").onclick = () => zoomDiag(0.8);
   $("cd-ajusta").onclick = ajustaDiag;
+  const botaoLinhas = () => { const b = $("cd-linhas"), sep = vistaDiag.linhas === "separadas";
+    b.textContent = sep ? "juntar linhas" : "separar linhas"; b.classList.toggle("ativo", sep); b.setAttribute("aria-pressed", sep); };
+  $("cd-linhas").onclick = () => {                     // juntas ↔ separadas (fica guardado neste navegador); o desenho volta a caber
+    vistaDiag.linhas = vistaDiag.linhas === "separadas" ? "juntas" : "separadas"; vistaDiag.mexida = false;
+    try { localStorage.setItem("maisim-simu-diag-linhas", vistaDiag.linhas); } catch (e) { /* ok */ }
+    botaoLinhas(); desenhaDiagrama();
+  };
+  botaoLinhas();
   $("cd-zoom").onclick = () => { const rolo_ = rolo, k = 1 / vistaDiag.k; zoomDiag(k, rolo_.clientWidth / 2, rolo_.clientHeight / 2); };   // 100 %
   addEventListener("resize", () => { if (!vistaDiag.mexida && ctl.tabela === "diag") ajustaDiag(); });
 }
@@ -759,10 +792,9 @@ function desenhaDiagrama() {
   const quandoLongo = lat > 0 ? `chega depois da fibra de ${si(lat, "s")} (na 1ª amostra com t ≥ envio + latência)` : "chega na amostra seguinte";
   const ctlsArq = cs.map((q) => q.arquivo), NS = "http://www.w3.org/2000/svg", LIM = 8;
   const larg = (t, px = 7.2) => 18 + t.length * px;
-  // as colunas dos DSPs: a ordem das mensagens (ciclo: para no número de controladores)
-  const nivel = Object.fromEntries(cs.map((q) => [q.nome, 0]));
-  for (let it = 0; it < cs.length; it++) for (const q of cs) for (const e of msgs[q.nome].envia)
-    if (e.para in nivel && e.para !== q.nome) nivel[e.para] = Math.max(nivel[e.para], Math.min(nivel[q.nome] + 1, cs.length - 1));
+  // as colunas dos DSPs: a ordem das mensagens (quem manda antes de quem recebe; os ciclos: colunasDiag)
+  const nomes = cs.map((q) => q.nome);
+  const nivel = colunasDiag(nomes, (n) => [...new Set(msgs[n].envia.map((e) => e.para))].filter((p) => p !== n && nomes.includes(p)));
   const nCol = Math.max(...Object.values(nivel)) + 1;
   // as entradas (medidas) e as saídas (atuações) de cada DSP; muitas viram um bloco
   const entradas = new Map(), saidas = new Map();     // chave → {rot, dsps:Set, dica}
@@ -782,72 +814,168 @@ function desenhaDiagrama() {
   const locais = {};
   for (const e of entradas.values()) { const [n] = e.dsps; if (e.dsps.size === 1 && nivel[n] > 0) { (locais[n] = locais[n] || []).push(e); e.local = n; } }
   const globais = [...entradas.values()].filter((e) => !e.local);
-  const X0 = (globais.length ? Math.max(...globais.map((e) => larg(e.rot))) : 0) + 70, WD = 176;
-  const LC = WD + 90 + Math.max(120, ...Object.values(locais).flat().map((e) => larg(e.rot) + 30));
+  const WD = 176, RAIA = 7, PASSO = 12, VAO = 20;     // VAO: o corredor da esquerda fica a VAO px da caixa (a seta cabe reta)
+  // as linhas separadas (Marcelo, 21/10: "ao invés de agrupar, cada entrada ter uma linha… ou um botão para agrupar ou
+  // explodir… cada bloquinho mais comprido"): cada ligação com o seu ponto na caixa — as que chegam à esquerda, as que saem à
+  // direita —, a PASSO px uma da outra; a caixa cresce para caber. Juntas: um ponto de chegada e um de saída por caixa
+  const separadas = vistaDiag.linhas === "separadas";
+  const ROT0 = separadas ? 30 : 88;                   // ROT0: o corredor da direita começa depois do rótulo (separadas: ele vai em cima)
+  // a altura de cada ponto: a mensagem PASSO; a medida e a atuação de um DSP só, a do chip (Marcelo, 21/10: as linhas
+  // delas faziam curvas estranhas — agora o chip fica na altura do ponto e a linha sai reta)
+  const altMed = (e) => (e.dsps.size === 1 ? 26 : PASSO), altAtu = (e) => (e.dsps.size === 1 ? 40 : PASSO);
+  const grupos = {}, nChega = Object.fromEntries(nomes.map((n) => [n, 0])), nSai = { ...nChega };
+  for (const q of cs) {                                 // o mesmo conteúdo para vários = um rótulo só, na saída
+    const gs = grupos[q.nome] = [];
+    for (const m of msgs[q.nome].envia) { if (!(m.para in nivel) || m.para === q.nome) continue;
+      const rot = m.chaves.length ? m.chaves.join(", ") : "mensagem", g0 = gs.find((x) => x.rot === rot);
+      if (g0) { g0.para.push(m.para); g0.codigo.push(...m.codigo); } else gs.push({ rot, para: [m.para], chaves: m.chaves, codigo: [...m.codigo] }); }
+    for (const gr of gs) for (const p of gr.para) { nSai[q.nome] += PASSO; nChega[p] += PASSO; }
+  }
+  for (const e of entradas.values()) e.dsps.forEach((n) => { nChega[n] += altMed(e); });
+  for (const e of saidas.values()) e.dsps.forEach((n) => { nSai[n] += altAtu(e); });
+  // 1) as caixas: a altura e o lugar na coluna (o x vem depois: depende dos corredores das mensagens). A ordem na coluna: quem
+  // conversa fica junto (Marcelo, 21/10, o MMC: cada célula troca mensagens com as vizinhas do braço; na ordem da lista, as
+  // vizinhas ficavam longe e as linhas se amontoavam): cada grupo de DSPs ligados por mensagens na mesma coluna, percorrido a
+  // partir da ponta (o de menos ligações) — uma corrente fica em fila. Os grupos, na ordem da lista
+  const viz = Object.fromEntries(nomes.map((n) => [n, new Set()])), pos = (n) => nomes.indexOf(n), feito = new Set(), ordem = [];
+  for (const n of nomes) for (const e of msgs[n].envia) if (e.para in viz && e.para !== n && nivel[e.para] === nivel[n]) { viz[n].add(e.para); viz[e.para].add(n); }
+  const anda = (v) => { feito.add(v); ordem.push(v); [...viz[v]].sort((a, b) => pos(a) - pos(b)).forEach((w) => { if (!feito.has(w)) anda(w); }); };
+  for (const n of nomes) if (!feito.has(n)) {
+    const grupo = new Set(), junta = (v) => { if (grupo.has(v)) return; grupo.add(v); viz[v].forEach(junta); }; junta(n);
+    anda([...grupo].sort((a, b) => viz[a].size - viz[b].size || pos(a) - pos(b))[0]);
+  }
   const caixas = {}, alturaCol = Array(nCol).fill(0);
-  for (const q of cs) {
-    const mods = modsDe(q), linhas = 2 + (mods.length ? 1 : 0) + ((q.subcircuitos || []).length ? 1 : 0), h = 14 + linhas * 16;
+  for (const q of ordem.map((n) => cs[pos(n)])) {
+    const mods = modsDe(q), linhas = 2 + (mods.length ? 1 : 0) + ((q.subcircuitos || []).length ? 1 : 0);
+    const h = Math.max(14 + linhas * 16, separadas ? 12 + Math.max(nChega[q.nome], nSai[q.nome]) : 0);
     const nl = (locais[q.nome] || []).length, vaga = Math.max(h, h / 2 + 8 + nl * 26);
-    const col = nivel[q.nome]; caixas[q.nome] = { q, mods, x: X0 + col * LC, y: alturaCol[col], w: WD, h }; alturaCol[col] += vaga + 40;
+    const col = nivel[q.nome]; caixas[q.nome] = { q, mods, col, x: 0, y: alturaCol[col], w: WD, h }; alturaCol[col] += vaga + 40;
   }
   const H = Math.max(80, ...alturaCol.map((h) => h - 40), globais.length * 30, saidas.size * 40);
   for (let col = 0; col < nCol; col++) {                // cada coluna centrada na altura
-    const qs = Object.values(caixas).filter((b) => nivel[b.q.nome] === col), alto = alturaCol[col] - 40, dy = (H - alto) / 2;
+    const qs = Object.values(caixas).filter((b) => b.col === col), alto = alturaCol[col] - 40, dy = (H - alto) / 2;
     qs.forEach((b) => { b.y += dy; });
   }
   const meio = (b) => b.y + b.h / 2;
-  // entradas e saídas: na ordem da altura média dos DSPs ligados, empilhadas e centradas
-  const empilha = (m, passo) => { const l = [...m.values()].sort((a, b) => media(a) - media(b)); const alto = l.length * passo - (passo - 22), y0 = Math.max(0, (H - alto) / 2);
-    l.forEach((e, i) => { e.y = y0 + i * passo; }); return l; };
+  // entradas e saídas: na altura (média) dos DSPs ligados, sem se encostar (Marcelo, 21/10: empilhadas no meio, as linhas
+  // das atuações cruzavam o desenho todo e não dava para ver de onde vem e para onde vai): desce o que encosta e, se passar
+  // do fim, sobe o que for preciso
+  const empilha = (m, passo) => { const l = [...m.values()].sort((a, b) => media(a) - media(b));
+    l.forEach((e, i) => { e.y = Math.max(0, media(e) - 11, i ? l[i - 1].y + passo : 0); });
+    for (let i = l.length - 1; i >= 0; i--) l[i].y = Math.max(0, Math.min(l[i].y, i < l.length - 1 ? l[i + 1].y - passo : H - 22));
+    return l; };
   const media = (e) => [...e.dsps].reduce((s, n) => s + meio(caixas[n]), 0) / e.dsps.size;
   const ents = empilha(new Map(globais.map((e) => [e.k, e])), 30), sais = empilha(saidas, 40);
-  const XA = X0 + nCol * LC - LC + WD + 80, W = XA + Math.max(120, ...sais.map((e) => Math.max(larg(e.rot), 11 + 5.6 * Math.min(28, (e.curta || "").length)))) + 16;
+  // 2) as mensagens (Marcelo, 21/10: "entrar sempre num lado e sair do outro"): toda mensagem sai pela direita de quem manda
+  // e entra pela esquerda de quem recebe. Para a frente, uma curva. Na mesma coluna, em ângulo reto: pelo corredor à direita
+  // da coluna até o vão junto de quem recebe, atravessa o vão e entra pela esquerda. Para trás (a resposta ao controle), um
+  // laço por cima (ou por baixo) do desenho, como a realimentação num diagrama de blocos. Cada linha numa raia (RAIA px) dos
+  // corredores, dos vãos e dos laços, sem se sobrepor às que dividem o mesmo trecho; as mais curtas mais perto das caixas.
+  const rotas = [], raias = {}, folga = separadas ? 34 : 0;   // folga: os rótulos em cima da 1ª caixa (separadas)
+  for (const q of cs) { const a = caixas[q.nome], gs = grupos[q.nome];
+    gs.forEach((gr, gi) => { gr.sy = meio(a) - 8 + (gi - (gs.length - 1) / 2) * 14;
+      for (const p of gr.para) { const b = caixas[p], tipo = b.col > a.col ? "frente" : b.col === a.col ? "coluna" : "volta";
+        rotas.push({ de: q.nome, para: p, a, b, sy: gr.sy, tipo, cima: meio(a) <= H / 2,
+          ent: tipo === "frente" ? meio(b) - 10 : (tipo === "coluna" ? a.y < b.y : meio(a) <= H / 2) ? b.y + 8 : b.y + b.h - 8 }); } });
+  }
+  // separadas: os pontos de cada caixa na ordem da altura do outro lado (as que vêm de cima em cima: não se cruzam na chegada)
+  const pontaChega = {}, pontaSai = {};               // "medida|DSP" e "DSP|atuação" → y
+  if (separadas) {
+    const lado = (r, chega) => r.tipo === "volta" ? (r.cima ? -2e7 : 2e7) : r.tipo === "coluna" ? ((chega ? r.a.y < r.b.y : r.b.y < r.a.y) ? -1e7 : 1e7) : 0;
+    for (const n of nomes) {
+      const b = caixas[n], chega = [], sai = [];
+      for (const r of rotas) { if (r.para === n) chega.push([lado(r, true) + meio(r.a), (y) => { r.ent = y; }]); if (r.de === n) sai.push([lado(r, false) + meio(r.b), (y) => { r.sy = y; }]); }
+      for (const e of entradas.values()) if (e.dsps.has(n)) chega.push([e.local ? meio(b) + 8 : e.y + 11, (y) => { pontaChega[`${e.k}|${n}`] = y; if (e.dsps.size === 1) e.y = y - 11; }, altMed(e)]);
+      for (const e of sais) if (e.dsps.has(n)) sai.push([e.y + 11, (y) => { pontaSai[`${n}|${e.k}`] = y; if (e.dsps.size === 1) e.y = y - 11; }, altAtu(e)]);
+      for (const l of [chega, sai]) {                   // empilhados no meio da caixa, cada um com a sua altura
+        let y = meio(b) - l.reduce((t, x) => t + (x[2] || PASSO), 0) / 2;
+        l.sort((u, v) => u[0] - v[0]).forEach(([, poe, alt = PASSO]) => { poe(y + alt / 2); y += alt; });
+      }
+    }
+    // os chips das medidas (da esquerda) e das atuações, agora na altura dos pontos, sem se encostar
+    for (const [l, passo] of [[ents, 30], [sais, 40]]) { l.sort((u, v) => u.y - v.y).forEach((e, i) => { if (i && e.y < l[i - 1].y + passo - 4) e.y = l[i - 1].y + passo - 4; }); }
+  }
+  const raia = (canal, i0, i1) => {                     // a primeira raia do canal livre neste trecho
+    const l = raias[canal] = raias[canal] || [], [u, v] = i0 < i1 ? [i0, i1] : [i1, i0]; let k = 0;
+    while ((l[k] || []).some(([x, y]) => u < y + 6 && x < v + 6)) k++;
+    (l[k] = l[k] || []).push([u, v]); return k;
+  };
+  const longe = (r) => Math.abs(meio(r.b) - r.sy) + (r.tipo === "volta" ? 1e6 : 0);
+  for (const r of rotas.filter((x) => x.tipo !== "frente").sort((x, y) => longe(x) - longe(y))) {
+    const { a, b } = r;
+    if (r.tipo === "coluna") {                         // o vão do lado de quem manda: em cima de quem recebe se vem de cima
+      const deCima = a.y < b.y, k = raia(`V${r.para}${deCima ? "c" : "b"}`, 0, 1);
+      r.yv = deCima ? b.y - 14 - k * 6 : b.y + b.h + 14 + k * 6;
+    } else {                                           // o laço: por cima se quem manda está na metade de cima
+      const k = raia(r.cima ? "T" : "B", b.col, a.col + 0.5);
+      r.yv = r.cima ? -24 - folga - k * RAIA : H + 24 + k * RAIA;
+    }
+    r.rd = raia(`R${a.col}`, r.sy, r.yv); r.re = raia(`L${b.col}`, r.yv, r.ent);
+  }
+  const nRaias = (canal) => (raias[canal] || []).length;
+  // 3) o x das colunas: o corredor da direita de uma, o da esquerda da seguinte e as medidas encostadas cabem entre elas
+  const loc = Math.max(120, ...Object.values(locais).flat().map((e) => larg(e.rot) + 30));
+  const X0 = (globais.length ? Math.max(...globais.map((e) => larg(e.rot))) : 0) + 70 + nRaias("L0") * RAIA, colX = [X0];
+  for (let c = 1; c < nCol; c++) colX[c] = colX[c - 1] + WD + Math.max(90, ROT0 + nRaias(`R${c - 1}`) * RAIA + 20) + nRaias(`L${c}`) * RAIA + loc;
+  Object.values(caixas).forEach((b) => { b.x = colX[b.col]; });
+  const XA = colX[nCol - 1] + WD + Math.max(80, ROT0 + nRaias(`R${nCol - 1}`) * RAIA + 30);   // as atuações: depois do corredor
+  const W = XA + Math.max(120, ...sais.map((e) => Math.max(larg(e.rot), 11 + 5.6 * Math.min(28, (e.curta || "").length)))) + 16;
+  const topo = folga + (nRaias("T") ? 30 + nRaias("T") * RAIA : 0), fundo = nRaias("B") ? 30 + nRaias("B") * RAIA : 0;
   // o desenho
-  svg.innerHTML = ""; svg.setAttribute("width", W + 12); svg.setAttribute("height", H + 30); svg.setAttribute("viewBox", `-8 -12 ${W + 12} ${H + 30}`);
+  svg.innerHTML = ""; svg.setAttribute("width", W + 12); svg.setAttribute("height", H + 30 + topo + fundo);
+  svg.setAttribute("viewBox", `-8 ${-12 - topo} ${W + 12} ${H + 30 + topo + fundo}`);
+  // as dicas no padrão do MaiSim (dica.js, pelo atributo title), não a caixinha do navegador que o <title> do SVG mostra
+  const dica = (g, t) => g.setAttribute("title", t);
   const el = (tag, at, pai = svg, txt) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(at)) e.setAttribute(k, v); if (txt != null) e.textContent = txt; pai.appendChild(e); return e; };
-  const defs = el("defs", {}), mk = el("marker", { id: "cd-seta", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse" }, defs);
+  const defs = el("defs", {}), mk = el("marker", { id: "cd-seta", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 10, markerHeight: 10, markerUnits: "userSpaceOnUse", orient: "auto-start-reverse" }, defs);   // a ponta não cresce com o destaque
   el("path", { d: "M0 0L10 5L0 10z", fill: "var(--acento)" }, mk);
-  const mk2 = el("marker", { id: "cd-seta-a", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 6, markerHeight: 6, orient: "auto" }, defs);
+  const mk2 = el("marker", { id: "cd-seta-a", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 8, markerHeight: 8, markerUnits: "userSpaceOnUse", orient: "auto" }, defs);
   el("path", { d: "M0 0L10 5L0 10z", fill: COR.atuBorda }, mk2);
   const curva = (x1, y1, x2, y2) => { const dx = Math.max(30, (x2 - x1) / 2); return `M${x1} ${y1}C${x1 + dx} ${y1},${x2 - dx} ${y2},${x2} ${y2}`; };
+  const orto = (pts, r = 14) => {                      // em ângulo reto, com os cantos bem arredondados (fluido)
+    let d = `M${pts[0][0]} ${pts[0][1]}`;
+    for (let i = 1; i < pts.length - 1; i++) {
+      const [x0, y0] = pts[i - 1], [x, y] = pts[i], [x1, y1] = pts[i + 1], l0 = Math.hypot(x - x0, y - y0) || 1, l1 = Math.hypot(x1 - x, y1 - y) || 1, k = Math.min(r, l0 / 2, l1 / 2);
+      d += `L${x - (x - x0) / l0 * k} ${y - (y - y0) / l0 * k}Q${x} ${y} ${x + (x1 - x) / l1 * k} ${y + (y1 - y) / l1 * k}`;
+    }
+    const [xf, yf] = pts[pts.length - 1]; return `${d}L${xf} ${yf}`;
+  };
   const camLig = el("g", {}), camMsg = el("g", {}), camNos = el("g", {});
   const medida = (e, x, y, x2, y2) => {                // o chip da medida e a linha até o DSP
     const g = el("g", { class: "med no", "data-nos": [e.k, ...e.dsps].join("|") }, camNos), w = larg(e.rot);
     el("rect", { x, y, width: w, height: 22, rx: 6 }, g); el("text", { x: x + 9, y: y + 15 }, g, e.rot);
-    if (e.dica) el("title", {}, g, e.dica);
-    for (const n of e.dsps) el("path", { class: "lig", d: curva(x + w, y + 11, x2 != null ? x2 : caixas[n].x, y2 != null ? y2 : meio(caixas[n])), "data-nos": `${e.k}|${n}` }, camLig);
+    if (e.dica) dica(g, e.dica);
+    for (const n of e.dsps) el("path", { class: "lig", d: curva(x + w, y + 11, x2 != null ? x2 : caixas[n].x,
+      separadas ? pontaChega[`${e.k}|${n}`] : y2 != null ? y2 : meio(caixas[n])), "data-nos": `${e.k}|${n}` }, camLig);
   };
-  for (const e of ents) medida(e, X0 - 80 - larg(e.rot), e.y);
-  for (const [n, l] of Object.entries(locais)) { const b = caixas[n];
-    l.forEach((e, i) => { const y = meio(b) + 8 + i * 26; medida(e, b.x - 26 - larg(e.rot), y, b.x, Math.min(y + 11, b.y + b.h - 8)); }); }
+  for (const e of ents) medida(e, X0 - 80 - nRaias("L0") * RAIA - larg(e.rot), e.y);
+  for (const [n, l] of Object.entries(locais)) { const b = caixas[n], dx = VAO + 14 + nRaias(`L${b.col}`) * RAIA;   // depois do corredor da esquerda
+    l.forEach((e, i) => { const y = separadas ? e.y : meio(b) - 5 + i * 26; medida(e, b.x - dx - larg(e.rot), y, b.x, y + 11); }); }   // reta
   for (const e of sais) {                               // DSP → atuações
     const g = el("g", { class: "atu no", "data-nos": [e.k, ...e.dsps].join("|") }, camNos), w = larg(e.rot);
     el("rect", { x: XA, y: e.y, width: w, height: 22, rx: 11, fill: COR.atuFundo, stroke: COR.atuBorda }, g);
     el("text", { x: XA + 9, y: e.y + 15, fill: COR.atuTexto }, g, e.rot);
-    if (e.curta || e.dica) { const t = e.curta || e.dica; el("text", { class: "dest", x: XA + 4, y: e.y + 34, fill: "var(--sutil)" }, g, t.length > 28 ? t.slice(0, 27) + "…" : t); el("title", {}, g, e.dica || t); }
-    for (const n of e.dsps) { const b = caixas[n]; el("path", { class: "esc", d: curva(b.x + b.w, meio(b), XA - 2, e.y + 11), stroke: COR.atuBorda, "marker-end": "url(#cd-seta-a)", "data-nos": `${n}|${e.k}` }, camLig); }
+    if (e.curta || e.dica) { const t = e.curta || e.dica; el("text", { class: "dest", x: XA + 4, y: e.y + 34, fill: "var(--sutil)" }, g, t.length > 28 ? t.slice(0, 27) + "…" : t); dica(g, e.dica || t); }
+    for (const n of e.dsps) { const b = caixas[n]; el("path", { class: "esc", d: curva(b.x + b.w, separadas ? pontaSai[`${n}|${e.k}`] : meio(b), XA - 2, e.y + 11), stroke: COR.atuBorda, "marker-end": "url(#cd-seta-a)", "data-nos": `${n}|${e.k}` }, camLig); }
   }
-  for (const q of cs) {                                 // as mensagens entre os DSPs: o mesmo conteúdo para vários = um rótulo só, na saída
-    const a = caixas[q.nome], grupos = [];
-    for (const m of msgs[q.nome].envia) { const b = caixas[m.para]; if (!b || b === a) continue;
-      const rot = m.chaves.length ? m.chaves.join(", ") : "mensagem", g0 = grupos.find((x) => x.rot === rot);
-      if (g0) { g0.para.push(m.para); g0.codigo.push(...m.codigo); } else grupos.push({ rot, para: [m.para], chaves: m.chaves, codigo: [...m.codigo] }); }
-    grupos.forEach((gr, gi) => {
-      const sy = meio(a) - 8 + (gi - (grupos.length - 1) / 2) * 14;
-      for (const p of gr.para) { const b = caixas[p];
-        const dpath = b.x > a.x ? curva(a.x + a.w, sy, b.x - 2, meio(b) - 10)
-          : (() => { const x = Math.max(a.x, b.x) + a.w + 24; return `M${a.x + a.w} ${a.y + 10}C${x} ${a.y + 10},${x} ${b.y + 10},${b.x + b.w + 2} ${b.y + 10}`; })();
-        el("path", { class: "msg", d: dpath, "marker-end": "url(#cd-seta)", "data-nos": `${q.nome}|${p}` }, camMsg); }
-      const wr = Math.max(larg(gr.rot, 6.8), larg(quando, 5.4)), lx = a.x + a.w + 8 + wr / 2, ly = sy - 1;   // em cima da linha, logo na saída
-      const g = el("g", { "data-nos": [q.nome, ...gr.para].join("|") }, camMsg);
-      el("title", {}, g, [`${q.nome} → ${gr.para.join(", ")}: ${gr.chaves.length ? gr.chaves.join(", ") : "(o conteúdo não dá para ler do código)"} · ${quandoLongo}`,
-        ...[...new Set(gr.codigo)].map((x) => `  ${x}`),
-        ...gr.para.map((p) => { const le = gr.chaves.filter((k) => msgs[p].le.has(k)), nao = gr.chaves.filter((k) => !msgs[p].le.has(k));
-          return `${p} lê: ${le.join(", ") || "nada disso"}${nao.length ? ` · chega e não lê: ${nao.join(", ")}` : ""}`; })].join("\n"));
-      el("rect", { class: "fundo-rot", x: lx - wr / 2, y: ly - 13, width: wr, height: 28, rx: 5 }, g);
-      el("text", { class: "rot", x: lx, y: ly, "text-anchor": "middle" }, g, gr.rot); el("text", { class: "lat", x: lx, y: ly + 12, "text-anchor": "middle" }, g, quando);
-    });
+  for (const r of rotas) {                              // as linhas das mensagens
+    const { a, b } = r;
+    const d = r.tipo === "frente" ? curva(a.x + a.w, r.sy, b.x - 2, r.ent)
+      : orto([[a.x + a.w, r.sy], [a.x + a.w + ROT0 + r.rd * RAIA, r.sy], [a.x + a.w + ROT0 + r.rd * RAIA, r.yv],
+        [b.x - VAO - r.re * RAIA, r.yv], [b.x - VAO - r.re * RAIA, r.ent], [b.x - 2, r.ent]]);
+    el("path", { class: `msg${r.tipo === "volta" ? " volta" : ""}`, d, "marker-end": "url(#cd-seta)", "data-nos": `${r.de}|${r.para}` }, camMsg);
   }
+  for (const q of cs) grupos[q.nome].forEach((gr, gi, gs) => {   // os rótulos: logo na saída, por cima das linhas (separadas: em
+    const a = caixas[q.nome], wr = Math.max(larg(gr.rot, 6.8), larg(quando, 5.4));   // cima da caixa, à direita — não cobrem os pontos)
+    const lx = separadas ? a.x + a.w - wr / 2 : a.x + a.w + 8 + wr / 2, ly = separadas ? a.y - 17 - (gs.length - 1 - gi) * 30 : gr.sy - 1;
+    const g = el("g", { "data-nos": [q.nome, ...gr.para].join("|") }, camMsg);
+    dica(g, [`${q.nome} → ${gr.para.join(", ")}: ${gr.chaves.length ? gr.chaves.join(", ") : "(o conteúdo não dá para ler do código)"} · ${quandoLongo}`,
+      ...[...new Set(gr.codigo)].map((x) => `  ${x}`),
+      ...gr.para.map((p) => { const le = gr.chaves.filter((k) => msgs[p].le.has(k)), nao = gr.chaves.filter((k) => !msgs[p].le.has(k));
+        return `${p} lê: ${le.join(", ") || "nada disso"}${nao.length ? ` · chega e não lê: ${nao.join(", ")}` : ""}`; })].join("\n"));
+    el("rect", { class: "fundo-rot", x: lx - wr / 2, y: ly - 13, width: wr, height: 28, rx: 5 }, g);
+    el("text", { class: "rot", x: lx, y: ly, "text-anchor": "middle" }, g, gr.rot); el("text", { class: "lat", x: lx, y: ly + 12, "text-anchor": "middle" }, g, quando);
+  });
   for (const b of Object.values(caixas)) {              // as caixas dos DSPs por cima
     const q = b.q, g = el("g", { class: "dsp no", "data-arq": q.arquivo, "data-nos": q.nome }, camNos);
     el("rect", { class: "caixa", x: b.x, y: b.y, width: b.w, height: b.h, rx: 9 }, g);
@@ -856,7 +984,7 @@ function desenhaDiagrama() {
     let y = b.y + 52;
     if (b.mods.length) { const t = b.mods.join(" → "); el("text", { class: "mods", x: b.x + 12, y }, g, t.length > 30 ? t.slice(0, 29) + "…" : t); y += 16; }
     if ((q.subcircuitos || []).length) el("text", { class: "sub", x: b.x + 12, y }, g, `× ${q.subcircuitos.length} subcircuito${q.subcircuitos.length > 1 ? "s" : ""}`);
-    el("title", {}, g, `${q.nome} (${q.arquivo}) · lê ${q.todas ? "todas" : q.medidas.join(", ") || "nada"} · escreve ${q.atuacoes.join(", ") || "nada"}${b.mods.length ? ` · módulos: ${b.mods.join(" → ")}` : ""} · clique: abre o código`);
+    dica(g, `${q.nome} (${q.arquivo}) · lê ${q.todas ? "todas" : q.medidas.join(", ") || "nada"} · escreve ${q.atuacoes.join(", ") || "nada"}${b.mods.length ? ` · módulos: ${b.mods.join(" → ")}` : ""} · clique: abre o código`);
   }
   if (!ents.length && !sais.length && cs.length === 1 && !msgs[cs[0].nome].envia.length)
     el("text", { class: "vazio", x: X0, y: H + 14 }, svg, "o controle ainda não lê nem escreve nada (marque medidas e atuações)");
@@ -1233,12 +1361,19 @@ function tagAtuador(g, x, y, nome, centrada = false) {   // centrada: x é o mei
   $("cd-fecha").onclick = fechaTabela;
   $("ctl-diag-svg").addEventListener("click", (ev) => { const g = ev.target.closest(".dsp"); if (g && Date.now() - (ctl.diagArrastou || 0) > 300) mostraArquivo(g.dataset.arq); });
   ligaVistaDiag();
+  // o mouse num bloco: ficam acesos ele, as linhas dele (mais grossas) e os blocos do outro lado delas (Marcelo, 21/10:
+  // "além de destacar, podia destacar quem ele tá conectado") — o resto apaga
   $("ctl-diag-svg").addEventListener("mouseover", (ev) => {
     const no_ = ev.target.closest(".no"), svg = $("ctl-diag-svg"); if (!no_) return;
-    const meus = new Set(no_.dataset.nos.split("|"));
-    svg.querySelectorAll("[data-nos]").forEach((x) => { const ns = x.dataset.nos.split("|"); x.classList.toggle("apagado", !ns.some((n) => meus.has(n)) && x !== no_); });
+    const meus = new Set(no_.dataset.nos.split("|")), vizinhos = new Set(meus);
+    svg.querySelectorAll("path[data-nos]").forEach((x) => { const ns = x.dataset.nos.split("|"); if (ns.some((n) => meus.has(n))) ns.forEach((n) => vizinhos.add(n)); });
+    svg.querySelectorAll("[data-nos]").forEach((x) => {
+      const ns = x.dataset.nos.split("|"), meu = ns.some((n) => meus.has(n));
+      const aceso = x === no_ || meu || (x.classList.contains("no") && vizinhos.has(ns[0]));
+      x.classList.toggle("apagado", !aceso); x.classList.toggle("ligado", x.tagName === "path" && meu);
+    });
   });
-  $("ctl-diag-svg").addEventListener("mouseleave", () => $("ctl-diag-svg").querySelectorAll(".apagado").forEach((x) => x.classList.remove("apagado")));
+  $("ctl-diag-svg").addEventListener("mouseleave", () => $("ctl-diag-svg").querySelectorAll(".apagado, .ligado").forEach((x) => x.classList.remove("apagado", "ligado")));
   document.addEventListener("mousedown", (ev) => { if (ctl.pick && !ev.target.closest("#ctl-pick, .ctl-ctl details.grupo > summary")) fechaPicker(); });
   lado.addEventListener("scroll", posicionaPicker);
   $("ctl-arq-busca").addEventListener("keydown", (ev) => { if (ev.key === "Escape") { ev.target.value = ""; buscaArquivos(); } });
