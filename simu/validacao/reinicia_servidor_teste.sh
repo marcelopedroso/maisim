@@ -9,6 +9,6 @@ unset $(compgen -v MAISIM_); eval "$(python3 "$R/config/ler_config.py" --shell t
 pid=$(ss -ltnp | grep ":$MAISIM_PORTA_SIMU " | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1); [ -n "$pid" ] && kill "$pid"
 for _ in $(seq 1 20); do ss -ltn | grep -q ":$MAISIM_PORTA_SIMU " || break; sleep 0.3; done
 mkdir -p "$MAISIM_CLAUDE_DIR" "$T/circuitos"
-cp "$AQUI"/dados/exemplo_controle_*.* "$T/circuitos/"   # os exemplos como eram quando os testes foram escritos (congelados)
+cp "$AQUI"/dados/exemplo_controle_*.* "$AQUI"/dados/exemplo_cascata_hb.ipes "$T/circuitos/"   # os exemplos como eram quando os testes foram escritos (congelados; o de células em cascata saiu de exemplos/ em 22/10: usa o SM-HB do MMC)
 cd "$R" && (setsid nohup python3 simu/servidor.py > "$T/simu.log" 2>&1 < /dev/null &)
 for _ in $(seq 1 30); do ss -ltn | grep -q ":$MAISIM_PORTA_SIMU " && break; sleep 0.5; done

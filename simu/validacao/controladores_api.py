@@ -145,7 +145,7 @@ for x in ("teste_controladores.ipes", "teste_controladores.controle.json"):
     except OSError: pass
 
 # um controlador por subcircuito na cascata (exemplo, só lendo): cada instância vê vCSm (sem o prefixo) e o p["subcircuito"]
-api("editor/abrir", {"arq": "exemplos/exemplo_cascata_hb.ipes", "modo": "descartar"})
+api("editor/abrir", {"arq": str(Path.home() / ".cache/maisim_teste/circuitos/exemplo_cascata_hb.ipes"), "modo": "descartar"})
 pn = api("editor/controle")
 subs = sorted({f["nome"] for k, f in api("editor/estado")["folhas"].items() if k != "0"})
 SM = 'def passo(t, m, p, e):\n    scope("v", m["vCSm"])\n    scope("eu", float(p["subcircuito"].split(".")[-1]))\n'

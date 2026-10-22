@@ -2,7 +2,7 @@
 import sys, copy, importlib.util
 import os, pathlib
 P = str(pathlib.Path(__file__).resolve().parents[1]); G = str(pathlib.Path(__file__).resolve().parents[2] / "exemplos") + "/"
-MMC = G + "exemplo_cascata_hb.ipes"   # o circuito com subcircuitos dos exemplos: três células meia-ponte (SM-HB) em cascata
+MMC = str(pathlib.Path(__file__).resolve().parent / "dados" / "exemplo_cascata_hb.ipes")   # três células meia-ponte (SM-HB) em cascata (a cópia congelada: saiu de exemplos/ em 22/10)
 sys.path.insert(0, P)
 __import__("os").environ["MAISIM_PERFIL"] = "teste"   # o servidor lê config/teste.env (não o .env da sua máquina)
 spec = importlib.util.spec_from_file_location("srv", P + "/servidor.py"); srv = importlib.util.module_from_spec(spec); spec.loader.exec_module(srv)

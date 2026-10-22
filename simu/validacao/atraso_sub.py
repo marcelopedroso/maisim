@@ -2,13 +2,14 @@
 Rodada sem controle; um acionamento vira CONST_S1 em t = 8 µs (passo j = 8); compara com a rodada sem acionamento:
 a primeira amostra diferente diz em que passo o circuito sentiu (amostra j+1 → passo j)."""
 import json, time, urllib.request
+from pathlib import Path
 import numpy as np
 B = "http://localhost:7201/maisim/simu/"
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(req, timeout=600).read())
     except urllib.error.HTTPError as e: return {"ERRO": json.loads(e.read())}
-api("editor/abrir", {"arq": "exemplos/exemplo_cascata_hb.ipes", "descartar": True})
+api("editor/abrir", {"arq": str(Path.home() / ".cache/maisim_teste/circuitos/exemplo_cascata_hb.ipes"), "descartar": True})
 v0 = float(api("editor/params?nome=CONST_S1")[0]["valor"]); print("CONST_S1 =", v0)
 def roda(acs):
     cfg = {"ativo": False, "Ts": 1e-6, "atuacoes": [], "parametros": [], "codigo": "def passo(t, m, p, e):\n    return {}\n",

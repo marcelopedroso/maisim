@@ -79,8 +79,19 @@ Em [`exemplos/`](../exemplos/), abertos pelo **Abrir**:
 
 - `exemplo_controle_pi.ipes`: PI de corrente num RL;
 - `exemplo_controle_pwm.ipes`: buck com PWM de 5 kHz e PI, o PWM feito no código;
-- `exemplo_cascata_hb.ipes`: três células de meia ponte em cascata, com subcircuitos
-  (`exemplos/subcircuitos/SM-HB.ipes`).
+- em malha aberta, com o PWM no próprio circuito (portadora triangular + comparador; a razão cíclica num CONST, sem código) e
+  os medidores nomeados para o scope: `exemplo_buck.ipes` (48 V → 24 V), `exemplo_boost.ipes` (24 V → 48 V),
+  `exemplo_buck_boost.ipes` (24 V → −24 V), `exemplo_ponte_h_cc.ipes` (quatro quadrantes, um motor CC simples),
+  `exemplo_inversor_meia_ponte.ipes`, `exemplo_inversor_ponte_completa.ipes` e `exemplo_inversor_trifasico.ipes` (SPWM),
+  `exemplo_retificador_monofasico.ipes` (ponte com filtro capacitivo), `exemplo_retificador_trifasico.ipes` (ponte de 6
+  diodos) e `exemplo_retificador_trifasico_controlado.ipes` (6 tiristores; α pela variável `$t_alfa` = α/(360·f)).
+  Montados por `validacao/exemplos_monta.py` e conferidos com a teoria por `validacao/exemplos_api.py`.
+
+Os exemplos não usam subcircuitos da biblioteca (o de células em cascata, que usava o SM-HB do MMC, saiu em 22/10; a
+cópia congelada para os testes fica em `validacao/dados/`). Um exemplo não se salva por cima: o "salvar" vira "salvar como".
+
+Os exemplos que vêm com o GeckoCIRCUITS ficam fora do **Abrir** (nem todos rodam no MaiSim); `MAISIM_EXEMPLOS_GECKO=1` (em
+`config/` ou no `.env`) os mostra.
 
 ## O Claude do MaiSim
 

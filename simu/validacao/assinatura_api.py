@@ -1,6 +1,7 @@
 """A comparação Gecko × arquivo (pendente) na instância de teste: sem falso alarme ao abrir e depois de rodar; pega as
 edições que a versão anterior não via (campo fora da lista, o que o medidor mede, desativar)."""
 import json, time, urllib.request
+from pathlib import Path
 B = "http://localhost:7201/maisim/simu/"
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
@@ -10,7 +11,7 @@ falhas = 0
 def ok(c, t):
     global falhas; print(("OK   " if c else "FALHA"), t); falhas += (not c)
 pend = lambda: api("editor/pendente").get("pendente")
-for arq in ("exemplos/exemplo_controle_pwm.ipes", "exemplos/exemplo_cascata_hb.ipes"):
+for arq in ("exemplos/exemplo_controle_pwm.ipes", str(Path.home() / ".cache/maisim_teste/circuitos/exemplo_cascata_hb.ipes")):
     api("editor/abrir", {"arq": arq, "modo": "descartar"})
     ok(pend() is False, f"aberto sem mexer, nada pendente: {arq.split('/')[-1]}")
 PI = "exemplos/exemplo_controle_pi.ipes"

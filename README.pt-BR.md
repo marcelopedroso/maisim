@@ -17,8 +17,9 @@ um assistente de IA (Claude Code ou Google Antigravity) que vê o circuito, o c�
 | **gecko** (`/maisim/gecko`) | a janela do GeckoCIRCUITS de verdade, numa tela virtual, aberta no navegador (noVNC) | [`gecko/LEIA.md`](gecko/LEIA.md) |
 | **app** | a página inicial e o menu lateral (Vite), que levam aos outros módulos; instalável como aplicativo (PWA) | [`app/public/marca/LEIA.md`](app/public/marca/LEIA.md) |
 
-Exemplos prontos ficam em [`exemplos/`](exemplos/) (controle PI, PWM, e três células de meia ponte em cascata com
-subcircuitos).
+Exemplos prontos ficam em [`exemplos/`](exemplos/): buck, boost, buck-boost, ponte H CC, inversores em meia ponte, em
+ponte completa e trifásico, retificadores monofásico, trifásico e trifásico controlado (em malha aberta, com os medidores
+prontos), e o controle digital (PI de corrente; buck com o PWM e o PI no código).
 
 ## Requisitos
 

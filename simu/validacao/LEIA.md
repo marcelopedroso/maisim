@@ -93,6 +93,7 @@ para conferir as opções.
 | Script | O que confere |
 |---|---|
 | `rodadas_api.py` | a rodada "por cima" e "guardar": duas por cima deixam uma pasta (a nova); a guardada fica; `por_cima` 0 cria outra; o mesmo nome noutro circuito não é tocado; com erro, a anterior fica; guardar o que não é rodada é recusado; o `ULTIMA_RODADA.md` da IA é a mais nova do circuito aberto (de outro circuito, não; sem rodada, nenhuma) | 8/8 |
+| `exemplos_api.py` | os 12 modelos de exemplo (`exemplos_monta.py`): cada um abre sem pontas soltas nem variáveis sobrando, roda com o Δt e o tempo final dele e dá a teoria na janela final (buck 24 V, boost 48 V, buck-boost −24 V, retificador 1,35·220 V, inversor fundamental m·V_dc), inversor trifásico 0,866·m·V_dc, meia ponte m·V_dc/2, ponte H a corrente, retificador monofásico ≈ 165 V, controlado 1,35·220·cos α); o Abrir sem os exemplos do GeckoCIRCUITS nem as células em cascata; os de antes sem as sobras; um exemplo não se salva por cima | 13/13 |
 | `claude_pedido_api.py` | uso; opções restritas; contexto; proposta sem executar e teste a pedido (prova pela marca que o código deixaria); retomada (inclusive com a sessão apagada); erros; parar sem órfão (e o pedido seguinte retoma); anexos; salvar como e folha nova; nova conversa; proteção das rotas e de todo POST (49) |
 
 ## Ensaios de tela (`tela/`, Playwright)
