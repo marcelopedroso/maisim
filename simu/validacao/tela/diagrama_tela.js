@@ -92,7 +92,28 @@ const ORQ = CTL('    envia("dsp_a", {"theta": 1.0})\n    envia("dsp_b", {"theta"
     await pg.waitForTimeout(500);                         // a dica do MaiSim (dica.js), não a caixinha do navegador (o <title> do SVG)
     const dc = await pg.evaluate(() => ({ vis: $("dica-ui").classList.contains("vis"), txt: $("dica-ui").textContent, titles: $("ctl-diag-svg").querySelectorAll("title").length }));
     ok(dc.vis && /^dsp_b \(dsp_b\.py\) · lê s04/.test(dc.txt) && dc.titles === 0, `a dica do MaiSim no dsp_b ("${dc.txt.slice(0, 60)}…"), nenhum <title> no SVG`);
-    await pg.mouse.move(2, 2); await pg.click("#cd-fecha");
+    // separar / juntar as linhas (Marcelo, 21/10: "cada entrada ter uma linha… um botão para agrupar ou explodir"): separadas,
+    // cada ligação com o seu ponto (chega à esquerda, sai à direita, sem dois no mesmo lugar); juntas, um ponto por caixa
+    const pontas = () => pg.evaluate(() => { const svg = $("ctl-diag-svg"), ps = [...svg.querySelectorAll("path.msg, path.lig, path.esc")];
+      const ini = (p) => Math.round(p.getPointAtLength(0).y), fim = (p) => Math.round(p.getPointAtLength(p.getTotalLength()).y);
+      const de = (n) => ps.filter((p) => p.dataset.nos.split("|")[0] === n).map(ini), para = (n) => ps.filter((p) => p.dataset.nos.split("|")[1] === n).map(fim);
+      const retas = (sel) => [...svg.querySelectorAll(sel)].every((p) => Math.abs(ini(p) - fim(p)) <= 1);
+      return { saiCtl: de("controle"), chegaB: para("dsp_b"), chegaCtl: para("controle"), bt: $("cd-linhas").textContent, guardado: localStorage.getItem("maisim-simu-diag-linhas"),
+        medRetas: retas("path.lig"), locRetas: retas('path.lig[data-nos^="s03|"], path.lig[data-nos^="s04|"]'),
+        pontaFixa: [...svg.querySelectorAll("marker")].every((m) => m.getAttribute("markerUnits") === "userSpaceOnUse") }; });
+    const distintos = (l) => new Set(l).size === l.length;
+    await pg.mouse.move(2, 2); await pg.click("#cd-linhas"); await pg.waitForTimeout(400);
+    const sep = await pontas(), ladosSep = await pg.evaluate(() => { const svg = $("ctl-diag-svg"), cx = (n) => svg.querySelector(`.dsp[data-nos="${n}"] rect`).getBBox();
+      return [...svg.querySelectorAll("path.msg")].every((p) => { const [de, para] = p.dataset.nos.split("|"), i = p.getPointAtLength(0), f = p.getPointAtLength(p.getTotalLength());
+        return Math.abs(i.x - (cx(de).x + cx(de).width)) < 1 && Math.abs(f.x - (cx(para).x - 2)) < 1; }); });
+    await pg.click("#cd-linhas"); await pg.waitForTimeout(400);
+    const jun = await pontas();
+    ok(sep.bt === "juntar linhas" && sep.guardado === "separadas" && distintos(sep.saiCtl) && sep.saiCtl.length === 2 && distintos(sep.chegaB) && sep.chegaB.length === 3
+       && distintos(sep.chegaCtl) && sep.chegaCtl.length === 3 && ladosSep && jun.bt === "separar linhas" && jun.guardado === "juntas" && new Set(jun.saiCtl).size === 1,
+      `separar linhas: cada ligação no seu ponto (o controle sai em ${JSON.stringify(sep.saiCtl)}, chegam ao dsp_b em ${JSON.stringify(sep.chegaB)}, ao controle em ${JSON.stringify(sep.chegaCtl)}), ainda entrando pela esquerda e saindo pela direita, guardado; juntar: o controle sai de um ponto só (${JSON.stringify(jun.saiCtl)})`);
+    // Marcelo, 21/10: as linhas das medidas faziam curvas estranhas e a ponta da seta crescia no destaque
+    ok(sep.medRetas && jun.locRetas && jun.pontaFixa, `as medidas entram retas (separadas: todas; juntas: as encostadas no DSP); a ponta das setas com tamanho fixo (não cresce no destaque)`);
+    await pg.click("#cd-fecha");
     await pg.evaluate(async () => { await api("editor/novo", { modo: "descartar" }); });
     ok(!erros.length, `sem erros de JS nem diálogos ${erros.join(" ; ")}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message}`); }
