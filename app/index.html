@@ -8,7 +8,7 @@
     <meta name="theme-color" content="#6d28d9" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MaiSim</title>
-    <meta name="description" content="Open-source power electronics simulation and control platform" />
+    <meta name="description" content="Open-source circuit and digital control simulation, with AI built in" />
     <script>
         // o tema (o trilho escolhe e guarda em localStorage "maisim-tema": sistema, claro ou escuro), aplicado antes de pintar
         try {
@@ -36,7 +36,8 @@
                   color:inherit; text-decoration:none; transition:border-color .12s, transform .12s; }
         .cartao:hover { border-color:var(--acento); transform:translateY(-1px); }
         .cartao h2 { margin:0 0 6px; font-size:17px; color:var(--acento); } .cartao p { margin:0; color:var(--sutil); font-size:14px; line-height:1.45; }
-        .cartao small { display:block; margin-top:10px; color:var(--sutil); font-size:12px; }
+        .cartao small { display:block; margin-top:10px; color:var(--sutil); font-size:12px; } .cartao[hidden] { display:none; }
+        #cartao-exemplos.aberto { border-color:var(--acento); }
         #recentes { margin-top:32px; } #recentes[hidden] { display:none; }
         #recentes h2 { font-size:15px; margin:0 0 10px; color:var(--sutil); font-weight:600; letter-spacing:.3px; text-transform:uppercase; }
         .rodadas { border:1px solid var(--borda); border-radius:12px; background:var(--cartao); overflow:hidden; }
@@ -46,6 +47,44 @@
         .rodada .det { color:var(--sutil); font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .rodada a { flex:none; color:var(--acento); text-decoration:none; font-size:13px; font-weight:600; padding:5px 10px;
                     border:1px solid var(--borda); border-radius:8px; } .rodada a:hover { border-color:var(--acento); }
+        /* todas as simulações (Marcelo, 22/10: "além das últimas, selecionar a simulação"): a lista inteira, com filtro;
+           as guardadas com selo e o botão de guardar */
+        #recentes .cab { display:flex; align-items:baseline; gap:12px; } #recentes .cab h2 { flex:1; }
+        #bt-todas { font:inherit; font-size:13px; color:var(--acento); background:none; border:1px solid var(--borda); border-radius:8px; padding:4px 10px; cursor:pointer; }
+        #bt-todas:hover { border-color:var(--acento); }
+        #todas[hidden] { display:none; } #todas input { width:100%; box-sizing:border-box; margin:0 0 8px; padding:7px 10px; font:inherit; font-size:14px;
+                  border:1px solid var(--borda); border-radius:8px; background:var(--cartao); color:inherit; }
+        #todas .rodadas { max-height:60vh; overflow:auto; } #todas .vazio { padding:14px 16px; color:var(--sutil); font-size:13px; }
+        .selo { font-size:11px; font-weight:600; color:var(--acento); border:1px solid var(--borda); border-radius:9px; padding:0 7px; margin-left:6px; vertical-align:1px; }
+        .rodada button.guardar { flex:none; font:inherit; font-size:13px; color:var(--sutil); background:none; border:1px solid var(--borda); border-radius:8px; padding:5px 10px; cursor:pointer; }
+        .rodada button.guardar:hover { border-color:var(--acento); color:var(--acento); }
+        .rodada button.n-rodadas { flex:none; font:inherit; font-size:12px; color:var(--acento); background:none; border:0; padding:2px 4px; cursor:pointer; text-decoration:underline; }
+        /* apagar pela página inicial (Marcelo, 22/10): a lixeira em cada linha e "apagar as N da lista" (o filtro de "todas");
+           apaga a pasta da rodada (os dados e a cópia do circuito daquela rodada), pelo scope; o circuito fica */
+        .rodada button.apagar { flex:none; display:flex; align-items:center; justify-content:center; width:30px; height:30px; padding:0; color:var(--sutil);
+                    background:none; border:1px solid transparent; border-radius:8px; cursor:pointer; }
+        .rodada button.apagar:hover { color:#c0392b; border-color:#e8b4ad; } .rodada button.apagar svg { width:16px; height:16px; }
+        #todas .rodape { display:flex; align-items:center; gap:10px; margin-top:8px; font-size:13px; color:var(--sutil); } #todas .rodape span { flex:1; }
+        #bt-apagar-lista { font:inherit; font-size:13px; color:#c0392b; background:none; border:1px solid var(--borda); border-radius:8px; padding:4px 10px; cursor:pointer; }
+        #bt-apagar-lista:hover { border-color:#c0392b; } #bt-apagar-lista[hidden] { display:none; }
+        #recentes.apagando .rodadas, #recentes.apagando #bt-apagar-lista { pointer-events:none; opacity:.6; }
+        .modal-fundo { position:fixed; inset:0; background:rgba(0,0,0,.35); display:flex; align-items:center; justify-content:center; z-index:50; }
+        .modal { width:min(440px, calc(100vw - 32px)); background:var(--cartao); color:var(--texto); border:1px solid var(--borda); border-radius:12px; padding:18px 20px; box-shadow:0 10px 30px rgba(0,0,0,.2); }
+        .modal h3 { margin:0 0 8px; font-size:16px; } .modal p { margin:0 0 6px; font-size:14px; line-height:1.45; color:var(--sutil); }
+        .modal .botoes { display:flex; justify-content:flex-end; gap:8px; margin-top:14px; }
+        .modal button { font:inherit; font-size:14px; padding:6px 14px; border-radius:8px; border:1px solid var(--borda); background:none; color:inherit; cursor:pointer; }
+        .modal button.perigo { background:#c0392b; border-color:#c0392b; color:#fff; }
+        .sub-ult { margin:-6px 0 10px; color:var(--sutil); font-size:12.5px; } .sub-ult[hidden] { display:none; }
+        /* os modelos de exemplo (Marcelo, 22/10): um cartão por exemplo de exemplos/, abre no simu */
+        #exemplos { margin-top:32px; } #exemplos[hidden] { display:none; }
+        #exemplos h2 { font-size:15px; margin:0 0 10px; color:var(--sutil); font-weight:600; letter-spacing:.3px; text-transform:uppercase; }
+        .ex-grade { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:10px; }
+        .ex { display:block; padding:12px 14px; border:1px solid var(--borda); border-radius:10px; background:var(--cartao); color:inherit; text-decoration:none; }
+        .ex:hover { border-color:var(--acento); } .ex b { display:block; color:var(--acento); font-size:14px; } .ex span { display:block; color:var(--sutil); font-size:12.5px; margin-top:3px; line-height:1.4; }
+        /* sobre e créditos: no rodapé (Marcelo, 22/10: as ferramentas saem dos cartões e ficam aqui) */
+        footer { margin-top:36px; padding-top:14px; border-top:1px solid var(--borda); font-size:13px; color:var(--sutil); }
+        footer a { color:var(--acento); text-decoration:none; } footer a:hover { text-decoration:underline; }
+        #creditos { margin-top:12px; line-height:1.55; } #creditos[hidden] { display:none; } #creditos ul { margin:6px 0 10px; padding-left:18px; }
         @media (max-width:560px) { .rodada { flex-wrap:wrap; } .rodada .info { flex-basis:100%; } }
     </style>
 </head>
@@ -56,46 +95,188 @@
             <img src="/marca/maisim-icone.svg" alt="" />
             <div>
                 <h1>MaiSim</h1>
-                <p class="frase">Open-source power electronics simulation and control platform</p>
-                <p>Monte, simule e meça circuitos de eletrônica de potência — com o controle em Python e uma IA ao lado.</p>
+                <p class="frase">Open-source circuit and digital control simulation, with AI built in</p>
+                <p>Simulação de circuitos e controle digital, com IA embarcada no seu trabalho.</p>
             </div>
         </header>
         <div class="cartoes">
-            <a class="cartao" href="/maisim/simu/">
-                <h2>Simu · monte e simule</h2>
-                <p>Monte circuitos pela paleta, ligue, meça e simule (o GeckoCIRCUITS é o cérebro); escreva o controle em Python e peça ajuda à IA.</p>
+            <a class="cartao" href="/maisim/simu/?novo=1" id="cartao-novo">
+                <h2>+ Novo circuito</h2>
+                <p>Uma folha em branco no editor: monte pela paleta, meça, simule e escreva o controle digital, com a ajuda da IA.</p>
+                <small>para abrir um que já existe: as últimas simulações, logo abaixo</small>
             </a>
             <a class="cartao" href="/maisim/scope/">
                 <h2>Scope · rodadas e medição</h2>
                 <p>A rodada ao vivo e as gravações, painéis configuráveis, zoom por painel, medição (média, Fourier, THD) e espectro.</p>
             </a>
+            <a class="cartao" href="#exemplos" id="cartao-exemplos" hidden aria-expanded="false" aria-controls="exemplos">
+                <h2>Exemplos · modelos prontos</h2>
+                <p>Conversores, retificador, inversor e controle digital, com os medidores no lugar: abra, simule e veja no scope.</p>
+                <small id="n-exemplos"></small>
+            </a>
         </div>
-        <section id="recentes" hidden>
-            <h2>Últimas simulações</h2>
-            <div class="rodadas"></div>
+        <section id="exemplos" hidden>
+            <h2>Exemplos</h2>
+            <div class="ex-grade"></div>
         </section>
+        <section id="recentes" hidden>
+            <div class="cab"><h2>Últimas simulações</h2><button id="bt-todas" type="button">todas as simulações…</button></div>
+            <p class="sub-ult">a mais recente de cada circuito</p>
+            <div class="rodadas" id="ultimas"></div>
+            <div id="todas" hidden><input type="search" id="filtro-todas" placeholder="filtrar: circuito, nome da rodada, data (ex.: 22/10), guardada…" aria-label="filtrar as simulações">
+                <div class="rodadas" id="lista-todas"></div>
+                <div class="rodape"><span id="soma-todas"></span><button id="bt-apagar-lista" type="button">apagar as da lista…</button></div></div>
+        </section>
+        <footer>
+            <a href="#creditos" id="bt-creditos" aria-expanded="false" aria-controls="creditos">Sobre e créditos</a>
+            <section id="creditos" hidden>
+                <p>MaiSim é software livre (GNU GPL v3), de Marcelo Pedroso. Feito sobre:</p>
+                <ul>
+                    <li><a href="https://github.com/geckocircuits/GeckoCIRCUITS" target="_blank" rel="noopener">GeckoCIRCUITS</a> (GPL v3): o simulador de circuitos por trás do MaiSim, com uma modificação para ler e escrever em lote.</li>
+                    <li><a href="https://www.python.org" target="_blank" rel="noopener">Python</a> e <a href="https://numpy.org" target="_blank" rel="noopener">NumPy</a>: o controle digital e as gravações.</li>
+                    <li><a href="https://github.com/leeoniya/uPlot" target="_blank" rel="noopener">uPlot</a> (MIT): os gráficos do scope. <a href="https://microsoft.github.io/monaco-editor/" target="_blank" rel="noopener">Monaco Editor</a> (MIT): o editor de código. <a href="https://katex.org" target="_blank" rel="noopener">KaTeX</a> (MIT): as equações nas respostas da IA.</li>
+                    <li><a href="https://novnc.com" target="_blank" rel="noopener">noVNC</a> (MPL 2.0) e websockify (LGPL v3): a tela do GeckoCIRCUITS no navegador. <a href="https://vite.dev" target="_blank" rel="noopener">Vite</a> (MIT): o servidor da página.</li>
+                    <li>IA: o MaiSim chama os programas oficiais Claude Code (Anthropic) e Google Antigravity, sem modificação; cada um segue os próprios termos de uso. O MaiSim não é afiliado a nenhuma dessas empresas.</li>
+                </ul>
+            </section>
+        </footer>
     </main>
+    <script>
+        // sobre e créditos: abre e fecha no rodapé
+        document.getElementById("bt-creditos").onclick = (ev) => { ev.preventDefault(); const c = document.getElementById("creditos");
+            c.hidden = !c.hidden; ev.currentTarget.setAttribute("aria-expanded", String(!c.hidden)); if (!c.hidden) c.scrollIntoView({ block: "nearest" }); };
+    </script>
     <script src="/maisim-nav.js"></script>
     <script>
         // as últimas rodadas (as do scope: as do simulador e as das pastas extras), com atalhos: ver no scope e, se o
         // circuito de origem ainda existe, abrir no simu. Sem o scope no ar, a seção fica escondida.
+        // os modelos de exemplo: os do grupo "exemplos" do Abrir (o simu diz quais), com uma linha do que cada um é
         (async () => {
             const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+            const DESCR = {                                   // a ordem da grade (3 × 4): CC-CC, pontes e inversores, retificadores, controle digital
+                exemplo_buck: ["Buck", "48 V → 24 V, PWM de 20 kHz em malha aberta"],
+                exemplo_boost: ["Boost", "24 V → 48 V, PWM de 20 kHz em malha aberta"],
+                exemplo_buck_boost: ["Buck-boost", "24 V → −24 V (inverte a polaridade), em malha aberta"],
+                exemplo_ponte_h_cc: ["Ponte H CC", "quatro quadrantes, PWM bipolar, um motor CC simples (R, L e f.c.e.m.)"],
+                exemplo_inversor_meia_ponte: ["Inversor em meia ponte", "monofásico, SPWM, 2 × 100 V com o ponto médio, carga RL"],
+                exemplo_inversor_ponte_completa: ["Inversor em ponte completa", "monofásico, SPWM bipolar, 200 V, carga RL"],
+                exemplo_inversor_trifasico: ["Inversor trifásico", "dois níveis, SPWM senoidal, 400 V, carga RL em estrela"],
+                exemplo_retificador_monofasico: ["Retificador monofásico", "ponte de 4 diodos com filtro capacitivo: a ondulação e os picos da rede"],
+                exemplo_retificador_trifasico: ["Retificador trifásico", "ponte de 6 diodos, 127/220 V, 60 Hz, carga RL"],
+                exemplo_retificador_trifasico_controlado: ["Retificador controlado", "ponte de 6 tiristores, α = 30° (mude $t_alfa)"],
+                exemplo_controle_pi: ["Controle PI digital", "PI de corrente num RL, com anti-windup e acionamentos"],
+                exemplo_controle_pwm: ["Buck com controle digital", "o PWM e o PI no código do controle (discreto, como num DSP)"] };
+            try {
+                const mods = (await (await fetch("/maisim/simu/modelos")).json()).filter((m) => m.grupo === "exemplos");
+                if (!mods.length) return;
+                const ordem = Object.keys(DESCR), pos = (m) => { const k = ordem.indexOf(m.arq.split("/").pop().replace(/\.ipes$/, "")); return k < 0 ? 99 : k; };
+                document.querySelector("#exemplos .ex-grade").innerHTML = mods.sort((a, b) => pos(a) - pos(b)).map((m) => {
+                    const nome = m.arq.split("/").pop().replace(/\.ipes$/, ""), [t, d] = DESCR[nome] || [nome.replace(/^exemplo_/, "").replace(/_/g, " "), ""];
+                    return `<a class="ex" href="/maisim/simu/?modelo=${encodeURIComponent(m.arq)}" title="abrir no simu (${esc(m.arq)})"><b>${esc(t)}</b><span>${esc(d)}</span></a>`; }).join("");
+                // o cartão "Exemplos", ao lado do Scope (Marcelo, 22/10: "um card Exemplos ao lado do Scope fica até melhor"):
+                // abre e fecha a lista logo abaixo dos cartões
+                const cartao = document.getElementById("cartao-exemplos"), sec = document.getElementById("exemplos");
+                document.getElementById("n-exemplos").textContent = `${mods.length} modelos · clique para ver`;
+                cartao.hidden = false;
+                cartao.onclick = (ev) => { ev.preventDefault(); sec.hidden = !sec.hidden; cartao.classList.toggle("aberto", !sec.hidden);
+                    cartao.setAttribute("aria-expanded", String(!sec.hidden)); document.getElementById("n-exemplos").textContent = sec.hidden ? `${mods.length} modelos · clique para ver` : "clique para fechar"; };
+            } catch (e) { /* sem o simu: sem o cartão */ }
+        })();
+        (async () => {
+            const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+            const LIXO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>';
+            const mb = (b) => b >= 1e9 ? `${(b / 1e9).toFixed(1)} GB` : b >= 1e6 ? `${(b / 1e6).toFixed(b < 1e7 ? 1 : 0)} MB` : `${Math.max(1, Math.round(b / 1e3))} kB`;
+            const pergunta = ({ titulo, texto, ok, aviso }) => new Promise((resolve) => {     // a nossa janela (não o confirm() do navegador)
+                const f = document.createElement("div"); f.className = "modal-fundo";
+                f.innerHTML = `<div class="modal" role="dialog" aria-modal="true"><h3>${esc(titulo)}</h3>${texto.map((t) => `<p>${t}</p>`).join("")}` +
+                    `<div class="botoes">${aviso ? "" : '<button type="button" class="m-nao">cancelar</button>'}<button type="button" class="m-ok${aviso ? "" : " perigo"}">${esc(ok)}</button></div></div>`;
+                const fim = (v) => { f.remove(); document.removeEventListener("keydown", tecla); resolve(v); };
+                const tecla = (ev) => { if (ev.key === "Escape") fim(false); };
+                f.onclick = (ev) => { if (ev.target === f || ev.target.closest(".m-nao")) fim(false); else if (ev.target.closest(".m-ok")) fim(true); };
+                document.addEventListener("keydown", tecla); document.body.appendChild(f); (f.querySelector(".m-nao") || f.querySelector(".m-ok")).focus(); });
             const quando = (s) => { const d = new Date(s * 1000), h = new Date();
                 const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
                 return d.toDateString() === h.toDateString() ? `hoje, ${hora}` : `${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}, ${hora}`; };
             try {
-                const rods = (await (await fetch("/maisim/scope/rodadas")).json()).slice(0, 6);
-                if (!rods.length) return;
+                const todas = await (await fetch("/maisim/scope/rodadas")).json();
+                if (!todas.length) return;
                 let mods = [];
                 try { mods = await (await fetch("/maisim/simu/modelos")).json(); } catch (e) { /* sem o simu: só o scope */ }
                 const circuito = (m) => { if (!m) return null; const base = m.split("/").pop();
                     return mods.find((o) => o.arq === m) || mods.find((o) => o.arq.split("/").pop() === base) || null; };
-                document.querySelector("#recentes .rodadas").innerHTML = rods.map((r) => {
-                    const c = r.do_simu ? circuito(r.modelo) : null, nomeC = r.modelo ? r.modelo.split("/").pop().replace(/\.ipes$/, "") : "";
-                    return `<div class="rodada"><div class="info"><b>${esc(r.nome)}</b><div class="det">${esc([nomeC, quando(r.mtime)].filter(Boolean).join(" · "))}</div></div>` +
+                const nomeC = (r) => (r.modelo ? r.modelo.split("/").pop().replace(/\.ipes$/, "") : "");
+                const linha = (r, n = 0) => { const c = r.do_simu ? circuito(r.modelo) : null;
+                    return `<div class="rodada" data-arq="${esc(r.arq)}"><div class="info"><b>${esc(r.nome)}${r.guardada ? '<span class="selo" title="guardada: “por cima” não a substitui">guardada</span>' : ""}</b>` +
+                        `<div class="det">${esc([nomeC(r), quando(r.mtime)].filter(Boolean).join(" · "))}</div></div>` +
+                        (n > 1 ? `<button class="n-rodadas" type="button" data-circ="${esc(nomeC(r))}" title="todas as rodadas deste circuito">${n} rodadas</button>` : "") +
+                        (r.pasta ? `<button class="guardar" type="button" data-guardar="${r.guardada ? 0 : 1}" title="${r.guardada ? "deixar de guardar: a próxima rodada com o mesmo nome (por cima) pode substituí-la" : "guardar: a próxima rodada com o mesmo nome não a substitui"}">${r.guardada ? "desguardar" : "guardar"}</button>` : "") +
                         `<a href="/maisim/scope/?a=${encodeURIComponent(r.arq)}">ver no scope</a>` +
-                        (c ? `<a href="/maisim/simu/?modelo=${encodeURIComponent(c.arq)}">abrir o circuito</a>` : "") + `</div>`; }).join("");
+                        (c ? `<a href="/maisim/simu/?modelo=${encodeURIComponent(c.arq)}">abrir o circuito</a>` : "") +
+                        `<button class="apagar" type="button" title="apagar esta rodada${r.pasta ? " (a pasta dela: os dados e a cópia do circuito desta rodada; o circuito fica)" : " (a gravação)"}" aria-label="apagar ${esc(r.nome)}">${LIXO}</button></div>`; };
+                let listaVis = [], apagando = false;
+                const apaga = async (rs, guardadas) => {           // pelo scope: a pasta da rodada inteira; a que está rodando é recusada
+                    if (apagando) return;                          // um por vez: o 2º clique durante o 1º não faz nada
+                    apagando = true; document.getElementById("recentes").classList.add("apagando");
+                    const bl = document.getElementById("bt-apagar-lista"); if (rs.length > 1) bl.textContent = `apagando ${rs.length}…`;
+                    let j = {};
+                    try { j = await (await fetch("/maisim/scope/apagar", { method: "POST", headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ arqs: rs.map((r) => r.arq), guardadas }) })).json(); }
+                    catch (e) { j = { recusados: [{ arq: "", por: "o scope não respondeu" }] }; }
+                    finally { apagando = false; document.getElementById("recentes").classList.remove("apagando"); }
+                    const foram = new Set([...(j.apagados || []).map((a) => a.arq), ...(j.ja || [])]);   // as que já tinham saído também saem da lista
+                    for (let k = todas.length - 1; k >= 0; k--) if (foram.has(todas[k].arq)) todas.splice(k, 1);
+                    desenha();
+                    if (j.recusados && j.recusados.length) { const m = {}; for (const x of j.recusados) m[x.por] = (m[x.por] || 0) + 1;   // por motivo, sem a lista
+                        await pergunta({ titulo: `${j.recusados.length} ${j.recusados.length > 1 ? "ficaram" : "ficou"}`, ok: "ok", aviso: true,
+                            texto: Object.entries(m).map(([por, n]) => `${n}: ${esc(por)}`) }); }
+                };
+                const desenha = () => {
+                    // as últimas: a mais recente de cada circuito (Marcelo, 22/10: com muitas do mesmo circuito, as 6 eram todas dele)
+                    const porCirc = new Map();
+                    for (const r of todas) { const k = nomeC(r) || r.arq; if (porCirc.has(k)) porCirc.get(k).n++; else porCirc.set(k, { r, n: 1 }); }   // pelo nome: o que se vê (e o que o filtro usa)
+                    document.getElementById("ultimas").innerHTML = [...porCirc.values()].slice(0, 6).map((x) => linha(x.r, x.n)).join("");
+                    const q = document.getElementById("filtro-todas").value.trim().toLowerCase();
+                    const vis = todas.filter((r) => !q || [r.nome, nomeC(r), r.rotulo, quando(r.mtime), r.guardada ? "guardada" : ""].join(" ").toLowerCase().includes(q));
+                    document.getElementById("lista-todas").innerHTML = document.getElementById("todas").hidden ? ""          // fechada: nada (centenas de linhas)
+                        : vis.map((r) => linha(r)).join("") || `<div class="vazio">nenhuma simulação com esse filtro</div>`;
+                    listaVis = vis;
+                    const sol = vis.filter((r) => !r.guardada), tam = sol.reduce((a, r) => a + (r.pasta_tam || r.tamanho || 0), 0);
+                    document.getElementById("soma-todas").textContent = vis.length ? `${vis.length} na lista · ${mb(vis.reduce((a, r) => a + (r.pasta_tam || r.tamanho || 0), 0))}` : "";
+                    const bl = document.getElementById("bt-apagar-lista"); bl.hidden = !sol.length;
+                    bl.textContent = sol.length === todas.length ? `apagar todas (${sol.length}, ${mb(tam)})…` : `apagar ${sol.length === 1 ? "1" : "as " + sol.length} da lista (${mb(tam)})…`;
+                    document.getElementById("bt-todas").textContent = document.getElementById("todas").hidden ? `todas as simulações (${todas.length})…` : "só as últimas";
+                };
+                document.getElementById("bt-todas").onclick = () => { const t = document.getElementById("todas"); t.hidden = !t.hidden;
+                    document.getElementById("ultimas").hidden = !t.hidden; document.querySelector(".sub-ult").hidden = !t.hidden; desenha(); if (!t.hidden) document.getElementById("filtro-todas").focus(); };
+                document.getElementById("filtro-todas").oninput = desenha;
+                document.getElementById("bt-apagar-lista").onclick = async () => {    // as da lista (o filtro), menos as guardadas
+                    const rs = listaVis.filter((r) => !r.guardada), g = listaVis.length - rs.length;
+                    const q = document.getElementById("filtro-todas").value.trim();
+                    const sim = await pergunta({ titulo: `Apagar ${rs.length} rodada${rs.length > 1 ? "s" : ""}?`, ok: `apagar ${rs.length}`,
+                        texto: [q ? `As da lista com o filtro “${esc(q)}”, ${mb(rs.reduce((a, r) => a + (r.pasta_tam || r.tamanho || 0), 0))}.` : `Todas as simulações, ${mb(rs.reduce((a, r) => a + (r.pasta_tam || r.tamanho || 0), 0))}.`,
+                            "Sai a pasta de cada rodada (os dados e a cópia do circuito daquela rodada). Os circuitos em “meus circuitos” ficam.",
+                            ...(g ? [`${g} guardada${g > 1 ? "s ficam" : " fica"} (desguarde para apagar).`] : [])] });
+                    if (sim) await apaga(rs, false); };
+                document.getElementById("recentes").addEventListener("click", async (ev) => {      // guardar / desguardar (o simu marca a pasta)
+                    const nr = ev.target.closest("button[data-circ]");                                   // "N rodadas": todas as deste circuito
+                    if (nr) { const t = document.getElementById("todas"); document.getElementById("filtro-todas").value = nr.dataset.circ;
+                        if (t.hidden) document.getElementById("bt-todas").click(); else desenha(); return; }
+                    const ap = ev.target.closest("button.apagar");                                      // a lixeira: só esta rodada
+                    if (ap) { const r = todas.find((x) => x.arq === ap.closest(".rodada").dataset.arq); if (!r) return;
+                        const tam = r.pasta_tam || r.tamanho || 0;
+                        const sim = await pergunta({ titulo: `Apagar a rodada ${r.nome}?`, ok: "apagar",
+                            texto: [`${esc(nomeC(r) || r.rotulo || "")} · ${esc(quando(r.mtime))} · ${mb(tam)}`,
+                                r.pasta ? "Sai a pasta da rodada: os dados e a cópia do circuito desta rodada. O circuito em “meus circuitos” fica." : "Sai a gravação (.npz).",
+                                ...(r.guardada ? ["<b>Esta rodada está guardada.</b>"] : [])] });
+                        if (sim) await apaga([r], !!r.guardada); return; }
+                    const b = ev.target.closest("button[data-guardar]"); if (!b) return;
+                    const r = todas.find((x) => x.arq === b.closest(".rodada").dataset.arq), guardar = b.dataset.guardar === "1";
+                    b.disabled = true;
+                    try { const j = await (await fetch("/maisim/simu/editor/rodada/guardar", { method: "POST", headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ arq: r.arq, guardar }) })).json(); if (!j.erro) r.guardada = guardar; } catch (e) { /* fica como estava */ }
+                    desenha();
+                });
+                desenha();
                 document.getElementById("recentes").hidden = false;
             } catch (e) { /* sem o scope: sem a seção */ }
         })();
