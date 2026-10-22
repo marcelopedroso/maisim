@@ -1581,11 +1581,13 @@ $("bt-globais").onclick = () => variaveisGlobais();
 async function garanteEdicao() { if (!ed.ligado) await liga(true); return ed.ligado; }
 
 // ---------------------------------------------------------------- simulação: parâmetros, iniciar, pausar, continuar, parar, progresso
-const sim = { estado: "parada", timer: null, par: { dt: "1e-6", tfim: "0.04", nome: "rodada", amostras: "4000" } };
+const sim = { estado: "parada", timer: null, par: { dt: "1e-6", tfim: "0.04", nome: "rodada", amostras: "4000", por_cima: "1" } };   // por_cima: a nova substitui a anterior de mesmo nome
 try { Object.assign(sim.par, JSON.parse(localStorage.getItem("maisim-simu-sim") || "{}")); } catch (e) { /* ok */ }
 // ⚙ Parâmetros da simulação, em duas abas: "simulação" (Δt, tempo final… — valem ao iniciar) e "variáveis globais ($)", como
 // o Tools > Parameters do Gecko: criar, mudar, apagar (cada mudança vale na hora; Ctrl+Z desfaz). O $x abre na segunda aba
-async function parametrosSim(aba = "sim") {
+// o nome da próxima depois de guardar uma rodada: rodada_teste → rodada_teste_2 → rodada_teste_3
+const proximoNome = (n) => (/_(\d+)$/.test(n) ? n.replace(/_(\d+)$/, (_, k) => `_${+k + 1}`) : `${n}_2`).slice(0, 40);
+async function parametrosSim(aba = "sim", op = {}) {
   const SIM = [{ nome: "dt", rotulo: "passo de tempo Δt (s)", valor: sim.par.dt }, { nome: "tfim", rotulo: "tempo final (s)", valor: sim.par.tfim },
                { nome: "nome", rotulo: "nome da rodada", valor: sim.par.nome, dica: "letras, números, _ e -" },
                { nome: "amostras", rotulo: "amostras guardadas (até)", valor: sim.par.amostras, dica: "o scope recebe uma amostra a cada tfim/amostras" }];
@@ -1593,10 +1595,15 @@ async function parametrosSim(aba = "sim") {
   // simulando: só para ver (Marcelo, 22/10) — as variáveis mexem no circuito na hora, e a rodada usa o do início; os
   // parâmetros da simulação travam junto (valeriam só para a próxima). Copiar o nome de uma variável continua
   const roda = sim.estado === "rodando" || sim.estado === "pausada";
-  const r = await modal({ titulo: "Parâmetros da simulação", ok: roda ? "fechar" : "guardar", cancelar: roda ? "" : "Cancelar", largo: comVars,
+  let porCima = sim.par.por_cima !== "0";
+  if (op.nome) SIM.find((c) => c.nome === "nome").valor = op.nome;   // depois de guardar uma rodada: o nome da próxima
+  const r = await modal({ titulo: "Parâmetros da simulação", foco: op.nome ? 'input[name="nome"]' : null, ok: roda ? "fechar" : "guardar", cancelar: roda ? "" : "Cancelar", largo: comVars,
     html: `${roda ? `<p class="m-trava">simulação rodando: só para ver — os parâmetros e as variáveis ficam travados até ela parar (a rodada usa o circuito do início)</p>` : ""}${comVars ? `<div class="m-abas" role="tablist"><button type="button" data-aba="sim">simulação</button><button type="button" data-aba="vars">variáveis globais ($)</button></div>` : ""}
       <div class="m-aba" data-aba="sim"><p>Valem para a próxima vez que você iniciar (Ctrl+Enter).</p>
-        ${SIM.map((c) => `<label><span>${c.rotulo}</span><input name="${c.nome}" value="${escT(c.valor ?? "")}" ${c.dica ? `title="${c.dica}"` : ""}${roda ? " disabled" : ""}></label>`).join("")}</div>
+        ${op.aviso ? `<p class="m-guardada">${escT(op.aviso)}</p>` : ""}
+        ${SIM.map((c) => `<label><span>${c.rotulo}</span><input name="${c.nome}" value="${escT(c.valor ?? "")}" ${c.dica ? `title="${c.dica}"` : ""}${roda ? " disabled" : ""}></label>`).join("")}
+        <label title="substituir: a rodada nova, depois de terminar bem, tira a anterior com o mesmo nome deste circuito (as guardadas ficam) — o disco não enche; criar outra: guarda as duas"><span>a rodada nova</span><select class="m-porcima"${roda ? " disabled" : ""}>
+          <option value="1"${porCima ? " selected" : ""}>substitui a anterior de mesmo nome</option><option value="0"${porCima ? "" : " selected"}>cria outra (guarda as duas)</option></select></label></div>
       ${comVars ? `<div class="m-aba" data-aba="vars"><p>Como no Gecko: num parâmetro de componente, escreva <b>$nome</b> no lugar do número.
         Mudar o valor aqui muda todos os componentes que a usam. Cada mudança vale na hora (Ctrl+Z desfaz).</p><div id="gv"></div></div>` : ""}`,
     monta: (fundo) => {
@@ -1605,12 +1612,14 @@ async function parametrosSim(aba = "sim") {
         fundo.querySelector(".m-ok").textContent = a === "sim" && !roda ? "guardar" : "fechar";
         const f = fundo.querySelector(`.m-aba[data-aba="${a}"] input`); if (f) setTimeout(() => f.focus(), 0); };
       fundo.querySelectorAll(".m-abas button").forEach((b) => b.onclick = () => mostra(b.dataset.aba));
+      fundo.querySelector(".m-porcima").onchange = (ev) => { porCima = ev.target.value === "1"; };
       if (comVars) listaGlobais(fundo.querySelector("#gv"), roda);
       mostra(comVars ? aba : "sim");
     } });
   if (!r) return false;
   if (roda) return true;
-  if (["dt", "tfim", "nome", "amostras"].every((k) => r[k] === undefined || String(r[k]) === String(sim.par[k]))) return true;   // fechou sem mudar a simulação
+  r.por_cima = porCima ? "1" : "0";
+  if (["dt", "tfim", "nome", "amostras", "por_cima"].every((k) => r[k] === undefined || String(r[k]) === String(sim.par[k]))) return true;   // fechou sem mudar a simulação
   Object.assign(sim.par, r); try { localStorage.setItem("maisim-simu-sim", JSON.stringify(sim.par)); } catch (e) { /* ok */ }
   if (typeof infoTs === "function" && $("ctl-ts")) { infoTs(); infoAtraso(); }   // Ts = n × Δt no painel do controle
   msg(`simulação: Δt ${r.dt} s, até ${r.tfim} s`, "ok"); return true;
@@ -1641,6 +1650,7 @@ function estadoBotoesSim() {
 }
 $("bt-play").onclick = () => sim.estado === "pausada" ? controlaSim("continuar") : iniciaSim();
 $("bt-pausa").onclick = () => controlaSim("pausar");
+$("bt-guardar").onclick = () => guardaRodada(sim.guardarJ);
 $("bt-parar").onclick = () => controlaSim("parar");
 function acompanha(j) {
   sim.estado = j.estado; estadoBotoesSim(); const pg = $("progresso");
@@ -1652,6 +1662,7 @@ function acompanha(j) {
     if (j.avisos.length > ja) { vistos = { [chave]: j.avisos.length }; try { sessionStorage.setItem("maisim-simu-avisos", JSON.stringify(vistos)); } catch (e) { /* ok */ } }
   }
   const vivo = j.estado === "rodando" || j.estado === "pausada" || j.estado === "preparando", estavaViva = sim.vivoAntes; sim.vivoAntes = vivo;
+  if (vivo && !estavaViva) { $("bt-guardar").hidden = true; sim.guardarDe = null; }   // uma rodada nova: o "guardar" é da próxima
   if (vivo && !sim.avisou) { sim.avisou = true; avisa("rodada"); } else if (!vivo) sim.avisou = false;   // a outra janela acompanha
   pg.classList.toggle("ativo", vivo); pg.classList.toggle("pausada", j.estado === "pausada");
   const dd = pg.querySelector(".sim-diodo");              // o diodo animado (claude.js), o "carregando" do MaiSim
@@ -1670,12 +1681,26 @@ function acompanha(j) {
     }, 400); return; }
   if ((j.estado === "fim" || j.estado === "parada") && estavaViva && typeof atualizaVistas === "function") atualizaVistas();   // o que foi nas mensagens
   if (j.estado === "fim" || j.estado === "parada") {
-    $("msg").innerHTML = `${j.estado === "fim" ? "rodada" : "rodada parada"} ${j.nome}: ${j.amostras} amostras de ${(j.sinais || []).join(", ")} em ${j.segundos} s · ` +
-      `<a href="${urlScope(j.arquivo, false)}" target="_blank">abrir em nova aba</a>`;
+    const subst = (j.substituidas || []).reduce((a, x) => a + x.tamanho, 0);
+    // curta: com dezenas de sinais (o MMC), a lista empurrava "abrir em nova aba" e "guardar" para depois do corte (…)
+    const sn = j.sinais || [];
+    $("msg").innerHTML = `<span title="${escT(sn.join(", "))}">${j.estado === "fim" ? "rodada" : "rodada parada"} ${escT(j.nome)}: ${j.amostras} amostras de ${sn.length > 3 ? `${sn.length} sinais` : sn.map(escT).join(", ")} em ${j.segundos} s</span>` +
+      ` · <a href="${urlScope(j.arquivo, false)}" target="_blank">abrir em nova aba</a>${(j.substituidas || []).length ? ` · substituiu a anterior (${(subst / 1e6).toFixed(1)} MB)` : ""}`;
+    // "guardar esta rodada": um botão do cabeçalho (na mensagem, ele ficava depois do corte "…" quando a linha é curta)
+    if (j.arquivo && sim.guardarDe !== j.arquivo) { sim.guardarDe = j.arquivo; sim.guardarJ = j; $("bt-guardar").hidden = false; $("bt-guardar").classList.remove("ativo"); }
     $("msg").className = "ok"; anota(`${j.estado === "fim" ? "rodada" : "rodada parada"} ${j.nome}: ${j.amostras} amostras em ${j.segundos} s`, "ok");
     if (j.arquivo) { sim.ultimo = j.arquivo; mostraScope(true, urlScope(j.arquivo)); }
   } else if (j.estado === "erro") { msg(`a simulação não rodou: ${j.erro}`, "erro"); if (j.erro_controle && typeof mostraErroControle === "function") mostraErroControle(j); }
   if ((j.estado === "fim" || j.estado === "parada") && j.saida_controle !== undefined && typeof saidaControle === "function") saidaControle(j.saida_controle || "");
+}
+// guardar a rodada (Marcelo, 22/10: "caso queira comparar ou salvar um resultado"): a pasta dela ganha .guardada e a ⚙ abre
+// com o nome da próxima (rodada_teste → rodada_teste_2), para a próxima não cair por cima desta
+async function guardaRodada(j) {
+  if (!j) return;
+  try { await api("editor/rodada/guardar", { arq: j.arquivo }); } catch (e) { msg(`não deu para guardar: ${e.message}`, "erro"); return; }
+  $("bt-guardar").classList.add("ativo"); $("bt-guardar").title = `“${j.nome}” guardada`;
+  msg(`rodada ${j.nome} guardada: “por cima” não a substitui (o scope e a página inicial mostram o selo)`, "ok");
+  await parametrosSim("sim", { nome: proximoNome(j.nome), aviso: `“${j.nome}” está guardada. A próxima com outro nome (ou o mesmo: ela continua guardada).` });
 }
 async function variaveisGlobais() { if (await garanteEdicao()) return parametrosSim("vars"); }
 const NOME_VAR = /^\$[A-Za-z_][A-Za-z0-9_]{0,39}$/;

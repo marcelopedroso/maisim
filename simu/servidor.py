@@ -2638,6 +2638,7 @@ def _rodar(c, ctl_de_fora=None):
         raise ErroMotor("não há o que medir: ponha um voltímetro ou amperímetro (aba Measure) e diga o que ele mede")
     amostras = max(10, min(n, int(c.get("amostras", 4000))))
     m = max(1, math.ceil(n / amostras))
+    por_cima = str(c.get("por_cima", "")).lower() in ("1", "true", "sim") and not ctl_de_fora   # o autônomo sempre cria nova
     ctl = completa_controle(confere_controle(dict(ctl_de_fora))) if ctl_de_fora else le_controle()
     todos_atu = atuadores_disponiveis(r)
     lag = {a["nome"]: a["atraso_gecko"] for a in todos_atu}     # o atraso do próprio Gecko, por atuador (destinos_controle)
@@ -2734,7 +2735,7 @@ def _rodar(c, ctl_de_fora=None):
         except ErroControle:
             log.close()
             raise
-    meta = dict(planta="gecko-maisim", rotulo=nome, modelo=editor["aberto"] or "novo (sem arquivo)", dt=dt * m, Ts=dt * m, n_fino=1,
+    meta = dict(planta="gecko-maisim", rotulo=nome, modelo=circuito_aberto(), dt=dt * m, Ts=dt * m, n_fino=1,
                 dt_gecko=dt, tfim=tfim, sinais=[{"canal": k, "elemento": el} for el, k in sinais],
                 cores=cores_efetivas(r),
                 acionamentos=acionamentos_efetivos)
@@ -2893,9 +2894,58 @@ def _rodar(c, ctl_de_fora=None):
                                       saida_controle=rodada.get("saida_controle") or "")
             except Exception as e:
                 print(f"{time.strftime('%H:%M:%S')} resumo da rodada {nome}: {e}", flush=True)
+            if por_cima and fim_.get("estado") in ("fim", "parada"):
+                try:
+                    fim_["substituidas"] = substitui_anteriores(nome, meta["modelo"], pasta)
+                except OSError as e:
+                    rodada.setdefault("avisos", []).append(f"não consegui tirar a rodada anterior de mesmo nome: {e}")
             rodada.update(fim_)
     threading.Thread(target=laco, daemon=True).start()
     return dict(rodada)
+
+
+# a rodada "por cima" (Marcelo, 22/10: "não encher o disco"): a rodada nova continua numa pasta nova (sem misturar arquivos
+# velhos nem ler o .npz pela metade) e, só depois de terminar bem (fim ou parada; com erro, a anterior fica), saem as pastas
+# anteriores com o mesmo nome E do mesmo circuito que não estejam guardadas (.guardada). O modo autônomo da IA sempre cria
+# nova; pela API, o padrão é criar nova (a tela manda por_cima)
+GUARDADA = ".guardada"
+
+
+def circuito_aberto():
+    """O circuito como a rodada o grava no meta (e no resumo.md): o arquivo aberto ou "novo (sem arquivo)"."""
+    return editor["aberto"] or "novo (sem arquivo)"
+
+
+def substitui_anteriores(nome, modelo, pasta_nova):
+    import numpy as np                                   # só aqui: ler o meta das rodadas antigas
+    padrao, out = re.compile(r"^\d{4}-\d\d-\d\d_\d{6}_" + re.escape(nome) + "$"), []
+    for d in RODADAS.iterdir() if RODADAS.is_dir() else []:
+        if not d.is_dir() or d == pasta_nova or not padrao.match(d.name) or (d / GUARDADA).exists():
+            continue
+        f = d / f"scope_{nome}.npz"
+        try:
+            meta = json.loads(str(np.load(f, allow_pickle=False)["meta"]))
+        except Exception:
+            continue                                     # sem gravação (ou ilegível): não é "a anterior" — fica
+        if meta.get("modelo") != modelo:
+            continue                                     # o mesmo nome, outro circuito: fica
+        tam = sum(x.stat().st_size for x in d.rglob("*") if x.is_file())
+        shutil.rmtree(d, ignore_errors=True)
+        out.append({"pasta": d.name, "tamanho": tam})
+    return out
+
+
+def guarda_rodada(rel, guardar=True):
+    """Guarda (ou não) a rodada: a pasta dela ganha .guardada — o "por cima" não a substitui; apagar pede confirmação."""
+    arq = (RAIZ / rel if not Path(rel).is_absolute() else Path(rel)).resolve()
+    d = arq.parent
+    if d.parent.resolve() != RODADAS.resolve() or not arq.name.startswith("scope_") or not arq.is_file():
+        raise ErroMotor("só uma rodada do simu (na pasta das rodadas) pode ser guardada")
+    if guardar:
+        (d / GUARDADA).write_text(time.strftime("%Y-%m-%d %H:%M") + "\n")
+    else:
+        (d / GUARDADA).unlink(missing_ok=True)
+    return {"guardada": guardar, "pasta": d.name}
 
 
 BLOCO_PAR = {"blocksizex": "blockSizeX", "blocksizey": "blockSizeY"}
@@ -3371,8 +3421,8 @@ A pasta de trabalho tem:
 - GUIA_CONTROLE.md: o guia completo (tempo e atraso, Ts × Δt, PWM no código, cuidados, exemplos). Consulte quando precisar.
 - anexos/: arquivos que o usuário anexou (PDF de artigo, foto de um diagrama, texto). Leia os que o pedido citar e os
   marcados como novos.
-- ULTIMA_RODADA.md e ULTIMA_RODADA/<canal>.csv: o resultado da rodada mais nova (do usuário, ou uma das suas no modo
-  autônomo: Claude_N). Por canal: média, mín., máx., pico a pico, eficaz CA e o fasor de 50 Hz no regime (a última
+- ULTIMA_RODADA.md e ULTIMA_RODADA/<canal>.csv: o resultado da rodada mais nova deste circuito (do usuário, ou uma
+  das suas no modo autônomo: Claude_N); sem rodada deste circuito, não existem. Por canal: média, mín., máx., pico a pico, eficaz CA e o fasor de 50 Hz no regime (a última
   janela) e a evolução por janela; o estado final e a saída do controle; e as séries reduzidas (t, valor). Use para
   conferir o que o pedido e os critérios pedem, com números (diga o canal e a janela): não peça ao usuário números que
   estão aqui. Procure o canal com Grep (ex.: "| Vcc |") em vez de ler o arquivo inteiro.
@@ -3784,7 +3834,7 @@ def claude_contexto_salva(corpo):
         _confere_ia_resumo(ia_resumo, str(corpo.get("modelo") or ""), str(corpo.get("esforco") or ""))
     titulo = str(corpo.get("titulo") or "").strip() or f"{Path(chave).stem if atual else 'conversa'} {time.strftime('%d/%m %H:%M')}"
     c = (le_controle() if atual else controle_aplicado(sid)) if inc["controle"] else None
-    rod = resumo_rodada.ultima(RODADAS) if inc["rodada"] and atual else None
+    rod = resumo_rodada.ultima(RODADAS, circuito_aberto()) if inc["rodada"] and atual else None
     anexos = CLAUDE_CONVERSAS / sid / "anexos" if inc["anexos"] else None
     modelo = next((h.get("modelo") for h in reversed(hist) if h.get("modelo")), "")
     ia_conv = next((h.get("ia") or "claude" for h in reversed(hist) if h.get("resposta") or h.get("fala")), "claude")   # a última que respondeu
@@ -4032,7 +4082,7 @@ def _claude_comeca(texto, dt, tfim, vez, modelo="", esforco="", ia="claude"):
     (pasta / "memoria.md").write_text(memoria)
     (pasta / "CONTEXTO.md").write_text(claude_contexto(c, dt, tfim))
     shutil.copyfile(AQUI / "GUIA_CONTROLE.md", pasta / "GUIA_CONTROLE.md")
-    ult = resumo_rodada.ultima(RODADAS)                   # os "olhos": o resumo da rodada mais nova
+    ult = resumo_rodada.ultima(RODADAS, circuito_aberto())   # os "olhos": o resumo da rodada mais nova deste circuito
     tem_rodada = bool(ult) and resumo_rodada.copia_para(ult, pasta)
     anexos = [a["nome"] for a in lista_anexos(pasta)]
     vistos = set(conv.get("anexos_vistos") or [])
@@ -5084,6 +5134,8 @@ class Manipulador(BaseHTTPRequestHandler):
             return self._editor(com_desfazer(fio, corpo.get("descr") or "conexão", manter_se_falhar=True))
         if rota == "/editor/rodar":
             return self._editor(lambda: rodar(corpo))
+        if rota == "/editor/rodada/guardar":          # {arq: o scope_*.npz, guardar: true|false}: "por cima" não a substitui
+            return self._editor(lambda: guarda_rodada(str(corpo.get("arq", "")), corpo.get("guardar", True) is not False))
         if rota in ("/editor/pausar", "/editor/continuar", "/editor/parar"):
             def muda():
                 if rodada.get("estado") not in ("rodando", "pausada"):

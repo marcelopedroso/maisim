@@ -166,18 +166,36 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
   .menu .paleta-hex .padrao { font-size:11px; padding:1px 6px; margin-left:auto; }
   .dica { font-size:12px; color:var(--sutil); margin:0 0 8px; }
   .vazio { color:var(--sutil); font-size:13px; padding:30px; text-align:center; }
-  #janela-apagar { position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:50; display:none; align-items:flex-start; justify-content:center; padding-top:60px; }
+  #janela-apagar { position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:50; display:none; align-items:flex-start; justify-content:center; padding:40px 16px 20px; box-sizing:border-box; }
   #janela-apagar.aberta { display:flex; }
-  #janela-apagar .caixa { background:var(--cartao); border-radius:10px; width:min(820px, 94vw); max-height:80vh; display:flex; flex-direction:column;
+  #janela-apagar .caixa { background:var(--cartao); border-radius:10px; width:min(820px, 100%); max-height:100%; display:flex; flex-direction:column;
            box-shadow:0 10px 40px rgba(0,0,0,.25); }
   #janela-apagar .topo, #janela-apagar .rodape { padding:10px 14px; display:flex; gap:10px; align-items:center; }
   #janela-apagar .topo { border-bottom:1px solid var(--borda); font-weight:600; }
   #janela-apagar .rodape { border-top:1px solid var(--borda); justify-content:flex-end; }
-  #janela-apagar .lista { overflow:auto; padding:6px 14px; font-size:13px; }
-  #janela-apagar label { display:grid; grid-template-columns: 22px 1fr 80px; gap:6px; padding:4px 0; border-bottom:1px solid var(--suave2); cursor:pointer; }
+  #janela-apagar .lista { overflow:auto; padding:6px 14px; font-size:13px; flex:1 1 auto; min-height:0; }   /* a lista encolhe; o rodapé fica à vista (o zoom do MaiSim escala os vh) */
+  #janela-apagar .topo, #janela-apagar .filtros, #janela-apagar .rodape, #janela-apagar label.orfas { flex:none; }
+  #janela-apagar button.lixo { grid-row:1 / 3; grid-column:4; align-self:center; display:flex; align-items:center; justify-content:center; width:28px; height:28px; padding:0;
+                               border:1px solid transparent; background:none; color:var(--sutil); border-radius:6px; cursor:pointer; }
+  #janela-apagar button.lixo:hover { color:#c0392b; border-color:#e8b4ad; } #janela-apagar button.lixo svg { width:15px; height:15px; }
+  #ap-ok:disabled { opacity:.45; cursor:default; }
+  #janela-apagar.apagando .lista, #janela-apagar.apagando .filtros, #janela-apagar.apagando label.orfas { pointer-events:none; opacity:.6; }   /* apagando: nada muda no meio */
+  #janela-apagar label { display:grid; grid-template-columns: 22px 1fr 80px 30px; gap:6px; padding:4px 0; border-bottom:1px solid var(--suave2); cursor:pointer; }
   #janela-apagar .tam { text-align:right; color:var(--sutil); }
-  #janela-apagar .cam { grid-column: 2 / 4; color:var(--sutil); font-size:11px; }
+  #janela-apagar .cam { grid-column: 2 / 4; grid-row:2; color:var(--sutil); font-size:11px; }
+  /* o filtro e "marcar todas (as filtradas)" (Marcelo, 22/10); as guardadas com selo; as pastas sem gravação embaixo */
+  #janela-apagar .filtros { display:flex; gap:12px; align-items:center; padding:8px 14px 4px; }
+  #janela-apagar .filtros input[type=search] { flex:1; padding:5px 8px; }
+  #janela-apagar label.todas, #janela-apagar label.orfas { display:flex; grid-template-columns:none; border:0; gap:6px; align-items:center; white-space:nowrap; font-size:13px; }
+  #janela-apagar label.orfas { padding:6px 14px; border-top:1px solid var(--borda); color:var(--sutil); }
+  #janela-apagar label[hidden] { display:none; } #ap-vis { color:var(--sutil); }
+  #janela-apagar .selo { font-size:10.5px; border:1px solid var(--borda); border-radius:9px; padding:0 6px; margin-left:6px; color:var(--sutil); }
   button.perigo { background:#b42318; color:#fff; border-color:#b42318; }
+  /* as perguntas no padrão do MaiSim (pergunta(), scope.js): por cima da janela de apagar */
+  .sc-modal-fundo { position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:60; display:flex; align-items:flex-start; justify-content:center; padding-top:12vh; }
+  .sc-modal { background:var(--cartao); color:var(--texto); border-radius:10px; width:min(480px, 92vw); padding:16px 18px 14px; box-shadow:0 10px 40px rgba(0,0,0,.3); }
+  .sc-modal h3 { margin:0 0 8px; font-size:16px; } .sc-modal p { margin:0 0 14px; font-size:13.5px; line-height:1.45; color:var(--sutil); }
+  .sc-modal .sc-bts { display:flex; justify-content:flex-end; gap:8px; } .sc-modal button { padding:5px 14px; border-radius:7px; }
   @media (max-width: 900px) { #paineis > .cartao { grid-column: 1 / -1; } #indice { flex-basis:180px; } }
 </style>
 </head>
@@ -228,7 +246,10 @@ A em cores; B em preto tracejado.">?</button>
 <div id="fundo-exp" hidden></div>
 <div id="janela-apagar"><div class="caixa">
   <div class="topo">Apagar gravações do maisim-scope <span id="ap-total" style="font-weight:400;color:var(--sutil)"></span></div>
+  <div class="filtros"><input id="ap-filtro" type="search" placeholder="filtrar: circuito, nome da rodada, data (ex.: 22/10)…" aria-label="filtrar as gravações">
+    <label class="todas"><input type="checkbox" id="ap-todas"> marcar todas <span id="ap-vis"></span></label></div>
   <div class="lista" id="ap-lista"></div>
+  <label class="orfas" id="ap-orfas-l" hidden><input type="checkbox" id="ap-orfas"> <span id="ap-orfas-t"></span></label>
   <div class="rodape"><span id="ap-marcadas" style="margin-right:auto;color:var(--sutil)"></span>
     <button id="ap-fechar">Cancelar</button><button id="ap-ok" class="perigo">Apagar marcadas</button></div>
 </div></div>

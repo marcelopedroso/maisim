@@ -43,6 +43,18 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   await pg.waitForFunction(() => sim.estado === "fim" || sim.estado === "erro", null, { timeout: 120000 });
   const fim = await pg.evaluate(() => ({ estado: sim.estado, corpo: document.body.classList.contains("sim-rodando"), leitura: ctl.editor.getOption(monaco.editor.EditorOption.readOnly) }));
   ok(fim.estado === "fim" && !fim.corpo && !fim.leitura, `fim: destravado (${JSON.stringify(fim)})`);
+  // "guardar esta rodada" (Marcelo, 22/10): no fim, o botão do cabeçalho (ao lado da barrinha); guarda a pasta e a ⚙ abre com o nome da próxima
+  // (exemplo_tela → exemplo_tela_2), o aviso e a escolha "a rodada nova: substitui a anterior / cria outra"
+  const temBt = await pg.evaluate(() => !$("bt-guardar").hidden), arqFim = await pg.evaluate(() => sim.ultimo);
+  if (temBt) await pg.click("#bt-guardar");
+  await pg.waitForSelector(".modal .m-guardada", { timeout: 10000 }).catch(() => {});
+  const gd = await pg.evaluate(async (arq) => ({ nome: (document.querySelector('.modal input[name="nome"]') || {}).value, foco: document.activeElement && document.activeElement.name,
+    aviso: (document.querySelector(".modal .m-guardada") || {}).textContent || "", sel: (document.querySelector(".modal .m-porcima") || {}).value,
+    guardada: (await (await fetch("/maisim/scope/rodadas").catch(() => null) || { json: async () => [] }).json().catch(() => [])) }), arqFim);
+  if (await pg.$(".modal .m-cancela")) await pg.click(".modal .m-cancela");
+  const marcada = require("fs").existsSync(require("path").join(require("path").dirname(require("path").resolve(__dirname, "../../..", arqFim)), ".guardada"));
+  ok(temBt && gd.nome === "exemplo_tela_2" && gd.foco === "nome" && /está guardada/.test(gd.aviso) && gd.sel === "1" && marcada,
+    `guardar esta rodada: a pasta guardada, a ⚙ com o nome da próxima "${gd.nome}" (em foco), o aviso, e "a rodada nova: substitui" (${gd.sel})`);
   // ⏹ no meio também destrava — numa rodada longa (1 s), para o ⏹ chegar com ela rodando (a de 40 ms acabava antes do
   // clique numa máquina mais rápida, como a do GitHub Actions, e o estado ficava "fim", não "parada")
   await pg.evaluate(() => { sim.par.tfim = "1"; });

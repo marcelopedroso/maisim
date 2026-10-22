@@ -127,7 +127,19 @@ def copia_para(pasta_rodada, pasta_claude):
     return True
 
 
-def ultima(rodadas):
-    """A pasta da rodada mais nova que tem resumo (ou None)."""
-    pastas = [p for p in Path(rodadas).glob("*/resumo.md")]
+def do_modelo(resumo):
+    """O circuito da rodada, como o resumo diz na linha "- modelo: ..." (ou "")."""
+    try:
+        with open(resumo, encoding="utf-8", errors="replace") as f:
+            for _, linha in zip(range(6), f):
+                if linha.startswith("- modelo: "):
+                    return linha[len("- modelo: "):].strip()
+    except OSError:
+        pass
+    return ""
+
+
+def ultima(rodadas, modelo=None):
+    """A pasta da rodada mais nova que tem resumo (ou None); com modelo, só as daquele circuito."""
+    pastas = [p for p in Path(rodadas).glob("*/resumo.md") if modelo is None or do_modelo(p) == str(modelo)]
     return max(pastas, key=lambda p: p.stat().st_mtime).parent if pastas else None
