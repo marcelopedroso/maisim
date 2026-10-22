@@ -2720,8 +2720,16 @@ def _rodar(c, ctl_de_fora=None):
     escritos = sorted({blocos_const[x] for x in (ctl["atuacoes"] if ctl["ativo"] else []) if x in blocos_const} |
                       {e.split(":")[0] for v in escritas_ev.values() for e in v})
     valores_antes = {b: MOTOR.cmd(f"GETP {b} const") for b in escritos}
-    pasta = RODADAS / f"{time.strftime('%Y-%m-%d_%H%M%S')}_{nome}"
-    pasta.mkdir(parents=True, exist_ok=True)
+    t0 = time.time()                                     # uma pasta só desta rodada: duas no mesmo segundo, a 2ª vai para o
+    for k in range(120):                                 # segundo seguinte (o nome continua data_hora_nome; "por cima" a reconhece)
+        pasta = RODADAS / f"{time.strftime('%Y-%m-%d_%H%M%S', time.localtime(t0 + k))}_{nome}"
+        try:
+            pasta.mkdir(parents=True)
+            break
+        except FileExistsError:
+            continue
+    else:
+        raise ErroMotor(f"não consegui uma pasta nova para a rodada {nome}")
     trab = None
     if ctl["ativo"]:
         for arq_py, cod in arquivos_de(ctl).items():      # todos os arquivos do controle, como estavam
@@ -2917,6 +2925,8 @@ def circuito_aberto():
 
 
 def substitui_anteriores(nome, modelo, pasta_nova):
+    if modelo == "novo (sem arquivo)":                   # os circuitos sem arquivo são todos "novo": não dá para saber se é o mesmo
+        return []
     import numpy as np                                   # só aqui: ler o meta das rodadas antigas
     padrao, out = re.compile(r"^\d{4}-\d\d-\d\d_\d{6}_" + re.escape(nome) + "$"), []
     for d in RODADAS.iterdir() if RODADAS.is_dir() else []:
@@ -5083,6 +5093,7 @@ class Manipulador(BaseHTTPRequestHandler):
                                            itens=sit["itens"])
                 MOTOR.cmd("CLEAR")
                 marca_aberto(None)
+                editor["novo_desde"] = time.time()   # as rodadas deste circuito novo (vão junto quando ele ganhar nome)
                 claude_esquece("(sem arquivo)")      # folha nova: conversa nova com o Claude
                 esquece_vistas("")                   # e sem o que foi nas mensagens da folha sem arquivo de antes
                 grava_controle(controle_padrao())
@@ -5160,6 +5171,8 @@ class Manipulador(BaseHTTPRequestHandler):
                 antiga = editor.get("aberto") or "(sem arquivo)"
                 chave_vistas = str(editor.get("aberto") or "")
                 marca_aberto(str(relativo(dest)))
+                if not chave_vistas:                      # um circuito novo ganhou nome: as rodadas dele vão junto (a IA as acha)
+                    resumo_rodada.muda_modelo(RODADAS, "novo (sem arquivo)", str(relativo(dest)), editor.get("novo_desde"))
                 muda_chave_vistas(chave_vistas, str(relativo(dest)))   # o que foi nas mensagens também segue
                 claude_muda_chave(antiga, str(relativo(dest)))   # a conversa com o Claude segue o circuito
                 salva_controle_junto(dest)                # o controle e as cores dos canais vão junto, ao lado do .ipes

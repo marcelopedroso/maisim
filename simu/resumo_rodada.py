@@ -139,6 +139,20 @@ def do_modelo(resumo):
     return ""
 
 
+def muda_modelo(rodadas, de, para, desde=None):
+    """Um circuito novo salvo com nome: as rodadas dele (o resumo diz "de", feitas depois de "desde") passam a dizer "para"."""
+    if desde is None:
+        return
+    for p in Path(rodadas).glob("*/resumo.md"):
+        try:
+            if p.stat().st_mtime < desde or do_modelo(p) != de:
+                continue
+            txt = p.read_text(encoding="utf-8")
+            p.write_text(txt.replace(f"- modelo: {de}\n", f"- modelo: {para}\n", 1), encoding="utf-8")
+        except OSError:
+            pass
+
+
 def ultima(rodadas, modelo=None):
     """A pasta da rodada mais nova que tem resumo (ou None); com modelo, só as daquele circuito."""
     pastas = [p for p in Path(rodadas).glob("*/resumo.md") if modelo is None or do_modelo(p) == str(modelo)]

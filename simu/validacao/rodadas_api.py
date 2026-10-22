@@ -1,7 +1,7 @@
 """A rodada "por cima" e "guardar esta rodada" (instância de teste 7201), pedido de Marcelo em 22/10 ("não encher o disco"): com
 por_cima, a rodada nova, depois de terminar bem, tira a anterior com o mesmo nome e do mesmo circuito; a guardada fica; com
 erro, a anterior fica; sem por_cima (o padrão da API), cria outra; o mesmo nome em outro circuito não é tocado."""
-import json, os, time, urllib.request
+import json, os, shutil, time, urllib.request
 from pathlib import Path
 B = "http://localhost:7201/maisim/simu/"
 RODADAS = Path.home() / ".cache/maisim_teste/rodadas"
@@ -65,11 +65,40 @@ try:
     j6 = roda("1"); p6 = set(pastas()) - antes
     api("editor/controle", {"controle": c})
     ok(j6.get("estado") == "erro" and p5 <= p6 and len(p6) == 5, f"uma rodada com erro não tira a anterior ({j6.get('estado')}: {str(j6.get('erro'))[:50]})")
+    # revisão do Codex no PR #16. (a) uma pasta só para cada rodada: com as pastas dos próximos segundos já tomadas, a rodada
+    # vai para a seguinte (antes, mkdir(exist_ok) reaproveitava e ela escrevia por cima da outra)
+    api("editor/abrir", {"arq": str(CIRC / "exemplo_controle_pwm.ipes"), "modo": "descartar"})
+    t0 = time.time(); tomadas = [RODADAS / f"{time.strftime('%Y-%m-%d_%H%M%S', time.localtime(t0 + k))}_pc_colide" for k in range(4)]
+    for d in tomadas:
+        d.mkdir(parents=True, exist_ok=True)
+    jc = roda("0", "pc_colide"); dc = Path(jc.get("arquivo") or "x").parent
+    ok(jc.get("estado") == "fim" and dc.name not in [d.name for d in tomadas] and all(not any(d.iterdir()) for d in tomadas),
+       f"duas no mesmo segundo: a rodada vai para outra pasta ({dc.name}); as tomadas ficam como estavam")
+    for d in tomadas:
+        shutil.rmtree(d, ignore_errors=True)
+    # (b) circuitos novos sem arquivo não se substituem (todos são "novo (sem arquivo)"); (c) salvo com nome, a IA acha a rodada dele
+    import sys; sys.path.insert(0, str(Path(__file__).resolve().parent)); from exemplos_monta import poe, fio, mede
+    def novo_rl():
+        api("editor/novo", {"modo": "descartar"})
+        poe("U.1", 4, 10, "U", 503, type=401, uDC=10.0); poe("R.1", 8, 10, "R", 503, R=5.0)
+        fio("a", (4, 8), (4, 6), (8, 6), (8, 8)); fio("b", (4, 12), (4, 14), (8, 14), (8, 12))
+        mede("VOLT.1", 14, 10, "v_r", no1="a", no2="b")
+    novo_rl(); j1n = roda("1", "pc_novo"); novo_rl(); j2n = roda("1", "pc_novo")
+    pn = pastas("pc_novo")
+    ok(j1n.get("estado") == "fim" and j2n.get("estado") == "fim" and len(pn) == 2 and not j2n.get("substituidas"),
+       f"dois circuitos novos, sem arquivo, com o mesmo nome de rodada: um não substitui o outro ({len(pn)} pastas)")
+    sv = api("editor/salvar", {"nome": "pc_salvo", "pasta": "circuitos", "sobrescrever": True})
+    aberto = api("editor/aberto").get("aberto")
+    un = resumo_rodada.ultima(RODADAS, aberto)
+    ok("ERRO" not in sv and un is not None and un.name == Path(j2n["arquivo"]).parent.name and resumo_rodada.do_modelo(RODADAS / Path(j1n["arquivo"]).parent.name / "resumo.md") == "novo (sem arquivo)",
+       f"o circuito novo salvo com nome: a IA acha a rodada dele ({un and un.name}); a do outro circuito novo não vai junto")
+    for ext in (".ipes", ".controle.json", ".aparencia.json"):
+        (CIRC / f"pc_salvo{ext}").unlink(missing_ok=True)
     r = api("editor/rodada/guardar", {"arq": "simu/servidor.py"})
     ok(r.get("ERRO") == 409 and "só uma rodada" in r.get("erro", ""), f"guardar o que não é rodada: recusado ({r.get('erro')})")
 finally:
     if ctl_pwm:
         api("editor/abrir", {"arq": str(CIRC / "exemplo_controle_pwm.ipes"), "modo": "descartar"})
-    for d in set(pastas()) - antes:
-        import shutil; shutil.rmtree(RODADAS / d, ignore_errors=True)
+    for d in (set(pastas()) - antes) | set(pastas("pc_colide")) | set(pastas("pc_novo")):
+        shutil.rmtree(RODADAS / d, ignore_errors=True)
 raise SystemExit(1 if falhas else 0)

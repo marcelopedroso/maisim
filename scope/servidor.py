@@ -135,8 +135,8 @@ def rodando_agora():
         r = json.loads(urllib.request.urlopen(url, timeout=2).read())
     except Exception:
         return "?"
-    if r.get("estado") in ("preparando", "rodando", "pausada") and r.get("modelo"):
-        return caminho(r["modelo"]).parent
+    if r.get("estado") in ("preparando", "rodando", "pausada"):
+        return caminho(r["modelo"]).parent if r.get("modelo") else "?"   # preparando, ainda sem a pasta dita: as recentes ficam
     return None
 
 
