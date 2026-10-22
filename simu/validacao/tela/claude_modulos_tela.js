@@ -41,7 +41,7 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
       `o CLI: --tools ${tools}; escrever só ./*.py (${perm.filter((x) => /\*\.py/.test(x)).join(", ")})`);
     // a janela da diferença: uma aba por arquivo
     await pg.click("#cc-ver"); await pg.waitForSelector(".cc-dif"); await pg.waitForTimeout(800);
-    const abas = await pg.evaluate(() => [...document.querySelectorAll(".cc-dif-arqs button")].map((x) => x.textContent));
+    const abas = await pg.evaluate(() => [...document.querySelectorAll(".cc-dif-arqs button")].map((x) => x.textContent.replace(/^[✓✗]/, "")));   // ✓/✗: aceito ou recusado
     await pg.click('.cc-dif-arqs button:has-text("pll.py")'); await pg.waitForTimeout(600);
     const novo = await pg.evaluate(() => ({ ativo: document.querySelector(".cc-dif-arqs button.ativo").textContent, txt: document.querySelector(".cc-dif-ed").innerText }));
     ok(JSON.stringify(abas) === '["controle.py","leitura.py","pll.py (novo)"]' && /pll\.py/.test(novo.ativo) && /estado\["th"\]/.test(novo.txt), `diferença: abas ${abas.join(" · ")}; na do pll.py, o código novo`);
@@ -66,6 +66,26 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
     await pg.click("#cc-voltar"); await pg.waitForTimeout(2000);
     const vol = await pg.evaluate(async () => ({ cod: codigoAtual(), arqs: arquivosDoEditor(), r: await api("editor/controle") }));
     ok(vol.cod === original.cod && JSON.stringify(vol.arqs) === JSON.stringify(original.arqs) && !vol.r.controle.arquivos["pll.py"], "↶ voltar ao de antes: o pll.py sai, o controle.py e o leitura.py voltam (no editor e no servidor)");
+    // aprovar/recusar arquivo por arquivo (Marcelo, 22/10): a janela cabe na tela, as abas rolam para o lado; recusar o
+    // leitura.py e aplicar o resto ("aplicar 2 de 3", com o aviso): o pll.py entra, o controle.py muda, o leitura.py fica
+    fs.writeFileSync(path.join(CONF, "falso_cenario"), "modulos");
+    await pg.fill("#cc-texto", "de novo, para escolher por arquivo"); await pg.press("#cc-texto", "Control+Enter");
+    await pg.waitForFunction(() => cc.estado && !cc.estado.andamento && cc.estado.proposta && cc.estado.proposta.mudou && !cc.estado.aplicada && document.querySelector("#cc-ver"), null, { timeout: 30000 });
+    await pg.click("#cc-ver"); await pg.waitForSelector(".cc-dif .cc-dif-escolha"); await pg.waitForTimeout(600);
+    const jan = await pg.evaluate(() => { const m = document.querySelector(".modal.cc-dif").getBoundingClientRect(), a = document.querySelector(".cc-dif-arqs");
+      return { cabe: m.bottom <= innerHeight + 1 && m.top >= 0, rola: getComputedStyle(a).overflowX === "auto", bt: document.querySelector(".m-aplicar").textContent }; });
+    await pg.click('.cc-dif-arqs button:has-text("leitura.py")'); await pg.click('.cc-dif-escolha button[data-aceita="0"]'); await pg.waitForTimeout(200);
+    await pg.screenshot({ path: "modulos_por_arquivo.png" });
+    const esc = await pg.evaluate(() => ({ bt: document.querySelector(".m-aplicar").textContent, riscada: document.querySelector(".cc-dif-arqs button.recusado").textContent,
+      aviso: !document.querySelector(".cc-dif-parcial").hidden }));
+    await pg.click(".m-aplicar"); await pg.waitForTimeout(2000);
+    const parc = await pg.evaluate(async () => ({ arqs: arquivosDoEditor(), cod: codigoAtual(), aviso: $("cc-aviso").textContent, r: await api("editor/controle") }));
+    ok(jan.cabe && jan.rola && jan.bt === "aplicar" && esc.bt === "aplicar 2 de 3" && /leitura\.py/.test(esc.riscada) && esc.aviso
+       && parc.arqs["pll.py"] && /import pll/.test(parc.cod) && parc.arqs["leitura.py"] === original.arqs["leitura.py"] && parc.r.controle.arquivos["leitura.py"] === original.arqs["leitura.py"]
+       && /aplicada em parte: ficaram como estavam leitura\.py/.test(parc.aviso),
+      `por arquivo: a janela cabe na tela, as abas rolam; recusado o leitura.py ("${esc.bt}", com o aviso): pll.py entrou, controle.py mudou, leitura.py ficou — "${parc.aviso}"`);
+    await pg.click("#cc-voltar"); await pg.waitForTimeout(2000);
+    ok(await pg.evaluate((o) => codigoAtual() === o.cod && JSON.stringify(arquivosDoEditor()) === JSON.stringify(o.arqs), original), "↶ voltar ao de antes depois da aplicada em parte: tudo como era");
     // o modelo e o esforço (19/10): escolhidos ao lado do enviar, lembrados, vão ao CLI; enquanto ele responde, o enviar
     // fica desligado — e parece desligado (antes o roxo continuava igual)
     await pg.selectOption("#cc-modelo", "haiku"); await pg.selectOption("#cc-esforco", "low");

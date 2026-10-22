@@ -369,12 +369,23 @@ async function ccVerMudanca(i) {
   ccDiferenca(m, { historico: true, titulo: `Mudança aplicada em ${quando}${m.desfeita ? " (depois desfeita)" : ""} — controle.py`,
     sub: `pedido: ${(m.pedido || "").slice(0, 300)}${(m.pedido || "").length > 300 ? "…" : ""}` });
 }
-async function ccAplica() {
-  const p = cc.estado && cc.estado.proposta;
-  if (!p || !ctl.dados || cc.aplicando || cc.estado.aplicada || document.body.classList.contains("sim-rodando")) return;
+// aplicar só uma parte (Marcelo, 22/10: "aprovar/reprovar arquivo por arquivo"): op.recusados (os arquivos que ficam como
+// estão — o novo recusado nem é criado, o apagado recusado fica) e op.semPars (os parâmetros, acionamentos e controladores
+// ficam como estão). "voltar ao de antes" volta tudo, como sempre
+function propostaParcial(p, op, c) {
+  const rec = op.recusados || new Set(), atual = arquivosDoEditor();
+  let arquivos = p.arquivos;
+  if (arquivos && rec.size) { arquivos = Object.assign({}, p.arquivos);
+    for (const a of rec) if (a !== "controle.py") { if (a in atual) arquivos[a] = atual[a]; else delete arquivos[a]; } }
+  const pars = op.semPars ? { parametros: c.parametros, acionamentos: c.acionamentos || [] } : { parametros: p.parametros, acionamentos: p.acionamentos };
+  return Object.assign({}, p, { codigo: rec.has("controle.py") ? codigoAtual() : p.codigo, arquivos }, pars, op.semPars ? { controladores: undefined, rede: undefined } : {});
+}
+async function ccAplica(op = {}) {
+  const p0 = cc.estado && cc.estado.proposta;
+  if (!p0 || !ctl.dados || cc.aplicando || cc.estado.aplicada || document.body.classList.contains("sim-rodando")) return;
   if (!ctl.carregado) await abreControle();
   if (!editorPronto()) { cc.aviso = "o editor do controle ainda está carregando: aplique daqui a pouco"; desenhaChat(); return; }
-  const c = ctl.dados.controle, igual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const c = ctl.dados.controle, p = (op.recusados && op.recusados.size) || op.semPars ? propostaParcial(p0, op, c) : p0, igual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const ordena = (o) => Object.keys(o || {}).sort().map((k) => [k, o[k]]);
   const mudou = [codigoAtual() !== p.codigo_antes && "o código", !igual(c.parametros, p.parametros_antes) && "os parâmetros",
     !igual(c.acionamentos || [], p.acionamentos_antes || []) && "os acionamentos",
@@ -401,6 +412,9 @@ async function ccAplica() {
         controladores: cc.antes.controladores, rede: cc.antes.rede } }); } catch (e) { /* ok */ }
     }
     else cc.aviso = "aplicada na tela, mas não deu para guardar (veja o controle.py)";
+    if (!cc.aviso && op.recusados && op.recusados.size)
+      cc.avisoOk = `aplicada em parte: ficaram como estavam ${[...op.recusados].join(", ")}${op.semPars ? " e os parâmetros" : ""} — rode o “testar”`;
+    else if (!cc.aviso && op.semPars) cc.avisoOk = "aplicada sem os parâmetros, acionamentos e controladores — rode o “testar”";
   } finally { cc.aplicando = false; }
   desenhaChat();
 }
@@ -468,17 +482,32 @@ function ccDiferenca(p0, op = {}) {
   const modoDif = (() => { try { return localStorage.getItem("maisim-simu-dif-modo") === "lado" ? "lado" : "uni"; } catch (e) { return "uni"; } })();
   const muds = arquivosMudados(p); if (!muds.length) muds.push({ arq: "controle.py", antes: p.codigo_antes || "", depois: p.codigo || "", novo: false });
   const titulo = (op.titulo || "Proposta da IA — controle.py").replace(/ — controle\.py$/, muds.length > 1 ? "" : ` — ${muds[0].arq}`);
+  const escolhe = !op.historico && !cc.estado.aplicada, porArq = escolhe && muds.length > 1, recusados = new Set();   // começa tudo aceito
+  muds.forEach((f) => { f.apagado = !f.novo && !Object.assign({ "controle.py": p.codigo || "" }, p.arquivos || p.arquivos_antes || {}).hasOwnProperty(f.arq); });
   fundo.innerHTML = `<div class="modal cc-dif" role="dialog" aria-modal="true"><div class="cc-dif-cab"><h3>${escT(titulo)}</h3>
-    ${muds.length > 1 ? `<span class="grupo-bt cc-dif-arqs">${muds.map((f, i) => `<button data-i="${i}" title="${f.novo ? "arquivo novo" : "a diferença deste arquivo"}">${escT(f.arq)}${f.novo ? " (novo)" : ""}</button>`).join("")}</span>` : ""}
+    ${porArq ? `<span class="grupo-bt cc-dif-escolha" title="este arquivo (a aba aberta): aplicar a mudança dele ou deixar como está"><button data-aceita="1">✓ aceitar</button><button data-aceita="0">✗ recusar</button></span>` : ""}
     <span class="grupo-bt cc-dif-modo"><button data-modo="uni" title="como o git diff: o que sai em vermelho, o que entra em verde">unificado</button><button data-modo="lado" title="antes à esquerda, proposta à direita">lado a lado</button></span></div>
-    ${op.sub ? `<p class="cc-dif-sub">${escT(op.sub)}</p>` : ""}<div class="cc-dif-ed"></div>${pars.length ? `<div class="cc-dif-par"><b>Parâmetros, acionamentos e controladores</b><ul>${pars.map((x) => `<li>${escT(x)}</li>`).join("")}</ul></div>` : ""}
+    ${muds.length > 1 ? `<div class="grupo-bt cc-dif-arqs">${muds.map((f, i) => `<button data-i="${i}" title="${f.novo ? "arquivo novo" : f.apagado ? "a proposta apaga este arquivo" : "a diferença deste arquivo"}">${porArq ? '<i class="cc-dif-marca">✓</i>' : ""}${escT(f.arq)}${f.novo ? " (novo)" : f.apagado ? " (apagado)" : ""}</button>`).join("")}</div>` : ""}
+    ${op.sub ? `<p class="cc-dif-sub">${escT(op.sub)}</p>` : ""}<div class="cc-dif-ed"></div>${pars.length ? `<div class="cc-dif-par"><b>Parâmetros, acionamentos e controladores</b>${escolhe ? ` <label class="cc-dif-pars-ok"><input type="checkbox" checked> aplicar também</label>` : ""}<ul>${pars.map((x) => `<li>${escT(x)}</li>`).join("")}</ul></div>` : ""}
+    ${porArq ? `<p class="cc-dif-parcial" hidden>os arquivos dependem uns dos outros (um nome que um muda, o outro usa): aplicar só parte pode quebrar — rode o “testar” depois</p>` : ""}
     <div class="modal-botoes"><button class="m-fechar">fechar</button>${op.historico || cc.estado.aplicada ? "" : `<button class="m-aplicar primario" ${rodando ? "disabled" : ""}>aplicar</button>`}</div></div>`;
   document.body.appendChild(fundo);
-  const el = fundo.querySelector(".cc-dif-ed"); let dif = null, modelos = [];
+  const el = fundo.querySelector(".cc-dif-ed"); let dif = null, modelos = [], atual = 0;
   const voltaFoco = document.activeElement;
+  const marca = () => {                                    // as abas (✓ / ✗), os botões do arquivo aberto, o "aplicar n de m"
+    fundo.querySelectorAll(".cc-dif-arqs button").forEach((b) => { const r = recusados.has(muds[+b.dataset.i].arq);
+      b.classList.toggle("recusado", r); const m = b.querySelector(".cc-dif-marca"); if (m) m.textContent = r ? "✗" : "✓"; });
+    fundo.querySelectorAll(".cc-dif-escolha button").forEach((b) => b.classList.toggle("ativo", (b.dataset.aceita === "1") !== recusados.has(muds[atual].arq)));
+    const ap = fundo.querySelector(".m-aplicar"), cb = fundo.querySelector(".cc-dif-pars-ok input"), comPars = !cb || cb.checked, n = muds.length - recusados.size;
+    if (ap) { ap.textContent = recusados.size ? `aplicar ${n} de ${muds.length}` : !comPars ? "aplicar sem os parâmetros" : "aplicar";
+      ap.disabled = document.body.classList.contains("sim-rodando") || (!n && (!pars.length || !comPars)); }
+    const av = fundo.querySelector(".cc-dif-parcial"); if (av) av.hidden = !recusados.size;
+  };
   const mostraArq = (i) => {                               // a aba de um arquivo: a diferença dele
-    const f = muds[i];
+    const f = muds[i]; atual = i;
     fundo.querySelectorAll(".cc-dif-arqs button").forEach((b) => b.classList.toggle("ativo", +b.dataset.i === i));
+    const ab = fundo.querySelector(`.cc-dif-arqs button[data-i="${i}"]`); if (ab) ab.scrollIntoView({ block: "nearest", inline: "nearest" });
+    marca();
     if (dif) { const novos = [ctl.monaco.editor.createModel(f.antes, "python"), ctl.monaco.editor.createModel(f.depois, "python")];
       dif.setModel({ original: novos[0], modified: novos[1] }); modelos.forEach((m) => m.dispose()); modelos = novos; }
     else el.innerHTML = htmlDiff(diffLinhas(f.antes, f.depois), 100000);
@@ -499,7 +528,12 @@ function ccDiferenca(p0, op = {}) {
   fundo.addEventListener("mousedown", (ev) => { if (ev.target === fundo) fecha(); });
   fundo.querySelector(".m-fechar").onclick = fecha;
   fundo.querySelector(".m-fechar").focus();                 // o foco entra na janela (Enter/Espaço não acionam o que está atrás)
-  const ap = fundo.querySelector(".m-aplicar"); if (ap) ap.onclick = async () => { fecha(); await ccAplica(); };
+  fundo.querySelectorAll(".cc-dif-escolha button").forEach((b) => { b.onclick = () => {
+    if (b.dataset.aceita === "1") recusados.delete(muds[atual].arq); else recusados.add(muds[atual].arq); marca(); }; });
+  const cbPars = fundo.querySelector(".cc-dif-pars-ok input"); if (cbPars) cbPars.onchange = marca;
+  marca();
+  const ap = fundo.querySelector(".m-aplicar"); if (ap) ap.onclick = async () => {
+    const op2 = { recusados: new Set(recusados), semPars: !!(cbPars && !cbPars.checked) }; fecha(); await ccAplica(op2); };
 }
 async function ccAnexa(arquivos) {
   const erros = [];                                      // os erros de todos os arquivos ficam (um sucesso não apaga o do outro)
