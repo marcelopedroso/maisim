@@ -1,6 +1,7 @@
 """Os contextos salvos (instância de teste 7201, claude de mentira), Marcelo em 21/10 ("um botãozinho para salvar isso na
 memória não volátil… usar em outras conversas"): salvar a conversa (a nota de quem salva, a conversa, o controle e a rodada; sem resumo pela IA),
-listar, ler, renomear, usar numa conversa nova (a pasta recebe contextos/<id>/ e o pedido cita), salvar uma conversa
+listar, ler, renomear, usar numa conversa nova (a pasta recebe contextos/<id>/ e o pedido cita), juntar com o contexto
+em uso (um contexto novo: as duas conversas, anterior.md e um resumo só pela IA; o antigo intacto), salvar uma conversa
 anterior (que o "nova" deixou), exportar e importar o .maisimctx (e recusar um malicioso), apagar. Nada no repositório."""
 import base64, io, json, os, subprocess, time, urllib.request, zipfile
 from pathlib import Path
@@ -83,7 +84,7 @@ try:
     api("claude/nova", {})
     r = api("claude/contexto/usar", {"id": cid, "usar": True})
     sid2 = api("claude/contextos")["conversa"]
-    ok(r.get("conversa", {}).get("contextos") == [{"id": cid, "titulo": "Buck — Kp dobrado (rev)"}]
+    ok(r.get("conversa", {}).get("contextos") == [{"id": cid, "titulo": "Buck — Kp dobrado (rev)", "desta": False}]
        and (CASA / "conversas" / sid2 / "contextos" / cid / "contexto.md").exists(), "usar numa conversa nova: marcado e copiado para contextos/<id>/")
     (CONF / "falso_cenario").write_text("le_contexto")
     (CONF / "falso_chamadas.jsonl").unlink(missing_ok=True)
@@ -94,6 +95,51 @@ try:
     prompt = cham[-1]["args"][cham[-1]["args"].index("-p") + 1] if cham else ""
     ok(resp == "li os contextos: Buck — Kp dobrado (rev)" and f"contextos/{cid}/contexto.md" in prompt,
        f"a IA da conversa nova lê o contexto (o pedido cita contextos/{cid}/contexto.md): {resp!r}")
+    # juntar com o contexto em uso (Marcelo, 21/10): um contexto NOVO que continua daquele — as duas conversas em ordem, o
+    # anterior.md, um resumo só pela IA (sempre), o controle e a rodada de agora; o antigo fica como está
+    velho = lambda: {str(f.relative_to(CTX / cid)): f.read_bytes() for f in (CTX / cid).rglob("*") if f.is_file()}
+    velho_antes, n_ctx = velho(), len(list(CTX.iterdir()))
+    r1 = api("claude/contexto/salvar", {"titulo": "x", "juntar": "2026-01-01_0000_nao_esta_em_uso"})
+    r2 = api("claude/contexto/salvar", {"conversa": sid1, "titulo": "x", "juntar": cid})
+    r3 = api("claude/contexto/salvar", {"titulo": "x", "juntar": cid, "modelo": "nao-existe"})
+    ok(r1.get("ERRO") == 409 and "em uso" in r1.get("erro", "") and r2.get("ERRO") == 409 and r3.get("ERRO") == 409 and "desconhecido" in r3.get("erro", "")
+       and len(list(CTX.iterdir())) == n_ctx,
+       f"juntar: só com um contexto em uso nesta conversa; a IA do resumo conferida antes de salvar (nada pela metade) ({r1.get('erro')} | {r2.get('erro')} | {r3.get('erro')})")
+    (CONF / "falso_chamadas.jsonl").unlink(missing_ok=True)
+    r = api("claude/contexto/salvar", {"titulo": "Buck: continuação", "resumo": "nota da continuação", "juntar": cid, "incluir": {"conversa": False}})
+    cid5 = r.get("id", ""); ids.append(cid5)
+    d5 = CTX / cid5
+    for _ in range(60):
+        m5 = json.loads((d5 / "meta.json").read_text()) if cid5 else {}
+        if m5.get("resumo_ia", {}).get("estado") != "gerando":
+            break
+        time.sleep(0.5)
+    txt = lambda n: (d5 / n).read_text() if cid5 and (d5 / n).exists() else ""
+    conv5, ant5, ctx5, res5 = txt("conversa.md"), txt("anterior.md"), txt("contexto.md"), txt("resumo_ia.md")
+    ok(cid5 and m5.get("continua_de") == {"id": cid, "titulo": "Buck — Kp dobrado (rev)"} and m5.get("conversa") == sid2 and m5.get("pedidos") == 2
+       and f"- continua de: Buck — Kp dobrado (rev) ({cid})" in ctx5 and "- anterior.md:" in ctx5 and "## Resumo pela IA" in ctx5,
+       f"juntar: um contexto novo ({cid5}), \"continua de\" no meta e no contexto.md, 2 pedidos")
+    i1, i2 = conv5.find("## 1. Pedido"), conv5.find("## 2. Pedido")
+    ok(0 <= i1 < conv5.find("dobre o Kp") < i2 < conv5.find("continue daquele contexto") and "continua de “Buck — Kp dobrado (rev)”" in conv5
+       and ant5.startswith("# Buck — Kp dobrado (rev)") and "## O que lembrar" in ant5 and "Arquivos deste contexto" not in ant5
+       and (d5 / "controle" / "controle.py").exists() and (d5 / "rodada" / "resumo.md").exists(),
+       "as duas conversas em ordem (a conversa vai mesmo desmarcada), numeradas em sequência; anterior.md com a nota de lá; o controle e a rodada de agora")
+    cham = [c for c in chamadas_falso(True) if "Resuma a conversa do MaiSim guardada nesta pasta" in " ".join(c["args"]) and c["cwd"] == str(d5)]
+    ok(m5.get("resumo_ia", {}).get("estado") == "pronto" and "li conversa.md: 2 pedido(s). li anterior.md: Buck — Kp dobrado (rev)." in res5
+       and cham and "leia anterior.md" in " ".join(cham[0]["args"]),
+       f"o resumo único pela IA, sem pedir: lê anterior.md e as duas conversas ({res5.splitlines()[4] if len(res5.splitlines()) > 4 else res5!r})")
+    ok(velho() == velho_antes and api("claude/pedido")["conversa"]["contextos"] == [{"id": cid, "titulo": "Buck — Kp dobrado (rev)", "desta": False}],
+       "o contexto antigo fica como está (nem um byte) e continua em uso")
+    z5 = api(f"claude/contexto/exportar?id={cid5}&anexos=1", cru=True)
+    n5 = sorted(n.split("/", 1)[1] for n in zipfile.ZipFile(io.BytesIO(z5)).namelist()) if isinstance(z5, bytes) else []
+    ok({"anterior.md", "conversa.md", "contexto.md", "resumo_ia.md", "meta.json", "controle/controle.py", "rodada/resumo.md"} <= set(n5),
+       f"exportar o contexto juntado: {len(n5)} arquivos, com anterior.md e o resumo único")
+    api("claude/contexto/usar", {"id": cid5, "usar": True})
+    us = api("claude/pedido")["conversa"]["contextos"]
+    r = api("claude/contexto/salvar", {"titulo": "x", "juntar": cid5})
+    api("claude/contexto/usar", {"id": cid5, "usar": False})
+    ok(r.get("ERRO") == 409 and "desta mesma conversa" in r.get("erro", "") and [u["desta"] for u in us] == [False, True],
+       f"juntar com um contexto salvo desta mesma conversa: recusado (ela já está nele; a tela nem oferece: \"desta\") ({r.get('erro')})")
     # a conversa anterior (a do sid1, deixada pelo "nova")
     ant = api("claude/contextos")["anteriores"]
     ok(any(x["id"] == sid1 and x["pedidos"] == 1 and x["primeiro"] == "dobre o Kp" for x in ant), f"conversas anteriores: {len(ant)} (a primeira está lá)")

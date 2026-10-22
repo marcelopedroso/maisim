@@ -53,8 +53,11 @@ if "Resuma a conversa do MaiSim guardada nesta pasta" in prompt:   # o resumo pe
         sys.exit(1)
     conv = Path("conversa.md").read_text() if Path("conversa.md").exists() else ""
     n = len(re.findall(r"(?m)^## \d+\. Pedido", conv))
+    junta = ""                                   # a junção: o pedido manda ler anterior.md (o contexto de onde continua)
+    if "leia anterior.md" in prompt and Path("anterior.md").exists():
+        junta = f" li anterior.md: {Path('anterior.md').read_text().splitlines()[0].lstrip('# ')}."
     print(json.dumps({"type": "result", "subtype": "success", "is_error": False, "model": "claude-falso",
-                      "result": f"## Objetivo\nControle (teste).\n\n## O que foi feito\nli conversa.md: {n} pedido(s).\n\n## Resultado\n$i_L$ em 10 A."}))
+                      "result": f"## Objetivo\nControle (teste).\n\n## O que foi feito\nli conversa.md: {n} pedido(s).{junta}\n\n## Resultado\n$i_L$ em 10 A."}))
     sys.exit(0)
 # a sessão fica onde o CLI de verdade a guarda, gravada já no começo do pedido (antes de qualquer resposta)
 proj = conf / "projects" / re.sub(r"[^A-Za-z0-9]", "-", os.getcwd())

@@ -3554,6 +3554,15 @@ RESUMO_IA_PEDIDO = ("Resuma a conversa do MaiSim guardada nesta pasta, para outr
                     "arquivos. Responda só com o resumo, em markdown, nestas seções: ## Objetivo; ## O que foi feito; ## Resultado (com os "
                     "números: canal, janela e rodada); ## Decisões (e por quê); ## O que falta. Completo nos números e nas decisões, curto "
                     "no resto; equações em LaTeX.")
+# a junção ("juntar com o contexto em uso"): um resumo só, do contexto anterior e da conversa que continuou dele
+RESUMO_IA_JUNTA = ("Resuma a conversa do MaiSim guardada nesta pasta, para outra conversa (ou outra IA) continuar daqui. Ela continua "
+                   "de um contexto anterior: leia anterior.md (aquele contexto: a nota e o resumo dele) e conversa.md (as conversas em "
+                   "ordem: a daquele contexto e, depois, a que continuou dele) e, se ajudar, resumo.md (a nota de quem salvou), "
+                   "controle/ e rodada/resumo.md (os de agora). Não escreva arquivos. Escreva UM resumo do todo, não dois: o que vale "
+                   "agora — quando a conversa nova mudou um valor, uma decisão ou o controle, fica o novo, e diga o que ele "
+                   "substituiu. Responda só com o resumo, em markdown, nestas seções: ## Objetivo; ## O que foi feito; ## Resultado "
+                   "(com os números: canal, janela e rodada); ## Decisões (e por quê); ## O que falta. Completo nos números e nas "
+                   "decisões, curto no resto; equações em LaTeX.")
 trava_resumo = threading.Lock()                      # um resumo por vez
 
 
@@ -3568,7 +3577,8 @@ def _resumo_ia(cid, modelo, esforco, ia="claude"):
                     return                               # apagado antes de começar
                 erro, texto, usado = None, None, modelo
                 try:
-                    cmd = a.comando_resumo(RESUMO_IA_PEDIDO, modelo, esforco, pasta=CONTEXTOS / cid)
+                    pedido = RESUMO_IA_JUNTA if (CONTEXTOS / cid / "anterior.md").is_file() else RESUMO_IA_PEDIDO
+                    cmd = a.comando_resumo(pedido, modelo, esforco, pasta=CONTEXTOS / cid)
                     with trava_cli:
                         limpa_trava_login(ia=a)
                         proc = subprocess.Popen(cmd, cwd=str(CONTEXTOS / cid), env=a.ambiente(), stdin=subprocess.DEVNULL,
@@ -3617,12 +3627,16 @@ def _json_da_saida(texto):
     return {}
 
 
-def claude_contexto_resumo_ia(cid, modelo="", esforco="", ia="claude"):
-    """Pede (ou pede de novo) o resumo pela IA de um contexto salvo: em segundo plano, na fila, pela IA escolhida."""
-    ia = str(ia or "claude")
+def _confere_ia_resumo(ia, modelo, esforco):
     if ia not in IAS or modelo not in IAS[ia].modelos or esforco not in IAS[ia].esforcos:
         raise ErroMotor("IA, modelo ou esforço desconhecido")
     ia_logada(IAS[ia])
+
+
+def claude_contexto_resumo_ia(cid, modelo="", esforco="", ia="claude"):
+    """Pede (ou pede de novo) o resumo pela IA de um contexto salvo: em segundo plano, na fila, pela IA escolhida."""
+    ia = str(ia or "claude")
+    _confere_ia_resumo(ia, modelo, esforco)
     m = contextos.meta(CONTEXTOS, cid)
     if m is None:
         raise ErroMotor(f"não há o contexto {cid}")
@@ -3681,15 +3695,28 @@ def claude_contextos():
 
 def claude_contexto_salva(corpo):
     """Salva a conversa aberta (ou uma anterior: corpo["conversa"]) como contexto: o resumo, a conversa, o controle e a
-    rodada daquele momento, e os anexos se pedido."""
+    rodada daquele momento, e os anexos se pedido. corpo["juntar"]: o id de um contexto em uso nesta conversa — o contexto
+    novo continua dele (as duas conversas em ordem, o anterior.md e um resumo só pela IA, sempre); ele fica como está."""
     chave, conv, _ = conversa_atual()
     sid = str(corpo.get("conversa") or conv["id"])
     if not re.fullmatch(r"[0-9a-f-]{36}", sid):
         raise ErroMotor("conversa inválida")
     atual, inc = sid == conv["id"], dict({"conversa": True, "controle": True, "rodada": True, "anexos": False}, **(corpo.get("incluir") or {}))
     hist = historico(sid)
+    juntar = str(corpo.get("juntar") or "")
+    if juntar:
+        if not atual or juntar not in (conv.get("contextos") or []):
+            raise ErroMotor("só dá para juntar com um contexto em uso nesta conversa")
+        if (contextos.meta(CONTEXTOS, juntar) or {}).get("conversa") == sid:
+            raise ErroMotor("esse contexto foi salvo desta mesma conversa (ela já está nele): salve sem juntar")
+        if not hist:
+            raise ErroMotor("esta conversa ainda não tem pedidos: não há o que juntar")
+        inc["conversa"], corpo["resumo_ia"] = True, True     # a junção é o resumo único pela IA, da conversa inteira
     if not hist and not str(corpo.get("resumo") or "").strip():
         raise ErroMotor("a conversa está vazia: escreva uma nota ou converse antes")
+    ia_resumo = str(corpo.get("ia") or "claude")
+    if corpo.get("resumo_ia") and inc["conversa"] and hist:   # antes de salvar: sem login, nada fica salvo pela metade
+        _confere_ia_resumo(ia_resumo, str(corpo.get("modelo") or ""), str(corpo.get("esforco") or ""))
     titulo = str(corpo.get("titulo") or "").strip() or f"{Path(chave).stem if atual else 'conversa'} {time.strftime('%d/%m %H:%M')}"
     c = (le_controle() if atual else controle_aplicado(sid)) if inc["controle"] else None
     rod = resumo_rodada.ultima(RODADAS) if inc["rodada"] and atual else None
@@ -3699,13 +3726,15 @@ def claude_contexto_salva(corpo):
     etiquetas = corpo.get("etiquetas") or []
     if isinstance(etiquetas, str):
         etiquetas = [e for e in re.split(r"[,;]", etiquetas)]
-    cid = _ctx(lambda: contextos.salva(CONTEXTOS, titulo, corpo.get("resumo", ""), etiquetas,
-                                       conversa=contextos.conversa_md(hist, titulo) if inc["conversa"] and hist else None,
-                                       controle=c, rodada=rod, anexos=anexos,
+    conversa = None
+    if inc["conversa"] and hist:
+        conversa = _ctx(lambda: contextos.conversa_junta(CONTEXTOS, juntar, hist, titulo)) if juntar else contextos.conversa_md(hist, titulo)
+    cid = _ctx(lambda: contextos.salva(CONTEXTOS, titulo, corpo.get("resumo", ""), etiquetas, conversa=conversa,
+                                       controle=c, rodada=rod, anexos=anexos, anterior=juntar or None,
                                        extra=dict(circuito=chave if atual else circuito_da_conversa(sid), ia=ia_conv, modelo=modelo,
-                                                  conversa=sid, pedidos=len(hist))))
+                                                  conversa=sid, pedidos=len(contextos.PEDIDO_MD.findall(conversa or "")) or len(hist))))
     if corpo.get("resumo_ia") and inc["conversa"] and hist:
-        claude_contexto_resumo_ia(cid, str(corpo.get("modelo") or ""), str(corpo.get("esforco") or ""), str(corpo.get("ia") or "claude"))
+        claude_contexto_resumo_ia(cid, str(corpo.get("modelo") or ""), str(corpo.get("esforco") or ""), ia_resumo)
     return dict(claude_contextos(), id=cid)
 
 
@@ -3853,7 +3882,7 @@ def claude_pedido_estado():
     for cid in conv.get("contextos") or []:
         m = contextos.meta(CONTEXTOS, cid)
         if m:                                            # apagado da biblioteca: some da conversa
-            usados.append({"id": cid, "titulo": m.get("titulo", cid)})
+            usados.append({"id": cid, "titulo": m.get("titulo", cid), "desta": m.get("conversa") == conv["id"]})   # desta: salvo desta conversa (não junta)
     out["conversa"] = {"circuito": chave, "iniciada": conv["iniciada"], "anexos": lista_anexos(pasta), "historico": hist, "contextos": usados}
     out["outro_circuito"] = bool(out.get("circuito") and out["circuito"] != chave)
     if out.get("andamento") and out.get("desde"):        # o tempo do pedido medido aqui: o relógio do WSL e o do navegador (Windows)

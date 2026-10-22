@@ -258,7 +258,7 @@ function desenhaChat() {
   $("cc-texto").placeholder = anda ? "a IA está respondendo… (pode escrever o próximo: envia quando ela terminar)" : "Peça à IA… (Ctrl+Enter envia)";
   $("cc-parar").style.display = anda ? "" : "none";
   $("cc-aviso").textContent = cc.aviso || cc.avisoOk || ""; $("cc-aviso").classList.toggle("ok", !cc.aviso && !!cc.avisoOk);   // avisoOk: deu certo (verde)
-  $("cc-nova").disabled = anda; $("cc-salvar").disabled = anda;
+  $("cc-nova").disabled = anda; $("cc-salvar").disabled = anda; $("cc-exportar").disabled = anda;
   $("cc-nota").textContent = ctl.dados && !ctl.dados.circuito ? "abra a edição (lápis): sem ela, a IA não conhece as medidas nem as atuações do circuito" : "";
   const anexos = (e && e.conversa && e.conversa.anexos) || [];
   const chave = JSON.stringify([logado, ccIA(), !!cla.estado, e && e.conversa, e && [e.andamento, e.eventos, e.fala, e.proposta, e.aplicada, e.erro, e.outro_circuito, e.pedido, e.auto],

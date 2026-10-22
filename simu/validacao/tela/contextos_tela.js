@@ -1,7 +1,8 @@
 // os contextos salvos na tela (direto no servidor de teste 7201, claude de mentira), Marcelo em 21/10 ("um botãozinho para
 // salvar isso na memória não volátil… usar em outras conversas"): "salvar" com a nota de quem salva; a biblioteca
 // ("contextos"): usar nesta conversa (a etiqueta 📘 ao lado dos anexos; × tira), abrir (o resumo formatado e a conversa),
-// editar, exportar (baixa o .maisimctx), importar, apagar (pergunta); as conversas anteriores, salvas como contexto. Sem fotos.
+// editar, exportar (baixa o .maisimctx), importar, apagar (pergunta); as conversas anteriores, salvas como contexto; o "exportar"
+// do topo da conversa, juntando com o contexto em uso (espera o resumo único pela IA e baixa). Sem fotos.
 const { chromium } = require("playwright");
 const fs = require("fs"), path = require("path"), { execSync } = require("child_process");
 let falhas = 0;
@@ -94,6 +95,44 @@ const antes = new Set(fs.existsSync(CTX) ? fs.readdirSync(CTX) : []);
     const semGerar = !(await pg.$(".cx-salvar .cx-gerar")) && !!(await pg.$(".cx-salvar .cx-resumo-ia:not([disabled])"));
     await pg.fill(".cx-salvar .cx-resumo", "a conversa antiga"); await pg.click(".cx-salvar .m-guardar"); await pg.waitForTimeout(600);
     ok(semGerar && novos().length === 3, `salvar uma conversa anterior (com a opção do resumo pela IA): ${novos().length} na pasta`);
+    // "exportar" no topo da conversa, juntando com o contexto em uso (Marcelo, 21/10): salva um contexto novo que continua
+    // daquele (um resumo só pela IA, as duas conversas) e já baixa o .maisimctx — depois que o resumo fica pronto
+    await pg.click("#cc-exportar"); await pg.waitForSelector(".cx-salvar");
+    const semPedido = !(await pg.$(".cx-salvar .cx-junta"));
+    await pg.click(".cx-salvar .m-fechar");
+    fs.writeFileSync(path.join(CONF, "falso_cenario"), "le_contexto");
+    await pg.fill("#cc-texto", "continue daquele contexto"); await pg.click("#cc-enviar");
+    await pg.waitForFunction(() => cc.estado && !cc.estado.andamento && (cc.estado.conversa.historico || []).length === 1, null, { timeout: 60000 });
+    await pg.click("#cc-exportar"); await pg.waitForSelector(".cx-salvar");
+    const jan = await pg.evaluate(() => { const q = (s) => document.querySelector(`.cx-salvar ${s}`);
+      return { h: q("h3").textContent, junta: !!(q(".cx-juntar") && q(".cx-juntar").checked), com: (q(".cx-junta-tit") || {}).textContent, bt: q(".m-guardar").textContent,
+        travados: [q('.cx-i[data-k="conversa"]'), q(".cx-resumo-ia")].map((c) => c.checked && c.disabled) }; });
+    await pg.uncheck(".cx-salvar .cx-juntar");
+    const solto = await pg.evaluate(() => [".cx-i[data-k=\"conversa\"]", ".cx-resumo-ia"].map((s) => document.querySelector(`.cx-salvar ${s}`).disabled));
+    await pg.check(".cx-salvar .cx-juntar");
+    ok(semPedido && jan.h === "Exportar esta conversa" && jan.junta && jan.com === "Buck — Kp dobrado (rev)" && /baixar \.maisimctx/.test(jan.bt)
+       && jan.travados.every(Boolean) && solto.every((x) => !x),
+       `exportar: "${jan.h}", "juntar com o contexto em uso" marcado (${jan.com}; sem pedido nesta conversa, não oferece), a conversa e o resumo pela IA travados enquanto junta`);
+    fs.writeFileSync(path.join(CONF, "falso_resumo_lento"), "2");
+    await pg.fill(".cx-salvar .cx-titulo", "Buck — continuação");
+    const espDown = pg.waitForEvent("download", { timeout: 40000 });
+    await pg.click(".cx-salvar .m-guardar");
+    await pg.waitForSelector(".cx-salvar .cx-espera .diodo-ia", { timeout: 5000 });
+    const dj = await espDown;
+    const novo = novos().find((x) => JSON.parse(fs.readFileSync(path.join(CTX, x, "meta.json"), "utf8")).continua_de);
+    const zipJ = path.join(require("os").tmpdir(), `teste_junta_${novo}.maisimctx`); await dj.saveAs(zipJ);
+    const noZip = JSON.parse(execSync(`python3 -I -c "import sys, zipfile, json; z = zipfile.ZipFile(sys.argv[1]); print(json.dumps({n.split('/', 1)[1]: (z.read(n).decode() if n.endswith('resumo_ia.md') else '') for n in z.namelist()}))" "${zipJ}"`).toString());
+    await pg.waitForTimeout(300);
+    const avJ = await pg.evaluate(() => ({ modal: !!document.querySelector(".cx-salvar"), aviso: $("cc-aviso").textContent }));
+    ok(novo && dj.suggestedFilename() === `${novo}.maisimctx` && "anterior.md" in noZip && /li anterior\.md: Buck — Kp dobrado \(rev\)/.test(noZip["resumo_ia.md"] || "")
+       && !avJ.modal && /contexto salvo e exportado: Buck — continuação \(continua de “Buck — Kp dobrado \(rev\)”\) — com o resumo pela IA/.test(avJ.aviso),
+       `salvar e baixar: esperou o resumo pela IA (o diodo) e baixou ${dj.suggestedFilename()} com anterior.md e o resumo único; "${avJ.aviso}"`);
+    await pg.click("#cc-contextos"); await pg.waitForSelector(".cx-bib .cx-item");
+    const linJ = await pg.evaluate((s) => (document.querySelector(s) || {}).textContent || "", `.cx-bib .cx-item[data-id="${novo}"] .cx-meta`);
+    ok(/continua de “Buck — Kp dobrado \(rev\)”/.test(linJ) && !!(await pg.$(item)) && novos().length === 4,
+       `na biblioteca: o novo diz de onde continua; o antigo continua lá (${novos().length} na pasta)`);
+    await pg.click(".cx-bib .m-fechar");
+    fs.rmSync(zipJ, { force: true }); fs.rmSync(path.join(CONF, "falso_resumo_lento"), { force: true });
     // o × da etiqueta tira da conversa; apagar pergunta e tira da biblioteca
     await pg.click("#cc-anexos .cx-em-uso button"); await pg.waitForTimeout(500);
     ok(!(await pg.$("#cc-anexos .cx-em-uso")), "o × da etiqueta: o contexto sai da conversa");

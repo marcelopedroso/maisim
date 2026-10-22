@@ -9,6 +9,8 @@ cache), uma por contexto:
   controle/     o controle daquele momento (controle.json e os .py), como em rodadas/<rodada>/
   rodada/       resumo.md e serie/ da rodada mais nova (os "olhos")
   anexos/       os anexos da conversa (opcional)
+  anterior.md   só num contexto que continua de outro ("juntar com o contexto em uso"): o contexto.md daquele (a nota e o
+                resumo pela IA dele); a conversa.md traz as duas conversas em ordem e o resumo pela IA é um só, do todo
 Usar num pedido: o contexto é copiado para a pasta da conversa, em contextos/<id>/, e o pedido diz para ler o contexto.md.
 Exportar/importar: um .maisimctx (zip da pasta); nada do que vem é executado (o controle só entra se aplicado como proposta).
 """
@@ -111,9 +113,11 @@ def le(base, cid):
 
 def contexto_md(meta, resumo, resumo_ia=""):
     linhas = [f"# {meta['titulo']}", ""]
+    ant = meta.get("continua_de") or {}
     linhas += [f"- {k}: {v}" for k, v in (("circuito", meta.get("circuito")), ("quando", meta.get("quando")),
                                           ("IA", " · ".join(x for x in (meta.get("ia"), meta.get("modelo")) if x)),
-                                          ("autor", meta.get("autor")), ("etiquetas", ", ".join(meta.get("etiquetas") or [])))
+                                          ("autor", meta.get("autor")), ("etiquetas", ", ".join(meta.get("etiquetas") or [])),
+                                          ("continua de", f"{ant.get('titulo')} ({ant.get('id')})" if ant else ""))
                if v]
     tem = meta.get("tem") or {}
     linhas += ["", resumo.strip() or "(sem nota: veja a conversa)", ""]
@@ -122,7 +126,10 @@ def contexto_md(meta, resumo, resumo_ia=""):
         linhas += ["## Resumo pela IA" + (f" ({meta['resumo_ia'].get('modelo')})" if (meta.get("resumo_ia") or {}).get("modelo") else ""), "", corpo, ""]
     linhas += ["## Arquivos deste contexto", ""]
     if tem.get("conversa.md"):
-        linhas.append("- conversa.md: a conversa inteira (pedido e resposta)")
+        linhas.append("- conversa.md: " + ("as conversas em ordem: a do contexto anterior e a que continuou dele" if ant else
+                                           "a conversa inteira (pedido e resposta)"))
+    if tem.get("anterior.md"):
+        linhas.append("- anterior.md: o contexto anterior (a nota e o resumo pela IA dele), de onde esta conversa continuou")
     if tem.get("controle"):
         linhas.append("- controle/: o controle daquele momento (controle.json e os .py) — referência; o controle em uso é o da pasta da conversa")
     if tem.get("rodada"):
@@ -132,10 +139,11 @@ def contexto_md(meta, resumo, resumo_ia=""):
     return "\n".join(linhas) + "\n"
 
 
-def conversa_md(hist, titulo=""):
-    """A conversa do histórico do MaiSim em markdown: cada pedido, quem respondeu e a resposta (ou o erro)."""
+def conversa_md(hist, titulo="", de=1):
+    """A conversa do histórico do MaiSim em markdown: cada pedido, quem respondeu e a resposta (ou o erro). de: o número
+    do primeiro pedido (numa junção, a conversa nova segue a numeração da anterior)."""
     L = [f"# Conversa{f' — {titulo}' if titulo else ''}", ""]
-    for k, h in enumerate(hist or [], 1):
+    for k, h in enumerate(hist or [], de):
         quando = time.strftime("%d/%m/%Y %H:%M", time.localtime(h["quando"])) if isinstance(h.get("quando"), (int, float)) else ""
         L += [f"## {k}. Pedido{f' ({quando})' if quando else ''}", "", str(h.get("pedido") or "").strip(), ""]
         if h.get("anexos"):
@@ -152,6 +160,20 @@ def conversa_md(hist, titulo=""):
     return "\n".join(L) + "\n"
 
 
+PEDIDO_MD = re.compile(r"(?m)^## \d+\. Pedido")
+
+
+def conversa_junta(base, anterior, hist, titulo=""):
+    """As duas conversas em ordem: a do contexto anterior (como foi guardada) e depois esta, com os pedidos numerados em
+    sequência. Se o anterior já era uma junção, a corrente vem inteira, da conversa mais velha à mais nova."""
+    d = base / _confere_id(anterior)
+    m = _le_meta(d)
+    if m is None:
+        raise FileNotFoundError(f"não há o contexto {anterior}")
+    antes = (d / "conversa.md").read_text(errors="replace").rstrip() + "\n\n" if (d / "conversa.md").is_file() else ""
+    return antes + conversa_md(hist, f"{titulo} (continua de “{m.get('titulo', anterior)}”)", de=len(PEDIDO_MD.findall(antes)) + 1)
+
+
 def _escreve_controle(destino, c):
     destino.mkdir(parents=True, exist_ok=True)
     arquivos = {"controle.py": c.get("codigo") or "", **{k: v for k, v in (c.get("arquivos") or {}).items() if k != "controle.py"}}
@@ -161,17 +183,29 @@ def _escreve_controle(destino, c):
     (destino / "controle.json").write_text(json.dumps({k: v for k, v in c.items() if k != "codigo"}, ensure_ascii=False, indent=1) + "\n")
 
 
-def salva(base, titulo, resumo, etiquetas=(), conversa=None, controle=None, rodada=None, anexos=None, extra=None):
+def salva(base, titulo, resumo, etiquetas=(), conversa=None, controle=None, rodada=None, anexos=None, extra=None, anterior=None):
     """Grava um contexto novo (numa pasta temporária, depois o nome final) e devolve o id. conversa: o texto de
-    conversa.md; controle: o dict do controle; rodada: a pasta da rodada (resumo.md, serie/); anexos: a pasta dos anexos."""
+    conversa.md; controle: o dict do controle; rodada: a pasta da rodada (resumo.md, serie/); anexos: a pasta dos anexos;
+    anterior: o id do contexto de onde este continua (a junção: o contexto.md dele vira anterior.md; ele fica como está)."""
     titulo = str(titulo or "").strip()[:200] or "contexto"
     resumo = str(resumo or "")[:MAX_TEXTO]
     etiquetas = [str(e).strip()[:40] for e in etiquetas or [] if str(e).strip()][:20]
+    ant = None
+    if anterior:
+        da = base / _confere_id(anterior)
+        ma = _le_meta(da)
+        if ma is None:
+            raise FileNotFoundError(f"não há o contexto {anterior}")
+        ant = {"id": anterior, "titulo": ma.get("titulo", anterior)}
     base.mkdir(parents=True, exist_ok=True)
     tmp = base / f".tmp_{uuid.uuid4().hex}"
     tmp.mkdir()
     try:
         tem = {}
+        if ant:                                # a lista de arquivos dele fala dos arquivos de lá: fica de fora
+            txt = (da / "contexto.md").read_text(errors="replace") if (da / "contexto.md").is_file() else f"# {ant['titulo']}\n"
+            (tmp / "anterior.md").write_text(txt.split("\n## Arquivos deste contexto")[0].rstrip() + "\n")
+            tem["anterior.md"] = True
         if conversa:
             (tmp / "conversa.md").write_text(conversa)
             tem["conversa.md"] = True
@@ -189,7 +223,7 @@ def salva(base, titulo, resumo, etiquetas=(), conversa=None, controle=None, roda
             shutil.copytree(anexos, tmp / "anexos", ignore=lambda d, fs: [f for f in fs if not (Path(d) / f).is_file()])
             tem["anexos"] = True
         meta = dict(versao=VERSAO, titulo=titulo, etiquetas=etiquetas, quando=time.strftime("%Y-%m-%d %H:%M"), autor=autor(),
-                    **(extra or {}), tem=tem)
+                    **(extra or {}), **({"continua_de": ant} if ant else {}), tem=tem)
         (tmp / "contexto.md").write_text(contexto_md(meta, resumo))
         (tmp / "resumo.md").write_text(resumo)
         (tmp / "meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1) + "\n")

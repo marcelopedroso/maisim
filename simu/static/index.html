@@ -217,11 +217,16 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   #cc-uso .alto { color:var(--erro); font-weight:600; } #cc-uso .medio { color:var(--aviso); font-weight:600; }
   .cc-topo button { font-size:11px; padding:1px 7px; } #cc-fechar { padding:0 7px; }
   /* o topo da conversa numa coluna estreita (a conversa embaixo do código a 1366 px: 380 px para 450 de botões, e a página
-     rolava para o lado): menos espaço, os botões mais justos e, mais estreito ainda, só o ícone no lugar de "IA do MaiSim" */
+     rolava para o lado): menos espaço, os botões mais justos e só o ícone no lugar de "IA do MaiSim"; com o "exportar"
+     (21/10), a conversa ao lado do código fica com 315–340 px (1920 e 1280): aí sai também o ícone e os botões apertam mais */
   #ctl-claude { container:ccpainel / inline-size; }
-  @container ccpainel (max-width: 470px) {
-    #ctl-claude .cc-topo { gap:4px; padding:5px 6px; } #ctl-claude .cc-topo > b { display:none; }
-    #ctl-claude .cc-topo button { padding:1px 5px; }
+  @container ccpainel (max-width: 540px) {
+    #ctl-claude .cc-topo { gap:3px; padding:5px 6px; } #ctl-claude .cc-topo > b { display:none; }
+    #ctl-claude .cc-topo button { padding:1px 4px; }
+  }
+  @container ccpainel (max-width: 360px) {
+    #ctl-claude .cc-topo { gap:2px; padding:5px 4px; } #ctl-claude .cc-topo > .mascote { display:none; }
+    #ctl-claude .cc-topo button { padding:1px 3px; }
   }
   #cc-msgs { flex:1; min-height:0; overflow:auto; padding:8px 10px; display:flex; flex-direction:column; gap:8px; font-size:12.5px; line-height:1.45; }
   #cc-msgs .katex { font-size:1.12em; } #cc-msgs .katex-display { margin:6px 0; overflow-x:auto; overflow-y:hidden; padding:2px 0; }   /* equações (KaTeX) */
@@ -279,6 +284,9 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   .cx-modal .cx-res-cab { display:flex; align-items:baseline; gap:8px; margin-top:8px; } .cx-modal .cx-res-cab .cx-gerar { margin-left:auto; }
   .cx-modal .cx-resumo { width:100%; height:34vh; box-sizing:border-box; font:12px/1.45 ui-monospace, monospace; margin-top:4px; }
   .cx-modal .cx-status { min-height:16px; margin-top:4px; }
+  .cx-modal .cx-junta { border:1px solid var(--acento-borda); background:var(--acento-suave); border-radius:8px; padding:6px 9px; margin:4px 0 6px; font-size:12.5px; }
+  .cx-modal .cx-junta label { display:inline-flex; align-items:center; gap:4px; margin:0 6px 0 0; width:auto; } .cx-modal .cx-junta label input { margin:0; width:auto; }
+  .cx-modal .cx-junta select { max-width:60%; } .cx-modal .cx-espera { display:inline-flex; align-items:center; gap:6px; } .cx-modal .cx-espera button { font-size:11px; padding:0 6px; }
   .cx-abas { display:flex; gap:6px; align-items:center; margin:4px 0 8px; } .cx-abas button.ativo { background:var(--acento); color:#fff; border-color:var(--acento); }
   .cx-abas .cx-filtro { flex:1; min-width:120px; }
   .cx-corpo { overflow:auto; min-height:120px; max-height:58vh; display:flex; flex-direction:column; gap:6px; }
@@ -673,7 +681,7 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
     <div id="ctl-fora"><div>o código está aberto na <b>janela do código</b><br>(as mudanças de lá aparecem aqui)<br><button id="ctl-fora-bt" title="editar o código também nesta janela (vale o que for guardado por último)">editar aqui também</button></div></div>
   <div id="ctl-claude" aria-label="pedir à IA"><div id="cc-divisor" title="arraste para mudar o espaço da conversa e do código (duplo clique: volta ao padrão)"></div>
       <div class="cc-topo"><svg class="mascote" width="21" height="21" aria-hidden="true"><use href="#maisim-claude"/></svg><b>IA do MaiSim</b><span id="cc-uso" title="uso da sua conta do Claude (o mesmo do /usage)"></span>
-        <button id="cc-lugar" title="conversa ao lado do código ou embaixo dele"></button><button id="cc-salvar" title="salvar esta conversa como contexto: o resumo (a IA escreve, você revisa), a conversa, o controle e a rodada — fica guardado para outras conversas">salvar</button><button id="cc-contextos" title="os contextos salvos: usar nesta conversa, abrir, exportar, importar; e as conversas anteriores">contextos</button><button id="cc-memoria" title="a memória da IA do MaiSim: preferências e lições, em todas as conversas">memória</button><button id="cc-nova" title="nova conversa: a IA esquece esta (os anexos saem; a memória fica)">nova</button><button id="cc-fechar" title="fechar a conversa">×</button></div>
+        <button id="cc-lugar" title="conversa ao lado do código ou embaixo dele"></button><button id="cc-salvar" title="salvar esta conversa como contexto: o resumo (a IA escreve, você revisa), a conversa, o controle e a rodada — fica guardado para outras conversas">salvar</button><button id="cc-exportar" title="exportar esta conversa: salva como contexto (ou junta com o contexto em uso) e já baixa o .maisimctx para mandar a um colega">exportar</button><button id="cc-contextos" title="os contextos salvos: usar nesta conversa, abrir, exportar, importar; e as conversas anteriores">contextos</button><button id="cc-memoria" title="a memória da IA do MaiSim: preferências e lições, em todas as conversas">memória</button><button id="cc-nova" title="nova conversa: a IA esquece esta (os anexos saem; a memória fica)">nova</button><button id="cc-fechar" title="fechar a conversa">×</button></div>
       <div id="cc-msgs"></div>
       <div id="cc-nota" class="cc-nota"></div>
       <div id="cc-anexos"></div>

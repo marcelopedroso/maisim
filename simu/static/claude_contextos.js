@@ -19,13 +19,22 @@ const cxData = (q) => (typeof q === "number" ? new Date(q * 1000).toLocaleString
 const cxTam = (b) => (b >= 2 ** 20 ? `${(b / 2 ** 20).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} kB`);
 const cxCircuito = (c) => String(c || "").split("/").pop().replace(/\.ipes$/, "");
 
-// ---- salvar a conversa (a aberta, ou uma anterior: sid) como contexto
-async function cxSalvar(sid = null, tituloSugerido = "") {
+// ---- salvar a conversa (a aberta, ou uma anterior: sid) como contexto; exportar: salva e já baixa o .maisimctx (o "exportar"
+// do topo da conversa). Com um contexto em uso, "juntar com o contexto em uso" (Marcelo, 21/10): um contexto NOVO que continua
+// daquele — as duas conversas em ordem, um resumo só pela IA, o controle e a rodada de agora; o antigo fica como está
+async function cxSalvar(sid = null, tituloSugerido = "", exportar = false) {
   const e = cc.estado || {}, conv = e.conversa || {}, atual = !sid;
   const hist = atual ? conv.historico || [] : [];
+  const juntaveis = atual && hist.length ? (conv.contextos || []).filter((u) => !u.desta) : [];   // desta: salvo desta conversa (já está nele)
   const titulo = tituloSugerido || `${cxCircuito(conv.circuito) || "conversa"} ${new Date().toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`;
-  const m = cxModal("cx-salvar", `<h3>Salvar ${atual ? "esta conversa" : "a conversa anterior"} como contexto</h3>
-    <p class="cc-dica-t">Fica guardado no MaiSim (fora do repositório): use em outra conversa — e, depois, em outra IA — ou exporte para o time.</p>
+  const ultimo = juntaveis[juntaveis.length - 1];
+  const m = cxModal("cx-salvar", `<h3>${exportar ? "Exportar esta conversa" : `Salvar ${atual ? "esta conversa" : "a conversa anterior"} como contexto`}</h3>
+    <p class="cc-dica-t">${exportar ? "Salva como contexto (fica na biblioteca) e baixa o .maisimctx para mandar a um colega. Confira o que vai — a conversa inteira vai junto."
+      : "Fica guardado no MaiSim (fora do repositório): use em outra conversa — e, depois, em outra IA — ou exporte para o time."}</p>
+    ${juntaveis.length ? `<div class="cx-junta"><label><input type="checkbox" class="cx-juntar" checked> juntar com o contexto em uso</label>
+      ${juntaveis.length > 1 ? `<select class="cx-junta-com">${juntaveis.map((u) => `<option value="${escT(u.id)}"${u === ultimo ? " selected" : ""}>${escT(u.titulo)}</option>`).join("")}</select>`
+        : `<b class="cx-junta-tit">${escT(ultimo.titulo)}</b>`}
+      <div class="cc-dica-t">um contexto novo que continua daquele: um resumo só, escrito pela IA (o de lá + o desta conversa), as duas conversas em ordem, o controle e a rodada de agora. O contexto em uso fica como está.</div></div>` : ""}
     <label class="cx-l">título <input class="cx-titulo" maxlength="200"></label>
     <label class="cx-l">etiquetas <input class="cx-etiquetas" placeholder="separadas por vírgula (ex.: controle, ensaio, artigo)"></label>
     <div class="cx-inclui">incluir: <label><input type="checkbox" class="cx-i" data-k="conversa" checked> a conversa</label>
@@ -36,20 +45,57 @@ async function cxSalvar(sid = null, tituloSugerido = "") {
       <label class="cx-ia" title="depois de salvar, em segundo plano: a IA lê a conversa guardada (só leitura) e escreve um resumo, que entra no contexto. Não aparece na conversa. O salvar não depende dele: se falhar, a biblioteca oferece gerar de novo. Gasta uso (conversa grande, mais)"><input type="checkbox" class="cx-resumo-ia"${(atual ? hist.length : 1) ? "" : " disabled"}> resumo pela IA, depois de salvar</label></div>
     <textarea class="cx-resumo" spellcheck="false" placeholder="o que é importante lembrar: o resultado, o que funcionou, o que falta…"></textarea>
     <div class="cx-status cc-dica-t"></div>
-    <div class="modal-botoes"><button class="m-fechar">cancelar</button><button class="m-guardar primario">guardar</button></div>`);
+    <div class="modal-botoes"><button class="m-fechar">cancelar</button><button class="m-guardar primario">${exportar ? "salvar e baixar .maisimctx" : "guardar"}</button></div>`);
   m.q(".cx-titulo").value = titulo; m.q(".cx-titulo").select(); m.q(".cx-titulo").focus();
   m.q(".m-fechar").onclick = m.fecha;
   const status = (t) => { m.q(".cx-status").textContent = t; };
+  const juntaCom = () => (m.q(".cx-juntar") && m.q(".cx-juntar").checked ? (m.q(".cx-junta-com") ? m.q(".cx-junta-com").value : ultimo.id) : "");
+  const marcaJunta = () => {                           // juntando: a conversa e o resumo pela IA vão sempre (o resumo único é a junção)
+    const j = !!juntaCom();
+    for (const s of ['.cx-i[data-k="conversa"]', ".cx-resumo-ia"]) { const c = m.q(s); if (j) c.checked = true; c.disabled = j || (s === ".cx-resumo-ia" && !(atual ? hist.length : 1)); }
+    if (m.q(".cx-junta-com")) m.q(".cx-junta-com").disabled = !j;
+  };
+  if (m.q(".cx-juntar")) { m.q(".cx-juntar").onchange = marcaJunta; marcaJunta(); }
   m.q(".m-guardar").onclick = async () => {
     const incluir = {}; m.fundo.querySelectorAll(".cx-i").forEach((c) => { incluir[c.dataset.k] = c.checked; });
+    const juntar = juntaCom(), tituloJunta = juntar ? (juntaveis.find((u) => u.id === juntar) || {}).titulo : "";
+    let r, ia;
     try {
-      const ia = m.q(".cx-resumo-ia").checked && incluir.conversa;
-      const r = await apiClaude("contexto/salvar", { conversa: sid || undefined, titulo: m.q(".cx-titulo").value, etiquetas: m.q(".cx-etiquetas").value,
-        resumo: m.q(".cx-resumo").value, incluir, resumo_ia: ia, modelo: $("cc-modelo").value, esforco: $("cc-esforco").value, ia: ccIA() });
-      cx.lista = r; m.fecha(); cc.aviso = ""; cc.avisoOk = `contexto salvo: ${m.q(".cx-titulo").value || r.id}${ia ? " — o resumo pela IA vem em segundo plano (veja em contextos)" : ""}`; desenhaChat();
-      setTimeout(() => { cc.avisoOk = ""; desenhaChat(); }, 8000);
-    } catch (err) { status(err.message); }
+      ia = !!juntar || (m.q(".cx-resumo-ia").checked && incluir.conversa);
+      r = await apiClaude("contexto/salvar", { conversa: sid || undefined, titulo: m.q(".cx-titulo").value, etiquetas: m.q(".cx-etiquetas").value,
+        resumo: m.q(".cx-resumo").value, incluir, resumo_ia: ia, juntar: juntar || undefined, modelo: $("cc-modelo").value, esforco: $("cc-esforco").value, ia: ccIA() });
+    } catch (err) { status(err.message); return; }
+    cx.lista = r;
+    const tit = m.q(".cx-titulo").value || r.id, junto = juntar ? ` (continua de “${tituloJunta}”)` : "";
+    const avisa = (t) => { cc.aviso = ""; cc.avisoOk = t; desenhaChat(); setTimeout(() => { if (cc.avisoOk === t) { cc.avisoOk = ""; desenhaChat(); } }, 8000); };
+    if (!exportar) { m.fecha(); avisa(`contexto salvo: ${tit}${junto}${ia ? " — o resumo pela IA vem em segundo plano (veja em contextos)" : ""}`); return; }
+    // exportar: com o resumo pela IA, espera ele ficar pronto (o .maisimctx vai com ele) — ou "baixar sem esperar"
+    m.fundo.querySelectorAll("input, textarea, select").forEach((x) => { x.disabled = true; });
+    m.q(".m-guardar").disabled = true; m.q(".m-fechar").textContent = "fechar (já está salvo)";
+    let estado = "";
+    if (ia) {
+      let ja = false;
+      m.q(".cx-status").innerHTML = `<span class="cx-espera">${diodoIA(16)} salvo; a IA está escrevendo o resumo — o .maisimctx baixa quando ficar pronto <button class="cx-ja">baixar sem esperar</button></span>`;
+      m.q(".cx-ja").onclick = () => { ja = true; };
+      for (;;) {
+        if (!document.body.contains(m.fundo)) return;  // fechou: o contexto fica salvo (exporte depois, pela biblioteca)
+        try { estado = ((await apiClaude(`contexto?id=${encodeURIComponent(r.id)}`)).meta.resumo_ia || {}).estado || ""; } catch (err) { estado = "falhou"; }
+        if (ja || estado !== "gerando") break;
+        await new Promise((ok) => setTimeout(ok, 1500));
+      }
+    }
+    try { await cxBaixa(r.id); } catch (err) { status(`salvo, mas não baixou: ${err.message} (exporte pela biblioteca)`); m.q(".m-fechar").textContent = "fechar"; return; }
+    m.fecha();
+    avisa(`contexto salvo e exportado: ${tit}${junto}${!ia ? "" : estado === "pronto" ? " — com o resumo pela IA" : estado === "falhou" ? " — sem o resumo pela IA (falhou: gere de novo em contextos e exporte de lá)" : " — sem o resumo pela IA (ainda gerando: exporte de novo em contextos)"}`);
   };
+}
+
+// baixa o .maisimctx de um contexto salvo
+async function cxBaixa(id, anexos = true) {
+  const r = await fetch(`claude/contexto/exportar?id=${encodeURIComponent(id)}&anexos=${anexos ? 1 : 0}`);
+  if (!r.ok) throw new Error(((await r.json().catch(() => ({}))).erro) || r.statusText);
+  const url = URL.createObjectURL(await r.blob()), a = document.createElement("a");
+  a.href = url; a.download = `${id}.maisimctx`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
 // ---- a biblioteca
@@ -76,7 +122,8 @@ async function cxBiblioteca() {
       m.q(".cx-corpo").innerHTML = itens.length ? itens.map((c) => {
         const usado = (L.usados || []).includes(c.id);
         return `<div class="cx-item${usado ? " usado" : ""}" data-id="${escT(c.id)}"><div class="cx-tit">${escT(c.titulo)}${c.importado ? ` <span class="cx-imp" title="importado de ${escT(c.importado.autor_original || "?")}">importado</span>` : ""}</div>
-          <div class="cx-meta">${escT([c.quando, cxCircuito(c.circuito), [c.ia, c.modelo].filter(Boolean).join(" · "), c.autor, cxTam(c.tamanho)].filter(Boolean).join("  ·  "))}
+          <div class="cx-meta">${escT([c.quando, cxCircuito(c.circuito), [c.ia, c.modelo].filter(Boolean).join(" · "), c.autor, cxTam(c.tamanho),
+            c.continua_de ? `continua de “${c.continua_de.titulo}”` : ""].filter(Boolean).join("  ·  "))}
             ${(c.etiquetas || []).map((t) => `<span class="cx-tag">${escT(t)}</span>`).join("")}</div>
           ${cxLinhaIA(c)}
           <div class="cx-bts"><button data-a="usar" title="${usado ? "parar de usar nesta conversa" : "usar nesta conversa: a IA lê a nota e a conversa em todo pedido"}">${usado ? "em uso ✓" : "usar nesta conversa"}</button>
@@ -172,11 +219,7 @@ async function cxExportar(c) {
   m.q(".m-fechar").onclick = m.fecha;
   if (m.q(".cx-com-anexos")) m.q(".cx-com-anexos").onchange = (ev) => m.fundo.querySelectorAll('[data-anexo="1"]').forEach((x) => { x.style.textDecoration = ev.target.checked ? "" : "line-through"; });
   m.q(".m-guardar").onclick = async () => {
-    const anexos = !m.q(".cx-com-anexos") || m.q(".cx-com-anexos").checked;
-    const r = await fetch(`claude/contexto/exportar?id=${encodeURIComponent(c.id)}&anexos=${anexos ? 1 : 0}`);
-    if (!r.ok) { m.q(".cc-dica-t").textContent = ((await r.json().catch(() => ({}))).erro) || r.statusText; return; }
-    const url = URL.createObjectURL(await r.blob()), a = document.createElement("a");
-    a.href = url; a.download = `${c.id}.maisimctx`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+    try { await cxBaixa(c.id, !m.q(".cx-com-anexos") || m.q(".cx-com-anexos").checked); } catch (err) { m.q(".cc-dica-t").textContent = err.message; return; }
     m.fecha();
   };
 }
@@ -188,6 +231,7 @@ function cxEtiquetas() {
 }
 (() => {
   $("cc-salvar").onclick = () => cxSalvar();
+  $("cc-exportar").onclick = () => cxSalvar(null, "", true);
   $("cc-contextos").onclick = cxBiblioteca;
   $("ctl-claude").addEventListener("click", async (ev) => {
     const b = ev.target.closest("button[data-ctx-tira]"); if (!b) return;
