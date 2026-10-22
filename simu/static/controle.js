@@ -711,12 +711,36 @@ function aplicaVistaDiag() {
   svg.style.transform = `translate(${vistaDiag.x}px, ${vistaDiag.y}px) scale(${vistaDiag.k})`;
   if ($("cd-zoom")) $("cd-zoom").textContent = `${Math.round(vistaDiag.k * 100)}%`;
 }
-function ajustaDiag() {                                  // cabe inteiro, centrado (no máximo 100 %)
+function ajustaDiag() {                                  // cabe inteiro, centrado (no máximo 100 %); se nem a 10 % cabe, o começo dele
   const svg = $("ctl-diag-svg"), rolo = svg && svg.parentElement; if (!rolo || !rolo.clientWidth) return;
   const W = +svg.getAttribute("width") || 1, H = +svg.getAttribute("height") || 1, cw = rolo.clientWidth, ch = rolo.clientHeight;
   const k = Math.max(0.1, Math.min(1, (cw - 24) / W, (ch - 24) / H));
-  Object.assign(vistaDiag, { k, x: (cw - W * k) / 2, y: Math.max(12, (ch - H * k) / 2), mexida: false });
+  Object.assign(vistaDiag, { k, x: Math.max(12, (cw - W * k) / 2), y: Math.max(12, (ch - H * k) / 2), mexida: false });
   aplicaVistaDiag();
+}
+// as colunas do diagrama (o nível de cada DSP): quem manda antes de quem recebe. Os que trocam mensagens em ciclo (Marcelo,
+// 21/10: o controle manda a todos os SMs e alguns respondem — cada volta empurrava todos uma coluna, os 19 iam parar na
+// 19ª e o "ajustar" encolhia um desenho de 7700 px quase vazio) formam um grupo (componente fortemente conexo, Tarjan): o
+// grupo vem depois de quem manda para ele e, dentro dele, cada um fica na distância (em mensagens) de quem entra no grupo
+// — quem recebe de fora, ou o primeiro da lista. Sem ciclo, é o caminho mais longo, como antes.
+function colunasDiag(nomes, sai) {
+  const idx = {}, low = {}, naPilha = new Set(), pilha = [], grupos = []; let k = 0;
+  const visita = (v) => {
+    idx[v] = low[v] = k++; pilha.push(v); naPilha.add(v);
+    for (const w of sai(v)) { if (!(w in idx)) { visita(w); low[v] = Math.min(low[v], low[w]); } else if (naPilha.has(w)) low[v] = Math.min(low[v], idx[w]); }
+    if (low[v] === idx[v]) { const g = []; let w; do { w = pilha.pop(); naPilha.delete(w); g.push(w); } while (w !== v); grupos.push(g); }
+  };
+  for (const v of nomes) if (!(v in idx)) visita(v);
+  const nivel = {};
+  for (const g of grupos.reverse()) {                    // o Tarjan entrega os grupos do fim para o começo
+    const base = Object.fromEntries(g.map((v) => [v, -1]));
+    for (const u of Object.keys(nivel)) for (const w of sai(u)) if (w in base) base[w] = Math.max(base[w], nivel[u] + 1);
+    const ordem = g.slice().sort((a, b) => nomes.indexOf(a) - nomes.indexOf(b));
+    const fila = ordem.filter((v) => base[v] >= 0); if (!fila.length) fila.push(ordem[0]);
+    fila.forEach((v) => { nivel[v] = Math.max(0, base[v]); });
+    for (let i = 0; i < fila.length; i++) for (const w of sai(fila[i])) if (w in base && !(w in nivel)) { nivel[w] = Math.max(nivel[fila[i]] + 1, base[w]); fila.push(w); }
+  }
+  return nivel;
 }
 function zoomDiag(f, px, py) {                           // f: o fator; (px, py): o ponto que fica parado (no rolo; padrão: o meio)
   const rolo = $("ctl-diag-svg").parentElement;
@@ -759,10 +783,9 @@ function desenhaDiagrama() {
   const quandoLongo = lat > 0 ? `chega depois da fibra de ${si(lat, "s")} (na 1ª amostra com t ≥ envio + latência)` : "chega na amostra seguinte";
   const ctlsArq = cs.map((q) => q.arquivo), NS = "http://www.w3.org/2000/svg", LIM = 8;
   const larg = (t, px = 7.2) => 18 + t.length * px;
-  // as colunas dos DSPs: a ordem das mensagens (ciclo: para no número de controladores)
-  const nivel = Object.fromEntries(cs.map((q) => [q.nome, 0]));
-  for (let it = 0; it < cs.length; it++) for (const q of cs) for (const e of msgs[q.nome].envia)
-    if (e.para in nivel && e.para !== q.nome) nivel[e.para] = Math.max(nivel[e.para], Math.min(nivel[q.nome] + 1, cs.length - 1));
+  // as colunas dos DSPs: a ordem das mensagens (quem manda antes de quem recebe; os ciclos: colunasDiag)
+  const nomes = cs.map((q) => q.nome);
+  const nivel = colunasDiag(nomes, (n) => [...new Set(msgs[n].envia.map((e) => e.para))].filter((p) => p !== n && nomes.includes(p)));
   const nCol = Math.max(...Object.values(nivel)) + 1;
   // as entradas (medidas) e as saídas (atuações) de cada DSP; muitas viram um bloco
   const entradas = new Map(), saidas = new Map();     // chave → {rot, dsps:Set, dica}
@@ -796,14 +819,23 @@ function desenhaDiagrama() {
     qs.forEach((b) => { b.y += dy; });
   }
   const meio = (b) => b.y + b.h / 2;
-  // entradas e saídas: na ordem da altura média dos DSPs ligados, empilhadas e centradas
-  const empilha = (m, passo) => { const l = [...m.values()].sort((a, b) => media(a) - media(b)); const alto = l.length * passo - (passo - 22), y0 = Math.max(0, (H - alto) / 2);
-    l.forEach((e, i) => { e.y = y0 + i * passo; }); return l; };
+  // entradas e saídas: na altura (média) dos DSPs ligados, sem se encostar (Marcelo, 21/10: empilhadas no meio, as linhas
+  // das atuações cruzavam o desenho todo e não dava para ver de onde vem e para onde vai): desce o que encosta e, se passar
+  // do fim, sobe o que for preciso
+  const empilha = (m, passo) => { const l = [...m.values()].sort((a, b) => media(a) - media(b));
+    l.forEach((e, i) => { e.y = Math.max(0, media(e) - 11, i ? l[i - 1].y + passo : 0); });
+    for (let i = l.length - 1; i >= 0; i--) l[i].y = Math.max(0, Math.min(l[i].y, i < l.length - 1 ? l[i + 1].y - passo : H - 22));
+    return l; };
   const media = (e) => [...e.dsps].reduce((s, n) => s + meio(caixas[n]), 0) / e.dsps.size;
   const ents = empilha(new Map(globais.map((e) => [e.k, e])), 30), sais = empilha(saidas, 40);
-  const XA = X0 + nCol * LC - LC + WD + 80, W = XA + Math.max(120, ...sais.map((e) => Math.max(larg(e.rot), 11 + 5.6 * Math.min(28, (e.curta || "").length)))) + 16;
+  // os arcos das mensagens na mesma coluna (ver abaixo) da última coluna: as atuações ficam depois deles
+  const ultima = cs.filter((q) => nivel[q.nome] === nCol - 1), arco = (a, b) => 18 + Math.min(150, Math.abs(b.y + 12 - (meio(a) - 8)) * 0.18);
+  const arcoMax = Math.max(0, ...ultima.flatMap((q) => msgs[q.nome].envia.filter((m) => m.para !== q.nome && nivel[m.para] === nCol - 1).map((m) => 0.75 * arco(caixas[q.nome], caixas[m.para]) + 40)));
+  const XA = X0 + nCol * LC - LC + WD + 80 + arcoMax, W =XA + Math.max(120, ...sais.map((e) => Math.max(larg(e.rot), 11 + 5.6 * Math.min(28, (e.curta || "").length)))) + 16;
   // o desenho
   svg.innerHTML = ""; svg.setAttribute("width", W + 12); svg.setAttribute("height", H + 30); svg.setAttribute("viewBox", `-8 -12 ${W + 12} ${H + 30}`);
+  // as dicas no padrão do MaiSim (dica.js, pelo atributo title), não a caixinha do navegador que o <title> do SVG mostra
+  const dica = (g, t) => g.setAttribute("title", t);
   const el = (tag, at, pai = svg, txt) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(at)) e.setAttribute(k, v); if (txt != null) e.textContent = txt; pai.appendChild(e); return e; };
   const defs = el("defs", {}), mk = el("marker", { id: "cd-seta", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse" }, defs);
   el("path", { d: "M0 0L10 5L0 10z", fill: "var(--acento)" }, mk);
@@ -814,7 +846,7 @@ function desenhaDiagrama() {
   const medida = (e, x, y, x2, y2) => {                // o chip da medida e a linha até o DSP
     const g = el("g", { class: "med no", "data-nos": [e.k, ...e.dsps].join("|") }, camNos), w = larg(e.rot);
     el("rect", { x, y, width: w, height: 22, rx: 6 }, g); el("text", { x: x + 9, y: y + 15 }, g, e.rot);
-    if (e.dica) el("title", {}, g, e.dica);
+    if (e.dica) dica(g, e.dica);
     for (const n of e.dsps) el("path", { class: "lig", d: curva(x + w, y + 11, x2 != null ? x2 : caixas[n].x, y2 != null ? y2 : meio(caixas[n])), "data-nos": `${e.k}|${n}` }, camLig);
   };
   for (const e of ents) medida(e, X0 - 80 - larg(e.rot), e.y);
@@ -824,7 +856,7 @@ function desenhaDiagrama() {
     const g = el("g", { class: "atu no", "data-nos": [e.k, ...e.dsps].join("|") }, camNos), w = larg(e.rot);
     el("rect", { x: XA, y: e.y, width: w, height: 22, rx: 11, fill: COR.atuFundo, stroke: COR.atuBorda }, g);
     el("text", { x: XA + 9, y: e.y + 15, fill: COR.atuTexto }, g, e.rot);
-    if (e.curta || e.dica) { const t = e.curta || e.dica; el("text", { class: "dest", x: XA + 4, y: e.y + 34, fill: "var(--sutil)" }, g, t.length > 28 ? t.slice(0, 27) + "…" : t); el("title", {}, g, e.dica || t); }
+    if (e.curta || e.dica) { const t = e.curta || e.dica; el("text", { class: "dest", x: XA + 4, y: e.y + 34, fill: "var(--sutil)" }, g, t.length > 28 ? t.slice(0, 27) + "…" : t); dica(g, e.dica || t); }
     for (const n of e.dsps) { const b = caixas[n]; el("path", { class: "esc", d: curva(b.x + b.w, meio(b), XA - 2, e.y + 11), stroke: COR.atuBorda, "marker-end": "url(#cd-seta-a)", "data-nos": `${n}|${e.k}` }, camLig); }
   }
   for (const q of cs) {                                 // as mensagens entre os DSPs: o mesmo conteúdo para vários = um rótulo só, na saída
@@ -835,12 +867,17 @@ function desenhaDiagrama() {
     grupos.forEach((gr, gi) => {
       const sy = meio(a) - 8 + (gi - (grupos.length - 1) / 2) * 14;
       for (const p of gr.para) { const b = caixas[p];
+        // para a frente: da direita de um à esquerda do outro; na mesma coluna: um arco pela direita, mais aberto quanto mais
+        // longe (os vizinhos não viram uma linha só); para trás (a resposta ao controle): da esquerda dele à direita do outro, por baixo
         const dpath = b.x > a.x ? curva(a.x + a.w, sy, b.x - 2, meio(b) - 10)
-          : (() => { const x = Math.max(a.x, b.x) + a.w + 24; return `M${a.x + a.w} ${a.y + 10}C${x} ${a.y + 10},${x} ${b.y + 10},${b.x + b.w + 2} ${b.y + 10}`; })();
-        el("path", { class: "msg", d: dpath, "marker-end": "url(#cd-seta)", "data-nos": `${q.nome}|${p}` }, camMsg); }
+          : b.x === a.x ? (() => { const y1 = sy, y2 = b.y + 12, x = a.x + a.w + 18 + Math.min(150, Math.abs(y2 - y1) * 0.18);
+            return `M${a.x + a.w} ${y1}C${x} ${y1},${x} ${y2},${b.x + b.w + 2} ${y2}`; })()
+          : (() => { const y1 = a.y + 10, y2 = b.y + b.h - 8, x1 = a.x, x2 = b.x + b.w + 2, dx = Math.max(30, (x1 - x2) / 2);
+            return `M${x1} ${y1}C${x1 - dx} ${y1},${x2 + dx} ${y2},${x2} ${y2}`; })();
+        el("path", { class: `msg${b.x < a.x ? " volta" : ""}`, d: dpath, "marker-end": "url(#cd-seta)", "data-nos": `${q.nome}|${p}` }, camMsg); }
       const wr = Math.max(larg(gr.rot, 6.8), larg(quando, 5.4)), lx = a.x + a.w + 8 + wr / 2, ly = sy - 1;   // em cima da linha, logo na saída
       const g = el("g", { "data-nos": [q.nome, ...gr.para].join("|") }, camMsg);
-      el("title", {}, g, [`${q.nome} → ${gr.para.join(", ")}: ${gr.chaves.length ? gr.chaves.join(", ") : "(o conteúdo não dá para ler do código)"} · ${quandoLongo}`,
+      dica(g, [`${q.nome} → ${gr.para.join(", ")}: ${gr.chaves.length ? gr.chaves.join(", ") : "(o conteúdo não dá para ler do código)"} · ${quandoLongo}`,
         ...[...new Set(gr.codigo)].map((x) => `  ${x}`),
         ...gr.para.map((p) => { const le = gr.chaves.filter((k) => msgs[p].le.has(k)), nao = gr.chaves.filter((k) => !msgs[p].le.has(k));
           return `${p} lê: ${le.join(", ") || "nada disso"}${nao.length ? ` · chega e não lê: ${nao.join(", ")}` : ""}`; })].join("\n"));
@@ -856,7 +893,7 @@ function desenhaDiagrama() {
     let y = b.y + 52;
     if (b.mods.length) { const t = b.mods.join(" → "); el("text", { class: "mods", x: b.x + 12, y }, g, t.length > 30 ? t.slice(0, 29) + "…" : t); y += 16; }
     if ((q.subcircuitos || []).length) el("text", { class: "sub", x: b.x + 12, y }, g, `× ${q.subcircuitos.length} subcircuito${q.subcircuitos.length > 1 ? "s" : ""}`);
-    el("title", {}, g, `${q.nome} (${q.arquivo}) · lê ${q.todas ? "todas" : q.medidas.join(", ") || "nada"} · escreve ${q.atuacoes.join(", ") || "nada"}${b.mods.length ? ` · módulos: ${b.mods.join(" → ")}` : ""} · clique: abre o código`);
+    dica(g, `${q.nome} (${q.arquivo}) · lê ${q.todas ? "todas" : q.medidas.join(", ") || "nada"} · escreve ${q.atuacoes.join(", ") || "nada"}${b.mods.length ? ` · módulos: ${b.mods.join(" → ")}` : ""} · clique: abre o código`);
   }
   if (!ents.length && !sais.length && cs.length === 1 && !msgs[cs[0].nome].envia.length)
     el("text", { class: "vazio", x: X0, y: H + 14 }, svg, "o controle ainda não lê nem escreve nada (marque medidas e atuações)");
@@ -1233,12 +1270,19 @@ function tagAtuador(g, x, y, nome, centrada = false) {   // centrada: x é o mei
   $("cd-fecha").onclick = fechaTabela;
   $("ctl-diag-svg").addEventListener("click", (ev) => { const g = ev.target.closest(".dsp"); if (g && Date.now() - (ctl.diagArrastou || 0) > 300) mostraArquivo(g.dataset.arq); });
   ligaVistaDiag();
+  // o mouse num bloco: ficam acesos ele, as linhas dele (mais grossas) e os blocos do outro lado delas (Marcelo, 21/10:
+  // "além de destacar, podia destacar quem ele tá conectado") — o resto apaga
   $("ctl-diag-svg").addEventListener("mouseover", (ev) => {
     const no_ = ev.target.closest(".no"), svg = $("ctl-diag-svg"); if (!no_) return;
-    const meus = new Set(no_.dataset.nos.split("|"));
-    svg.querySelectorAll("[data-nos]").forEach((x) => { const ns = x.dataset.nos.split("|"); x.classList.toggle("apagado", !ns.some((n) => meus.has(n)) && x !== no_); });
+    const meus = new Set(no_.dataset.nos.split("|")), vizinhos = new Set(meus);
+    svg.querySelectorAll("path[data-nos]").forEach((x) => { const ns = x.dataset.nos.split("|"); if (ns.some((n) => meus.has(n))) ns.forEach((n) => vizinhos.add(n)); });
+    svg.querySelectorAll("[data-nos]").forEach((x) => {
+      const ns = x.dataset.nos.split("|"), meu = ns.some((n) => meus.has(n));
+      const aceso = x === no_ || meu || (x.classList.contains("no") && vizinhos.has(ns[0]));
+      x.classList.toggle("apagado", !aceso); x.classList.toggle("ligado", x.tagName === "path" && meu);
+    });
   });
-  $("ctl-diag-svg").addEventListener("mouseleave", () => $("ctl-diag-svg").querySelectorAll(".apagado").forEach((x) => x.classList.remove("apagado")));
+  $("ctl-diag-svg").addEventListener("mouseleave", () => $("ctl-diag-svg").querySelectorAll(".apagado, .ligado").forEach((x) => x.classList.remove("apagado", "ligado")));
   document.addEventListener("mousedown", (ev) => { if (ctl.pick && !ev.target.closest("#ctl-pick, .ctl-ctl details.grupo > summary")) fechaPicker(); });
   lado.addEventListener("scroll", posicionaPicker);
   $("ctl-arq-busca").addEventListener("keydown", (ev) => { if (ev.key === "Escape") { ev.target.value = ""; buscaArquivos(); } });

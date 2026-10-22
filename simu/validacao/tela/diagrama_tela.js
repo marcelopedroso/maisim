@@ -2,7 +2,8 @@
 // um flow, mostrando o que ele lê e o que sai dele, o que sai de um e entra no outro"): o botão na aba arquivos mostra o
 // diagrama no lugar do código; os DSPs em colunas pela ordem das mensagens; as medidas de cada um (a de um DSP só, encostada
 // nele); as mensagens com o que vai e a latência (um rótulo só quando vai o mesmo a vários); as atuações à direita, com o
-// que comandam; "todas as medidas" vira um bloco; clicar num DSP abre o código; o código muda e o diagrama acompanha
+// que comandam; "todas as medidas" vira um bloco; clicar num DSP abre o código; o código muda e o diagrama acompanha;
+// mensagens em ciclo (21/10: o MMC) em duas colunas, o "ajustar" à vista, o mouse acendendo os ligados
 const { chromium } = require("playwright");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
@@ -59,6 +60,34 @@ const ORQ = CTL('    envia("dsp_a", {"theta": 1.0})\n    envia("dsp_b", {"theta"
     await pg.click("#ctl-diag-bt"); await pg.waitForTimeout(300); await pg.click("#cd-fecha"); await pg.waitForTimeout(300);
     v = await le();
     ok(!v.vis && await pg.evaluate(() => $("ctl-editor").style.display !== "none"), "✕ fecha o diagrama e o código volta");
+    // mensagens em ciclo (Marcelo, 21/10, o MMC: o controle manda a todos e alguns respondem — cada volta empurrava todos uma
+    // coluna; os DSPs iam para a última de muitas colunas vazias e o "ajustar" mostrava o vazio): o controle numa coluna, os
+    // outros na seguinte; o "ajustar" mostra o desenho; a atuação na altura do DSP; o mouse acende os ligados
+    await pg.evaluate(async ([orq, a, b_]) => {
+      const q = (nome, arquivo, medidas, atuacoes) => ({ nome, arquivo, todas: false, medidas, atuacoes, subcircuitos: [] });
+      await api("editor/controle", { controle: { ativo: true, Ts: 1e-4, atuacoes: ["s05", "s06"], parametros: [], acionamentos: [], codigo: orq,
+        arquivos: { "dsp_a.py": a, "dsp_b.py": b_ }, rede: { latencia: 0 },
+        controladores: [q("controle", "controle.py", ["s01", "s02"], []), q("dsp_a", "dsp_a.py", ["s03"], ["s05"]), q("dsp_b", "dsp_b.py", ["s04"], ["s06"])] } });
+      await recarregaControle(); },
+    [ORQ, CTL('    envia("controle", {"x": 1.0})\n    envia("dsp_b", {"y": 1.0})\n'), CTL('    envia("dsp_a", {"z": 1.0})\n')]);
+    await pg.waitForTimeout(600); await pg.click("#ctl-diag-bt"); await pg.waitForTimeout(500); await pg.click("#cd-ajusta"); await pg.waitForTimeout(300);
+    v = await le();
+    const cic = await pg.evaluate(() => { const svg = $("ctl-diag-svg"), R = svg.parentElement.getBoundingClientRect(), dentro = (g) => { const r = g.getBoundingClientRect(); return r.left >= R.left && r.right <= R.right && r.top >= R.top && r.width > 20; };
+      const cy = (s) => { const r = svg.querySelector(s).getBBox(); return r.y + r.height / 2; };
+      return { W: +svg.getAttribute("width"), vistos: [...svg.querySelectorAll(".dsp")].every(dentro), k: vistaDiag.k,
+        alinhada: Math.abs(cy('.atu[data-nos^="s05"] rect') - cy('.dsp[data-nos="dsp_a"] rect')) < 12 }; });
+    ok(v.dsps.controle.x < v.dsps.dsp_a.x && v.dsps.dsp_a.x === v.dsps.dsp_b.x && cic.W < 1300 && cic.vistos && cic.alinhada,
+      `em ciclo: o controle numa coluna, dsp_a e dsp_b na seguinte (largura ${Math.round(cic.W)} px); "ajustar" (${Math.round(cic.k * 100)} %) deixa os DSPs à vista; a s05 na altura do dsp_a`);
+    await pg.hover('#ctl-diag-svg .dsp[data-nos="dsp_b"] rect'); await pg.waitForTimeout(200);
+    const foco = await pg.evaluate(() => { const svg = $("ctl-diag-svg"), ap = (s) => svg.querySelector(s).classList.contains("apagado");
+      return { dspA: ap('.dsp[data-nos="dsp_a"]'), ctl: ap('.dsp[data-nos="controle"]'), s04: ap('.med[data-nos^="s04"]'), s06: ap('.atu[data-nos^="s06"]'), s01: ap('.med[data-nos^="s01"]'),
+        ligadas: [...svg.querySelectorAll("path.ligado")].map((p) => p.dataset.nos).sort(), outra: ap('path.msg[data-nos="controle|dsp_a"]') }; });
+    ok(!foco.dspA && !foco.ctl && !foco.s04 && !foco.s06 && foco.s01 && foco.outra && foco.ligadas.includes("dsp_a|dsp_b") && foco.ligadas.includes("controle|dsp_b") && foco.ligadas.includes("dsp_b|dsp_a"),
+      `o mouse no dsp_b: acesos ele, o dsp_a e o controle (ligados por mensagem), a s04 e a s06; apagados a s01 e a mensagem controle → dsp_a; linhas grossas: ${foco.ligadas.join(", ")}`);
+    await pg.waitForTimeout(500);                         // a dica do MaiSim (dica.js), não a caixinha do navegador (o <title> do SVG)
+    const dc = await pg.evaluate(() => ({ vis: $("dica-ui").classList.contains("vis"), txt: $("dica-ui").textContent, titles: $("ctl-diag-svg").querySelectorAll("title").length }));
+    ok(dc.vis && /^dsp_b \(dsp_b\.py\) · lê s04/.test(dc.txt) && dc.titles === 0, `a dica do MaiSim no dsp_b ("${dc.txt.slice(0, 60)}…"), nenhum <title> no SVG`);
+    await pg.mouse.move(2, 2); await pg.click("#cd-fecha");
     await pg.evaluate(async () => { await api("editor/novo", { modo: "descartar" }); });
     ok(!erros.length, `sem erros de JS nem diálogos ${erros.join(" ; ")}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message}`); }
