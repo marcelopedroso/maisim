@@ -503,6 +503,13 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   #progresso.ativo { display:flex; } #progresso .barra { width:90px; height:6px; background:var(--suave); border-radius:3px; overflow:hidden; }
   #progresso .barra i { display:block; height:100%; width:0; background:linear-gradient(90deg, #6d5ae6, #3b82f6); transition:width .3s; }
   #progresso.pausada .barra i { background:#e8a33d; }
+  /* simulando, o circuito só para ver (Marcelo, 22/10): o aviso no painel do componente; a paleta apagada */
+  #props .trava-circ { background:var(--aviso-bg); border:1px solid var(--aviso-borda); color:var(--aviso2); border-radius:6px; padding:6px 10px; font-size:12px; margin-bottom:8px; }
+  body.circ-travado #paleta { opacity:.45; } body.circ-travado #paleta * { cursor:not-allowed; }
+  /* simulando, a ⚙ só para ver (Marcelo, 22/10) */
+  .modal .m-trava { background:var(--aviso-bg); border:1px solid var(--aviso-borda); color:var(--aviso2); border-radius:6px; padding:6px 10px; font-size:12.5px; }
+  /* o diodo animado do MaiSim enquanto simula (Marcelo, 21/10: "o nosso diodo animado… quando estiver simulando"); pausada: parado */
+  #progresso .sim-diodo { display:inline-flex; } #progresso.pausada .diodo-ia * { animation-play-state:paused; }
   /* modal */
   .modal-fundo { position:fixed; inset:0; z-index:100; background:rgba(15,23,42,.35); display:flex; align-items:flex-start; justify-content:center; padding-top:12vh;
                  animation:aparece .12s ease-out; }
@@ -618,7 +625,7 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   <div class="grupo-bt icones" id="g-claude">
     <button id="bt-claude" title="IA do MaiSim"><svg class="mascote" width="22" height="22" aria-hidden="true"><use href="#maisim-claude"/></svg></button>
   </div>
-  <div id="progresso" title="simulação"><div class="barra"><i></i></div><span></span></div>
+  <div id="progresso" title="simulação"><span class="sim-diodo"></span><div class="barra"><i></i></div><span class="sim-t"></span></div>
   <span id="msg"></span>
   <span id="info"></span>
 </header>

@@ -16,6 +16,23 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   const m = await pg.evaluate(() => [...document.querySelectorAll("#svg g.medido")].map((g) => { const f = g.firstChild; return [f.tagName, f.getAttribute("fill"), f.getAttribute("stroke"), g.querySelector("text").textContent]; }));
   ok(m.some((x) => x[0] === "rect" && x[1] === "#dc2626" && x[3] === "V+") && m.some((x) => x[0] === "rect" && x[1] === "#111827" && x[3] === "V−") && m.some((x) => x[0] === "circle" && x[1] === "#e0f2fe" && x[2] === "#0ea5e9"),
      `marcas: ${JSON.stringify(m)}`);
+  // clicar na marca de um medidor (o "A" no componente, o "V+" no nó) abre o medidor (Marcelo, 22/10: "clicar na bolinha do sensor e ele abrir os dados")
+  const clicaMarca = async (sel) => { const r = await (await pg.$(sel)).boundingBox(); await pg.mouse.click(r.x + r.width / 2, r.y + r.height / 2); await pg.waitForTimeout(400); return pg.evaluate(() => ed.sel); };
+  const meds = await pg.evaluate(() => [...document.querySelectorAll("#svg g.medido")].map((g) => [g.querySelector("text").textContent, g.dataset.medidor]));
+  const amp = meds.find((x) => x[0] === "A"), selA = await clicaMarca('#svg g.medido[data-medidor] circle'), selV = await clicaMarca('#svg g.medido[data-medidor] rect');
+  const ampEl = await pg.evaluate(() => (dados.folhas["0"].elementos.find((x) => x.tipo === "AMP") || {}).nome);
+  ok(amp && amp[1] === ampEl && selA === ampEl && /^VOLT\./.test(selV || "") && await pg.evaluate(() => /mede/i.test($("props").textContent)),
+    `clicar na marca abre o medidor: o "A" → ${selA}, o "V+" → ${selV} (as marcas: ${JSON.stringify(meds)})`);
+  // o histórico diz qual rótulo mudou (Marcelo, 22/10: só "rótulo mudado" não dizia de quem)
+  await pg.evaluate((n) => seleciona(dados.folhas["0"].elementos.find((x) => x.nome === n)), ampEl); await pg.waitForSelector('#props [data-out="0"]');
+  const antes = await pg.inputValue('#props [data-out="0"]');
+  const semRenomear = async () => { if (await pg.$(".modal .m-cancela")) { await pg.click(".modal .m-cancela"); await pg.waitForTimeout(300); } };   // "o controle usa o nome antigo": deixar como está
+  await pg.fill('#props [data-out="0"]', "i_L_teste"); await pg.press('#props [data-out="0"]', "Tab"); await pg.waitForTimeout(800); await semRenomear();
+  const h1 = await pg.evaluate((n) => (historico.find((x) => x.t.startsWith(`${n}: `)) || {}).t, ampEl);
+  await pg.evaluate((n) => seleciona(dados.folhas["0"].elementos.find((x) => x.nome === n)), ampEl); await pg.waitForSelector('#props [data-out="0"]');
+  await pg.fill('#props [data-out="0"]', antes); await pg.press('#props [data-out="0"]', "Tab"); await pg.waitForTimeout(800); await semRenomear();
+  ok((h1 || "").startsWith(`${ampEl}: sinal ${antes ? `“${antes}”` : "(vazio)"} → “i_L_teste”`),
+    `o histórico diz o rótulo: "${h1}" (e voltou ao "${antes}")`);
   await pg.evaluate(() => seleciona(dados.folhas["0"].elementos.find((x) => x.nome === "VOLT.1"))); await pg.waitForSelector(".cor-canal");
   await pg.click('.cor-canal [data-cor="#d946ef"]'); await pg.waitForFunction(() => dados.cores.v_sw === "#d946ef", null, { timeout: 10000 });
   const t = await pg.evaluate(() => [...document.querySelectorAll("#svg g.tag-scope rect")].map((r) => r.getAttribute("stroke")));
