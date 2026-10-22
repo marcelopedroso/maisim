@@ -2237,20 +2237,33 @@ def assinatura_codigo(c):
 
 
 def guarda_vistas(trab, c, fonte):
-    if not trab or not trab.vistas:
-        return
+    if not trab:                                         # sem controle: nada a dizer; com controle e nenhuma mensagem, fica
+        return                                           # registrado que nada foi (o de antes não passa por atual)
     try:
         d = json.loads(VISTAS.read_text()) if VISTAS.exists() else {}
     except (OSError, ValueError):
         d = {}
     d[str(editor.get("aberto") or "")] = dict(fonte=fonte, quando=time.strftime("%Y-%m-%d %H:%M"), assinatura=assinatura_codigo(c),
-                                              pares={k: list(v) for k, v in trab.vistas.items()})
+                                              pares={k: list(v) for k, v in (trab.vistas or {}).items()})
     try:
         VISTAS.parent.mkdir(parents=True, exist_ok=True)
         tmp = VISTAS.with_suffix(".tmp")
         tmp.write_text(json.dumps(d, ensure_ascii=False))
         os.replace(tmp, VISTAS)
     except OSError:
+        pass
+
+
+def muda_chave_vistas(antiga, nova):
+    """Salvar com nome: o registro segue o circuito. De um sem arquivo ("") ele passa para o nome; de outro arquivo (salvar
+    como), copia (o arquivo antigo continua com o dele)."""
+    try:
+        d = json.loads(VISTAS.read_text()) if VISTAS.exists() else {}
+        if antiga == nova or antiga not in d:
+            return
+        d[nova] = d.pop(antiga) if antiga == "" else d[antiga]
+        VISTAS.write_text(json.dumps(d, ensure_ascii=False))
+    except (OSError, ValueError):
         pass
 
 
@@ -4495,10 +4508,11 @@ def _resumo_mudanca(m):
                       + int((m.get("controladores_antes") or []) != (m.get("controladores") or []) or (m.get("rede_antes") or {}) != (m.get("rede") or {}))}
 
 
-def claude_aplicada(antes=None):
+def claude_aplicada(antes=None, aplicado=None, recusados=None):
     """A proposta aplicada (pela tela). O histórico da conversa guarda o que mudou — o código, os parâmetros e os acionamentos
     de antes (o que estava na tela ao aplicar, se a tela mandar; senão, o do pedido) e os da proposta —, para ver depois
-    ("ver a mudança", pedido de Marcelo em 19/10: saber o que mudou depois de aprovar)."""
+    ("ver a mudança", pedido de Marcelo em 19/10: saber o que mudou depois de aprovar). Aplicada em parte (arquivos recusados,
+    os parâmetros de fora), a tela manda o que foi de fato aplicado: é isso que fica (e o que controle_aplicado devolve)."""
     with trava_claude:
         p = claude_pedido.get("proposta")
         if p:
@@ -4509,13 +4523,16 @@ def claude_aplicada(antes=None):
         h[-1]["aplicada"] = True
         if p and p.get("mudou"):
             a = antes if isinstance(antes, dict) else {}
-            m = {"codigo_antes": str(a.get("codigo", p.get("codigo_antes") or "")), "codigo": str(p.get("codigo") or ""),
-                 "parametros_antes": a.get("parametros", p.get("parametros_antes") or []), "parametros": p.get("parametros") or [],
-                 "acionamentos_antes": a.get("acionamentos", p.get("acionamentos_antes") or []), "acionamentos": p.get("acionamentos") or [],
-                 "arquivos_antes": a.get("arquivos", p.get("arquivos_antes") or {}), "arquivos": p.get("arquivos") or {},
-                 "controladores_antes": a.get("controladores", p.get("controladores_antes") or []), "controladores": p.get("controladores") or [],
-                 "rede_antes": a.get("rede", p.get("rede_antes")), "rede": p.get("rede"),
+            d = aplicado if isinstance(aplicado, dict) else {}
+            m = {"codigo_antes": str(a.get("codigo", p.get("codigo_antes") or "")), "codigo": str(d.get("codigo", p.get("codigo") or "")),
+                 "parametros_antes": a.get("parametros", p.get("parametros_antes") or []), "parametros": d.get("parametros", p.get("parametros") or []),
+                 "acionamentos_antes": a.get("acionamentos", p.get("acionamentos_antes") or []), "acionamentos": d.get("acionamentos", p.get("acionamentos") or []),
+                 "arquivos_antes": a.get("arquivos", p.get("arquivos_antes") or {}), "arquivos": d.get("arquivos", p.get("arquivos") or {}),
+                 "controladores_antes": a.get("controladores", p.get("controladores_antes") or []), "controladores": d.get("controladores", p.get("controladores") or []),
+                 "rede_antes": a.get("rede", p.get("rede_antes")), "rede": d.get("rede", p.get("rede")),
                  "quando": time.time()}
+            if recusados:
+                m["recusados"] = [str(x) for x in recusados][:50]
             if len(json.dumps(m, ensure_ascii=False)) < 400_000:
                 h[-1]["mudanca"], h[-1]["mudanca_resumo"] = m, _resumo_mudanca(m)
         grava_historico(conv["id"], h)
@@ -4771,7 +4788,8 @@ class Manipulador(BaseHTTPRequestHandler):
                      "/claude/parar": lambda: (claude_para(), claude_pedido_estado())[1], "/claude/nova": claude_nova,
                      "/claude/anexo": lambda: claude_anexa(corpo.get("nome", ""), corpo.get("dados", "")),
                      "/claude/tira_anexo": lambda: claude_tira_anexo(corpo.get("nome", "")),
-                     "/claude/descartar": claude_descarta, "/claude/aplicada": lambda: claude_aplicada(corpo.get("antes")),
+                     "/claude/descartar": claude_descarta, "/claude/aplicada": lambda: claude_aplicada(corpo.get("antes"), corpo.get("aplicado"),
+                                                                                  corpo.get("recusados")),
                      "/claude/desfeita": claude_desfeita,
                      "/claude/testar": lambda: claude_testa(float(corpo.get("dt", 1e-6))),
                      "/claude/memoria": lambda: grava_memoria(corpo.get("texto", "")),
@@ -5088,7 +5106,9 @@ class Manipulador(BaseHTTPRequestHandler):
                     raise ErroMotor(f"já existe {relativo(dest)}; confirme para sobrescrever")
                 MOTOR.cmd(f"SAVEAS {dest}")
                 antiga = editor.get("aberto") or "(sem arquivo)"
+                chave_vistas = str(editor.get("aberto") or "")
                 marca_aberto(str(relativo(dest)))
+                muda_chave_vistas(chave_vistas, str(relativo(dest)))   # o que foi nas mensagens também segue
                 claude_muda_chave(antiga, str(relativo(dest)))   # a conversa com o Claude segue o circuito
                 salva_controle_junto(dest)                # o controle e as cores dos canais vão junto, ao lado do .ipes
                 salva_aparencia_junto(dest)

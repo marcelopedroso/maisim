@@ -111,6 +111,24 @@ t = testa(dois(A2, B2))
 ult = t.get("passos", [{}])[-1].get("s", {}) if t.get("ok") else {}
 ok(t.get("ok") and (ult.get("b_re"), ult.get("b_im"), ult.get("b_nada"), ult.get("b_x")) == (1.5, -2.0, 1, 3.0),
    f"mensagem com fasor (re, im), None e número: chega {[ult.get(k) for k in ('b_re', 'b_im', 'b_nada', 'b_x')]} {t.get('erro', '')[:80]}")
+# o que foi nas mensagens (revisão do Codex no PR #15): o "testar" sem mensagem nenhuma registra que nada foi (o registro de
+# antes não passa por atual); um circuito novo, salvo com nome, leva o registro junto
+mv1 = api("editor/controle").get("mensagens_vistas") or {}
+testa(dois('def passo(t, m, p, e):\n    pass\n', 'def passo(t, m, p, e):\n    pass\n'))
+mv2 = api("editor/controle").get("mensagens_vistas") or {}
+ok(mv1.get("pares") == {"a|b": ["f", "n", "x"]} and mv2.get("fonte") == "testar" and mv2.get("pares") == {} and mv2.get("atual") is True,
+   f"o \"testar\" sem mensagem: o registro diz que nada foi ({mv1.get('pares')} → {mv2.get('pares')})")
+api("editor/novo", {"modo": "descartar"})
+testa(dois(A2, B2, aa=[]))
+mvn = api("editor/controle").get("mensagens_vistas") or {}
+sv = api("editor/salvar", {"nome": "vistas_teste", "pasta": "circuitos", "sobrescrever": True})
+mvs = api("editor/controle").get("mensagens_vistas") or {}
+ok(mvn.get("pares") == {"a|b": ["f", "n", "x"]} and "ERRO" not in sv and mvs.get("pares") == mvn.get("pares") and mvs.get("atual") is True,
+   f"circuito novo salvo com nome: o registro vai junto ({mvn.get('pares')} → {mvs.get('pares')}) {sv.get('erro', '')}")
+for ext in (".ipes", ".controle.json", ".aparencia.json"):
+    try: os.remove(f"{T}/circuitos/vistas_teste{ext}")
+    except OSError: pass
+api("editor/abrir", {"arq": PI, "modo": "descartar"})
 t = testa(dois('def passo(t, m, p, e):\n    envia("b", {"s": "texto"})\n', 'def passo(t, m, p, e):\n    pass\n'))
 ok(not t.get("ok") and "cada valor é um número, None ou uma lista de números" in t.get("erro", ""), f"texto na mensagem: erro claro ({t.get('erro', '')[:90]})")
 

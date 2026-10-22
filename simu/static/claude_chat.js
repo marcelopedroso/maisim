@@ -408,8 +408,12 @@ async function ccAplica(op = {}) {
   try {
     if (await guardaControle()) {
       if (memMudou) { try { await apiClaude("memoria", { texto: p.memoria }); } catch (e) { cc.aviso = `memória: ${e.message}`; } }
+      // o que foi de fato aplicado (com recusados, só a parte aceita): é o que o histórico guarda e o que um contexto leva
       try { cc.estado = await apiClaude("aplicada", { antes: { codigo: cc.antes.codigo, parametros: cc.antes.parametros, acionamentos: cc.antes.acionamentos, arquivos: cc.antes.arquivos,
-        controladores: cc.antes.controladores, rede: cc.antes.rede } }); } catch (e) { /* ok */ }
+        controladores: cc.antes.controladores, rede: cc.antes.rede },
+        aplicado: { codigo: p.codigo, parametros: p.parametros, acionamentos: p.acionamentos, arquivos: p.arquivos,
+          controladores: p.controladores || cc.antes.controladores, rede: p.controladores ? p.rede : cc.antes.rede },
+        recusados: [...(op.recusados || [])].concat(op.semPars ? ["parâmetros, acionamentos e controladores"] : []) }); } catch (e) { /* ok */ }
     }
     else cc.aviso = "aplicada na tela, mas não deu para guardar (veja o controle.py)";
     if (!cc.aviso && op.recusados && op.recusados.size)

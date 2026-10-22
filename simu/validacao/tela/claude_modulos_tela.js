@@ -84,6 +84,11 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
        && parc.arqs["pll.py"] && /import pll/.test(parc.cod) && parc.arqs["leitura.py"] === original.arqs["leitura.py"] && parc.r.controle.arquivos["leitura.py"] === original.arqs["leitura.py"]
        && /aplicada em parte: ficaram como estavam leitura\.py/.test(parc.aviso),
       `por arquivo: a janela cabe na tela, as abas rolam; recusado o leitura.py ("${esc.bt}", com o aviso): pll.py entrou, controle.py mudou, leitura.py ficou — "${parc.aviso}"`);
+    // o histórico guarda o que foi de fato aplicado, não a proposta inteira (revisão do Codex no PR #15): o "ver a mudança"
+    // e um contexto salvo depois não levam o recusado
+    const mud = await pg.evaluate(async () => { const h = (cc.estado.conversa && cc.estado.conversa.historico) || []; try { return await apiClaude(`mudanca?i=${h.length - 1}`); } catch (e) { return { erro: e.message }; } });
+    ok(mud.arquivos && mud.arquivos["leitura.py"] === original.arqs["leitura.py"] && mud.arquivos["pll.py"] && (mud.recusados || []).includes("leitura.py"),
+      `o histórico guarda só o aplicado: leitura.py como era, pll.py novo, recusados ${JSON.stringify(mud.recusados || mud.erro)}`);
     await pg.click("#cc-voltar"); await pg.waitForTimeout(2000);
     ok(await pg.evaluate((o) => codigoAtual() === o.cod && JSON.stringify(arquivosDoEditor()) === JSON.stringify(o.arqs), original), "↶ voltar ao de antes depois da aplicada em parte: tudo como era");
     // o modelo e o esforço (19/10): escolhidos ao lado do enviar, lembrados, vão ao CLI; enquanto ele responde, o enviar
