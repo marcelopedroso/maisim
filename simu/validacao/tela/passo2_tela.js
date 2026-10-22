@@ -47,8 +47,29 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   // clique numa máquina mais rápida, como a do GitHub Actions, e o estado ficava "fim", não "parada")
   await pg.evaluate(() => { sim.par.tfim = "1"; });
   await pg.click("#bt-play"); await pg.waitForFunction(() => sim.estado === "rodando", null, { timeout: 20000 }); await pg.waitForTimeout(300);
+  // o diodo animado do MaiSim ao lado da barrinha enquanto simula (Marcelo, 22/10); pausada, ele para
+  const anima = () => pg.evaluate(() => { const d = document.querySelector("#progresso.ativo .sim-diodo .diodo-ia .dia-fluxo"); return d ? getComputedStyle(d).animationPlayState.split(",")[0] : "sem diodo"; });
+  const dRoda = await anima();
+  await pg.click("#bt-pausa"); await pg.waitForFunction(() => sim.estado === "pausada", null, { timeout: 20000 }); await pg.waitForTimeout(300);
+  const dPausa = await anima();
+  // simulando (pausada também), a ⚙ abre só para ver (Marcelo, 22/10): os parâmetros e as variáveis travados, copiar o nome continua
+  await pg.click("#bt-param"); await pg.waitForSelector(".modal .m-abas, .modal input[name='dt']");
+  const travaP = await pg.evaluate(() => { const m = document.querySelector(".modal"), ins = [...m.querySelectorAll("input")];
+    return { aviso: !!m.querySelector(".m-trava"), ins: ins.length, livres: ins.filter((x) => !x.disabled).map((x) => x.name || x.id || x.dataset.g),
+      copia: [...m.querySelectorAll("[data-copia]")].every((b) => !b.disabled), outros: [...m.querySelectorAll(".gv button:not([data-copia]), #gv-cria")].every((b) => b.disabled),
+      ok: m.querySelector(".m-ok").textContent, cancela: !!m.querySelector(".m-cancela") }; });
+  await pg.click(".modal .m-ok"); await pg.waitForTimeout(200);
+  ok(travaP.aviso && travaP.ins > 0 && !travaP.livres.length && travaP.copia && travaP.outros && travaP.ok === "fechar" && !travaP.cancela,
+    `simulando, a ⚙ só mostra: aviso, ${travaP.ins} campos travados${travaP.livres.length ? ` (livres: ${travaP.livres})` : ""}, criar/apagar travados, copiar o nome ativo, "fechar"`);
+  await pg.click("#bt-play"); await pg.waitForFunction(() => sim.estado === "rodando", null, { timeout: 20000 }); await pg.waitForTimeout(300);
+  const dVolta = await anima();
+  ok(dRoda === "running" && dPausa === "paused" && dVolta === "running", `o diodo animado na barrinha: rodando ${dRoda}, pausada ${dPausa}, continuando ${dVolta}`);
   await pg.click("#bt-parar"); await pg.waitForFunction(() => sim.estado === "parada", null, { timeout: 60000 });
   ok(await pg.evaluate(() => !document.body.classList.contains("sim-rodando") && !ctl.editor.getOption(monaco.editor.EditorOption.readOnly)), "⏹ no meio: destravado");
+  await pg.click("#bt-param"); await pg.waitForSelector(".modal input[name='dt']");
+  const livre = await pg.evaluate(() => { const m = document.querySelector(".modal"); return { aviso: !!m.querySelector(".m-trava"), presos: [...m.querySelectorAll("input")].filter((x) => x.disabled).length, ok: m.querySelector(".m-ok").textContent }; });
+  await pg.click(".modal .m-cancela"); await pg.waitForTimeout(200);
+  ok(!livre.aviso && !livre.presos && livre.ok === "guardar", `parada, a ⚙ volta a editar (sem aviso, nenhum campo travado, "${livre.ok}")`);
   const c1 = await pg.evaluate(async () => [await api("editor/params?nome=CONST.1"), await api("editor/params?nome=CONST.2")].map((l) => l[0].valor));
   ok(c1.join() === "0,0", `depois de parar no meio, os CONST voltaram: ${c1}`);
   await pg.screenshot({ path: "passo2_painel.png" });
