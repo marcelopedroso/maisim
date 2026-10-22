@@ -111,6 +111,26 @@ const ORQ = CTL('    envia("dsp_a", {"theta": 1.0})\n    envia("dsp_b", {"theta"
     ok(sep.bt === "juntar linhas" && sep.guardado === "separadas" && distintos(sep.saiCtl) && sep.saiCtl.length === 2 && distintos(sep.chegaB) && sep.chegaB.length === 3
        && distintos(sep.chegaCtl) && sep.chegaCtl.length === 3 && ladosSep && jun.bt === "separar linhas" && jun.guardado === "juntas" && new Set(jun.saiCtl).size === 1,
       `separar linhas: cada ligação no seu ponto (o controle sai em ${JSON.stringify(sep.saiCtl)}, chegam ao dsp_b em ${JSON.stringify(sep.chegaB)}, ao controle em ${JSON.stringify(sep.chegaCtl)}), ainda entrando pela esquerda e saindo pela direita, guardado; juntar: o controle sai de um ponto só (${JSON.stringify(jun.saiCtl)})`);
+    // o que foi nas mensagens (Marcelo, 22/10: envia("controle", c["sobe"]) com o dicionário montado num laço aparecia só como
+    // "mensagem"): depois do "testar", o rótulo traz as chaves de verdade (até 3 + quantas mais) e a dica diz de onde vieram;
+    // o código mudou depois, a dica avisa
+    await pg.click("#cd-fecha");
+    await pg.evaluate(async (cod) => { const c = (await api("editor/controle")).controle; c.arquivos["dsp_b.py"] = cod;
+      await api("editor/controle", { controle: c }); await recarregaControle(); },
+      CTL('    d = {}\n    for k in range(5):\n        d["x%d" % k] = 1.0\n    envia("dsp_a", d)\n'));
+    await pg.waitForTimeout(500); await pg.click("#ctl-diag-bt"); await pg.waitForTimeout(500);
+    const rotB = () => pg.evaluate(() => { const g = document.querySelector('#ctl-diag-svg g[data-nos="dsp_b|dsp_a"]'); return g ? { rot: g.querySelector("text.rot").textContent, dica: g.getAttribute("title") || g.dataset.dica || "" } : null; });
+    const r0 = await rotB();
+    await pg.click("#cd-fecha"); await pg.evaluate(() => testaControle()); await pg.waitForFunction(() => !$("ctl-testar").disabled, null, { timeout: 30000 }); await pg.waitForTimeout(1200);
+    await pg.click("#ctl-diag-bt"); await pg.waitForTimeout(500);
+    const r1 = await rotB();
+    await pg.click("#cd-fecha");
+    await pg.evaluate(async () => { const c = (await api("editor/controle")).controle; c.arquivos["dsp_b.py"] += "\n# mudou\n"; await api("editor/controle", { controle: c }); await recarregaControle(); });
+    await pg.waitForTimeout(500); await pg.click("#ctl-diag-bt"); await pg.waitForTimeout(500);
+    const r2 = await rotB();
+    ok(r0 && r0.rot === "mensagem" && r1 && r1.rot === "x0, x1, x2 +2" && /x0, x1, x2, x3, x4/.test(r1.dica) && /do último “testar”/.test(r1.dica) && !/mudou depois/.test(r1.dica)
+       && r2 && r2.rot === "x0, x1, x2 +2" && /o código mudou depois/.test(r2.dica),
+      `o que foi nas mensagens: antes do "testar" "${r0 && r0.rot}"; depois "${r1 && r1.rot}" (a dica: ${(r1 && r1.dica || "").split("\n").slice(0, 2).join(" / ")}); com o código mudado, a dica avisa`);
     // Marcelo, 21/10: as linhas das medidas faziam curvas estranhas e a ponta da seta crescia no destaque
     ok(sep.medRetas && jun.locRetas && jun.pontaFixa, `as medidas entram retas (separadas: todas; juntas: as encostadas no DSP); a ponta das setas com tamanho fixo (não cresce no destaque)`);
     await pg.click("#cd-fecha");

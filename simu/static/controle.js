@@ -789,6 +789,18 @@ function desenhaDiagrama() {
   const d = ctl.dados, c = d.controle, cs = (c.controladores || []).length ? c.controladores
     : [{ nome: "controle", arquivo: "controle.py", todas: true, medidas: [], atuacoes: c.atuacoes.slice(), subcircuitos: [] }];
   const msgs = mensagensDe(cs), lat = (c.rede && c.rede.latencia) || 0, quando = lat > 0 ? `fibra ${si(lat, "s")}` : "+1 amostra";
+  // o que foi de fato nas mensagens (o último "testar" ou a última rodada: mensagens_vistas, no servidor), no lugar do que dá
+  // para ler do código (Marcelo, 22/10: envia("controle", c["sobe"]) com o dicionário montado num laço em outro arquivo
+  // aparecia só como "mensagem"). Com o código igual ao daquela execução, entram também os pares que o código não deixa ver
+  const vistas = d.mensagens_vistas || {}, pares = vistas.pares || {};
+  for (const q of cs) {
+    for (const m of msgs[q.nome].envia) {             // o código mudou depois: só completa o que o código não deixa ler (não troca)
+      const v = pares[`${q.nome}|${m.para}`]; if (v && (vistas.atual || !m.chaves.length)) { m.chaves = v; m.visto = true; } }
+    if (vistas.atual) for (const [k, v] of Object.entries(pares)) { const [de, para] = k.split("|");
+      if (de === q.nome && para in msgs && !msgs[de].envia.some((m) => m.para === para)) msgs[de].envia.push({ para, chaves: v, codigo: [], visto: true }); }
+  }
+  const deOnde = vistas.fonte ? `${vistas.fonte === "rodada" ? "da última rodada" : "do último “testar”"} (${vistas.quando})${vistas.atual ? "" : " — o código mudou depois"}` : "";
+  const curto = (ch) => (ch.length > 3 ? `${ch.slice(0, 3).join(", ")} +${ch.length - 3}` : ch.join(", ")) || "mensagem";   // o rótulo: até 3 chaves
   const quandoLongo = lat > 0 ? `chega depois da fibra de ${si(lat, "s")} (na 1ª amostra com t ≥ envio + latência)` : "chega na amostra seguinte";
   const ctlsArq = cs.map((q) => q.arquivo), NS = "http://www.w3.org/2000/svg", LIM = 8;
   const larg = (t, px = 7.2) => 18 + t.length * px;
@@ -828,7 +840,7 @@ function desenhaDiagrama() {
     const gs = grupos[q.nome] = [];
     for (const m of msgs[q.nome].envia) { if (!(m.para in nivel) || m.para === q.nome) continue;
       const rot = m.chaves.length ? m.chaves.join(", ") : "mensagem", g0 = gs.find((x) => x.rot === rot);
-      if (g0) { g0.para.push(m.para); g0.codigo.push(...m.codigo); } else gs.push({ rot, para: [m.para], chaves: m.chaves, codigo: [...m.codigo] }); }
+      if (g0) { g0.para.push(m.para); g0.codigo.push(...m.codigo); g0.visto = g0.visto || !!m.visto; } else gs.push({ rot, para: [m.para], chaves: m.chaves, codigo: [...m.codigo], visto: !!m.visto }); }
     for (const gr of gs) for (const p of gr.para) { nSai[q.nome] += PASSO; nChega[p] += PASSO; }
   }
   for (const e of entradas.values()) e.dsps.forEach((n) => { nChega[n] += altMed(e); });
@@ -966,15 +978,18 @@ function desenhaDiagrama() {
     el("path", { class: `msg${r.tipo === "volta" ? " volta" : ""}`, d, "marker-end": "url(#cd-seta)", "data-nos": `${r.de}|${r.para}` }, camMsg);
   }
   for (const q of cs) grupos[q.nome].forEach((gr, gi, gs) => {   // os rótulos: logo na saída, por cima das linhas (separadas: em
-    const a = caixas[q.nome], wr = Math.max(larg(gr.rot, 6.8), larg(quando, 5.4));   // cima da caixa, à direita — não cobrem os pontos)
+    const a = caixas[q.nome], txt = curto(gr.chaves), wr = Math.max(larg(txt, 6.8), larg(quando, 5.4));   // cima da caixa, à direita — não cobrem os pontos)
     const lx = separadas ? a.x + a.w - wr / 2 : a.x + a.w + 8 + wr / 2, ly = separadas ? a.y - 17 - (gs.length - 1 - gi) * 30 : gr.sy - 1;
     const g = el("g", { "data-nos": [q.nome, ...gr.para].join("|") }, camMsg);
-    dica(g, [`${q.nome} → ${gr.para.join(", ")}: ${gr.chaves.length ? gr.chaves.join(", ") : "(o conteúdo não dá para ler do código)"} · ${quandoLongo}`,
+    dica(g, [`${q.nome} → ${gr.para.join(", ")}: ${gr.chaves.length ? gr.chaves.join(", ") : "(o conteúdo não dá para ler do código: rode o “testar” ou uma simulação)"} · ${quandoLongo}`,
+      gr.chaves.length ? (gr.visto ? `  o que foi, ${deOnde}` : "  lido do código") : "",
       ...[...new Set(gr.codigo)].map((x) => `  ${x}`),
       ...gr.para.map((p) => { const le = gr.chaves.filter((k) => msgs[p].le.has(k)), nao = gr.chaves.filter((k) => !msgs[p].le.has(k));
-        return `${p} lê: ${le.join(", ") || "nada disso"}${nao.length ? ` · chega e não lê: ${nao.join(", ")}` : ""}`; })].join("\n"));
+        if (!gr.chaves.length) return "";
+        if (!msgs[p].le.size) return `${p} lê: (não deu para ver no código o que ele lê das mensagens)`;   // não é "nada": não se sabe
+        return `${p} lê: ${le.join(", ") || "nada disso"}${nao.length ? ` · chega e não lê: ${nao.join(", ")}` : ""}`; })].filter(Boolean).join("\n"));
     el("rect", { class: "fundo-rot", x: lx - wr / 2, y: ly - 13, width: wr, height: 28, rx: 5 }, g);
-    el("text", { class: "rot", x: lx, y: ly, "text-anchor": "middle" }, g, gr.rot); el("text", { class: "lat", x: lx, y: ly + 12, "text-anchor": "middle" }, g, quando);
+    el("text", { class: "rot", x: lx, y: ly, "text-anchor": "middle" }, g, txt); el("text", { class: "lat", x: lx, y: ly + 12, "text-anchor": "middle" }, g, quando);
   });
   for (const b of Object.values(caixas)) {              // as caixas dos DSPs por cima
     const q = b.q, g = el("g", { class: "dsp no", "data-arq": q.arquivo, "data-nos": q.nome }, camNos);
@@ -1408,6 +1423,10 @@ function desenhaLigacoesTs() { infoTs(); }
 
 // "testar": guarda e roda iniciar() e 3 passo() no servidor, sem simular (medidas zeradas): o que o código devolveria, ou o
 // erro com a linha — para conferir o código antes de uma rodada
+async function atualizaVistas() {                     // o que foi nas mensagens (mensagens_vistas): o diagrama acompanha
+  try { const j = await api("editor/controle"); if (ctl.dados) { ctl.dados.mensagens_vistas = j.mensagens_vistas; if (ctl.tabela === "diag") desenhaDiagrama(); } }
+  catch (e) { /* ok: fica o de antes */ }
+}
 async function testaControle() {
   const bt = $("ctl-testar"); if (bt.disabled) return;
   bt.disabled = true; saidaControle("testando…");
@@ -1427,6 +1446,7 @@ async function testaControle() {
       `${(j.controladores || []).length ? `; controladores, juntos: ${j.controladores.join(", ")}` : ""})\n` +
       linhas.join("\n") + (j.saida ? `\n— print —\n${j.saida}` : ""), fora ? "aviso" : "ok");
     marcaErros(ctl.dados ? ctl.dados.erros : []);
+    atualizaVistas();
   } catch (e) { saidaControle(`teste: ${e.message}`, "erro"); }
   finally { bt.disabled = document.body.classList.contains("sim-rodando"); }
 }

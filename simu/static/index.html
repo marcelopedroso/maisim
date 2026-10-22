@@ -269,7 +269,17 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   .cc-botoes button { font-size:12px; padding:3px 12px; }
   #ctl-claude.arrastando::after { content:"solte para anexar (PDF, imagem, texto)"; position:absolute; inset:4px; display:flex; align-items:center; justify-content:center;
     border:2px dashed var(--acento); border-radius:10px; background:color-mix(in srgb, var(--cartao) 85%, transparent); color:var(--acento); font-weight:600; font-size:13px; z-index:3; }
-  .modal.cc-dif { width:min(1200px, 95vw); } .cc-dif-cab { display:flex; align-items:center; gap:12px; } .cc-dif-cab h3 { flex:1; }
+  /* a janela da proposta cabe na tela (Marcelo, 22/10: com muitos arquivos, as abas e os parâmetros passavam): a diferença
+     fica com o que sobra; as abas numa linha com rolagem; os parâmetros com rolagem própria */
+  .modal.cc-dif { width:min(1200px, 95vw); height:min(92vh, 980px); display:flex; flex-direction:column; } .modal.cc-dif > * { flex:none; }
+  .cc-dif-cab { display:flex; align-items:center; gap:12px; } .cc-dif-cab h3 { flex:1; }
+  .modal.cc-dif .cc-dif-arqs { display:flex; overflow-x:auto; overflow-y:hidden; margin:6px 0 2px; padding-bottom:3px; scrollbar-width:thin; }
+  .cc-dif-arqs button { flex:none; white-space:nowrap; } .cc-dif-arqs button.recusado { text-decoration:line-through; color:var(--erro); }
+  .cc-dif-marca { font-style:normal; margin-right:4px; color:var(--ok); } .cc-dif-arqs button.recusado .cc-dif-marca { color:var(--erro); }
+  .cc-dif-escolha button { font-size:12px; padding:2px 10px; } .cc-dif-escolha button[data-aceita="1"].ativo { background:var(--ok-bg, #e7f6ec); color:var(--ok); border-color:var(--ok); }
+  .cc-dif-escolha button[data-aceita="0"].ativo { background:var(--erro-bg, #fdecec); color:var(--erro); border-color:var(--erro); }
+  .cc-dif-pars-ok { font-weight:400; margin-left:8px; } .cc-dif-pars-ok input { vertical-align:middle; }
+  .cc-dif-parcial { margin:6px 0 0; font-size:12px; color:var(--aviso2); background:var(--aviso-bg); border:1px solid var(--aviso-borda); border-radius:6px; padding:4px 8px; }
   .cc-dif-modo button { font-size:12px; padding:2px 10px; }
   .cc-diff { font:11.5px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; border:1px solid var(--borda); border-radius:6px; overflow:auto; max-height:280px; margin:6px 0; background:var(--campo); }
   .cc-diff > div { white-space:pre; padding:0 8px 0 4px; min-height:1.45em; } .cc-diff span { display:inline-block; width:1.4em; text-align:center; opacity:.75; user-select:none; }
@@ -302,9 +312,9 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   .cx-lista-arq { max-height:30vh; overflow:auto; margin:6px 0; } #cc-anexos .cx-em-uso { border-color:var(--acento-borda); background:var(--acento-suave); } .cx-livro { font-size:11px; }
   .modal.cc-mem { width:min(720px, 94vw); } .cc-mem-txt { width:100%; height:44vh; box-sizing:border-box; font:12.5px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
     border:1px solid var(--borda); border-radius:8px; padding:8px 10px; resize:vertical; background:var(--campo); color:var(--texto); }
-  .cc-dif-ed .cc-diff { max-height:none; height:100%; margin:0; border:0; border-radius:0; } .cc-dif-ed { height:min(62vh, 640px); border:1px solid var(--borda); border-radius:6px; overflow:hidden; }
+  .cc-dif-ed .cc-diff { max-height:none; height:100%; margin:0; border:0; border-radius:0; } .modal.cc-dif .cc-dif-ed { flex:1 1 auto; min-height:180px; border:1px solid var(--borda); border-radius:6px; overflow:hidden; }
   .cc-dif-ed pre { margin:0; padding:8px; height:100%; overflow:auto; font:12px/1.4 ui-monospace, monospace; }
-  .cc-dif-par { font-size:12.5px; margin-top:8px; } .cc-dif-par ul { margin:2px 0; padding-left:18px; }
+  .cc-dif-par { font-size:12.5px; margin-top:8px; max-height:22vh; overflow:auto; } .cc-dif-par ul { margin:2px 0; padding-left:18px; }
   .cla-uso { margin:10px 0 4px; display:grid; gap:5px; } .cla-uso-l { display:grid; grid-template-columns:150px 1fr 42px; align-items:center; gap:8px; font-size:12.5px; }
   .cla-uso-l .barra { height:8px; border-radius:4px; background:var(--suave); overflow:hidden; } .cla-uso-l .barra i { display:block; height:100%; background:var(--acento); }
   .cla-uso-l .barra i.medio { background:#d97706; } .cla-uso-l .barra i.alto { background:#dc2626; } .cla-uso-l b { text-align:right; }
