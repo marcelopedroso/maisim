@@ -16,7 +16,9 @@ import struct
 import sys
 import time
 import queue
+import shutil
 import threading
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -59,6 +61,7 @@ vivo = {"meta": None, "dados": {}, "fim": False, "n": 0}
 PARTIDA = time.strftime("%Y%m%d%H%M%S")   # com o número da rodada, identifica cada rodada publicada (mesmo depois de reiniciar)
 clientes = []
 trava = threading.Lock()
+trava_apagar = threading.Lock()                         # um "apagar" por vez (dois cliques seguidos: o 2º espera o 1º)
 
 
 def difunde(evento, obj):
@@ -71,21 +74,93 @@ def difunde(evento, obj):
 DO_SIMU = ("gecko-maisim", "gecko-pew")         # rodadas do simulador (gecko-pew: as gravadas quando ele se chamava PEW)
 
 
-def resumo_meta(f):
-    """O que a página inicial mostra de uma rodada: o nome dela, o circuito de origem e se é do simulador."""
+# o meta de cada gravação e o tamanho da pasta dela, guardados (Marcelo, 22/10: a página inicial demorava ~1 s para listar
+# 145 gravações — cada pedido abria todos os .npz e somava todas as pastas): só relê o que mudou (o .npz pelo instante e
+# o tamanho; a pasta pelo instante do .npz e da pasta)
+_cache_meta, _cache_pasta = {}, {}
+
+
+def le_meta(f):
     try:
-        meta = json.loads(str(np.load(f, allow_pickle=False)["meta"]))
+        st = f.stat()
+        chave = (str(f), st.st_mtime_ns, st.st_size)
+        if chave in _cache_meta:
+            return _cache_meta[chave]
+        m = json.loads(str(np.load(f, allow_pickle=False)["meta"]))
     except Exception:
-        meta = {}
+        return {}
+    _cache_meta[chave] = m
+    return m
+
+
+def resumo_meta(f, meta=None):
+    """O que a página inicial mostra de uma rodada: o nome dela, o circuito de origem e se é do simulador."""
+    meta = le_meta(f) if meta is None else meta
     return {"nome": str(meta.get("rotulo") or f.parent.name), "modelo": str(meta.get("modelo") or ""), "do_simu": meta.get("planta") in DO_SIMU}
 
 
-def rotulo_rodada(f):
-    """Nome legível de uma rodada gravada: planta · pasta · data e hora."""
+# apagar uma gravação do simu é apagar a pasta da rodada inteira (Marcelo, 22/10: só o .npz saía e as pastas ficavam —
+# a cópia do circuito daquela rodada, o controle, o log, as séries): só a pasta de uma rodada do simu, direto em
+# MAISIM_RODADAS; o circuito em "meus circuitos" nunca é tocado. Uma rodada guardada (.guardada) só com pedido explícito;
+# a que está rodando, nunca
+RODADAS_SIMU = BUSCA[0]
+GUARDADA = ".guardada"
+
+
+def pasta_da_rodada(f, meta):
+    """A pasta inteira da rodada, se a gravação é de uma rodada do simu (senão None: só o .npz)."""
     try:
-        meta = json.loads(str(np.load(f, allow_pickle=False)["meta"]))
+        if f.parent.parent.resolve() == RODADAS_SIMU.resolve() and meta.get("planta") in DO_SIMU:
+            return f.parent
+    except OSError:
+        pass
+    return None
+
+
+def tamanho_pasta(d):
+    try:
+        chave = (str(d), d.stat().st_mtime_ns, max((f.stat().st_mtime_ns for f in d.glob("scope_*.npz")), default=0))
+    except OSError:
+        return 0
+    if chave not in _cache_pasta:
+        _cache_pasta[chave] = sum(x.stat().st_size for x in d.rglob("*") if x.is_file())
+    return _cache_pasta[chave]
+
+
+def rodando_agora():
+    """A pasta da rodada que o simu está rodando (o .npz só é escrito no fim): ela fica fora de qualquer apagar. None se
+    não há; "?" se o simu não respondeu."""
+    try:
+        url = f"http://localhost:{os.environ['MAISIM_PORTA_SIMU']}/maisim/simu/editor/rodada"
+        r = json.loads(urllib.request.urlopen(url, timeout=2).read())
     except Exception:
-        meta = {}
+        return "?"
+    if r.get("estado") in ("preparando", "rodando", "pausada"):
+        return caminho(r["modelo"]).parent if r.get("modelo") else "?"   # preparando, ainda sem a pasta dita: as recentes ficam
+    return None
+
+
+def pastas_orfas():
+    """As pastas de rodada do simu sem gravação (sobras de quando só o .npz era apagado), menos a que está rodando (sem
+    resposta do simu, menos as mexidas nos últimos 10 min)."""
+    if not RODADAS_SIMU.is_dir():
+        return []
+    agora, viva = time.time(), rodando_agora()
+    out = []
+    for d in RODADAS_SIMU.iterdir():
+        if not d.is_dir() or d.name.startswith(".") or any(d.glob("scope_*.npz")):
+            continue
+        if viva == "?" and agora - max([d.stat().st_mtime] + [x.stat().st_mtime for x in d.iterdir()]) < 600:
+            continue
+        if viva not in (None, "?") and d.resolve() == viva.resolve():
+            continue
+        out.append(d)
+    return out
+
+
+def rotulo_rodada(f, meta=None):
+    """Nome legível de uma rodada gravada: planta · pasta · data e hora."""
+    meta = le_meta(f) if meta is None else meta
     planta = "MaiSim / simu" if meta.get("planta") in DO_SIMU else {"gecko": "Gecko", "python": "planta Python"}.get(meta.get("planta", ""), meta.get("planta", "?"))
     pasta = f.parent.name.replace("2026-10-17_", "").replace("_", " ")
     circuito = ""
@@ -180,9 +255,15 @@ class Manipulador(BaseHTTPRequestHandler):
             lst = []
             for base in BUSCA:
                 for f in (base.rglob("scope_*.npz") if base.is_dir() else []):
-                    lst.append({"arq": nome(f), "mtime": f.stat().st_mtime, "tamanho": f.stat().st_size,
-                                "rotulo": rotulo_rodada(f), **resumo_meta(f)})
+                    meta, st = le_meta(f), f.stat()
+                    d = pasta_da_rodada(f, meta)              # pasta: apagar leva a pasta inteira (e o tamanho é o dela)
+                    lst.append({"arq": nome(f), "mtime": st.st_mtime, "tamanho": st.st_size, "rotulo": rotulo_rodada(f, meta),
+                                "pasta": bool(d), "pasta_tam": tamanho_pasta(d) if d else st.st_size,
+                                "guardada": bool(d and (d / GUARDADA).exists()), **resumo_meta(f, meta)})
             return self._resposta(200, sorted(lst, key=lambda x: -x["mtime"]))
+        if rota == "/orfas":                           # as pastas de rodada sem gravação (para apagar junto)
+            ps = pastas_orfas()
+            return self._resposta(200, {"n": len(ps), "tamanho": sum(tamanho_pasta(d) for d in ps)})
         if rota in ("/rodada", "/rodada.bin"):
             rel = parse_qs(u.query).get("arq", [""])[0]
             arq = caminho(rel)
@@ -266,20 +347,52 @@ class Manipulador(BaseHTTPRequestHandler):
         return self._resposta(200, {"ok": True})
 
     def _apagar(self):
-        """Apaga gravações do maisim-scope pedidas pela tela: só scope_*.npz dentro de simu/ ou etapas/ (nada mais)."""
+        """Apaga gravações pedidas pela tela: só scope_*.npz das pastas do scope; de uma rodada do simu, a pasta inteira
+        (pasta_da_rodada). Recusa a que está rodando e, sem "guardadas": true, as guardadas. "orfas": true apaga também as
+        pastas de rodada sem gravação."""
         corpo = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
-        apagados, recusados = [], []
+        with trava_apagar:
+            r = self._apaga(corpo)
+        return self._resposta(200, r)
+
+    def _apaga(self, corpo):
+        apagados, recusados, ja, viva = [], [], [], rodando_agora()
         for rel in corpo.get("arqs", []):
             arq = caminho(rel)
-            dentro = permitido(arq)
-            if dentro and arq.name.startswith("scope_") and arq.suffix == ".npz" and arq.is_file():
-                tam = arq.stat().st_size
-                arq.unlink()
-                apagados.append({"arq": rel, "tamanho": tam})
+            if permitido(arq) and arq.name.startswith("scope_") and arq.suffix == ".npz" and not arq.exists():
+                ja.append(rel)                          # já tinha saído (outro pedido, outra aba): não é erro
+                continue
+            if not (permitido(arq) and arq.name.startswith("scope_") and arq.suffix == ".npz" and arq.is_file()):
+                recusados.append({"arq": rel, "por": "não é uma gravação do scope"})
+                continue
+            d = pasta_da_rodada(arq, le_meta(arq))
+            if d and viva not in (None, "?") and d.resolve() == viva.resolve():
+                recusados.append({"arq": rel, "por": "está rodando"})
+                continue
+            if d and (d / GUARDADA).exists() and not corpo.get("guardadas"):
+                recusados.append({"arq": rel, "por": "guardada"})
+                continue
+            tam = tamanho_pasta(d) if d else arq.stat().st_size
+            if d:
+                shutil.rmtree(d, onerror=_some_ja_saiu)
             else:
-                recusados.append(rel)
-        print(f"apagadas pela tela: {[a['arq'] for a in apagados]}; recusadas: {recusados}", flush=True)
-        return self._resposta(200, {"apagados": apagados, "recusados": recusados})
+                arq.unlink(missing_ok=True)
+            apagados.append({"arq": rel, "tamanho": tam, "pasta": bool(d)})
+        orfas = []
+        if corpo.get("orfas"):
+            for d in pastas_orfas():
+                tam = tamanho_pasta(d)
+                shutil.rmtree(d, onerror=_some_ja_saiu)
+                orfas.append({"pasta": d.name, "tamanho": tam})
+        print(f"apagadas pela tela: {len(apagados)} ({sum(a['tamanho'] for a in apagados) / 1e6:.1f} MB) + {len(orfas)} pastas sem gravação;"
+              f" já tinham saído: {len(ja)}; recusadas: {recusados}", flush=True)
+        return {"apagados": apagados, "recusados": recusados, "ja": ja, "orfas": orfas}
+
+
+def _some_ja_saiu(func, caminho_, info):
+    """rmtree: um arquivo que sumiu no meio (outro pedido apagando a mesma pasta) não é erro; o resto é."""
+    if not issubclass(info[0], FileNotFoundError):
+        raise info[1]
 
 
 def main():
@@ -287,6 +400,13 @@ def main():
     ap.add_argument("--porta", type=int, default=int(os.environ["MAISIM_PORTA_SCOPE"]))
     a = ap.parse_args()
     srv = ThreadingHTTPServer(("127.0.0.1", a.porta), Manipulador)
+    def aquece():                                        # a 1ª lista já rápida: lê os metas em segundo plano ao subir
+        for base in BUSCA:
+            for f in (base.rglob("scope_*.npz") if base.is_dir() else []):
+                d = pasta_da_rodada(f, le_meta(f))
+                if d:
+                    tamanho_pasta(d)
+    threading.Thread(target=aquece, daemon=True).start()
     srv.daemon_threads = True
     print(f"maisim-scope em http://localhost:{a.porta}{PREFIXO}/", flush=True)
     srv.serve_forever()

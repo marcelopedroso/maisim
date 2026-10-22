@@ -516,6 +516,9 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   /* simulando, o circuito só para ver (Marcelo, 22/10): o aviso no painel do componente; a paleta apagada */
   #props .trava-circ { background:var(--aviso-bg); border:1px solid var(--aviso-borda); color:var(--aviso2); border-radius:6px; padding:6px 10px; font-size:12px; margin-bottom:8px; }
   body.circ-travado #paleta { opacity:.45; } body.circ-travado #paleta * { cursor:not-allowed; }
+  .modal .m-guardada { background:var(--ok-bg); border:1px solid var(--ok-borda); color:var(--ok); border-radius:6px; padding:6px 10px; font-size:12.5px; }
+  .modal label select.m-porcima { flex:1; } #bt-guardar { display:inline-flex; align-items:center; padding:3px 6px; } #bt-guardar[hidden] { display:none; }
+  #bt-guardar.ativo { background:var(--ok-bg); color:var(--ok); border-color:var(--ok-borda); } #bt-guardar.ativo svg path { fill:currentColor; }
   /* simulando, a ⚙ só para ver (Marcelo, 22/10) */
   .modal .m-trava { background:var(--aviso-bg); border:1px solid var(--aviso-borda); color:var(--aviso2); border-radius:6px; padding:6px 10px; font-size:12.5px; }
   /* o diodo animado do MaiSim enquanto simula (Marcelo, 21/10: "o nosso diodo animado… quando estiver simulando"); pausada: parado */
@@ -635,6 +638,7 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   <div class="grupo-bt icones" id="g-claude">
     <button id="bt-claude" title="IA do MaiSim"><svg class="mascote" width="22" height="22" aria-hidden="true"><use href="#maisim-claude"/></svg></button>
   </div>
+  <button id="bt-guardar" hidden title="guardar esta rodada: a próxima com o mesmo nome não a substitui (e a ⚙ já abre com outro nome para a próxima)" aria-label="guardar esta rodada"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg></button>
   <div id="progresso" title="simulação"><span class="sim-diodo"></span><div class="barra"><i></i></div><span class="sim-t"></span></div>
   <span id="msg"></span>
   <span id="info"></span>

@@ -1304,7 +1304,7 @@ async function listaRodadas() {
   for (const sel of [$("sel-a"), $("sel-b")]) {
     const atual = sel.value;
     sel.innerHTML = `<option value="">${sel.id === "sel-b" ? "(nenhuma)" : "(escolha)"}</option>` +
-      lst.map((x) => `<option value="${x.arq}" title="${x.arq}">${x.rotulo || x.arq}</option>`).join("");
+      lst.map((x) => `<option value="${escH(x.arq)}" title="${escH(x.arq)}">${escH(x.rotulo || x.arq)}${x.guardada ? " · guardada" : ""}</option>`).join("");   // guardada: "por cima" não a substitui
     sel.value = atual;
   }
 }
@@ -1373,7 +1373,8 @@ $("arq-visoes").onchange = async (e) => {
   const itensV = v && v.formato === "scope-visoes" && v.layout && Array.isArray(v.layout.itens) ? v.layout.itens : null;
   if (!itensV || !itensV.length || itensV.length > 500 || !itensV.every((x) => x && typeof x === "object" && (typeof x.secao === "string" || Array.isArray(x.sinais)))) {
     status(`importar visões: ${f.name} não é um arquivo de visões do scope`); return; }
-  if (!confirm(`Trocar as visões deste scope pelas de ${f.name}${v.de ? " (do " + v.de + ")" : ""}: ${itensV.length} painéis e seções?`)) return;
+  if (!(await pergunta({ titulo: "Importar visões", ok: "trocar",
+    texto: `Trocar as visões deste scope pelas de ${f.name}${v.de ? " (do " + v.de + ")" : ""}: ${itensV.length} painéis e seções?` }))) return;
   const cores = {};
   for (const [k, c] of Object.entries(v.cores && typeof v.cores === "object" ? v.cores : {})) { const cv = corValida(String(c)); if (cv && /^[\w.$+\-]{1,120}$/.test(k)) cores[k] = cv; }
   try { localStorage.setItem(CHAVE_LAYOUT, JSON.stringify(v.layout)); localStorage.setItem("maisim-scope-cores", JSON.stringify(cores)); }
@@ -1381,33 +1382,96 @@ $("arq-visoes").onchange = async (e) => {
   coresSinal = cores; montaTudo();
   status(`visões importadas de ${f.name}: ${itensV.length} painéis e seções, ${Object.keys(cores).length} cores`);
 };
-// ---- apagar gravações (só scope_*.npz; o servidor recusa qualquer outra coisa)
+// ---- apagar gravações: de uma rodada do simu, a pasta inteira (os dados e a cópia do circuito daquela rodada — nunca o
+// circuito em "meus circuitos"); de outras pastas, só o scope_*.npz. Filtro e "marcar todas (as filtradas)" (Marcelo, 22/10);
+// as guardadas com selo e confirmação a mais; as pastas de rodada sem gravação, à parte
 const mb = (b) => (b / 1e6).toFixed(b >= 1e7 ? 0 : 1) + " MB";
+// as perguntas no padrão do MaiSim, não o confirm() do navegador (Marcelo, 22/10): Esc ou fora cancela; Enter confirma;
+// perigo: o botão em vermelho e o foco no Cancelar
+function pergunta({ titulo, texto, ok = "OK", perigo = false }) {
+  return new Promise((res) => {
+    const f = document.createElement("div"); f.className = "sc-modal-fundo";
+    f.innerHTML = `<div class="sc-modal" role="dialog" aria-modal="true"><h3>${escH(titulo)}</h3><p>${escH(texto)}</p>` +
+      `<div class="sc-bts"><button class="sc-cancela">Cancelar</button><button class="sc-ok${perigo ? " perigo" : ""}">${escH(ok)}</button></div></div>`;
+    document.body.appendChild(f);
+    const fecha = (v) => { removeEventListener("keydown", tecla, true); f.remove(); res(v); };
+    const tecla = (e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); fecha(false); }
+      else if (e.key === "Enter" && !(document.activeElement && document.activeElement.classList.contains("sc-cancela"))) { e.preventDefault(); e.stopPropagation(); fecha(true); } };
+    addEventListener("keydown", tecla, true);
+    f.querySelector(".sc-cancela").onclick = () => fecha(false); f.querySelector(".sc-ok").onclick = () => fecha(true);
+    f.addEventListener("mousedown", (e) => { if (e.target === f) fecha(false); });
+    setTimeout(() => f.querySelector(perigo ? ".sc-cancela" : ".sc-ok").focus(), 0);
+  });
+}
+const visiveisAp = () => [...$("ap-lista").querySelectorAll("label:not([hidden]) input")];
+function marcaAp() {                                    // o rodapé e o "marcar todas": só o que está à vista
+  const vis = visiveisAp(), ck = vis.filter((c) => c.checked), orf = $("ap-orfas").checked ? +$("ap-orfas").dataset.tam : 0;
+  const tam = ck.reduce((a, c) => a + +c.dataset.tam, 0) + orf;
+  $("ap-marcadas").textContent = ck.length || orf ? `${ck.length} marcadas${orf ? " + as pastas sem gravação" : ""}, ${mb(tam)}` : "nenhuma marcada";
+  $("ap-ok").disabled = !ck.length && !orf;
+  $("ap-ok").textContent = ck.length || orf ? `Apagar ${ck.length ? ck.length + (ck.length > 1 ? " marcadas" : " marcada") : "as pastas sem gravação"} (${mb(tam)})` : "Apagar marcadas";
+  const t = $("ap-todas"); t.checked = vis.length > 0 && ck.length === vis.length; t.indeterminate = ck.length > 0 && ck.length < vis.length;
+  $("ap-vis").textContent = $("ap-filtro").value.trim() ? `(as ${vis.length} filtradas)` : "";
+}
+function filtraAp() {
+  const q = $("ap-filtro").value.trim().toLowerCase();
+  $("ap-lista").querySelectorAll("label").forEach((l) => { l.hidden = !!q && !l.dataset.q.includes(q); });
+  marcaAp();
+}
+const LIXO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>';
 async function abreApagar() {
-  const lst = await (await fetch("rodadas")).json();
-  const total = lst.reduce((a, x) => a + (x.tamanho || 0), 0);
+  const marcadas = new Set([...$("ap-lista").querySelectorAll("input:checked")].map((c) => c.dataset.arq));   // refeita depois de apagar: as marcas ficam
+  const [lst, orf] = await Promise.all([fetch("rodadas").then((r) => r.json()), fetch("orfas").then((r) => r.json()).catch(() => ({ n: 0, tamanho: 0 }))]);
+  const total = lst.reduce((a, x) => a + (x.pasta_tam || x.tamanho || 0), 0) + (orf.tamanho || 0);
   $("ap-total").textContent = `— ${lst.length} gravações, ${mb(total)} no disco`;
-  $("ap-lista").innerHTML = lst.map((x) => `<label><input type="checkbox" data-arq="${x.arq}" data-tam="${x.tamanho || 0}">` +
-    `<span>${x.rotulo || x.arq}</span><span class="tam">${mb(x.tamanho || 0)}</span><span class="cam">${x.arq}</span></label>`).join("") ||
+  $("ap-lista").innerHTML = lst.map((x) => {
+    const q = [x.rotulo, x.arq, x.nome, x.modelo, x.guardada ? "guardada" : ""].join(" ").toLowerCase();
+    return `<label data-q="${escH(q)}"><input type="checkbox" data-arq="${escH(x.arq)}" data-tam="${x.pasta_tam || x.tamanho || 0}" data-guardada="${x.guardada ? 1 : ""}"${marcadas.has(x.arq) ? " checked" : ""}>` +
+      `<span>${escH(x.rotulo || x.arq)}${x.guardada ? '<span class="selo" title="guardada: “por cima” não a substitui; apagar pede confirmação">guardada</span>' : ""}</span>` +
+      `<span class="tam" title="${x.pasta ? "a pasta da rodada inteira" : "só a gravação (.npz)"}">${mb(x.pasta_tam || x.tamanho || 0)}</span>` +
+      `<button class="lixo" type="button" title="apagar só esta" aria-label="apagar só esta">${LIXO}</button><span class="cam">${escH(x.arq)}</span></label>`; }).join("") ||
     "<i>nenhuma gravação</i>";
-  const marca = () => {
-    const ck = [...$("ap-lista").querySelectorAll("input:checked")];
-    $("ap-marcadas").textContent = ck.length ? `${ck.length} marcadas, ${mb(ck.reduce((a, c) => a + +c.dataset.tam, 0))}` : "nenhuma marcada";
-  };
-  $("ap-lista").querySelectorAll("input").forEach((c) => c.onchange = marca); marca();
+  $("ap-orfas-l").hidden = !orf.n; $("ap-orfas").checked = false; $("ap-orfas").dataset.tam = orf.tamanho || 0;
+  $("ap-orfas-t").textContent = `apagar também as ${orf.n} pastas de rodada sem gravação (${mb(orf.tamanho || 0)}: sobras de quando só a gravação saía)`;
+  $("ap-lista").querySelectorAll("input").forEach((c) => c.onchange = marcaAp);
+  $("ap-lista").querySelectorAll("button.lixo").forEach((b) => b.onclick = (ev) => {    // a lixeira da linha: só esta (Marcelo, 22/10)
+    ev.preventDefault(); ev.stopPropagation(); apagaAp([b.closest("label").querySelector("input")], false); });
+  filtraAp();                                           // o filtro de antes continua (depois de apagar, a lista é refeita)
   $("janela-apagar").classList.add("aberta");
 }
 $("bt-apagar").onclick = abreApagar;
 $("ap-fechar").onclick = () => $("janela-apagar").classList.remove("aberta");
-$("ap-ok").onclick = async () => {
-  const ck = [...$("ap-lista").querySelectorAll("input:checked")];
-  if (!ck.length) return;
-  const tam = ck.reduce((a, c) => a + +c.dataset.tam, 0);
-  if (!confirm(`Apagar ${ck.length} gravação(ões), ${mb(tam)}, do disco? Não dá para desfazer pela tela.`)) return;
-  const r = await (await fetch("apagar", { method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ arqs: ck.map((c) => c.dataset.arq) }) })).json();
-  status(`apagadas ${r.apagados.length} gravações (${mb(r.apagados.reduce((a, x) => a + x.tamanho, 0))})` +
-         (r.recusados.length ? `; recusadas: ${r.recusados.join(", ")}` : ""));
+$("ap-filtro").oninput = filtraAp;
+$("ap-orfas").onchange = marcaAp;
+$("ap-todas").onchange = () => { const on = $("ap-todas").checked; visiveisAp().forEach((c) => { c.checked = on; }); marcaAp(); };
+$("ap-ok").onclick = () => apagaAp(visiveisAp().filter((c) => c.checked), $("ap-orfas").checked);
+let apagando = false;                                   // um apagar por vez: o 2º clique durante o 1º não faz nada
+// o resumo de um apagar, curto (Marcelo, 22/10: a lista inteira das recusadas, com os caminhos, enchia a tela): as recusadas
+// contadas por motivo; o que já tinha saído (outra aba, outro pedido) à parte
+function resumoApagar(r) {
+  const liberou = r.apagados.reduce((a, x) => a + x.tamanho, 0) + (r.orfas || []).reduce((a, x) => a + x.tamanho, 0);
+  const motivos = {}; for (const x of r.recusados || []) motivos[x.por] = (motivos[x.por] || 0) + 1;
+  const n = r.apagados.length, no = (r.orfas || []).length, nj = (r.ja || []).length;
+  return (n || no ? `${n === 1 ? "apagada 1 gravação" : `apagadas ${n} gravações`}${no ? ` e ${no} pastas sem gravação` : ""} (${mb(liberou)})` : "nada apagado") +
+    (nj ? `; ${nj === 1 ? "1 já tinha saído" : `${nj} já tinham saído`}` : "") +
+    ((r.recusados || []).length ? `; ficaram ${r.recusados.length}: ${Object.entries(motivos).map(([m, n]) => `${n} ${m}`).join(", ")}` : "");
+}
+async function apagaAp(ck, orfas) {
+  if (apagando || (!ck.length && !orfas)) return;
+  const tam = ck.reduce((a, c) => a + +c.dataset.tam, 0) + (orfas ? +$("ap-orfas").dataset.tam : 0), guard = ck.filter((c) => c.dataset.guardada).length;
+  const uma = ck.length === 1 && !orfas ? ck[0].closest("label").querySelector("span").textContent.replace(/guardada$/, "") : "";
+  if (!(await pergunta({ titulo: "Apagar do disco?", ok: "apagar", perigo: true,
+    texto: `${uma || `${ck.length} gravação(ões)${orfas ? " e as pastas sem gravação" : ""}`}, ${mb(tam)}. De uma rodada do simu sai a pasta inteira (os dados e a cópia do circuito daquela rodada; o seu circuito não). Não dá para desfazer.` }))) return;
+  if (guard && !(await pergunta({ titulo: "Há rodadas guardadas", ok: "apagar mesmo assim", perigo: true,
+    texto: `${uma ? "Esta rodada está guardada" : `${guard} delas ${guard > 1 ? "estão guardadas" : "está guardada"}`} (“por cima” não as substitui). Apagar mesmo assim?` }))) return;
+  apagando = true; $("ap-ok").disabled = true; $("ap-ok").textContent = "apagando…"; $("janela-apagar").classList.add("apagando");
+  status(`apagando ${ck.length} gravação(ões), ${mb(tam)}…`);
+  try {
+    const r = await (await fetch("apagar", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ arqs: ck.map((c) => c.dataset.arq), guardadas: guard > 0, orfas }) })).json();
+    status(resumoApagar(r));
+  } catch (e) { status(`apagar: o servidor do scope não respondeu (${e.message})`); }
+  finally { apagando = false; $("janela-apagar").classList.remove("apagando"); }
   await listaRodadas(); await abreApagar();
 };
 $("bt-vivo").onclick = () => {

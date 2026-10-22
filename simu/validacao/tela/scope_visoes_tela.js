@@ -14,7 +14,13 @@ const MEU = { colunas: 1, itens: [{ secao: "Seção do teste" }, { titulo: "Pain
     b = await chromium.launch();
     const ctx = await b.newContext({ viewport: { width: 1400, height: 900 }, acceptDownloads: true });
     const pg = await ctx.newPage();
-    const erros = [], dialogos = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { dialogos.push(d.message()); d.accept(); });
+    const erros = [], dialogos = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo do navegador: " + d.message()); d.dismiss(); });
+    // as perguntas do MaiSim (pergunta(), no lugar do confirm() — que agora seria erro): aceita cada uma e guarda o texto em
+    // dialogos (em toda carga da página: o teste recarrega no meio)
+    await pg.exposeFunction("__pergunta", (t) => { dialogos.push(t); });
+    await pg.addInitScript(() => { new MutationObserver(() => { const m = document.querySelector(".sc-modal");
+      if (m && !m.dataset.visto) { m.dataset.visto = 1; window.__pergunta(m.querySelector("p").textContent); setTimeout(() => m.querySelector(".sc-ok").click(), 50); } })
+      .observe(document, { childList: true, subtree: true }); });
     const vistos = () => pg.evaluate(() => itens.map((x) => x.tipo === "secao" ? "S:" + x.titulo : "P:" + x.titulo));
     await pg.goto(URL); await pg.waitForFunction(() => typeof itens !== "undefined" && itens.length, null, { timeout: 20000 });
     await pg.evaluate((L) => { localStorage.setItem("maisim-scope-layout-v3", JSON.stringify(L)); localStorage.setItem("maisim-scope-cores", JSON.stringify({ sinal_a: "#ff0000" })); }, MEU);
