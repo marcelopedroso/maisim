@@ -25,7 +25,8 @@ const esconde = (pg, sim) => pg.evaluate((h) => {         // a aba vai para o se
   await pg.goto(B + "/maisim-nav.js"); await pg.evaluate(() => { localStorage.clear(); });
   await pg.goto(B + "/"); await pg.waitForSelector("#maisim-nav", { timeout: 20000 }); await pg.waitForTimeout(500);
   const ini = await pg.evaluate(() => ({ n: document.querySelectorAll("#maisim-nav").length, cartoes: [...document.querySelectorAll(".cartao")].map((x) => x.getAttribute("href")) }));
-  ok(ini.n === 1 && ini.cartoes.join() === "/maisim/simu/,/maisim/scope/", `página inicial: ${ini.n} trilho, cartões ${ini.cartoes.join(" ")}`);
+  // o terceiro cartão (22/10): "Exemplos", que abre a lista dos modelos na própria página (aparece quando o simu responde)
+  ok(ini.n === 1 && ini.cartoes.join() === "/maisim/simu/?novo=1,/maisim/scope/,#exemplos", `página inicial: ${ini.n} trilho, cartões ${ini.cartoes.join(" ")}`);
   // 2) tema: a página segue o trilho e a escolha fica guardada
   const fundo = () => pg.evaluate(() => getComputedStyle(document.body).backgroundColor);
   const claro = await pg.evaluate(() => document.documentElement.dataset.tema), fClaro = await fundo();
