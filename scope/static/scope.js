@@ -19,6 +19,16 @@ function poeCorSinal(canal, cor) {                       // cor null: volta ao p
   try { localStorage.setItem("maisim-scope-cores", JSON.stringify(coresSinal)); } catch (e) { /* só nesta página */ }
   for (const p of paineis()) if (p.sinais.includes(canal)) criaGrafico(p);
 }
+// a espessura da linha, por sinal, como a cor (Marcelo, 22/10: "além da cor, a espessura dos sinais"); 1.3 é a de sempre
+const ESPESSURAS = [0.8, 1.3, 2, 3];
+let espessurasSinal = (() => { try { return JSON.parse(localStorage.getItem("maisim-scope-espessuras") || "{}") || {}; } catch (e) { return {}; } })();
+const espessuraValida = (w) => ESPESSURAS.includes(+w) ? +w : null;
+function espessuraDoSinal(canal) { return espessuraValida(espessurasSinal[canal]) || 1.3; }
+function poeEspessuraSinal(canal, w) {
+  if (espessuraValida(w) && +w !== 1.3) espessurasSinal[canal] = +w; else delete espessurasSinal[canal];
+  try { localStorage.setItem("maisim-scope-espessuras", JSON.stringify(espessurasSinal)); } catch (e) { /* só nesta página */ }
+  for (const p of paineis()) if (p.sinais.includes(canal)) criaGrafico(p);
+}
 // B (Comparar): a cor do mesmo sinal, misturada com o branco — dá para saber quem é quem com vários sinais
 function corClara(cor, t = 0.5) {
   const n = parseInt(cor.slice(1), 16), mix = (v) => Math.round(v + (255 - v) * t);
@@ -197,9 +207,9 @@ function seriesDe(p) {
     const desloc = canal.startsWith("s_") ? 1.3 * kp++ : 0;     // pulsos empilhados, como num analisador lógico
     const ganho = (p.ganhos && p.ganhos[canal]) || 1;            // só no desenho; o cursor mostra o valor real
     const rot = rotulo(canal) + (ganho !== 1 ? ` ×${ganho}` : "") + (desloc ? ` (+${desloc.toFixed(1)})` : "");
-    const cor = corDoSinal(canal, idx);
-    if (grossa(A, canal)) out.push({ F: A, canal, rot: B ? `${rot} · A` : rot, cor, desloc, ganho, degrau: tipo(canal) === "f" });
-    if (B && grossa(B, canal)) out.push({ F: B, canal, rot: `${rot} · B`, cor: corClara(cor), dash: [6, 4], largura: 1.2, desloc, ganho, degrau: tipo(canal) === "f" });
+    const cor = corDoSinal(canal, idx), w = espessuraDoSinal(canal);
+    if (grossa(A, canal)) out.push({ F: A, canal, rot: B ? `${rot} · A` : rot, cor, largura: w, desloc, ganho, degrau: tipo(canal) === "f" });
+    if (B && grossa(B, canal)) out.push({ F: B, canal, rot: `${rot} · B`, cor: corClara(cor), dash: [6, 4], largura: w * 0.92, desloc, ganho, degrau: tipo(canal) === "f" });
   });
   // com o Medir aberto, a curva Σ(t): a soma ponto a ponto dos sinais que estão no Σ da tabela (os mesmos: um clique no
   // nome tira/põe), com os valores reais; o valor no cursor vai para a legenda (Marcelo, 20/10: "a soma tem que ser dos
@@ -797,7 +807,8 @@ function montaMenu(p) {
   const paletaHTML = (canal, idx) => { const atual = corDoSinal(canal, idx);
     return `<div class="paleta" data-c="${canal}">${CLASSICAS.map(([n, c]) => `<button class="amostra${c === atual ? " atual" : ""}" data-cor="${c}" style="background:${c}" title="${n} ${c}"></button>`).join("")}
       <span class="paleta-hex"><input class="hex" value="${atual}" maxlength="7" spellcheck="false" title="qualquer cor: #rrggbb (Enter)"><input type="color" class="livre" value="${atual}" title="escolher outra cor">
-      <button class="padrao" title="volta à cor da ordem (paleta padrão)">padrão</button></span></div>`; };
+      <button class="padrao" title="volta à cor da ordem (paleta padrão)">padrão</button></span>
+      <span class="espessuras" title="a espessura da linha (em todos os painéis)">linha ${ESPESSURAS.map((w) => `<button class="espessura${w === espessuraDoSinal(canal) ? " atual" : ""}" data-w="${w}" title="${w === 1.3 ? "normal" : w < 1.3 ? "fina" : w < 3 ? "grossa" : "mais grossa"} (${w} px)"><i style="height:${w}px;background:${atual}"></i></button>`).join("")}</span></div>`; };
   const desenha = () => {
     const q = busca.value.toLowerCase(); let html = "", grupo = "";
     for (const c of catalogo()) {
@@ -806,7 +817,7 @@ function montaMenu(p) {
       const marc = p.sinais.includes(c.canal);
       html += `<div class="item"><label><input type="checkbox" data-c="${c.canal}" ${marc ? "checked" : ""}> ${c.rotulo}` +
               (c.tipo === "f" ? ` <span class="fino">passo fino</span>` : "") + "</label>" +
-              (marc ? `<button class="cor-sinal" data-c="${c.canal}" style="background:${corDoSinal(c.canal, p.sinais.indexOf(c.canal))}" title="cor do sinal (em todos os painéis)"></button>` +
+              (marc ? `<button class="cor-sinal" data-c="${c.canal}" style="background:${corDoSinal(c.canal, p.sinais.indexOf(c.canal))}" title="cor e espessura do sinal (em todos os painéis)"></button>` +
                       `<span class="x">×</span><input type="number" step="any" class="ganho" data-c="${c.canal}" value="${(p.ganhos || {})[c.canal] || 1}"
                  title="multiplica só o desenho (para sobrepor sinais de escalas diferentes); o cursor continua mostrando o valor real">` : "") + "</div>" +
               (marc && aberta === c.canal ? paletaHTML(c.canal, p.sinais.indexOf(c.canal)) : "");
@@ -824,6 +835,7 @@ function montaMenu(p) {
       const canal = pl.dataset.c;
       pl.querySelectorAll("button.amostra").forEach((b) => b.onclick = () => escolhe(canal, b.dataset.cor));
       pl.querySelector("button.padrao").onclick = () => escolhe(canal, null);
+      pl.querySelectorAll("button.espessura").forEach((b) => b.onclick = () => { poeEspessuraSinal(canal, +b.dataset.w); desenha(); });
       pl.querySelector("input.livre").onchange = (ev) => escolhe(canal, corValida(ev.target.value));
       const hx = pl.querySelector("input.hex");
       hx.onkeydown = (ev) => { if (ev.key !== "Enter") return; const c = corValida(hx.value.trim()); hx.classList.toggle("ruim", !c); if (c) escolhe(canal, c); };
@@ -987,7 +999,30 @@ function marcaZoom(p) {
                     : "tempo ligado aos outros painéis; clique para soltar e dar zoom no tempo só neste painel";
 }
 const ALTURAS = [[220, "baixa"], [340, "média"], [460, "alta"]];
-const LARGURAS = [[1, "linha inteira"], [2, "1/2"], [3, "1/3"]];
+const LARGURAS = [[1, "linha inteira"], [1.5, "2/3"], [2, "1/2"], [3, "1/3"]];
+const LARGURAS_OK = [1, 1.2, 1.5, 2, 3];                // 6/largura colunas da grade de 6: inteira, 5/6, 2/3, 1/2, 1/3
+const alturaOk = (h) => Number.isFinite(+h) ? Math.round(Math.min(1000, Math.max(140, +h))) : 220;
+// esticar o painel pelo canto (Marcelo, 22/10: em vez de só 1, 2 ou 3 por linha): a altura acompanha o mouse; a largura
+// anda de coluna em coluna da grade de 6, para os painéis continuarem alinhados; o gráfico se refaz no tamanho ao soltar
+function alcaEstica(p) {
+  const h = p.el.querySelector(".b-alca");
+  h.onpointerdown = (ev) => {
+    if (p.expandido || ev.button !== 0) return;
+    ev.preventDefault(); ev.stopPropagation(); h.setPointerCapture(ev.pointerId);
+    const grade = $("paineis"), gap = parseFloat(getComputedStyle(grade).columnGap) || 10, col = (grade.clientWidth + gap) / 6;
+    const x0 = ev.clientX, y0 = ev.clientY, w0 = p.el.offsetWidth, h0 = alturaDe(p);
+    p.el.classList.add("esticando");
+    const move = (e) => {
+      const span = Math.min(6, Math.max(2, Math.round((w0 + e.clientX - x0 + gap) / col)));
+      const larg = 6 / span; if (larg !== p.largura) { p.largura = larg; aplicaLargura(p); }
+      p.altura = alturaOk(h0 + e.clientY - y0);
+      if (p.u) p.u.setSize({ width: Math.max(300, p.el.clientWidth - 14), height: p.altura });
+    };
+    const fim = () => { h.onpointermove = h.onpointerup = h.onpointercancel = null; p.el.classList.remove("esticando"); guardaLayout(); setTimeout(redimensiona, 0); };
+    h.onpointermove = move; h.onpointerup = fim; h.onpointercancel = fim;
+  };
+  h.ondblclick = (ev) => { ev.stopPropagation(); p.largura = larguraPadrao; p.altura = 220; aplicaLargura(p); guardaLayout(); criaGrafico(p); setTimeout(redimensiona, 0); };
+}
 function aplicaLargura(p) { p.el.style.setProperty("--span", String(6 / p.largura)); }
 function menuOpc(p) {
   const m = document.createElement("div"); m.className = "menu menu-opc";
@@ -1000,8 +1035,8 @@ function menuOpc(p) {
   return m;
 }
 function adicionaPainel(cfg, posicao) {
-  const p = { tipo: "painel", id: ++seq, titulo: cfg.titulo || "Novo painel", sinais: (cfg.sinais || []).slice(), altura: cfg.altura || 220,
-              largura: [1, 2, 3].includes(cfg.largura) ? cfg.largura : larguraPadrao,
+  const p = { tipo: "painel", id: ++seq, titulo: cfg.titulo || "Novo painel", sinais: (cfg.sinais || []).slice(), altura: cfg.altura ? alturaOk(cfg.altura) : 220,
+              largura: LARGURAS_OK.includes(cfg.largura) ? cfg.largura : larguraPadrao,
               yFixo: cfg.yFixo || null, ganhos: Object.assign({}, cfg.ganhos || {}),
               modo: MODOS_ZOOM[cfg.modo] ? cfg.modo : "x", solto: !!cfg.solto, xZoom: null, yZoom: null,
               med: novaMed(cfg.med), espFora: new Set(), recolhido: !!cfg.recolhido, expandido: false };
@@ -1012,9 +1047,11 @@ function adicionaPainel(cfg, posicao) {
       `<button class="b-zm" data-m="${m}" title="${{ x: "arrastar escolhe o intervalo de tempo", y: "arrastar escolhe a faixa vertical deste painel", xy: "arrastar escolhe uma área (tempo e vertical)" }[m]}">${r}</button>`).join("")}<button
       class="b-reset" title="ver tudo neste painel: vertical automática (ou o Y fixo) e o tempo todo; o tempo vale para todos os painéis ligados (duplo clique faz o mesmo)">⟲</button></span>
     <button class="b-solto"></button><button class="b-med" title="média e série de Fourier num intervalo (Shift + arrastar no gráfico)">Medir</button><button class="b-y">Y fixo</button>
-    <button class="b-opc" title="largura, altura, PNG">⋯</button></div><button class="b-exp"></button><button class="b-rem" title="remover painel">✕</button></div><div class="area"></div>`;
+    <button class="b-opc" title="largura, altura, PNG">⋯</button></div><button class="b-exp"></button><button class="b-rem" title="remover painel">✕</button></div><div class="area"></div>
+    <span class="b-alca" title="arraste para esticar: a altura livre; a largura encaixa na grade (1/3, 1/2, 2/3, 5/6, inteira). Duplo clique volta ao padrão"></span>`;
   p.el = el; p.area = el.querySelector(".area");
   aplicaLargura(p);
+  alcaEstica(p);
   el.appendChild(caixaMed(p));
   const tit = el.querySelector("input.titulo"); tit.value = p.titulo; tit.title = p.titulo;
   tit.onchange = () => { p.titulo = tit.value; tit.title = tit.value; guardaLayout(); };
@@ -1219,7 +1256,7 @@ function canvasPainel(p) {
   g.font = `${12 * r}px system-ui, sans-serif`;
   p.series.forEach((se, k) => {
     const x = 8 * r + (k % porLinha) * (larg / porLinha), y = 30 * r + src.height + (Math.floor(k / porLinha) + 0.6) * 18 * r;
-    g.strokeStyle = se.cor; g.lineWidth = 2 * r; g.setLineDash((se.dash || []).map((d) => d * r));
+    g.strokeStyle = se.cor; g.lineWidth = Math.max(2, 1.5 * (se.largura || 1.3)) * r; g.setLineDash((se.dash || []).map((d) => d * r));
     g.beginPath(); g.moveTo(x, y); g.lineTo(x + 18 * r, y); g.stroke(); g.setLineDash([]);
     g.fillStyle = C.titulo; g.fillText(se.rot, x + 24 * r, y);
   });
@@ -1255,12 +1292,17 @@ function redesenha() {
     for (const p of paineis()) atualiza(p);
   }, 400);
 }
+const SEM_RODADA = "nenhuma simulação rodando: ela aparece aqui ao vivo quando começar · para ver uma gravação, clique em Comparar";
 function conectaVivo() {
   if (fonteEventos) fonteEventos.close();
-  fonteEventos = new EventSource("eventos");
+  // aberto sozinho (pelo trilho: sem ?so=rodada nem ?a=), só a rodada em andamento; sem nenhuma, vazio (Marcelo, 22/10: "se
+  // não tiver nada, vir vazio"); no simu (?so=rodada), também a última que terminou
+  const q = new URLSearchParams(location.search);
+  fonteEventos = new EventSource(q.get("so") || q.get("a") ? "eventos" : "eventos?ativa=1");
   // ao conectar, o servidor repete a rodada em curso ("inicio" e tudo o que já veio): só esse 1º "inicio", com a meta
   // igual (o servidor numera cada rodada), é a mesma rodada; qualquer outro "inicio" é rodada nova
-  fonteEventos.onopen = () => { repeticao = true; setTimeout(() => { repeticao = false; }, 3000); };
+  fonteEventos.onopen = () => { repeticao = true; setTimeout(() => { repeticao = false; }, 3000);
+    setTimeout(() => { if (modo === "vivo" && !A) status(SEM_RODADA); }, 1200); };
   fonteEventos.addEventListener("inicio", (ev) => {
     if (modo !== "vivo") return;
     const meta = JSON.parse(ev.data), rep = repeticao; repeticao = false;
@@ -1359,7 +1401,7 @@ $("bt-salvar").onclick = salvaTodos;
 $("bt-exportar").onclick = () => {
   guardaLayout();
   let layout = null; try { layout = JSON.parse(localStorage.getItem(CHAVE_LAYOUT) || "null"); } catch (e) { /* sem layout guardado */ }
-  const v = { formato: "scope-visoes", versao: 1, de: "MaiSim", exportado: new Date().toISOString(), layout, cores: coresSinal };
+  const v = { formato: "scope-visoes", versao: 1, de: "MaiSim", exportado: new Date().toISOString(), layout, cores: coresSinal, espessuras: espessurasSinal };
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([JSON.stringify(v, null, 1)], { type: "application/json" }));
   a.download = `visoes_scope_${new Date().toISOString().slice(0, 10)}.json`;
@@ -1377,9 +1419,11 @@ $("arq-visoes").onchange = async (e) => {
     texto: `Trocar as visões deste scope pelas de ${f.name}${v.de ? " (do " + v.de + ")" : ""}: ${itensV.length} painéis e seções?` }))) return;
   const cores = {};
   for (const [k, c] of Object.entries(v.cores && typeof v.cores === "object" ? v.cores : {})) { const cv = corValida(String(c)); if (cv && /^[\w.$+\-]{1,120}$/.test(k)) cores[k] = cv; }
-  try { localStorage.setItem(CHAVE_LAYOUT, JSON.stringify(v.layout)); localStorage.setItem("maisim-scope-cores", JSON.stringify(cores)); }
+  const esp = {};
+  for (const [k, w] of Object.entries(v.espessuras && typeof v.espessuras === "object" ? v.espessuras : {})) if (espessuraValida(w) && /^[\w.$+\-]{1,120}$/.test(k)) esp[k] = +w;
+  try { localStorage.setItem(CHAVE_LAYOUT, JSON.stringify(v.layout)); localStorage.setItem("maisim-scope-cores", JSON.stringify(cores)); localStorage.setItem("maisim-scope-espessuras", JSON.stringify(esp)); }
   catch (er) { status("importar visões: o navegador não deixou guardar"); return; }
-  coresSinal = cores; montaTudo();
+  coresSinal = cores; espessurasSinal = esp; montaTudo();
   status(`visões importadas de ${f.name}: ${itensV.length} painéis e seções, ${Object.keys(cores).length} cores`);
 };
 // ---- apagar gravações: de uma rodada do simu, a pasta inteira (os dados e a cópia do circuito daquela rodada — nunca o
@@ -1476,7 +1520,7 @@ async function apagaAp(ck, orfas) {
 };
 $("bt-vivo").onclick = () => {
   modo = "vivo"; $("bt-vivo").classList.add("ativo"); $("bt-comparar").classList.remove("ativo");
-  A = null; B = null; uniao = null; xFaixa = null; montaTudo(); status("ao vivo: aguardando uma rodada com --scope"); conectaVivo();
+  A = null; B = null; uniao = null; xFaixa = null; montaTudo(); status(SEM_RODADA); conectaVivo();
 };
 $("bt-comparar").onclick = async () => { entraComparar(); await listaRodadas(); status("escolha A (e B, se quiser comparar) e clique em Carregar"); };
 $("bt-carregar").onclick = async () => {

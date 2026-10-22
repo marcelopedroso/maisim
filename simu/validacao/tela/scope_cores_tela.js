@@ -1,6 +1,6 @@
 // cores do scope (instância isolada: Vite 7210 → scope de teste 7211, ../sobe_fila.sh; só lê as gravações): no Comparar,
 // B na cor do mesmo sinal, mais clara e tracejada; a cor de cada sinal pela paleta clássica, por #hex ou de volta ao
-// padrão, lembrada no navegador e igual em todos os painéis. As duas gravações são do próprio teste (apagadas no fim):
+// padrão, lembrada no navegador e igual em todos os painéis; a espessura da linha, idem; esticar o painel pelo canto. As duas gravações são do próprio teste (apagadas no fim):
 // antes ele usava as duas mais recentes do simu, que podem ser de circuitos diferentes, sem sinal em comum (aconteceu em
 // 19/10: o Comparar não tinha B no painel e o teste esperava até cair)
 const { chromium } = require("playwright");
@@ -64,6 +64,35 @@ np.savez(${JSON.stringify(arq)}, meta=np.array(json.dumps(meta)), t=t, Va=a*np.c
     await abre();
     const s2 = await series();
     ok(s2.s.find((x) => x.c === canal && x.ab === "A").cor === "#006400", "ao recarregar, a cor escolhida continua");
+    // a espessura da linha (Marcelo, 22/10: "além da cor, a espessura"): A e B (um pouco mais fina), guardada; "normal" tira
+    const larg = () => pg.evaluate((c) => { const p = paineis().find((x) => x.series && x.series.some((se) => se.F === B));
+      return p.series.filter((se) => se.canal === c).map((se) => +se.largura.toFixed(2)); }, canal);
+    const p2 = await pg.evaluateHandle(() => paineis().find((x) => x.series && x.series.some((se) => se.F === B)).el);
+    await (await p2.$(".b-sinais")).click(); await pg.waitForSelector(".menu"); await pg.click(`.menu button.cor-sinal[data-c="${canal}"]`);
+    await pg.waitForSelector(".menu .paleta .espessura"); const l0 = await larg();
+    await pg.click('.menu .paleta .espessura[data-w="3"]'); await pg.waitForTimeout(400);
+    const l3 = await larg(), guard = JSON.parse(await pg.evaluate(() => localStorage.getItem("maisim-scope-espessuras")));
+    const marcada = await pg.evaluate(() => document.querySelector(".menu .paleta .espessura.atual").dataset.w);
+    await pg.click('.menu .paleta .espessura[data-w="1.3"]'); await pg.waitForTimeout(400);
+    const ln = await larg(), guardN = JSON.parse(await pg.evaluate(() => localStorage.getItem("maisim-scope-espessuras")));
+    ok(String(l0) === "1.3,1.2" && String(l3) === "3,2.76" && guard[canal] === 3 && marcada === "3" && String(ln) === "1.3,1.2" && !(canal in guardN),
+      `espessura: normal ${l0} (A, B) → mais grossa ${l3}, guardada e marcada; "normal" volta (${ln}) e sai do guardado`);
+    await pg.click('.menu .paleta .espessura[data-w="2"]'); await pg.waitForTimeout(300); await pg.click("body", { position: { x: 5, y: 5 } });
+    // esticar pelo canto: a altura segue o mouse; a largura encaixa na grade de 6 (de 1/1 para 2/3); duplo clique volta
+    const pe = await pg.evaluateHandle(() => paineis().find((x) => x.series && x.series.some((se) => se.F === B)).el);
+    const caixa = await pe.boundingBox(); await pg.mouse.move(caixa.x + caixa.width / 2, caixa.y + caixa.height / 2);
+    const al = await (await pe.$(".b-alca")).boundingBox(), grade = await (await pg.$("#paineis")).boundingBox();
+    await pg.mouse.move(al.x + 7, al.y + 7); await pg.mouse.down();
+    for (let k = 1; k <= 6; k++) await pg.mouse.move(al.x + 7 - k * grade.width / 18, al.y + 7 + k * 20);
+    await pg.mouse.up(); await pg.waitForTimeout(500);
+    const est = await pg.evaluate(() => { const p = paineis().find((x) => x.series && x.series.some((se) => se.F === B));
+      const L = JSON.parse(localStorage.getItem("maisim-scope-layout-v3")).itens.find((x) => x.titulo === p.titulo);
+      return { larg: p.largura, alt: p.altura, uh: p.u.height, frac: p.el.offsetWidth / document.getElementById("paineis").clientWidth, L }; });
+    ok(est.larg === 1.5 && est.alt > 300 && Math.abs(est.uh - est.alt) < 2 && est.frac > 0.6 && est.frac < 0.7 && est.L.largura === 1.5 && est.L.altura === est.alt,
+      `esticado: 2/3 da linha (${(est.frac * 100).toFixed(0)} %), altura ${est.alt} px (o gráfico também), guardado no layout`);
+    const al2 = await (await pe.$(".b-alca")).boundingBox(); await pg.mouse.dblclick(al2.x + 7, al2.y + 7); await pg.waitForTimeout(500);
+    const vol = await pg.evaluate(() => { const p = paineis().find((x) => x.series && x.series.some((se) => se.F === B)); return { l: p.largura, a: p.altura, padrao: larguraPadrao }; });
+    ok(vol.l === vol.padrao && vol.a === 220, `duplo clique na alça: volta ao padrão (largura 1/${vol.l}, altura ${vol.a})`);
     await pg.screenshot({ path: "scope_cores_escolhida.png" });
     ok(!erros.length, `sem erros de JS ${erros.join(" ; ")}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message}`); }
