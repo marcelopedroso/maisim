@@ -52,9 +52,9 @@ const URL = "http://localhost:7200/maisim/simu/?modelo=" + encodeURIComponent(re
     // a página inicial escala, e o cartão do simu leva a ele com o mesmo tamanho
     await pg.goto("http://localhost:7200/"); await pg.waitForSelector("#maisim-nav", { timeout: 20000 }); await pg.waitForTimeout(500);
     ok(await pg.evaluate(() => document.documentElement.style.zoom) === "1.25", "página inicial: 125%");
-    await pg.click(".cartao[href='/maisim/simu/']"); await pg.waitForURL(/\/maisim\/simu\//);
+    await pg.click("#cartao-novo"); await pg.waitForURL(/\/maisim\/simu\//);   // "+ Novo circuito" (22/10: no lugar do cartão Simu)
     await pg.waitForFunction(() => document.getElementById("maisim-nav"), null, { timeout: 20000 }); await pg.waitForTimeout(500);
-    ok(await pg.evaluate(() => document.documentElement.style.zoom) === "1.25", "cartão Simu da página inicial: abre o simu, 125%");
+    ok(await pg.evaluate(() => document.documentElement.style.zoom) === "1.25", "cartão + Novo circuito da página inicial: abre o simu, 125%");
     await pg.goto("http://localhost:7200/maisim-nav.js"); await pg.evaluate(() => localStorage.removeItem("maisim-escala"));
     ok(!erros.length, `sem erros de JS ${erros.join(" ; ")}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message}`); }
