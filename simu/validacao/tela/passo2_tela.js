@@ -61,6 +61,22 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   await pg.click(".modal .m-ok"); await pg.waitForTimeout(200);
   ok(travaP.aviso && travaP.ins > 0 && !travaP.livres.length && travaP.copia && travaP.outros && travaP.ok === "fechar" && !travaP.cancela,
     `simulando, a ⚙ só mostra: aviso, ${travaP.ins} campos travados${travaP.livres.length ? ` (livres: ${travaP.livres})` : ""}, criar/apagar travados, copiar o nome ativo, "fechar"`);
+  // simulando, o circuito só para ver (Marcelo, 22/10): clicar seleciona e mostra os dados (travados, com o aviso); girar (R),
+  // arrastar, salvar, abrir, fio e a paleta não mudam nada; o servidor recusa também a ponta, o "fora", a cor e apagar arquivo
+  const pos = (n) => pg.evaluate((n) => { const e = dados.folhas[folhaAtual].elementos.find((x) => x.nome === n); return e && JSON.stringify([e.x, e.y, (e.terminais || []).map((t) => [t.x, t.y])]); }, n);
+  const bb = await (await pg.$("#svg .el")).boundingBox(), cx = bb.x + bb.width / 2, cy = bb.y + bb.height / 2;
+  await pg.mouse.click(cx, cy); await pg.waitForTimeout(500);
+  const circ = await pg.evaluate(async () => { const P = $("props"), r = (rota, corpo) => api(rota, corpo).then(() => "aceitou", (e) => e.message);
+    const srv = [await r("editor/cor", { canal: "x", cor: "" }), await r("editor/fora", { uid: "x", fora: true }), await r("editor/ponta", { canal: "x", sinal: "+", componente: "" }), await r("editor/apagar_arquivo", { arq: "nada.ipes" })];
+    escolhe({ nome: "teste" });
+    return { sel: ed.sel, aviso: !!P.querySelector(".trava-circ"), campos: P.querySelectorAll("input, select, button").length, livres: [...P.querySelectorAll("input, select, button")].filter((x) => !x.disabled).length,
+      barra: ["bt-modelo", "bt-novo", "bt-salvar", "bt-salvar-como", "bt-fio"].every((id) => $(id).disabled), colocando: !!ed.colocar, srv }; });
+  const p0 = await pos(circ.sel);
+  await pg.keyboard.press("r"); await pg.waitForTimeout(400); const msgR = await pg.evaluate(() => $("msg").textContent);
+  await pg.mouse.move(cx, cy); await pg.mouse.down(); await pg.mouse.move(cx + 90, cy + 50, { steps: 6 }); await pg.mouse.up(); await pg.waitForTimeout(600);
+  const p1 = await pos(circ.sel);
+  ok(circ.sel && circ.aviso && circ.campos > 0 && !circ.livres && circ.barra && !circ.colocando && circ.srv.every((m) => /simulação está rodando/.test(m)) && /simulação rodando/.test(msgR) && p0 === p1,
+    `simulando, o circuito só para ver: clicar seleciona ${circ.sel} (${circ.campos} campos travados, com o aviso); R avisa, arrastar não move, barra e paleta travadas; o servidor recusa ponta, fora, cor e apagar (${circ.srv.map((m) => m.slice(0, 28)).join(" | ")})`);
   await pg.click("#bt-play"); await pg.waitForFunction(() => sim.estado === "rodando", null, { timeout: 20000 }); await pg.waitForTimeout(300);
   const dVolta = await anima();
   ok(dRoda === "running" && dPausa === "paused" && dVolta === "running", `o diodo animado na barrinha: rodando ${dRoda}, pausada ${dPausa}, continuando ${dVolta}`);
@@ -70,6 +86,10 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   const livre = await pg.evaluate(() => { const m = document.querySelector(".modal"); return { aviso: !!m.querySelector(".m-trava"), presos: [...m.querySelectorAll("input")].filter((x) => x.disabled).length, ok: m.querySelector(".m-ok").textContent }; });
   await pg.click(".modal .m-cancela"); await pg.waitForTimeout(200);
   ok(!livre.aviso && !livre.presos && livre.ok === "guardar", `parada, a ⚙ volta a editar (sem aviso, nenhum campo travado, "${livre.ok}")`);
+  await pg.evaluate(() => seleciona(dados.folhas[folhaAtual].elementos.find((x) => x.tipo !== "TERM"))); await pg.waitForTimeout(400);
+  const solto = await pg.evaluate(() => ({ aviso: !!$("props").querySelector(".trava-circ"), livres: [...$("props").querySelectorAll("input")].filter((x) => !x.disabled).length,
+    barra: ["bt-modelo", "bt-novo", "bt-salvar", "bt-salvar-como", "bt-fio"].every((id) => !$(id).disabled) }));
+  ok(!solto.aviso && solto.livres > 0 && solto.barra, `parada, o circuito volta a editar (sem aviso, ${solto.livres} campos livres, a barra de volta)`);
   const c1 = await pg.evaluate(async () => [await api("editor/params?nome=CONST.1"), await api("editor/params?nome=CONST.2")].map((l) => l[0].valor));
   ok(c1.join() === "0,0", `depois de parar no meio, os CONST voltaram: ${c1}`);
   await pg.screenshot({ path: "passo2_painel.png" });

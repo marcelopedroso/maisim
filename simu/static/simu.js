@@ -451,7 +451,7 @@ function dica(ev, e) {
     if (ev.button !== 0) return;
     const g = ev.target.closest && ev.target.closest(".el");
     const e = g && dados ? dados.folhas[folhaAtual].elementos[+g.dataset.i] : null;
-    const livre = ed.ligado && !ed.colocar && !ed.fio.modo;
+    const livre = ed.ligado && !ed.colocar && !ed.fio.modo && !simulando();
     arrasto = { x: ev.clientX, y: ev.clientY, v: Object.assign({}, ver), moveu: false,
                 el: livre && e && !ev.shiftKey ? { e, g } : null, shift: livre && ev.shiftKey,
                 ret: livre && ev.shiftKey && !e && !(ev.target.closest && ev.target.closest(".fio")) ? grade(ev) : null,
@@ -530,6 +530,8 @@ function dica(ev, e) {
   addEventListener("keydown", (ev) => {
     if (ev.target.closest && ev.target.closest("input, select, textarea, [contenteditable], #ctl-editor")) return;   // digitando (o controle.py também)
     if (document.querySelector(".modal-fundo")) return;
+    if (ed.ligado && simulando() && (["w", "W", "r", "R", "Delete", "Backspace"].includes(ev.key) && !ev.ctrlKey && !ev.metaKey
+        || (ev.ctrlKey || ev.metaKey) && ["x", "X", "v", "V"].includes(ev.key))) { ev.preventDefault(); avisaTrava(); return; }
     if (ed.ligado && !ev.ctrlKey && !ev.metaKey && !ev.altKey && (ev.key === "w" || ev.key === "W")) { ev.preventDefault(); modoFio(!ed.fio.modo); return; }
     if (ed.fio.modo && ed.fio.cantos.length) {
       if (ev.key === "Escape") { ed.fio.cantos = []; ed.fio.dom = null; previaFio(); msg("conexão desfeita · W sai do modo conexão"); return; }
@@ -895,6 +897,7 @@ async function carregaBiblioteca() {
   if (ed.catalogo) desenhaPaleta();
 }
 function escolhe(item) {
+  if (item && simulando()) { avisaTrava(); return; }
   if (item && ed.fio.modo) modoFio(false);
   ed.colocar = item; document.body.classList.toggle("colocando", !!item);
   if (ed.fantasma) ed.fantasma.style.display = "none";
@@ -926,7 +929,29 @@ async function coloca(ev) {
   await pede("CREATE", [naFolhaPrincipal() ? nome : `${dados.folhas[folhaAtual].nome}#${nome}`, x, y, item.id], `${item.nome} criado: ${nome} em (${x}, ${y})`);
 }
 function seleciona(e) { ed.sel = e ? e.nome : null; ed.fioSel = null; ed.multi.clear(); ed.multiFios.clear(); desenha(); mostraProps(); }
+// simulando, o circuito fica só para ver (Marcelo, 22/10: "o bloqueio de edição quando tiver rodando"): o servidor já recusava
+// as mudanças (ocupado()), mas a tela deixava mexer e só depois dava o erro. Agora: clicar seleciona e mostra os dados; arrastar,
+// ligar fio, pôr componente, os atalhos que mudam e o painel do componente ficam travados, com o aviso; o ⚙ só mostra
+const simulando = () => ["preparando", "rodando", "pausada"].includes(sim.estado);
+const AVISO_TRAVA = "simulação rodando: o circuito fica só para ver até ela parar (a rodada usa o circuito do início)";
+function avisaTrava() {                                // fica 4 s (a barra de progresso não o cobre) e não se repete no histórico
+  if (sim.avisoAte > Date.now()) return;
+  sim.avisoAte = Date.now() + 4000; msg(AVISO_TRAVA, "erro");
+}
+function travaCircuito(on) {
+  const mudou = document.body.classList.contains("circ-travado") !== on;
+  document.body.classList.toggle("circ-travado", on);
+  for (const id of ["bt-modelo", "bt-novo", "bt-salvar", "bt-salvar-como", "bt-fio"]) if ($(id)) $(id).disabled = on;
+  if (on) { if (ed.fio.modo) modoFio(false); if (ed.colocar) escolhe(null); }
+  if (mudou && ed.ligado) mostraProps();
+}
 async function mostraProps() {
+  await montaProps();
+  const P = $("props"); if (!ed.ligado || !simulando() || !P.firstChild) return;
+  P.querySelectorAll("input, select, textarea, button").forEach((x) => { x.disabled = true; });
+  if (!P.querySelector(".trava-circ")) P.insertAdjacentHTML("afterbegin", `<div class="trava-circ">${AVISO_TRAVA}</div>`);
+}
+async function montaProps() {
   const P = $("props"); if (!ed.ligado) return;
   if (tamanhoSel()) {                                   // vários selecionados: o resumo e o que dá para fazer com eles
     const sel = selecaoGrupo();
@@ -1343,6 +1368,7 @@ async function ligaTerminal(e, alvo, domAlvo) {
   catch (er) { msg(er.message, "erro"); }
 }
 function modoFio(on) {
+  if (on && simulando()) { avisaTrava(); return; }
   if (on) { escolhe(null); ed.sel = null; ed.fioSel = null; mostraProps(); }
   Object.assign(ed.fio, { modo: on, cantos: [], dom: null });
   document.body.classList.toggle("modo-fio", on); $("bt-fio").classList.toggle("ativo", on);
@@ -1609,6 +1635,7 @@ function estadoBotoesSim() {
   const st = sim.estado, roda = st === "rodando", pausa = st === "pausada";
   $("bt-play").disabled = roda; $("bt-pausa").disabled = !roda; $("bt-parar").disabled = !(roda || pausa);
   $("bt-globais").disabled = roda || pausa;            // as variáveis globais mexem no circuito: não no meio da rodada
+  travaCircuito(simulando());
   $("bt-play").classList.toggle("ativo", roda);
   $("bt-play").title = pausa ? "continuar (Espaço)" : roda ? "simulando…" : "iniciar a simulação (Ctrl+Enter)";
 }
@@ -1631,7 +1658,7 @@ function acompanha(j) {
   if (vivo && !dd.firstChild && typeof diodoIA === "function") dd.innerHTML = diodoIA(18);
   if (j.tfim) { pg.querySelector("i").style.width = `${Math.min(100, 100 * (j.t || 0) / j.tfim)}%`;
     pg.querySelector(".sim-t").textContent = `${j.estado === "pausada" ? "⏸" : "▶"} ${si(j.t || 0, "s")} / ${si(j.tfim, "s")}`; }
-  if (vivo) { msg(j.estado === "pausada" ? "simulação pausada (Espaço continua)" : `simulando ${j.nome}…`); clearTimeout(sim.timer);
+  if (vivo) { if (!(sim.avisoAte > Date.now())) msg(j.estado === "pausada" ? "simulação pausada (Espaço continua)" : `simulando ${j.nome}…`); clearTimeout(sim.timer);
     sim.timer = setTimeout(async () => {
       try { const r = await api("editor/rodada"); sim.falhas = 0; acompanha(r); }
       catch (e) {
@@ -1712,6 +1739,7 @@ function listaGlobais(caixa, travada = false) {       // a aba "variáveis globa
 addEventListener("keydown", (ev) => {      // atalhos que o navegador não usa: Ctrl+Enter inicia; Espaço pausa e continua
   if (document.querySelector(".modal-fundo") || (ev.target.closest && ev.target.closest("input, select, textarea, [contenteditable], #ctl-editor"))) return;
   if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); iniciaSim(); }
+  else if (((ev.key === "s" || ev.key === "S") || (ev.key === "z" || ev.key === "Z") && ed.ligado) && (ev.ctrlKey || ev.metaKey) && !ev.shiftKey && simulando()) { ev.preventDefault(); avisaTrava(); }
   else if ((ev.key === "s" || ev.key === "S") && (ev.ctrlKey || ev.metaKey) && !ev.shiftKey) { ev.preventDefault(); if (ed.ligado) salvar(); }
   else if ((ev.key === "z" || ev.key === "Z") && (ev.ctrlKey || ev.metaKey) && !ev.shiftKey && ed.ligado) { ev.preventDefault(); desfazer(); }
   else if (ev.key === " " && (sim.estado === "rodando" || sim.estado === "pausada")) {

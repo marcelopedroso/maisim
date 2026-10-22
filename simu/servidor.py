@@ -4735,8 +4735,10 @@ class Manipulador(BaseHTTPRequestHandler):
             if rota not in acoes:
                 return self._resposta(404, {"erro": "não achei"})
             return self._editor(acoes[rota])
+        # simulando, nada muda o circuito nem o que vai para o scope (22/10: a ponta, o "fora", a cor e apagar arquivo escapavam)
         if rota in ("/editor/abrir", "/editor/cmd", "/editor/cmds", "/editor/novo", "/editor/mede", "/editor/salvar", "/editor/fio", "/editor/desfazer",
-                    "/editor/biblioteca", "/editor/fonte_sinal", "/editor/copiar", "/editor/colar", "/editor/grupo", "/editor/variavel"):
+                    "/editor/biblioteca", "/editor/fonte_sinal", "/editor/copiar", "/editor/colar", "/editor/grupo", "/editor/variavel",
+                    "/editor/ponta", "/editor/fora", "/editor/cor", "/editor/apagar_arquivo"):
             try:
                 ocupado()
             except ErroMotor as e:
