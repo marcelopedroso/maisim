@@ -18,7 +18,7 @@ def passo(t, m, p, e):
   const b = await chromium.launch();
   const pg = await (await b.newContext({ viewport: { width: 1600, height: 950 } })).newPage(); await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
   const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-  await pg.goto("http://localhost:7201/maisim/simu/?modelo=exemplos%2Fexemplo_cascata_hb.ipes");
+  await pg.goto("http://localhost:7201/maisim/simu/?modelo=" + encodeURIComponent(require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_cascata_hb.ipes"));
   await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
   await pg.click("#bt-editar"); await pg.waitForTimeout(400); if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok");
   await pg.waitForFunction(() => dados && dados.editor, null, { timeout: 30000 });

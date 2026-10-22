@@ -1130,7 +1130,8 @@ def apaga_arquivo(rel):
 
 def pastas_extras():
     """[(nome do grupo, pasta)]: as de MAISIM_PASTAS_CIRCUITOS ("nome=pasta" ou só a pasta, separadas por ":"; sem nome, o
-    da pasta) e, se o GeckoCIRCUITS original foi baixado (gecko/construir.sh), os exemplos que vêm com ele."""
+    da pasta) e, com MAISIM_EXEMPLOS_GECKO=1, os exemplos que vêm com o GeckoCIRCUITS (Marcelo, 22/10: escondidos por
+    padrão — nem todos rodam no MaiSim; os nossos, em exemplos/, rodam e têm os medidores nomeados)."""
     r = []
     for x in os.environ.get("MAISIM_PASTAS_CIRCUITOS", "").split(os.pathsep):
         nome, _, p = x.strip().rpartition("=")
@@ -1138,7 +1139,7 @@ def pastas_extras():
         if p and p.is_dir():
             r.append((nome.strip() or p.name, p.resolve()))
     g = RAIZ / "gecko" / "build" / "GeckoCIRCUITS" / "resources"
-    if g.is_dir():
+    if g.is_dir() and os.environ.get("MAISIM_EXEMPLOS_GECKO", "0") == "1":
         r.append(("exemplos do GeckoCIRCUITS", g.resolve()))
     return r
 

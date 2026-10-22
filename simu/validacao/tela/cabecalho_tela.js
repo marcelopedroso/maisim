@@ -7,8 +7,8 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1500, height: 900 } }); const pg = await ctx.newPage(); await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
   const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
   // começa limpo: o que um teste anterior deixou sem salvar faria a página perguntar antes de trocar de circuito
-  await fetch("http://localhost:7201/maisim/simu/editor/abrir", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ arq: "exemplos/exemplo_cascata_hb.ipes", modo: "descartar" }) }).then((r) => r.text());
-  await pg.goto("http://localhost:7201/maisim/simu/?modelo=exemplos%2Fexemplo_cascata_hb.ipes");
+  await fetch("http://localhost:7201/maisim/simu/editor/abrir", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ arq: require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_cascata_hb.ipes", modo: "descartar" }) }).then((r) => r.text());
+  await pg.goto("http://localhost:7201/maisim/simu/?modelo=" + encodeURIComponent(require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_cascata_hb.ipes"));
   await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
   const c = await pg.evaluate(() => ({ menus: document.querySelectorAll(".menu-sup").length,
     grupos: [...document.querySelectorAll("header > *")].filter((x) => x.offsetParent !== null || x.id === "trilha").map((x) => x.id || x.tagName).join(" "),

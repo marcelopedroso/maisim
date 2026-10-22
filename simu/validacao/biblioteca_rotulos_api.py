@@ -14,7 +14,7 @@ falhas = 0
 def ok(c, t):
     global falhas; print(("OK   " if c else "FALHA"), t); falhas += (not c)
 LIB = Path(os.path.expanduser("~/.cache/maisim_teste/subcircuitos")); LIB.mkdir(parents=True, exist_ok=True)
-REPO = Path(__file__).resolve().parents[2] / "exemplos"
+REPO = Path(__file__).resolve().parent / "dados"     # as cópias congeladas: o SM-HB e as células em cascata (saíram de exemplos/ em 22/10)
 def fora(r, nome, folha="0"):
     """(rótulos de fora no bloco, rótulos de fora nos terminais de dentro) do subcircuito nome"""
     e = next(x for x in r["folhas"][folha]["elementos"] if x["nome"] == nome)

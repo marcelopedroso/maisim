@@ -1,6 +1,7 @@
 """Validação do passo 2 do Controle: atraso da atuação (logo / amostra / latência) e acionamentos no tempo (CONST e p),
 com e sem o controle, contra uma referência independente (RL exato a cada Δt)."""
 import json, math, time, urllib.request
+from pathlib import Path
 import numpy as np
 B = "http://localhost:7201/maisim/simu/"
 def api(rota, corpo=None):
@@ -15,7 +16,7 @@ R, L, dt, Ts, tfim, Vmax = 1.0, 10e-3, 1e-6, 100e-6, 0.012, 100.0
 n, N, a_ = int(round(Ts / dt)), int(round(tfim / dt)), math.exp(-R * dt / L)
 wc = 2 * math.pi * 200; Kp, Ki = L * wc, R * wc
 # circuito: U.1 (u_ctrl) → R → L → U.2 (v_dist, em série, contra) → gnd
-api("editor/abrir", {"arq": "exemplos/exemplo_cascata_hb.ipes", "descartar": True}); api("editor/novo", {"descartar": True})
+api("editor/abrir", {"arq": str(Path.home() / ".cache/maisim_teste/circuitos/exemplo_cascata_hb.ipes"), "descartar": True}); api("editor/novo", {"descartar": True})
 for a in (["U.1", 10, 10, "U"], ["R.1", 20, 10, "R"], ["L.1", 30, 10, "L"], ["U.2", 36, 10, "U"], ["CONST.1", 44, 6, "CONST"], ["CONST.2", 44, 9, "CONST"], ["AMP.1", 44, 13, "AMP"]): c("CREATE", a)
 for nome, i, o in (("U.1", "a", "gnd"), ("R.1", "a", "b"), ("L.1", "b", "cc"), ("U.2", "cc", "gnd")): c("INNODE", [nome, 0, i]); c("OUTNODE", [nome, 0, o])
 c("SETP", ["R.1", "R", R]); c("SETP", ["L.1", "L", L])

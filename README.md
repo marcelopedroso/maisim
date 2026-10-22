@@ -19,8 +19,9 @@ AI assistant (Claude Code or Google Antigravity) that sees the circuit, the cont
 | **gecko** (`/maisim/gecko`) | the real GeckoCIRCUITS window on a virtual display, opened in the browser (noVNC) | [`gecko/LEIA.md`](gecko/LEIA.md) |
 | **app** | the home page and side menu (Vite), which routes to the other modules; installable as an app (PWA) | [`app/public/marca/LEIA.md`](app/public/marca/LEIA.md) |
 
-Ready-made examples live in [`exemplos/`](exemplos/) (PI control, PWM, and three half-bridge cells in cascade using
-subcircuits).
+Ready-made examples live in [`exemplos/`](exemplos/): buck, boost, buck-boost, DC H-bridge, half-bridge, full-bridge
+and three-phase inverters, single-phase, three-phase and controlled three-phase rectifiers (open loop, with the meters in
+place), and digital control (a current PI; a buck with the PWM and the PI in code).
 
 ## Requirements
 
