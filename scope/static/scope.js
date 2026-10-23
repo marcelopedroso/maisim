@@ -1179,7 +1179,7 @@ if (window.top === window.self && typeof BroadcastChannel === "function") {
   avisaSimu = () => { if (!saiu) try { canalSimu.postMessage({ tipo: "scope", de: eu, oculto: document.hidden, vivo: modo !== "comparar" }); } catch (e) { /* ok */ } };
   window.name = "maisim-scope"; addEventListener("pageshow", () => { window.name = "maisim-scope"; });
   avisaSimu(); setInterval(avisaSimu, 3000); document.addEventListener("visibilitychange", avisaSimu);
-  addEventListener("pagehide", () => { saiu = true; try { canalSimu.postMessage({ tipo: "scope-fechado", de: eu }); } catch (e) { /* ok */ } window.name = ""; });
+  addEventListener("pagehide", () => { saiu = true; try { canalSimu.postMessage({ tipo: "scope-fechado", de: eu }); } catch (e) { /* ok */ } });   // o nome fica: indo a outra página, o "ir para lá" a traz de volta
   addEventListener("pageshow", (e) => { if (e.persisted) { saiu = false; avisaSimu(); } });   // voltou do cache do navegador
 }
 const DO_SIMU = (m) => !!m && (m.planta === "gecko-maisim" || m.planta === "gecko-pew");   // rodadas do simulador (gecko-pew: as do tempo do PEW)

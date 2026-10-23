@@ -2047,12 +2047,12 @@ $("sel-modelo").onchange = async (e) => {
   if (VISTA_CODIGO) {                                    // a janela do código: o painel do controle e o aviso de que está aberta
     $("titulo-pagina").textContent = "código"; tituloCodigo();
     mostraDoca("controle");
-    // o nome da janela: o "ir para lá" do simu acha esta (aberta pelo trilho ou numa aba); ao sair dela, o nome sai junto
+    // o nome da janela: o "ir para lá" do simu acha esta (aberta pelo trilho); se ela for a outra página, ele a traz de volta
     let saiu = false;                                    // fechando, o "escondida" (que vem depois) não a traz de volta
     const ola = () => { if (!saiu) avisa("codigo", { oculto: document.hidden }); };   // escondida, o navegador atrasa o aviso (até 1 por minuto)
     window.name = "maisim-codigo"; addEventListener("pageshow", (e) => { window.name = "maisim-codigo"; if (e.persisted) { saiu = false; ola(); } });
     ola(); setInterval(ola, 3000); document.addEventListener("visibilitychange", ola);
-    addEventListener("pagehide", () => { saiu = true; avisa("codigo-fechado"); window.name = ""; });
+    addEventListener("pagehide", () => { saiu = true; avisa("codigo-fechado"); });   // o nome fica (o "ir para lá" a traz de volta)
   }
 })();
 // o título da janela do código: o circuito a que ela está ligada (sem o cabeçalho, é onde aparece)

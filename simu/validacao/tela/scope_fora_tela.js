@@ -50,7 +50,10 @@ const S = "http://localhost:7200/maisim/simu/";
     const [E] = await Promise.all([ctx.waitForEvent("page"), A.evaluate(() => { window.open("/maisim/scope/?janela=1", "maisim-scope"); })]);
     await E.waitForLoadState(); await A.waitForTimeout(1500);
     let n0 = ctx.pages().length; await A.evaluate(() => mostraDoca("scope")); await A.click("#scope-fora-ir"); await A.waitForTimeout(1000);
-    const mesma = ctx.pages().length === n0 && /janela=1/.test(E.url());
+    let mesma = ctx.pages().length === n0 && /janela=1/.test(E.url());
+    await E.goto("http://localhost:7200/"); await A.waitForTimeout(500);                       // a janela do scope foi a outra página
+    n0 = ctx.pages().length; await A.evaluate(() => $("scope-fora-ir").click()); await E.waitForURL(/\/maisim\/scope\//, { timeout: 10000 }).catch(() => {});
+    mesma = mesma && ctx.pages().length === n0 && /\/maisim\/scope\//.test(E.url());
     await E.close(); await A.waitForTimeout(800);
     const D = await ctx.newPage(); await D.goto("http://localhost:7200/maisim/scope/"); await A.waitForTimeout(1500);
     n0 = ctx.pages().length; await A.click("#scope-fora-ir"); await A.waitForTimeout(1000);
