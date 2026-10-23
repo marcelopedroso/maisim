@@ -217,9 +217,8 @@ function rotulo(canal) {
 
 // ---------------------------------------------------------------- notação matemática (Marcelo, 23/10: "fontes do LaTeX")
 // v_o → v itálico com o "o" subscrito, i_L → i com "L", i_Lf_a → i com "Lf,a": na legenda, no título do painel e no PNG.
-// A letra do símbolo (uma só) em itálico, como no LaTeX; o subscrito em pé. Ligada por padrão (Marcelo, 23/10); desligada
-// (a caixa "notação"), os nomes como vêm do circuito
-let notacao = true; try { notacao = localStorage.getItem("maisim-scope-mat") !== "0"; } catch (e) { /* ok */ }
+// A letra do símbolo (uma só) em itálico, como no LaTeX; o subscrito em pé. Sempre assim (Marcelo, 23/10: "sempre marcada,
+// mais bonito, mais simples")
 const RE_MAT = /(^|[^\p{L}\p{N}_])([A-Za-z]{1,4})_([A-Za-z0-9]+(?:_[A-Za-z0-9]+)*)(?![\p{L}\p{N}_])/gu;   // palavras inteiras (saída_x não)
 function partesMat(texto) {                            // [{txt}] ou [{base, sub}] na ordem do texto
   const s = String(texto), out = []; let i = 0, m; RE_MAT.lastIndex = 0;
@@ -233,10 +232,9 @@ function partesMat(texto) {                            // [{txt}] ou [{base, sub
 }
 const htmlMat = (texto) => partesMat(texto).map((x) => x.txt != null ? escH(x.txt)
   : `<span class="mat"><span class="${x.base.length === 1 ? "mb" : "mr"}">${escH(x.base)}</span><sub>${escH(x.sub)}</sub></span>`).join("");
-// no canvas (o PNG): o mesmo, com a fonte do LaTeX (KaTeX) quando há subscrito
+// no canvas (o PNG): o mesmo, com a fonte do LaTeX (KaTeX) nos nomes com subscrito
 function textoMat(g, texto, x, y, px, peso = "") {
   const fam = "system-ui, sans-serif", mat = "KaTeX_Main, 'Latin Modern Roman', 'Times New Roman', serif";
-  if (!notacao) { g.font = `${peso} ${px}px ${fam}`; g.fillText(texto, x, y); return; }
   for (const q of partesMat(texto)) {
     if (q.txt != null) { g.font = `${peso} ${px}px ${fam}`; g.fillText(q.txt, x, y); x += g.measureText(q.txt).width; continue; }
     g.font = q.base.length === 1 ? `italic ${px * 1.15}px KaTeX_Math, ${mat}` : `${px * 1.1}px ${mat}`; g.fillText(q.base, x, y); x += g.measureText(q.base).width + px * 0.05;
@@ -246,13 +244,9 @@ function textoMat(g, texto, x, y, px, peso = "") {
 function legendaMat(p) {                               // os nomes da legenda do uPlot (a 1ª série é o tempo)
   if (!p.u) return;
   p.u.root.querySelectorAll(".u-legend .u-series").forEach((tr, k) => { const l = tr.querySelector(".u-label"), se = p.series[k - 1];
-    if (l && se) { if (notacao) l.innerHTML = htmlMat(se.rot); else l.textContent = se.rot; } });
+    if (l && se) l.innerHTML = htmlMat(se.rot); });
 }
 function tituloMat(p) { const t = p.el && p.el.querySelector(".titulo-mat"); if (t) t.innerHTML = htmlMat(p.titulo); }
-function aplicaNotacao() {
-  document.body.classList.toggle("notacao", notacao); $("ck-mat").checked = notacao;
-  for (const p of paineis()) { legendaMat(p); tituloMat(p); }
-}
 
 // ---------------------------------------------------------------- dados de um painel
 function seriesDe(p) {
@@ -1110,7 +1104,7 @@ function adicionaPainel(cfg, posicao) {
   el.appendChild(caixaMed(p));
   const tit = el.querySelector("input.titulo"); tit.value = p.titulo; tit.title = p.titulo;
   tit.onchange = () => { p.titulo = tit.value; tit.title = tit.value; tituloMat(p); guardaLayout(); };
-  // com a notação, o título aparece em notação matemática; o clique abre a caixa de texto para mudar
+  // o título aparece em notação matemática; o clique abre a caixa de texto para mudar
   el.querySelector(".titulo-mat").onclick = () => { el.querySelector(".cab").classList.add("editando"); tit.focus(); };
   tit.addEventListener("blur", () => el.querySelector(".cab").classList.remove("editando")); tituloMat(p);
   const abre = (botao, fazMenu) => (e) => {
@@ -1477,9 +1471,6 @@ const nomeSel = (sel) => sel.selectedOptions[0] ? sel.selectedOptions[0].textCon
 // ---------------------------------------------------------------- barra de ferramentas
 $("ck-fixar").onchange = (e) => { fixar = e.target.checked; };
 $("ck-pausar").onchange = (e) => { pausado = e.target.checked; if (!pausado) redesenha(); };
-$("ck-mat").onchange = (e) => { notacao = e.target.checked; try { localStorage.setItem("maisim-scope-mat", notacao ? "1" : "0"); } catch (er) { /* ok */ } aplicaNotacao(); };
-window.addEventListener("storage", (e) => { if (e.key === "maisim-scope-mat") { notacao = e.newValue === "1"; aplicaNotacao(); } });   // outra janela do scope
-document.body.classList.toggle("notacao", notacao); $("ck-mat").checked = notacao;
 $("bt-painel").onclick = () => {                       // só a rodada: no fim da seção dela (o fim do layout é uma seção do MMC, escondida)
   const alvo = soDaRodada() ? grupos().reverse().find((g) => g.ps.some((p) => p.u)) : null;
   if (alvo) { abreSecaoDe(adicionaPainel({ titulo: "Novo painel", sinais: [] }, itens.indexOf(alvo.ps[alvo.ps.length - 1]) + 1)); indice.secao = alvo.k; }

@@ -108,8 +108,8 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
   .mat { font-family:KaTeX_Main, "Latin Modern Roman", "Times New Roman", serif; font-weight:400; white-space:nowrap; }
   .mat .mb { font-family:KaTeX_Math, KaTeX_Main, "Times New Roman", serif; font-style:italic; font-size:1.15em; }
   .mat .mr { font-size:1.1em; } .mat sub { font-size:.78em; vertical-align:-.3em; line-height:0; margin-left:.04em; }
-  .cab .titulo-mat { display:none; flex:1 1 120px; min-width:80px; font-weight:600; padding:3px 7px; cursor:text; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  body.notacao .cab:not(.editando) .titulo-mat { display:block; } body.notacao .cab:not(.editando) input.titulo { display:none; }
+  .cab .titulo-mat { display:block; flex:1 1 120px; min-width:80px; font-weight:600; padding:3px 7px; cursor:text; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .cab:not(.editando) input.titulo, .cab.editando .titulo-mat { display:none; }
   .ferr { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:4px 6px; align-items:center; margin-left:auto; }
   .cab button, .zoom { white-space:nowrap; flex-shrink:0; }
   @container (max-width: 560px) { .zoom .rot { display:none; } }
@@ -233,7 +233,6 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
     <button id="bt-indice" title="índice das seções e painéis, ao lado (clique para ir direto a um gráfico)">☰ Índice</button>
     <label title="durante a rodada ao vivo, não reajusta as escalas"><input type="checkbox" id="ck-fixar"> Fixar eixos</label>
     <label title="para de redesenhar (os dados continuam chegando)"><input type="checkbox" id="ck-pausar"> Pausar</label>
-    <label title="os nomes em notação matemática, como no LaTeX: v_o vira v com o “o” subscrito (na legenda, nos títulos e no PNG)"><input type="checkbox" id="ck-mat"> <span class="mat"><span class="mb">v</span><sub>o</sub></span> notação</label>
     <div class="grupo">
       <button id="bt-painel">+ Painel</button>
       <button id="bt-secao" title="novo título de seção no fim">+ Seção</button>
