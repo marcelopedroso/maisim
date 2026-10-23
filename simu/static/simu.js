@@ -155,7 +155,7 @@ function ligaNoPainel(np) {
     selS.innerHTML = `<option value="">—</option>` + gs.map((g, k) => `<option value="${k}"${k === sAtual ? " selected" : ""}>${escT(g.secao)}</option>`).join("") + `<option value="+">+ nova seção…</option>`;
     const g = gs[sAtual];
     selP.innerHTML = `<option value="">${onde || g ? "—" : "fora de qualquer painel"}</option>` + (g ? g.paineis.map((p, k) => `<option value="${k}"${onde && onde.p === p ? " selected" : ""}>${escT(p.titulo || "(sem título)")}</option>`).join("") + `<option value="+">+ novo painel…</option>` : "");
-    selP.disabled = !g;
+    selP.disabled = !g || esperando; selS.disabled = esperando;
   };
   const poe = (L, g, painel) => {                       // o sinal só neste painel (sai dos outros)
     for (const x of L.itens) if (!x.secao && Array.isArray(x.sinais)) x.sinais = x.sinais.filter((c) => c !== canal);
@@ -190,7 +190,9 @@ function ligaNoPainel(np) {
     poe(L, g, painel); desenhaOps();
   };
   redesenhaNoPainel = () => desenhaOps();
-  desenhaOps(); lePadraoLayout().then(() => desenhaOps());
+  // enquanto o padrão do circuito vem, as listas esperam (escolher agora gravaria o automático, e o padrão não entraria mais)
+  let esperando = true; desenhaOps();
+  lePadraoLayout().then(() => { esperando = false; desenhaOps(); });
 }
 // a tag (scope e controle): um ganho 1 do Gecko (r0 = 1) chamado TAG.k — repassa o sinal ligado na entrada, e o nome da saída é o
 // nome do sinal no /maisim/scope e no m[...] do controle (como um medidor). Para levar um sinal para fora de um subcircuito

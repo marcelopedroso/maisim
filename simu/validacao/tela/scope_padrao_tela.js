@@ -47,6 +47,15 @@ const espera = (ms) => new Promise((r) => setTimeout(r, ms));
     const gravouNoMeio = await pg.evaluate(() => { guardaLayout(); return !!localStorage.getItem(chaveLayout()); });
     await pg.waitForTimeout(2500); await pg.unroute("**/scope/padrao?*");
     ok(!gravouNoMeio && (await vistos()).includes("P:Meu painel"), `com o padrão demorando, o provisório não foi gravado e o padrão entrou: ${(await vistos()).join(" ")}`);
+    // o mesmo com um layout de antes (v3) no navegador: com o padrão ainda vindo, o v3 não entra na frente dele
+    await pg.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.startsWith("maisim-scope-layout")) localStorage.removeItem(k);
+      localStorage.setItem("maisim-scope-layout-v3", JSON.stringify({ itens: [{ secao: "Do v3" }, { titulo: "Painel do v3", sinais: [catalogo()[0].canal] }] })); });
+    await pg.route("**/scope/padrao?*", async (r) => { await espera(1500); await r.continue(); });
+    await pg.goto(URL); await pg.waitForFunction(() => typeof A !== "undefined" && A && A.dados && itens.length, null, { timeout: 20000 });
+    await pg.evaluate(() => montaTudo());                                                   // a remontagem do 1º dado, com o padrão ainda vindo
+    await pg.waitForTimeout(2500); await pg.unroute("**/scope/padrao?*");
+    const v3 = await vistos(); await pg.evaluate(() => localStorage.removeItem("maisim-scope-layout-v3"));
+    ok(v3.includes("P:Meu painel") && !v3.includes("P:Painel do v3"), `com o padrão demorando e um v3 no navegador: o padrão entra, o v3 não (${v3.join(" ")})`);
     // automático
     await pg.click("#bt-layout"); await pg.click("#bt-padrao"); await pg.waitForTimeout(500);
     ok(!(await vistos()).includes("P:Meu painel"), `automático: ${(await vistos()).join(" ")}`);

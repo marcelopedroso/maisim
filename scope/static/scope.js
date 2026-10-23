@@ -1144,6 +1144,7 @@ function leLayout() {
     if (raw) { const j = JSON.parse(raw); if (j && Array.isArray(j.itens) && j.itens.length) { localStorage.setItem(chave, raw); return j; } } } catch (e) { /* idem */ }
   // um circuito sem layout neste navegador: primeiro o padrão dele (ao lado do .ipes, pelo simu); só sem padrão, o de antes
   if (A && A.meta && A.meta.modelo && !padraoVisto.has(chave)) { consultaPadrao(chave); return null; }
+  if (padraoPendente === chave) return null;            // o padrão ainda vem: o de antes (v3) não entra na frente dele
   // a 1ª vez deste circuito: do layout de antes (um só para tudo), os painéis com sinais desta rodada e as seções deles
   try {
     const v = JSON.parse(localStorage.getItem(CHAVE_LAYOUT_ANTIGA) || "null");

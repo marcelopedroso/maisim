@@ -52,12 +52,16 @@ const api = (rota, corpo) => fetch("http://localhost:7201/maisim/simu/" + rota, 
     const sv = await api("editor/salvar", { nome: "nopainel_teste", pasta: "circuitos", sobrescrever: true });
     await api("scope/padrao", { modelo: sv.salvo, layout: { itens: [{ secao: "Do padrão" }, { titulo: "Corrente", sinais: ["i_L"] }, { titulo: "Tensão", sinais: ["v_o"] }] } });
     const pg2 = await (await b.newContext({ viewport: { width: 1600, height: 950 } })).newPage(); pg2.on("pageerror", (e) => erros.push(e.message));
+    await pg2.route("**/scope/padrao?*", async (r) => { await new Promise((x) => setTimeout(x, 1500)); await r.continue(); });   // o padrão demora a vir
     await pg2.goto("http://localhost:7200/maisim/simu/?modelo=" + encodeURIComponent(sv.salvo));
     for (let k = 0; k < 60 && !(await pg2.evaluate(() => typeof dados !== "undefined" && dados && dados.editor)); k++) { if (await pg2.$(".modal .m-ok")) await pg2.click(".modal .m-ok"); await pg2.waitForTimeout(500); }
     await pg2.evaluate(() => seleciona(dados.folhas["0"].elementos.find((e) => e.nome === "AMP.1")));
+    const travadas = await pg2.evaluate(() => $("p-secao").disabled && $("p-painel").disabled);   // enquanto o padrão vem, não dá para escolher
     await pg2.waitForFunction(() => $("p-secao") && $("p-secao").selectedOptions[0].textContent === "Do padrão", null, { timeout: 5000 }).catch(() => {});
     const a4 = await pg2.evaluate(() => ({ s: $("p-secao").selectedOptions[0].textContent, p: $("p-painel").selectedOptions[0].textContent, chave: circuitoDoLayout() }));
-    ok(a4.s === "Do padrão" && a4.p === "Corrente" && a4.chave === sv.salvo, `sem layout guardado: o padrão do circuito (seção ${a4.s}, painel ${a4.p}; chave ${a4.chave})`);
+    const soltas = await pg2.evaluate(() => !$("p-secao").disabled && !$("p-painel").disabled);
+    ok(travadas && soltas && a4.s === "Do padrão" && a4.p === "Corrente" && a4.chave === sv.salvo,
+      `sem layout guardado: as listas esperam o padrão do circuito e partem dele (seção ${a4.s}, painel ${a4.p}; chave ${a4.chave})`);
     // salvar como: o layout vai junto para o arquivo novo
     await pg2.selectOption("#p-painel", { label: "Tensão" }); await pg2.waitForTimeout(300);
     await pg2.evaluate(() => { salvarComo(); }); await pg2.waitForSelector(".modal input"); await pg2.fill(".modal input", "nopainel_teste_2"); await pg2.click(".modal .m-ok");
