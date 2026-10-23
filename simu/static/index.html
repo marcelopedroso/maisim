@@ -174,6 +174,11 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   .modal.cla label.cla-cod { display:flex; gap:6px; } .modal.cla label.cla-cod input { flex:1; font-family:ui-monospace, monospace; }
   /* as contas: uma seção por IA (o Claude, o Gemini), cada uma com os seus botões; embaixo, fechar e pedir à IA */
   .modal.cla section.cla-ia { border:1px solid var(--borda); border-radius:10px; padding:8px 12px; margin:10px 0; }
+  /* os avisos (23/10): a IA é a da pessoa e segue os termos de cada empresa; o do Antigravity, mais forte */
+  .modal.cla .cla-pasta { border-bottom:1px dotted var(--sutil); cursor:help; }
+  .modal.cla .cla-termos { font-size:12px; color:var(--sutil); margin:2px 0 8px; line-height:1.45; }
+  .modal.cla .iac-atencao { font-size:12px; line-height:1.45; padding:6px 9px; border-radius:7px; background:var(--aviso-bg, #fff7e6); border:1px solid var(--aviso-borda, #f3d19e); color:var(--texto); }
+  .cc-lembrete { margin:0 0 4px; font-size:10.5px; line-height:1.35; color:var(--sutil); }
   .modal.cla section.cla-ia h4 { margin:0 0 4px; font-size:14px; } .modal.cla section.cla-ia h4 small { font-weight:400; color:var(--sutil); font-size:11.5px; margin-left:6px; }
   .modal.cla section.cla-ia p { margin:6px 0; } .modal.cla .cla-bts { display:flex; gap:6px; justify-content:flex-end; margin-top:6px; }
   .modal.cla .iac-erro { color:var(--erro); } .modal.cla { max-height:88vh; overflow:auto; }
@@ -722,6 +727,7 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
       <div id="cc-nota" class="cc-nota"></div>
       <div id="cc-anexos"></div>
       <div class="cc-entrada">
+        <p class="cc-lembrete" id="cc-lembrete">A IA pode errar: confira os números, o código e a simulação. Nada muda sem você aceitar, e “voltar ao de antes” desfaz.</p>
         <textarea id="cc-texto" rows="3" placeholder="Peça à IA… (Ctrl+Enter envia)" title="Ctrl+Enter envia; arraste ou cole um PDF ou uma imagem para anexar"></textarea>
         <div class="cc-botoes"><button type="button" class="cc-anexar" id="cc-anexar" title="anexar PDF de artigo, imagem ou texto (ou arraste para a conversa, ou cole uma imagem)"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 11v6M9 14h6"/></svg></button><input type="file" id="cc-arq" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.txt,.md,.csv" hidden>
           <span id="cc-aviso"></span><select id="cc-ia" style="display:none"><option value="claude">Claude</option></select><select id="cc-modelo"><option value="">modelo: padrão</option><option value="fable">Fable</option><option value="opus">Opus</option><option value="sonnet">Sonnet</option><option value="haiku">Haiku</option></select><select id="cc-esforco"><option value="">esforço: padrão</option><option value="low">baixo</option><option value="medium">médio</option><option value="high">alto</option><option value="xhigh">muito alto</option><option value="max">máximo</option></select><select id="cc-auto" title="a IA simula sozinha: a cada versão, o MaiSim roda a simulação com ela (sem aplicar no seu controle), devolve o resumo e ela corrige, até dizer que terminou ou acabarem as rodadas. O código dela roda sem você olhar cada versão; o seu controle só muda quando você aplicar. Volta a “não” ao recarregar a página."><option value="0">simular sozinho: não</option><option value="3">simular sozinho: até 3</option><option value="5">simular sozinho: até 5</option><option value="10">simular sozinho: até 10</option><option value="20">simular sozinho: até 20</option></select><button id="cc-parar" class="perigo" style="display:none" title="parar o pedido">parar</button><button id="cc-enviar" class="primario" title="enviar (Ctrl+Enter)">enviar</button></div>

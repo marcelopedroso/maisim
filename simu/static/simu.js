@@ -1963,6 +1963,10 @@ $("sel-modelo").onchange = async (e) => {
   // (as medidas e atuações do controle) sem precisar lembrar de abrir a edição
   let travado = false; try { travado = localStorage.getItem("maisim-simu-travado") === "1"; } catch (e) { /* ok */ }
   if ((arq || fechado) && (VISTA_CODIGO || !travado) && !ed.ligado) await liga(true);
+  if (!VISTA_CODIGO && new URLSearchParams(location.search).has("contas")) {   // a IA do trilho, de outra página: as contas abertas
+    const q = new URLSearchParams(location.search); q.delete("contas"); history.replaceState(null, "", q.toString() ? "?" + q : location.pathname);
+    if (typeof abreJanelaClaude === "function") abreJanelaClaude();
+  }
   if (!VISTA_CODIGO && new URLSearchParams(location.search).has("novo")) {   // "+ Novo circuito" na página inicial (Marcelo, 22/10)
     const q = new URLSearchParams(location.search); q.delete("novo"); history.replaceState(null, "", q.toString() ? "?" + q : location.pathname);
     await ACOES.novo();

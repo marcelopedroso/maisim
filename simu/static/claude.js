@@ -92,19 +92,19 @@ function desenhaJanelaClaude() {
   // o que se digita nos campos de código (o do Claude e os das outras IAs) sobrevive ao redesenho, com o foco
   const campos = [...m.querySelectorAll("input")].filter((x) => x.id).map((x) => ({ id: x.id, v: x.value, foco: document.activeElement === x,
     sel: [x.selectionStart, x.selectionEnd] }));
-  const pasta = `<code>${escT((e && e.pasta) || "~/.claude-maisim")}</code>`, aberta = !!cla.aberta.claude;
+  const pasta = `<span class="cla-pasta" title="pasta: ${escT((e && e.pasta) || "~/.claude-maisim")}">um login só dele</span>`, aberta = !!cla.aberta.claude;
   const corpo = {
     falha: `<p class="cla-erro">Sem resposta do servidor do MaiSim${cla.falha ? `: ${escT(cla.falha)}` : ""}.</p>`,
     ausente: `<p>O Claude Code (o comando <code>claude</code>) não está instalado neste computador.</p>`,
     logado: `<p class="cla-ok">Conectado como <b>${escT((e && e.email) || "?")}</b>${e && e.plano ? ` · plano ${escT(e.plano)}` : ""}.</p>
-      ${aberta ? `<div class="cla-det">${htmlUso(cla.uso)}<p>A IA do MaiSim (Claude) usa a pasta ${pasta}. O seu outro login do Claude não muda.</p></div>` : ""}`,
+      ${aberta ? `<div class="cla-det">${htmlUso(cla.uso)}<p>A IA do MaiSim usa ${pasta}: o seu outro login do Claude não muda.</p></div>` : ""}`,
     andamento: `<p>1. Abra a página da Anthropic, entre na sua conta e autorize. Ao terminar, a página volta sozinha e o MaiSim fica conectado.</p>
       <p><a class="cla-link" target="_blank" rel="noopener noreferrer" id="cla-auto">Abrir a página de login ↗</a></p>
       <p class="cla-alt">2. Se a página não voltar sozinha (ou mostrar um código), use <a target="_blank" rel="noopener noreferrer" id="cla-manual">este outro link</a>:
       ele mostra um código; cole aqui.</p>
       <label class="cla-cod"><input id="cla-codigo" placeholder="código (xxxx#yyyy)" autocomplete="off" spellcheck="false"><button id="cla-enviar"${cla.enviando ? " disabled" : ""}>${cla.enviando ? "conferindo…" : "enviar"}</button></label>
       <p class="cla-espera">esperando a autorização…</p>`,
-    deslogado: `<p>O MaiSim usa o Claude Code deste computador, numa pasta só dele (${pasta}); o seu outro login do Claude não muda.
+    deslogado: `<p>O MaiSim usa o Claude Code deste computador, com ${pasta}: o seu outro login do Claude não muda.
       A autenticação é na página da própria Anthropic.</p>${l.erro ? `<p class="cla-erro">Último login: ${escT(l.erro)}</p>` : ""}`,
   }[modo] + (e && e.erro ? `<p class="cla-erro">${escT(e.erro)}</p>` : "") + (cla.aviso ? `<p class="cla-erro">${escT(cla.aviso)}</p>` : "")
     + (cla.falha && e ? `<p class="cla-erro">Sem resposta do servidor agora (${escT(cla.falha)}); tentando de novo.</p>` : "");
@@ -115,7 +115,11 @@ function desenhaJanelaClaude() {
     deslogado: `<button id="cla-entrar" class="primario">entrar</button>`,
   }[modo];
   const algumaLogada = (e && e.logado) || outrasIAs().some((a) => a.estado.logado);
-  m.innerHTML = `<h3>IA do MaiSim — contas</h3><section class="cla-ia"><h4>Claude <small>Anthropic · ${modo === "logado" ? "conectado" : "Claude Code"}</small></h4>${corpo}
+  // o aviso geral (Marcelo, 23/10): a IA é a da pessoa, no computador dela, e segue os termos de cada empresa
+  m.innerHTML = `<h3>IA do MaiSim — contas</h3><p class="cla-termos">Cada IA roda neste computador, com a <b>sua</b> conta e o <b>seu</b> plano,
+    e segue os termos da empresa dela (<a target="_blank" rel="noopener noreferrer" href="https://code.claude.com/docs/en/legal-and-compliance">Claude Code</a>,
+    <a target="_blank" rel="noopener noreferrer" href="https://antigravity.google/terms">Google Antigravity</a>). O login fica só neste computador (quem o grava é o programa da empresa; o MaiSim nunca o lê). O MaiSim não fornece IA e não é afiliado a essas empresas.</p>
+    <section class="cla-ia"><h4>Claude <small>Anthropic · ${modo === "logado" ? "conectado" : "Claude Code"}</small></h4>${corpo}
     ${botoes ? `<div class="cla-bts">${botoes}</div>` : ""}</section>${outrasIAs().map(htmlContaIA).join("")}
     <div class="modal-botoes"><button class="m-ok${algumaLogada ? "" : " primario"}">fechar</button>${algumaLogada ? `<button id="cla-pedir" class="primario">pedir à IA</button>` : ""}</div>`;
   // os links vêm do CLI; entram pela propriedade href (nada de HTML), e só https
@@ -179,7 +183,9 @@ function htmlUso(u, ia = "claude") {
 // as contas das outras IAs (o Google Antigravity; o Gemini só em teste): uma seção cada, com o login delas pelo MaiSim
 const IA_DE = {
   antigravity: { empresa: "Google", ferramenta: "Antigravity CLI", instala: "curl -fsSL https://antigravity.google/cli/install.sh | bash",
-    conta: "Com a sua conta Google (grátis, Google AI Pro ou Ultra): vale o limite do seu plano no Antigravity, sem chave e sem pagar por uso. Por ele, os modelos Gemini e os outros que o Antigravity oferece.",
+    // os termos do Antigravity limitam o uso junto com produtos que não são do Google, e há relatos de contas suspensas (23/10)
+    atencao: { href: "https://antigravity.google/terms", texto: "Atenção: os termos do Antigravity limitam o uso dele junto com programas que não são do Google, e há relatos de contas suspensas por isso. Leia os termos antes de conectar; a decisão e a conta são suas." },
+    conta: "",
     pagina: "Abra a página do Google, entre na sua conta e autorize o Antigravity.", codigo: "A página mostra um código de autorização: copie e cole aqui." },
   gemini: { empresa: "Google", ferramenta: "Gemini CLI", instala: "npm install -g @google/gemini-cli",
     termos: "https://developers.google.com/gemini-code-assist/resources/privacy-notices",
@@ -189,20 +195,24 @@ const IA_DE = {
 function htmlContaIA(a) {
   const e = a.estado, l = e.login || {}, d = IA_DE[a.id] || {}, av = cla.iaAviso[a.id], env = cla.iaEnviando[a.id];
   const modo = !e.instalado ? "ausente" : e.logado ? "logado" : l.andamento ? "andamento" : "deslogado";
-  const pasta = `<code>${escT(e.pasta || "")}</code>`, ferr = escT(d.ferramenta || a.nome), nome = escT(a.nome);
+  const pasta = `<span class="cla-pasta" title="pasta: ${escT(e.pasta || "")}">um login só dele</span>`, ferr = escT(d.ferramenta || a.nome), nome = escT(a.nome);
   const corpo = {
     ausente: `<p>O ${ferr} não está instalado neste computador.${d.instala ? ` Para instalar (Node 20 ou mais novo): <code>${escT(d.instala)}</code>` : ""}</p>`,
     logado: `<p class="cla-ok">${e.email ? `Conectado como <b>${escT(e.email)}</b>` : "Conectado"}${e.plano ? ` · plano ${escT(e.plano)}` : ""}.</p>
-      ${cla.aberta[a.id] ? `<div class="cla-det">${htmlUso(cla.iaUso[a.id], a.id)}<p>A IA do MaiSim (${nome}) usa a pasta ${pasta}. O seu outro login do ${nome} não muda.${e.email ? ` A conta vem do registro (log) do ${ferr}; o plano ele não informa.` : ""}</p></div>` : ""}`,
+      ${cla.aberta[a.id] ? `<div class="cla-det">${htmlUso(cla.iaUso[a.id], a.id)}<p>A IA do MaiSim usa ${pasta}: o seu outro login do ${nome} não muda.${e.email ? ` O plano o ${ferr} não informa.` : ""}</p></div>` : ""}`,
     andamento: `<p>1. ${escT(d.pagina || "Abra a página de login e autorize.")}</p>
       <p><a class="cla-link" target="_blank" rel="noopener noreferrer" id="iac-link-${a.id}">Abrir a página de login ↗</a></p>
       <p class="cla-alt">2. ${escT(d.codigo || "Cole aqui o código que a página mostrar.")}</p>
       <label class="cla-cod"><input id="iac-codigo-${a.id}" data-ia-codigo="${a.id}" placeholder="código de autorização" autocomplete="off" spellcheck="false"><button data-ia="${a.id}" data-ia-acao="codigo"${env ? " disabled" : ""}>${env ? "conferindo…" : "enviar"}</button></label>
       <p class="cla-espera">esperando o código… (a página vale por 5 minutos)</p>`,
-    deslogado: `<p>${escT(d.conta || "")} O MaiSim usa o ${ferr} deste computador, numa pasta só dele (${pasta}); o seu outro login do ${nome} não muda.</p>
+    deslogado: `<p>${d.conta ? escT(d.conta) + " " : ""}O MaiSim usa o ${ferr} deste computador, com ${pasta}: o seu outro login do ${nome} não muda.
+      A autenticação é na página do próprio ${escT(d.empresa || nome)}.</p>
+
       ${d.termos ? `<p class="cla-alt">Valem os <a target="_blank" rel="noopener noreferrer" href="${d.termos}">termos e os avisos de privacidade do Gemini Code Assist</a>: veja o que dizem sobre o uso dos dados antes de mandar algo sensível. O MaiSim desliga o envio de estatísticas de uso.</p>` : ""}
       ${l.erro ? `<p class="iac-erro">Último login: ${escT(l.erro)}</p>` : ""}`,
-  }[modo] + (av ? `<p class="iac-erro">${escT(av)}</p>` : "");
+  }[modo] + (d.atencao && (modo === "ausente" || modo === "deslogado")   // antes de instalar e antes de conectar
+    ? `<p class="iac-atencao">${escT(d.atencao.texto)} <a target="_blank" rel="noopener noreferrer" href="${d.atencao.href}">Os termos ↗</a></p>` : "")
+    + (av ? `<p class="iac-erro">${escT(av)}</p>` : "");
   const bts = { ausente: "", logado: `${botaoDetalhes(a.id)}<button class="perigo" data-ia="${a.id}" data-ia-acao="sair">sair</button>`,
     andamento: `<button data-ia="${a.id}" data-ia-acao="cancelar">cancelar</button>`,
     deslogado: `<button class="primario" data-ia="${a.id}" data-ia-acao="entrar"${env ? " disabled" : ""}>${env ? "abrindo…" : "entrar"}</button>` }[modo];

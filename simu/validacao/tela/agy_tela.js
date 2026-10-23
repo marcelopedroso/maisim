@@ -20,6 +20,15 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
   await pg.goto("http://localhost:7201/maisim/simu/");
   await pg.waitForFunction(() => typeof cla !== "undefined" && cla.estado && cla.ias.length, null, { timeout: 30000 });
   await api(pg, "claude/ia/sair", { ia: "antigravity" });
+  // os avisos (Marcelo, 23/10): no topo da janela, a IA é a da pessoa e segue os termos de cada empresa (os dois links);
+  // no Antigravity desconectado, o aviso dos termos dele (há relatos de contas suspensas)
+  await pg.reload(); await pg.waitForFunction(() => typeof cla !== "undefined" && cla.estado && cla.ias.length && !cla.ias.find((a) => a.id === "antigravity").estado.logado, null, { timeout: 30000 });
+  await pg.click("#bt-claude"); await pg.waitForSelector("#iac-antigravity");
+  const av = await pg.evaluate(() => ({ geral: (document.querySelector(".modal.cla .cla-termos") || {}).textContent || "",
+    links: [...document.querySelectorAll(".modal.cla .cla-termos a")].map((a) => a.href), agy: (document.querySelector("#iac-antigravity .iac-atencao") || {}).textContent || "" }));
+  ok(/sua\s+conta/.test(av.geral) && /não é afiliado/.test(av.geral) && av.links.join() === "https://code.claude.com/docs/en/legal-and-compliance,https://antigravity.google/terms"
+     && /Atenção: os termos do Antigravity/.test(av.agy), `os avisos: o geral com os termos de cada IA (${av.links.length} links) e o do Antigravity antes de conectar`);
+  await pg.click(".modal.cla .m-ok");
   await api(pg, "claude/ia/entrar", { ia: "antigravity" });
   const e = await api(pg, "claude/ia/codigo", { ia: "antigravity", codigo: "4/codigo-bom-123" });
   ok(e.logado, "o Antigravity conectado (o agy de mentira)");
@@ -34,7 +43,7 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
   await pg.waitForSelector("#iac-antigravity .cla-uso-l", { timeout: 15000 });
   const j1 = await pg.evaluate(() => ({ l: [...document.querySelectorAll("#iac-antigravity .cla-uso-l")].map((x) => x.innerText.replace(/\s+/g, " ").trim()),
     titulo: (document.querySelector("#iac-antigravity .cla-uso-l") || {}).title || document.querySelector("#iac-antigravity .cla-uso-l").dataset.dica || "",
-    bt: $("iac-antigravity").querySelector("[data-abre]").textContent, pasta: /agy-maisim/.test($("iac-antigravity").textContent) }));
+    bt: $("iac-antigravity").querySelector("[data-abre]").textContent, pasta: /login só dele/.test($("iac-antigravity").textContent) && /agy-maisim/.test(($("iac-antigravity").querySelector(".cla-pasta") || {}).title || "") }));
   ok(j1.l.length === 3 && /^Gemini · semana 25% renova/.test(j1.l[0]) && /^Gemini · 5 h 0,8% renova (hoje|amanhã) às/.test(j1.l[1]) && /Gemini Flash/.test(j1.titulo)
     && /ocultar/.test(j1.bt) && j1.pasta, `"detalhes e limites": os limites do Antigravity (${j1.l[1]}) e a pasta`);
   if (FOTOS) await pg.screenshot({ path: path.join(FOTOS, "contas_limites.png") });
