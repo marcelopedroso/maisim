@@ -36,7 +36,7 @@ np.savez(${JSON.stringify(ARQ)}, meta=np.array(json.dumps(meta)), t=t, Va=180*np
         return [p.titulo, { visivel: !c.classList.contains("oculto") && r.height > 0, w: Math.round(r.width), h: Math.round(r.height), gw: p.u ? Math.round(p.u.width) : 0, gh: p.u ? Math.round(p.u.height) : 0,
           area: c.querySelector(".area").offsetHeight, fixo: getComputedStyle(c).position === "fixed" }]; })),
       n: Object.fromEntries([...document.querySelectorAll(".secao")].map((s) => [s.querySelector(".titulo-secao").value, s.querySelector(".n-rec").textContent])),
-      guardado: JSON.parse(localStorage.getItem("maisim-scope-layout-v3")) }));
+      guardado: JSON.parse(localStorage.getItem(chaveLayout())) }));   // o layout do circuito (desde 23/10, um por circuito)
     const secao = (t) => `.secao:has(.titulo-secao[value="${t}"])`;
     // arrastar como uma pessoa: desce o botão, anda em passos, solta (o dragAndDrop do Playwright não começa o arrasto se
     // precisar rolar a página; aqui a janela é alta o bastante para tudo ficar à vista)
