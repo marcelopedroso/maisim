@@ -399,9 +399,9 @@ function reseta(p) { p.yZoom = null; mudaX(p, null); }      // ⟲: vertical aut
 // 20/10: "a média da soma no instante, 10 sinais: soma os 10 e divide por 10") ou "ambos" (o padrão: "os dois"); oculta: as
 // curvas escondidas na legenda ({soma, media}), guardadas no layout
 const MED_PADRAO = { aberto: false, t0: 0, n: 1, f0: 50, hs: "1, 2, 3", comb: "ambos", oculta: {}, imp: { on: false, ate: 15 }, par: { on: false, ate: 10 },
-                     esp: { aberto: false, hmax: 50, log: true, dec: 4 } };
+                     esp: { aberto: false, hmax: 50, log: true, dec: 4 }, cur: { on: false, a: null, b: null } };
 const novaMed = (cfg) => { const c = cfg || {}, m = Object.assign({}, MED_PADRAO, c); m.oculta = Object.assign({}, c.oculta || {});
-  for (const k of ["imp", "par", "esp"]) m[k] = Object.assign({}, MED_PADRAO[k], c[k] || {});
+  for (const k of ["imp", "par", "esp", "cur"]) m[k] = Object.assign({}, MED_PADRAO[k], c[k] || {});
   return m; };
 // harmônicos da tabela: a lista por vírgulas, mais os ímpares e/ou os pares até o valor marcado (em ordem, sem repetir)
 function hsDe(M) {
@@ -702,10 +702,11 @@ function caixaMed(p) {
     <label title="todos os ímpares até este (somam-se à lista)"><input type="checkbox" class="m-imp"> ímpares até <input type="number" min="1" max="199" step="1" class="m-imp-n"></label>
     <label title="todos os pares até este (somam-se à lista)"><input type="checkbox" class="m-par"> pares até <input type="number" min="2" max="200" step="1" class="m-par-n"></label>
     <button class="m-vis" title="a janela começa no início do que está à vista, com os períodos inteiros que cabem nela">usar o visível</button>
+    <label title="duas linhas, A e B, para arrastar no gráfico: Δt, 1/Δt (a frequência) e, por sinal, Δy e a inclinação Δy/Δt"><input type="checkbox" class="m-cur"> cursores Δ</label>
     <button class="m-esp" title="espectro de harmônicos (barras) dos sinais da tabela; clique no nome de um sinal para tirá-lo ou pô-lo">Espectro</button>
     <label title="os sinais da tabela juntos, ponto a ponto, no gráfico (curva e legenda) e na tabela: a soma Σ, a média instantânea x̄ = Σ/n ou as duas; clique no nome de um sinal para tirá-lo ou pô-lo">combinar <select class="m-comb"><option value="ambos">Σ e x̄</option><option value="soma">Σ soma</option><option value="media">x̄ média (Σ/n)</option></select></label>
     <span class="med-dica">Shift + arrastar: intervalo</span><button class="m-fecha" title="fechar a medição">✕</button></div>
-    <div class="med-tab"></div>
+    <div class="med-tab"></div><div class="med-cur"></div>
     <div class="esp" style="display:none"><div class="esp-cab"><label>até h <input type="number" min="1" max="1000" step="1" class="m-hmax"></label>
       <label title="escala vertical logarítmica"><input type="checkbox" class="m-log"> log</label>
       <label title="quantas décadas abaixo do maior valor a escala log mostra">décadas <input type="number" min="1" max="8" step="1" class="m-dec"></label></div>
@@ -729,6 +730,10 @@ function caixaMed(p) {
   }
   box.querySelector(".m-vis").onclick = () => { const [a, b] = visivel(p); intervaloMed(p, a, b); };
   box.querySelector(".m-fecha").onclick = () => { M.aberto = false; mudaMed(p); };
+  const ck = box.querySelector(".m-cur"); ck.checked = !!M.cur.on;
+  ck.onchange = () => { M.cur.on = ck.checked;
+    if (M.cur.on && (M.cur.a == null || M.cur.b == null)) { const [a, b] = visivel(p); M.cur.a = a + (b - a) / 3; M.cur.b = a + 2 * (b - a) / 3; }
+    guardaLayout(); if (p.u) p.u.redraw(false, false); leituraCur(p); };
   return box;
 }
 function faixaMed(u, p) {                              // gancho draw: faixa sombreada da janela de medição
@@ -742,6 +747,51 @@ function faixaMed(u, p) {                              // gancho draw: faixa som
   g.strokeStyle = C.faixaBorda; g.lineWidth = r; g.setLineDash([4 * r, 3 * r]);
   for (const x of [a, b]) if (x >= left && x <= left + width) { g.beginPath(); g.moveTo(x, top); g.lineTo(x, top + height); g.stroke(); }
   g.restore();
+}
+
+// ---------------------------------------------------------------- cursores A e B (Marcelo, 23/10: "mostrar Δt e Δy, arrastar
+// as pontas e medir de um ponto ao outro: tempos, frequências, amplitudes"). Pelo tempo (seguem o zoom), no layout do painel.
+// Os valores são os reais: o que está desenhado, sem o ×k e o deslocamento da tela, interpolado entre as amostras
+const curLigados = (p) => !!(p.med && p.med.aberto && p.med.cur.on && p.u);
+function valorEm(p, k, t) {                             // a série k do painel (1…) no instante t (ms), o valor real
+  const x = p.u.data[0], y = p.u.data[k], se = p.series[k - 1];
+  if (!x || !y || !x.length || !se || t < x[0] || t > x[x.length - 1]) return null;
+  let lo = 0, hi = x.length - 1;
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (x[m] <= t) lo = m; else hi = m; }
+  const y0 = y[lo], y1 = y[hi];
+  const v = y0 == null ? y1 : y1 == null || x[hi] === x[lo] ? y0 : y0 + (y1 - y0) * (t - x[lo]) / (x[hi] - x[lo]);
+  return v == null ? null : (v - (se.desloc || 0)) / (se.ganho || 1);
+}
+const fmtT = (ms) => (ms == null || !isFinite(ms) ? "–" : Math.abs(ms) < 1 ? `${+(ms * 1e3).toPrecision(4)} µs` : `${+ms.toPrecision(5)} ms`);
+const fmtF = (hz) => (!isFinite(hz) ? "–" : Math.abs(hz) >= 1e3 ? `${+(hz / 1e3).toPrecision(4)} kHz` : `${+hz.toPrecision(4)} Hz`);
+function cursoresMed(u, p) {                           // gancho draw: as duas linhas, as etiquetas e as bolinhas nas curvas
+  if (!curLigados(p)) return;
+  const M = p.med.cur, { left, top, width, height } = u.bbox, g = u.ctx, r = devicePixelRatio || 1, C = cores();
+  g.save();
+  for (const [k, t] of [["A", M.a], ["B", M.b]]) {
+    const x = u.valToPos(t, "x", true); if (!(x >= left && x <= left + width)) continue;
+    g.strokeStyle = C.faixaBorda; g.lineWidth = 1.2 * r; g.setLineDash([5 * r, 3 * r]);
+    g.beginPath(); g.moveTo(x, top); g.lineTo(x, top + height); g.stroke(); g.setLineDash([]);
+    g.fillStyle = C.faixaBorda; g.fillRect(x - 8 * r, top, 16 * r, 14 * r);
+    g.fillStyle = "#fff"; g.font = `600 ${10 * r}px system-ui, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(k, x, top + 7 * r);
+    p.series.forEach((se, i) => { if (!u.series[i + 1].show) return; const v = valorEm(p, i + 1, t); if (v == null) return;
+      const y = u.valToPos(v * (se.ganho || 1) + (se.desloc || 0), "y", true);
+      g.fillStyle = se.cor; g.beginPath(); g.arc(x, y, 3.5 * r, 0, 2 * Math.PI); g.fill(); });
+  }
+  g.restore();
+  leituraCur(p);
+}
+function leituraCur(p) {                               // embaixo da tabela: t_A, t_B, Δt, 1/Δt e, por sinal, y(A), y(B), Δy, Δy/Δt
+  const el = p.el && p.el.querySelector(".med-cur"); if (!el) return;
+  if (!curLigados(p)) { el.innerHTML = ""; return; }
+  const M = p.med.cur, dt = M.b - M.a, mat = (s) => htmlMat(s);
+  const linhas = p.series.map((se, i) => { if (!p.u.series[i + 1].show) return "";
+    const ya = valorEm(p, i + 1, M.a), yb = valorEm(p, i + 1, M.b), dy = ya != null && yb != null ? yb - ya : null;
+    return `<tr><td class="nome"><i style="background:${se.cor}"></i>${mat(se.rot)}</td><td>${fmtM(ya)}</td><td>${fmtM(yb)}</td><td><b>${fmtM(dy)}</b></td>` +
+      `<td>${dy != null && dt ? fmtM(dy / dt) + " /ms" : "–"}</td></tr>`; }).join("");
+  el.innerHTML = `<div class="cur-dt"><span><b>A</b> ${fmtT(M.a)}</span><span><b>B</b> ${fmtT(M.b)}</span>` +
+    `<span>Δ<i>t</i> = <b>${fmtT(dt)}</b></span><span>1/Δ<i>t</i> = <b>${fmtF(dt ? 1e3 / Math.abs(dt) : NaN)}</b></span></div>` +
+    `<table><thead><tr><th>sinal</th><th>y(A)</th><th>y(B)</th><th>Δy</th><th>Δy/Δt</th></tr></thead><tbody>${linhas}</tbody></table>`;
 }
 
 // ---------------------------------------------------------------- painéis e seções
@@ -819,7 +869,7 @@ function criaGrafico(p) {
         if (yr) p.yZoom = yr;
         if (xr) mudaX(p, xr); else agenda([p]);
       }],
-      draw: [(u) => faixaMed(u, p), marcaAcionamentos],
+      draw: [(u) => faixaMed(u, p), (u) => cursoresMed(u, p), marcaAcionamentos],
       setSeries: [(u, i) => {                // clique na legenda: a escala vertical refaz sem a escondida
         const se = i != null && p.series[i - 1];
         if (se && se.soma) { (p.med.oculta = p.med.oculta || {})[se.comb] = !u.series[i].show; guardaLayout(); }
@@ -849,6 +899,19 @@ function criaGrafico(p) {
     }
   }, { passive: false });
   p.u.over.addEventListener("dblclick", () => reseta(p));
+  // os cursores: arrastar perto de uma linha (±6 px) a move (no lugar do zoom); perto, o ponteiro vira ↔
+  const perto = (e) => { if (!curLigados(p) || e.shiftKey) return null; const M = p.med.cur;
+    const da = Math.abs(p.u.valToPos(M.a, "x") - e.offsetX), db = Math.abs(p.u.valToPos(M.b, "x") - e.offsetX);
+    return Math.min(da, db) > 6 ? null : da <= db ? "a" : "b"; };
+  p.u.over.addEventListener("mousemove", (e) => { if (!p.arrastaCur) p.u.over.style.cursor = perto(e) ? "ew-resize" : ""; });
+  p.u.over.addEventListener("mousedown", (e) => {
+    const k = e.button === 0 && perto(e); if (!k) return;
+    e.preventDefault(); e.stopImmediatePropagation(); p.arrastaCur = k;
+    const caixa = p.u.over.getBoundingClientRect();
+    const move = (ev) => { p.med.cur[k] = p.u.posToVal(Math.max(0, Math.min(caixa.width, ev.clientX - caixa.left)), "x"); p.u.redraw(false, false); };
+    const solta = () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", solta); p.arrastaCur = null; guardaLayout(); };
+    window.addEventListener("mousemove", move); window.addEventListener("mouseup", solta);
+  }, true);
   p.u.over.addEventListener("mousedown", (e) => {     // Shift: o arrasto escolhe o intervalo de medição (só no tempo)
     if (!e.shiftKey || e.button !== 0) return;
     p.arrastoMed = true; p.u.cursor.drag.x = true; p.u.cursor.drag.y = false;
@@ -1376,6 +1439,8 @@ function canvasPainel(p) {
   g.fillStyle = C.fundo; g.fillRect(0, 0, c.width, c.height);
   g.fillStyle = C.titulo; g.textBaseline = "middle";
   textoMat(g, p.titulo, 8 * r, 15 * r, 14 * r, "600");
+  if (curLigados(p)) { const M = p.med.cur, dt = M.b - M.a; g.font = `${12 * r}px system-ui, sans-serif`; g.textAlign = "right";
+    g.fillText(`A ${fmtT(M.a)} · B ${fmtT(M.b)} · Δt = ${fmtT(dt)} · 1/Δt = ${fmtF(dt ? 1e3 / Math.abs(dt) : NaN)}`, c.width - 8 * r, 15 * r); g.textAlign = "left"; }
   g.drawImage(src, 0, 30 * r);
   p.series.forEach((se, k) => {
     const x = 8 * r + (k % porLinha) * (larg / porLinha), y = 30 * r + src.height + (Math.floor(k / porLinha) + 0.6) * 18 * r;
