@@ -40,16 +40,39 @@ const espera = (ms) => new Promise((r) => setTimeout(r, ms));
     await pg.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.startsWith("maisim-scope-layout")) localStorage.removeItem(k); });
     await abre();
     ok((await vistos()).includes("P:Meu painel"), `sem o layout no navegador, o circuito começa pelo padrão: ${(await vistos()).join(" ")}`);
+    // o padrão demorando a vir (ao vivo, a rodada mexe na tela nesse meio-tempo): o provisório não é gravado e o padrão entra
+    await pg.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.startsWith("maisim-scope-layout")) localStorage.removeItem(k); });
+    await pg.route("**/scope/padrao?*", async (r) => { await espera(1500); await r.continue(); });
+    await pg.goto(URL); await pg.waitForFunction(() => typeof A !== "undefined" && A && A.dados && itens.length, null, { timeout: 20000 });
+    const gravouNoMeio = await pg.evaluate(() => { guardaLayout(); return !!localStorage.getItem(chaveLayout()); });
+    await pg.waitForTimeout(2500); await pg.unroute("**/scope/padrao?*");
+    ok(!gravouNoMeio && (await vistos()).includes("P:Meu painel"), `com o padrão demorando, o provisório não foi gravado e o padrão entrou: ${(await vistos()).join(" ")}`);
     // automático
     await pg.click("#bt-layout"); await pg.click("#bt-padrao"); await pg.waitForTimeout(500);
     ok(!(await vistos()).includes("P:Meu painel"), `automático: ${(await vistos()).join(" ")}`);
+    await abre();
+    ok(!(await vistos()).includes("P:Meu painel"), `automático e reaberto: fica no automático, o padrão não volta por cima (${(await vistos()).join(" ")})`);
     // um exemplo (só leitura): recusa
     const ex = await api("scope/padrao", { modelo: "exemplos/exemplo_buck.ipes", layout: { itens: [{ titulo: "x", sinais: ["v_o"] }] } });
     ok(ex.st === 409 && /só de leitura/.test(ex.erro || ""), `num exemplo, guardar o padrão é recusado (${ex.erro})`);
+    // um circuito que não existe (apagado): recusa, sem deixar um padrão órfão
+    const orf = await api("scope/padrao", { modelo: path.join(CIRC, "nao_existe_padrao.ipes"), layout: { itens: [{ titulo: "x", sinais: ["v_o"] }] } });
+    ok(orf.st === 409 && /não existe/.test(orf.erro || "") && !fs.existsSync(path.join(CIRC, "nao_existe_padrao.scope.json")), `circuito que não existe: recusado (${orf.erro})`);
     // o "salvar como" leva o padrão junto
     await api("editor/abrir", { arq: PI, modo: "descartar" });
     const sv = await api("editor/salvar", { nome: "pi_padrao_copia", pasta: "circuitos", sobrescrever: true });
     ok(sv.st === 200 && fs.existsSync(COPIA + ".scope.json"), `salvar como: a cópia leva o padrão (${path.basename(COPIA)}.scope.json)`);
+    // apagar o circuito: o padrão (e os outros de ao lado) vão junto para a lixeira — um circuito novo com o mesmo nome não os herda
+    const ap = await api("editor/apagar_arquivo", { arq: COPIA + ".ipes" });
+    const lix = path.join(CIRC, ".lixeira"), naLixeira = ap.lixeira ? path.basename(ap.lixeira, ".ipes") : "?";
+    ok(ap.st === 200 && !fs.existsSync(COPIA + ".scope.json") && fs.existsSync(path.join(lix, naLixeira + ".scope.json")),
+      `apagar: o ${path.basename(COPIA)}.scope.json foi junto para a lixeira (${naLixeira}.scope.json)`);
+    // salvar como por cima de um que tinha padrão, vindo de um circuito sem padrão: o de antes sai (era do outro)
+    fs.writeFileSync(COPIA + ".scope.json", JSON.stringify({ itens: [{ titulo: "velho", sinais: ["x"] }] })); fs.rmSync(PADRAO, { force: true });
+    await api("editor/abrir", { arq: PI, modo: "descartar" });
+    const sv2 = await api("editor/salvar", { nome: "pi_padrao_copia", pasta: "circuitos", sobrescrever: true });
+    ok(sv2.st === 200 && !fs.existsSync(COPIA + ".scope.json"), "salvar como (sem padrão na origem) por cima de um com padrão: o padrão velho sai");
+    for (const f of fs.readdirSync(lix)) if (f.startsWith(naLixeira)) fs.rmSync(path.join(lix, f), { force: true });
     ok(!erros.length, `sem erros de JS ${erros.join(" ; ")}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message.split("\n")[0]}`); }
   finally {

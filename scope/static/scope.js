@@ -50,10 +50,16 @@ const LIMITE_FINO_MS = 40;
 // no navegador com o nome dele; um circuito sem layout começa no automático (os sinais da rodada); sem rodada, nada. O de
 // antes era um só para tudo (v3, com o MMC da tese como padrão): na 1ª rodada de um circuito, os painéis dele com sinais
 // desta rodada viram o layout do circuito
+// A chave é o caminho do circuito (v5; dois circuitos de mesmo nome — o exemplo e a cópia dele — não dividem o layout), ou,
+// num circuito novo, o momento em que foi criado: a rodada traz no meta (chave_layout) a mesma que a página do simu usa.
+// As de antes: v4 pelo nome do circuito (vira a v5 na 1ª vez) e v3, uma só para tudo
 const CHAVE_LAYOUT_ANTIGA = "maisim-scope-layout-v3";
 const circuitoDe = (F) => { const m = (F && F.meta) || {}, mod = String(m.modelo || "");
   return mod ? mod.split("/").pop().replace(/\.ipes$/, "") : String(m.planta || ""); };
-const chaveLayout = () => { const c = circuitoDe(A); return c ? `maisim-scope-layout-v4:${c}` : ""; };
+const donoLayout = (F) => { const m = (F && F.meta) || {}; return String(m.chave_layout || m.modelo || m.planta || ""); };
+const chaveLayout = () => { const c = donoLayout(A); return c ? `maisim-scope-layout-v5:${c}` : ""; };
+const chaveV4 = () => { const m = (A && A.meta) || {}, c = circuitoDe(A);   // um circuito novo (sem arquivo) não herda o de outro
+  return c && !/^novo[: ]/.test(String(m.chave_layout || m.modelo || "")) ? `maisim-scope-layout-v4:${c}` : ""; };
 // o layout deste circuito mudou noutra página (o simu, ao escolher a seção e o painel de um sinal; outra janela do scope): remonta
 window.addEventListener("storage", (e) => { if (e.key && e.key === chaveLayout()) montaTudo(); });
 // medidas no Gecko a cada passo fino. EA … ECA: tensão PWM do conversor calculada das tensões medidas nas pontas das
@@ -1104,9 +1110,12 @@ function adicionaPainel(cfg, posicao) {
 }
 
 const layoutAtual = () => ({ colunas: larguraPadrao, indice, itens: itens.map((x) => x.tipo === "secao" ? { secao: x.titulo, recolhida: x.recolhida || undefined } : { titulo: x.titulo, sinais: x.sinais, altura: x.altura, largura: x.largura, yFixo: x.yFixo, ganhos: x.ganhos, modo: x.modo, solto: x.solto, med: x.med, recolhido: x.recolhido || undefined }) });
+let padraoPendente = "";                                // a chave cujo padrão está vindo (consultaPadrao)
 function guardaLayout() {
   const chave = chaveLayout();                          // sem rodada (sem circuito), nada a guardar
-  if (chave) try { localStorage.setItem(chave, JSON.stringify(layoutAtual())); } catch (e) { /* sem armazenamento */ }
+  // enquanto o padrão do circuito vem (a 1ª vez dele neste navegador), o que está na tela é o provisório: não grava (senão o
+  // padrão, ao chegar, achava um layout guardado e não entrava — ao vivo, a rodada nova mexe na tela nesse meio-tempo)
+  if (chave && chave !== padraoPendente) try { localStorage.setItem(chave, JSON.stringify(layoutAtual())); } catch (e) { /* sem armazenamento */ }
   desenhaIndice(); aplicaVisibilidade();
 }
 // o padrão do scope de cada circuito (Marcelo, 23/10): ao lado do .ipes (<nome>.scope.json), pelo simu; "Layout ▾" guarda e
@@ -1117,8 +1126,9 @@ async function lePadrao() {
   try { const r = await fetch(urlPadrao()); return r.ok ? ((await r.json()).layout || null) : null; } catch (e) { return null; }   // sem o simu: sem padrão
 }
 function consultaPadrao(chave) {
-  padraoVisto.add(chave);
+  padraoVisto.add(chave); padraoPendente = chave;
   lePadrao().then((L) => {
+    if (padraoPendente === chave) padraoPendente = "";
     if (chave !== chaveLayout()) return;                // outra rodada no meio
     let novo = false;
     if (L) try { if (!localStorage.getItem(chave)) { localStorage.setItem(chave, JSON.stringify(L)); novo = true; } } catch (e) { /* ok */ }
@@ -1128,7 +1138,10 @@ function consultaPadrao(chave) {
 }
 function leLayout() {
   const chave = chaveLayout(); if (!chave) return null;
-  try { const j = JSON.parse(localStorage.getItem(chave) || "null"); if (j && j.itens && j.itens.length) return j; } catch (e) { /* idem */ }
+  // guardado (até vazio: "Layout automático", ou tudo apagado) é o deste circuito: não volta ao padrão nem ao de antes
+  try { const raw = localStorage.getItem(chave); if (raw !== null) { const j = JSON.parse(raw); if (j && Array.isArray(j.itens)) return j; } } catch (e) { /* idem */ }
+  try { const v4 = chaveV4(), raw = v4 && localStorage.getItem(v4);    // o de antes, pelo nome do circuito: passa a ser deste
+    if (raw) { const j = JSON.parse(raw); if (j && Array.isArray(j.itens) && j.itens.length) { localStorage.setItem(chave, raw); return j; } } } catch (e) { /* idem */ }
   // um circuito sem layout neste navegador: primeiro o padrão dele (ao lado do .ipes, pelo simu); só sem padrão, o de antes
   if (A && A.meta && A.meta.modelo && !padraoVisto.has(chave)) { consultaPadrao(chave); return null; }
   // a 1ª vez deste circuito: do layout de antes (um só para tudo), os painéis com sinais desta rodada e as seções deles
@@ -1447,7 +1460,8 @@ $("ml-padrao").onclick = async () => {
   montaTudo(); status(`de volta ao padrão do circuito ${circuitoDe(A)}`);
 };
 $("bt-padrao").onclick = () => {
-  $("menu-layout").hidden = true; const k = chaveLayout(); if (k) try { localStorage.removeItem(k); } catch (e) { /* ok */ } indice = { aberto: indice.aberto, unica: false, secao: -1 }; montaTudo(); guardaLayout(); };
+  $("menu-layout").hidden = true; const k = chaveLayout();   // vazio (não apagado): nem o padrão nem o de antes voltam por cima do automático
+  if (k) try { localStorage.setItem(k, JSON.stringify({ itens: [] })); } catch (e) { /* ok */ } indice = { aberto: indice.aberto, unica: false, secao: -1 }; montaTudo(); guardaLayout(); };
 $("bt-salvar").onclick = salvaTodos;
 // ---- as visões (os painéis, as seções e as cores dos sinais) num arquivo: levar para outro MaiSim, mandar a um colega,
 // ou trazer as do PEW (o mesmo formato "scope-visoes")

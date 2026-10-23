@@ -16,7 +16,9 @@ t = np.arange(0, 0.01, 1e-4)
 meta = {"planta": "gecko-maisim", "rotulo": "visoes", "modelo": "x/circuito_visoes.ipes", "dt": 1e-4, "Ts": 1e-4, "tfim": 0.01, "sinais": [], "acionamentos": []}
 np.savez(${JSON.stringify(NPZ)}, meta=np.array(json.dumps(meta)), t=t, sinal_a=np.sin(t), sinal_b=np.cos(t))`]);
 const COM_RODADA = URL + "?a=" + encodeURIComponent(path.relative(RAIZ, NPZ));
-const CHAVE = "maisim-scope-layout-v4:circuito_visoes", OUTRO = "maisim-scope-layout-v4:outro_circuito";
+// a chave é o caminho do circuito (o meta desta gravação não tem chave_layout: vale o modelo); outro de mesmo nome, à parte
+const CHAVE = "maisim-scope-layout-v5:x/circuito_visoes.ipes", OUTRO = "maisim-scope-layout-v5:y/circuito_visoes.ipes";
+const V4 = "maisim-scope-layout-v4:circuito_visoes";
 const MEU = { colunas: 1, itens: [{ secao: "Seção do teste" }, { titulo: "Painel do teste", sinais: ["sinal_a", "sinal_b"] }] };
 (async () => {
   let b;
@@ -81,6 +83,16 @@ const MEU = { colunas: 1, itens: [{ secao: "Seção do teste" }, { titulo: "Pain
     await abre(); await pg.waitForFunction(() => itens.some((x) => x.titulo === "Meu painel"), null, { timeout: 10000 }).catch(() => {});   // depois de consultar o padrão do circuito (não tem)
     const mig = await vistos(), guardado = await pg.evaluate((k) => !!localStorage.getItem(k), CHAVE);
     ok(JSON.stringify(mig) === JSON.stringify(["S:Minha seção", "P:Meu painel"]) && guardado, `do layout de antes: só o que tem sinal desta rodada ${JSON.stringify(mig)}, guardado para o circuito`);
+    // 9. "Layout automático" depois disso: fica no automático ao reabrir (o de antes não volta por cima)
+    await pg.click("#bt-layout"); await pg.click("#bt-padrao"); await pg.waitForTimeout(300);
+    await abre(); await pg.waitForTimeout(1500);
+    const ficou = await vistos();
+    ok(JSON.stringify(ficou) === JSON.stringify(["S:circuito_visoes", "P:Sinais da rodada visoes"]), `automático e reaberto: fica ${JSON.stringify(ficou)} (o v3 não migra de novo)`);
+    // 10. o layout de antes pelo nome (v4): na 1ª vez, passa a ser o do caminho (v5)
+    await pg.evaluate(([k, v4, L]) => { localStorage.removeItem(k); localStorage.removeItem("maisim-scope-layout-v3"); localStorage.setItem(v4, JSON.stringify(L)); }, [CHAVE, V4, MEU]);
+    await abre(); await pg.waitForTimeout(500);
+    const doV4 = await vistos(), v5 = await pg.evaluate((k) => localStorage.getItem(k), CHAVE);
+    ok(JSON.stringify(doV4) === JSON.stringify(["S:Seção do teste", "P:Painel do teste"]) && /Painel do teste/.test(v5 || ""), `do v4 (pelo nome): ${JSON.stringify(doV4)}, guardado no v5`);
     ok(!erros.length, `sem erros de JS ${erros.join(" ; ")}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message}`); }
   finally { if (b) await b.close(); fs.rmSync(TMP, { recursive: true, force: true }); fs.rmSync(PASTA, { recursive: true, force: true }); }
