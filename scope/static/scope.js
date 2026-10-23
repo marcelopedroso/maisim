@@ -46,7 +46,14 @@ const COR_TEMA = {
 const temaAtual = () => (document.documentElement.dataset.tema === "escuro" ? "escuro" : "claro");
 const cores = () => COR_TEMA[temaAtual()];
 const LIMITE_FINO_MS = 40;
-const CHAVE_LAYOUT = "maisim-scope-layout-v3";
+// o layout é por circuito (Marcelo, 23/10): cada circuito com os seus painéis e seções, editáveis como sempre e guardados
+// no navegador com o nome dele; um circuito sem layout começa no automático (os sinais da rodada); sem rodada, nada. O de
+// antes era um só para tudo (v3, com o MMC da tese como padrão): na 1ª rodada de um circuito, os painéis dele com sinais
+// desta rodada viram o layout do circuito
+const CHAVE_LAYOUT_ANTIGA = "maisim-scope-layout-v3";
+const circuitoDe = (F) => { const m = (F && F.meta) || {}, mod = String(m.modelo || "");
+  return mod ? mod.split("/").pop().replace(/\.ipes$/, "") : String(m.planta || ""); };
+const chaveLayout = () => { const c = circuitoDe(A); return c ? `maisim-scope-layout-v4:${c}` : ""; };
 // medidas no Gecko a cada passo fino. EA … ECA: tensão PWM do conversor calculada das tensões medidas nas pontas das
 // cadeias de SMs, e_k = (v_kp + v_kn − V_dc)/2 e e_ab = e_a − e_b. VAB … VCA: tensão nos terminais (depois dos indutores
 // de braço), das rodadas gravadas antes de 17/10 11:47
@@ -1094,32 +1101,26 @@ function adicionaPainel(cfg, posicao) {
   return p;
 }
 
-function layoutPadrao() {
-  const n = nSM(); const r = (f) => Array.from({ length: n }, (_, j) => f(j + 1));
-  const L = [{ secao: "Porta CC e rede" },
-    { titulo: "V_dc", sinais: ["vdc"] },
-    { titulo: "Correntes da rede e referências", sinais: ["ia", "ib", "ic", "ia_ref", "ib_ref", "ic_ref"] },
-    { titulo: "P* e Q*", sinais: ["P_ref", "Q_ref"] },
-    { secao: "Correntes de braço — real × estimada pelos SMs" }];
-  for (const b of BRACOS) L.push({ titulo: `Braço ${NOME[b]}`, sinais: [`iarm_${b}`, `iarm_hat_${b}`, `iarm_ref_${b}`] });
-  L.push({ secao: "Tensões dos capacitores v_c(t)" });
-  for (const b of BRACOS) L.push({ titulo: `v_c braço ${NOME[b]}`, sinais: r((j) => `vc_${b}_${j}`) });
-  L.push({ secao: "PWM — dê zoom abaixo de 40 ms para ver o passo fino" },
-    { titulo: "Tensões PWM de linha medidas no Gecko (e_ab = e_a − e_b)", sinais: ["fino_EAB", "fino_EBC", "fino_ECA"] },
-    { titulo: "Tensões PWM de fase medidas no Gecko (e = (v_p + v_n − V_dc)/2)", sinais: ["fino_EA", "fino_EB", "fino_EC"] },
-    { titulo: "Pulsos do braço sup a", sinais: r((j) => `s_au_${j}`) },
-    { titulo: "Tensão do braço sup a (dos comandos)", sinais: ["varm_au"] },
-    { titulo: "Tensões de perna (dos comandos)", sinais: ["e_a", "e_b", "e_c"] },
-    { secao: "Estimativa distribuída" },
-    { titulo: "N̂ de cada braço", sinais: BRACOS.map((b) => `nhat_${b}`) });
-  return L;
-}
 function guardaLayout() {
-  try { localStorage.setItem(CHAVE_LAYOUT, JSON.stringify({ colunas: larguraPadrao, indice, itens: itens.map((x) => x.tipo === "secao" ? { secao: x.titulo, recolhida: x.recolhida || undefined } : { titulo: x.titulo, sinais: x.sinais, altura: x.altura, largura: x.largura, yFixo: x.yFixo, ganhos: x.ganhos, modo: x.modo, solto: x.solto, med: x.med, recolhido: x.recolhido || undefined }) })); } catch (e) { /* sem armazenamento */ }
+  const chave = chaveLayout();                          // sem rodada (sem circuito), nada a guardar
+  if (chave) try { localStorage.setItem(chave, JSON.stringify({ colunas: larguraPadrao, indice, itens: itens.map((x) => x.tipo === "secao" ? { secao: x.titulo, recolhida: x.recolhida || undefined } : { titulo: x.titulo, sinais: x.sinais, altura: x.altura, largura: x.largura, yFixo: x.yFixo, ganhos: x.ganhos, modo: x.modo, solto: x.solto, med: x.med, recolhido: x.recolhido || undefined }) })); } catch (e) { /* sem armazenamento */ }
   desenhaIndice(); aplicaVisibilidade();
 }
 function leLayout() {
-  try { const j = JSON.parse(localStorage.getItem(CHAVE_LAYOUT) || "null"); if (j && j.itens && j.itens.length) return j; } catch (e) { /* idem */ }
+  const chave = chaveLayout(); if (!chave) return null;
+  try { const j = JSON.parse(localStorage.getItem(chave) || "null"); if (j && j.itens && j.itens.length) return j; } catch (e) { /* idem */ }
+  // a 1ª vez deste circuito: do layout de antes (um só para tudo), os painéis com sinais desta rodada e as seções deles
+  try {
+    const v = JSON.parse(localStorage.getItem(CHAVE_LAYOUT_ANTIGA) || "null");
+    if (v && Array.isArray(v.itens) && A && A.dados && Object.keys(A.dados).length > 1) {
+      const out = []; let secao = null;
+      for (const x of v.itens) {
+        if (x.secao) { secao = x; continue; }
+        if ((x.sinais || []).some((c) => temSinal(A, c))) { if (secao) { out.push(secao); secao = null; } out.push(x); }
+      }
+      if (out.some((x) => !x.secao)) { const j = Object.assign({}, v, { itens: out }); localStorage.setItem(chave, JSON.stringify(j)); return j; }
+    }
+  } catch (e) { /* sem o de antes */ }
   return null;
 }
 function montaTudo() {
@@ -1131,7 +1132,7 @@ function montaTudo() {
   if (salvo && salvo.indice) indice = Object.assign({ aberto: false, unica: false, secao: -1 }, salvo.indice);
   $("bt-porlinha").textContent = `Por linha: ${larguraPadrao}`;
   document.body.classList.toggle("com-indice", indice.aberto); $("ck-unica").checked = indice.unica;
-  for (const cfg of (salvo ? salvo.itens : layoutPadrao())) { if (cfg.secao) adicionaSecao(cfg.secao, null, cfg.recolhida); else adicionaPainel(cfg); }
+  for (const cfg of (salvo ? salvo.itens : [])) { if (cfg.secao) adicionaSecao(cfg.secao, null, cfg.recolhida); else adicionaPainel(cfg); }
   garantePainelDaRodada();
   desenhaIndice(); aplicaVisibilidade(); medeCab();
 }
@@ -1223,14 +1224,17 @@ function medeCab() { document.documentElement.style.setProperty("--cab-h", `${do
   $("ck-unica").onchange = (e) => { indice.unica = e.target.checked; guardaLayout(); };
   $("bt-indice").onclick = () => { indice.aberto = !indice.aberto; document.body.classList.toggle("com-indice", indice.aberto); guardaLayout(); setTimeout(redimensiona, 0); };
 })();
-// rodada com sinais fora do catálogo do MMC (ex.: /maisim/simu) e nenhum painel mostrando: um painel com eles no topo
-// (não grava no layout; fica se você mexer em algo do layout)
+// o layout automático: nenhum painel mostrando os sinais desta rodada (um circuito sem layout, ou um layout que não serve
+// a ela) — uma seção com o nome do circuito e um painel com os sinais da rodada (os 8 primeiros); só grava no layout se você
+// mexer em algo. A seção leva o nome do circuito, não o da rodada: rodadas com outros nomes não empilham seções
 function garantePainelDaRodada() {
   if (!A || !A.dados) return;
-  const gen = catalogo().filter((c) => c.grupo === "Sinais da rodada").map((c) => c.canal);
-  if (!gen.length || paineis().some((p) => p.sinais.some((c) => gen.includes(c)))) return;
-  adicionaSecao(`Rodada ${A.meta.rotulo || ""}`.trim(), 0);
-  adicionaPainel({ titulo: DO_SIMU(A.meta) ? `Sinais da rodada ${A.meta.rotulo || ""} (MaiSim / simu)` : "Sinais da rodada", sinais: gen.slice(0, 8), largura: 1 }, 1);
+  const todos = catalogo().map((c) => c.canal).filter((c) => temSinal(A, c));
+  const gen = catalogo().filter((c) => c.grupo === "Sinais da rodada").map((c) => c.canal).filter((c) => temSinal(A, c));
+  const usar = gen.length ? gen : todos;
+  if (!usar.length || paineis().some((p) => p.sinais.some((c) => temSinal(A, c)))) return;
+  adicionaSecao(circuitoDe(A) || `Rodada ${A.meta.rotulo || ""}`.trim(), 0);
+  adicionaPainel({ titulo: `Sinais da rodada ${A.meta.rotulo || ""}`.trim(), sinais: usar.slice(0, 8), largura: 1 }, 1);
 }
 // o gráfico acompanha a largura do cartão (painel criado com o scope escondido, tela dividida no simu, índice aberto…)
 const obsLargura = new ResizeObserver((ents) => {
@@ -1402,17 +1406,17 @@ $("bt-porlinha").onclick = () => {
   for (const p of paineis()) { p.largura = larguraPadrao; aplicaLargura(p); }
   guardaLayout(); setTimeout(redimensiona, 0);
 };
-$("bt-padrao").onclick = () => { try { localStorage.removeItem(CHAVE_LAYOUT); } catch (e) { /* ok */ } indice = { aberto: indice.aberto, unica: false, secao: -1 }; montaTudo(); guardaLayout(); };
+$("bt-padrao").onclick = () => { const k = chaveLayout(); if (k) try { localStorage.removeItem(k); } catch (e) { /* ok */ } indice = { aberto: indice.aberto, unica: false, secao: -1 }; montaTudo(); guardaLayout(); };
 $("bt-salvar").onclick = salvaTodos;
 // ---- as visões (os painéis, as seções e as cores dos sinais) num arquivo: levar para outro MaiSim, mandar a um colega,
 // ou trazer as do PEW (o mesmo formato "scope-visoes")
 $("bt-exportar").onclick = () => {
   guardaLayout();
-  let layout = null; try { layout = JSON.parse(localStorage.getItem(CHAVE_LAYOUT) || "null"); } catch (e) { /* sem layout guardado */ }
-  const v = { formato: "scope-visoes", versao: 1, de: "MaiSim", exportado: new Date().toISOString(), layout, cores: coresSinal, espessuras: espessurasSinal };
+  let layout = null; try { layout = JSON.parse(localStorage.getItem(chaveLayout()) || "null"); } catch (e) { /* sem layout guardado */ }
+  const v = { formato: "scope-visoes", versao: 1, de: "MaiSim", circuito: circuitoDe(A), exportado: new Date().toISOString(), layout, cores: coresSinal, espessuras: espessurasSinal };
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([JSON.stringify(v, null, 1)], { type: "application/json" }));
-  a.download = `visoes_scope_${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `visoes_scope_${(circuitoDe(A) || "scope").replace(/[^\w.-]+/g, "_")}_${new Date().toISOString().slice(0, 10)}.json`;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   status(`visões exportadas: ${((layout && layout.itens) || []).length} painéis e seções, ${Object.keys(coresSinal).length} cores`);
 };
@@ -1423,13 +1427,14 @@ $("arq-visoes").onchange = async (e) => {
   const itensV = v && v.formato === "scope-visoes" && v.layout && Array.isArray(v.layout.itens) ? v.layout.itens : null;
   if (!itensV || !itensV.length || itensV.length > 500 || !itensV.every((x) => x && typeof x === "object" && (typeof x.secao === "string" || Array.isArray(x.sinais)))) {
     status(`importar visões: ${f.name} não é um arquivo de visões do scope`); return; }
+  if (!chaveLayout()) { status("importar visões: abra antes uma rodada do circuito (as visões são de cada circuito)"); return; }
   if (!(await pergunta({ titulo: "Importar visões", ok: "trocar",
-    texto: `Trocar as visões deste scope pelas de ${f.name}${v.de ? " (do " + v.de + ")" : ""}: ${itensV.length} painéis e seções?` }))) return;
+    texto: `Trocar as visões do circuito ${circuitoDe(A)} pelas de ${f.name}${v.de ? " (do " + v.de + ")" : ""}: ${itensV.length} painéis e seções?` }))) return;
   const cores = {};
   for (const [k, c] of Object.entries(v.cores && typeof v.cores === "object" ? v.cores : {})) { const cv = corValida(String(c)); if (cv && /^[\w.$+\-]{1,120}$/.test(k)) cores[k] = cv; }
   const esp = {};
   for (const [k, w] of Object.entries(v.espessuras && typeof v.espessuras === "object" ? v.espessuras : {})) if (espessuraValida(w) && /^[\w.$+\-]{1,120}$/.test(k)) esp[k] = +w;
-  try { localStorage.setItem(CHAVE_LAYOUT, JSON.stringify(v.layout)); localStorage.setItem("maisim-scope-cores", JSON.stringify(cores)); localStorage.setItem("maisim-scope-espessuras", JSON.stringify(esp)); }
+  try { localStorage.setItem(chaveLayout(), JSON.stringify(v.layout)); localStorage.setItem("maisim-scope-cores", JSON.stringify(cores)); localStorage.setItem("maisim-scope-espessuras", JSON.stringify(esp)); }
   catch (er) { status("importar visões: o navegador não deixou guardar"); return; }
   coresSinal = cores; espessurasSinal = esp; montaTudo();
   status(`visões importadas de ${f.name}: ${itensV.length} painéis e seções, ${Object.keys(cores).length} cores`);

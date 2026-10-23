@@ -86,7 +86,7 @@ np.savez(${JSON.stringify(arq)}, meta=np.array(json.dumps(meta)), t=t, Va=a*np.c
     for (let k = 1; k <= 6; k++) await pg.mouse.move(al.x + 7 - k * grade.width / 18, al.y + 7 + k * 20);
     await pg.mouse.up(); await pg.waitForTimeout(500);
     const est = await pg.evaluate(() => { const p = paineis().find((x) => x.series && x.series.some((se) => se.F === B));
-      const L = JSON.parse(localStorage.getItem("maisim-scope-layout-v3")).itens.find((x) => x.titulo === p.titulo);
+      const L = JSON.parse(localStorage.getItem(chaveLayout())).itens.find((x) => x.titulo === p.titulo);
       return { larg: p.largura, alt: p.altura, uh: p.u.height, frac: p.el.offsetWidth / document.getElementById("paineis").clientWidth, L }; });
     ok(est.larg === 1.5 && est.alt > 300 && Math.abs(est.uh - est.alt) < 2 && est.frac > 0.6 && est.frac < 0.7 && est.L.largura === 1.5 && est.L.altura === est.alt,
       `esticado: 2/3 da linha (${(est.frac * 100).toFixed(0)} %), altura ${est.alt} px (o gráfico também), guardado no layout`);

@@ -1,7 +1,7 @@
 // painel novo no scope em "só a rodada" (instância isolada: Vite 7210 → scope de teste 7211; ../sobe_fila.sh): o caso de
 // Marcelo (19/10) — "+ Painel", marcar o 1º sinal: o painel sumia até a próxima mudança no layout (guardar o layout antes
 // de montar o gráfico o tratava como painel do MMC). Uma gravação pequena só para o ensaio (o scope só lê scope_*.npz
-// dentro de simu/), apagada no fim. Também: o "+ Painel" do topo vai para a seção da rodada; os painéis do MMC continuam fora
+// dentro de simu/), apagada no fim. Também: o "+ Painel" do topo vai para a seção da rodada; nenhum painel do MMC de antes
 const { chromium } = require("playwright");
 const { execFileSync } = require("child_process");
 const fs = require("fs"), path = require("path");
@@ -44,9 +44,9 @@ np.savez(${JSON.stringify(ARQ)}, meta=np.array(json.dumps(meta)), t=t, Va=180*np
     await marca("Vb");
     n = await novos();
     ok(n.every((x) => x.visivel && x.grafico > 400), `marcado Vb: os dois painéis novos à vista, com gráfico (${n.map((x) => x.grafico).join(", ")} px)`);
-    // 3. os painéis do MMC (sinais que não existem nesta rodada) continuam fora
-    const mmc = await pg.evaluate(() => [...document.querySelectorAll(".cartao")].filter((c) => c._painel.titulo === "V_dc").map((c) => !c.classList.contains("oculto")));
-    ok(mmc.length === 1 && !mmc[0], "o painel V_dc (do MMC, sem sinal nesta rodada) continua escondido");
+    // 3. o layout é do circuito (23/10): nada do MMC de antes (o padrão fixo saiu), só os painéis desta rodada
+    const mmc = await pg.evaluate(() => [...document.querySelectorAll(".cartao")].filter((c) => c._painel.titulo === "V_dc").length);
+    ok(mmc === 0, "nenhum painel do MMC de antes (o layout é deste circuito)");
     ok(!erros.length, `sem erros de JS ${erros.join(" ; ")}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message}`); }
   finally { if (b) await b.close(); fs.rmSync(PASTA, { recursive: true, force: true }); }
