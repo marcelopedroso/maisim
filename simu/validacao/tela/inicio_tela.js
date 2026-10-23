@@ -17,6 +17,9 @@ const espera = (ms) => new Promise((r) => setTimeout(r, ms));
     let j = await api("editor/rodar", { dt: "1e-6", tfim: "0.002", nome: "inicio_copia", amostras: "100" });
     while (["rodando", "pausada", "preparando"].includes(j.estado)) { await espera(300); j = await api("editor/rodada"); }
     await api("editor/abrir", { arq: PI, modo: "descartar" });
+    // duas rodadas do PI (numa máquina limpa, a do GitHub, é o que faz o "N rodadas" aparecer: ele conta o circuito exato)
+    j = await api("editor/rodar", { dt: "1e-6", tfim: "0.002", nome: "inicio_antes", amostras: "100" });
+    while (["rodando", "pausada", "preparando"].includes(j.estado)) { await espera(300); j = await api("editor/rodada"); }
     j = await api("editor/rodar", { dt: "1e-6", tfim: "0.002", nome: "inicio_teste", amostras: "100" });
     while (["rodando", "pausada", "preparando"].includes(j.estado)) { await espera(300); j = await api("editor/rodada"); }
     ok(j.estado === "fim", `a rodada de teste (o exemplo PI, 2 ms): ${j.estado}`);
