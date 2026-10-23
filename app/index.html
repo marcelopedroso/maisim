@@ -54,6 +54,9 @@
         #bt-todas:hover { border-color:var(--acento); }
         #todas[hidden] { display:none; } #todas input { width:100%; box-sizing:border-box; margin:0 0 8px; padding:7px 10px; font:inherit; font-size:14px;
                   border:1px solid var(--borda); border-radius:8px; background:var(--cartao); color:inherit; }
+        /* "N rodadas": o circuito exato (o caminho dele), não um pedaço do nome: exemplo_buck não leva o exemplo_buck_boost junto */
+        #so-circ { display:inline-flex; align-items:center; gap:6px; margin:0 0 8px; font-size:13px; border:1px solid var(--acento); border-radius:9px; padding:2px 4px 2px 10px; }
+        #so-circ[hidden] { display:none; } #so-circ button { font:inherit; color:var(--sutil); background:none; border:0; cursor:pointer; padding:0 4px; }
         #todas .rodadas { max-height:60vh; overflow:auto; } #todas .vazio { padding:14px 16px; color:var(--sutil); font-size:13px; }
         .selo { font-size:11px; font-weight:600; color:var(--acento); border:1px solid var(--borda); border-radius:9px; padding:0 7px; margin-left:6px; vertical-align:1px; }
         .rodada button.guardar { flex:none; font:inherit; font-size:13px; color:var(--sutil); background:none; border:1px solid var(--borda); border-radius:8px; padding:5px 10px; cursor:pointer; }
@@ -124,6 +127,7 @@
             <p class="sub-ult">a mais recente de cada circuito</p>
             <div class="rodadas" id="ultimas"></div>
             <div id="todas" hidden><input type="search" id="filtro-todas" placeholder="filtrar: circuito, nome da rodada, data (ex.: 22/10), guardada…" aria-label="filtrar as simulações">
+                <span id="so-circ" hidden><span></span><button type="button" title="todas as simulações de novo" aria-label="tirar o filtro do circuito">×</button></span>
                 <div class="rodadas" id="lista-todas"></div>
                 <div class="rodape"><span id="soma-todas"></span><button id="bt-apagar-lista" type="button">apagar as da lista…</button></div></div>
         </section>
@@ -204,16 +208,21 @@
                 try { mods = await (await fetch("/maisim/simu/modelos")).json(); } catch (e) { /* sem o simu: só o scope */ }
                 const circuito = (m) => { if (!m) return null; const base = m.split("/").pop();
                     return mods.find((o) => o.arq === m) || mods.find((o) => o.arq.split("/").pop() === base) || null; };
-                const nomeC = (r) => (r.modelo ? r.modelo.split("/").pop().replace(/\.ipes$/, "") : "");
+                const base = (m) => (m ? m.split("/").pop().replace(/\.ipes$/, "") : "");
+                // dois circuitos de mesmo nome (o exemplo e a cópia dele em "meus circuitos"): o nome leva a pasta de cada um
+                const dup = new Set(), viu = new Map();
+                const nomeM = (m) => { if (!m || !dup.has(base(m))) return base(m); const o = mods.find((x) => x.arq === m);
+                    return `${base(m)} (${o ? o.grupo : m.split("/").slice(-2, -1)[0] || "?"})`; };
+                const nomeC = (r) => nomeM(r.modelo);
                 const linha = (r, n = 0) => { const c = r.do_simu ? circuito(r.modelo) : null;
                     return `<div class="rodada" data-arq="${esc(r.arq)}"><div class="info"><b>${esc(r.nome)}${r.guardada ? '<span class="selo" title="guardada: “por cima” não a substitui">guardada</span>' : ""}</b>` +
                         `<div class="det">${esc([nomeC(r), quando(r.mtime)].filter(Boolean).join(" · "))}</div></div>` +
-                        (n > 1 ? `<button class="n-rodadas" type="button" data-circ="${esc(nomeC(r))}" title="todas as rodadas deste circuito">${n} rodadas</button>` : "") +
+                        (n > 1 ? `<button class="n-rodadas" type="button" data-circ="${esc(r.modelo)}" title="todas as rodadas deste circuito">${n} rodadas</button>` : "") +
                         (r.pasta ? `<button class="guardar" type="button" data-guardar="${r.guardada ? 0 : 1}" title="${r.guardada ? "deixar de guardar: a próxima rodada com o mesmo nome (por cima) pode substituí-la" : "guardar: a próxima rodada com o mesmo nome não a substitui"}">${r.guardada ? "desguardar" : "guardar"}</button>` : "") +
                         `<a href="/maisim/scope/?a=${encodeURIComponent(r.arq)}">ver no scope</a>` +
                         (c ? `<a href="/maisim/simu/?modelo=${encodeURIComponent(c.arq)}">abrir o circuito</a>` : "") +
                         `<button class="apagar" type="button" title="apagar esta rodada${r.pasta ? " (a pasta dela: os dados e a cópia do circuito desta rodada; o circuito fica)" : " (a gravação)"}" aria-label="apagar ${esc(r.nome)}">${LIXO}</button></div>`; };
-                let listaVis = [], apagando = false;
+                let listaVis = [], apagando = false, soCirc = "";   // soCirc: o caminho do circuito do "N rodadas" ("" = todos)
                 const apaga = async (rs, guardadas) => {           // pelo scope: a pasta da rodada inteira; a que está rodando é recusada
                     if (apagando) return;                          // um por vez: o 2º clique durante o 1º não faz nada
                     apagando = true; document.getElementById("recentes").classList.add("apagando");
@@ -231,12 +240,17 @@
                             texto: Object.entries(m).map(([por, n]) => `${n}: ${esc(por)}`) }); }
                 };
                 const desenha = () => {
+                    dup.clear(); viu.clear();
+                    for (const r of todas) { const b = base(r.modelo); if (!b) continue; if (viu.has(b) && viu.get(b) !== r.modelo) dup.add(b); else viu.set(b, r.modelo); }
                     // as últimas: a mais recente de cada circuito (Marcelo, 22/10: com muitas do mesmo circuito, as 6 eram todas dele)
                     const porCirc = new Map();
-                    for (const r of todas) { const k = nomeC(r) || r.arq; if (porCirc.has(k)) porCirc.get(k).n++; else porCirc.set(k, { r, n: 1 }); }   // pelo nome: o que se vê (e o que o filtro usa)
+                    for (const r of todas) { const k = r.modelo || r.arq; if (porCirc.has(k)) porCirc.get(k).n++; else porCirc.set(k, { r, n: 1 }); }   // pelo caminho: o "N rodadas" é deste circuito, não de outro de mesmo nome
                     document.getElementById("ultimas").innerHTML = [...porCirc.values()].slice(0, 6).map((x) => linha(x.r, x.n)).join("");
                     const q = document.getElementById("filtro-todas").value.trim().toLowerCase();
-                    const vis = todas.filter((r) => !q || [r.nome, nomeC(r), r.rotulo, quando(r.mtime), r.guardada ? "guardada" : ""].join(" ").toLowerCase().includes(q));
+                    const sc = document.getElementById("so-circ"); sc.hidden = !soCirc;
+                    sc.firstChild.textContent = soCirc ? `circuito: ${nomeM(soCirc)}` : ""; sc.title = soCirc;
+                    const vis = todas.filter((r) => (!soCirc || r.modelo === soCirc)
+                        && (!q || [r.nome, nomeC(r), r.rotulo, quando(r.mtime), r.guardada ? "guardada" : ""].join(" ").toLowerCase().includes(q)));
                     document.getElementById("lista-todas").innerHTML = document.getElementById("todas").hidden ? ""          // fechada: nada (centenas de linhas)
                         : vis.map((r) => linha(r)).join("") || `<div class="vazio">nenhuma simulação com esse filtro</div>`;
                     listaVis = vis;
@@ -246,12 +260,13 @@
                     bl.textContent = sol.length === todas.length ? `apagar todas (${sol.length}, ${mb(tam)})…` : `apagar ${sol.length === 1 ? "1" : "as " + sol.length} da lista (${mb(tam)})…`;
                     document.getElementById("bt-todas").textContent = document.getElementById("todas").hidden ? `todas as simulações (${todas.length})…` : "só as últimas";
                 };
-                document.getElementById("bt-todas").onclick = () => { const t = document.getElementById("todas"); t.hidden = !t.hidden;
+                document.getElementById("bt-todas").onclick = () => { const t = document.getElementById("todas"); t.hidden = !t.hidden; if (t.hidden) soCirc = "";
                     document.getElementById("ultimas").hidden = !t.hidden; document.querySelector(".sub-ult").hidden = !t.hidden; desenha(); if (!t.hidden) document.getElementById("filtro-todas").focus(); };
                 document.getElementById("filtro-todas").oninput = desenha;
+                document.querySelector("#so-circ button").onclick = () => { soCirc = ""; desenha(); document.getElementById("filtro-todas").focus(); };
                 document.getElementById("bt-apagar-lista").onclick = async () => {    // as da lista (o filtro), menos as guardadas
                     const rs = listaVis.filter((r) => !r.guardada), g = listaVis.length - rs.length;
-                    const q = document.getElementById("filtro-todas").value.trim();
+                    const q = [soCirc && `circuito ${nomeM(soCirc)}`, document.getElementById("filtro-todas").value.trim()].filter(Boolean).join(", ");
                     const sim = await pergunta({ titulo: `Apagar ${rs.length} rodada${rs.length > 1 ? "s" : ""}?`, ok: `apagar ${rs.length}`,
                         texto: [q ? `As da lista com o filtro “${esc(q)}”, ${mb(rs.reduce((a, r) => a + (r.pasta_tam || r.tamanho || 0), 0))}.` : `Todas as simulações, ${mb(rs.reduce((a, r) => a + (r.pasta_tam || r.tamanho || 0), 0))}.`,
                             "Sai a pasta de cada rodada (os dados e a cópia do circuito daquela rodada). Os circuitos em “meus circuitos” ficam.",
@@ -259,7 +274,7 @@
                     if (sim) await apaga(rs, false); };
                 document.getElementById("recentes").addEventListener("click", async (ev) => {      // guardar / desguardar (o simu marca a pasta)
                     const nr = ev.target.closest("button[data-circ]");                                   // "N rodadas": todas as deste circuito
-                    if (nr) { const t = document.getElementById("todas"); document.getElementById("filtro-todas").value = nr.dataset.circ;
+                    if (nr) { const t = document.getElementById("todas"); soCirc = nr.dataset.circ; document.getElementById("filtro-todas").value = "";
                         if (t.hidden) document.getElementById("bt-todas").click(); else desenha(); return; }
                     const ap = ev.target.closest("button.apagar");                                      // a lixeira: só esta rodada
                     if (ap) { const r = todas.find((x) => x.arq === ap.closest(".rodada").dataset.arq); if (!r) return;

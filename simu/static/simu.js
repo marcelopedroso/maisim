@@ -2027,13 +2027,24 @@ $("sel-modelo").onchange = async (e) => {
   preencheModelos(lst);
   let quer = new URLSearchParams(location.search).get("modelo");
   const arqs = lst.map((o) => o.arq);
-  if (VISTA_CODIGO) { try { const e = await api("editor/estado"); if (e && arqs.includes(e.arq)) quer = e.arq; } catch (e) { /* o último deste navegador */ } }
+  // a janela do código e o "+ Novo circuito" (?novo=1) partem do que o servidor tem aberto: o novo pergunta uma vez só
+  // pelas mudanças não salvas (abrir o último deste navegador, se for outro, perguntaria antes)
+  // Um circuito novo sem nome aberto no servidor: o "+ Novo" não abre nada antes (abrir perguntaria): mostra aquele
+  const pedeNovo = !VISTA_CODIGO && new URLSearchParams(location.search).has("novo");
+  let semNome = null;
+  if (VISTA_CODIGO || pedeNovo) {
+    try { const e = await api("editor/estado"); if (e && arqs.includes(e.arq)) quer = e.arq; else if (pedeNovo && e && !e.fechado && /^\(/.test(e.arq || "")) semNome = e; }
+    catch (e) { /* o último deste navegador */ } }
   try { quer = quer || localStorage.getItem("maisim-simu-modelo"); } catch (e) { /* ok */ }
   let fechado = false;                                   // fechado no editor e nada pedido no endereço: começa vazio
   if (!new URLSearchParams(location.search).get("modelo")) try { fechado = (await api("editor/aberto")).fechado; } catch (e) { /* o de sempre */ }
-  const arq = fechado ? null : arqs.includes(quer) ? quer : (arqs.find((a) => a.endsWith("exemplo_controle_pwm.ipes")) || arqs[0]);   // a 1ª vez: o buck com PWM
+  const arq = fechado || semNome ? null : arqs.includes(quer) ? quer : (arqs.find((a) => a.endsWith("exemplo_controle_pwm.ipes")) || arqs[0]);   // a 1ª vez: o buck com PWM
   if (arq) { sel.value = arq; mostraModelo(); await carrega(arq); }
   else if (fechado) { try { mostraFechado(await api("editor/estado")); } catch (e) { /* ok */ } }
+  else if (semNome) {                                   // o que está no servidor, como um circuito novo (sem abrir nada: o novo pergunta)
+    ed.novo = "circuito_sem_nome"; ed.abertoSel = NOVO; dados = Object.assign(semNome, { arq: ed.novo }); folhaAtual = "0";
+    preencheModelos(null, NOVO); desenha(); ajusta(); marcaSujo(true);
+  }
   // o cadeado começa aberto (editando), a não ser que tenha sido fechado neste navegador: assim o servidor conhece o circuito
   // (as medidas e atuações do controle) sem precisar lembrar de abrir a edição
   let travado = false; try { travado = localStorage.getItem("maisim-simu-travado") === "1"; } catch (e) { /* ok */ }
@@ -2042,7 +2053,7 @@ $("sel-modelo").onchange = async (e) => {
     const q = new URLSearchParams(location.search); q.delete("contas"); history.replaceState(null, "", q.toString() ? "?" + q : location.pathname);
     if (typeof abreJanelaClaude === "function") abreJanelaClaude();
   }
-  if (!VISTA_CODIGO && new URLSearchParams(location.search).has("novo")) {   // "+ Novo circuito" na página inicial (Marcelo, 22/10)
+  if (pedeNovo) {                                       // "+ Novo circuito" na página inicial (Marcelo, 22/10)
     const q = new URLSearchParams(location.search); q.delete("novo"); history.replaceState(null, "", q.toString() ? "?" + q : location.pathname);
     await ACOES.novo();
   }
