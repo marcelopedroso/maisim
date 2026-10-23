@@ -51,6 +51,9 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
   ok(lay.vazio, "conversa vazia mostra exemplos do que pedir");
   await pg.screenshot({ path: "claude_chat_vazio.png" });
   // pedir
+  // o lembrete discreto embaixo da caixa (Marcelo, 23/10): a IA pode errar; nada muda sem aceitar
+  const lembrete = await pg.evaluate(() => { const l = $("cc-lembrete"); return l && l.offsetParent !== null ? l.textContent : ""; });
+  ok(/A IA pode errar/.test(lembrete) && /voltar ao de antes/.test(lembrete), `o lembrete na caixa da conversa: "${lembrete.slice(0, 40)}…"`);
   await pg.fill("#cc-texto", "dobre o Kp e crie um ganho K2"); await pg.press("#cc-texto", "Control+Enter");
   await pg.waitForSelector(".cc-prop", { timeout: 20000 }); await pg.waitForTimeout(500);
   const card = await pg.evaluate(() => ({ prop: document.querySelector(".cc-prop").innerText, ele: [...document.querySelectorAll(".cc-ele")].map((x) => x.innerText).join(" | "), eu: [...document.querySelectorAll(".cc-eu")].map((x) => x.innerText), texto: $("cc-texto").value }));

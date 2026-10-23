@@ -40,7 +40,10 @@
              border:1px solid #2a2f37; opacity:0; pointer-events:none; transition:opacity .12s; }
   #maisim-nav .item:hover::after { opacity:1; }
   body.com-maisim-nav { padding-left:${L}px !important; box-sizing:border-box; }
-  #maisim-nav .escala { margin-top:auto; display:flex; flex-direction:column; align-items:center; gap:1px; }
+  #maisim-nav .item.ia { margin-top:auto; }
+  #maisim-nav .item.ia .ponto { position:absolute; right:6px; top:6px; width:8px; height:8px; border-radius:50%; background:#22c55e;
+             box-shadow:0 0 0 2px #15181d; display:none; } #maisim-nav .item.ia.conectada .ponto { display:block; }
+  #maisim-nav .escala { display:flex; flex-direction:column; align-items:center; gap:1px; }
   #maisim-nav .escala .item { height:26px; border:0; background:transparent; cursor:pointer; font:600 17px/1 system-ui, sans-serif; }
   #maisim-nav .escala .item:disabled { opacity:.3; cursor:default; } #maisim-nav .escala .item:disabled:hover { background:transparent; color:#aab2bd; }
   #maisim-nav .escala .pct { color:#8a94a0; font-size:10px; font-variant-numeric:tabular-nums; }
@@ -90,6 +93,23 @@
     aplicaEscala();
   }
   window.addEventListener("storage", (e) => { if (e.key === "maisim-escala") aplicaEscala(); });   // outra aba do MaiSim mudou o tamanho
+  // a IA no pé do trilho (Marcelo, 23/10): a bolinha verde quando alguma IA está conectada; o clique abre a janela das contas
+  // (no simu, na hora; nas outras páginas, o simu já com ela aberta: ?contas=1). A situação vem do simu (o Claude leva ~0,5 s:
+  // chama o claude) — ao abrir, ao voltar à aba e a cada 2 min, em segundo plano
+  const ICONE_IA = svg('<path d="M4.5 4.5h15a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-8.5l-4.5 3.6v-3.6h-2a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2z"/><path d="M6.5 11h2.2M15.6 11h1.9M8.7 8.2l5.6 2.8-5.6 2.8z"/><path d="M15.6 8.2v5.6"/>');
+  let ultimaIA = 0;
+  async function situacaoIA() {
+    const a = document.querySelector("#maisim-nav .item.ia"); if (!a || document.hidden || Date.now() - ultimaIA < 20000) return;
+    ultimaIA = Date.now();
+    try {
+      const [e, ias] = await Promise.all([fetch("/maisim/simu/claude/estado").then((r) => r.json()), fetch("/maisim/simu/claude/ias").then((r) => r.json())]);
+      const nomes = [e && e.logado ? "Claude" : null, ...(ias || []).filter((x) => x.estado && x.estado.logado).map((x) => x.nome)].filter(Boolean);
+      const rot = nomes.length ? `IA: ${nomes.join(" e ")} ${nomes.length > 1 ? "conectados" : "conectado"} (clique: as contas)` : "IA: nenhuma conectada (clique: conectar)";
+      a.classList.toggle("conectada", nomes.length > 0); a.dataset.rotulo = rot; a.setAttribute("aria-label", rot);
+    } catch (err) { /* sem o simu no ar: fica como estava */ }
+  }
+  setInterval(situacaoIA, 120000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) situacaoIA(); });
   if (midiaEscura) midiaEscura.addEventListener("change", aplicaTema);
   window.addEventListener("storage", (e) => { if (e.key === "maisim-tema") aplicaTema(); });   // outra aba do MaiSim trocou o tema
   function montar() {
@@ -106,10 +126,13 @@
       if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || a.classList.contains("ativo")) return;
       e.preventDefault(); const url = a.href + (a.href.includes("?") ? "&" : "?") + "janela=1";   // janela=1: a janela vem sem o trilho
       const w = window.open(url, a.dataset.janela, "popup,width=1200,height=900"); if (w) w.focus(); else location.href = url; }));
-    nav.insertAdjacentHTML("beforeend", (comEscala() ? `<div class="escala"><button class="item mais" type="button" aria-label="MaiSim maior">+</button>
+    nav.insertAdjacentHTML("beforeend", `<a class="item ia" href="/maisim/simu/?contas=1" data-rotulo="IA do MaiSim: as contas" aria-label="IA do MaiSim: as contas">${ICONE_IA}<span class="ponto"></span></a>`
+      + (comEscala() ? `<div class="escala"><button class="item mais" type="button" aria-label="MaiSim maior">+</button>
       <span class="pct"></span><button class="item menos" type="button" aria-label="MaiSim menor">−</button></div>` : "") + `<button class="item tema" type="button"></button>`);
     if (comEscala()) { nav.querySelector(".mais").addEventListener("click", () => mudaEscala(1)); nav.querySelector(".menos").addEventListener("click", () => mudaEscala(-1)); }
-    if (!comEscala()) nav.querySelector(".tema").style.marginTop = "auto";
+    nav.querySelector(".item.ia").addEventListener("click", (e) => {   // no simu: a janela das contas na hora
+      if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || typeof window.abreJanelaClaude !== "function") return;
+      e.preventDefault(); window.abreJanelaClaude(); });
     nav.querySelector(".tema").addEventListener("click", () => {
       const prox = TEMAS[(TEMAS.indexOf(escolhaTema()) + 1) % TEMAS.length];
       try { localStorage.setItem("maisim-tema", prox); } catch (e) { /* ok */ }
@@ -122,6 +145,7 @@
     if (soJanela) nav.style.display = "none";
     aplicaTema(); aplicaEscala();
     if (soJanela) return;
+    situacaoIA();
     document.body.classList.add("com-maisim-nav");
     document.documentElement.style.setProperty("--maisim-nav-w", `${L}px`);
     window.dispatchEvent(new Event("resize"));            // páginas com gráficos se reajustam à largura nova

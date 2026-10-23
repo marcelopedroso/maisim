@@ -11,7 +11,8 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   const b0 = await pg.evaluate(() => ({ title: $("bt-claude").title, logado: $("bt-claude").classList.contains("logado"), raio: getComputedStyle($("bt-claude")).borderTopLeftRadius }));
   ok(b0.title === "IA do MaiSim — Claude: entrar" && !b0.logado && b0.raio === "6px", `botão: "${b0.title}" · cantos ${b0.raio}`);
   await pg.click("#bt-claude"); await pg.waitForSelector(".modal.cla #cla-entrar");
-  ok(/pasta só dele/.test(await pg.textContent(".modal.cla")), "janela: explica a pasta própria");
+  ok(/login só dele/.test(await pg.textContent(".modal.cla")) && /^pasta: .*claude/.test(await pg.getAttribute(".modal.cla .cla-pasta", "title")),
+    "janela: explica o login próprio (o caminho da pasta na dica, não no texto)");
   await pg.click("#cla-entrar"); await pg.waitForSelector("#cla-auto[href]", { timeout: 30000 });
   const l = await pg.evaluate(() => ({ auto: $("cla-auto").href, manual: $("cla-manual").href, alvo: $("cla-auto").target, bt: $("bt-claude").classList.contains("andamento") }));
   const ru = (u) => new URL(u).searchParams.get("redirect_uri");

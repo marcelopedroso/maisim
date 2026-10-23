@@ -36,7 +36,7 @@ const foto = (pg, nome) => (FOTOS ? pg.screenshot({ path: path.join(FOTOS, nome)
   const j = await pg.evaluate(() => ({ h3: document.querySelector(".modal.cla h3").textContent, secoes: [...document.querySelectorAll(".modal.cla section.cla-ia h4")].map((x) => x.firstChild.textContent.trim()),
     texto: $("iac-gemini").textContent, termos: ($("iac-gemini").querySelector("a[href]") || {}).href, claude: !!document.querySelector(".modal.cla #cla-entrar") }));
   ok(j.h3 === "IA do MaiSim — contas" && j.secoes.join(",") === "Claude,Google Antigravity,Gemini" && j.claude, `a janela das contas: ${j.secoes.join(", ")} (o entrar do Claude continua)`);
-  ok(/não atende mais contas pessoais/.test(j.texto) && /Antigravity/.test(j.texto) && /pasta só dele/.test(j.texto) && /gemini-code-assist\/resources\/privacy-notices/.test(j.termos || ""),
+  ok(/não atende mais contas pessoais/.test(j.texto) && /Antigravity/.test(j.texto) && /login só dele/.test(j.texto) && /gemini-code-assist\/resources\/privacy-notices/.test(j.termos || ""),
     "Gemini desconectado: o aviso de que contas pessoais vão pelo Antigravity, a pasta própria e os avisos de privacidade (link)");
   await foto(pg, "gemini_contas.png");
   await pg.click("#iac-gemini [data-ia-acao=entrar]"); await pg.waitForSelector("#iac-link-gemini[href]", { timeout: 40000 });
