@@ -1203,6 +1203,7 @@ function marcaDoca() {
   $("bt-scope").classList.toggle("ativo", aberta && abaDoca === "scope"); $("bt-ctl").classList.toggle("ativo", aberta && abaDoca === "controle");
   document.querySelectorAll("#abas-doca button").forEach((b) => b.classList.toggle("ativo", b.dataset.aba === abaDoca));
   $("if-scope").classList.toggle("oculto", abaDoca !== "scope"); $("painel-controle").classList.toggle("oculto", abaDoca !== "controle");
+  document.body.classList.toggle("doca-controle", abaDoca === "controle");   // com o código na outra janela, a coluna vira faixa (CSS)
 }
 function mostraDoca(aba) {
   if (VISTA_CODIGO) aba = "controle";
@@ -1983,8 +1984,10 @@ function tituloCodigo() { if (VISTA_CODIGO) document.title = `código · ${($("s
 let codigoFora = 0;
 function marcaCodigoFora(on) {                          // na janela do circuito: o código está aberto na janela dele
   if (VISTA_CODIGO) return;
-  clearTimeout(codigoFora); document.body.classList.toggle("codigo-fora", on);
-  if (on) codigoFora = setTimeout(() => document.body.classList.remove("codigo-fora"), 8000);   // sem notícia: a janela fechou
+  clearTimeout(codigoFora); const antes = document.body.classList.contains("codigo-fora");
+  document.body.classList.toggle("codigo-fora", on);
+  if (on) codigoFora = setTimeout(() => marcaCodigoFora(false), 8000);   // sem notícia: a janela fechou
+  if (antes !== on) requestAnimationFrame(() => { if (dados) reajustaAspecto(); });   // a coluna virou faixa (ou voltou): o desenho acompanha
 }
 async function circuitoMudou(m) {                       // a outra janela mudou o circuito (ou abriu outro): o desenho e o controle acompanham
   try {

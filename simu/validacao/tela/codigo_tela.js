@@ -64,6 +64,15 @@ const S = "http://localhost:7200/maisim/simu/";
     ok(/o ▶ fica na janela do circuito/.test(await B.textContent("#ctl-estado")), "Ctrl+Enter na janela do código: a linha do editor diz que o ▶ fica na janela do circuito");
     await A.waitForTimeout(3500);
     ok(await A.evaluate(() => document.body.classList.contains("codigo-fora") && getComputedStyle($("ctl-fora")).display !== "none"), "na janela do circuito, o painel do controle avisa: o código está aberto na janela do código");
+    // e a coluna do controle vira uma faixa estreita (Marcelo, 23/10): o circuito ganha a tela; a aba scope não muda; "editar
+    // aqui também" devolve a coluna
+    const largDoca = () => A.evaluate(() => ({ doca: Math.round($("painel-scope").getBoundingClientRect().width), tela: Math.round($("tela").getBoundingClientRect().width) }));
+    await A.evaluate(() => mostraDoca("controle")); await A.waitForTimeout(400); const fx = await largDoca();
+    await A.evaluate(() => mostraDoca("scope")); await A.waitForTimeout(400); const sc = await largDoca();
+    await A.evaluate(() => mostraDoca("controle")); await A.evaluate(() => $("ctl-fora-bt").click()); await A.waitForTimeout(400); const aq = await largDoca();
+    await A.evaluate(() => document.body.classList.remove("codigo-aqui")); await A.waitForTimeout(300);
+    ok(fx.doca <= 210 && sc.doca > 300 && aq.doca > 300 && fx.tela > aq.tela + 100 && await A.evaluate(() => !!$("ctl-fora-ir")),
+      `a coluna do controle vira faixa (${fx.doca} px; o desenho com ${fx.tela} px); a aba scope fica larga (${sc.doca} px); "editar aqui também" devolve a coluna (${aq.doca} px)`);
     // 5. código guardado na janela do código → a do circuito acompanha
     await B.evaluate(() => ctl.modelos["controle.py"].setValue(ctl.modelos["controle.py"].getValue() + "\n# da janela do código\n")); await B.waitForTimeout(2000);
     ok(await A.evaluate(() => /# da janela do código/.test(codigoAtual())), "código mudado na janela do código: a janela do circuito mostra o mesmo");
@@ -81,7 +90,7 @@ const S = "http://localhost:7200/maisim/simu/";
     // 8. fechar a janela do código: o aviso some
     await B.evaluate(() => ctl.modelos["controle.py"].setValue(ctl.modelos["controle.py"].getValue().replace("\n# da janela do código\n", ""))); await B.waitForTimeout(1500);
     await B.close(); await A.waitForTimeout(1500);
-    ok(await A.evaluate(() => !document.body.classList.contains("codigo-fora")), "fechada a janela do código, o painel do circuito volta a editar");
+    ok(await A.evaluate(() => !document.body.classList.contains("codigo-fora")) && (await largDoca()).doca > 300, "fechada a janela do código, o painel do circuito volta a editar (e a coluna, ao tamanho dela)");
     ok(!erros.length, `sem erros de JS nem diálogos ${erros.join(" ; ")}`);
     await A.evaluate(() => { localStorage.removeItem("maisim-simu-travado"); localStorage.removeItem("maisim-simu-ctl-sem-lado"); });
   } catch (e) { ok(false, `o teste caiu: ${e.message}`); }
