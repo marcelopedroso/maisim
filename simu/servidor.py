@@ -317,6 +317,7 @@ def estado():
     except OSError:
         pass
     r["arq"] = editor["aberto"] or "(o que estava aberto no Gecko do MaiSim)"
+    r["chave_layout"] = chave_layout()
     aberto = (RAIZ / editor["aberto"]).resolve() if editor["aberto"] else None       # arquivo do MaiSim? (Salvar grava por cima)
     pasta = next((k for k, d in (("circuitos", SALVOS), ("subcircuitos", LIB)) if aberto and aberto.parent == d.resolve()), None)
     r["dono"] = {"pasta": pasta, "nome": aberto.stem} if pasta else None
@@ -1140,6 +1141,9 @@ def apaga_arquivo(rel):
     lixo.mkdir(exist_ok=True)
     dest = lixo / f"{arq.stem}_{time.strftime('%Y%m%d-%H%M%S')}.ipes"
     arq.rename(dest)
+    for f in (arquivo_controle(arq), arquivo_aparencia(arq), arquivo_cores(arq), arquivo_scope(arq)):   # os de ao lado vão
+        if f.exists():                                   # junto (senão um circuito novo com o mesmo nome os herdaria)
+            f.rename(dest.with_name(dest.stem + f.name[len(arq.stem):]))
     return dict(apagado=relativo(arq), lixeira=relativo(dest), biblioteca=lista_biblioteca())
 
 
@@ -1666,6 +1670,8 @@ def scope_padrao_le(modelo):
 
 def scope_padrao_grava(modelo, layout):
     arq = ipes_do_modelo(modelo)
+    if not arq.is_file():                                # apagado (ou nunca salvo): o padrão ficaria órfão ao lado de nada
+        raise ErroMotor("o circuito não existe mais (foi apagado?): abra ou salve o circuito antes de guardar o padrão")
     if arq.parent.resolve() not in (SALVOS.resolve(), LIB.resolve()):
         raise ErroMotor("este circuito é só de leitura (um exemplo?): salve uma cópia nos seus circuitos para guardar o padrão do scope dele")
     f = arquivo_scope(arq)
@@ -2823,7 +2829,7 @@ def _rodar(c, ctl_de_fora=None):
         except ErroControle:
             log.close()
             raise
-    meta = dict(planta="gecko-maisim", rotulo=nome, modelo=circuito_aberto(), dt=dt * m, Ts=dt * m, n_fino=1,
+    meta = dict(planta="gecko-maisim", rotulo=nome, modelo=circuito_aberto(), chave_layout=chave_layout(), dt=dt * m, Ts=dt * m, n_fino=1,
                 dt_gecko=dt, tfim=tfim, sinais=[{"canal": k, "elemento": el} for el, k in sinais],
                 cores=cores_efetivas(r),
                 acionamentos=acionamentos_efetivos)
@@ -3002,6 +3008,12 @@ GUARDADA = ".guardada"
 def circuito_aberto():
     """O circuito como a rodada o grava no meta (e no resumo.md): o arquivo aberto ou "novo (sem arquivo)"."""
     return editor["aberto"] or "novo (sem arquivo)"
+
+
+def chave_layout():
+    """De quem é o layout do scope (guardado no navegador): o caminho do circuito; um novo, o momento em que foi criado (cada
+    circuito novo com o seu). A página do simu e o meta da rodada dizem o mesmo, e as duas páginas leem o mesmo layout."""
+    return editor["aberto"] or (f"novo:{editor['novo_desde']:.0f}" if editor.get("novo_desde") else "novo (sem arquivo)")
 
 
 def substitui_anteriores(nome, modelo, pasta_nova):
@@ -5277,6 +5289,8 @@ class Manipulador(BaseHTTPRequestHandler):
                             shutil.copyfile(antes, arquivo_scope(dest))
                     except (ErroMotor, OSError):
                         pass
+                if not chave_vistas or not arquivo_scope(ipes_do_modelo(chave_vistas)).exists():
+                    arquivo_scope(dest).unlink(missing_ok=True)   # sem padrão na origem: o que estava no destino era de outro circuito
                 marca_aberto(str(relativo(dest)))
                 if not chave_vistas:                      # um circuito novo ganhou nome: as rodadas dele vão junto (a IA as acha)
                     resumo_rodada.muda_modelo(RODADAS, "novo (sem arquivo)", str(relativo(dest)), editor.get("novo_desde"))

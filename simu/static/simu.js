@@ -94,12 +94,22 @@ function desenhaJuncoes(g, f) {
 const canalScope = (e, fid = folhaAtual) => { const c = (e.saidas[0] || e.nome).replace(/[^A-Za-z0-9_]/g, "_");
   return fid === "0" ? c : `${prefixoSub(dados.folhas[fid].nome)}_${c}`; };
 const MEDIDOR = new Set(["VOLT", "AMP"]);
-// a seção e o painel do scope de um sinal (Marcelo, 23/10): o layout do scope é por circuito, guardado no navegador com o nome
-// dele (o mesmo endereço do simu: as duas páginas veem o mesmo); escolher aqui muda o layout, e o scope (aqui dentro ou na
+// a seção e o painel do scope de um sinal (Marcelo, 23/10): o layout do scope é por circuito, guardado no navegador (o mesmo
+// endereço do simu: as duas páginas veem o mesmo); escolher aqui muda o layout, e o scope (aqui dentro ou na
 // janela dele) se remonta. Um circuito ainda no automático: o automático vira o layout dele antes (os outros sinais não somem)
+// A chave é a mesma do scope (o servidor diz qual: o caminho do circuito; um novo, o momento em que foi criado)
 function circuitoDoLayout() {
-  if (dados && dados.fechado) return "";
-  return ed.novo ? "novo (sem arquivo)" : String((dados && dados.arq) || "").split("/").pop().replace(/\.ipes$/, "");
+  if (!dados || dados.fechado) return "";
+  return String(dados.chave_layout || (/^\(/.test(dados.arq || "") ? "" : dados.arq || ""));
+}
+const nomeDoLayout = () => (ed.novo || String((dados && dados.arq) || "").split("/").pop().replace(/\.ipes$/, ""));
+// o padrão do circuito (o .scope.json ao lado dele): um circuito ainda sem layout neste navegador parte dele, como no scope
+let padraoLayout = { chave: null, L: null };
+async function lePadraoLayout() {
+  const c = circuitoDoLayout(); if (!c || padraoLayout.chave === c) return;
+  let L = null;
+  if (!/^novo[: ]/.test(c)) try { const r = await fetch(`/maisim/simu/scope/padrao?modelo=${encodeURIComponent(c)}`); if (r.ok) L = (await r.json()).layout || null; } catch (e) { /* sem padrão */ }
+  padraoLayout = { chave: c, L };
 }
 function canaisDoCircuito() {                            // os sinais que vão para o scope (medidores, tags, saídas de blocos), na ordem do scope
   const out = [];
@@ -107,14 +117,29 @@ function canaisDoCircuito() {                            // os sinais que vão p
     for (const e of f.elementos) if ((MEDIDOR.has(e.tipo) || ehTag(e) || ehSinal(e, fid)) && !foraDoScope(e)) out.push(canalScope(e, fid));
   return [...new Set(out)].sort();
 }
-function leLayoutCircuito() {
+function leLayoutCircuito() {                          // o guardado (v5; o de antes, v4, pelo nome), o padrão ou o automático
   const c = circuitoDoLayout(); if (!c) return null;
-  try { const j = JSON.parse(localStorage.getItem(`maisim-scope-layout-v4:${c}`) || "null"); if (j && Array.isArray(j.itens) && j.itens.length) return j; } catch (e) { /* o automático */ }
-  return { colunas: 2, itens: [{ secao: c }, { titulo: "Sinais da rodada", sinais: canaisDoCircuito().slice(0, 8), largura: 1 }] };   // o automático do scope
+  const auto = () => ({ colunas: 2, itens: [{ secao: nomeDoLayout() }, { titulo: "Sinais da rodada", sinais: canaisDoCircuito().slice(0, 8), largura: 1 }] });   // o automático do scope
+  let j = null; try { j = JSON.parse(localStorage.getItem(`maisim-scope-layout-v5:${c}`) || "null"); } catch (e) { /* o próximo */ }
+  if (j && Array.isArray(j.itens)) return j.itens.length ? j : auto();   // guardado vazio: o automático (como no scope)
+  if (!/^novo[: ]/.test(c)) try { j = JSON.parse(localStorage.getItem(`maisim-scope-layout-v4:${nomeDoLayout()}`) || "null");
+    if (j && Array.isArray(j.itens) && j.itens.length) return j; } catch (e) { /* o próximo */ }
+  if (padraoLayout.chave === c && padraoLayout.L) return JSON.parse(JSON.stringify(padraoLayout.L));
+  return auto();
 }
 function gravaLayoutCircuito(L) {
-  try { localStorage.setItem(`maisim-scope-layout-v4:${circuitoDoLayout()}`, JSON.stringify(L)); return true; } catch (e) { msg("o navegador não deixou guardar o layout do scope", "erro"); return false; }
+  try { localStorage.setItem(`maisim-scope-layout-v5:${circuitoDoLayout()}`, JSON.stringify(L)); return true; } catch (e) { msg("o navegador não deixou guardar o layout do scope", "erro"); return false; }
 }
+// salvar como: o layout do scope vai junto para o arquivo novo (como o .scope.json no servidor); sem layout, o que estava
+// guardado para aquele caminho (de outro circuito, que estava lá antes) sai
+function levaLayout(de, para) {
+  if (!de || !para || de === para) return;
+  try { const v = localStorage.getItem(`maisim-scope-layout-v5:${de}`);
+    if (v !== null) localStorage.setItem(`maisim-scope-layout-v5:${para}`, v); else localStorage.removeItem(`maisim-scope-layout-v5:${para}`); } catch (e) { /* ok */ }
+}
+// o layout mudou no scope (outra janela) com as escolhas abertas aqui: refaz as listas (os números delas são posições)
+let redesenhaNoPainel = null;
+addEventListener("storage", (e) => { if (redesenhaNoPainel && e.key === `maisim-scope-layout-v5:${circuitoDoLayout()}`) redesenhaNoPainel(); });
 function gruposDoLayout(L) {                             // [{secao, paineis: [item]}]; os painéis antes da 1ª seção ficam em "(sem seção)"
   const gs = []; let g = null;
   for (const x of L.itens) { if (x.secao) { g = { secao: x.secao, item: x, paineis: [] }; gs.push(g); } else { if (!g) { g = { secao: "(sem seção)", item: null, paineis: [] }; gs.push(g); } g.paineis.push(x); } }
@@ -123,13 +148,14 @@ function gruposDoLayout(L) {                             // [{secao, paineis: [i
 function ligaNoPainel(np) {
   const canal = np.dataset.canal, selS = np.querySelector("#p-secao"), selP = np.querySelector("#p-painel");
   const desenhaOps = (secaoEscolhida) => {
+    if (!np.isConnected) { redesenhaNoPainel = null; return; }   // o painel de propriedades já é outro
     const L = leLayoutCircuito(), gs = gruposDoLayout(L);
     const onde = gs.flatMap((g) => g.paineis.map((p) => ({ g, p }))).find((x) => (x.p.sinais || []).includes(canal));
     const sAtual = secaoEscolhida != null ? secaoEscolhida : onde ? gs.indexOf(onde.g) : -1;
     selS.innerHTML = `<option value="">—</option>` + gs.map((g, k) => `<option value="${k}"${k === sAtual ? " selected" : ""}>${escT(g.secao)}</option>`).join("") + `<option value="+">+ nova seção…</option>`;
     const g = gs[sAtual];
     selP.innerHTML = `<option value="">${onde || g ? "—" : "fora de qualquer painel"}</option>` + (g ? g.paineis.map((p, k) => `<option value="${k}"${onde && onde.p === p ? " selected" : ""}>${escT(p.titulo || "(sem título)")}</option>`).join("") + `<option value="+">+ novo painel…</option>` : "");
-    selP.disabled = !g;
+    selP.disabled = !g || esperando; selS.disabled = esperando;
   };
   const poe = (L, g, painel) => {                       // o sinal só neste painel (sai dos outros)
     for (const x of L.itens) if (!x.secao && Array.isArray(x.sinais)) x.sinais = x.sinais.filter((c) => c !== canal);
@@ -146,8 +172,10 @@ function ligaNoPainel(np) {
     }
     desenhaOps(selS.value === "" ? -1 : +selS.value);
   };
+  const mudou = () => { msg("o layout do scope mudou: escolha de novo", "erro"); desenhaOps(); };
   selP.onchange = async () => {
-    const L = leLayoutCircuito(), gs = gruposDoLayout(L), g = gs[+selS.value]; if (!g) return;
+    const L = leLayoutCircuito(), gs = gruposDoLayout(L), g = gs[+selS.value];
+    if (!g || g.secao !== selS.selectedOptions[0].textContent) return mudou();   // outra janela mexeu no layout no meio
     if (selP.value === "+") {
       const r = await modal({ titulo: `Novo painel em ${g.secao}`, campos: [{ nome: "painel", rotulo: "título do painel", valor: canal }], ok: "criar" });
       const t = r && r.painel.trim(); if (!t) { desenhaOps(+selS.value); return; }
@@ -157,9 +185,14 @@ function ligaNoPainel(np) {
       poe(L, g, painel); desenhaOps(); return;
     }
     if (selP.value === "") return;
-    poe(L, g, g.paineis[+selP.value]); desenhaOps();
+    const painel = g.paineis[+selP.value];
+    if (!painel || (painel.titulo || "(sem título)") !== selP.selectedOptions[0].textContent) return mudou();
+    poe(L, g, painel); desenhaOps();
   };
-  desenhaOps();
+  redesenhaNoPainel = () => desenhaOps();
+  // enquanto o padrão do circuito vem, as listas esperam (escolher agora gravaria o automático, e o padrão não entraria mais)
+  let esperando = true; desenhaOps();
+  lePadraoLayout().then(() => { esperando = false; desenhaOps(); });
 }
 // a tag (scope e controle): um ganho 1 do Gecko (r0 = 1) chamado TAG.k — repassa o sinal ligado na entrada, e o nome da saída é o
 // nome do sinal no /maisim/scope e no m[...] do controle (como um medidor). Para levar um sinal para fora de um subcircuito
@@ -1346,11 +1379,12 @@ async function salvarComo() {
   const r = await modal({ titulo: "Salvar como", texto: "O circuito é gravado nos seus circuitos (a pasta de dados do MaiSim) e aparece na lista.",
     campos: [{ nome: "nome", rotulo: "nome do arquivo", valor: ed.novo || ((dados.arq || "circuito").split("/").pop().replace(/\.ipes$/, "").replace(/^\(.*\)$/, "circuito") + "_copia") }], ok: "salvar" });
   const nome = r && r.nome.trim(); if (!nome) return false;
+  const layoutAntes = circuitoDoLayout();
   try { let j;
     try { j = await api("editor/salvar", { nome }); }
     catch (e) { if (!/confirme/.test(e.message) || !(await confirma("Sobrescrever?", e.message.replace(/; confirme.*$/, "."), "sobrescrever", true))) throw e;
       j = await api("editor/salvar", { nome, sobrescrever: true }); }
-    novoEstado(j); marcaSujo(false); msg(`salvo em ${j.salvo}`, "ok");
+    novoEstado(j); marcaSujo(false); msg(`salvo em ${j.salvo}`, "ok"); levaLayout(layoutAntes, circuitoDoLayout());
     const lst = await api("modelos");                   // leitura: repete uma vez se a conexão cair
     ed.novo = null; ed.abertoSel = j.salvo; preencheModelos(lst, j.salvo);
     const q = new URLSearchParams(location.search); q.set("modelo", j.salvo); history.replaceState(null, "", "?" + q.toString());
