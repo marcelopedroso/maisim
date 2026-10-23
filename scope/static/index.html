@@ -174,6 +174,11 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
   .menu .espessuras .espessura i { display:block; width:100%; border-radius:2px; } .menu .espessuras .espessura.atual { outline:2px solid var(--texto); outline-offset:1px; }
   .dica { font-size:12px; color:var(--sutil); margin:0 0 8px; }
   .vazio { color:var(--sutil); font-size:13px; padding:30px; text-align:center; }
+  .menu-layout { position:relative; display:inline-block; }
+  #menu-layout { position:absolute; top:calc(100% + 4px); left:0; z-index:40; display:flex; flex-direction:column; gap:2px; min-width:250px; padding:5px;
+    background:var(--cartao); border:1px solid var(--borda); border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.18); }
+  #menu-layout[hidden] { display:none; } #menu-layout button { text-align:left; border:0; background:none; padding:6px 9px; border-radius:6px; }
+  #menu-layout button:hover { background:var(--suave2, rgba(0,0,0,.05)); }
   #janela-apagar { position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:50; display:none; align-items:flex-start; justify-content:center; padding:40px 16px 20px; box-sizing:border-box; }
   #janela-apagar.aberta { display:flex; }
   #janela-apagar .caixa { background:var(--cartao); border-radius:10px; width:min(820px, 100%); max-height:100%; display:flex; flex-direction:column;
@@ -224,7 +229,10 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
       <button id="bt-painel">+ Painel</button>
       <button id="bt-secao" title="novo título de seção no fim">+ Seção</button>
       <button id="bt-porlinha" title="quantos painéis por linha, para todos (cada painel muda o seu no menu ⋯)">Por linha: 2</button>
-      <button id="bt-padrao" title="volta este circuito ao layout automático (um painel com os sinais da rodada); o dos outros circuitos fica">Layout automático</button>
+      <span class="menu-layout"><button id="bt-layout" title="o layout deste circuito: guardar como padrão, voltar ao padrão, ou o automático">Layout ▾</button>
+        <span id="menu-layout" hidden><button id="ml-guardar" title="guarda o layout de agora como o padrão do circuito, ao lado dele (vai junto com o circuito)">Guardar como padrão deste circuito</button>
+        <button id="ml-padrao" title="volta ao padrão guardado do circuito (o que você mexeu depois sai)">Voltar ao padrão</button>
+        <button id="bt-padrao" title="o layout automático: um painel com os sinais da rodada (o dos outros circuitos fica)">Automático (os sinais da rodada)</button></span></span>
       <button id="bt-exportar" title="baixa um arquivo com os painéis, as seções e as cores dos sinais (para outro MaiSim ou um colega)">Exportar visões</button>
       <button id="bt-importar" title="troca os painéis, as seções e as cores pelos de um arquivo exportado (do MaiSim ou do PEW)">Importar visões…</button>
       <input type="file" id="arq-visoes" accept=".json,application/json" hidden>

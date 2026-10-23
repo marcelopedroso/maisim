@@ -53,7 +53,7 @@ const MEU = { colunas: 1, itens: [{ secao: "Seção do teste" }, { titulo: "Pain
     ok(/^visoes_scope_circuito_visoes_\d{4}-\d\d-\d\d\.json$/.test(down.suggestedFilename()) && v.formato === "scope-visoes" && v.circuito === "circuito_visoes" && v.layout.itens.length === 2
        && v.layout.itens[1].titulo === "Painel do teste" && v.cores.sinal_a === "#ff0000", `exportado: ${down.suggestedFilename()} (${v.layout.itens.length} itens, cores ${JSON.stringify(v.cores)})`);
     // 4. "Layout automático": só este circuito volta ao automático; o do outro fica
-    await pg.click("#bt-padrao"); await pg.waitForTimeout(300);
+    await pg.click("#bt-layout"); await pg.click("#bt-padrao"); await pg.waitForTimeout(300);
     await pg.evaluate(() => localStorage.setItem("maisim-scope-cores", "{}"));
     const voltou = await vistos(), outro = await pg.evaluate((o) => localStorage.getItem(o), OUTRO);
     ok(JSON.stringify(voltou) === JSON.stringify(["S:circuito_visoes", "P:Sinais da rodada visoes"]) && /do outro/.test(outro || ""), `layout automático: ${JSON.stringify(voltou)}; o do outro circuito fica`);
@@ -78,7 +78,8 @@ const MEU = { colunas: 1, itens: [{ secao: "Seção do teste" }, { titulo: "Pain
     // 8. o layout de antes (um só para tudo, v3): na 1ª rodada do circuito, vêm só os painéis com sinais dela (e a seção deles)
     await pg.evaluate(([k]) => { localStorage.removeItem(k); localStorage.setItem("maisim-scope-layout-v3", JSON.stringify({ colunas: 2, itens: [
       { secao: "Porta CC e rede" }, { titulo: "V_dc", sinais: ["vdc"] }, { secao: "Minha seção" }, { titulo: "Meu painel", sinais: ["sinal_b", "nao_existe"] }] })); }, [CHAVE]);
-    await abre(); const mig = await vistos(), guardado = await pg.evaluate((k) => !!localStorage.getItem(k), CHAVE);
+    await abre(); await pg.waitForFunction(() => itens.some((x) => x.titulo === "Meu painel"), null, { timeout: 10000 }).catch(() => {});   // depois de consultar o padrão do circuito (não tem)
+    const mig = await vistos(), guardado = await pg.evaluate((k) => !!localStorage.getItem(k), CHAVE);
     ok(JSON.stringify(mig) === JSON.stringify(["S:Minha seção", "P:Meu painel"]) && guardado, `do layout de antes: só o que tem sinal desta rodada ${JSON.stringify(mig)}, guardado para o circuito`);
     ok(!erros.length, `sem erros de JS ${erros.join(" ; ")}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message}`); }
