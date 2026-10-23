@@ -565,7 +565,7 @@ function mede(p) {
     const r = mede1(se.F, se.canal, M, hs);
     const nome = rotulo(se.canal) + (B ? (se.F === A ? " · A" : " · B") : ""), ch = `${se.canal}|${se.F === A ? "A" : "B"}`;
     p.medRes.push({ se, r, nome, chave: ch });
-    html += `<tr data-chave="${ch}" class="${p.espFora.has(ch) ? "fora" : ""}"><td class="nome" title="clique para tirar ou pôr: no gráfico, no Σ / x̄ e no espectro (como esconder na legenda)"><i style="background:${se.cor}"></i>${nome}</td>`;
+    html += `<tr data-chave="${ch}" class="${p.espFora.has(ch) ? "fora" : ""}"><td class="nome" title="clique para tirar ou pôr: no gráfico, no Σ / x̄ e no espectro (como esconder na legenda)"><i style="background:${se.cor}"></i>${htmlMat(nome)}</td>`;
     html += celulasMed(r, hs);
   }
   // Σ de cada rodada (A; e B, no Comparar), com os sinais que não foram tirados
@@ -861,10 +861,11 @@ function montaMenu(p) {
   const desenha = () => {
     const q = busca.value.toLowerCase(); let html = "", grupo = "";
     for (const c of catalogo()) {
-      if (q && !(`${c.grupo} ${c.rotulo} ${c.canal}`).toLowerCase().includes(q)) continue;
+      const alvo = `${c.grupo} ${c.rotulo} ${c.canal}`.toLowerCase();   // o nome cru: "v_o" acha; "vo" também (sem o _)
+      if (q && !alvo.includes(q) && !alvo.replace(/_/g, "").includes(q.replace(/_/g, ""))) continue;
       if (c.grupo !== grupo) { grupo = c.grupo; html += `<h4>${grupo}</h4>`; }
       const marc = p.sinais.includes(c.canal);
-      html += `<div class="item"><label><input type="checkbox" data-c="${c.canal}" ${marc ? "checked" : ""}> ${c.rotulo}` +
+      html += `<div class="item"><label><input type="checkbox" data-c="${c.canal}" ${marc ? "checked" : ""}> ${htmlMat(c.rotulo)}` +
               (c.tipo === "f" ? ` <span class="fino">passo fino</span>` : "") + "</label>" +
               (marc ? `<button class="cor-sinal" data-c="${c.canal}" style="background:${corDoSinal(c.canal, p.sinais.indexOf(c.canal))}" title="cor e espessura do sinal (em todos os painéis)"></button>` +
                       `<span class="x">×</span><input type="number" step="any" class="ganho" data-c="${c.canal}" value="${(p.ganhos || {})[c.canal] || 1}"

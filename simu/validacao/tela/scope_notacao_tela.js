@@ -37,6 +37,15 @@ const URL = "http://localhost:7200/maisim/scope/?a=" + encodeURIComponent(path.r
     await pg.fill(".cartao input.titulo", "só v_o"); await pg.press(".cartao input.titulo", "Enter"); await pg.click("#paineis", { position: { x: 5, y: 5 } }).catch(() => {}); await pg.waitForTimeout(200);
     const t2 = await tit();
     ok(ed && t2.mat !== "none" && /só <span class="mat">/.test(t2.html), `clicar no título abre a caixa de texto; o título novo volta em notação (${t2.html.replace(/<[^>]+>/g, "")})`);
+    // a lista do menu Sinais em notação; a busca acha por "v_o" e por "vo"; a tabela da Medição também
+    await pg.click(".cartao .b-sinais"); await pg.waitForSelector(".menu");
+    const lista = await pg.$$eval(".menu .item label", (ls) => ls.map((l) => l.innerHTML));
+    const acha = async (q) => { await pg.fill(".menu input[placeholder^=procurar]", q); await pg.waitForTimeout(100); return pg.$$eval(".menu .item input[type=checkbox]", (is) => is.map((i) => i.dataset.c).join(",")); };
+    const a1 = await acha("v_o"), a2 = await acha("vo"); await pg.keyboard.press("Escape"); await pg.keyboard.press("Escape");
+    await pg.click(".cartao .b-med"); await pg.waitForSelector(".medicao .med-tab td.nome");
+    const tab = await pg.$$eval(".medicao .med-tab td.nome", (ts) => ts.map((t) => t.innerHTML).join(" | "));
+    ok(lista.some((h) => /<span class="mb">v<\/span><sub>o<\/sub>/.test(h)) && a1 === "v_o" && a2 === "v_o" && /<sub>o<\/sub>/.test(tab),
+      `menu Sinais e tabela da Medição em notação; a busca "v_o" e "vo" acha o v_o (${a1}; ${a2})`);
     const fig = await pg.evaluate(() => { const c = canvasPainel(paineis()[0]); return c.width > 100 && c.height > 100; });
     ok(fig, "o PNG (Salvar figura) sai");
     ok(!erros.length, `sem erros de JS ${erros.join(" ; ")}`);
