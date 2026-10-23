@@ -29,6 +29,19 @@ const situacao = (pg) => pg.evaluate(() => { const a = document.querySelector("#
     const antes = pg.url(); await pg.click("#maisim-nav .item.ia");
     const modal2 = await pg.waitForSelector(".modal.cla", { timeout: 10000 }).then(() => true).catch(() => false);
     ok(modal2 && pg.url() === antes, "no simu: a janela abre na hora, sem trocar de página");
+    // um login que sai (ou entra) noutra aba: o simu avisa (maisim-ia-logados) e a bolinha das outras abas muda na hora
+    const H = await pg.context().newPage(); await H.goto("http://localhost:7200/");
+    await H.waitForFunction(() => document.querySelector("#maisim-nav .item.ia.conectada"), null, { timeout: 15000 }).catch(() => {});
+    fs.rmSync(LOGADO, { force: true });
+    await pg.evaluate(() => avisaTrilho([]));                                                     // o que o simu faz ao ver o login sair
+    const saiu = await H.waitForFunction(() => !document.querySelector("#maisim-nav .item.ia.conectada"), null, { timeout: 8000 }).then(() => true).catch(() => false);
+    ok(saiu && /nenhuma conectada/.test((await situacao(H)).rot), `login saiu: a outra aba muda na hora ("${(await situacao(H)).rot}")`);
+    // a janela à parte (janela=1, sem o trilho à vista) não pergunta a situação da IA
+    const J = await pg.context().newPage(); let pedidos = 0;
+    J.on("request", (r) => { if (/\/claude\/(estado|ias)/.test(r.url())) pedidos++; });
+    await J.goto("http://localhost:7200/maisim/scope/?janela=1"); await J.waitForTimeout(1500);
+    await J.evaluate(() => { localStorage.setItem("maisim-ia-logados", "x" + Date.now()); window.maisimNav.situacaoIA(true); }); await J.waitForTimeout(1500);
+    ok(pedidos === 0, `a janela à parte não pergunta a situação da IA (${pedidos} pedidos)`);
     ok(!erros.length, `sem erros de JS ${erros.join(" ; ")}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message.split("\n")[0]}`); }
   finally { fs.rmSync(LOGADO, { force: true }); if (b) await b.close(); }

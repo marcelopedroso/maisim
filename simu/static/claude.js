@@ -28,9 +28,17 @@ const emAndamento = () => !!(cla.estado && cla.estado.login && cla.estado.login.
 
 const outrasIAs = () => (cla.ias || []).filter((a) => a.tem_login && a.estado);
 const iaAndando = () => outrasIAs().some((a) => a.estado.login && a.estado.login.andamento && !a.estado.logado);
+let logadosAntes = null;
+function avisaTrilho(nomes) {                            // um login entrou ou saiu: a bolinha da IA no trilho (aqui e nas outras abas) na hora
+  const k = nomes.join(","); if (logadosAntes === null || k === logadosAntes) { logadosAntes = k; return; }
+  logadosAntes = k;
+  try { localStorage.setItem("maisim-ia-logados", k); } catch (e) { /* ok */ }
+  if (window.maisimNav && window.maisimNav.situacaoIA) window.maisimNav.situacaoIA(true);
+}
 function botaoClaude() {
   const b = $("bt-claude"), e = cla.estado; if (!b) return;
   const logado = !!(e && e.logado), outras = outrasIAs().filter((a) => a.estado.logado);
+  if (e) avisaTrilho([logado ? "Claude" : "", ...outras.map((a) => a.nome)].filter(Boolean));
   b.classList.toggle("logado", logado || outras.length > 0); b.classList.toggle("andamento", emAndamento() || iaAndando()); b.classList.toggle("falha", !!cla.falha && !e);
   b.title = (!e ? `IA do MaiSim${cla.falha ? `: sem resposta do servidor (${cla.falha})` : ""}`
     : !e.instalado ? "IA do MaiSim: o Claude Code (claude) não está instalado neste computador"

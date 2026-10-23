@@ -95,11 +95,14 @@
   window.addEventListener("storage", (e) => { if (e.key === "maisim-escala") aplicaEscala(); });   // outra aba do MaiSim mudou o tamanho
   // a IA no pé do trilho (Marcelo, 23/10): a bolinha verde quando alguma IA está conectada; o clique abre a janela das contas
   // (no simu, na hora; nas outras páginas, o simu já com ela aberta: ?contas=1). A situação vem do simu (o Claude leva ~0,5 s:
-  // chama o claude) — ao abrir, ao voltar à aba e a cada 2 min, em segundo plano
+  // chama o claude) — ao abrir, ao voltar à aba e a cada 2 min, em segundo plano; na hora, quando um login entra ou sai (o
+  // simu avisa: maisim-ia-logados). A janela à parte (janela=1) não mostra o trilho: não pergunta
   const ICONE_IA = svg('<path d="M4.5 4.5h15a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-8.5l-4.5 3.6v-3.6h-2a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2z"/><path d="M6.5 11h2.2M15.6 11h1.9M8.7 8.2l5.6 2.8-5.6 2.8z"/><path d="M15.6 8.2v5.6"/>');
   let ultimaIA = 0;
-  async function situacaoIA() {
-    const a = document.querySelector("#maisim-nav .item.ia"); if (!a || document.hidden || Date.now() - ultimaIA < 20000) return;
+  const soJanela = () => new URLSearchParams(location.search).get("janela") === "1";
+  async function situacaoIA(agora) {
+    const a = document.querySelector("#maisim-nav .item.ia");
+    if (!a || soJanela() || document.hidden || (!agora && Date.now() - ultimaIA < 20000)) return;
     ultimaIA = Date.now();
     try {
       const [e, ias] = await Promise.all([fetch("/maisim/simu/claude/estado").then((r) => r.json()), fetch("/maisim/simu/claude/ias").then((r) => r.json())]);
@@ -110,6 +113,7 @@
   }
   setInterval(situacaoIA, 120000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) situacaoIA(); });
+  window.addEventListener("storage", (e) => { if (e.key === "maisim-ia-logados") situacaoIA(true); });   // login noutra aba
   if (midiaEscura) midiaEscura.addEventListener("change", aplicaTema);
   window.addEventListener("storage", (e) => { if (e.key === "maisim-tema") aplicaTema(); });   // outra aba do MaiSim trocou o tema
   function montar() {
@@ -141,10 +145,9 @@
     document.body.prepend(nav);
     // a janela à parte (scope, código), aberta pelo trilho: sem o trilho à vista (ele continua montado: o tema e o tamanho
     // do MaiSim valem nela também, e mudam junto com as outras janelas)
-    const soJanela = new URLSearchParams(location.search).get("janela") === "1";
-    if (soJanela) nav.style.display = "none";
+    if (soJanela()) nav.style.display = "none";
     aplicaTema(); aplicaEscala();
-    if (soJanela) return;
+    if (soJanela()) return;
     situacaoIA();
     document.body.classList.add("com-maisim-nav");
     document.documentElement.style.setProperty("--maisim-nav-w", `${L}px`);
@@ -157,7 +160,7 @@
     document.documentElement.style.removeProperty("--maisim-nav-w");
     window.dispatchEvent(new Event("resize"));
   }
-  window.maisimNav = { montar, desmontar, aplicaTema, aplicaEscala };
+  window.maisimNav = { montar, desmontar, aplicaTema, aplicaEscala, situacaoIA };
   const eu = document.currentScript;
   if (!(eu && eu.dataset.manual)) { if (document.body) montar(); else document.addEventListener("DOMContentLoaded", montar); }
 })();
