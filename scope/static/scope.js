@@ -54,6 +54,8 @@ const CHAVE_LAYOUT_ANTIGA = "maisim-scope-layout-v3";
 const circuitoDe = (F) => { const m = (F && F.meta) || {}, mod = String(m.modelo || "");
   return mod ? mod.split("/").pop().replace(/\.ipes$/, "") : String(m.planta || ""); };
 const chaveLayout = () => { const c = circuitoDe(A); return c ? `maisim-scope-layout-v4:${c}` : ""; };
+// o layout deste circuito mudou noutra página (o simu, ao escolher a seção e o painel de um sinal; outra janela do scope): remonta
+window.addEventListener("storage", (e) => { if (e.key && e.key === chaveLayout()) montaTudo(); });
 // medidas no Gecko a cada passo fino. EA … ECA: tensão PWM do conversor calculada das tensões medidas nas pontas das
 // cadeias de SMs, e_k = (v_kp + v_kn − V_dc)/2 e e_ab = e_a − e_b. VAB … VCA: tensão nos terminais (depois dos indutores
 // de braço), das rodadas gravadas antes de 17/10 11:47

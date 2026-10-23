@@ -94,6 +94,73 @@ function desenhaJuncoes(g, f) {
 const canalScope = (e, fid = folhaAtual) => { const c = (e.saidas[0] || e.nome).replace(/[^A-Za-z0-9_]/g, "_");
   return fid === "0" ? c : `${prefixoSub(dados.folhas[fid].nome)}_${c}`; };
 const MEDIDOR = new Set(["VOLT", "AMP"]);
+// a seção e o painel do scope de um sinal (Marcelo, 23/10): o layout do scope é por circuito, guardado no navegador com o nome
+// dele (o mesmo endereço do simu: as duas páginas veem o mesmo); escolher aqui muda o layout, e o scope (aqui dentro ou na
+// janela dele) se remonta. Um circuito ainda no automático: o automático vira o layout dele antes (os outros sinais não somem)
+function circuitoDoLayout() {
+  if (dados && dados.fechado) return "";
+  return ed.novo ? "novo (sem arquivo)" : String((dados && dados.arq) || "").split("/").pop().replace(/\.ipes$/, "");
+}
+function canaisDoCircuito() {                            // os sinais que vão para o scope (medidores, tags, saídas de blocos), na ordem do scope
+  const out = [];
+  for (const [fid, f] of Object.entries((dados && dados.folhas) || {}))
+    for (const e of f.elementos) if ((MEDIDOR.has(e.tipo) || ehTag(e) || ehSinal(e, fid)) && !foraDoScope(e)) out.push(canalScope(e, fid));
+  return [...new Set(out)].sort();
+}
+function leLayoutCircuito() {
+  const c = circuitoDoLayout(); if (!c) return null;
+  try { const j = JSON.parse(localStorage.getItem(`maisim-scope-layout-v4:${c}`) || "null"); if (j && Array.isArray(j.itens) && j.itens.length) return j; } catch (e) { /* o automático */ }
+  return { colunas: 2, itens: [{ secao: c }, { titulo: "Sinais da rodada", sinais: canaisDoCircuito().slice(0, 8), largura: 1 }] };   // o automático do scope
+}
+function gravaLayoutCircuito(L) {
+  try { localStorage.setItem(`maisim-scope-layout-v4:${circuitoDoLayout()}`, JSON.stringify(L)); return true; } catch (e) { msg("o navegador não deixou guardar o layout do scope", "erro"); return false; }
+}
+function gruposDoLayout(L) {                             // [{secao, paineis: [item]}]; os painéis antes da 1ª seção ficam em "(sem seção)"
+  const gs = []; let g = null;
+  for (const x of L.itens) { if (x.secao) { g = { secao: x.secao, item: x, paineis: [] }; gs.push(g); } else { if (!g) { g = { secao: "(sem seção)", item: null, paineis: [] }; gs.push(g); } g.paineis.push(x); } }
+  return gs;
+}
+function ligaNoPainel(np) {
+  const canal = np.dataset.canal, selS = np.querySelector("#p-secao"), selP = np.querySelector("#p-painel");
+  const desenhaOps = (secaoEscolhida) => {
+    const L = leLayoutCircuito(), gs = gruposDoLayout(L);
+    const onde = gs.flatMap((g) => g.paineis.map((p) => ({ g, p }))).find((x) => (x.p.sinais || []).includes(canal));
+    const sAtual = secaoEscolhida != null ? secaoEscolhida : onde ? gs.indexOf(onde.g) : -1;
+    selS.innerHTML = `<option value="">—</option>` + gs.map((g, k) => `<option value="${k}"${k === sAtual ? " selected" : ""}>${escT(g.secao)}</option>`).join("") + `<option value="+">+ nova seção…</option>`;
+    const g = gs[sAtual];
+    selP.innerHTML = `<option value="">${onde || g ? "—" : "fora de qualquer painel"}</option>` + (g ? g.paineis.map((p, k) => `<option value="${k}"${onde && onde.p === p ? " selected" : ""}>${escT(p.titulo || "(sem título)")}</option>`).join("") + `<option value="+">+ novo painel…</option>` : "");
+    selP.disabled = !g;
+  };
+  const poe = (L, g, painel) => {                       // o sinal só neste painel (sai dos outros)
+    for (const x of L.itens) if (!x.secao && Array.isArray(x.sinais)) x.sinais = x.sinais.filter((c) => c !== canal);
+    if (!painel.sinais.includes(canal)) painel.sinais.push(canal);
+    if (gravaLayoutCircuito(L)) msg(`${canal} vai para o painel “${painel.titulo}” (seção ${g.secao}) no scope`, "ok");
+  };
+  selS.onchange = async () => {
+    if (selS.value === "+") {
+      const r = await modal({ titulo: "Nova seção no scope", campos: [{ nome: "secao", rotulo: "nome da seção", valor: "" }, { nome: "painel", rotulo: "painel", valor: canal }], ok: "criar" });
+      const s = r && r.secao.trim(), t = (r && r.painel.trim()) || canal;
+      if (!s) { desenhaOps(); return; }
+      const L = leLayoutCircuito(), painel = { titulo: t, sinais: [], largura: 1 };
+      L.itens.push({ secao: s }, painel); poe(L, { secao: s }, painel); desenhaOps(); return;
+    }
+    desenhaOps(selS.value === "" ? -1 : +selS.value);
+  };
+  selP.onchange = async () => {
+    const L = leLayoutCircuito(), gs = gruposDoLayout(L), g = gs[+selS.value]; if (!g) return;
+    if (selP.value === "+") {
+      const r = await modal({ titulo: `Novo painel em ${g.secao}`, campos: [{ nome: "painel", rotulo: "título do painel", valor: canal }], ok: "criar" });
+      const t = r && r.painel.trim(); if (!t) { desenhaOps(+selS.value); return; }
+      const painel = { titulo: t, sinais: [], largura: 1 };
+      const ultimo = g.paineis.length ? g.paineis[g.paineis.length - 1] : g.item;   // no fim da seção
+      L.itens.splice(ultimo ? L.itens.indexOf(ultimo) + 1 : L.itens.length, 0, painel);
+      poe(L, g, painel); desenhaOps(); return;
+    }
+    if (selP.value === "") return;
+    poe(L, g, g.paineis[+selP.value]); desenhaOps();
+  };
+  desenhaOps();
+}
 // a tag (scope e controle): um ganho 1 do Gecko (r0 = 1) chamado TAG.k — repassa o sinal ligado na entrada, e o nome da saída é o
 // nome do sinal no /maisim/scope e no m[...] do controle (como um medidor). Para levar um sinal para fora de um subcircuito
 // (por um Control Terminal) e dar a ele o nome que quiser, ou marcar qualquer ponto de controle
@@ -1021,6 +1088,8 @@ async function montaProps() {
       <div class="cor-canal" data-canal="${escT(canalScope(e))}"><span>cor do canal</span>${(e.tipo === "AMP" ? ["#0ea5e9", "#eab308", "#06b6d4", "#d946ef", "#22c55e", "#f97316"]
         : ["#eab308", "#06b6d4", "#d946ef", "#22c55e", "#0ea5e9", "#f97316"]).map((c) => `<button class="amostra${corCanal(canalScope(e), e.tipo) === c ? " ativo" : ""}" data-cor="${c}" style="--c:${c}" title="${c}"></button>`).join("")}
         <input type="color" value="${corCanal(canalScope(e), e.tipo)}" title="outra cor"><button class="padrao" title="voltar à cor padrão">padrão</button></div>
+      ${circuitoDoLayout() ? `<div class="no-painel" data-canal="${escT(canalScope(e))}"><label><span>seção no scope</span><select id="p-secao"></select></label>
+        <label><span>painel</span><select id="p-painel"></select></label></div>` : ""}
       <div class="aviso">é com este nome que o sinal aparece no /maisim/scope (todo medidor vai para lá; sem nome, ${canalScope(e)})</div>` : ""}
     ${e.dom === "CONTROL" && e.tipo !== "TERM" && !MEDIDOR.has(e.tipo) && !ehTag(e) ? `<h4>rótulos dos terminais</h4>${e.entradas.map((r, i) => `<label><span>entrada ${i + 1}</span><input data-in="${i}" value="${r}"></label>`).join("")}
       ${e.saidas.map((r, i) => `<label><span>saída ${i + 1}</span><input data-out="${i}" value="${r}"></label>`).join("")}` : ""}
@@ -1123,6 +1192,8 @@ async function montaProps() {
     cc.querySelector("input[type=color]").onchange = (ev) => muda(ev.target.value);
     cc.querySelector(".padrao").onclick = () => muda("");
   }
+  const np = P.querySelector(".no-painel");
+  if (np) ligaNoPainel(np);
   if (ehTag(e)) { v("#p-params").innerHTML = "<i>repassa o sinal (ganho 1 do Gecko)</i>"; return; }
   try {
     const lst = await api(`editor/params?nome=${encodeURIComponent(qualificado(e))}&dom=${encodeURIComponent(e.dom)}&typ=${e.typ}`);   // dom/typ: o identificador no arquivo (para o $)
