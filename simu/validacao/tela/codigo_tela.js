@@ -73,6 +73,10 @@ const S = "http://localhost:7200/maisim/simu/";
     await A.evaluate(() => document.body.classList.remove("codigo-aqui")); await A.waitForTimeout(300);
     ok(fx.doca <= 210 && sc.doca > 300 && aq.doca > 300 && fx.tela > aq.tela + 100 && await A.evaluate(() => !!$("ctl-fora-ir")),
       `a coluna do controle vira faixa (${fx.doca} px; o desenho com ${fx.tela} px); a aba scope fica larga (${sc.doca} px); "editar aqui também" devolve a coluna (${aq.doca} px)`);
+    // "ir para lá" com o código aberto em outra aba (não aberta daqui: o navegador não a acha pelo nome): não abre outra, diz
+    const n0 = ctx.pages().length; await A.evaluate(() => $("ctl-fora-ir").click()); await A.waitForTimeout(1000);
+    const aviso = await A.textContent("#msg");
+    ok(ctx.pages().length === n0 && /outra aba/.test(aviso) && await B.evaluate(() => window.name) === "maisim-codigo", `"ir para lá": não abre uma segunda janela do código ("${aviso}")`);
     // 5. código guardado na janela do código → a do circuito acompanha
     await B.evaluate(() => ctl.modelos["controle.py"].setValue(ctl.modelos["controle.py"].getValue() + "\n# da janela do código\n")); await B.waitForTimeout(2000);
     ok(await A.evaluate(() => /# da janela do código/.test(codigoAtual())), "código mudado na janela do código: a janela do circuito mostra o mesmo");

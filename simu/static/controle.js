@@ -1393,11 +1393,7 @@ function tagAtuador(g, x, y, nome, centrada = false) {   // centrada: x é o mei
   lado.addEventListener("scroll", posicionaPicker);
   $("ctl-arq-busca").addEventListener("keydown", (ev) => { if (ev.key === "Escape") { ev.target.value = ""; buscaArquivos(); } });
   $("ctl-fora-bt").onclick = () => { document.body.classList.add("codigo-aqui"); requestAnimationFrame(() => { if (dados) reajustaAspecto(); }); };   // editar também aqui (vale o último a guardar)
-  $("ctl-fora-ir").onclick = () => {                     // a janela do código para a frente (a mesma, sem recarregar)
-    const w = window.open("", "maisim-codigo");
-    if (w && w.location.href === "about:blank") w.location.href = "/maisim/simu/?vista=codigo&janela=1";   // fechou no meio: abre de novo
-    if (w) w.focus();
-  };
+  $("ctl-fora-ir").onclick = () => irPara("codigo", "maisim-codigo", "/maisim/simu/?vista=codigo&janela=1", (l) => /[?&]vista=codigo/.test(l.search));   // a janela do código para a frente
   $("ctl-lado-bt").onclick = () => poeLado(!$("painel-controle").classList.contains("sem-lado"));
   let semLado = false; try { semLado = localStorage.getItem("maisim-simu-ctl-sem-lado") === "1"; } catch (e) { /* ok */ }
   poeLado(semLado);

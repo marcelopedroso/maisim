@@ -2059,35 +2059,40 @@ $("sel-modelo").onchange = async (e) => {
   }
   if (VISTA_CODIGO) {                                    // a janela do código: o painel do controle e o aviso de que está aberta
     $("titulo-pagina").textContent = "código"; tituloCodigo();
-    mostraDoca("controle"); avisa("codigo"); setInterval(() => avisa("codigo"), 3000);
-    addEventListener("pagehide", () => avisa("codigo-fechado"));
+    mostraDoca("controle");
+    // o nome da janela: o "ir para lá" do simu acha esta (aberta pelo trilho); se ela for a outra página, ele a traz de volta
+    let saiu = false;                                    // fechando, o "escondida" (que vem depois) não a traz de volta
+    const ola = () => { if (!saiu) avisa("codigo", { oculto: document.hidden }); };   // escondida, o navegador atrasa o aviso (até 1 por minuto)
+    window.name = "maisim-codigo"; addEventListener("pageshow", (e) => { window.name = "maisim-codigo"; if (e.persisted) { saiu = false; ola(); } });
+    ola(); setInterval(ola, 3000); document.addEventListener("visibilitychange", ola);
+    addEventListener("pagehide", () => { saiu = true; avisa("codigo-fechado"); });   // o nome fica (o "ir para lá" a traz de volta)
   }
 })();
 // o título da janela do código: o circuito a que ela está ligada (sem o cabeçalho, é onde aparece)
 function tituloCodigo() { if (VISTA_CODIGO) document.title = `código · ${($("sel-modelo").value || "").split("/").pop() || "sem circuito"}`; }
 // o que vem da outra janela
-let codigoFora = 0;
-function marcaCodigoFora(on) {                          // na janela do circuito: o código está aberto na janela dele
+// as janelas à parte (o código, o scope) avisam a cada 3 s e, ao fechar, dizem; cada uma conta por si (duas abertas, fechar
+// uma não devolve a coluna). Sem notícia, a janela fechou: 8 s, ou 2,5 min se ela está escondida (o navegador atrasa os avisos
+// de uma aba escondida, até 1 por minuto; senão a faixa ia e voltava)
+const fora = { codigo: new Map(), scope: new Map() };
+function marcaFora(tipo, de, on, oculto) {
   if (VISTA_CODIGO) return;
-  clearTimeout(codigoFora); const antes = document.body.classList.contains("codigo-fora");
-  document.body.classList.toggle("codigo-fora", on);
-  if (on) codigoFora = setTimeout(() => marcaCodigoFora(false), 8000);   // sem notícia: a janela fechou
-  if (antes !== on) requestAnimationFrame(() => { if (dados) reajustaAspecto(); });   // a coluna virou faixa (ou voltou): o desenho acompanha
+  const m = fora[tipo], cls = `${tipo}-fora`; clearTimeout(m.get(de));
+  if (on) m.set(de, setTimeout(() => marcaFora(tipo, de, false), oculto ? 150000 : 8000)); else m.delete(de);
+  const antes = document.body.classList.contains(cls); document.body.classList.toggle(cls, m.size > 0);
+  if (antes !== m.size > 0) requestAnimationFrame(() => { if (dados) reajustaAspecto(); });   // a coluna virou faixa (ou voltou): o desenho acompanha
 }
-let scopeFora = 0;
-function marcaScopeFora(on) {                           // o scope numa janela à parte (ele avisa a cada 3 s; ao fechar, diz)
-  if (VISTA_CODIGO) return;
-  clearTimeout(scopeFora); const antes = document.body.classList.contains("scope-fora");
-  document.body.classList.toggle("scope-fora", on);
-  if (on) scopeFora = setTimeout(() => marcaScopeFora(false), 8000);   // sem notícia: a janela fechou
-  if (antes !== on) requestAnimationFrame(() => { if (dados) reajustaAspecto(); });
+// "ir para lá": a janela com aquele nome para a frente (a mesma, sem recarregar); já em outra página, volta para lá. O navegador
+// só acha pelo nome as janelas abertas daqui (pelo trilho): uma aberta à parte (outra aba) não; aí, em vez de abrir outra, diz
+function irPara(tipo, nome, url, eLa) {
+  const w = window.open("", nome); if (!w) return;
+  let vazia = true, la = false; try { vazia = w.location.href === "about:blank"; la = !vazia && eLa(w.location); } catch (e) { vazia = false; }
+  if (vazia && fora[tipo].size) { w.close(); msg(`${tipo === "scope" ? "o scope" : "o código"} está aberto em outra aba do navegador: vá até ela`, "ok"); return; }
+  if (!la) w.location.href = url;
+  w.focus();
 }
 $("scope-fora-bt").onclick = () => { document.body.classList.add("scope-aqui"); requestAnimationFrame(() => { if (dados) reajustaAspecto(); }); };
-$("scope-fora-ir").onclick = () => {                    // a janela do scope para a frente (a mesma, sem recarregar)
-  const w = window.open("", "maisim-scope");
-  if (w && w.location.href === "about:blank") w.location.href = "/maisim/scope/?janela=1";
-  if (w) w.focus();
-};
+$("scope-fora-ir").onclick = () => irPara("scope", "maisim-scope", "/maisim/scope/?janela=1", (l) => l.pathname.startsWith("/maisim/scope"));
 async function circuitoMudou(m) {                       // a outra janela mudou o circuito (ou abriu outro): o desenho e o controle acompanham
   try {
     const j = await api("editor/estado"), outro = !!(m.outro && m.arq && m.arq !== ed.abertoSel);   // a mesma janela reabrindo o mesmo: nada a refazer
@@ -2106,10 +2111,8 @@ if (canal) canal.onmessage = async (ev) => {
   if (m.tipo === "controle" && typeof sincronizaControle === "function") sincronizaControle();
   else if (m.tipo === "circuito") circuitoMudou(m);
   else if (m.tipo === "rodada") { if (sim.estado !== "rodando" && sim.estado !== "pausada") try { acompanha(await api("editor/rodada")); } catch (e) { /* ok */ } }
-  else if (m.tipo === "codigo") marcaCodigoFora(true);
-  else if (m.tipo === "codigo-fechado") marcaCodigoFora(false);
-  else if (m.tipo === "scope") marcaScopeFora(true);
-  else if (m.tipo === "scope-fechado") marcaScopeFora(false);
+  else if (m.tipo === "codigo" || m.tipo === "codigo-fechado") marcaFora("codigo", m.de, m.tipo === "codigo", m.oculto);
+  else if (m.tipo === "scope" || m.tipo === "scope-fechado") marcaFora("scope", m.de, m.tipo === "scope" && m.vivo !== false, m.oculto);   // em Comparar, ela não mostra o ao vivo
 };
 addEventListener("storage", (ev) => {                   // Δt e tempo final mudados na outra janela (o Ts do controle depende deles)
   if (ev.key !== "maisim-simu-sim") return;

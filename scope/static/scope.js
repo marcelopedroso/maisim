@@ -1170,12 +1170,17 @@ function grupos() {                                    // seções na ordem, com
 // (os do MMC) somem, e as suas seções também, no índice inclusive; o layout guardado não muda
 const SO_RODADA = new URLSearchParams(location.search).get("so") === "rodada";
 // o scope numa janela à parte (pelo trilho, ou numa aba; não o que vai dentro do simu): avisa o simu a cada 3 s, e ao fechar,
-// para a aba scope de lá virar uma faixa estreita (Marcelo, 23/10)
+// para a aba scope de lá virar uma faixa estreita (Marcelo, 23/10). Diz se está escondido (o navegador atrasa o aviso) e se
+// está ao vivo (em Comparar, o ao vivo não aparece aqui: a aba de lá fica). O nome da janela: o "ir para lá" do simu acha esta
+let avisaSimu = () => {};
 if (window.top === window.self && typeof BroadcastChannel === "function") {
   const canalSimu = new BroadcastChannel("maisim-simu"), eu = Math.random().toString(36).slice(2);
-  const ola = () => { try { canalSimu.postMessage({ tipo: "scope", de: eu }); } catch (e) { /* ok */ } };
-  ola(); setInterval(ola, 3000);
-  addEventListener("pagehide", () => { try { canalSimu.postMessage({ tipo: "scope-fechado", de: eu }); } catch (e) { /* ok */ } });
+  let saiu = false;                                    // fechando, o "escondida" (que vem depois) não a traz de volta
+  avisaSimu = () => { if (!saiu) try { canalSimu.postMessage({ tipo: "scope", de: eu, oculto: document.hidden, vivo: modo !== "comparar" }); } catch (e) { /* ok */ } };
+  window.name = "maisim-scope"; addEventListener("pageshow", () => { window.name = "maisim-scope"; });
+  avisaSimu(); setInterval(avisaSimu, 3000); document.addEventListener("visibilitychange", avisaSimu);
+  addEventListener("pagehide", () => { saiu = true; try { canalSimu.postMessage({ tipo: "scope-fechado", de: eu }); } catch (e) { /* ok */ } });   // o nome fica: indo a outra página, o "ir para lá" a traz de volta
+  addEventListener("pageshow", (e) => { if (e.persisted) { saiu = false; avisaSimu(); } });   // voltou do cache do navegador
 }
 const DO_SIMU = (m) => !!m && (m.planta === "gecko-maisim" || m.planta === "gecko-pew");   // rodadas do simulador (gecko-pew: as do tempo do PEW)
 const soDaRodada = () => SO_RODADA || !!(A && DO_SIMU(A.meta));
@@ -1408,7 +1413,7 @@ async function carrega(arq) {
   return j;
 }
 function entraComparar() {
-  modo = "comparar"; $("bt-comparar").classList.add("ativo"); $("bt-vivo").classList.remove("ativo");
+  modo = "comparar"; $("bt-comparar").classList.add("ativo"); $("bt-vivo").classList.remove("ativo"); avisaSimu();
   if (fonteEventos) fonteEventos.close();
 }
 const nomeSel = (sel) => sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : "—";
@@ -1573,7 +1578,7 @@ async function apagaAp(ck, orfas) {
   await listaRodadas(); await abreApagar();
 };
 $("bt-vivo").onclick = () => {
-  modo = "vivo"; $("bt-vivo").classList.add("ativo"); $("bt-comparar").classList.remove("ativo");
+  modo = "vivo"; $("bt-vivo").classList.add("ativo"); $("bt-comparar").classList.remove("ativo"); avisaSimu();
   A = null; B = null; uniao = null; xFaixa = null; montaTudo(); status(SEM_RODADA); conectaVivo();
 };
 $("bt-comparar").onclick = async () => { entraComparar(); await listaRodadas(); status("escolha A (e B, se quiser comparar) e clique em Carregar"); };
