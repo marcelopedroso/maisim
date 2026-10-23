@@ -1,6 +1,6 @@
 // o menu "Sinais ▾" e o apagar no scope (instância de teste 7200 → scope 7202), pedido de Marcelo em 23/10: o menu abre
 // embaixo do botão (não no canto, sobre o ✕ do painel), com a busca baixa e um × que fecha (e o Esc); apagar um painel com
-// sinais ou uma seção com painéis pede confirmação (cancelar não apaga); um painel vazio sai direto
+// sinais ou uma seção com painéis pede confirmação (cancelar não apaga); um painel vazio sai direto; o traço da linha
 const { chromium } = require("playwright");
 const fs = require("fs"), path = require("path");
 let falhas = 0;
@@ -35,6 +35,14 @@ const URL = "http://localhost:7200/maisim/scope/?a=" + encodeURIComponent(path.r
     await pg.click(`${cartao("Tensão")} .b-sinais`); await pg.waitForSelector(".menu"); await pg.keyboard.press("Escape"); await pg.waitForTimeout(100); const fechouEsc = !(await pg.$(".menu"));
     ok(!m.cobre && m.alinhado && m.foco && m.altura <= 26 && m.fecha && fechouX && fechouEsc,
       `menu Sinais: embaixo do botão, sem cobrir o ✕; a busca (${m.altura} px) já em foco; o × e o Esc fecham`);
+    // o traço da linha (Marcelo, 23/10): na paleta do sinal, ao lado da espessura — contínua, tracejada, pontilhada
+    await pg.click(`${cartao("Tensão")} .b-sinais`); await pg.waitForSelector(".menu"); await pg.click(".menu button.cor-sinal"); await pg.waitForSelector(".menu button.traco");
+    const nTracos = await pg.$$eval(".menu button.traco", (bs) => bs.map((x) => x.dataset.t).join(","));
+    await pg.click('.menu button.traco[data-t="tracejada"]'); await pg.waitForTimeout(200);
+    const tr = await pg.evaluate(() => ({ dash: JSON.stringify(paineis().find((p) => p.titulo === "Tensão").u.series[1].dash), guardado: localStorage.getItem("maisim-scope-tracos"),
+      atual: document.querySelector(".menu button.traco.atual") && document.querySelector(".menu button.traco.atual").dataset.t }));
+    await pg.keyboard.press("Escape");
+    ok(nTracos === "continua,tracejada,pontilhada" && tr.dash === "[8,5]" && tr.guardado === '{"v_o":"tracejada"}', `o traço: ${nTracos}; tracejada vale na curva (${tr.dash}) e fica guardada (${tr.guardado})`);
     // 2. apagar um painel com sinais: pergunta; cancelar não apaga; confirmar apaga
     const n0 = await nomes();
     await pg.click(`${cartao("Corrente")} .b-rem`); await pg.waitForSelector(".sc-modal"); const txt = await pg.textContent(".sc-modal");
