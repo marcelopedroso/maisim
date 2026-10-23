@@ -27,10 +27,12 @@ const URL = "http://localhost:7200/maisim/scope/?a=" + encodeURIComponent(path.r
       return { dt: el.querySelector(".cur-dt").textContent, linha: [...el.querySelectorAll("tbody td")].map((t) => t.textContent), nome: el.querySelector("tbody td.nome").innerHTML }; });
     const poe = (a, b2) => pg.evaluate(([x, y]) => { const p = paineis()[0]; p.med.cur.a = x; p.med.cur.b = y; p.u.redraw(false, false); }, [a, b2]);
     await abre();
-    await pg.click(".cartao .b-med"); await pg.waitForSelector(".medicao .m-cur");
-    await pg.check(".medicao .m-cur"); await pg.waitForTimeout(200);
+    await pg.click(".cartao .b-med"); await pg.waitForSelector(".medicao .m-modo");
+    const modos0 = await pg.$$eval(".medicao .m-modo", (bs) => bs.map((b) => b.dataset.k + (b.classList.contains("ativo") ? "+" : "")).join(" "));
+    await pg.click('.medicao .m-modo[data-k="ct"]'); await pg.waitForTimeout(200);
     const lig = await pg.evaluate(() => { const c = paineis()[0].med.cur; return { on: c.on, a: c.a, b: c.b, vis: !!document.querySelector(".med-cur .cur-dt") }; });
-    ok(lig.on && lig.vis && lig.a > 0 && lig.b > lig.a, `ligar: A e B no terço e nos dois terços do visível (${lig.a.toFixed(2)} e ${lig.b.toFixed(2)} ms) e a leitura embaixo`);
+    ok(modos0 === "fourier+ ct cy" && lig.on && lig.vis && lig.a > 0 && lig.b > lig.a,
+      `o Medir abre só com o Fourier (${modos0}); "Cursores t" liga A e B no terço e nos dois terços do visível (${lig.a.toFixed(2)} e ${lig.b.toFixed(2)} ms) e a leitura embaixo`);
     // um período (do pico ao pico seguinte): Δt = 1 ms, 1/Δt = 1 kHz, Δy ≈ 0; o nome em notação
     await poe(2.25, 3.25); await pg.waitForTimeout(150);
     const l1 = await leitura();
@@ -47,11 +49,24 @@ const URL = "http://localhost:7200/maisim/scope/?a=" + encodeURIComponent(path.r
     const depois = await pg.evaluate(() => { const p = paineis()[0]; return { esc: [p.u.scales.x.min, p.u.scales.x.max], a: p.med.cur.a }; });
     ok(depois.a > antes.a + 0.05 && Math.abs(depois.esc[0] - antes.esc[0]) < 1e-9 && Math.abs(depois.esc[1] - antes.esc[1]) < 1e-9,
       `arrastar a linha A: ${antes.a.toFixed(3)} → ${depois.a.toFixed(3)} ms, sem zoom`);
+    // os cursores y (C e D, horizontais): os níveis e o Δy; arrastar a linha C a sobe ou desce
+    await pg.click('.medicao .m-modo[data-k="cy"]'); await pg.waitForTimeout(150);
+    await pg.evaluate(() => { const p = paineis()[0]; p.med.cur.ya = -1; p.med.cur.yb = 1.5; p.u.redraw(false, false); }); await pg.waitForTimeout(150);
+    const ly = await pg.evaluate(() => document.querySelector(".med-cur .cur-y").textContent.replace(/\s+/g, " "));
+    const cy = await pg.evaluate(() => { const p = paineis()[0], r = p.u.over.getBoundingClientRect(); return { x: r.left + r.width * 0.9, y: r.top + p.u.valToPos(-1, "y"), ya: p.med.cur.ya }; });
+    await pg.mouse.move(cy.x, cy.y); await pg.mouse.down(); await pg.mouse.move(cy.x, cy.y - 30, { steps: 5 }); await pg.mouse.up(); await pg.waitForTimeout(150);
+    const ya2 = await pg.evaluate(() => paineis()[0].med.cur.ya);
+    ok(/C -1/.test(ly) && /D 1.5/.test(ly) && /Δy = 2.5/.test(ly) && ya2 > cy.ya + 0.1, `cursores y: ${ly}; arrastar C para cima: ${cy.ya} → ${ya2.toFixed(2)}`);
+    // o Fourier desligado: somem a tabela e os campos; os cursores continuam
+    await pg.click('.medicao .m-modo[data-k="fourier"]'); await pg.waitForTimeout(150);
+    const semF = await pg.evaluate(() => ({ tab: getComputedStyle(document.querySelector(".med-tab")).display, cab: getComputedStyle(document.querySelector(".med-cab")).display,
+      cur: !!document.querySelector(".med-cur .cur-dt"), cy: !!document.querySelector(".med-cur .cur-y"), somas: paineis()[0].series.filter((se) => se.soma).length }));
+    ok(semF.tab === "none" && semF.cab === "none" && semF.cur && semF.cy && semF.somas === 0, "Fourier desligado: a tabela, os campos e as curvas Σ/x̄ somem; os cursores t e y ficam");
     // ficam no layout; o PNG sai
     await abre();
-    const volta = await pg.evaluate(() => { const c = paineis()[0].med.cur; return c.on && Math.abs(c.b - 2.75) < 1e-9; });
+    const volta = await pg.evaluate(() => { const m = paineis()[0].med, c = m.cur; return c.on && c.yon && !m.fourier && Math.abs(c.b - 2.75) < 1e-9; });
     const fig = await pg.evaluate(() => { const c = canvasPainel(paineis()[0]); return c.width > 100 && c.height > 100; });
-    ok(volta && fig, "recarregada, os cursores voltam (no layout do painel); o PNG sai");
+    ok(volta && fig, "recarregada, os cursores e os modos voltam (no layout do painel); o PNG sai");
     ok(!erros.length, `sem erros de JS ${erros.join(" ; ")}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message.split("\n")[0]}`); }
   finally { if (b) await b.close(); fs.rmSync(PASTA, { recursive: true, force: true }); }

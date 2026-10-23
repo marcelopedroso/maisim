@@ -129,6 +129,13 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
   button.b-solto { min-width:30px; }
   button.b-solto { color:var(--sutil); }
   .medicao { border-top:1px solid var(--borda); margin-top:6px; padding:6px 4px 2px; font-size:12px; }
+  .med-topo { display:flex; flex-wrap:wrap; gap:4px 10px; align-items:center; margin-bottom:4px; }
+  .med-topo .m-fecha { margin-left:0; } .med-topo .med-dica { margin-left:auto; }
+  .med-modos { display:inline-flex; } .med-modos button { padding:1px 9px; font-size:12px; border-radius:0; margin-left:-1px; }
+  .med-modos button:first-child { border-radius:6px 0 0 6px; margin-left:0; } .med-modos button:last-child { border-radius:0 6px 6px 0; }
+  .med-modos button.ativo { background:var(--acento); color:#fff; border-color:var(--acento); }
+  .medicao.sem-fourier .med-cab, .medicao.sem-fourier .med-tab, .medicao.sem-fourier .esp, .medicao.sem-fourier .med-dica { display:none !important; }
+  .med-cur .sutil { color:var(--sutil); font-weight:400; } .med-cur .cur-y { margin-top:4px; }
   .med-cab { display:flex; flex-wrap:wrap; gap:4px 10px; align-items:center; }
   .med-cab input { width:84px; padding:1px 4px; font-size:12px; }
   .med-cab input.m-n { width:52px; } .med-cab input.m-f0 { width:64px; } .med-cab input.m-hs { width:96px; }
