@@ -1204,6 +1204,7 @@ function marcaDoca() {
   document.querySelectorAll("#abas-doca button").forEach((b) => b.classList.toggle("ativo", b.dataset.aba === abaDoca));
   $("if-scope").classList.toggle("oculto", abaDoca !== "scope"); $("painel-controle").classList.toggle("oculto", abaDoca !== "controle");
   document.body.classList.toggle("doca-controle", abaDoca === "controle");   // com o código na outra janela, a coluna vira faixa (CSS)
+  document.body.classList.toggle("doca-scope", abaDoca === "scope");         // e com o scope na janela dele, a aba scope também
 }
 function mostraDoca(aba) {
   if (VISTA_CODIGO) aba = "controle";
@@ -1989,6 +1990,20 @@ function marcaCodigoFora(on) {                          // na janela do circuito
   if (on) codigoFora = setTimeout(() => marcaCodigoFora(false), 8000);   // sem notícia: a janela fechou
   if (antes !== on) requestAnimationFrame(() => { if (dados) reajustaAspecto(); });   // a coluna virou faixa (ou voltou): o desenho acompanha
 }
+let scopeFora = 0;
+function marcaScopeFora(on) {                           // o scope numa janela à parte (ele avisa a cada 3 s; ao fechar, diz)
+  if (VISTA_CODIGO) return;
+  clearTimeout(scopeFora); const antes = document.body.classList.contains("scope-fora");
+  document.body.classList.toggle("scope-fora", on);
+  if (on) scopeFora = setTimeout(() => marcaScopeFora(false), 8000);   // sem notícia: a janela fechou
+  if (antes !== on) requestAnimationFrame(() => { if (dados) reajustaAspecto(); });
+}
+$("scope-fora-bt").onclick = () => { document.body.classList.add("scope-aqui"); requestAnimationFrame(() => { if (dados) reajustaAspecto(); }); };
+$("scope-fora-ir").onclick = () => {                    // a janela do scope para a frente (a mesma, sem recarregar)
+  const w = window.open("", "maisim-scope");
+  if (w && w.location.href === "about:blank") w.location.href = "/maisim/scope/?janela=1";
+  if (w) w.focus();
+};
 async function circuitoMudou(m) {                       // a outra janela mudou o circuito (ou abriu outro): o desenho e o controle acompanham
   try {
     const j = await api("editor/estado"), outro = !!(m.outro && m.arq && m.arq !== ed.abertoSel);   // a mesma janela reabrindo o mesmo: nada a refazer
@@ -2009,6 +2024,8 @@ if (canal) canal.onmessage = async (ev) => {
   else if (m.tipo === "rodada") { if (sim.estado !== "rodando" && sim.estado !== "pausada") try { acompanha(await api("editor/rodada")); } catch (e) { /* ok */ } }
   else if (m.tipo === "codigo") marcaCodigoFora(true);
   else if (m.tipo === "codigo-fechado") marcaCodigoFora(false);
+  else if (m.tipo === "scope") marcaScopeFora(true);
+  else if (m.tipo === "scope-fechado") marcaScopeFora(false);
 };
 addEventListener("storage", (ev) => {                   // Δt e tempo final mudados na outra janela (o Ts do controle depende deles)
   if (ev.key !== "maisim-simu-sim") return;
