@@ -5107,6 +5107,8 @@ class Manipulador(BaseHTTPRequestHandler):
                 return r
             return self._editor(renomeia)
         if rota == "/editor/controle":                 # guarda a configuração do controle (sempre; erros de sintaxe voltam)
+            if editor.get("fechado"):                  # fechado: nada a controlar (e o abrir/novo de depois não perguntaria)
+                return self._resposta(409, {"erro": "nenhum circuito aberto: abra um ou comece um novo"})
             if rodada.get("estado") in RODANDO:
                 return self._resposta(409, {"erro": "a simulação está rodando: o controle fica travado até ela parar"})
             def guarda():
@@ -5185,7 +5187,7 @@ class Manipulador(BaseHTTPRequestHandler):
                 editor["novo_desde"] = time.time()   # as rodadas deste circuito novo (vão junto quando ele ganhar nome)
                 marca_fechado(fechar)
                 if fechar:
-                    pilha.clear()                    # fechado não se desfaz (o circuito está no arquivo, se foi salvo)
+                    esquece(tudo=True)               # fechado não se desfaz (o circuito está no arquivo, se foi salvo); as cópias saem do disco
                 claude_esquece("(sem arquivo)")      # folha nova: conversa nova com o Claude
                 esquece_vistas("")                   # e sem o que foi nas mensagens da folha sem arquivo de antes
                 grava_controle(controle_padrao())
@@ -5251,6 +5253,8 @@ class Manipulador(BaseHTTPRequestHandler):
                  "/editor/parar": controle_rodada["parar"].set}[rota]()
                 return dict(rodada)
             return self._editor(muda)
+        if rota == "/editor/salvar" and editor.get("fechado"):   # fechado: não há o que salvar (gravaria um arquivo vazio)
+            return self._resposta(409, {"erro": "nenhum circuito aberto: abra um ou comece um novo"})
         if rota == "/editor/salvar":
             def salvar():
                 nome = str(corpo.get("nome", "")).strip()
@@ -5296,8 +5300,10 @@ def main():
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))   # kill: sai pelo atexit (o login em andamento não fica órfão)
     atexit.register(claude_login_cancela)
     atexit.register(claude_para)
-    srv = ThreadingHTTPServer(("127.0.0.1", a.porta), Manipulador)
+    srv = ThreadingHTTPServer(("127.0.0.1", a.porta), Manipulador)   # a porta ocupada sai aqui, antes de mexer no cache
     srv.daemon_threads = True
+    for arq in (ESTADO.parent / "desfazer").glob("*.ipes"):        # a pilha é da memória: o que ficou de antes é órfão
+        arq.unlink(missing_ok=True)
     print(f"maisim-simu em http://localhost:{a.porta}{PREFIXO}/", flush=True)
     threading.Thread(target=recupera_rodada_interrompida, daemon=True).start()
     srv.serve_forever()

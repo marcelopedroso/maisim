@@ -1330,6 +1330,7 @@ async function salvaNaBiblioteca(e) {
 // Salvar (Ctrl+S, disquete): por cima do arquivo aberto, se ele é seu (os seus circuitos ou a biblioteca); senão, Salvar como
 function marcaSujo(s) { ed.sujo = !!s; $("bt-salvar").classList.toggle("sujo", ed.sujo); $("bt-salvar").title = ed.sujo ? "salvar (Ctrl+S) · há mudanças não salvas" : "salvar (Ctrl+S)"; }
 async function salvar() {
+  if (dados && dados.fechado) { msg("nenhum circuito aberto: não há o que salvar", "erro"); return; }
   if (!(await garanteEdicao())) return;
   // o servidor diz se o arquivo aberto é seu; se ele não souber (reiniciado), vale o da lista que a página mostra
   const it = listaModelos.find((o) => o.arq === $("sel-modelo").value && o.pasta);
@@ -1341,6 +1342,7 @@ async function salvar() {
   catch (e) { msg(e.message, "erro"); }
 }
 async function salvarComo() {
+  if (dados && dados.fechado) { msg("nenhum circuito aberto: não há o que salvar", "erro"); return false; }
   const r = await modal({ titulo: "Salvar como", texto: "O circuito é gravado nos seus circuitos (a pasta de dados do MaiSim) e aparece na lista.",
     campos: [{ nome: "nome", rotulo: "nome do arquivo", valor: ed.novo || ((dados.arq || "circuito").split("/").pop().replace(/\.ipes$/, "").replace(/^\(.*\)$/, "circuito") + "_copia") }], ok: "salvar" });
   const nome = r && r.nome.trim(); if (!nome) return false;
