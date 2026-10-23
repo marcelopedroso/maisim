@@ -17,7 +17,7 @@ OFFLINE="validador_offline casos_tracado claude_offline"
 TELA="largura_tela agy_tela gemini_tela contextos_tela erro_copia_tela claude_tex_tela scope_soma_tela scope_tema_tela scope_visoes_tela
   diagrama_zoom_tela envia_for_tela sem_esquema_tela renomear_tela sub_iguais_tela desativar_tela diagrama_tela escolha_tela mensagens_tela
   claude_controladores_tela arvore_tela tabelas_tela saida_tela giro_tela claude_modulos_tela modulos_tela divisor_tela beira_tela
-  variaveis_tela selecao_tela fechar_tela trilho_ia_tela copia_tela tag_tela rede_tela app_tela inicio_tela codigo_tela controladores_tela dica_tela sub_terminais_tela
+  variaveis_tela selecao_tela fechar_tela trilho_ia_tela scope_fora_tela copia_tela tag_tela rede_tela app_tela inicio_tela codigo_tela controladores_tela dica_tela sub_terminais_tela
   sub_novo_tela claude_chat_tela escala_tela quebra_tela pontas_tela tema_tela cores_tela cabecalho_tela validador_tela ajustes_tela
   claude_tela pwm_tela controle_tela passo2_tela revisao_tela guia_tela"
 API="rodadas_api exemplos_api amostra_t0_api agy_api gemini_api ia_troca_api claude_renova_api contextos_api padrao_janela_api claude_autonomo_api segue_codigo_api

@@ -1146,6 +1146,14 @@ function grupos() {                                    // seções na ordem, com
 // só a rodada: numa rodada do /maisim/simu (ou com ?so=rodada, como o simu abre o scope) os painéis sem nenhum sinal dela
 // (os do MMC) somem, e as suas seções também, no índice inclusive; o layout guardado não muda
 const SO_RODADA = new URLSearchParams(location.search).get("so") === "rodada";
+// o scope numa janela à parte (pelo trilho, ou numa aba; não o que vai dentro do simu): avisa o simu a cada 3 s, e ao fechar,
+// para a aba scope de lá virar uma faixa estreita (Marcelo, 23/10)
+if (window.top === window.self && typeof BroadcastChannel === "function") {
+  const canalSimu = new BroadcastChannel("maisim-simu"), eu = Math.random().toString(36).slice(2);
+  const ola = () => { try { canalSimu.postMessage({ tipo: "scope", de: eu }); } catch (e) { /* ok */ } };
+  ola(); setInterval(ola, 3000);
+  addEventListener("pagehide", () => { try { canalSimu.postMessage({ tipo: "scope-fechado", de: eu }); } catch (e) { /* ok */ } });
+}
 const DO_SIMU = (m) => !!m && (m.planta === "gecko-maisim" || m.planta === "gecko-pew");   // rodadas do simulador (gecko-pew: as do tempo do PEW)
 const soDaRodada = () => SO_RODADA || !!(A && DO_SIMU(A.meta));
 // um painel some se nenhum dos sinais dele existe na rodada (pelos dados, não por já ter gráfico: marcar o 1º sinal de um

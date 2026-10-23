@@ -137,6 +137,13 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   #abas-doca button.ativo { background:var(--cartao); color:var(--acento); border-color:var(--borda); font-weight:600; margin-bottom:-1px; }
   #doca .oculto { display:none !important; }
   #if-scope { flex:1 1 auto; min-width:0; min-height:0; border:0; display:block; background:var(--cartao); }
+  /* o scope numa janela à parte (pelo trilho, ou noutra aba): a aba scope vira uma faixa estreita, como a do código (Marcelo,
+     23/10); "ver aqui também" devolve; a janela do scope fechada, volta sozinha */
+  #scope-fora { display:none; flex:1 1 auto; align-items:center; justify-content:center; text-align:center; padding:14px 10px; background:var(--cartao);
+    color:var(--sutil); font-size:13px; line-height:1.6; } #scope-fora b { color:var(--acento); } #scope-fora button { margin:8px 3px 0; font-size:12px; padding:3px 10px; }
+  body.scope-fora:not(.scope-aqui).doca-scope #scope-fora { display:flex; } body.scope-fora:not(.scope-aqui).doca-scope #if-scope { display:none; }
+  body.scope-fora:not(.scope-aqui).doca-scope.com-scope.scope-lado { --w-scope:200px; }
+  body.scope-fora:not(.scope-aqui).doca-scope.com-scope.scope-baixo { --h-scope:120px; }
   /* painel Controle */
   #painel-controle { --lado:240px; flex:1 1 auto; min-height:0; display:grid; grid-template-columns:var(--lado, 240px) minmax(0, 1fr); background:var(--cartao); font-size:12.5px; }
   /* a coluna recolhida: o editor fica com tudo (a coluna continua na grade, com 0 px: fora dela, o editor cairia na célula de 0 px) */
@@ -676,6 +683,7 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
 <div id="painel-scope"><div id="divisoria"></div><div id="doca">
   <div id="abas-doca"><button data-aba="scope">scope</button><button data-aba="controle">controle</button></div>
   <iframe id="if-scope" title="MaiSim · Scope"></iframe>
+  <div id="scope-fora"><div>o scope está na <b>janela do scope</b><br>(ao vivo lá também)<br><button id="scope-fora-ir" title="trazer a janela do scope para a frente">ir para lá</button><button id="scope-fora-bt" title="ver o scope também nesta janela">ver aqui também</button></div></div>
   <div id="painel-controle" class="oculto">
     <div id="ctl-lado">
       <label class="ctl-ativo" title="a simulação chama o seu passo() a cada Ts e escreve as atuações"><input type="checkbox" id="ctl-ativo"> usar este controle ao simular</label>
