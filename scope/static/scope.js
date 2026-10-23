@@ -217,8 +217,9 @@ function rotulo(canal) {
 
 // ---------------------------------------------------------------- notação matemática (Marcelo, 23/10: "fontes do LaTeX")
 // v_o → v itálico com o "o" subscrito, i_L → i com "L", i_Lf_a → i com "Lf,a": na legenda, no título do painel e no PNG.
-// A letra do símbolo (uma só) em itálico, como no LaTeX; o subscrito em pé. Desligada, os nomes como vêm do circuito
-let notacao = false; try { notacao = localStorage.getItem("maisim-scope-mat") === "1"; } catch (e) { /* ok */ }
+// A letra do símbolo (uma só) em itálico, como no LaTeX; o subscrito em pé. Ligada por padrão (Marcelo, 23/10); desligada
+// (a caixa "notação"), os nomes como vêm do circuito
+let notacao = true; try { notacao = localStorage.getItem("maisim-scope-mat") !== "0"; } catch (e) { /* ok */ }
 const RE_MAT = /(^|[^\p{L}\p{N}_])([A-Za-z]{1,4})_([A-Za-z0-9]+(?:_[A-Za-z0-9]+)*)(?![\p{L}\p{N}_])/gu;   // palavras inteiras (saída_x não)
 function partesMat(texto) {                            // [{txt}] ou [{base, sub}] na ordem do texto
   const s = String(texto), out = []; let i = 0, m; RE_MAT.lastIndex = 0;

@@ -1,5 +1,5 @@
 // a notação matemática no scope (instância de teste 7200 → scope 7202), pedido de Marcelo em 23/10 ("fontes do LaTeX"):
-// desligada, os nomes como vêm do circuito; ligada, v_o → v itálico com o "o" subscrito na legenda, no título do painel
+// ligada por padrão; desligada, os nomes como vêm do circuito; ligada, v_o → v itálico com o "o" subscrito na legenda, no título do painel
 // (o clique no título abre a caixa de texto) e no PNG; "saida_x" e as palavras longas ficam como estão; a escolha fica
 const { chromium } = require("playwright");
 const fs = require("fs"), path = require("path");
@@ -27,6 +27,9 @@ const URL = "http://localhost:7200/maisim/scope/?a=" + encodeURIComponent(path.r
     const tit = () => pg.evaluate(() => { const c = paineis()[0].el.querySelector(".cab");
       return { input: getComputedStyle(c.querySelector("input.titulo")).display, mat: getComputedStyle(c.querySelector(".titulo-mat")).display, html: c.querySelector(".titulo-mat").innerHTML }; });
     await abre();
+    const lp = await leg();
+    ok(/<sub>o<\/sub>/.test(lp[0]) && await pg.evaluate(() => $("ck-mat").checked), "por padrão, ligada (sem clicar)");
+    await pg.click("#ck-mat"); await pg.waitForTimeout(200);
     const l0 = await leg(), t0 = await tit();
     ok(l0.join("|") === "v_o|i_Lf_a|portadora" && t0.input !== "none" && t0.mat === "none", `desligada: os nomes como vêm (${l0.join(", ")}), o título na caixa de texto`);
     await pg.click("#ck-mat"); await pg.waitForTimeout(200);
