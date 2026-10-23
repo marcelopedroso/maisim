@@ -1609,6 +1609,70 @@ def carrega_aparencia_de(arq_ipes):
     grava_aparencia(aparencia_do_arquivo(arq_ipes))
 
 
+# o layout padrão do scope de um circuito (Marcelo, 23/10), ao lado do .ipes (<nome>.scope.json): o scope o guarda
+# ("guardar como padrão deste circuito") e volta a ele; um circuito sem layout no navegador começa por ele; vai junto no
+# "salvar como"; os exemplos vêm com o deles (só leitura). O do dia a dia continua no navegador, livre para mexer
+CHAVES_PAINEL = ("titulo", "sinais", "altura", "largura", "yFixo", "ganhos", "modo", "solto", "recolhido", "med")
+
+
+def arquivo_scope(arq_ipes):
+    return arq_ipes.with_name(arq_ipes.stem + ".scope.json")
+
+
+def limpa_layout(L):
+    """Só o que o scope entende, com tamanhos limitados (o arquivo vai para o repositório nos exemplos)."""
+    if not isinstance(L, dict) or not isinstance(L.get("itens"), list) or not 0 < len(L["itens"]) <= 500:
+        raise ErroMotor("layout inválido")
+    if len(json.dumps(L)) > 400_000:
+        raise ErroMotor("layout grande demais")
+    nome = lambda x: isinstance(x, str) and 0 < len(x) <= 120
+    itens = []
+    for x in L["itens"]:
+        if not isinstance(x, dict):
+            continue
+        if nome(x.get("secao")):
+            itens.append({"secao": x["secao"], **({"recolhida": True} if x.get("recolhida") else {})})
+        elif isinstance(x.get("sinais"), list):
+            p = {k: x[k] for k in CHAVES_PAINEL if k in x}
+            p["titulo"] = str(p.get("titulo") or "")[:200]
+            p["sinais"] = [c for c in x["sinais"] if nome(c)][:200]
+            itens.append(p)
+    if not itens:
+        raise ErroMotor("layout vazio")
+    out = {"itens": itens}
+    if L.get("colunas") in (1, 2, 3):
+        out["colunas"] = L["colunas"]
+    return out
+
+
+def ipes_do_modelo(modelo):
+    """O .ipes do circuito de uma rodada (o meta.modelo dela)."""
+    modelo = str(modelo or "")
+    if not modelo or modelo.startswith("novo"):
+        raise ErroMotor("salve o circuito antes: o padrão do scope fica ao lado dele")
+    arq = (Path(modelo) if Path(modelo).is_absolute() else RAIZ / modelo).resolve()
+    if arq.suffix != ".ipes" or not modelo_ok(arq):
+        raise ErroMotor("circuito fora das pastas do MaiSim")
+    return arq
+
+
+def scope_padrao_le(modelo):
+    try:
+        f = arquivo_scope(ipes_do_modelo(modelo))
+        return {"layout": limpa_layout(json.loads(f.read_text())) if f.exists() else None}
+    except (ErroMotor, OSError, ValueError):
+        return {"layout": None}
+
+
+def scope_padrao_grava(modelo, layout):
+    arq = ipes_do_modelo(modelo)
+    if arq.parent.resolve() not in (SALVOS.resolve(), LIB.resolve()):
+        raise ErroMotor("este circuito é só de leitura (um exemplo?): salve uma cópia nos seus circuitos para guardar o padrão do scope dele")
+    f = arquivo_scope(arq)
+    f.write_text(json.dumps(limpa_layout(layout), ensure_ascii=False, indent=1) + "\n")
+    return {"ok": True, "arquivo": relativo(f)}
+
+
 def salva_aparencia_junto(dest):
     """Grava a aparência (cores e pontas escolhidas) ao lado do .ipes; sem nada escolhido, apaga o arquivo antigo (senão ele
     voltaria ao reabrir). O .cores.json antigo sai: agora vai tudo no .aparencia.json."""
@@ -4728,6 +4792,8 @@ class Manipulador(BaseHTTPRequestHandler):
             return self._resposta(200, (AQUI / "GUIA_CONTROLE.md").read_bytes(), "text/markdown; charset=utf-8")
         if rota == "/modelos":
             return self._resposta(200, lista_modelos())
+        if rota == "/scope/padrao":                    # o layout padrão do scope de um circuito (?modelo= o meta.modelo da rodada)
+            return self._resposta(200, scope_padrao_le(parse_qs(u.query).get("modelo", [""])[0]))
         if rota == "/editor/aberto":                   # leve (sem pedir nada ao Gecko): o que o editor tem aberto, ou fechado
             return self._resposta(200, {"aberto": editor.get("aberto"), "fechado": bool(editor.get("fechado"))})
         if rota == "/circuito":
@@ -5173,6 +5239,8 @@ class Manipulador(BaseHTTPRequestHandler):
             if editor.get("fechado"):
                 return self._resposta(409, {"erro": "nenhum circuito aberto: abra um ou comece um novo"})
             return self._editor(lambda: rodar(corpo))
+        if rota == "/scope/padrao":                    # {modelo, layout}: guardar como o padrão do scope do circuito
+            return self._editor(lambda: scope_padrao_grava(corpo.get("modelo"), corpo.get("layout")))
         if rota == "/editor/rodada/guardar":          # {arq: o scope_*.npz, guardar: true|false}: "por cima" não a substitui
             return self._editor(lambda: guarda_rodada(str(corpo.get("arq", "")), corpo.get("guardar", True) is not False))
         if rota in ("/editor/pausar", "/editor/continuar", "/editor/parar"):
@@ -5198,6 +5266,13 @@ class Manipulador(BaseHTTPRequestHandler):
                 MOTOR.cmd(f"SAVEAS {dest}")
                 antiga = editor.get("aberto") or "(sem arquivo)"
                 chave_vistas = str(editor.get("aberto") or "")
+                if chave_vistas:                          # o padrão do scope vai junto para a cópia
+                    try:
+                        antes = arquivo_scope(ipes_do_modelo(chave_vistas))
+                        if antes.exists() and antes != arquivo_scope(dest):
+                            shutil.copyfile(antes, arquivo_scope(dest))
+                    except (ErroMotor, OSError):
+                        pass
                 marca_aberto(str(relativo(dest)))
                 if not chave_vistas:                      # um circuito novo ganhou nome: as rodadas dele vão junto (a IA as acha)
                     resumo_rodada.muda_modelo(RODADAS, "novo (sem arquivo)", str(relativo(dest)), editor.get("novo_desde"))

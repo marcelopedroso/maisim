@@ -1103,14 +1103,34 @@ function adicionaPainel(cfg, posicao) {
   return p;
 }
 
+const layoutAtual = () => ({ colunas: larguraPadrao, indice, itens: itens.map((x) => x.tipo === "secao" ? { secao: x.titulo, recolhida: x.recolhida || undefined } : { titulo: x.titulo, sinais: x.sinais, altura: x.altura, largura: x.largura, yFixo: x.yFixo, ganhos: x.ganhos, modo: x.modo, solto: x.solto, med: x.med, recolhido: x.recolhido || undefined }) });
 function guardaLayout() {
   const chave = chaveLayout();                          // sem rodada (sem circuito), nada a guardar
-  if (chave) try { localStorage.setItem(chave, JSON.stringify({ colunas: larguraPadrao, indice, itens: itens.map((x) => x.tipo === "secao" ? { secao: x.titulo, recolhida: x.recolhida || undefined } : { titulo: x.titulo, sinais: x.sinais, altura: x.altura, largura: x.largura, yFixo: x.yFixo, ganhos: x.ganhos, modo: x.modo, solto: x.solto, med: x.med, recolhido: x.recolhido || undefined }) })); } catch (e) { /* sem armazenamento */ }
+  if (chave) try { localStorage.setItem(chave, JSON.stringify(layoutAtual())); } catch (e) { /* sem armazenamento */ }
   desenhaIndice(); aplicaVisibilidade();
+}
+// o padrão do scope de cada circuito (Marcelo, 23/10): ao lado do .ipes (<nome>.scope.json), pelo simu; "Layout ▾" guarda e
+// volta a ele; um circuito sem layout neste navegador começa por ele
+const padraoVisto = new Set();
+const urlPadrao = () => `/maisim/simu/scope/padrao?modelo=${encodeURIComponent((A && A.meta && A.meta.modelo) || "")}`;
+async function lePadrao() {
+  try { const r = await fetch(urlPadrao()); return r.ok ? ((await r.json()).layout || null) : null; } catch (e) { return null; }   // sem o simu: sem padrão
+}
+function consultaPadrao(chave) {
+  padraoVisto.add(chave);
+  lePadrao().then((L) => {
+    if (chave !== chaveLayout()) return;                // outra rodada no meio
+    let novo = false;
+    if (L) try { if (!localStorage.getItem(chave)) { localStorage.setItem(chave, JSON.stringify(L)); novo = true; } } catch (e) { /* ok */ }
+    montaTudo();                                         // com o padrão; sem ele, o de antes ou o automático
+    if (novo) status(`o layout padrão do circuito ${circuitoDe(A)}`);
+  });
 }
 function leLayout() {
   const chave = chaveLayout(); if (!chave) return null;
   try { const j = JSON.parse(localStorage.getItem(chave) || "null"); if (j && j.itens && j.itens.length) return j; } catch (e) { /* idem */ }
+  // um circuito sem layout neste navegador: primeiro o padrão dele (ao lado do .ipes, pelo simu); só sem padrão, o de antes
+  if (A && A.meta && A.meta.modelo && !padraoVisto.has(chave)) { consultaPadrao(chave); return null; }
   // a 1ª vez deste circuito: do layout de antes (um só para tudo), os painéis com sinais desta rodada e as seções deles
   try {
     const v = JSON.parse(localStorage.getItem(CHAVE_LAYOUT_ANTIGA) || "null");
@@ -1408,7 +1428,26 @@ $("bt-porlinha").onclick = () => {
   for (const p of paineis()) { p.largura = larguraPadrao; aplicaLargura(p); }
   guardaLayout(); setTimeout(redimensiona, 0);
 };
-$("bt-padrao").onclick = () => { const k = chaveLayout(); if (k) try { localStorage.removeItem(k); } catch (e) { /* ok */ } indice = { aberto: indice.aberto, unica: false, secao: -1 }; montaTudo(); guardaLayout(); };
+$("bt-layout").onclick = (ev) => { ev.stopPropagation(); $("menu-layout").hidden = !$("menu-layout").hidden; };
+document.addEventListener("click", (ev) => { if (!ev.target.closest("#menu-layout, #bt-layout")) $("menu-layout").hidden = true; });
+$("ml-guardar").onclick = async () => {
+  $("menu-layout").hidden = true;
+  if (!A || !A.meta || !A.meta.modelo) { status("guardar como padrão: abra antes uma rodada do circuito"); return; }
+  try {
+    const r = await fetch("/maisim/simu/scope/padrao", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ modelo: A.meta.modelo, layout: layoutAtual() }) });
+    const j = await r.json().catch(() => ({}));
+    status(r.ok ? `layout guardado como o padrão do circuito ${circuitoDe(A)} (${j.arquivo || "ao lado dele"})` : `guardar como padrão: ${j.erro || r.statusText}`);
+  } catch (e) { status(`guardar como padrão: o simu não respondeu (${e.message})`); }
+};
+$("ml-padrao").onclick = async () => {
+  $("menu-layout").hidden = true;
+  const L = A && A.meta && A.meta.modelo ? await lePadrao() : null;
+  if (!L) { status(`o circuito ${circuitoDe(A) || ""} ainda não tem padrão: monte o layout e use “Guardar como padrão deste circuito”`); return; }
+  try { localStorage.setItem(chaveLayout(), JSON.stringify(L)); } catch (e) { /* ok */ }
+  montaTudo(); status(`de volta ao padrão do circuito ${circuitoDe(A)}`);
+};
+$("bt-padrao").onclick = () => {
+  $("menu-layout").hidden = true; const k = chaveLayout(); if (k) try { localStorage.removeItem(k); } catch (e) { /* ok */ } indice = { aberto: indice.aberto, unica: false, secao: -1 }; montaTudo(); guardaLayout(); };
 $("bt-salvar").onclick = salvaTodos;
 // ---- as visões (os painéis, as seções e as cores dos sinais) num arquivo: levar para outro MaiSim, mandar a um colega,
 // ou trazer as do PEW (o mesmo formato "scope-visoes")
