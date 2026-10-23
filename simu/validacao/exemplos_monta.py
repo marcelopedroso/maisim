@@ -105,6 +105,20 @@ def buck():
     return dict(dt=0.5e-6, tfim=0.02, amostras=8000)
 
 
+def buck_degrau():
+    """O buck com um degrau de carga (o vídeo do site, Marcelo 23/10): aos 10 ms, uma 2ª carga de 10 Ω entra pela chave S.2
+    (R de 10 para 5 Ω: i_L de 2,4 para 4,8 A; a v_o afunda, oscila e volta). O degrau é a onda quadrada do Gecko (404) de
+    período longo (25 Hz), deslocada 90° para subir aos 10 ms."""
+    buck()
+    for m in ("VOLT.1", "AMP.1", "VOLT.2"):
+        cmd("MOVE", m, 36, {"VOLT.1": 6, "AMP.1": 10, "VOLT.2": 14}[m])
+    poe("S.2", 28, 8, "S", 503); poe("R.2", 28, 12, "R", 503, R=10.0)
+    fio("o", (24, 6), (28, 6)); fio("gnd", (24, 14), (28, 14))
+    sinal("SIGNAL.2", 4, 30, "SIGNAL", saida="carga", type=404, amplMAX=1.0, offset=0.0, f=25.0, d=0.5, phase=90.0)
+    gate("GATE.2", 20, 30, "carga", "S.2")
+    return dict(dt=0.5e-6, tfim=0.02, amostras=8000)
+
+
 def boost():
     """Boost: 24 V, d = 0,5 (V_o ≈ 48 V), 20 kHz, L 1 mH, C 47 µF, R 40 Ω."""
     poe("U.1", 4, 10, "U", 503, type=401, uDC=24.0)
@@ -289,7 +303,7 @@ def retificador_controlado():
     return dict(dt=1e-6, tfim=0.05, amostras=10000)
 
 
-MONTA = {"buck": buck, "boost": boost, "buck_boost": buck_boost, "retificador_trifasico": retificador, "inversor_ponte_completa": inversor,
+MONTA = {"buck": buck, "buck_degrau": buck_degrau, "boost": boost, "buck_boost": buck_boost, "retificador_trifasico": retificador, "inversor_ponte_completa": inversor,
          "inversor_trifasico": inversor_trifasico, "inversor_meia_ponte": inversor_meia_ponte, "ponte_h_cc": ponte_h_cc,
          "retificador_monofasico": retificador_monofasico, "retificador_trifasico_controlado": retificador_controlado}
 
