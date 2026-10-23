@@ -36,6 +36,14 @@ const situacao = (pg) => pg.evaluate(() => { const a = document.querySelector("#
     await pg.evaluate(() => avisaTrilho([]));                                                     // o que o simu faz ao ver o login sair
     const saiu = await H.waitForFunction(() => !document.querySelector("#maisim-nav .item.ia.conectada"), null, { timeout: 8000 }).then(() => true).catch(() => false);
     ok(saiu && /nenhuma conectada/.test((await situacao(H)).rot), `login saiu: a outra aba muda na hora ("${(await situacao(H)).rot}")`);
+    // a outra aba escondida quando o login muda: muda ao voltar a ela (sem esperar os 2 min)
+    fs.writeFileSync(LOGADO, "");
+    await H.evaluate(() => { Object.defineProperty(document, "hidden", { configurable: true, get: () => true }); });
+    await pg.evaluate(() => avisaTrilho(["Claude"])); await H.waitForTimeout(1000);
+    const escondida = (await situacao(H)).verde;
+    await H.evaluate(() => { Object.defineProperty(document, "hidden", { configurable: true, get: () => false }); document.dispatchEvent(new Event("visibilitychange")); });
+    const voltou = await H.waitForFunction(() => document.querySelector("#maisim-nav .item.ia.conectada"), null, { timeout: 8000 }).then(() => true).catch(() => false);
+    ok(!escondida && voltou, `login entrou com a outra aba escondida: muda quando ela volta (escondida: ${escondida ? "verde" : "sem verde"}; voltou: ${voltou ? "verde" : "sem verde"})`);
     // a janela à parte (janela=1, sem o trilho à vista) não pergunta a situação da IA
     const J = await pg.context().newPage(); let pedidos = 0;
     J.on("request", (r) => { if (/\/claude\/(estado|ias)/.test(r.url())) pedidos++; });

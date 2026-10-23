@@ -112,8 +112,10 @@
     } catch (err) { /* sem o simu no ar: fica como estava */ }
   }
   setInterval(situacaoIA, 120000);
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) situacaoIA(); });
-  window.addEventListener("storage", (e) => { if (e.key === "maisim-ia-logados") situacaoIA(true); });   // login noutra aba
+  // um login que mudou com esta aba escondida: a consulta fica para quando ela voltar (sem esperar os 20 s entre consultas)
+  let loginMudou = false;
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { situacaoIA(loginMudou); loginMudou = false; } });
+  window.addEventListener("storage", (e) => { if (e.key === "maisim-ia-logados") { if (document.hidden) loginMudou = true; else situacaoIA(true); } });   // login noutra aba
   if (midiaEscura) midiaEscura.addEventListener("change", aplicaTema);
   window.addEventListener("storage", (e) => { if (e.key === "maisim-tema") aplicaTema(); });   // outra aba do MaiSim trocou o tema
   function montar() {
