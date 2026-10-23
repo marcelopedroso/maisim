@@ -1,7 +1,8 @@
 // fechar o circuito (instância de teste 7200 → 7201), pedido de Marcelo em 22/10 ("fechar o circuito, para não ficar sempre
 // um aberto"): o botão fecha (o Gecko vazio, nada na lista, o aviso "Nenhum circuito aberto", sem a paleta); simular é
 // recusado; recarregar a página continua fechado; com mudanças não salvas, pergunta como ao abrir outro; "+ Novo circuito"
-// do aviso sai do fechado; ?modelo= abre o circuito pedido
+// do aviso sai do fechado; ?modelo= abre o circuito pedido. Fechado, o controle não se edita nem se salva; fechar tira as
+// cópias do desfazer do disco (a revisão de 23/10)
 const { chromium } = require("playwright");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
@@ -26,6 +27,17 @@ const api = (rota, corpo) => fetch("http://localhost:7201/maisim/simu/" + rota, 
     ok(!antes.sem && f1.sem && f1.vazio === "flex" && f1.bt === "nenhum circuito aberto" && f1.paleta === "hidden" && !/modelo=/.test(f1.url) && srv.fechado && !srv.aberto,
       `fechar: o aviso "Nenhum circuito aberto", a lista sem nada ("${f1.bt}"), sem a paleta, o endereço sem ?modelo; o servidor: fechado`);
     ok(rod.st === 409 && /nenhum circuito aberto/.test(rod.erro || ""), `simular fechado é recusado (${rod.erro})`);
+    // a revisão de 23/10: fechado, o controle não se edita (o abrir/novo de depois jogaria fora o que fosse escrito, sem
+    // perguntar) e não se salva (gravava um arquivo vazio e o MaiSim ficava travado)
+    const ctl = await api("editor/controle", { controle: { codigo: "def passo(t, m, p, e):\n    return {}\n" } });
+    const coberto = await pg.evaluate(() => getComputedStyle($("painel-controle"), "::after").content);
+    const fs = require("fs"), path = require("path"), CIRC = path.join(require("os").homedir(), ".cache/maisim_teste/circuitos");
+    const antesArqs = fs.readdirSync(CIRC).length;
+    await pg.keyboard.press("Control+s"); await pg.waitForTimeout(800);
+    const sv = await api("editor/salvar", { nome: "fechado_vazio", pasta: "circuitos" });
+    ok(ctl.st === 409 && /nenhum circuito aberto/.test(ctl.erro || "") && /nenhum circuito aberto/.test(coberto) && !(await pg.$(".modal"))
+       && sv.st === 409 && fs.readdirSync(CIRC).length === antesArqs && !fs.existsSync(path.join(CIRC, "fechado_vazio.ipes")),
+       `fechado: o controle recusado e coberto pelo aviso; Ctrl+S e salvar não gravam nada (${sv.erro})`);
     // 2. recarregar: continua fechado (não abre o último deste navegador)
     await pg.goto(B); await pg.waitForTimeout(3000);
     const f2 = await est();
@@ -36,9 +48,13 @@ const api = (rota, corpo) => fetch("http://localhost:7201/maisim/simu/" + rota, 
     ok(!f3.sem && f3.vazio === "none" && !s3.fechado && /circuito_\d+/.test(f3.bt), `"+ Novo circuito" no aviso: folha em branco (${f3.bt}), não está mais fechado`);
     // 4. com mudanças não salvas: fechar pergunta (descartar e fechar)
     await pg.evaluate(async () => novoEstado(await api("editor/cmd", { op: "CREATE", args: ["R.1", 10, 10, "R"] }))); await pg.waitForTimeout(500);
+    const DESF = require("path").join(require("os").homedir(), ".cache/maisim_teste/desfazer");
+    const copias = () => require("fs").existsSync(DESF) ? require("fs").readdirSync(DESF).length : 0;
+    const c0 = copias();
     await pg.click("#bt-fechar"); await pg.waitForSelector(".modal .m-ok"); const perg = await pg.textContent(".modal");
     await pg.click(".modal .m-ok"); await pg.waitForTimeout(1500);
     const f4 = await est();
+    ok(c0 > 0 && copias() === 0, `fechar tira do disco as cópias do desfazer (${c0} → ${copias()})`);
     ok(/sem salvar/.test(perg) && /fechar descarta/.test(perg) && f4.sem && (await api("editor/aberto")).fechado, `com mudanças não salvas: pergunta ("${perg.slice(0, 70)}…") e fecha`);
     // 5. ?modelo= abre o pedido, e sai do fechado
     await pg.goto(B + "?modelo=" + encodeURIComponent(pi)); await pg.waitForTimeout(3500);

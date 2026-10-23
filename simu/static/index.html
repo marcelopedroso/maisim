@@ -625,6 +625,9 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   #vazio button, #vazio a { font:inherit; font-size:13.5px; padding:6px 12px; border:1px solid var(--borda); border-radius:8px; background:none; color:inherit; cursor:pointer; text-decoration:none; }
   #vazio .primario { background:var(--acento, #6d28d9); border-color:var(--acento, #6d28d9); color:#fff; }
   body.sem-circuito #vazio { display:flex; }
+  /* e o controle fechado também: sem circuito, nada a controlar (o código escrito ali se perderia ao abrir outro) */
+  body.sem-circuito #painel-controle::after { content:"nenhum circuito aberto: abra um ou comece um novo para escrever o controle"; position:absolute; inset:0; z-index:6;
+    display:flex; align-items:center; justify-content:center; text-align:center; padding:20px; background:var(--cartao); color:var(--sutil); font-size:13px; }
   body.sem-circuito #paleta > * { visibility:hidden; }   /* sem circuito, nada a pôr: o caminho é o "+ Novo circuito" */
   body.sem-circuito #bt-salvar, body.sem-circuito #bt-salvar-como, body.sem-circuito #bt-fechar, body.sem-circuito #bt-play { opacity:.35; pointer-events:none; }
 </style>
