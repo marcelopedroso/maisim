@@ -11,8 +11,13 @@ const espera = (ms) => new Promise((r) => setTimeout(r, ms));
   let b;
   try {
     const PI = "exemplos/exemplo_controle_pi.ipes";
+    // uma cópia com o nome que começa igual (exemplo_controle_pi_copia), rodada antes: o "N rodadas" do PI não a leva junto
     await api("editor/abrir", { arq: PI, modo: "descartar" });
-    let j = await api("editor/rodar", { dt: "1e-6", tfim: "0.002", nome: "inicio_teste", amostras: "100" });
+    await api("editor/salvar", { nome: "exemplo_controle_pi_copia", pasta: "circuitos", sobrescrever: true });
+    let j = await api("editor/rodar", { dt: "1e-6", tfim: "0.002", nome: "inicio_copia", amostras: "100" });
+    while (["rodando", "pausada", "preparando"].includes(j.estado)) { await espera(300); j = await api("editor/rodada"); }
+    await api("editor/abrir", { arq: PI, modo: "descartar" });
+    j = await api("editor/rodar", { dt: "1e-6", tfim: "0.002", nome: "inicio_teste", amostras: "100" });
     while (["rodando", "pausada", "preparando"].includes(j.estado)) { await espera(300); j = await api("editor/rodada"); }
     ok(j.estado === "fim", `a rodada de teste (o exemplo PI, 2 ms): ${j.estado}`);
     b = await chromium.launch();
@@ -22,7 +27,7 @@ const espera = (ms) => new Promise((r) => setTimeout(r, ms));
     const lin = await pg.evaluate(() => [...document.querySelectorAll("#recentes .rodada")].map((d) => ({ nome: d.querySelector("b").textContent,
       det: d.querySelector(".det").textContent, links: [...d.querySelectorAll("a")].map((a) => [a.textContent, a.getAttribute("href")]) })));
     const r0 = lin[0] || { links: [] };
-    ok(lin.length >= 1 && lin.length <= 6 && r0.nome === "inicio_teste" && /^exemplo_controle_pi · hoje, /.test(r0.det),
+    ok(lin.length >= 1 && lin.length <= 6 && r0.nome === "inicio_teste" && /^exemplo_controle_pi( \(exemplos\))? · hoje, /.test(r0.det),
       `a mais nova primeiro: ${r0.nome} (${r0.det}); ${lin.length} na lista (até 6)`);
     ok(r0.links.length === 2 && r0.links[0][0] === "ver no scope" && /^\/maisim\/scope\/\?a=.+scope_inicio_teste\.npz$/.test(r0.links[0][1])
       && r0.links[1][0] === "abrir o circuito" && r0.links[1][1] === "/maisim/simu/?modelo=" + encodeURIComponent(PI), `atalhos: ${JSON.stringify(r0.links)}`);
@@ -63,11 +68,17 @@ const espera = (ms) => new Promise((r) => setTimeout(r, ms));
     const nr = await pg.$("#ultimas .rodada:first-child button.n-rodadas");
     let filtrou = null;
     if (nr) { await nr.click(); await pg.waitForTimeout(200);
+      const circs = () => pg.$$eval("#lista-todas .rodada .det", (ds) => [...new Set(ds.map((d) => d.textContent.split(" · ")[0]))]);
       filtrou = await pg.evaluate(() => ({ aberta: !document.getElementById("todas").hidden, filtro: document.getElementById("filtro-todas").value,
-        circs: [...new Set([...document.querySelectorAll("#lista-todas .rodada .det")].map((d) => d.textContent.split(" · ")[0]))] }));
+        chip: document.getElementById("so-circ").hidden ? "" : document.querySelector("#so-circ span").textContent }));
+      filtrou.circs = await circs();
+      await pg.click("#so-circ button"); await pg.waitForTimeout(150);
+      filtrou.depois = { chip: await pg.evaluate(() => !document.getElementById("so-circ").hidden), circs: await circs() };
       await pg.click("#bt-todas"); await pg.waitForTimeout(150); }
-    ok(ult.ls.length === ult.unicos && nr && filtrou && filtrou.aberta && filtrou.filtro === "exemplo_controle_pi" && filtrou.circs.join() === "exemplo_controle_pi",
-      `as últimas, uma por circuito (${ult.ls.join(", ")}); "N rodadas" abre todas as do circuito (${JSON.stringify(filtrou)})`);
+    ok(ult.ls.length === ult.unicos && ult.ls.includes("exemplo_controle_pi_copia") && nr && filtrou && filtrou.aberta && filtrou.filtro === ""
+       && filtrou.chip === "circuito: " + ult.ls[0] && filtrou.circs.join() === ult.ls[0] && /^exemplo_controle_pi( \(exemplos\))?$/.test(ult.ls[0])
+       && !filtrou.depois.chip && filtrou.depois.circs.includes("exemplo_controle_pi_copia"),
+      `as últimas, uma por circuito (${ult.ls.join(", ")}); "N rodadas" abre só as do circuito exato, sem a _copia; o × tira o filtro (${JSON.stringify(filtrou)})`);
     await pg.click("#recentes .rodada:first-child a:first-of-type"); await pg.waitForURL(/\/maisim\/scope\/\?a=/);
     await pg.waitForFunction(() => typeof A !== "undefined" && A && A.meta, null, { timeout: 20000 });
     ok(await pg.evaluate(() => A.meta.rotulo) === "inicio_teste", "ver no scope: a rodada aberta no scope");
@@ -108,6 +119,29 @@ const espera = (ms) => new Promise((r) => setTimeout(r, ms));
     const tit = await pg.waitForSelector(".modal h3", { timeout: 30000 }).then((h) => h.textContent()).catch(() => "");
     if (await pg.$(".modal .m-cancela")) await pg.click(".modal .m-cancela");
     ok(hrefNovo === "/maisim/simu/?novo=1" && tit === "Novo circuito" && !/novo=/.test(pg.url()), `+ Novo circuito: o simu abre com "${tit}" (e o endereço sem o ?novo)`);
+    // com mudanças não salvas no servidor e outro circuito como o último deste navegador: pergunta uma vez só (no novo)
+    await api("editor/abrir", { arq: PI, modo: "descartar" }); await api("editor/cor", { canal: "x", cor: "#123456" });
+    await pg.evaluate(() => localStorage.setItem("maisim-simu-modelo", "exemplos/exemplo_buck.ipes"));
+    await pg.goto("http://localhost:7200/maisim/simu/?novo=1");
+    const titulos = [];
+    for (let k = 0; k < 3; k++) {
+      const h = await pg.waitForSelector(".modal h3", { timeout: k ? 3000 : 30000 }).then((x) => x.textContent()).catch(() => ""); if (!h) break;
+      titulos.push(h); await pg.click(h === "Novo circuito" ? ".modal .m-ok" : ".modal .m-cancela"); await pg.waitForTimeout(300); }
+    const est = await api("editor/estado");
+    ok(titulos.join(" | ") === "Novo circuito | Há mudanças não salvas" && est.arq === PI,
+      `?novo=1 com mudanças não salvas: uma pergunta só (${titulos.join(" | ")}); cancelar deixa o ${est.arq}`);
+    // o mesmo com um circuito novo sem nome aberto no servidor: uma pergunta só; cancelar mostra aquele circuito
+    await api("editor/novo", { modo: "descartar" }); await api("editor/cmd", { op: "CREATE", args: ["R.1", 10, 10, "R"] });
+    await pg.goto("http://localhost:7200/maisim/simu/?novo=1");
+    const tit2 = [];
+    for (let k = 0; k < 3; k++) {
+      const h = await pg.waitForSelector(".modal h3", { timeout: k ? 3000 : 30000 }).then((x) => x.textContent()).catch(() => ""); if (!h) break;
+      tit2.push(h); await pg.click(h === "Novo circuito" ? ".modal .m-ok" : ".modal .m-cancela"); await pg.waitForTimeout(300); }
+    await pg.waitForTimeout(500);
+    const mostra = await pg.evaluate(() => ({ novo: ed.novo, r: !!dados.folhas["0"].elementos.find((e) => e.nome === "R.1"), bt: $("bt-modelo").textContent.trim() }));
+    ok(tit2.join(" | ") === "Novo circuito | Há mudanças não salvas" && mostra.novo === "circuito_sem_nome" && mostra.r,
+      `?novo=1 com um circuito sem nome no servidor: uma pergunta só (${tit2.join(" | ")}); cancelar mostra aquele circuito (${mostra.bt})`);
+    await api("editor/abrir", { arq: PI, modo: "descartar" });
     ok(!erros.length, `sem erros de JS ${erros.join(" ; ")}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message}`); }
   finally { if (b) await b.close(); }
