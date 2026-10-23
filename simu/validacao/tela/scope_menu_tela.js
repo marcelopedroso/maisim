@@ -36,7 +36,15 @@ const URL = "http://localhost:7200/maisim/scope/?a=" + encodeURIComponent(path.r
     ok(!m.cobre && m.alinhado && m.foco && m.altura <= 26 && m.fecha && fechouX && fechouEsc,
       `menu Sinais: embaixo do botão, sem cobrir o ✕; a busca (${m.altura} px) já em foco; o × e o Esc fecham`);
     // o traço da linha (Marcelo, 23/10): na paleta do sinal, ao lado da espessura — contínua, tracejada, pontilhada
-    await pg.click(`${cartao("Tensão")} .b-sinais`); await pg.waitForSelector(".menu"); await pg.click(".menu button.cor-sinal"); await pg.waitForSelector(".menu button.traco");
+    // a setinha ao lado da bolinha abre e recolhe a paleta (e gira)
+    await pg.click(`${cartao("Tensão")} .b-sinais`); await pg.waitForSelector(".menu");
+    const seta0 = await pg.evaluate(() => { const b = document.querySelector(".menu button.abre-paleta"); return b && !b.classList.contains("aberta") && !document.querySelector(".menu .paleta"); });
+    await pg.click(".menu button.abre-paleta"); await pg.waitForSelector(".menu button.traco");
+    const seta1 = await pg.evaluate(() => document.querySelector(".menu button.abre-paleta").classList.contains("aberta"));
+    await pg.click(".menu button.abre-paleta"); await pg.waitForTimeout(100);
+    const seta2 = await pg.evaluate(() => !document.querySelector(".menu .paleta") && !document.querySelector(".menu button.abre-paleta").classList.contains("aberta"));
+    ok(seta0 && seta1 && seta2, "a setinha ao lado da cor abre a paleta (e gira) e recolhe");
+    await pg.click(".menu button.abre-paleta"); await pg.waitForSelector(".menu button.traco");
     const nTracos = await pg.$$eval(".menu button.traco", (bs) => bs.map((x) => x.dataset.t).join(","));
     await pg.click('.menu button.traco[data-t="tracejada"]'); await pg.waitForTimeout(200);
     const tr = await pg.evaluate(() => ({ dash: JSON.stringify(paineis().find((p) => p.titulo === "Tensão").u.series[1].dash), guardado: localStorage.getItem("maisim-scope-tracos"),

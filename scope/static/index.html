@@ -175,6 +175,9 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
   .menu .paleta-hex .padrao { font-size:11px; padding:1px 6px; margin-left:auto; }
   .menu .espessuras { display:flex; align-items:center; gap:4px; width:100%; margin-top:4px; font-size:11px; color:var(--sutil); }
   .menu .espessuras .espessura { display:flex; align-items:center; width:30px; height:20px; padding:0 4px; border:1px solid var(--borda); border-radius:4px; background:none; cursor:pointer; }
+  .menu button.abre-paleta { flex:none; display:inline-flex; align-items:center; padding:0 1px; margin-left:-2px; border:0; background:none; color:var(--sutil); cursor:pointer; }
+  .menu button.abre-paleta svg { width:14px; height:14px; transform:rotate(-90deg); transition:transform .15s; }
+  .menu button.abre-paleta.aberta svg { transform:none; } .menu button.abre-paleta:hover { color:var(--acento); }
   .menu .tracos { display:flex; align-items:center; gap:4px; width:100%; margin-top:4px; font-size:11px; color:var(--sutil); }
   .menu .tracos .traco { display:flex; align-items:center; justify-content:center; width:34px; height:20px; padding:0 3px; border:1px solid var(--borda); border-radius:4px; background:none; cursor:pointer; }
   .menu .tracos .traco.atual { outline:2px solid var(--texto); outline-offset:1px; }

@@ -851,7 +851,8 @@ function montaMenu(p) {
       const marc = p.sinais.includes(c.canal);
       html += `<div class="item"><label><input type="checkbox" data-c="${c.canal}" ${marc ? "checked" : ""}> ${c.rotulo}` +
               (c.tipo === "f" ? ` <span class="fino">passo fino</span>` : "") + "</label>" +
-              (marc ? `<button class="cor-sinal" data-c="${c.canal}" style="background:${corDoSinal(c.canal, p.sinais.indexOf(c.canal))}" title="cor e espessura do sinal (em todos os painéis)"></button>` +
+              (marc ? `<button class="cor-sinal" data-c="${c.canal}" style="background:${corDoSinal(c.canal, p.sinais.indexOf(c.canal))}" title="cor, espessura e traço do sinal (em todos os painéis)"></button>` +
+                      `<button class="abre-paleta${aberta === c.canal ? " aberta" : ""}" data-c="${c.canal}" title="${aberta === c.canal ? "recolher" : "cor, espessura e traço"}">${ICONE_SETA}</button>` +
                       `<span class="x">×</span><input type="number" step="any" class="ganho" data-c="${c.canal}" value="${(p.ganhos || {})[c.canal] || 1}"
                  title="multiplica só o desenho (para sobrepor sinais de escalas diferentes); o cursor continua mostrando o valor real">` : "") + "</div>" +
               (marc && aberta === c.canal ? paletaHTML(c.canal, p.sinais.indexOf(c.canal)) : "");
@@ -863,7 +864,8 @@ function montaMenu(p) {
       if (!ck.checked && p.ganhos) delete p.ganhos[c];
       guardaLayout(); criaGrafico(p); desenha();
     });
-    lista.querySelectorAll("button.cor-sinal").forEach((b) => b.onclick = (ev) => { ev.preventDefault(); aberta = aberta === b.dataset.c ? null : b.dataset.c; desenha(); });
+    // a bolinha da cor ou a setinha ao lado: abre e recolhe a paleta do sinal (cor, espessura, traço)
+    lista.querySelectorAll("button.cor-sinal, button.abre-paleta").forEach((b) => b.onclick = (ev) => { ev.preventDefault(); aberta = aberta === b.dataset.c ? null : b.dataset.c; desenha(); });
     const escolhe = (canal, cor) => { poeCorSinal(canal, cor); desenha(); };
     lista.querySelectorAll(".paleta").forEach((pl) => {
       const canal = pl.dataset.c;
