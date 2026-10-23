@@ -215,6 +215,44 @@ function rotulo(canal) {
   return c.rotulo;
 }
 
+// ---------------------------------------------------------------- notação matemática (Marcelo, 23/10: "fontes do LaTeX")
+// v_o → v itálico com o "o" subscrito, i_L → i com "L", i_Lf_a → i com "Lf,a": na legenda, no título do painel e no PNG.
+// A letra do símbolo (uma só) em itálico, como no LaTeX; o subscrito em pé. Desligada, os nomes como vêm do circuito
+let notacao = false; try { notacao = localStorage.getItem("maisim-scope-mat") === "1"; } catch (e) { /* ok */ }
+const RE_MAT = /(^|[^\p{L}\p{N}_])([A-Za-z]{1,4})_([A-Za-z0-9]+(?:_[A-Za-z0-9]+)*)(?![\p{L}\p{N}_])/gu;   // palavras inteiras (saída_x não)
+function partesMat(texto) {                            // [{txt}] ou [{base, sub}] na ordem do texto
+  const s = String(texto), out = []; let i = 0, m; RE_MAT.lastIndex = 0;
+  while ((m = RE_MAT.exec(s))) {
+    const ini = m.index + m[1].length;
+    if (ini > i) out.push({ txt: s.slice(i, ini) });
+    out.push({ base: m[2], sub: m[3].split("_").join(",") }); i = RE_MAT.lastIndex;
+  }
+  if (i < s.length) out.push({ txt: s.slice(i) });
+  return out;
+}
+const htmlMat = (texto) => partesMat(texto).map((x) => x.txt != null ? escH(x.txt)
+  : `<span class="mat"><span class="${x.base.length === 1 ? "mb" : "mr"}">${escH(x.base)}</span><sub>${escH(x.sub)}</sub></span>`).join("");
+// no canvas (o PNG): o mesmo, com a fonte do LaTeX (KaTeX) quando há subscrito
+function textoMat(g, texto, x, y, px, peso = "") {
+  const fam = "system-ui, sans-serif", mat = "KaTeX_Main, 'Latin Modern Roman', 'Times New Roman', serif";
+  if (!notacao) { g.font = `${peso} ${px}px ${fam}`; g.fillText(texto, x, y); return; }
+  for (const q of partesMat(texto)) {
+    if (q.txt != null) { g.font = `${peso} ${px}px ${fam}`; g.fillText(q.txt, x, y); x += g.measureText(q.txt).width; continue; }
+    g.font = q.base.length === 1 ? `italic ${px * 1.15}px KaTeX_Math, ${mat}` : `${px * 1.1}px ${mat}`; g.fillText(q.base, x, y); x += g.measureText(q.base).width + px * 0.05;
+    g.font = `${px * 0.8}px ${mat}`; g.fillText(q.sub, x, y + px * 0.3); x += g.measureText(q.sub).width;
+  }
+}
+function legendaMat(p) {                               // os nomes da legenda do uPlot (a 1ª série é o tempo)
+  if (!p.u) return;
+  p.u.root.querySelectorAll(".u-legend .u-series").forEach((tr, k) => { const l = tr.querySelector(".u-label"), se = p.series[k - 1];
+    if (l && se) { if (notacao) l.innerHTML = htmlMat(se.rot); else l.textContent = se.rot; } });
+}
+function tituloMat(p) { const t = p.el && p.el.querySelector(".titulo-mat"); if (t) t.innerHTML = htmlMat(p.titulo); }
+function aplicaNotacao() {
+  document.body.classList.toggle("notacao", notacao); $("ck-mat").checked = notacao;
+  for (const p of paineis()) { legendaMat(p); tituloMat(p); }
+}
+
 // ---------------------------------------------------------------- dados de um painel
 function seriesDe(p) {
   const out = []; let kp = 0;
@@ -790,6 +828,7 @@ function criaGrafico(p) {
     },
   };
   p.u = new uPlot(opts, dadosPainel(p), p.area);
+  legendaMat(p);
   p.u.over.addEventListener("wheel", (e) => {          // zoom só com Ctrl: a roda sozinha rola a página
     if (!e.ctrlKey) return;
     e.preventDefault();
@@ -1057,7 +1096,7 @@ function adicionaPainel(cfg, posicao) {
               med: novaMed(cfg.med), espFora: new Set(), recolhido: !!cfg.recolhido, expandido: false };
   const el = document.createElement("div"); el.className = "cartao";
   el.innerHTML = `<div class="cab"><span class="b-arrasta" draggable="true" title="arraste para mudar o painel de lugar">⠿</span><button class="b-rec">${ICONE_SETA}</button>
-    <input class="titulo" type="text"><div class="ferr"><button class="b-sinais">Sinais ▾</button>
+    <input class="titulo" type="text"><span class="titulo-mat" title="clique para mudar o título"></span><div class="ferr"><button class="b-sinais">Sinais ▾</button>
     <span class="zoom" title="o que o arrastar faz neste painel"><span class="rot">zoom</span>${Object.entries(MODOS_ZOOM).map(([m, r]) =>
       `<button class="b-zm" data-m="${m}" title="${{ x: "arrastar escolhe o intervalo de tempo", y: "arrastar escolhe a faixa vertical deste painel", xy: "arrastar escolhe uma área (tempo e vertical)" }[m]}">${r}</button>`).join("")}<button
       class="b-reset" title="ver tudo neste painel: vertical automática (ou o Y fixo) e o tempo todo; o tempo vale para todos os painéis ligados (duplo clique faz o mesmo)">⟲</button></span>
@@ -1069,7 +1108,10 @@ function adicionaPainel(cfg, posicao) {
   alcaEstica(p);
   el.appendChild(caixaMed(p));
   const tit = el.querySelector("input.titulo"); tit.value = p.titulo; tit.title = p.titulo;
-  tit.onchange = () => { p.titulo = tit.value; tit.title = tit.value; guardaLayout(); };
+  tit.onchange = () => { p.titulo = tit.value; tit.title = tit.value; tituloMat(p); guardaLayout(); };
+  // com a notação, o título aparece em notação matemática; o clique abre a caixa de texto para mudar
+  el.querySelector(".titulo-mat").onclick = () => { el.querySelector(".cab").classList.add("editando"); tit.focus(); };
+  tit.addEventListener("blur", () => el.querySelector(".cab").classList.remove("editando")); tituloMat(p);
   const abre = (botao, fazMenu) => (e) => {
     e.stopPropagation();
     const aberto = el.querySelector(".menu");
@@ -1303,15 +1345,14 @@ function canvasPainel(p) {
   const g = c.getContext("2d");
   const C = cores();                                  // o PNG sai como está na tela (tema claro: fundo branco)
   g.fillStyle = C.fundo; g.fillRect(0, 0, c.width, c.height);
-  g.fillStyle = C.titulo; g.font = `600 ${14 * r}px system-ui, sans-serif`; g.textBaseline = "middle";
-  g.fillText(p.titulo, 8 * r, 15 * r);
+  g.fillStyle = C.titulo; g.textBaseline = "middle";
+  textoMat(g, p.titulo, 8 * r, 15 * r, 14 * r, "600");
   g.drawImage(src, 0, 30 * r);
-  g.font = `${12 * r}px system-ui, sans-serif`;
   p.series.forEach((se, k) => {
     const x = 8 * r + (k % porLinha) * (larg / porLinha), y = 30 * r + src.height + (Math.floor(k / porLinha) + 0.6) * 18 * r;
     g.strokeStyle = se.cor; g.lineWidth = Math.max(2, 1.5 * (se.largura || 1.3)) * r; g.setLineDash((se.dash || []).map((d) => d * r));
     g.beginPath(); g.moveTo(x, y); g.lineTo(x + 18 * r, y); g.stroke(); g.setLineDash([]);
-    g.fillStyle = C.titulo; g.fillText(se.rot, x + 24 * r, y);
+    g.fillStyle = C.titulo; textoMat(g, se.rot, x + 24 * r, y, 12 * r);
   });
   return c;
 }
@@ -1435,6 +1476,9 @@ const nomeSel = (sel) => sel.selectedOptions[0] ? sel.selectedOptions[0].textCon
 // ---------------------------------------------------------------- barra de ferramentas
 $("ck-fixar").onchange = (e) => { fixar = e.target.checked; };
 $("ck-pausar").onchange = (e) => { pausado = e.target.checked; if (!pausado) redesenha(); };
+$("ck-mat").onchange = (e) => { notacao = e.target.checked; try { localStorage.setItem("maisim-scope-mat", notacao ? "1" : "0"); } catch (er) { /* ok */ } aplicaNotacao(); };
+window.addEventListener("storage", (e) => { if (e.key === "maisim-scope-mat") { notacao = e.newValue === "1"; aplicaNotacao(); } });   // outra janela do scope
+document.body.classList.toggle("notacao", notacao); $("ck-mat").checked = notacao;
 $("bt-painel").onclick = () => {                       // só a rodada: no fim da seção dela (o fim do layout é uma seção do MMC, escondida)
   const alvo = soDaRodada() ? grupos().reverse().find((g) => g.ps.some((p) => p.u)) : null;
   if (alvo) { abreSecaoDe(adicionaPainel({ titulo: "Novo painel", sinais: [] }, itens.indexOf(alvo.ps[alvo.ps.length - 1]) + 1)); indice.secao = alvo.k; }
