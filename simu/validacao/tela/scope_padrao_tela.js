@@ -33,6 +33,7 @@ const espera = (ms) => new Promise((r) => setTimeout(r, ms));
     ok(arq && arq.itens.some((x) => x.titulo === "Meu painel"), `guardar como padrão: ${path.basename(PADRAO)} ao lado do circuito, com "Meu painel" (antes: ${auto.join(" ")})`);
     // mexe (tira o painel) e volta ao padrão
     await pg.evaluate(() => { const p = paineis().find((x) => x.titulo === "Meu painel"); p.el.querySelector(".b-rem").click(); });
+    await pg.click(".sc-modal .sc-ok"); await pg.waitForTimeout(200);                     // apagar pede confirmação
     const mexido = await vistos();
     await pg.click("#bt-layout"); await pg.click("#ml-padrao"); await pg.waitForTimeout(800);
     ok(!mexido.includes("P:Meu painel") && (await vistos()).includes("P:Meu painel"), "mexeu (tirou o painel) e “Voltar ao padrão” trouxe de volta");

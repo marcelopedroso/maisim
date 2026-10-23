@@ -815,9 +815,15 @@ function criaGrafico(p) {
 
 function montaMenu(p) {
   const menu = document.createElement("div"); menu.className = "menu";
-  const busca = document.createElement("input"); busca.type = "text"; busca.placeholder = "procurar…"; busca.style.width = "100%";
+  // em cima: a busca (baixa) e o × que fecha
+  const topo = document.createElement("div"); topo.className = "menu-topo";
+  const busca = document.createElement("input"); busca.type = "search"; busca.className = "busca"; busca.placeholder = "procurar sinal…";
+  const fecha = document.createElement("button"); fecha.className = "menu-fecha"; fecha.type = "button"; fecha.title = "fechar (Esc)"; fecha.textContent = "×";
+  fecha.onclick = () => menu.remove();
+  busca.addEventListener("keydown", (e) => { if (e.key === "Escape") { if (busca.value) { busca.value = ""; desenha(); } else menu.remove(); } });
+  topo.append(busca, fecha);
   const lista = document.createElement("div");
-  menu.append(busca, lista);
+  menu.append(topo, lista);
   let aberta = null;                                     // o sinal com a paleta de cores aberta
   const paletaHTML = (canal, idx) => { const atual = corDoSinal(canal, idx);
     return `<div class="paleta" data-c="${canal}">${CLASSICAS.map(([n, c]) => `<button class="amostra${c === atual ? " atual" : ""}" data-cor="${c}" style="background:${c}" title="${n} ${c}"></button>`).join("")}
@@ -976,7 +982,12 @@ function adicionaSecao(titulo, posicao, recolhida) {
     let k = itens.indexOf(s) + 1; while (k < itens.length && itens[k].tipo === "painel") k++;
     abreSecaoDe(adicionaPainel({ titulo: "Novo painel", sinais: [] }, k)); guardaLayout();
   };
-  el.querySelector(".b-rem").onclick = () => { el.remove(); itens = itens.filter((x) => x !== s); marcaSecoesVazias(); guardaLayout(); };
+  // apagar pede confirmação (Marcelo, 23/10: "sempre bom pedir confirmação"), a não ser numa seção vazia
+  el.querySelector(".b-rem").onclick = async () => {
+    const k = itens.indexOf(s), dela = []; for (let i = k + 1; i < itens.length && itens[i].tipo !== "secao"; i++) dela.push(itens[i]);
+    if (dela.length && !(await pergunta({ titulo: `Apagar a seção “${s.titulo}”?`, ok: "apagar a seção", perigo: true,
+      texto: `Sai só a seção: os ${dela.length > 1 ? `${dela.length} painéis` : "painel"} dela ${dela.length > 1 ? "passam" : "passa"} para a seção de cima.` }))) return;
+    el.remove(); itens = itens.filter((x) => x !== s); marcaSecoesVazias(); guardaLayout(); };
   el.querySelector(".b-rec").onclick = () => { s.recolhida = !s.recolhida; marcaRecolhida(s); guardaLayout(); };
   const alca = el.querySelector(".b-arrasta");
   alca.addEventListener("dragstart", (e) => { arrastandoSecao = s; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", "secao");
@@ -1075,7 +1086,10 @@ function adicionaPainel(cfg, posicao) {
     const aberto = el.querySelector(".menu");
     const mesmo = aberto && aberto.dataset.de === botao;
     document.querySelectorAll(".menu").forEach((m) => m.remove());
-    if (!mesmo) { const m = fazMenu(p); m.dataset.de = botao; const b = e.currentTarget; m.style.top = `${b.offsetTop + b.offsetHeight + 4}px`; el.appendChild(m); }
+    if (!mesmo) { const m = fazMenu(p); m.dataset.de = botao; const b = e.currentTarget; m.style.top = `${b.offsetTop + b.offsetHeight + 4}px`;
+      el.appendChild(m);                                   // embaixo do botão que o abriu (não no canto, perto do ✕), dentro do cartão
+      m.style.left = `${Math.max(6, Math.min(b.offsetLeft, el.clientWidth - m.offsetWidth - 6))}px`; m.style.right = "auto";
+      const q = m.querySelector("input.busca"); if (q) q.focus(); }
   };
   el.querySelector(".b-sinais").onclick = abre("sinais", montaMenu);
   el.querySelector(".b-y").onclick = abre("y", menuY);
@@ -1095,7 +1109,10 @@ function adicionaPainel(cfg, posicao) {
   el.querySelector(".b-opc").onclick = abre("opc", menuOpc);
   el.querySelector(".cab .b-rec").onclick = () => { p.recolhido = !p.recolhido; marcaRecolhido(p); guardaLayout(); if (!p.recolhido) setTimeout(redimensiona, 0); };
   el.querySelector(".b-exp").onclick = () => expande(p, !p.expandido);
-  el.querySelector(".b-rem").onclick = () => { if (p.expandido) expande(p, false); if (p.u) p.u.destroy(); p.u = null; obsLargura.unobserve(el); el.remove(); itens = itens.filter((x) => x !== p); marcaSecoesVazias(); guardaLayout(); };
+  el.querySelector(".b-rem").onclick = async () => {        // com sinais, pergunta antes (o ✕ fica perto dos botões)
+    if (p.sinais.length && !(await pergunta({ titulo: `Apagar o painel “${p.titulo}”?`, ok: "apagar o painel", perigo: true,
+      texto: `Sai o painel e os ${p.sinais.length > 1 ? `${p.sinais.length} sinais` : "sinal"} dele neste layout (os dados da rodada ficam).` }))) return;
+    if (p.expandido) expande(p, false); if (p.u) p.u.destroy(); p.u = null; obsLargura.unobserve(el); el.remove(); itens = itens.filter((x) => x !== p); marcaSecoesVazias(); guardaLayout(); };
   const alca = el.querySelector(".b-arrasta");
   alca.addEventListener("dragstart", (e) => { arrastando = p; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(p.id));
     e.dataTransfer.setDragImage(el, 20, 20); el.classList.add("arrastando"); });
