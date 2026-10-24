@@ -1,0 +1,8 @@
+{
+ "colunas": 1,
+ "itens": [
+  {"secao": "Buck com degrau de carga"},
+  {"titulo": "Tensão de saída v_o (V)", "sinais": ["v_o"], "largura": 1},
+  {"titulo": "Corrente no indutor i_L (A)", "sinais": ["i_L"], "largura": 1}
+ ]
+}

@@ -157,8 +157,9 @@
         // os modelos de exemplo: os do grupo "exemplos" do Abrir (o simu diz quais), com uma linha do que cada um é
         (async () => {
             const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-            const DESCR = {                                   // a ordem da grade (3 × 4): CC-CC, pontes e inversores, retificadores, controle digital
+            const DESCR = {                                   // a ordem da grade: CC-CC, pontes e inversores, retificadores, controle digital
                 exemplo_buck: ["Buck", "48 V → 24 V, PWM de 20 kHz em malha aberta"],
+                exemplo_buck_degrau: ["Buck com degrau de carga", "o buck com a carga de 10 para 5 Ω aos 10 ms: a corrente dobra e a tensão volta"],
                 exemplo_boost: ["Boost", "24 V → 48 V, PWM de 20 kHz em malha aberta"],
                 exemplo_buck_boost: ["Buck-boost", "24 V → −24 V (inverte a polaridade), em malha aberta"],
                 exemplo_ponte_h_cc: ["Ponte H CC", "quatro quadrantes, PWM bipolar, um motor CC simples (R, L e f.c.e.m.)"],

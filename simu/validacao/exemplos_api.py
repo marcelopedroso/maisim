@@ -48,14 +48,14 @@ try:
     mods = api("modelos")
     grupos = {m.get("grupo") for m in mods}
     nomes = {Path(m["arq"]).stem for m in mods if m.get("grupo") == "exemplos"}
-    novos = {"exemplo_buck", "exemplo_boost", "exemplo_buck_boost", "exemplo_retificador_trifasico", "exemplo_inversor_ponte_completa",
+    novos = {"exemplo_buck", "exemplo_buck_degrau", "exemplo_boost", "exemplo_buck_boost", "exemplo_retificador_trifasico", "exemplo_inversor_ponte_completa",
              "exemplo_inversor_trifasico", "exemplo_inversor_meia_ponte", "exemplo_ponte_h_cc", "exemplo_retificador_monofasico",
              "exemplo_retificador_trifasico_controlado"}
     sub = list((RAIZ / "exemplos" / "subcircuitos").glob("*.ipes")) if (RAIZ / "exemplos" / "subcircuitos").is_dir() else []
-    ok(novos <= nomes and len(nomes) == 12 and "exemplo_cascata_hb" not in nomes and not sub and "exemplos do GeckoCIRCUITS" not in grupos,
-       f"o Abrir: os 12 exemplos (sem as células em cascata, que usam o SM-HB do MMC; nenhum subcircuito em exemplos/); sem o grupo do GeckoCIRCUITS ({sorted(grupos)})")
+    ok(novos <= nomes and len(nomes) == 13 and "exemplo_cascata_hb" not in nomes and not sub and "exemplos do GeckoCIRCUITS" not in grupos,
+       f"o Abrir: os 13 exemplos (sem as células em cascata, que usam o SM-HB do MMC; nenhum subcircuito em exemplos/); sem o grupo do GeckoCIRCUITS ({sorted(grupos)})")
     CONF = [  # arquivo, o que conferir na janela final (a média, salvo dito), alvo, tolerância
-        ("buck", "v_o", 24.0, 0.04), ("boost", "v_o", 48.0, 0.04), ("buck_boost", "v_o", -24.0, 0.04),
+        ("buck", "v_o", 24.0, 0.04), ("buck_degrau", "i_L", 24.0 / 5, 0.04), ("boost", "v_o", 48.0, 0.04), ("buck_boost", "v_o", -24.0, 0.04),
         ("retificador_trifasico", "v_dc", 1.35 * 220, 0.02), ("inversor_ponte_completa", "fundamental de v_ab", 0.8 * 200, 0.02),
         ("inversor_trifasico", "fundamental de v_ab", 0.866 * 0.8 * 400, 0.02), ("inversor_meia_ponte", "fundamental de v_am", 0.8 * 100, 0.02),
         ("ponte_h_cc", "i_a", (0.5 * 100 - 40) / 1.0, 0.05), ("retificador_monofasico", "v_dc", 165.0, 0.05),
@@ -75,6 +75,9 @@ try:
             x = float(np.hypot(2 * np.mean(v * np.cos(2 * np.pi * 60 * tt)), 2 * np.mean(v * np.sin(2 * np.pi * 60 * tt))))
         else:
             m = t >= t[-1] - (2 / 60 if nome.startswith("retificador") else 0.005); x = float(z[sinal][m].mean())
+        if nome == "buck_degrau":                       # antes do degrau (10 ms), a carga de 10 Ω: a metade da corrente
+            m0 = (t >= 0.005) & (t < 0.0099); x0 = float(z["i_L"][m0].mean())
+            ok(perto(x0, 24.0 / 10, 0.05), f"buck_degrau: antes do degrau (5 a 10 ms) i_L = {x0:.2f} (teoria 2,4); depois, a seguir")
         ok(not soltas and not globais and perto(x, alvo, tol),
            f"{nome}: sem pontas soltas nem variáveis sobrando; {sinal} = {x:.2f} (teoria {alvo:.1f}, ±{tol:.0%}); sinais {sorted(k for k in z.files if k not in ('t', 'meta'))}")
     # os de antes, sem as sobras
