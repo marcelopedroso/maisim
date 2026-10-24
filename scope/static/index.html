@@ -162,6 +162,10 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
   button.b-solto.solto { background:var(--aviso-bg); color:var(--aviso); border-color:var(--aviso-borda); }
   .menu { position:absolute; top:36px; right:6px; z-index:30; width:340px; max-height:420px; overflow:auto;
           background:var(--cartao); border:1px solid var(--borda); border-radius:8px; box-shadow:0 6px 24px rgba(0,0,0,.12); padding:8px; font-size:13px; }
+  .menu .menu-topo { display:flex; gap:6px; align-items:center; position:sticky; top:-8px; background:var(--cartao); margin:-8px -8px 0; padding:6px 8px 4px; z-index:1; }
+  .menu input.busca { flex:1; min-width:0; padding:2px 7px; font-size:12px; height:24px; box-sizing:border-box; }
+  .menu .menu-fecha { flex:none; width:24px; height:24px; padding:0; border:0; background:transparent; color:var(--sutil); font-size:18px; line-height:1; cursor:pointer; border-radius:5px; }
+  .menu .menu-fecha:hover { color:var(--texto, inherit); background:var(--borda); }
   .menu h4 { margin:8px 0 2px; font-size:12px; color:var(--sutil); text-transform:uppercase; letter-spacing:.03em; }
   .menu label { display:block; padding:1px 2px; cursor:pointer; }
   .menu .fino { color:var(--aviso2); font-size:11px; }
@@ -179,6 +183,12 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
   .menu .paleta-hex .padrao { font-size:11px; padding:1px 6px; margin-left:auto; }
   .menu .espessuras { display:flex; align-items:center; gap:4px; width:100%; margin-top:4px; font-size:11px; color:var(--sutil); }
   .menu .espessuras .espessura { display:flex; align-items:center; width:30px; height:20px; padding:0 4px; border:1px solid var(--borda); border-radius:4px; background:none; cursor:pointer; }
+  .menu button.abre-paleta { flex:none; display:inline-flex; align-items:center; padding:0 1px; margin-left:-2px; border:0; background:none; color:var(--sutil); cursor:pointer; }
+  .menu button.abre-paleta svg { width:14px; height:14px; transform:rotate(-90deg); transition:transform .15s; }
+  .menu button.abre-paleta.aberta svg { transform:none; } .menu button.abre-paleta:hover { color:var(--acento); }
+  .menu .tracos { display:flex; align-items:center; gap:4px; width:100%; margin-top:4px; font-size:11px; color:var(--sutil); }
+  .menu .tracos .traco { display:flex; align-items:center; justify-content:center; width:34px; height:20px; padding:0 3px; border:1px solid var(--borda); border-radius:4px; background:none; cursor:pointer; }
+  .menu .tracos .traco.atual { outline:2px solid var(--texto); outline-offset:1px; }
   .menu .espessuras .espessura i { display:block; width:100%; border-radius:2px; } .menu .espessuras .espessura.atual { outline:2px solid var(--texto); outline-offset:1px; }
   .dica { font-size:12px; color:var(--sutil); margin:0 0 8px; }
   .vazio { color:var(--sutil); font-size:13px; padding:30px; text-align:center; }

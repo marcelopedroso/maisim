@@ -29,6 +29,17 @@ function poeEspessuraSinal(canal, w) {
   try { localStorage.setItem("maisim-scope-espessuras", JSON.stringify(espessurasSinal)); } catch (e) { /* só nesta página */ }
   for (const p of paineis()) if (p.sinais.includes(canal)) criaGrafico(p);
 }
+// o traço da linha, por sinal, como a espessura (Marcelo, 23/10: "contínuo ou tracejado"): contínua (a de sempre), tracejada
+// ou pontilhada; em todos os painéis, no PNG e nas visões exportadas
+const TRACOS = { continua: null, tracejada: [8, 5], pontilhada: [2, 4] };
+let tracosSinal = (() => { try { return JSON.parse(localStorage.getItem("maisim-scope-tracos") || "{}") || {}; } catch (e) { return {}; } })();
+const tracoValido = (t) => (Object.prototype.hasOwnProperty.call(TRACOS, t) ? t : null);
+const tracoDoSinal = (canal) => tracoValido(tracosSinal[canal]) || "continua";
+function poeTracoSinal(canal, t) {
+  if (tracoValido(t) && t !== "continua") tracosSinal[canal] = t; else delete tracosSinal[canal];
+  try { localStorage.setItem("maisim-scope-tracos", JSON.stringify(tracosSinal)); } catch (e) { /* só nesta página */ }
+  for (const p of paineis()) if (p.sinais.includes(canal)) criaGrafico(p);
+}
 // B (Comparar): a cor do mesmo sinal, misturada com o branco — dá para saber quem é quem com vários sinais
 function corClara(cor, t = 0.5) {
   const n = parseInt(cor.slice(1), 16), mix = (v) => Math.round(v + (255 - v) * t);
@@ -256,8 +267,9 @@ function seriesDe(p) {
     const ganho = (p.ganhos && p.ganhos[canal]) || 1;            // só no desenho; o cursor mostra o valor real
     const rot = rotulo(canal) + (ganho !== 1 ? ` ×${ganho}` : "") + (desloc ? ` (+${desloc.toFixed(1)})` : "");
     const cor = corDoSinal(canal, idx), w = espessuraDoSinal(canal);
-    if (grossa(A, canal)) out.push({ F: A, canal, rot: B ? `${rot} · A` : rot, cor, largura: w, desloc, ganho, degrau: tipo(canal) === "f" });
-    if (B && grossa(B, canal)) out.push({ F: B, canal, rot: `${rot} · B`, cor: corClara(cor), dash: [6, 4], largura: w * 0.92, desloc, ganho, degrau: tipo(canal) === "f" });
+    const traco = TRACOS[tracoDoSinal(canal)];             // B (Comparar) tracejada; só com a A tracejada, B pontilhada
+    if (grossa(A, canal)) out.push({ F: A, canal, rot: B ? `${rot} · A` : rot, cor, largura: w, dash: traco || undefined, desloc, ganho, degrau: tipo(canal) === "f" });
+    if (B && grossa(B, canal)) out.push({ F: B, canal, rot: `${rot} · B`, cor: corClara(cor), dash: tracoDoSinal(canal) === "tracejada" ? TRACOS.pontilhada : [6, 4], largura: w * 0.92, desloc, ganho, degrau: tipo(canal) === "f" });
   });
   // com o Medir aberto, a curva Σ(t): a soma ponto a ponto dos sinais que estão no Σ da tabela (os mesmos: um clique no
   // nome tira/põe), com os valores reais; o valor no cursor vai para a legenda (Marcelo, 20/10: "a soma tem que ser dos
@@ -849,15 +861,22 @@ function criaGrafico(p) {
 
 function montaMenu(p) {
   const menu = document.createElement("div"); menu.className = "menu";
-  const busca = document.createElement("input"); busca.type = "text"; busca.placeholder = "procurar…"; busca.style.width = "100%";
+  // em cima: a busca (baixa) e o × que fecha
+  const topo = document.createElement("div"); topo.className = "menu-topo";
+  const busca = document.createElement("input"); busca.type = "search"; busca.className = "busca"; busca.placeholder = "procurar sinal…";
+  const fecha = document.createElement("button"); fecha.className = "menu-fecha"; fecha.type = "button"; fecha.title = "fechar (Esc)"; fecha.textContent = "×";
+  fecha.onclick = () => menu.remove();
+  busca.addEventListener("keydown", (e) => { if (e.key === "Escape") { if (busca.value) { busca.value = ""; desenha(); } else menu.remove(); } });
+  topo.append(busca, fecha);
   const lista = document.createElement("div");
-  menu.append(busca, lista);
+  menu.append(topo, lista);
   let aberta = null;                                     // o sinal com a paleta de cores aberta
   const paletaHTML = (canal, idx) => { const atual = corDoSinal(canal, idx);
     return `<div class="paleta" data-c="${canal}">${CLASSICAS.map(([n, c]) => `<button class="amostra${c === atual ? " atual" : ""}" data-cor="${c}" style="background:${c}" title="${n} ${c}"></button>`).join("")}
       <span class="paleta-hex"><input class="hex" value="${atual}" maxlength="7" spellcheck="false" title="qualquer cor: #rrggbb (Enter)"><input type="color" class="livre" value="${atual}" title="escolher outra cor">
       <button class="padrao" title="volta à cor da ordem (paleta padrão)">padrão</button></span>
-      <span class="espessuras" title="a espessura da linha (em todos os painéis)">linha ${ESPESSURAS.map((w) => `<button class="espessura${w === espessuraDoSinal(canal) ? " atual" : ""}" data-w="${w}" title="${w === 1.3 ? "normal" : w < 1.3 ? "fina" : w < 3 ? "grossa" : "mais grossa"} (${w} px)"><i style="height:${w}px;background:${atual}"></i></button>`).join("")}</span></div>`; };
+      <span class="espessuras" title="a espessura da linha (em todos os painéis)">linha ${ESPESSURAS.map((w) => `<button class="espessura${w === espessuraDoSinal(canal) ? " atual" : ""}" data-w="${w}" title="${w === 1.3 ? "normal" : w < 1.3 ? "fina" : w < 3 ? "grossa" : "mais grossa"} (${w} px)"><i style="height:${w}px;background:${atual}"></i></button>`).join("")}</span>
+      <span class="tracos" title="o traço da linha (em todos os painéis)">traço ${Object.entries(TRACOS).map(([t, d]) => `<button class="traco${t === tracoDoSinal(canal) ? " atual" : ""}" data-t="${t}" title="${t}"><svg viewBox="0 0 24 6" width="24" height="6"><line x1="1" y1="3" x2="23" y2="3" stroke="${atual}" stroke-width="2"${d ? ` stroke-dasharray="${d.map((x) => x * 0.6).join(" ")}"` : ""}/></svg></button>`).join("")}</span></div>`; };
   const desenha = () => {
     const q = busca.value.toLowerCase(); let html = "", grupo = "";
     for (const c of catalogo()) {
@@ -867,7 +886,8 @@ function montaMenu(p) {
       const marc = p.sinais.includes(c.canal);
       html += `<div class="item"><label><input type="checkbox" data-c="${c.canal}" ${marc ? "checked" : ""}> ${htmlMat(c.rotulo)}` +
               (c.tipo === "f" ? ` <span class="fino">passo fino</span>` : "") + "</label>" +
-              (marc ? `<button class="cor-sinal" data-c="${c.canal}" style="background:${corDoSinal(c.canal, p.sinais.indexOf(c.canal))}" title="cor e espessura do sinal (em todos os painéis)"></button>` +
+              (marc ? `<button class="cor-sinal" data-c="${c.canal}" style="background:${corDoSinal(c.canal, p.sinais.indexOf(c.canal))}" title="cor, espessura e traço do sinal (em todos os painéis)"></button>` +
+                      `<button class="abre-paleta${aberta === c.canal ? " aberta" : ""}" data-c="${c.canal}" title="${aberta === c.canal ? "recolher" : "cor, espessura e traço"}">${ICONE_SETA}</button>` +
                       `<span class="x">×</span><input type="number" step="any" class="ganho" data-c="${c.canal}" value="${(p.ganhos || {})[c.canal] || 1}"
                  title="multiplica só o desenho (para sobrepor sinais de escalas diferentes); o cursor continua mostrando o valor real">` : "") + "</div>" +
               (marc && aberta === c.canal ? paletaHTML(c.canal, p.sinais.indexOf(c.canal)) : "");
@@ -879,13 +899,15 @@ function montaMenu(p) {
       if (!ck.checked && p.ganhos) delete p.ganhos[c];
       guardaLayout(); criaGrafico(p); desenha();
     });
-    lista.querySelectorAll("button.cor-sinal").forEach((b) => b.onclick = (ev) => { ev.preventDefault(); aberta = aberta === b.dataset.c ? null : b.dataset.c; desenha(); });
+    // a bolinha da cor ou a setinha ao lado: abre e recolhe a paleta do sinal (cor, espessura, traço)
+    lista.querySelectorAll("button.cor-sinal, button.abre-paleta").forEach((b) => b.onclick = (ev) => { ev.preventDefault(); aberta = aberta === b.dataset.c ? null : b.dataset.c; desenha(); });
     const escolhe = (canal, cor) => { poeCorSinal(canal, cor); desenha(); };
     lista.querySelectorAll(".paleta").forEach((pl) => {
       const canal = pl.dataset.c;
       pl.querySelectorAll("button.amostra").forEach((b) => b.onclick = () => escolhe(canal, b.dataset.cor));
       pl.querySelector("button.padrao").onclick = () => escolhe(canal, null);
       pl.querySelectorAll("button.espessura").forEach((b) => b.onclick = () => { poeEspessuraSinal(canal, +b.dataset.w); desenha(); });
+      pl.querySelectorAll("button.traco").forEach((b) => b.onclick = () => { poeTracoSinal(canal, b.dataset.t); desenha(); });
       pl.querySelector("input.livre").onchange = (ev) => escolhe(canal, corValida(ev.target.value));
       const hx = pl.querySelector("input.hex");
       hx.onkeydown = (ev) => { if (ev.key !== "Enter") return; const c = corValida(hx.value.trim()); hx.classList.toggle("ruim", !c); if (c) escolhe(canal, c); };
@@ -1011,7 +1033,12 @@ function adicionaSecao(titulo, posicao, recolhida) {
     let k = itens.indexOf(s) + 1; while (k < itens.length && itens[k].tipo === "painel") k++;
     abreSecaoDe(adicionaPainel({ titulo: "Novo painel", sinais: [] }, k)); guardaLayout();
   };
-  el.querySelector(".b-rem").onclick = () => { el.remove(); itens = itens.filter((x) => x !== s); marcaSecoesVazias(); guardaLayout(); };
+  // apagar pede confirmação (Marcelo, 23/10: "sempre bom pedir confirmação"), a não ser numa seção vazia
+  el.querySelector(".b-rem").onclick = async () => {
+    const k = itens.indexOf(s), dela = []; for (let i = k + 1; i < itens.length && itens[i].tipo !== "secao"; i++) dela.push(itens[i]);
+    if (dela.length && !(await pergunta({ titulo: `Apagar a seção “${s.titulo}”?`, ok: "apagar a seção", perigo: true,
+      texto: `Sai só a seção: os ${dela.length > 1 ? `${dela.length} painéis` : "painel"} dela ${dela.length > 1 ? "passam" : "passa"} para a seção de cima.` }))) return;
+    el.remove(); itens = itens.filter((x) => x !== s); marcaSecoesVazias(); guardaLayout(); };
   el.querySelector(".b-rec").onclick = () => { s.recolhida = !s.recolhida; marcaRecolhida(s); guardaLayout(); };
   const alca = el.querySelector(".b-arrasta");
   alca.addEventListener("dragstart", (e) => { arrastandoSecao = s; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", "secao");
@@ -1113,7 +1140,10 @@ function adicionaPainel(cfg, posicao) {
     const aberto = el.querySelector(".menu");
     const mesmo = aberto && aberto.dataset.de === botao;
     document.querySelectorAll(".menu").forEach((m) => m.remove());
-    if (!mesmo) { const m = fazMenu(p); m.dataset.de = botao; const b = e.currentTarget; m.style.top = `${b.offsetTop + b.offsetHeight + 4}px`; el.appendChild(m); }
+    if (!mesmo) { const m = fazMenu(p); m.dataset.de = botao; const b = e.currentTarget; m.style.top = `${b.offsetTop + b.offsetHeight + 4}px`;
+      el.appendChild(m);                                   // embaixo do botão que o abriu (não no canto, perto do ✕), dentro do cartão
+      m.style.left = `${Math.max(6, Math.min(b.offsetLeft, el.clientWidth - m.offsetWidth - 6))}px`; m.style.right = "auto";
+      const q = m.querySelector("input.busca"); if (q) q.focus(); }
   };
   el.querySelector(".b-sinais").onclick = abre("sinais", montaMenu);
   el.querySelector(".b-y").onclick = abre("y", menuY);
@@ -1133,7 +1163,10 @@ function adicionaPainel(cfg, posicao) {
   el.querySelector(".b-opc").onclick = abre("opc", menuOpc);
   el.querySelector(".cab .b-rec").onclick = () => { p.recolhido = !p.recolhido; marcaRecolhido(p); guardaLayout(); if (!p.recolhido) setTimeout(redimensiona, 0); };
   el.querySelector(".b-exp").onclick = () => expande(p, !p.expandido);
-  el.querySelector(".b-rem").onclick = () => { if (p.expandido) expande(p, false); if (p.u) p.u.destroy(); p.u = null; obsLargura.unobserve(el); el.remove(); itens = itens.filter((x) => x !== p); marcaSecoesVazias(); guardaLayout(); };
+  el.querySelector(".b-rem").onclick = async () => {        // com sinais, pergunta antes (o ✕ fica perto dos botões)
+    if (p.sinais.length && !(await pergunta({ titulo: `Apagar o painel “${p.titulo}”?`, ok: "apagar o painel", perigo: true,
+      texto: `Sai o painel e os ${p.sinais.length > 1 ? `${p.sinais.length} sinais` : "sinal"} dele neste layout (os dados da rodada ficam).` }))) return;
+    if (p.expandido) expande(p, false); if (p.u) p.u.destroy(); p.u = null; obsLargura.unobserve(el); el.remove(); itens = itens.filter((x) => x !== p); marcaSecoesVazias(); guardaLayout(); };
   const alca = el.querySelector(".b-arrasta");
   alca.addEventListener("dragstart", (e) => { arrastando = p; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(p.id));
     e.dataTransfer.setDragImage(el, 20, 20); el.classList.add("arrastando"); });
@@ -1511,7 +1544,7 @@ $("bt-salvar").onclick = salvaTodos;
 $("bt-exportar").onclick = () => {
   guardaLayout();
   let layout = null; try { layout = JSON.parse(localStorage.getItem(chaveLayout()) || "null"); } catch (e) { /* sem layout guardado */ }
-  const v = { formato: "scope-visoes", versao: 1, de: "MaiSim", circuito: circuitoDe(A), exportado: new Date().toISOString(), layout, cores: coresSinal, espessuras: espessurasSinal };
+  const v = { formato: "scope-visoes", versao: 1, de: "MaiSim", circuito: circuitoDe(A), exportado: new Date().toISOString(), layout, cores: coresSinal, espessuras: espessurasSinal, tracos: tracosSinal };
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([JSON.stringify(v, null, 1)], { type: "application/json" }));
   a.download = `visoes_scope_${(circuitoDe(A) || "scope").replace(/[^\w.-]+/g, "_")}_${new Date().toISOString().slice(0, 10)}.json`;
@@ -1532,9 +1565,11 @@ $("arq-visoes").onchange = async (e) => {
   for (const [k, c] of Object.entries(v.cores && typeof v.cores === "object" ? v.cores : {})) { const cv = corValida(String(c)); if (cv && /^[\w.$+\-]{1,120}$/.test(k)) cores[k] = cv; }
   const esp = {};
   for (const [k, w] of Object.entries(v.espessuras && typeof v.espessuras === "object" ? v.espessuras : {})) if (espessuraValida(w) && /^[\w.$+\-]{1,120}$/.test(k)) esp[k] = +w;
-  try { localStorage.setItem(chaveLayout(), JSON.stringify(v.layout)); localStorage.setItem("maisim-scope-cores", JSON.stringify(cores)); localStorage.setItem("maisim-scope-espessuras", JSON.stringify(esp)); }
+  const tra = {};
+  for (const [k, t] of Object.entries(v.tracos && typeof v.tracos === "object" ? v.tracos : {})) if (tracoValido(t) && t !== "continua" && /^[\w.$+\-]{1,120}$/.test(k)) tra[k] = t;
+  try { localStorage.setItem(chaveLayout(), JSON.stringify(v.layout)); localStorage.setItem("maisim-scope-cores", JSON.stringify(cores)); localStorage.setItem("maisim-scope-espessuras", JSON.stringify(esp)); localStorage.setItem("maisim-scope-tracos", JSON.stringify(tra)); }
   catch (er) { status("importar visões: o navegador não deixou guardar"); return; }
-  coresSinal = cores; espessurasSinal = esp; montaTudo();
+  coresSinal = cores; espessurasSinal = esp; tracosSinal = tra; montaTudo();
   status(`visões importadas de ${f.name}: ${itensV.length} painéis e seções, ${Object.keys(cores).length} cores`);
 };
 // ---- apagar gravações: de uma rodada do simu, a pasta inteira (os dados e a cópia do circuito daquela rodada — nunca o
