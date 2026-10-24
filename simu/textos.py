@@ -515,6 +515,8 @@ T = {
 
     # o motor do editor (simu/motor.py)
     "motor.quebra_de_linha": {"pt": "comando com quebra de linha", "en": "command with a line break"},
+    "motor.setm_formato": {"pt": "SETM espera nome:parâmetro:valor, veio {x}", "en": "SETM expects name:parameter:value, got {x}"},
+    "motor.comando_desconhecido": {"pt": "comando desconhecido do motor: {x}", "en": "unknown engine command: {x}"},
     "motor.fechou_conexao": {"pt": "o motor fechou a conexão", "en": "the engine closed the connection"},
     "motor.sem_motor": {"pt": "sem o motor do editor (o Gecko do MaiSim está no ar? gecko/sobe.sh): {erro}",
                         "en": "no editor engine (is MaiSim's Gecko running? gecko/sobe.sh): {erro}"},

@@ -1,4 +1,5 @@
 """Cliente do motor do editor (motor/src/maisim/MaiSimMotor.java, 127.0.0.1:6120): uma conexão, um pedido de cada vez."""
+import re
 import socket
 import sys
 import threading
@@ -15,6 +16,20 @@ if Path(getattr(sys.modules.get("textos"), "__file__", "") or "/").resolve().par
     _spec.loader.exec_module(_textos)                     # registra o catálogo (lingua.registra)
     if "textos" not in sys.modules:
         sys.modules["textos"] = _textos
+
+
+# os erros do próprio motor (MaiSimMotor.java) vêm em inglês, como as exceções do Gecko e do Java; os dele passam pelo
+# dicionário (o texto do Gecko não: é dele, e vai como veio)
+ERROS_MOTOR = ((re.compile(r"SETM expects name:parameter:value, got (\S*)"), "motor.setm_formato"),
+               (re.compile(r"unknown command: (\S*)"), "motor.comando_desconhecido"))
+
+
+def traduz_erro(texto):
+    for padrao, chave in ERROS_MOTOR:
+        m = padrao.search(texto)
+        if m:
+            return lingua.tr(chave, x=m.group(1))
+    return texto
 
 
 class ErroMotor(Exception):
@@ -72,4 +87,4 @@ class Motor:
         r = r.rstrip("\n")
         if r.startswith("OK"):
             return r[3:]
-        raise ErroMotor(r[4:] if r.startswith("ERR ") else r)
+        raise ErroMotor(traduz_erro(r[4:] if r.startswith("ERR ") else r))
