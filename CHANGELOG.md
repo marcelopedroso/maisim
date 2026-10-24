@@ -13,6 +13,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 - Simu tests: `simu/validacao/vistoria_componentes.py`, an on-demand survey of the 121 palette components on the test instance (each one alone on a new sheet: inserted as the palette does, its parameters read, a short run), written to `simu/validacao/tmp_vistoria/` as JSON and a Markdown table (#77).
 
 ### Changed
+- The terminal messages of `npm run maisim`, the background start/stop scripts (`app/scripts/sobe_fundo.sh`, `para_fundo.sh`) and the Gecko scripts (`gecko/sobe.sh`, `para.sh`, `construir.sh`) follow the terminal language (Portuguese when `LC_ALL`/`LC_MESSAGES`/`LANG` is `pt*`, English otherwise), through one shared helper (`config/fala.sh`). The editor engine's own errors (an unknown command, a malformed `SETM`) are in English, like Gecko's and Java's (#PR).
 - Simu: the signal's panel list shows the panel names in math notation (`i_L` → *i* with L as a subscript), like the drawing and the scope (#74).
 - A channel color chosen on the circuit also applies in the scope, which follows it right away (#66).
 - Sources follow the generator convention: the current arrow of a voltage source leaves its + terminal, and its measured current (scope, Measure, the control's `m[...]`) is positive when it delivers power. Gecko measures every current from terminal 1 to terminal 2, so MaiSim flips the sign it reads for a voltage source; the Gecko file is unchanged. The current source shows its arrow (terminal 1 → 2) instead of a "+" (#71).
