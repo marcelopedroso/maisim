@@ -60,6 +60,32 @@ function cortaAte(t, larg) {
   while (n > 2 && t.getComputedTextLength() > larg * G) { n--; t.textContent = cheio.slice(0, n - 1) + "…"; }
   if (t.getComputedTextLength() > larg * G) t.remove();
 }
+// os nomes dos sinais em notação matemática, como no scope (Marcelo, 24/10: "mostrar no circuito as notações, o v_o"):
+// v_o → v itálico com o "o" subscrito, i_Lf_a → i com "Lf,a"; a letra (uma só) em itálico, na fonte do LaTeX, o subscrito em pé
+const RE_MAT = /(^|[^\p{L}\p{N}_])([A-Za-z]{1,4})_([A-Za-z0-9]+(?:_[A-Za-z0-9]+)*)(?![\p{L}\p{N}_])/gu;   // a mesma regra do scope
+function partesMat(texto) {                            // [{txt}] ou [{base, sub}] na ordem do texto
+  const s = String(texto), out = []; let i = 0, m; RE_MAT.lastIndex = 0;
+  while ((m = RE_MAT.exec(s))) {
+    const ini = m.index + m[1].length;
+    if (ini > i) out.push({ txt: s.slice(i, ini) });
+    out.push({ base: m[2], sub: m[3].split("_").join(",") }); i = RE_MAT.lastIndex;
+  }
+  if (i < s.length) out.push({ txt: s.slice(i) });
+  return out;
+}
+const MAT = "KaTeX_Main, 'Latin Modern Roman', 'Times New Roman', serif";
+function textoMat(pai, x, y, s, at = {}) {             // como texto(), com o nome em notação (o original no data-txt)
+  const t = texto(pai, x, y, "", at), fs = parseFloat(at["font-size"]) || 0.62 * G; t.setAttribute("data-txt", s);
+  for (const q of partesMat(s)) {
+    if (q.txt != null) { no("tspan", {}, t).textContent = q.txt; continue; }
+    no("tspan", q.base.length === 1 ? { "font-family": `KaTeX_Math, ${MAT}`, "font-style": "italic", "font-size": fs * 1.18, "font-weight": 400 }
+      : { "font-family": MAT, "font-size": fs * 1.1, "font-weight": 400 }, t).textContent = q.base;
+    no("tspan", { "font-family": MAT, "font-size": fs * 0.82, "font-weight": 400, dy: fs * 0.3 }, t).textContent = q.sub;
+    no("tspan", { "font-size": fs * 0.01, dy: -fs * 0.3 }, t).textContent = "\u200b";   // volta à linha de base
+  }
+  return t;
+}
+const largMat = (s) => partesMat(s).reduce((n, q) => n + (q.txt != null ? q.txt.length : q.base.length * 1.1 + q.sub.length * 0.8), 0);   // em caracteres
 function texto(pai, x, y, s, at = {}) { const t = no("text", Object.assign({ x: x * G, y: y * G, "font-size": 0.62 * G, "dominant-baseline": "middle" }, at), pai); t.textContent = s; return t; }
 const P = (p) => `${p[0] * G},${p[1] * G}`;
 const ICONE_TOPO = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><path d="M8 1.8 14 5 8 8.2 2 5z" fill="currentColor" fill-opacity=".85"/><path d="M2 8l6 3.2L14 8" opacity=".6"/><path d="M2 11l6 3.2 6-3.2" opacity=".35"/></svg>`;
@@ -240,21 +266,21 @@ function marcaMedida(g, e, canal, medidor) {           // no componente medido: 
   const gg = marcaDe(g, medidor, p[0], p[1]);
   no("circle", { cx: 0, cy: 0, r: 0.42 * G, fill: COR.ampFundo, stroke: cor, "stroke-width": 2 }, gg);
   texto(gg, 0, 0.02, "A", { "text-anchor": "middle", fill: COR.ampTexto, "font-size": 0.5 * G, "font-weight": 700, "dominant-baseline": "middle" });
-  texto(gg, -0.6, 0.02, canal, { "text-anchor": "end", fill: COR.texto2, "font-size": 0.48 * G, "dominant-baseline": "middle" });
+  textoMat(gg, -0.6, 0.02, canal, { "text-anchor": "end", fill: COR.texto2, "font-size": 0.48 * G, "dominant-baseline": "middle" });
 }
 function marcaNo(g, x, y, [canal, sinal, medidor]) {   // num nó medido pelo voltímetro: "V+" (vermelho) / "V−" (preto) e o nome do sinal
   const gg = marcaDe(g, medidor, x, y), cor = corCanal(canal, "VOLT");
   no("rect", { x: -0.15 * G, y: -1.05 * G, width: 1.05 * G, height: 0.62 * G, rx: 0.2 * G, fill: sinal === "+" ? "#dc2626" : "#111827", stroke: cor, "stroke-width": 2 }, gg);
   texto(gg, 0.37, -0.72, "V" + sinal, { "text-anchor": "middle", fill: "#fff", "font-size": 0.42 * G, "font-weight": 700, "dominant-baseline": "middle" });
-  texto(gg, 1.05, -0.72, canal, { fill: COR.texto2, "font-size": 0.45 * G, "dominant-baseline": "middle" });
+  textoMat(gg, 1.05, -0.72, canal, { fill: COR.texto2, "font-size": 0.45 * G, "dominant-baseline": "middle" });
 }
 function tagScope(g, x, y, canal, tipo, fora = false) {   // ao lado do medidor: o nome do sinal no /maisim/scope, com a borda na cor do canal
   // fora do scope e do controle: apagada e tracejada (o sinal existe no circuito, mas não vira coluna nem m[...])
   const gg = no("g", Object.assign({ class: "tag-scope" + (fora ? " fora" : ""), transform: `translate(${x * G},${y * G})` }, fora ? { opacity: 0.4 } : {}), g), cor = corCanal(canal, tipo);
-  const w = 0.95 + 0.33 * canal.length;
+  const w = 0.95 + 0.33 * largMat(canal);
   no("rect", Object.assign({ x: 0, y: -0.36 * G, width: w * G, height: 0.72 * G, rx: 0.36 * G, fill: COR.cartao, stroke: cor, "stroke-width": 1.8 }, fora ? { "stroke-dasharray": "3 2" } : {}), gg);
   no("path", { d: `M${0.2 * G} ${0.05 * G}l${0.12 * G} ${-0.2 * G}l${0.14 * G} ${0.3 * G}l${0.14 * G} ${-0.24 * G}`, stroke: cor, "stroke-width": 1.4, fill: "none" }, gg);
-  texto(gg, 0.78, 0.02, canal, { fill: COR.texto, "font-size": 0.46 * G, "font-weight": 600, "dominant-baseline": "middle" });
+  textoMat(gg, 0.78, 0.02, canal, { fill: COR.texto, "font-size": 0.46 * G, "font-weight": 600, "dominant-baseline": "middle" });
 }
 // onde vai o nome (e o valor) de um componente de dois pinos: o deslocamento que o Gecko guarda (dxTxt, dyTxt). O padrão
 // dele, (2, 2), dado a todo componente criado, joga o texto para baixo e à direita — num componente deitado cai junto do
