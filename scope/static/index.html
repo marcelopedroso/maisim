@@ -102,6 +102,14 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
   .cartao { background:var(--cartao); border:1px solid var(--borda); border-radius:8px; padding:6px; min-width:0; position:relative; }
   .cab { display:flex; flex-wrap:wrap; gap:4px 6px; align-items:center; margin-bottom:4px; }
   .cab input.titulo { flex:1 1 120px; min-width:80px; font-weight:600; border-color:transparent; }
+  /* a notação matemática (v_o → v itálico, o subscrito): a fonte do LaTeX (KaTeX, a mesma do chat do simu) */
+  @font-face { font-family:KaTeX_Main; src:url(../simu/static/katex/KaTeX_Main-Regular.woff2) format("woff2"); }
+  @font-face { font-family:KaTeX_Math; font-style:italic; src:url(../simu/static/katex/KaTeX_Math-Italic.woff2) format("woff2"); }
+  .mat { font-family:KaTeX_Main, "Latin Modern Roman", "Times New Roman", serif; font-weight:400; white-space:nowrap; }
+  .mat .mb { font-family:KaTeX_Math, KaTeX_Main, "Times New Roman", serif; font-style:italic; font-size:1.15em; }
+  .mat .mr { font-size:1.1em; } .mat sub { font-size:.78em; vertical-align:-.3em; line-height:0; margin-left:.04em; }
+  .cab .titulo-mat { display:block; flex:1 1 120px; min-width:80px; font-weight:600; padding:3px 7px; cursor:text; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .cab:not(.editando) input.titulo, .cab.editando .titulo-mat { display:none; }
   .ferr { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:4px 6px; align-items:center; margin-left:auto; }
   .cab button, .zoom { white-space:nowrap; flex-shrink:0; }
   @container (max-width: 560px) { .zoom .rot { display:none; } }
