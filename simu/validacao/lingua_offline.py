@@ -195,9 +195,43 @@ def sem_comentarios_js(src):
     return lexa_js(src)[0]
 
 
+def sem_dicionarios(src):
+    """Tira os blocos de dicionário (….add({ … }), ou const TXT = { … } passado ao add): o português de dentro deles é o
+    lugar certo, não conta como solto."""
+    out, i = [], 0
+    while True:
+        m = re.compile(r"\.add\(\{|\bconst TXT = \{").search(src, i)
+        if not m:
+            return "".join(out) + src[i:]
+        k = m.start()
+        out.append(src[i:k])
+        j, prof, est = m.end() - 1, 0, None
+        while j < len(src):
+            c = src[j]
+            if est:
+                if c == "\\":
+                    j += 2; continue
+                if c == est:
+                    est = None
+            elif src.startswith("//", j):           # comentários: um ' ou ` dentro (// don't) não abre string
+                j = src.find("\n", j); j = len(src) if j < 0 else j; continue
+            elif src.startswith("/*", j):
+                j = src.find("*/", j); j = len(src) if j < 0 else j + 2; continue
+            elif c in "\"'`":
+                est = c
+            elif c == "{":
+                prof += 1
+            elif c == "}":
+                prof -= 1
+                if prof == 0:
+                    break
+            j += 1
+        i = j + 1
+
+
 def textos_js(src):
     """Os textos dos literais do JS (das linhas sem i18n-ok) que têm cara de português (o HTML dentro, em pedaços)."""
-    limpo = "\n".join("" if "i18n-ok" in l else l for l in src.split("\n"))
+    limpo = "\n".join("" if "i18n-ok" in l else l for l in sem_dicionarios(src).split("\n"))
     return [p for s in lexa_js(limpo)[1] for p in re.split(r"<[^>]+>", s) if portugues(p)]
 
 
@@ -205,7 +239,9 @@ def textos_html(src):
     out = []
     for bloco in re.findall(r"<script\b[^>]*>(.*?)</script>", src, re.S):
         out += textos_js(bloco)
+    src = "\n".join("" if "i18n-ok" in l else l for l in src.split("\n"))   # antes de tirar os comentários (a marca pode estar num)
     corpo = re.sub(r"<script\b.*?</script>|<style\b.*?</style>|<!--.*?-->", " ", src, flags=re.S)
+    corpo = re.sub(r"<(\w+)\b[^>]*\bdata-tr-html=\"[^\"]*\"[^>]*>.*?</\1>", " ", corpo, flags=re.S)   # o conteúdo é o do dicionário
     corpo = "\n".join(l for l in corpo.split("\n") if "i18n-ok" not in l)
     for m in re.finditer(r"<([a-zA-Z][\w-]*)\b([^>]*)>([^<]*)", corpo):
         atrs, texto = m.group(2), m.group(3)

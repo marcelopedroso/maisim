@@ -5,19 +5,47 @@
 (() => {
   if (window.maisimNav || window.top !== window.self) return;     // embutido (tela dividida): sem menu
   const L = 56;
+  // os textos do trilho, em português e inglês (o idioma: o botão PT/EN aqui no pé, ao lado do tema; maisim-i18n.js)
+  // (o motor lido na hora: a reserva da página pode passar o lugar ao de verdade depois; sem nenhum — a página do Gecko —,
+  // o português daqui mesmo)
+  const I = () => window.maisimI18n;
+  const TXT = {
+    "nav.inicio": { pt: "Início", en: "Home" },
+    "nav.simu": { pt: "Simu · monte e simule", en: "Simu · build and simulate" },
+    "nav.codigo": { pt: "Código · o controle em outra janela", en: "Code · the control in its own window" },
+    "nav.scope": { pt: "Scope · rodadas e medição", en: "Scope · runs and measurement" },
+    "nav.ia": { pt: "IA do MaiSim: as contas", en: "MaiSim AI: the accounts" },
+    "nav.ia_conectadas": { pt: { one: "IA: {nomes} conectado (clique: as contas)", other: "IA: {nomes} conectados (clique: as contas)" },
+      en: { one: "AI: {nomes} connected (click: the accounts)", other: "AI: {nomes} connected (click: the accounts)" } },
+    "nav.ia_nenhuma": { pt: "IA: nenhuma conectada (clique: conectar)", en: "AI: none connected (click: connect)" },
+    "nav.e": { pt: " e ", en: " and " },
+    "nav.tema_sistema": { pt: "Tema: como o sistema (clique: claro)", en: "Theme: like the system (click: light)" },
+    "nav.tema_claro": { pt: "Tema: claro (clique: escuro)", en: "Theme: light (click: dark)" },
+    "nav.tema_escuro": { pt: "Tema: escuro (clique: como o sistema)", en: "Theme: dark (click: like the system)" },
+    "nav.maior": { pt: "MaiSim maior", en: "MaiSim larger" },
+    "nav.menor": { pt: "MaiSim menor", en: "MaiSim smaller" },
+    "nav.tamanho_maior": { pt: "Tamanho do MaiSim: {pct}% (clique: maior)", en: "MaiSim size: {pct}% (click: larger)" },
+    "nav.tamanho_menor": { pt: "Tamanho do MaiSim: {pct}% (clique: menor)", en: "MaiSim size: {pct}% (click: smaller)" },
+    "nav.lingua": { pt: "Idioma: português (clique: English)", en: "Language: English (click: português)" },
+  };
+  if (I()) I().add(TXT);
+  const tr = (k, p) => { if (I()) return I().tr(k, p);
+    let v = TXT[k] ? TXT[k].pt : k; if (typeof v === "object") v = p && p.n === 1 ? v.one : v.other;
+    return p ? v.replace(/\{(\w+)\}/g, (m, x) => (x in p ? String(p[x]) : m)) : v; };
+  const trocaLingua = () => { const i = I(); return !!(i && i.muda && !i.reserva); };   // o botão só com o motor de verdade
   const svg = (d) => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
   const ITENS = [
-    { href: "/", rotulo: "Início", ativo: (p) => p === "/",
+    { href: "/", chave: "nav.inicio", ativo: (p) => p === "/",
       icone: svg('<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>') },
     // a janela do Gecko (/maisim/gecko/, a tela remota dele) saiu do trilho (18/10, Marcelo: "nem precisa mais"): o simu faz tudo
     // pelo Gecko escondido; a página continua no endereço e no cartão da página inicial, para conferir
-    { href: "/maisim/simu/", rotulo: "Simu · monte e simule", ativo: (p, q) => (p.startsWith("/maisim/simu") && !/[?&]vista=codigo/.test(q)) || p.startsWith("/maisim/control"),
+    { href: "/maisim/simu/", chave: "nav.simu", ativo: (p, q) => (p.startsWith("/maisim/simu") && !/[?&]vista=codigo/.test(q)) || p.startsWith("/maisim/control"),
       icone: svg('<path d="M2.5 8h4.3l1.6-3.6 3 7.2 3-7.2 1.6 3.6h5.5v12.6H2.5z"/><path d="M9.6 13.3l6.2 3.6-6.2 3.6z" fill="currentColor" stroke="none"/>') },   // um circuito (resistor na malha) e o "simular"
     // o código do controle numa janela só dele (para outro monitor): ligado ao circuito aberto no simu; o ▶ fica no simu
-    { href: "/maisim/simu/?vista=codigo", rotulo: "Código · o controle em outra janela", janela: "maisim-codigo", ativo: (p, q) => p.startsWith("/maisim/simu") && /[?&]vista=codigo/.test(q),
+    { href: "/maisim/simu/?vista=codigo", chave: "nav.codigo", janela: "maisim-codigo", ativo: (p, q) => p.startsWith("/maisim/simu") && /[?&]vista=codigo/.test(q),
       icone: svg('<path d="M8.5 7 3.5 12l5 5M15.5 7l5 5-5 5M13.6 4.5 10.4 19.5"/>') },
     // o scope também numa janela só dele (para outro monitor, ao vivo enquanto o circuito roda)
-    { href: "/maisim/scope/", rotulo: "Scope · rodadas e medição", janela: "maisim-scope", ativo: (p) => p.startsWith("/maisim/scope"),
+    { href: "/maisim/scope/", chave: "nav.scope", janela: "maisim-scope", ativo: (p) => p.startsWith("/maisim/scope"),
       icone: svg('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M5 14c2-6 3-6 4 0s2 6 4 0 3-6 4 0 2 4 2 4"/>') },
   ];
   // a marca do MaiSim: o diodo com o brilho de IA (public/marca/)
@@ -47,11 +75,12 @@
   #maisim-nav .escala .item { height:26px; border:0; background:transparent; cursor:pointer; font:600 17px/1 system-ui, sans-serif; }
   #maisim-nav .escala .item:disabled { opacity:.3; cursor:default; } #maisim-nav .escala .item:disabled:hover { background:transparent; color:#aab2bd; }
   #maisim-nav .escala .pct { color:#8a94a0; font-size:10px; font-variant-numeric:tabular-nums; }
-  #maisim-nav .tema { border:0; background:transparent; cursor:pointer; font:inherit; }`;
+  #maisim-nav .tema { border:0; background:transparent; cursor:pointer; font:inherit; }
+  #maisim-nav .lingua[hidden] { display:none; }
+  #maisim-nav .lingua { border:0; background:transparent; cursor:pointer; font:600 12px/1 system-ui, sans-serif; letter-spacing:.04em; }`;
   // tema do MaiSim inteiro: sistema (segue o Windows), claro ou escuro. Guardado no navegador (localStorage "maisim-tema", o mesmo
   // para todas as páginas do MaiSim na porta dele); aplicado em <html data-tema="claro|escuro">; as páginas ouvem "maisim-tema"
   const TEMAS = ["sistema", "claro", "escuro"];
-  const ROTULO_TEMA = { sistema: "Tema: como o sistema (clique: claro)", claro: "Tema: claro (clique: escuro)", escuro: "Tema: escuro (clique: como o sistema)" };
   const ICONE_TEMA = {
     sistema: svg('<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>'),
     claro: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
@@ -63,7 +92,7 @@
     const antes = document.documentElement.dataset.tema;
     document.documentElement.dataset.tema = escuro ? "escuro" : "claro";
     const b = document.querySelector("#maisim-nav .tema");
-    if (b) { b.innerHTML = ICONE_TEMA[t]; b.dataset.rotulo = ROTULO_TEMA[t]; b.setAttribute("aria-label", ROTULO_TEMA[t]); }
+    if (b) { b.innerHTML = ICONE_TEMA[t]; b.dataset.rotulo = tr(`nav.tema_${t}`); b.setAttribute("aria-label", tr(`nav.tema_${t}`)); }
     if (antes !== document.documentElement.dataset.tema) window.dispatchEvent(new CustomEvent("maisim-tema", { detail: { tema: document.documentElement.dataset.tema, escolha: t } }));
   }
   // tamanho do MaiSim (o nosso "zoom", independente do do navegador): + e − no pé do trilho, de 80 % a 140 %, guardado no
@@ -82,8 +111,8 @@
       n.querySelector(".pct").textContent = `${Math.round(v * 100)}%`;
       const k = ESCALAS.indexOf(v);
       n.querySelector(".mais").disabled = k === ESCALAS.length - 1; n.querySelector(".menos").disabled = k <= 0;
-      n.querySelector(".mais").dataset.rotulo = `Tamanho do MaiSim: ${Math.round(v * 100)}% (clique: maior)`;
-      n.querySelector(".menos").dataset.rotulo = `Tamanho do MaiSim: ${Math.round(v * 100)}% (clique: menor)`;
+      n.querySelector(".mais").dataset.rotulo = tr("nav.tamanho_maior", { pct: Math.round(v * 100) });
+      n.querySelector(".menos").dataset.rotulo = tr("nav.tamanho_menor", { pct: Math.round(v * 100) });
     }
     if (antes !== v) { window.dispatchEvent(new CustomEvent("maisim-escala", { detail: { escala: v } })); window.dispatchEvent(new Event("resize")); }
   }
@@ -98,7 +127,8 @@
   // chama o claude) — ao abrir, ao voltar à aba e a cada 2 min, em segundo plano; na hora, quando um login entra ou sai (o
   // simu avisa: maisim-ia-logados). A janela à parte (janela=1) não mostra o trilho: não pergunta
   const ICONE_IA = svg('<path d="M4.5 4.5h15a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-8.5l-4.5 3.6v-3.6h-2a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2z"/><path d="M6.5 11h2.2M15.6 11h1.9M8.7 8.2l5.6 2.8-5.6 2.8z"/><path d="M15.6 8.2v5.6"/>');
-  let ultimaIA = 0;
+  let ultimaIA = 0, ultimasIAs = null;
+  const rotuloIA = (nomes) => (nomes.length ? tr("nav.ia_conectadas", { n: nomes.length, nomes: nomes.join(tr("nav.e")) }) : tr("nav.ia_nenhuma"));
   const soJanela = () => new URLSearchParams(location.search).get("janela") === "1";
   async function situacaoIA(agora) {
     const a = document.querySelector("#maisim-nav .item.ia");
@@ -107,7 +137,8 @@
     try {
       const [e, ias] = await Promise.all([fetch("/maisim/simu/claude/estado").then((r) => r.json()), fetch("/maisim/simu/claude/ias").then((r) => r.json())]);
       const nomes = [e && e.logado ? "Claude" : null, ...(ias || []).filter((x) => x.estado && x.estado.logado).map((x) => x.nome)].filter(Boolean);
-      const rot = nomes.length ? `IA: ${nomes.join(" e ")} ${nomes.length > 1 ? "conectados" : "conectado"} (clique: as contas)` : "IA: nenhuma conectada (clique: conectar)";
+      ultimasIAs = nomes;
+      const rot = rotuloIA(nomes);
       a.classList.toggle("conectada", nomes.length > 0); a.dataset.rotulo = rot; a.setAttribute("aria-label", rot);
     } catch (err) { /* sem o simu no ar: fica como estava */ }
   }
@@ -124,17 +155,20 @@
     const p = location.pathname, nav = document.createElement("nav");
     nav.id = "maisim-nav";
     nav.innerHTML = `<a class="marca" href="/" title="MaiSim: MaiSim"><svg viewBox="0 0 24 22" width="30" height="27.5" fill="none" aria-hidden="true">${MARCA}</svg>MaiSim</a>` + ITENS.map((it) =>
-      `<a class="item${it.ativo(p, location.search) ? " ativo" : ""}${it.pronto === false ? " fora" : ""}" href="${it.pronto === false ? "#" : it.href}" data-rotulo="${it.rotulo}"
-          aria-label="${it.rotulo}"${it.janela ? ` data-janela="${it.janela}"` : ""}>${it.icone}</a>`).join("");
+      `<a class="item${it.ativo(p, location.search) ? " ativo" : ""}${it.pronto === false ? " fora" : ""}" href="${it.pronto === false ? "#" : it.href}" data-rotulo="${tr(it.chave)}"
+          aria-label="${tr(it.chave)}"${it.janela ? ` data-janela="${it.janela}"` : ""}>${it.icone}</a>`).join("");
     nav.querySelectorAll("a.fora").forEach((a) => a.addEventListener("click", (e) => e.preventDefault()));
     // o código e o scope abrem numa janela à parte (a mesma, se já estiver aberta), para ir ao outro monitor; já nela, o clique fica nela
     nav.querySelectorAll("a[data-janela]").forEach((a) => a.addEventListener("click", (e) => {
       if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || a.classList.contains("ativo")) return;
       e.preventDefault(); const url = a.href + (a.href.includes("?") ? "&" : "?") + "janela=1";   // janela=1: a janela vem sem o trilho
       const w = window.open(url, a.dataset.janela, "popup,width=1200,height=900"); if (w) w.focus(); else location.href = url; }));
-    nav.insertAdjacentHTML("beforeend", `<a class="item ia" href="/maisim/simu/?contas=1" data-rotulo="IA do MaiSim: as contas" aria-label="IA do MaiSim: as contas">${ICONE_IA}<span class="ponto"></span></a>`
-      + (comEscala() ? `<div class="escala"><button class="item mais" type="button" aria-label="MaiSim maior">+</button>
-      <span class="pct"></span><button class="item menos" type="button" aria-label="MaiSim menor">−</button></div>` : "") + `<button class="item tema" type="button"></button>`);
+    nav.insertAdjacentHTML("beforeend", `<a class="item ia" href="/maisim/simu/?contas=1" data-rotulo="${tr("nav.ia")}" aria-label="${tr("nav.ia")}">${ICONE_IA}<span class="ponto"></span></a>`
+      + (comEscala() ? `<div class="escala"><button class="item mais" type="button" aria-label="${tr("nav.maior")}">+</button>
+      <span class="pct"></span><button class="item menos" type="button" aria-label="${tr("nav.menor")}">−</button></div>` : "")
+      + `<button class="item lingua" type="button" hidden></button><button class="item tema" type="button"></button>`);
+    const bl = nav.querySelector(".lingua");             // PT/EN: mostra o outro idioma (o do clique); vale para todas as janelas
+    bl.addEventListener("click", () => { if (trocaLingua()) I().muda(I().lingua() === "pt" ? "en" : "pt"); });
     if (comEscala()) { nav.querySelector(".mais").addEventListener("click", () => mudaEscala(1)); nav.querySelector(".menos").addEventListener("click", () => mudaEscala(-1)); }
     nav.querySelector(".item.ia").addEventListener("click", (e) => {   // no simu: a janela das contas na hora
       if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || typeof window.abreJanelaClaude !== "function") return;
@@ -145,6 +179,7 @@
       aplicaTema();
     });
     document.body.prepend(nav);
+    rotulaLingua();
     // a janela à parte (scope, código), aberta pelo trilho: sem o trilho à vista (ele continua montado: o tema e o tamanho
     // do MaiSim valem nela também, e mudam junto com as outras janelas)
     if (soJanela()) nav.style.display = "none";
@@ -162,6 +197,23 @@
     document.documentElement.style.removeProperty("--maisim-nav-w");
     window.dispatchEvent(new Event("resize"));
   }
+  // o idioma: o botão (o outro idioma, para o clique) e os rótulos do trilho, de novo quando muda (aqui ou noutra janela)
+  function rotulaLingua() {
+    const nav = document.getElementById("maisim-nav"); if (!nav) return;
+    const b = nav.querySelector(".lingua");
+    if (b) { b.hidden = !trocaLingua(); if (!b.hidden) { b.textContent = I().lingua() === "pt" ? "EN" : "PT"; b.dataset.rotulo = tr("nav.lingua"); b.setAttribute("aria-label", tr("nav.lingua")); } }
+    nav.querySelectorAll("a.item[href]").forEach((a) => { const it = ITENS.find((x) => x.href === a.getAttribute("href"));
+      if (it) { a.dataset.rotulo = tr(it.chave); a.setAttribute("aria-label", tr(it.chave)); } });
+    const ia = nav.querySelector(".item.ia");
+    if (ia) { const r = ultimasIAs ? rotuloIA(ultimasIAs) : tr("nav.ia"); ia.dataset.rotulo = r; ia.setAttribute("aria-label", r); }
+    const m = nav.querySelector(".mais"), n = nav.querySelector(".menos");
+    if (m) m.setAttribute("aria-label", tr("nav.maior"));
+    if (n) n.setAttribute("aria-label", tr("nav.menor"));
+    aplicaTema(); aplicaEscala();
+  }
+  // (pelos eventos da janela, não pelo aoMudar: valem também quando o motor de verdade chega depois da reserva)
+  window.addEventListener("maisim-lingua", rotulaLingua);
+  window.addEventListener("maisim-i18n-pronto", rotulaLingua);
   window.maisimNav = { montar, desmontar, aplicaTema, aplicaEscala, situacaoIA };
   const eu = document.currentScript;
   if (!(eu && eu.dataset.manual)) { if (document.body) montar(); else document.addEventListener("DOMContentLoaded", montar); }

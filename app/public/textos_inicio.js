@@ -1,0 +1,122 @@
+// os textos da página inicial, em português e inglês (maisim-i18n.js: tr("chave", {params}); no HTML, data-tr*)
+maisimI18n.add({
+  "inicio.frase": { pt: "Simulação de circuitos e controle digital, com IA embarcada no seu trabalho.",
+    en: "Build circuits, write their digital control and simulate, with AI in your workflow." },
+  "inicio.novo_titulo": { pt: "+ Novo circuito", en: "+ New circuit" },
+  "inicio.novo_texto": { pt: "Uma folha em branco no editor: monte pela paleta, meça, simule e escreva o controle digital, com a ajuda da IA.",
+    en: "A blank sheet in the editor: build from the palette, measure, simulate and write the digital control, with help from the AI." },
+  "inicio.novo_dica": { pt: "para abrir um que já existe: as últimas simulações, logo abaixo", en: "to open an existing one: the latest simulations, just below" },
+  "inicio.scope_titulo": { pt: "Scope · rodadas e medição", en: "Scope · runs and measurement" },
+  "inicio.scope_texto": { pt: "A rodada ao vivo e as gravações, painéis configuráveis, zoom por painel, medição (média, Fourier, THD) e espectro.",
+    en: "The live run and the recordings, configurable panels, per-panel zoom, measurement (mean, Fourier, THD) and spectrum." },
+  "inicio.ex_titulo": { pt: "Exemplos · modelos prontos", en: "Examples · ready-made models" },
+  "inicio.ex_texto": { pt: "Conversores, retificador, inversor e controle digital, com os medidores no lugar: abra, simule e veja no scope.",
+    en: "Converters, rectifier, inverter and digital control, with the meters in place: open, simulate and see it in the scope." },
+  "inicio.exemplos": { pt: "Exemplos", en: "Examples" },
+  "inicio.ultimas": { pt: "Últimas simulações", en: "Latest simulations" },
+  "inicio.sub_ult": { pt: "a mais recente de cada circuito", en: "the most recent of each circuit" },
+  "inicio.filtro_ph": { pt: "filtrar: circuito, nome da rodada, data (ex.: 22/10), guardada…", en: "filter: circuit, run name, date (e.g. 10/22), kept…" },
+  "inicio.filtro_aria": { pt: "filtrar as simulações", en: "filter the simulations" },
+  "inicio.so_circ_title": { pt: "todas as simulações de novo", en: "all simulations again" },
+  "inicio.so_circ_aria": { pt: "tirar o filtro do circuito", en: "remove the circuit filter" },
+  "inicio.creditos_bt": { pt: "Sobre e créditos", en: "About and credits" },
+  "inicio.creditos_html": {
+    pt: `
+                <p>MaiSim é software livre (GNU GPL v3), de Marcelo Pedroso. Feito sobre:</p>
+                <ul>
+                    <li><a href="https://github.com/geckocircuits/GeckoCIRCUITS" target="_blank" rel="noopener">GeckoCIRCUITS</a> (GPL v3): o simulador de circuitos por trás do MaiSim, com uma modificação para ler e escrever em lote.</li>
+                    <li><a href="https://www.python.org" target="_blank" rel="noopener">Python</a> e <a href="https://numpy.org" target="_blank" rel="noopener">NumPy</a>: o controle digital e as gravações.</li>
+                    <li><a href="https://github.com/leeoniya/uPlot" target="_blank" rel="noopener">uPlot</a> (MIT): os gráficos do scope. <a href="https://microsoft.github.io/monaco-editor/" target="_blank" rel="noopener">Monaco Editor</a> (MIT): o editor de código. <a href="https://katex.org" target="_blank" rel="noopener">KaTeX</a> (MIT): as equações nas respostas da IA.</li>
+                    <li><a href="https://novnc.com" target="_blank" rel="noopener">noVNC</a> (MPL 2.0) e websockify (LGPL v3): a tela do GeckoCIRCUITS no navegador. <a href="https://vite.dev" target="_blank" rel="noopener">Vite</a> (MIT): o servidor da página.</li>
+                    <li>IA: o MaiSim chama os programas oficiais Claude Code (Anthropic) e Google Antigravity, sem modificação; cada um segue os próprios termos de uso. O MaiSim não é afiliado a nenhuma dessas empresas.</li>
+                </ul>
+            `,
+    en: `
+                <p>MaiSim is free software (GNU GPL v3), by Marcelo Pedroso. Built on:</p>
+                <ul>
+                    <li><a href="https://github.com/geckocircuits/GeckoCIRCUITS" target="_blank" rel="noopener">GeckoCIRCUITS</a> (GPL v3): the circuit simulator behind MaiSim, with a change to read and write in batches.</li>
+                    <li><a href="https://www.python.org" target="_blank" rel="noopener">Python</a> and <a href="https://numpy.org" target="_blank" rel="noopener">NumPy</a>: the digital control and the recordings.</li>
+                    <li><a href="https://github.com/leeoniya/uPlot" target="_blank" rel="noopener">uPlot</a> (MIT): the scope charts. <a href="https://microsoft.github.io/monaco-editor/" target="_blank" rel="noopener">Monaco Editor</a> (MIT): the code editor. <a href="https://katex.org" target="_blank" rel="noopener">KaTeX</a> (MIT): the equations in the AI's answers.</li>
+                    <li><a href="https://novnc.com" target="_blank" rel="noopener">noVNC</a> (MPL 2.0) and websockify (LGPL v3): the GeckoCIRCUITS screen in the browser. <a href="https://vite.dev" target="_blank" rel="noopener">Vite</a> (MIT): the page server.</li>
+                    <li>AI: MaiSim calls the official programs Claude Code (Anthropic) and Google Antigravity, unmodified; each one follows its own terms of use. MaiSim is not affiliated with any of these companies.</li>
+                </ul>
+            ` },
+  // os exemplos: o título e uma linha do que cada um é (a ordem da grade: CC-CC, pontes e inversores, retificadores, controle)
+  "inicio.ex.exemplo_buck": { pt: "Buck", en: "Buck" },
+  "inicio.ex.exemplo_buck.d": { pt: "48 V → 24 V, PWM de 20 kHz em malha aberta", en: "48 V → 24 V, 20 kHz PWM, open loop" },
+  "inicio.ex.exemplo_buck_degrau": { pt: "Buck com degrau de carga", en: "Buck with a load step" },
+  "inicio.ex.exemplo_buck_degrau.d": { pt: "o buck com a carga de 10 para 5 Ω aos 10 ms: a corrente dobra e a tensão volta",
+    en: "the buck with the load going from 10 to 5 Ω at 10 ms: the current doubles and the voltage recovers" },
+  "inicio.ex.exemplo_boost": { pt: "Boost", en: "Boost" },
+  "inicio.ex.exemplo_boost.d": { pt: "24 V → 48 V, PWM de 20 kHz em malha aberta", en: "24 V → 48 V, 20 kHz PWM, open loop" },
+  "inicio.ex.exemplo_buck_boost": { pt: "Buck-boost", en: "Buck-boost" },
+  "inicio.ex.exemplo_buck_boost.d": { pt: "24 V → −24 V (inverte a polaridade), em malha aberta", en: "24 V → −24 V (inverts the polarity), open loop" },
+  "inicio.ex.exemplo_ponte_h_cc": { pt: "Ponte H CC", en: "DC H-bridge" },
+  "inicio.ex.exemplo_ponte_h_cc.d": { pt: "quatro quadrantes, PWM bipolar, um motor CC simples (R, L e f.c.e.m.)", en: "four quadrants, bipolar PWM, a simple DC motor (R, L and back-EMF)" },
+  "inicio.ex.exemplo_inversor_meia_ponte": { pt: "Inversor em meia ponte", en: "Half-bridge inverter" },
+  "inicio.ex.exemplo_inversor_meia_ponte.d": { pt: "monofásico, SPWM, 2 × 100 V com o ponto médio, carga RL", en: "single-phase, SPWM, 2 × 100 V with the midpoint, RL load" },
+  "inicio.ex.exemplo_inversor_ponte_completa": { pt: "Inversor em ponte completa", en: "Full-bridge inverter" },
+  "inicio.ex.exemplo_inversor_ponte_completa.d": { pt: "monofásico, SPWM bipolar, 200 V, carga RL", en: "single-phase, bipolar SPWM, 200 V, RL load" },
+  "inicio.ex.exemplo_inversor_trifasico": { pt: "Inversor trifásico", en: "Three-phase inverter" },
+  "inicio.ex.exemplo_inversor_trifasico.d": { pt: "dois níveis, SPWM senoidal, 400 V, carga RL em estrela", en: "two-level, sinusoidal SPWM, 400 V, star-connected RL load" },
+  "inicio.ex.exemplo_retificador_monofasico": { pt: "Retificador monofásico", en: "Single-phase rectifier" },
+  "inicio.ex.exemplo_retificador_monofasico.d": { pt: "ponte de 4 diodos com filtro capacitivo: a ondulação e os picos da rede",
+    en: "4-diode bridge with a capacitive filter: the ripple and the grid current peaks" },
+  "inicio.ex.exemplo_retificador_trifasico": { pt: "Retificador trifásico", en: "Three-phase rectifier" },
+  "inicio.ex.exemplo_retificador_trifasico.d": { pt: "ponte de 6 diodos, 127/220 V, 60 Hz, carga RL", en: "6-diode bridge, 127/220 V, 60 Hz, RL load" },
+  "inicio.ex.exemplo_retificador_trifasico_controlado": { pt: "Retificador controlado", en: "Controlled rectifier" },
+  "inicio.ex.exemplo_retificador_trifasico_controlado.d": { pt: "ponte de 6 tiristores, α = 30° (mude $t_alfa)", en: "6-thyristor bridge, α = 30° (change $t_alfa)" },
+  "inicio.ex.exemplo_controle_pi": { pt: "Controle PI digital", en: "Digital PI control" },
+  "inicio.ex.exemplo_controle_pi.d": { pt: "PI de corrente num RL, com anti-windup e acionamentos", en: "current PI on an RL load, with anti-windup and triggers" },
+  "inicio.ex.exemplo_controle_pwm": { pt: "Buck com controle digital", en: "Buck with digital control" },
+  "inicio.ex.exemplo_controle_pwm.d": { pt: "o PWM e o PI no código do controle (discreto, como num DSP)", en: "the PWM and the PI in the control code (discrete, as on a DSP)" },
+  "inicio.ex_abrir": { pt: "abrir no simu ({arq})", en: "open in simu ({arq})" },
+  "inicio.ex_n": { pt: { one: "{n} modelo · clique para ver", other: "{n} modelos · clique para ver" }, en: { one: "{n} model · click to see", other: "{n} models · click to see" } },
+  "inicio.ex_fechar": { pt: "clique para fechar", en: "click to close" },
+  // as simulações
+  "inicio.cancelar": { pt: "Cancelar", en: "Cancel" },
+  "inicio.ok": { pt: "OK", en: "OK" },
+  "inicio.hoje": { pt: "hoje, {hora}", en: "today, {hora}" },
+  "inicio.selo": { pt: "guardada", en: "kept" },
+  "inicio.selo_title": { pt: "guardada: “por cima” não a substitui", en: "kept: “overwrite” does not replace it" },
+  "inicio.n_rodadas": { pt: { one: "{n} rodada", other: "{n} rodadas" }, en: { one: "{n} run", other: "{n} runs" } },
+  "inicio.n_rodadas_title": { pt: "todas as rodadas deste circuito", en: "all runs of this circuit" },
+  "inicio.guardar": { pt: "Guardar", en: "Keep" },
+  "inicio.desguardar": { pt: "Desguardar", en: "Unkeep" },
+  "inicio.guardar_title": { pt: "guardar: a próxima rodada com o mesmo nome não a substitui", en: "keep: the next run with the same name does not replace it" },
+  "inicio.desguardar_title": { pt: "deixar de guardar: a próxima rodada com o mesmo nome (por cima) pode substituí-la",
+    en: "stop keeping: the next run with the same name (overwrite) may replace it" },
+  "inicio.ver_scope": { pt: "Ver no scope", en: "See in the scope" },
+  "inicio.abrir_circuito": { pt: "Abrir o circuito", en: "Open the circuit" },
+  "inicio.apagar_title_pasta": { pt: "apagar esta rodada (a pasta dela: os dados e a cópia do circuito desta rodada; o circuito fica)",
+    en: "delete this run (its folder: the data and this run's copy of the circuit; the circuit stays)" },
+  "inicio.apagar_title_npz": { pt: "apagar esta rodada (a gravação)", en: "delete this run (the recording)" },
+  "inicio.apagar_aria": { pt: "apagar {nome}", en: "delete {nome}" },
+  "inicio.apagando": { pt: "apagando {n}…", en: "deleting {n}…" },
+  "inicio.scope_nao_respondeu": { pt: "o scope não respondeu", en: "the scope did not respond" },
+  "inicio.ficaram": { pt: { one: "{n} ficou", other: "{n} ficaram" }, en: { one: "{n} stayed", other: "{n} stayed" } },
+  "inicio.circuito": { pt: "circuito: {nome}", en: "circuit: {nome}" },
+  "inicio.circuito_filtro": { pt: "circuito {nome}", en: "circuit {nome}" },
+  "inicio.nenhuma": { pt: "nenhuma simulação com esse filtro", en: "no simulation with this filter" },
+  "inicio.na_lista": { pt: "{n} na lista · {tam}", en: "{n} in the list · {tam}" },
+  "inicio.apagar_todas": { pt: "Apagar todas ({n}, {tam})…", en: "Delete all ({n}, {tam})…" },
+  "inicio.apagar_da_lista": { pt: { one: "Apagar 1 da lista ({tam})…", other: "Apagar as {n} da lista ({tam})…" },
+    en: { one: "Delete 1 from the list ({tam})…", other: "Delete the {n} in the list ({tam})…" } },
+  "inicio.todas_n": { pt: "Todas as simulações ({n})…", en: "All simulations ({n})…" },
+  "inicio.so_ultimas": { pt: "Só as últimas", en: "Only the latest" },
+  "inicio.apagar_n_titulo": { pt: { one: "Apagar {n} rodada?", other: "Apagar {n} rodadas?" }, en: { one: "Delete {n} run?", other: "Delete {n} runs?" } },
+  "inicio.apagar_n": { pt: "Apagar {n}", en: "Delete {n}" },
+  "inicio.apagar_filtro": { pt: "As da lista com o filtro “{q}”, {tam}.", en: "The ones in the list with the filter “{q}”, {tam}." },
+  "inicio.apagar_todas_txt": { pt: "Todas as simulações, {tam}.", en: "All simulations, {tam}." },
+  "inicio.apagar_pastas": { pt: "Sai a pasta de cada rodada (os dados e a cópia do circuito daquela rodada). Os circuitos em “meus circuitos” ficam.",
+    en: "Each run's folder goes (the data and that run's copy of the circuit). The circuits in “my circuits” stay." },
+  "inicio.guardadas_ficam": { pt: { one: "{n} guardada fica (desguarde para apagar).", other: "{n} guardadas ficam (desguarde para apagar)." },
+    en: { one: "{n} kept run stays (unkeep it to delete).", other: "{n} kept runs stay (unkeep them to delete)." } },
+  "inicio.apagar_rodada": { pt: "Apagar a rodada {nome}?", en: "Delete the run {nome}?" },
+  "inicio.apagar": { pt: "Apagar", en: "Delete" },
+  "inicio.sai_pasta": { pt: "Sai a pasta da rodada: os dados e a cópia do circuito desta rodada. O circuito em “meus circuitos” fica.",
+    en: "The run's folder goes: the data and this run's copy of the circuit. The circuit in “my circuits” stays." },
+  "inicio.sai_npz": { pt: "Sai a gravação (.npz).", en: "The recording (.npz) goes." },
+  "inicio.esta_guardada_html": { pt: "<b>Esta rodada está guardada.</b>", en: "<b>This run is kept.</b>" },
+});
+try { sessionStorage.removeItem("maisim-recarga"); } catch (e) { /* ok */ }   // chegou: a próxima falha pode recarregar de novo
