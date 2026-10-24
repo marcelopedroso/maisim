@@ -48,9 +48,9 @@ def caminho(rel):
 
 def nome(f):
     try:
-        return str(f.relative_to(RAIZ))
+        return f.relative_to(RAIZ).as_posix()      # sempre com "/" (a página corta o nome pela "/"; o Windows aceita C:/…)
     except ValueError:
-        return str(f)
+        return f.as_posix()
 
 
 def permitido(arq):

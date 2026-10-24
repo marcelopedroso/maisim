@@ -266,7 +266,7 @@ def vivo(pid):
     if not pid:
         return False
     if WIN:
-        r = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], capture_output=True, text=True)
+        r = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], capture_output=True, text=True, encoding="oem", errors="replace")
         return str(pid) in r.stdout
     try:
         os.kill(pid, 0)
