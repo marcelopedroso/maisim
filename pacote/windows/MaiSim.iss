@@ -53,6 +53,7 @@ Name: "en"; MessagesFile: "compiler:Default.isl"; InfoAfterFile: "creditos_en.tx
 pt.DadosTitulo=Onde ficam os seus circuitos
 pt.DadosSub=Os circuitos, as rodadas e os contextos da IA ficam numa pasta à vista.
 pt.DadosTexto=O MaiSim guarda o que você faz nesta pasta (ela fica mesmo se você desinstalar):
+pt.DadosNoPrograma=Escolha uma pasta fora da pasta do programa (%1): a pasta do programa é trocada a cada atualização.
 pt.PortaTitulo=Porta
 pt.PortaSub=O endereço do MaiSim no seu navegador: http://localhost:<porta>
 pt.PortaTexto=O MaiSim usa esta porta e as 6 seguintes. Se você já roda outro MaiSim (no WSL, por exemplo), escolha outra.
@@ -67,6 +68,7 @@ pt.ApagarDados=Apagar também os seus circuitos, rodadas e configurações (%1)?
 en.DadosTitulo=Where your circuits are kept
 en.DadosSub=Circuits, runs and the AI contexts are kept in a visible folder.
 en.DadosTexto=MaiSim keeps your work in this folder (it stays even if you uninstall):
+en.DadosNoPrograma=Pick a folder outside the program folder (%1): the program folder is replaced on every update.
 en.PortaTitulo=Port
 en.PortaSub=MaiSim's address in your browser: http://localhost:<port>
 en.PortaTexto=MaiSim uses this port and the next 6. If you already run another MaiSim (in WSL, for instance), pick another one.
@@ -102,7 +104,11 @@ Filename: "{#Pythonw}"; Parameters: """{#Lancador}"" --produto --abrir"; Working
 Filename: "{#Pythonw}"; Parameters: """{#Lancador}"" --produto --parar --forcar"; WorkingDir: "{app}"; Flags: runhidden waituntilterminated; RunOnceId: "Desligar"
 
 [UninstallDelete]
-Type: filesandordirs; Name: "{app}"
+; só o que o instalador pôs (a pasta do programa some sozinha se ficar vazia): se alguém escolheu guardar os circuitos
+; dentro dela, eles ficam
+Type: filesandordirs; Name: "{app}\python"
+Type: filesandordirs; Name: "{app}\jre"
+Type: filesandordirs; Name: "{app}\maisim"
 
 [Code]
 var
@@ -166,9 +172,18 @@ begin
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
-var P, Livre: Integer; Chave: String;
+var P, Livre: Integer; Chave, D, A: String;
 begin
   Result := True;
+  if CurPageID = PaginaDados.ID then begin
+    { os circuitos nunca dentro da pasta do programa (nem ela dentro deles): a atualização e o desinstalar mexem nela }
+    D := Lowercase(AddBackslash(PaginaDados.Values[0]));
+    A := Lowercase(AddBackslash(WizardDirValue));
+    if (Pos(A, D) = 1) or (Pos(D, A) = 1) then begin
+      MsgBox(FmtMessage(CustomMessage('DadosNoPrograma'), [WizardDirValue]), mbError, MB_OK);
+      Result := False;
+    end;
+  end;
   if CurPageID = PaginaPorta.ID then begin
     P := StrToIntDef(PaginaPorta.Values[0], 0);
     if (P < 1024) or (P > 65000) then begin

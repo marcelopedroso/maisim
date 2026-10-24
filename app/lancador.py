@@ -23,6 +23,11 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[1]
 WIN = os.name == "nt"
 sys.path.insert(0, str(RAIZ / "config"))
+# no Windows, o padrão dos arquivos e do texto é o cp1252 (um "≈" no resumo da rodada derrubava a gravação): os servidores
+# Python em UTF-8 (PYTHONUTF8) e os Java também (-Dfile.encoding), como no Linux
+UTF8_JAVA = ["-Dfile.encoding=UTF-8"] if WIN else []
+if WIN:
+    os.environ.setdefault("PYTHONUTF8", "1")
 
 
 def portugues():
@@ -173,7 +178,7 @@ class Lancador:
         # a vigia do próprio Gecko (patch 0003) fecha os diálogos e anota em gecko/dialogos.txt (o simu lê); no Windows, sem
         # a tela virtual, a janela principal fica escondida (o MaiSim é a tela)
         extra = [f"-Dmaisim.dialogos={c / 'dialogos.txt'}"] + (["-Dmaisim.oculto=true"] if WIN else [])
-        self.sobe("gecko", [self.java, f"-Duser.home={c / 'home'}", "-Dpolyglot.js.nashorn-compat=true", *extra, "-jar", str(self.jar), str(modelo), "-p", str(pg)],
+        self.sobe("gecko", [self.java, *UTF8_JAVA, f"-Duser.home={c / 'home'}", "-Dpolyglot.js.nashorn-compat=true", *extra, "-jar", str(self.jar), str(modelo), "-p", str(pg)],
                   "gecko.log", env)
         fala("subindo o Gecko (até ~1 min)…", "starting Gecko (up to ~1 min)…")
         if not espera(lambda: no_log(log, "GeckoCIRCUITS is ready"), 120):
@@ -187,7 +192,7 @@ class Lancador:
                            stdout=subprocess.DEVNULL, stderr=open(self.logs / "motor_javac.log", "w"))
         mlog = self.logs / "motor.log"
         mlog.write_text("")
-        self.sobe("motor", [self.java, "-cp", os.pathsep.join([str(self.jar), str(m / "bin")]), "maisim.MaiSimMotor",
+        self.sobe("motor", [self.java, *UTF8_JAVA, "-cp", os.pathsep.join([str(self.jar), str(m / "bin")]), "maisim.MaiSimMotor",
                             "--gecko-port", str(pg), "--porta", str(pm)], "motor.log")
         if not espera(lambda: no_log(mlog, "ouvindo"), 30):     # "ouvindo": o que o motor escreve ao subir
             fala(f"o motor do editor não subiu (veja {mlog})", f"the editor engine did not start (see {mlog})")
