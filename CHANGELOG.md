@@ -7,6 +7,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Added
+- Home page: a **Circuits** section. *Recent* lists the circuits opened last (the simu notes every open and save in `recentes.json`), *All circuits* lists yours, the library and the extra folders by group, with search; one click opens a circuit in the simu, and the folder where your circuits are kept is shown (#85).
 - CI: when the full suite passes on main, every PR merged since the last green run gets a comment saying so (with the run link), and the READMEs show the verify and full-suite status badges (#84).
 - `MAISIM_PORTA=8100` in the `.env` moves all seven ports at once (8100–8106, display :81), like `npm run maisim -- -p 8100` but for good; a port written separately still wins (#86).
 - Simu properties panel: Gecko parameters that are a choice show as one. The signal source shape (SIGNAL, FILE, RANDOM) is a list (Sine, Triangle, Rectangle, Random, Import; Gecko stores 402–406), every source type (U, I, MMF, HEAT-SOURCE, DT) too, and Gecko's yes/no parameters (useExternal, display…) are checkboxes. Typing `$` in a parameter that takes a global variable lists the circuit's variables with their values, filtered as you type (↑/↓, Enter or Tab, Esc, click) (#70).

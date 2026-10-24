@@ -50,6 +50,7 @@ PREFIXO = "/maisim/simu"
 TIPOS = {".html": "text/html; charset=utf-8", ".js": "application/javascript", ".css": "text/css", ".json": "application/json",
          ".woff2": "font/woff2"}
 SALVOS = Path(os.environ.get("MAISIM_SALVOS") or DADOS / "circuitos")   # onde o editor salva (aparece na lista de modelos)
+RECENTES = DADOS / "recentes.json"           # os circuitos abertos por último (anota_recente)
 # MAISIM_SIMU_CACHE, MAISIM_PORTA_MOTOR e MAISIM_TELA_X: outra instância (de teste) com o seu Gecko, sem mexer no do MaiSim
 ESTADO = Path(os.environ.get("MAISIM_SIMU_CACHE") or Path(os.environ["MAISIM_CACHE"]) / "simu") / "estado.ipes"   # o Gecko salva aqui o que está aberto
 lingua.guarda_ultima_em(ESTADO.parent / "lingua.txt")   # a última língua vista: a das threads que sobem com o servidor
@@ -84,6 +85,24 @@ def marca_aberto(rel):
         ABERTO.parent.mkdir(parents=True, exist_ok=True)
         ABERTO.write_text(rel or "")
     except OSError:
+        pass
+    if rel:
+        anota_recente(rel)
+
+
+RECENTES_N = 20
+
+
+def anota_recente(rel):
+    """Os circuitos abertos por último (a tela inicial: "Recentes"; Marcelo, 24/10): {arq: quando}, os RECENTES_N mais novos,
+    em MAISIM_DADOS/recentes.json. Abrir e salvar passam por aqui (marca_aberto); um circuito novo sem nome não."""
+    try:
+        r = json.loads(RECENTES.read_text()) if RECENTES.is_file() else {}
+        r[rel] = time.time()
+        r = dict(sorted(r.items(), key=lambda kv: -kv[1])[:RECENTES_N])
+        RECENTES.parent.mkdir(parents=True, exist_ok=True)
+        RECENTES.write_text(json.dumps(r))
+    except (OSError, ValueError, TypeError):
         pass
 
 
@@ -1373,12 +1392,21 @@ def lista_modelos():
     de subcircuitos, as pastas extras. Cada um: arq (a chave: relativo à raiz, ou absoluto fora dela), nome (dentro da
     pasta do grupo), grupo, apagavel (só os seus e os da biblioteca: vão para a .lixeira) e a pasta de gravação deles."""
     itens, vistos = [], set()
+    try:
+        recentes = json.loads(RECENTES.read_text()) if RECENTES.is_file() else {}
+    except (OSError, ValueError):
+        recentes = {}
     def poe(grupo, pasta, arqs, gravacao=None, id_grupo="extra"):   # id_grupo: o que a página confere (o grupo é texto)
         for f in sorted(arqs):
             if f.resolve() in vistos or any(s.startswith(".") for s in f.relative_to(pasta).parts):
                 continue
             vistos.add(f.resolve())
-            itens.append(dict(arq=relativo(f), nome=str(f.relative_to(pasta)), grupo=grupo, id_grupo=id_grupo, apagavel=bool(gravacao), pasta=gravacao))
+            try:
+                alterado = f.stat().st_mtime
+            except OSError:
+                alterado = None
+            itens.append(dict(arq=relativo(f), nome=str(f.relative_to(pasta)), grupo=grupo, id_grupo=id_grupo, apagavel=bool(gravacao), pasta=gravacao,
+                              alterado=alterado, aberto_em=recentes.get(relativo(f))))
     poe(lingua.tr("modelos.grupo_exemplos"), MODELOS, MODELOS.glob("*.ipes"), id_grupo="exemplos")
     poe(lingua.tr("modelos.grupo_meus"), SALVOS, SALVOS.glob("*.ipes"), "circuitos", "circuitos")
     poe(lingua.tr("modelos.grupo_biblioteca"), LIB, LIB.glob("*.ipes"), "subcircuitos", "subcircuitos")
@@ -5244,6 +5272,8 @@ class Manipulador(BaseHTTPRequestHandler):
             return self._resposta(200, guia_controle().read_bytes(), "text/markdown; charset=utf-8")
         if rota == "/modelos":
             return self._resposta(200, lista_modelos())
+        if rota == "/modelos/pastas":                  # onde ficam os circuitos (a tela inicial e o Abrir mostram)
+            return self._resposta(200, {"meus": str(SALVOS), "biblioteca": str(LIB), "extras": [[n, str(d)] for n, d in pastas_extras()]})
         if rota == "/scope/padrao":                    # o layout padrão do scope de um circuito (?modelo= o meta.modelo da rodada)
             return self._resposta(200, scope_padrao_le(parse_qs(u.query).get("modelo", [""])[0]))
         if rota == "/editor/aberto":                   # leve (sem pedir nada ao Gecko): o que o editor tem aberto, ou fechado

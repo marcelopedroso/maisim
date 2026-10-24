@@ -116,6 +116,7 @@ clicam no cadeado para editar, como antes. O `codigo_tela.js` confere o padrão 
 | Script | O que confere |
 |---|---|
 | `controle_tela.js` | passo 1: painel, editor, atuações, rodada (11 verificações) |
+| `inicio_circuitos_tela.js` | a seção Circuitos da página inicial: Recentes (o último aberto em cima, "aberto …", o Abrir no simu com ?modelo=), Todos os circuitos por grupo com busca e o aviso de nada achado, o caminho da pasta, em inglês; um exemplo aberto fica nos Recentes (e fora de Todos) | 9/9 |
 | `passo2_tela.js` | passo 2: exemplo do PI, atraso, acionamentos, trava durante a rodada (11) |
 | `revisao_tela.js` | as correções da revisão do passo 2 (7) |
 | `pwm_tela.js` | passo 2b: Δt do arquivo ao abrir, destino da atuação, Ts × Δt, GATE, rodada do buck (9) |
