@@ -18,6 +18,8 @@
         } catch (e) {                                   // sem localStorage: segue o sistema
             document.documentElement.dataset.tema = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'escuro' : 'claro'
         }
+        // a barra da janela do app (o MaiSim instalado) segue o tema: a cor do cabeçalho, clara ou escura
+        document.querySelector('meta[name="theme-color"]')?.setAttribute("content", document.documentElement.dataset.tema === "escuro" ? "#171a21" : "#ffffff")
         // o tamanho (+ e − no trilho, localStorage "maisim-escala"), antes de pintar
         try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.top === window.self && [0.8, 0.9, 1.1, 1.25, 1.4].includes(z)) document.documentElement.style.zoom = z; } catch (e) { /* 100 % */ }
     </script>

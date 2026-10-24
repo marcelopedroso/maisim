@@ -64,6 +64,11 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   const ctx2 = await b.newContext({ viewport: { width: 1200, height: 700 }, colorScheme: "dark" }); const p2 = await ctx2.newPage(); await p2.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
   await p2.goto("http://localhost:7200/maisim/simu/"); await p2.waitForTimeout(2500);
   ok(await p2.evaluate(() => document.documentElement.dataset.tema) === "escuro", "navegador escuro + 'sistema': o simu abre escuro (sem piscar: o tema vem antes de pintar)");
+  // a barra da janela do app (meta theme-color) segue o tema: escura já na carga; clara de volta ao claro
+  const barra = (p) => p.evaluate(() => document.querySelector('meta[name="theme-color"]').content);
+  const bEsc = await barra(p2), bCl = await barra(pg);
+  ok(bEsc === "#171a21" && bCl === "#ffffff" && await p2.evaluate(() => document.title) === "MaiSim",
+    `a barra da janela acompanha o tema (escuro ${bEsc}, claro ${bCl}); o título é só "MaiSim"`);
   ok(!erros.length, `sem erros de JS nem diálogos ${erros.join(" ; ")}`);
   await b.close(); process.exit(falhas ? 1 : 0);
 })();
