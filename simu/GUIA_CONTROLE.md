@@ -123,7 +123,8 @@ def passo(t, m, p, e):
   resultado, bit a bit, que o PI todo no `controle.py` (`validacao/modulos_api.py`).
 * **Módulo × controlador.** Módulo organiza o código (sem atraso). Controlador (§3.1) é um processo à parte, que emula
   outro DSP e conversa com ≥ 1 amostra de atraso: só para controle distribuído de verdade — **nunca** para dividir um
-  laço (o atraso entraria na malha). Na árvore: "virar controlador" e "virar módulo". "+ arquivo" cria um módulo.
+  laço (o atraso entraria na malha). Na árvore: "Virar controlador" (o botão ⤴) e "Virar módulo". "+ Arquivo" cria um
+  módulo.
 * **O tempo de cálculo é zero dentro da amostra.** Ler, calcular e escrever acontecem no mesmo instante simulado,
   quantos arquivos houver. O atraso real (conversão do ADC, cálculo, atualização do PWM) é o do painel (§4): `logo`,
   `amostra` (o clássico: calcula durante o período, atualiza no começo do próximo) ou uma latência τ.
@@ -138,7 +139,7 @@ def passo(t, m, p, e):
 * **O Claude do MaiSim** edita o `controle.py` e os módulos e cria módulos novos (só `.py` na pasta dele), seguindo o
   contrato e a ordem; a proposta mostra a diferença de cada arquivo (uma aba por arquivo), aplicar leva os módulos, e
   "voltar ao de antes" e "ver a mudança" também. Ele não apaga arquivos nem transforma módulo em controlador.
-* **Controle de antes dos módulos** continua como era (só o `controle.py`); na árvore, "organizar como um DSP" cria o
+* **Controle de antes dos módulos** continua como era (só o `controle.py`); na árvore, "Organizar como um DSP" cria o
   `leitura.py` e o `escrita.py` dos modelos sem mexer no `controle.py`.
 
 ### 3.1 Vários controladores (controle distribuído)
@@ -146,9 +147,9 @@ def passo(t, m, p, e):
 Um circuito pode ter mais de um controlador: aquisição e controle, um por submódulo, um por fase, um central e vários
 locais… **Cada arquivo `.py` é um controlador** (com o mesmo `iniciar`/`passo`), com o nome do arquivo:
 `aquisicao.py` é o controlador `aquisicao` (o destino de `envia` e o `p["id"]`). No painel, a coluna da esquerda tem
-duas abas: **variáveis** (Ts, atuações, medidas, parâmetros, acionamentos) e **arquivos** (os `.py` e, embaixo de cada
+duas abas: **Variáveis** (Ts, atuações, medidas, parâmetros, acionamentos) e **Arquivos** (os `.py` e, embaixo de cada
 um, **lê** — algumas medidas ou **todas** —, **escreve** e **em subcircuitos**; e a rede). O `+` ao lado das abas do
-editor (ou "+ arquivo") cria um módulo (§3.0.1); "virar controlador", na árvore, o põe a rodar à parte; duplo clique
+editor (ou "+ Arquivo") cria um módulo (§3.0.1); "Virar controlador" (o botão ⤴), na árvore, o põe a rodar à parte; duplo clique
 renomeia (o controlador acompanha); o × apaga o arquivo e o controlador dele. Marcar uma atuação num controlador tira dos outros (um dono só).
 
 * **Isolados e em paralelo.** Cada controlador roda no seu processo Python: sem memória comum (o que um guarda num
@@ -170,7 +171,7 @@ renomeia (o controlador acompanha); o × apaga o arquivo e o controlador dele. M
   (`aquisicao_x`); as do `controle.py` ficam com os nomes de sempre (as colunas das rodadas não mudam só por existir
   outro controlador). O `print()` vai para o log com `[instância]` na frente.
 * **Sem nenhum controlador na lista**, vale o de sempre: o `controle.py` lê todas as medidas e escreve as atuações
-  marcadas. O primeiro "+ controlador" põe esse na lista (com a mesma visão) e acrescenta o novo.
+  marcadas. O primeiro "Virar controlador" põe esse na lista (com a mesma visão) e acrescenta o novo.
 
 Exemplo (aquisição + controle, com o PI do `exemplo_controle_pi`):
 
