@@ -77,7 +77,16 @@
   #maisim-nav .escala .pct { color:#8a94a0; font-size:10px; font-variant-numeric:tabular-nums; }
   #maisim-nav .tema { border:0; background:transparent; cursor:pointer; font:inherit; }
   #maisim-nav .lingua[hidden] { display:none; }
-  #maisim-nav .lingua { border:0; background:transparent; cursor:pointer; font:600 12px/1 system-ui, sans-serif; letter-spacing:.04em; }`;
+  #maisim-nav .lingua { border:0; background:transparent; cursor:pointer; font:600 12px/1 system-ui, sans-serif; letter-spacing:.04em; }
+  /* no tema claro, o trilho também (Marcelo, 24/10): a cor do cabeçalho e uma linha fina separando; o Gecko fica escuro */
+  #maisim-nav.claro { background:#ffffff; border-right-color:#d9dde3; }
+  #maisim-nav.claro .marca { color:#6d28d9; }
+  #maisim-nav.claro .item { color:#5b6470; }
+  #maisim-nav.claro .item:hover { background:#eef0f3; color:#1b1f24; }
+  #maisim-nav.claro .item.ativo { background:#ede9fe; color:#6d28d9; }
+  #maisim-nav.claro .item.ia .ponto { box-shadow:0 0 0 2px #ffffff; }
+  #maisim-nav.claro .escala .item:disabled:hover { color:#5b6470; }
+  #maisim-nav.claro .escala .pct { color:#5b6470; }`;
   // tema do MaiSim inteiro: sistema (segue o Windows), claro ou escuro. Guardado no navegador (localStorage "maisim-tema", o mesmo
   // para todas as páginas do MaiSim na porta dele); aplicado em <html data-tema="claro|escuro">; as páginas ouvem "maisim-tema"
   const TEMAS = ["sistema", "claro", "escuro"];
@@ -93,6 +102,8 @@
     document.documentElement.dataset.tema = escuro ? "escuro" : "claro";
     const cor = document.querySelector('meta[name="theme-color"]');   // a barra da janela do app acompanha (cada página diz as
     if (cor && cor.dataset.claro) cor.setAttribute("content", escuro ? cor.dataset.escuro : cor.dataset.claro);   // suas duas cores)
+    const nav = document.getElementById("maisim-nav");   // o trilho claro no tema claro (fora a página do Gecko, sempre escura)
+    if (nav) nav.classList.toggle("claro", !escuro && comEscala());
     const b = document.querySelector("#maisim-nav .tema");
     if (b) { b.innerHTML = ICONE_TEMA[t]; b.dataset.rotulo = tr(`nav.tema_${t}`); b.setAttribute("aria-label", tr(`nav.tema_${t}`)); }
     if (antes !== document.documentElement.dataset.tema) window.dispatchEvent(new CustomEvent("maisim-tema", { detail: { tema: document.documentElement.dataset.tema, escolha: t } }));
