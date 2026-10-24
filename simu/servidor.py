@@ -29,6 +29,7 @@ from urllib.parse import parse_qs, urlparse
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "config"))
 import ler_config  # noqa: E402
 ler_config.aplica()                          # as portas e as pastas (config/padrao.env, o perfil, o .env), antes de ler o ambiente
+import lingua  # noqa: E402                    o idioma de cada pedido (português e inglês)
 
 from ipes import monta
 from motor import ErroMotor, Motor
@@ -50,6 +51,7 @@ TIPOS = {".html": "text/html; charset=utf-8", ".js": "application/javascript", "
 SALVOS = Path(os.environ.get("MAISIM_SALVOS") or DADOS / "circuitos")   # onde o editor salva (aparece na lista de modelos)
 # MAISIM_SIMU_CACHE, MAISIM_PORTA_MOTOR e MAISIM_TELA_X: outra instância (de teste) com o seu Gecko, sem mexer no do MaiSim
 ESTADO = Path(os.environ.get("MAISIM_SIMU_CACHE") or Path(os.environ["MAISIM_CACHE"]) / "simu") / "estado.ipes"   # o Gecko salva aqui o que está aberto
+lingua.guarda_ultima_em(ESTADO.parent / "lingua.txt")   # a última língua vista: a das threads que sobem com o servidor
 ESTADO.parent.mkdir(parents=True, exist_ok=True)   # numa instalação nova a pasta não existe, e o Gecko não a cria ao salvar
 MOTOR = Motor(int(os.environ["MAISIM_PORTA_MOTOR"]))
 TELA = os.environ["MAISIM_TELA_X"]
@@ -4755,6 +4757,7 @@ class Manipulador(BaseHTTPRequestHandler):
         self.wfile.write(corpo)
 
     def do_GET(self):
+        lingua.do_pedido(self.headers)
         u = urlparse(self.path)
         rota = u.path[len(PREFIXO):] if u.path.startswith(PREFIXO + "/") else u.path
         self._rota = None
@@ -4767,6 +4770,8 @@ class Manipulador(BaseHTTPRequestHandler):
             return self._resposta(200, (AQUI / "static" / "index.html").read_bytes(), TIPOS[".html"])
         if rota.startswith("/static/"):                # arquivos soltos; e os do KaTeX (as equações do chat), na pasta deles
             arq = AQUI / "static" / ("katex" if rota.startswith("/static/katex/") else "") / Path(rota).name
+            if rota == "/static/maisim-i18n.js":       # as traduções: um arquivo só, o da página inicial (app/public)
+                arq = RAIZ / "app" / "public" / "maisim-i18n.js"
             if arq.is_file():
                 return self._resposta(200, arq.read_bytes(), TIPOS.get(arq.suffix, "application/octet-stream"))
             return self._resposta(404, {"erro": "não achei"})
@@ -4890,6 +4895,7 @@ class Manipulador(BaseHTTPRequestHandler):
         """Um pedido de mudança pode chegar duas vezes: quando a conexão cai no caminho (a ponte Windows ↔ WSL), a página repete
         com a mesma etiqueta (X-MaiSim-Pedido). Se o primeiro chegou, volta a resposta dele — a mudança não é feita de novo; se
         ele ainda está em andamento, espera por ele."""
+        lingua.do_pedido(self.headers)
         self._pedido_id = None
         pid = str(self.headers.get("X-MaiSim-Pedido", ""))
         if not re.match(r"^[A-Za-z0-9-]{8,64}$", pid):

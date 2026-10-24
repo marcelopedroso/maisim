@@ -8,6 +8,7 @@ AQUI="$(cd "$(dirname "$0")" && pwd)"; R="$(cd "$AQUI/../.." && pwd)"
 unset $(compgen -v MAISIM_); eval "$(python3 "$R/config/ler_config.py" --shell teste)"; T=$MAISIM_DADOS
 pid=$(ss -ltnp | grep ":$MAISIM_PORTA_SIMU " | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1); [ -n "$pid" ] && kill "$pid"
 for _ in $(seq 1 20); do ss -ltn | grep -q ":$MAISIM_PORTA_SIMU " || break; sleep 0.3; done
+rm -f "$T/lingua.txt"                         # a última língua vista: os testes começam do zero (português)
 mkdir -p "$MAISIM_CLAUDE_DIR" "$T/circuitos"
 cp "$AQUI"/dados/exemplo_controle_*.* "$AQUI"/dados/exemplo_cascata_hb.ipes "$T/circuitos/"   # os exemplos como eram quando os testes foram escritos (congelados; o de células em cascata saiu de exemplos/ em 22/10: usa o SM-HB do MMC)
 cd "$R" && (setsid nohup python3 simu/servidor.py > "$T/simu.log" 2>&1 < /dev/null &)

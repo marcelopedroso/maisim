@@ -28,6 +28,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "config"))
 import ler_config  # noqa: E402
 ler_config.aplica()                          # as portas e as pastas (config/padrao.env, o perfil, o .env)
+import lingua  # noqa: E402                    o idioma de cada pedido (português e inglês)
 
 AQUI = Path(__file__).parent
 RAIZ = AQUI.parent                          # a raiz do projeto
@@ -238,6 +239,7 @@ class Manipulador(BaseHTTPRequestHandler):
         return u, (u.path[len(PREFIXO):] if u.path.startswith(PREFIXO + "/") else u.path)
 
     def do_GET(self):
+        lingua.do_pedido(self.headers)
         u, rota = self._rota()
         if u.path in ("/", "/index.html", "/maisim-scope", "/maisim-scope/", PREFIXO):
             self.send_response(302)
@@ -248,6 +250,8 @@ class Manipulador(BaseHTTPRequestHandler):
             return self._resposta(200, (AQUI / "static" / "index.html").read_bytes(), TIPOS[".html"])
         if rota.startswith("/static/"):
             arq = (AQUI / "static" / Path(rota).name)
+            if rota == "/static/maisim-i18n.js":       # as traduções: um arquivo só, o da página inicial (app/public)
+                arq = RAIZ / "app" / "public" / "maisim-i18n.js"
             if arq.is_file():
                 return self._resposta(200, arq.read_bytes(), TIPOS.get(arq.suffix, "application/octet-stream"))
             return self._resposta(404, {"erro": "não achei"})
@@ -324,6 +328,7 @@ class Manipulador(BaseHTTPRequestHandler):
         return self._resposta(404, {"erro": "rota desconhecida"})
 
     def do_POST(self):
+        lingua.do_pedido(self.headers)
         rota = self._rota()[1]
         if rota == "/apagar":
             return self._apagar()

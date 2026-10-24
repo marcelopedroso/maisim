@@ -254,7 +254,7 @@ function textoMat(g, texto, x, y, px, peso = "") {
 }
 function legendaMat(p) {                               // os nomes da legenda do uPlot (a 1ª série é o tempo)
   if (!p.u) return;
-  p.u.root.querySelectorAll(".u-legend .u-series").forEach((tr, k) => { const l = tr.querySelector(".u-label"), se = p.series[k - 1];
+  p.u.root.querySelectorAll(".u-legend .u-series").forEach((lin, k) => { const l = lin.querySelector(".u-label"), se = p.series[k - 1];
     if (l && se) l.innerHTML = htmlMat(se.rot); });
 }
 function tituloMat(p) { const t = p.el && p.el.querySelector(".titulo-mat"); if (t) t.innerHTML = htmlMat(p.titulo); }

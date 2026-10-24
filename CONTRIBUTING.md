@@ -38,4 +38,23 @@ The tests only run on the test instance, never on the MaiSim you use (7100): the
 (`simu/validacao/*_falso.py`) and the folders are disposable (`~/.cache/maisim_teste`). `claude_tela` (the real Claude
 login link) only runs on your machine, not on Actions.
 
-The documentation of the modules (the `LEIA.md` files) and the user interface are in Portuguese.
+The documentation of the modules (the `LEIA.md` files) is in Portuguese. The user interface is being made bilingual
+(Brazilian Portuguese and English).
+
+## Text in two languages
+
+Every user-visible text (pages, server messages) goes through the dictionaries, never as a loose string, with both
+languages side by side; long texts (the AI's instructions, the control guide, the code templates) are paired files
+(`x.pt.md` / `x.en.md`, `GUIA_CONTROLE.en.md`, `*_modelo.en.py`) that the guard compares:
+
+- pages: `tr("simu.saved_to", { arq })`, with the entry in the page's `textos_*.js`
+  (`"simu.saved_to": { pt: "salvo em {arq}", en: "saved to {arq}" }`); static HTML uses `data-tr="key"` (also
+  `data-tr-html`, `data-tr-title`, `data-tr-ph`, `data-tr-aria`, `data-tr-msg`). The runtime is `app/public/maisim-i18n.js`.
+- servers: `lingua.tr("motor.not_found", ref=x)` with the entry in `simu/textos.py` / `scope/textos.py` (the module calls
+  `lingua.registra(T)` once); background
+  threads are started with `lingua.thread(...)` so they keep the user's language.
+- values that are protocol (JSON keys, run states, file and folder names, routes, signal names) are never translated.
+
+`simu/validacao/lingua_offline.py` (in every PR) checks that every key has `pt` and `en` with the same `{parameters}`,
+that every key used exists, and counts loose Portuguese strings: the count may only go down (after translating, update
+the baseline with `python3 simu/validacao/lingua_offline.py --atualiza`). A deliberate exception gets `i18n-ok` on its line.

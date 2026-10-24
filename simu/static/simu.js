@@ -574,9 +574,9 @@ function dica(ev, e) {
       if (arrasto.shift) return;
       if (arrasto.grupo) {                                                // arrastar um dos selecionados: o grupo inteiro anda na grade
         arrasto.dg = [Math.round(dx / G), Math.round(dy / G)];
-        const f = dados.folhas[folhaAtual], tr = `translate(${arrasto.dg[0] * G},${arrasto.dg[1] * G})`;
-        f.elementos.forEach((x, i) => { if (ed.multi.has(x.nome) && x.tipo !== "TERM") { const gg = svg.querySelector(`.el[data-i="${i}"]`); if (gg) gg.setAttribute("transform", tr); } });
-        f.fios.forEach((w, k) => { if (ed.multiFios.has(chaveFio(w))) svg.querySelectorAll(`[data-fio="${k}"]`).forEach((x) => x.setAttribute("transform", tr)); });
+        const f = dados.folhas[folhaAtual], trans = `translate(${arrasto.dg[0] * G},${arrasto.dg[1] * G})`;
+        f.elementos.forEach((x, i) => { if (ed.multi.has(x.nome) && x.tipo !== "TERM") { const gg = svg.querySelector(`.el[data-i="${i}"]`); if (gg) gg.setAttribute("transform", trans); } });
+        f.fios.forEach((w, k) => { if (ed.multiFios.has(chaveFio(w))) svg.querySelectorAll(`[data-fio="${k}"]`).forEach((x) => x.setAttribute("transform", trans)); });
         esconde(); return;
       }
       if (arrasto.el) {                                                   // arrastar um elemento: anda na grade

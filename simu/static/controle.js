@@ -151,7 +151,7 @@ function filtraTabela() {
   const k = ctl.tabela; if (!k) return;
   const q = (ctl.filtro[k] || "").trim().toLowerCase();
   let n = 0, vis = 0;
-  document.querySelectorAll(`#ctl-tabela table[data-t="${k}"] tbody tr[data-busca]`).forEach((tr) => { n++; const ok = !q || tr.dataset.busca.includes(q); tr.style.display = ok ? "" : "none"; vis += ok; });
+  document.querySelectorAll(`#ctl-tabela table[data-t="${k}"] tbody tr[data-busca]`).forEach((lin) => { n++; const ok = !q || lin.dataset.busca.includes(q); lin.style.display = ok ? "" : "none"; vis += ok; });
   $("ct-filtro").title = q ? `${vis} de ${n}` : "";
 }
 function ordenaLinhas(linhas, k) {                            // [{html, s: {coluna: valor}}]; sem ordem: a do painel (a guardada)
