@@ -71,7 +71,8 @@ def passo(t, m, p, e):      # every Ts
   and each value must convert to a finite `float`; otherwise the run stops with an error.
 * `scope("nome", valor)` creates a column in the scope. The columns are fixed at the **first sample**: call `scope()`
   with the same names at every sample (keep the value in `e` and always send it). A name that shows up later does not go
-  to the scope, and the run warns about it.
+  to the scope, and the run warns about it. The name of a signal the run already records (or `t`) becomes `ctrl_x`
+  (`scope("v_o", …)` → `ctrl_v_o`).
 * `print()` goes to the control output (below the editor) and to the run's `controle.log`.
 * `math` and `scope` come ready to use. You can import whatever is in the system Python (the standard library, and
   numpy 1.21). The process runs with `python3 -I` (isolated: no user site directory and no PYTHONPATH).

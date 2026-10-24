@@ -293,17 +293,22 @@ function caixaScope(e) {
 }
 // a etiqueta do scope (ao lado do medidor, ou na saída de um bloco): o nome do sinal no /maisim/scope, com a borda na cor do
 // canal. destino: "ambos" e "scope" — cheia (gravada na rodada); "controle" — tracejada, com "m" no lugar da onda (só no
-// m[...] do controle, não gravada); "fora" — apagada e tracejada (o sinal existe no circuito, mas não vira coluna nem m[...])
-function tagScope(g, x, y, canal, cor, destino = "ambos") {
+// m[...] do controle, não gravada); "fora" — apagada e tracejada (o sinal existe no circuito, mas não vira coluna nem m[...]).
+// larg: a largura máxima (o nome longo é cortado com "…", como os outros rótulos; a dica tem o nome inteiro); fim: x é a
+// ponta direita da etiqueta (a saída de um bloco espelhado, à esquerda dele)
+function tagScope(g, x, y, canal, cor, destino = "ambos", { larg = Infinity, fim = false } = {}) {
   const fora = destino === "fora", soCtl = destino === "controle";
   const gg = no("g", Object.assign({ class: "tag-scope" + (fora ? " fora" : soCtl ? " so-controle" : destino === "scope" ? " so-scope" : ""),
     transform: `translate(${x * G},${y * G})` }, fora ? { opacity: 0.4 } : soCtl ? { opacity: 0.8 } : {}), g);
   no("title", {}, gg).textContent = tr(`simu.t_tag_${destino}`, { canal });
-  const w = 0.95 + 0.33 * largMat(canal);
-  no("rect", Object.assign({ x: 0, y: -0.36 * G, width: w * G, height: 0.72 * G, rx: 0.36 * G, fill: COR.cartao, stroke: cor, "stroke-width": 1.8 }, fora || soCtl ? { "stroke-dasharray": "3 2" } : {}), gg);
+  const r = no("rect", Object.assign({ x: 0, y: -0.36 * G, width: 0, height: 0.72 * G, rx: 0.36 * G, fill: COR.cartao, stroke: cor, "stroke-width": 1.8 }, fora || soCtl ? { "stroke-dasharray": "3 2" } : {}), gg);
   if (soCtl) texto(gg, 0.47, 0.02, "m", { "text-anchor": "middle", fill: cor, "font-size": 0.46 * G, "font-weight": 700, "dominant-baseline": "middle" });
   else no("path", { d: `M${0.2 * G} ${0.05 * G}l${0.12 * G} ${-0.2 * G}l${0.14 * G} ${0.3 * G}l${0.14 * G} ${-0.24 * G}`, stroke: cor, "stroke-width": 1.4, fill: "none" }, gg);
-  textoMat(gg, 0.78, 0.02, canal, { fill: COR.texto, "font-size": 0.46 * G, "font-weight": 600, "dominant-baseline": "middle" });
+  const t = textoMat(gg, 0.78, 0.02, canal, { fill: COR.texto, "font-size": 0.46 * G, "font-weight": 600, "dominant-baseline": "middle" });
+  let w = 0.95 + 0.33 * largMat(canal);
+  if (w > larg) { cortaAte(t, larg - 0.95); w = t.isConnected ? Math.min(w, 0.98 + t.getComputedTextLength() / G) : 0.78; }
+  r.setAttribute("width", w * G);
+  if (fim) gg.setAttribute("transform", `translate(${(x - w) * G},${y * G})`);
 }
 // onde vai o nome (e o valor) de um componente de dois pinos: o deslocamento que o Gecko guarda (dxTxt, dyTxt). O padrão
 // dele, (2, 2), dado a todo componente criado, joga o texto para baixo e à direita — num componente deitado cai junto do
@@ -509,8 +514,10 @@ function desenha() {
       // o que vai para o scope"): a etiqueta no borne da 1ª saída, em cima da conexão (embaixo, se o bloco é um atuador: a
       // etiqueta dele já está em cima), no lugar do rótulo (é o mesmo nome)
       const dest = folhaAtual === "0" && !MEDIDOR.has(e.tipo) && !ehTag(e) && ehSinal(e, "0") ? destinoDe(e) : "fora";
+      // (espelhado, a saída fica à esquerda: a etiqueta vai para a esquerda dela, sem cobrir o bloco; até 4,5 quadrados)
       const saiScope = mostrar.medicoes && dest !== "fora" ? e.terminais.find((t) => t.lado === "s") : null;
-      if (saiScope) tagScope(camRot, saiScope.x + 0.25, saiScope.y + (atuador ? 0.62 : -0.62), canalScope(e, "0"), corSinal(canalScope(e, "0"), e), dest);
+      if (saiScope) { const esq = saiScope.x < e.x;
+        tagScope(camRot, saiScope.x + (esq ? -0.25 : 0.25), saiScope.y + (atuador ? 0.62 : -0.62), canalScope(e, "0"), corSinal(canalScope(e, "0"), e), dest, { larg: 4.5, fim: esq }); }
       for (const t of e.terminais) {
         const borda = t.lado === "e" ? e.x - 1 : e.x + 1;
         if (t.x !== borda) no("line", { x1: t.x * G, y1: t.y * G, x2: borda * G, y2: t.y * G, stroke: COR.ct, "stroke-width": 1.4 }, g);

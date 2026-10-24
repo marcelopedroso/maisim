@@ -4,7 +4,10 @@ No PWM do exemplo: o CONST.1 (g, a atuação) só no controle e o voltímetro v_
 estado diz os dois; as medidas do controle (o painel e o testar) não têm o v_o e têm o g; numa rodada curta, o código
 recebe o g e não o v_o (um print no passo), o .npz grava o v_o e não o g (nem no meta), e scope("g", m["g"]) no código o
 grava com o nome dele; a rota de antes, editor/fora, tira dos dois e devolve aos dois; um pedido inválido é recusado.
-No fim, o controle e o circuito voltam como estavam."""
+Da revisão: o código que lê uma medida só do scope (o i_L) — o painel diz qual caixinha marcar e a rodada nem começa; com o
+controle desligado, a rodada grava só os do scope e, sem nenhum, recusa (rodada.sem_scope); salvar e reabrir leva as duas
+listas; um .aparencia.json de antes (só "fora") abre com o sinal fora dos dois; o "não salvo" conta a troca (também num
+circuito sem arquivo). No fim, o controle e o circuito voltam como estavam."""
 import json, re, time, urllib.request
 from pathlib import Path
 import numpy as np
@@ -21,6 +24,7 @@ def porta():                                             # a do simu no perfil d
 B = f"http://localhost:{porta()}/maisim/simu/"
 CIRC = Path.home() / ".cache/maisim_teste/circuitos"
 PWM = str(CIRC / "exemplo_controle_pwm.ipes")
+SALVO = CIRC / "destino_api_t.ipes"                     # a cópia salva pelo teste (sai no fim)
 
 
 def api(rota, corpo=None):
@@ -99,11 +103,68 @@ try:
     api("editor/destino", {"uid": uid["CONST.1"], "scope": True, "controle": True})
     r = api("editor/destino", {"uid": uid["VOLT.2"], "scope": True, "controle": True})
     ok(r.get("fora_scope") == [] and r.get("fora_controle") == [], "editor/destino com os dois marcados: tudo de volta")
+    # o código lê o i_L, que passa a ir só para o scope: o painel diz qual caixinha marcar; a rodada nem começa
+    api("editor/controle", {"controle": ctl0})
+    api("editor/destino", {"uid": uid["AMP.1"], "scope": True, "controle": False})
+    p = api("editor/controle")
+    sem = [x for x in p.get("sem_esquema", []) if x["nome"] == "i_L"]
+    conf = [x["msg"] for x in p.get("conferencia", []) if "i_L" in x["msg"]]
+    ok(sem and sem[0].get("so_scope") == "AMP.1" and conf and all("só para o scope" in x and "AMP.1" in x for x in conf),
+       f"m[\"i_L\"] só no scope: o painel diz para marcar → Controle no AMP.1 ({conf[:1]})")
+    j = roda("destino_api")
+    ok(j.get("ERRO") == 409 and "só para o scope" in j.get("erro", ""), f"a rodada não começa: {j.get('erro')}")
+    api("editor/destino", {"uid": uid["AMP.1"], "scope": True, "controle": True})
+    # controle desligado: a rodada lê e grava só os do scope; sem nenhum, recusa
+    api("editor/controle", {"controle": dict(ctl0, ativo=False)})
+    api("editor/destino", {"uid": uid["CONST.1"], "scope": False, "controle": True})
+    j = roda("destino_api", "0.0005")
+    cols, meta = npz(j) if j.get("estado") == "fim" else (set(), {})
+    ok(j.get("estado") == "fim" and "g" not in cols and {"v_o", "v_sw", "i_L"} <= cols and "g" not in [x["canal"] for x in meta.get("sinais", [])],
+       f"controle desligado: grava só os do scope (colunas: {', '.join(sorted(cols)) or j.get('erro')})")
+    for n in ("VOLT.1", "VOLT.2", "AMP.1"):
+        api("editor/destino", {"uid": uid[n], "scope": False, "controle": True})
+    j = roda("destino_api", "0.0005")
+    ok(j.get("ERRO") == 409 and "nada vai para o scope" in j.get("erro", ""), f"controle desligado e nada no scope: recusa ({j.get('erro')})")
+    for n in ("VOLT.1", "VOLT.2", "AMP.1"):
+        api("editor/destino", {"uid": uid[n], "scope": True, "controle": True})
+    api("editor/controle", {"controle": ctl0})
+    # salvar e reabrir: as duas listas vão junto (e o "fora" de antes, a interseção)
+    api("editor/destino", {"uid": uid["VOLT.2"], "scope": True, "controle": False})
+    r = api("editor/salvar", {"nome": SALVO.stem, "pasta": "circuitos", "sobrescrever": True})
+    ap = json.loads(SALVO.with_name(SALVO.stem + ".aparencia.json").read_text()) if not r.get("ERRO") else {}
+    ok(ap.get("fora_scope") == [uid["CONST.1"]] and ap.get("fora_controle") == [uid["VOLT.2"]] and ap.get("fora") == [],
+       f"salvo: {SALVO.stem}.aparencia.json com fora_scope, fora_controle e fora ({r.get('erro') or ap})")
+    ok(api("editor/pendente").get("pendente") is False, "salvo: nada pendente")
+    api("editor/abrir", {"arq": PWM, "modo": "descartar"})
+    r = api("editor/abrir", {"arq": str(SALVO), "modo": "descartar"})
+    ok(r.get("fora_scope") == [uid["CONST.1"]] and r.get("fora_controle") == [uid["VOLT.2"]], "reaberto: as duas listas voltam")
+    # trocar uma caixinha conta como não salvo; voltar, não
+    api("editor/destino", {"uid": uid["VOLT.1"], "scope": False, "controle": True})
+    p = api("editor/pendente")
+    ok(p.get("pendente") is True and any("aparência" in x for x in p.get("itens", [])), f"trocada: pendente ({p.get('motivo')})")
+    api("editor/destino", {"uid": uid["VOLT.1"], "scope": True, "controle": True})
+    ok(api("editor/pendente").get("pendente") is False, "voltou como no arquivo: nada pendente")
+    # um .aparencia.json de antes (só "fora"): o sinal fora dos dois
+    SALVO.with_name(SALVO.stem + ".aparencia.json").write_text(json.dumps({"cores": {}, "pontas": {}, "fora": [uid["VOLT.1"]]}))
+    r = api("editor/abrir", {"arq": str(SALVO), "modo": "descartar"})
+    p = api("editor/controle")
+    ok(r.get("fora_scope") == r.get("fora_controle") == r.get("fora") == [uid["VOLT.1"]] and "v_sw" not in p["entradas"],
+       f"arquivo de antes (só fora): o v_sw fora do scope e do controle ({r.get('fora_scope')}, {r.get('fora_controle')})")
+    # um circuito sem arquivo: a troca também conta
+    api("editor/novo", {"modo": "descartar"})
+    r = api("editor/cmd", {"op": "CREATE", "args": ["C1", 10, 5, "CONST"]}); r = api("editor/cmd", {"op": "OUTNODE", "args": ["C1", 0, "u1"]})
+    u = next((e["uid"] for e in r.get("folhas", {}).get("0", {}).get("elementos", []) if e["nome"] == "C1"), "x")
+    antes = api("editor/pendente").get("itens", [])
+    api("editor/destino", {"uid": u, "scope": False, "controle": True})
+    depois = api("editor/pendente").get("itens", [])
+    ok(not any("aparência" in x for x in antes) and any("aparência" in x for x in depois), f"sem arquivo: a troca conta como não salva ({antes} → {depois})")
 finally:
     if ctl0:
         api("editor/controle", {"controle": ctl0})
     api("editor/abrir", {"arq": PWM, "modo": "descartar"})
     for d in (Path.home() / ".cache/maisim_teste/rodadas").glob("*_destino_api"):
         import shutil; shutil.rmtree(d, ignore_errors=True)
+    for f in CIRC.glob(SALVO.stem + ".*"):                   # a cópia salva e os arquivos de ao lado
+        f.unlink(missing_ok=True)
 print(f"\n{'tudo certo' if not falhas else f'{falhas} falha(s)'}")
 raise SystemExit(1 if falhas else 0)

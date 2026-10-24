@@ -644,8 +644,9 @@ function avisoSemEsquema() {
   const l = (ctl.dados && ctl.dados.sem_esquema) || [];
   // os usos (links) entram no lugar de {usos} depois do tr (as chaves _html escapam os parâmetros); x.tipo vem do servidor
   const USOS = "\u0000usos\u0000";                         // o lugar dos links (o _html escapa os parâmetros; o nome não tem \u0000)
-  const chave = (x) => (x.tipo === "atuação" ? "ctl.sem_esquema_atu_html" : "ctl.sem_esquema_html");   // i18n-ok: x.tipo vem do servidor
-  return l.map((x, i) => `<div class="ctl-sem">${tr(chave(x), { nome: x.nome, usos: USOS }).replace(USOS, () =>
+  // so_scope: a medida existe, mas só vai para o scope (o componente: marcar "→ Controle" nele)
+  const chave = (x) => (x.tipo === "atuação" ? "ctl.sem_esquema_atu_html" : x.so_scope ? "ctl.sem_esquema_so_scope_html" : "ctl.sem_esquema_html");   // i18n-ok: x.tipo vem do servidor
+  return l.map((x, i) => `<div class="ctl-sem">${tr(chave(x), { nome: x.nome, usos: USOS, comp: x.so_scope || "" }).replace(USOS, () =>
     x.usos.map((u) => `<a data-vai="${escT(u.arquivo)}:${u.linha}" title="${escT(tr("ctl.t_abrir_linha", { arq: u.arquivo, linha: u.linha }))}">${escT(u.arquivo)}:${u.linha}</a>`).join(", "))} <button data-troca="${i}" title="${escT(tr("ctl.t_trocar_por"))}">${escT(tr("ctl.trocar_por"))}</button></div>`).join("");
 }
 function semelhanca(a, b) {                            // pares de letras em comum (Dice), sem caixa nem _: vc_smap_1 ~ SM_ap_1_vCSm

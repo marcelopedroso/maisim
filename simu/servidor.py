@@ -205,7 +205,7 @@ def situacao_gecko():
     else:
         circuito = any(fl["elementos"] for fl in r["folhas"].values())
         a = le_aparencia()
-        controle, cores = controle_em_uso(le_controle()), bool(a["cores"] or a["pontas"])
+        controle, cores = controle_em_uso(le_controle()), bool(a["cores"] or a["pontas"] or a["fora_scope"] or a["fora_controle"])
     itens = [lingua.tr(n) for n, v in (("editor.item_circuito", circuito), ("editor.item_controle", controle),
                                          ("editor.item_aparencia", cores)) if v]
     return {"pendente": bool(itens), "circuito": circuito, "controle": controle, "cores": cores, "itens": itens, "visto": ja_visto(agora)}
@@ -1512,6 +1512,7 @@ def instancias_controle(c, r):
                  "modulos": modulos_de(c), "outros": []}], [], []
     arqs, erros, avisos, out, dono = arquivos_de(c), [], [], [], {}
     entradas = [k for _, k in sinais_da_rodada(r, "controle")] if r else None
+    so_scope = so_scope_de(r)
     atu = atuadores_disponiveis(r) if r else []
     marcadas = set(c["atuacoes"])
     for q in c["controladores"]:
@@ -1534,7 +1535,9 @@ def instancias_controle(c, r):
             if q.get("todas"):                           # lê todas as medidas do circuito, com o nome dele (como o de sempre)
                 med = None
             for k in ([] if med is None else q["medidas"]):
-                if entradas is not None and k not in entradas:
+                if entradas is not None and k in so_scope:
+                    erros.append(lingua.tr("controle.ctl_le_so_scope", nome=q['nome'], k=k, comp=so_scope[k]))
+                elif entradas is not None and k not in entradas:
                     erros.append(lingua.tr("controle.ctl_le_nao_medida", nome=q['nome'], k=k))
                 med[k] = k
             for k in q["atuacoes"]:
@@ -1819,7 +1822,7 @@ def verifica_codigo(codigo):
     return [], ([] if "passo" in funcs else [lingua.tr("controle.sem_passo")])
 
 
-def confere_codigo(codigo, parametros, atuacoes, entradas=None, atuadores=None, extras=()):
+def confere_codigo(codigo, parametros, atuacoes, entradas=None, atuadores=None, extras=(), so_scope=None):
     """O validador do painel: o que o código pede e o painel não tem, com linha e coluna (sublinhado no editor, como aviso:
     não impede guardar nem rodar). Confere, pelo nome que o código dá aos argumentos (passo(t, m, p, e), iniciar(p, e)):
     p["x"] lido sem o parâmetro x no painel (nem Ts, nem criado no próprio código com p["x"] = …); m["x"] que não é medida do
@@ -1892,6 +1895,8 @@ def confere_codigo(codigo, parametros, atuacoes, entradas=None, atuadores=None, 
                 continue
             if no.value.id == pn and k not in pars and k not in criadas:
                 marca(no, lingua.tr("controle.p_nao_existe", k=k))
+            elif no.value.id == mn and entradas is not None and k not in entradas and k in (so_scope or {}):
+                marca(no, lingua.tr("controle.m_so_scope", k=k, comp=so_scope[k]))     # é medida, mas só vai para o scope
             elif no.value.id == mn and entradas is not None and k not in entradas:
                 lista = f"{', '.join(entradas[:12])}{'…' if len(entradas) > 12 else ''}" if entradas else ""
                 chave_m = {(True, True): "controle.m_nao_medida_ctl_lista", (True, False): "controle.m_nao_medida_ctl",
@@ -1978,6 +1983,15 @@ def canais_por_uid(r, destino=None):
     o subcircuito)."""
     uid = {(e["nome"] if fid == "0" else f"{fl['nome']}#{e['nome']}"): e["uid"] for fid, fl in r["folhas"].items() for e in fl["elementos"]}
     return {uid[el]: canal for el, canal in sinais_da_rodada(r, destino) if el in uid}
+
+
+def so_scope_de(r):
+    """{canal: componente} dos sinais que vão só para o scope ("→ Controle" desmarcado): o código que lê m["canal"] de um
+    deles erra (KeyError) — o painel, o validador e a rodada dizem qual caixinha marcar."""
+    if not r:
+        return {}
+    ctl = {k for _, k in sinais_da_rodada(r, "controle")}
+    return {k: el for el, k in sinais_da_rodada(r) if k not in ctl}
 
 
 def nomes_por_uid(r, destino=None):
@@ -2134,6 +2148,7 @@ def segue_codigo(c, r, derivados=None):
     if not r or not c.get("controladores"):
         return c
     tem_m, tem_a = _no_esquema(r)
+    tem_m = tem_m | set(so_scope_de(r))                # só no scope: fica no cartão (o aviso diz para marcar "→ Controle")
     cod = {q["nome"]: le_e_escreve_do_codigo(c, q, tem_m, tem_a) for q in c["controladores"] if not q.get("subcircuitos")}
     for q in c["controladores"]:
         if q["nome"] not in cod:
@@ -2154,16 +2169,19 @@ def variaveis_sem_esquema(c, r):
     """As variáveis do código que não existem no esquema (com o circuito aberto): m["x"] — ou m[NOME], com NOME = "x" no
     mesmo arquivo (a linha é a do "x") — que não é medida; e a chave que o passo() de um controlador devolve (return {"x": …}
     ou return f({"x": …}, …)) e que não é atuador. Sem os controladores com instâncias em subcircuitos (lá os nomes são os
-    de dentro). [{nome, tipo: "medida" | "atuação", usos: [{arquivo, linha}]}]"""
+    de dentro). [{nome, tipo: "medida" | "atuação", usos: [{arquivo, linha}], so_scope: o componente, se a medida só vai
+    para o scope}]"""
     if not r:
         return []
     import ast
     tem_m, tem_a = _no_esquema(r)
+    so_scope = so_scope_de(r)                       # medida que só vai para o scope: o item diz o componente (so_scope)
     arqs, ctls = arquivos_de(c), arquivos_controladores(c)
     out, vistos = {}, set()
 
     def poe(nome, tipo, arq, lin):
-        x = out.setdefault((nome, tipo), {"nome": nome, "tipo": tipo, "usos": []})
+        x = out.setdefault((nome, tipo), {"nome": nome, "tipo": tipo, "usos": [],
+                                          **({"so_scope": so_scope[nome]} if tipo == "medida" and nome in so_scope else {})})
         if {"arquivo": arq, "linha": lin} not in x["usos"]:
             x["usos"].append({"arquivo": arq, "linha": lin})
     for q in c.get("controladores") or [{"arquivo": "controle.py"}]:
@@ -2509,13 +2527,15 @@ def painel_controle(c=None):
     for arq in [a for a in arquivos_de(c) if a in usados and not any(x["arquivo"] == a for x in erros)]:
         cod = arquivos_de(c)[arq]
         if not c.get("controladores"):                  # um controlador só: o de sempre
-            conferencia += [dict(x, arquivo=arq) for x in confere_codigo(cod, c["parametros"], c["atuacoes"], entradas if ult else None, atu if ult else None)]
+            conferencia += [dict(x, arquivo=arq) for x in confere_codigo(cod, c["parametros"], c["atuacoes"], entradas if ult else None, atu if ult else None,
+                                                                         so_scope=so_scope_de(ult))]
             continue
         vis = [i for i in insts if i["arquivo"] == arq]
         locais_m = entradas if any(i["medidas"] is None for i in vis) else sorted({k for i in vis for k in i["medidas"]})   # "todas": as do circuito
         locais_a = sorted({k for i in vis for k in i["atuacoes"]})
         conferencia += [dict(x, arquivo=arq) for x in confere_codigo(cod, c["parametros"], locais_a, locais_m if ult else None,
-                                                                    [{"nome": k} for k in locais_a], extras={"id", "controlador", "subcircuito"})]
+                                                                    [{"nome": k} for k in locais_a], extras={"id", "controlador", "subcircuito"},
+                                                                    so_scope=so_scope_de(ult))]
     return dict(controle=c, erros=erros, avisos=erros_ctl + avisos + avisos_ctl, erros_controladores=erros_ctl, conferencia=conferencia,
                 compartilhados=com_codigo(avisos + avisos_ctl, "importado_compartilhado"),
                 entradas=entradas, atuadores=atu, modelo=modelo_codigo("controle"), circuito=bool(ult),
@@ -2870,6 +2890,11 @@ def _rodar(c, ctl_de_fora=None):
             raise ErroControle(erros[0]["msg"], erros[0]["linha"], arquivo=erros[0]["arquivo"])
         if avisos:
             raise ErroControle(avisos[0])
+        so_scope = [x for x in variaveis_sem_esquema(ctl, r) if x.get("so_scope")]
+        if so_scope:                                   # o passo() morreria no KeyError: diz antes qual caixinha marcar
+            raise ErroMotor(lingua.tr("controle.m_so_scope", k=so_scope[0]["nome"], comp=so_scope[0]["so_scope"]))
+        if not canais_scope:                           # nada gravado do circuito: o .npz só com t e as colunas do scope()
+            avisos_rodada.append(lingua.tr("rodada.nada_no_scope"))
         atu = {a["nome"]: a["bloco"] for a in todos_atu}
         faltam = [a for a in ctl["atuacoes"] if a not in atu]
         if faltam:
@@ -3045,8 +3070,17 @@ def _rodar(c, ctl_de_fora=None):
                 else:
                     agenda.setdefault(k + desl[x], []).append(f"{atu[x]}:const:{v!r}")
             if regs is None:                             # as variáveis do scope() ficam fixas na 1ª amostra (colunas alinhadas)
-                # (um sinal só do controle não é coluna: scope("x", m["x"]) o grava com o nome dele)
-                regs = {x: (x if x not in canais_scope and x != "t" else "ctrl_" + x) for x in sorted(sreg) if IDENT.match(x)}
+                # (um sinal só do controle não é coluna: scope("x", m["x"]) o grava com o nome dele); o nome de uma coluna
+                # gravada (ou t) vira ctrl_x, e o que ainda colidir ganha "_" (dois nomes iguais derrubariam a rodada)
+                regs, usadas = {}, set(canais_scope) | {"t"}
+                for x in sorted(sreg):
+                    if not IDENT.match(x):
+                        continue
+                    col = x if x not in usadas else "ctrl_" + x
+                    while col in usadas:
+                        col += "_"
+                    usadas.add(col)
+                    regs[x] = col
                 avisados = set(regs)
             for x in sorted(set(sreg) - avisados):       # o que não vai para o scope: avisa uma vez (não some calado)
                 avisados.add(x)
@@ -4151,7 +4185,8 @@ def claude_contexto(c, dt, tfim):
     L += ["", tr("ia_contexto.acionamentos"), ""]
     L += [f"- t = {num_txt(q['t'])} s: {q['alvo']} = {num_txt(q['valor'])}" for q in c.get("acionamentos") or []] or [tr("ia_contexto.nenhum")]
     erros, avisos = verifica_codigo(c["codigo"])
-    conf = [] if erros or not ult else confere_codigo(c["codigo"], c["parametros"], c["atuacoes"], [k for _, k in sinais_da_rodada(ult, "controle")], atuadores_disponiveis(ult))
+    conf = [] if erros or not ult else confere_codigo(c["codigo"], c["parametros"], c["atuacoes"], [k for _, k in sinais_da_rodada(ult, "controle")], atuadores_disponiveis(ult),
+                                                       so_scope=so_scope_de(ult))
     if erros or avisos or conf:
         L += ["", tr("ia_contexto.acusa"), ""]
         L += [tr("ia_contexto.linha", linha=x.get('linha', '?'), msg=x['msg']) for x in list(erros) + list(conf)] + [f"- {a}" for a in avisos]
@@ -4669,7 +4704,8 @@ def claude_proposta(pasta, antes, dt, chave=None, memoria=""):
         erros += [{"arquivo": "controladores.json", "linha": 1, "coluna": 1, "msg": x} for x in erros_ctl]
         avisos += [x for x in avisos_ctl if x not in avisos]
     out.update(erros=erros, avisos=avisos, compartilhados=com_codigo(avisos, "importado_compartilhado"))
-    out["conferencia"] = [] if erros or not ult else confere_codigo(cod, c2["parametros"], c2["atuacoes"], [k for _, k in sinais_da_rodada(ult, "controle")], atu)
+    out["conferencia"] = [] if erros or not ult else confere_codigo(cod, c2["parametros"], c2["atuacoes"], [k for _, k in sinais_da_rodada(ult, "controle")], atu,
+                                                                            so_scope=so_scope_de(ult))
     out["atuacoes"] = c2["atuacoes"]
     so_memoria = cod == antes["codigo"] and c2["parametros"] == antes["parametros"] and c2["acionamentos"] == (antes.get("acionamentos") or []) and arqs == arqs_antes and not muda_ctl
     out["ligar"] = bool(out.get("mudou")) and not so_memoria and not antes["ativo"] and not erros and bool(ult)

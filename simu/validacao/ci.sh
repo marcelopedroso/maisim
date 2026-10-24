@@ -27,7 +27,7 @@ API="lingua_api lingua_ia_api rodadas_api exemplos_api amostra_t0_api agy_api ge
 ISOLADOS="fila_tema_tela scope_painel_tela comparar_tela scope_cores_tela scope_recolher_tela scope_apagar_tela"   # na instância isolada (sobe_fila.sh): o scope ao vivo
 RAPIDO="$OFFLINE amostra_t0_api assinatura_api nao_salvo_api controladores_api teste_controle atraso_caminhos atraso_sub
   biblioteca_rotulos_api ia_troca_api contextos_api largura_tela lingua_tela inicio_tela app_tela scope_visoes_tela cabecalho_tela validador_tela
-  controle_tela lingua_api"
+  controle_tela lingua_api destino_api"
 SO_NA_MAQUINA="claude_tela"                          # o link do login de verdade do Claude (às vezes atrasa)
 
 falhou=0

@@ -68,7 +68,7 @@ def passo(t, m, p, e):      # a cada Ts
   valor tem de virar `float` finito; senão a rodada para com erro.
 * `scope("nome", valor)` cria uma coluna no scope. As colunas se fixam na **primeira amostra**: chame `scope()` com os
   mesmos nomes em toda amostra (guarde o valor em `e` e mande sempre). Um nome que aparece depois não vai para o scope, e
-  a rodada avisa.
+  a rodada avisa. O nome de um sinal que a rodada já grava (ou `t`) vira `ctrl_x` (`scope("v_o", …)` → `ctrl_v_o`).
 * `print()` vai para a saída do controle (embaixo do editor) e para `controle.log` da rodada.
 * `math` e `scope` já vêm prontos. Pode importar o que estiver no Python do sistema (a biblioteca padrão, e o numpy 1.21).
   O processo roda com `python3 -I` (isolado: sem o diretório do usuário nem PYTHONPATH).
