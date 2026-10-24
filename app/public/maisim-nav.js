@@ -50,6 +50,8 @@
   ];
   // a marca do MaiSim: o diodo com o brilho de IA (public/marca/)
   const MARCA = '<path d="M1 14H4.2M18.6 14H23" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4.2 7L17.2 14L4.2 21Z" fill="#2b2440" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M18.6 7V21" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M10.6 0.6C11 3.3 11.7 4 14.4 4.4 11.7 4.8 11 5.5 10.6 8.2 10.2 5.5 9.5 4.8 6.8 4.4 9.5 4 10.2 3.3 10.6 0.6Z" fill="currentColor"/><path d="M15.6 1C15.75 2 16 2.25 17 2.4 16 2.55 15.75 2.8 15.6 3.8 15.45 2.8 15.2 2.55 14.2 2.4 15.2 2.25 15.45 2 15.6 1Z" fill="currentColor"/>';
+  // no tema claro (#maisim-nav.claro, Marcelo 24/10): o trilho na cor do cabeçalho, com uma linha fina separando, e o diodo
+  // da marca vazado como no ícone; o Gecko fica escuro
   const css = `
   #maisim-nav { position:fixed; left:0; top:0; bottom:0; width:${L}px; z-index:2147483000; background:#15181d;
              border-right:1px solid #2a2f37; display:flex; flex-direction:column; align-items:center; gap:6px; padding:10px 0;
@@ -77,7 +79,16 @@
   #maisim-nav .escala .pct { color:#8a94a0; font-size:10px; font-variant-numeric:tabular-nums; }
   #maisim-nav .tema { border:0; background:transparent; cursor:pointer; font:inherit; }
   #maisim-nav .lingua[hidden] { display:none; }
-  #maisim-nav .lingua { border:0; background:transparent; cursor:pointer; font:600 12px/1 system-ui, sans-serif; letter-spacing:.04em; }`;
+  #maisim-nav .lingua { border:0; background:transparent; cursor:pointer; font:600 12px/1 system-ui, sans-serif; letter-spacing:.04em; }
+  #maisim-nav.claro { background:#ffffff; border-right-color:#d9dde3; }
+  #maisim-nav.claro .marca { color:#6d28d9; }
+  #maisim-nav.claro .marca svg path:nth-of-type(2) { fill:none; }
+  #maisim-nav.claro .item { color:#5b6470; }
+  #maisim-nav.claro .item:hover { background:#eef0f3; color:#1b1f24; }
+  #maisim-nav.claro .item.ativo { background:#ede9fe; color:#6d28d9; }
+  #maisim-nav.claro .item.ia .ponto { box-shadow:0 0 0 2px #ffffff; }
+  #maisim-nav.claro .escala .item:disabled:hover { color:#5b6470; }
+  #maisim-nav.claro .escala .pct { color:#5b6470; }`;
   // tema do MaiSim inteiro: sistema (segue o Windows), claro ou escuro. Guardado no navegador (localStorage "maisim-tema", o mesmo
   // para todas as páginas do MaiSim na porta dele); aplicado em <html data-tema="claro|escuro">; as páginas ouvem "maisim-tema"
   const TEMAS = ["sistema", "claro", "escuro"];
@@ -93,6 +104,8 @@
     document.documentElement.dataset.tema = escuro ? "escuro" : "claro";
     const cor = document.querySelector('meta[name="theme-color"]');   // a barra da janela do app acompanha (cada página diz as
     if (cor && cor.dataset.claro) cor.setAttribute("content", escuro ? cor.dataset.escuro : cor.dataset.claro);   // suas duas cores)
+    const nav = document.getElementById("maisim-nav");   // o trilho claro no tema claro (fora a página do Gecko, sempre escura)
+    if (nav) nav.classList.toggle("claro", !escuro && comEscala());
     const b = document.querySelector("#maisim-nav .tema");
     if (b) { b.innerHTML = ICONE_TEMA[t]; b.dataset.rotulo = tr(`nav.tema_${t}`); b.setAttribute("aria-label", tr(`nav.tema_${t}`)); }
     if (antes !== document.documentElement.dataset.tema) window.dispatchEvent(new CustomEvent("maisim-tema", { detail: { tema: document.documentElement.dataset.tema, escolha: t } }));

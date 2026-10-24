@@ -69,6 +69,10 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   const bEsc = await barra(p2), bCl = await barra(pg);
   ok(bEsc === "#171a21" && bCl === "#ffffff" && await p2.evaluate(() => document.title) === "MaiSim",
     `a barra da janela acompanha o tema (escuro ${bEsc}, claro ${bCl}); o título é só "MaiSim"`);
+  // o trilho também: claro no tema claro (com a linha fina), escuro no escuro
+  const trilho = (p) => p.evaluate(() => { const c = getComputedStyle(document.getElementById("maisim-nav")); return c.backgroundColor + " " + c.borderRightColor; });
+  const tEsc = await trilho(p2), tCl = await trilho(pg);
+  ok(tEsc.startsWith("rgb(21, 24, 29)") && tCl === "rgb(255, 255, 255) rgb(217, 221, 227)", `o trilho acompanha o tema (escuro ${tEsc}, claro ${tCl}, com a linha fina)`);
   ok(!erros.length, `sem erros de JS nem diálogos ${erros.join(" ; ")}`);
   await b.close(); process.exit(falhas ? 1 : 0);
 })();
