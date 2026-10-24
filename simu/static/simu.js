@@ -967,6 +967,9 @@ async function api(rota, corpo) {
   }
   avisoRede(false);
   let j; try { j = await r.json(); } catch (e) { throw new Error(tr("simu.resposta_invalida", { status: r.status })); }
+  // o Gecko foi reiniciado e o servidor o refez (reabriu o arquivo ou limpou a folha): o pedido não foi feito, e o desenho relê
+  // o estado (quem pediu mostra a mensagem do erro, como sempre)
+  if (!r.ok && j && j.codigo === "gecko_novo") setTimeout(() => circuitoMudou({ sujo: false }), 0);
   if (!r.ok) { const er = new Error(j.erro || r.statusText); er.dados = j; throw er; }   // dados: o resto da resposta (ex.: conflito)
   if (j && j.aviso_gecko) setTimeout(() => msg(j.aviso_gecko, "erro"), 80);   // a vigia fechou uma janela de erro do Gecko: depois do "ok"
   return j;
