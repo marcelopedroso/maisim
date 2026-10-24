@@ -130,8 +130,8 @@ def passo(t, m, p, e):
   bit for bit, as the whole PI in `controle.py` (`validacao/modulos_api.py`).
 * **Module × controller.** A module organizes the code (no delay). A controller (§3.1) is a separate process, which
   emulates another DSP and talks with ≥ 1 sample of delay: only for truly distributed control — **never** to split a
-  loop (the delay would enter the loop). In the tree: "Turn into controller" and "Turn into module". "+ File" creates a
-  module.
+  loop (the delay would enter the loop). In the tree: "Turn into controller" (the ⤴ button) and "Turn into module".
+  "+ File" creates a module.
 * **Computation time is zero within the sample.** Reading, computing and writing happen at the same simulated instant,
   however many files there are. The real delay (ADC conversion, computation, PWM update) is the one set in the panel
   (§4): Right away (`logo`), At the next sample (`amostra`: the classic one — compute during the period, update at the
@@ -159,8 +159,8 @@ several local ones… **Each `.py` file is a controller** (with the same `inicia
 `aquisicao.py` is the controller `aquisicao` (the destination of `envia` and the `p["id"]`). In the panel, the left column
 has two tabs: **Variables** (Ts, actuations, measurements, parameters, events) and **Files** (the `.py` files and, under
 each one, **reads** — some measurements or **all** —, **writes** and **in subcircuits**; and the network). The `+` next
-to the editor tabs (or "+ File") creates a module (§3.0.1); "Turn into controller", in the tree, makes it run on its own;
-a double click renames it (the controller follows); the × deletes the file and its controller. Checking an actuation in one controller removes it from the others (a single owner).
+to the editor tabs (or "+ File") creates a module (§3.0.1); "Turn into controller" (the ⤴ button), in the tree, makes it
+run on its own; a double click renames it (the controller follows); the × deletes the file and its controller. Checking an actuation in one controller removes it from the others (a single owner).
 
 * **Isolated and in parallel.** Each controller runs in its own Python process: no shared memory (what one keeps in a
   module, the other does not see). At each sample, MaiSim hands the measurements to all of them at the same time, they
@@ -182,7 +182,7 @@ a double click renames it (the controller follows); the × deletes the file and 
   (`aquisicao_x`); those of `controle.py` keep the usual names (the run columns do not change just because another
   controller exists). `print()` goes to the log prefixed with `[instance]`.
 * **With no controller on the list**, the usual applies: `controle.py` reads all the measurements and writes the checked
-  actuations. The first "+ controller" puts that one on the list (with the same view) and adds the new one.
+  actuations. The first "Turn into controller" puts that one on the list (with the same view) and adds the new one.
 
 Example (acquisition + control, with the PI from `exemplo_controle_pi`):
 
@@ -232,8 +232,8 @@ depending on the path from the CONST to its destination. Measured with Δt = 1 �
 The subcircuit terminal adds no step, because Gecko joins the outside label to the inside one as a single net. The extra
 step in the SM of circuit 03 comes from the AND (the dead-time logic).
 
-The server follows the control connections of each actuation up to the switch or the source and **writes as much earlier
-as needed**. That way the circuit feels the actuation at t + d·Δt **at any destination**. The same compensation applies
+The server follows the control connections of each actuation up to the switch or the source and **writes as early as
+needed**. That way the circuit feels the actuation at t + d·Δt **at any destination**. The same compensation applies
 to CONST events. The tracing follows what Gecko does:
 
 * it uses labels (including the one inside the subcircuit terminal), wires and the connection rule (there is a connection
@@ -308,7 +308,7 @@ to sample in the middle of the on-time.
 * **Validation**:
   * against the RL solved separately by implicit Euler (Gecko's rule), with the same PI and the same delay, the error is
     **1.4e-13 A**, machine precision, in the "Right away" and "At the next sample" modes (1.6e-13 A with a 30 µs latency);
-  * with the exact exponential instead of Euler, it was 9.4e-5 A (Right away), 1.1e-4 A (next sample) and 9.8e-5 A
+  * with the exact exponential instead of Euler, it was 9.4e-5 A (Right away), 1.1e-4 A (At the next sample) and 9.8e-5 A
     (30 µs latency);
   * with the delay swapped in the reference, the difference becomes 0.63 A or 0.18 A, that is, the test tells the modes
     apart.

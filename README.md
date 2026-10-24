@@ -14,7 +14,7 @@ AI assistant (Claude Code or Google Antigravity) that sees the circuit, the cont
 
 | Module | What it does | Docs |
 |---|---|---|
-| **simu** (`/maisim/simu`) | the circuit editor (palette, wires, subcircuits, global variables), Python control sampled every Ts, runs, and the AI chat | [`simu/LEIA.md`](simu/LEIA.md), [`simu/GUIA_CONTROLE.md`](simu/GUIA_CONTROLE.md) |
+| **simu** (`/maisim/simu`) | the circuit editor (palette, wires, subcircuits, global variables), Python control sampled every Ts, runs, and the AI chat | [`simu/LEIA.md`](simu/LEIA.md), [`simu/GUIA_CONTROLE.en.md`](simu/GUIA_CONTROLE.en.md) |
 | **scope** (`/maisim/scope`) | plots of the runs: live, compare two runs, sections and panels, exportable views | [`scope/LEIA.md`](scope/LEIA.md) |
 | **gecko** (`/maisim/gecko`) | the real GeckoCIRCUITS window on a virtual display, opened in the browser (noVNC) | [`gecko/LEIA.md`](gecko/LEIA.md) |
 | **app** | the home page and side menu (Vite), which routes to the other modules; installable as an app (PWA) | [`app/public/marca/LEIA.md`](app/public/marca/LEIA.md) |

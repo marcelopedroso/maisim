@@ -16,8 +16,8 @@ catch (e) { /* claro */ }
 <script src="textos_guia.js"></script>  <!-- os textos desta página (pt e en) -->
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
 <style>
-  :root { --texto:#1f2328; --sutil:#59636e; --borda:#d1d9e0; --fundo:#ffffff; --codigo:#f6f8fa; --link:#0b5cad; }
-  :root[data-tema="escuro"] { --texto:#e6e9ee; --sutil:#9aa4af; --borda:#3a424c; --fundo:#15191e; --codigo:#1f252c; --link:#a78bfa; color-scheme:dark; }
+  :root { --texto:#1f2328; --sutil:#59636e; --borda:#d1d9e0; --fundo:#ffffff; --codigo:#f6f8fa; --link:#0b5cad; --erro:#b42318; }
+  :root[data-tema="escuro"] { --texto:#e6e9ee; --sutil:#9aa4af; --borda:#3a424c; --fundo:#15191e; --codigo:#1f252c; --link:#a78bfa; --erro:#f97066; color-scheme:dark; }
   body { margin:0; background:var(--fundo); color:var(--texto); font:15px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
   main { max-width:920px; margin:0 auto; padding:24px 16px 64px; }
   h1 { font-size:26px; border-bottom:1px solid var(--borda); padding-bottom:8px; }
@@ -32,26 +32,54 @@ catch (e) { /* claro */ }
   th, td { border:1px solid var(--borda); padding:6px 10px; vertical-align:top; text-align:left; }
   th { background:var(--codigo); }
   li { margin:3px 0; }
+  .erro { color:var(--erro); border:1px solid currentColor; border-radius:6px; padding:8px 12px; }
 </style>
 </head>
 <body>
 <main id="guia">carregando o guia…</main>
 <script>
-// o guia vem no idioma do cookie (a rota /guia escolhe o .md); ao trocar o idioma, carrega de novo
+// o guia vem no idioma do cookie (a rota /guia escolhe o .md); ao trocar o idioma, carrega de novo no mesmo ponto: os títulos
+// dos dois .md são os mesmos, na mesma ordem (a trava lingua_offline.py confere), então o índice do título acha o lugar.
+// O <main> não leva data-tr: o aplica() da troca de idioma escreveria o "carregando" por cima do guia já mostrado.
 const el = document.getElementById("guia");
+const TITULOS = "h1, h2, h3";
+let pedido = 0, mostrado = false;                 // pedido: só a resposta do último vale; mostrado: há um guia na tela
+function ancora() {                               // o último título acima do topo da janela (-1: nenhum)
+  let i = -1;
+  el.querySelectorAll(TITULOS).forEach((h, k) => { if (h.getBoundingClientRect().top <= 1) i = k; });
+  return i;
+}
+function mostra(md) {
+  if (window.marked) {
+    el.innerHTML = marked.parse(md);
+    el.querySelectorAll("table").forEach((t) => { const d = document.createElement("div"); d.className = "tabela"; t.replaceWith(d); d.appendChild(t); });
+  } else {
+    const pre = document.createElement("pre"); pre.textContent = md; el.replaceChildren(pre);
+  }
+}
 async function carrega() {
-  el.textContent = tr("guia.carregando");
+  const meu = ++pedido;
+  const i = mostrado ? ancora() : -1, y = window.scrollY;
+  if (!mostrado) el.textContent = tr("guia.carregando");   // só na primeira vez; depois o guia fica até o novo chegar
   try {
     const r = await fetch("../guia");
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const md = await r.text();
-    if (window.marked) {
-      el.innerHTML = marked.parse(md);
-      el.querySelectorAll("table").forEach((t) => { const d = document.createElement("div"); d.className = "tabela"; t.replaceWith(d); d.appendChild(t); });
-    } else {
-      const pre = document.createElement("pre"); pre.textContent = md; el.replaceChildren(pre);
+    if (meu !== pedido) return;                   // chegou atrasado: um pedido mais novo já saiu
+    mostra(md);
+    if (mostrado) {
+      const h = i >= 0 && el.querySelectorAll(TITULOS)[i];
+      if (h) h.scrollIntoView(); else window.scrollTo(0, y);
     }
-  } catch (e) { el.textContent = tr("guia.erro", { erro: e.message }); }
+    mostrado = true;
+  } catch (e) {
+    if (meu !== pedido) return;
+    const msg = tr("guia.erro", { erro: e.message });
+    if (!mostrado) { el.textContent = msg; return; }
+    let av = document.getElementById("guia-erro");   // o guia de antes fica; o erro vai em cima dele
+    if (!av) { av = document.createElement("p"); av.id = "guia-erro"; av.className = "erro"; el.prepend(av); }
+    av.textContent = msg;
+  }
 }
 carrega();
 maisimI18n.aoMudar(carrega);
