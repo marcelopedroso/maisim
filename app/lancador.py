@@ -159,7 +159,10 @@ class Lancador:
                 self.sobe("websockify", ["websockify", "--web", str(c / "web"), f"127.0.0.1:{web}", f"127.0.0.1:{vnc}"], "websockify.log")
         log = self.logs / "gecko.log"
         log.write_text("")
-        self.sobe("gecko", [self.java, f"-Duser.home={c / 'home'}", "-Dpolyglot.js.nashorn-compat=true", "-jar", str(self.jar), str(modelo), "-p", str(pg)],
+        # a vigia do próprio Gecko (patch 0003) fecha os diálogos e anota em gecko/dialogos.txt (o simu lê); no Windows, sem
+        # a tela virtual, a janela principal fica escondida (o MaiSim é a tela)
+        extra = [f"-Dmaisim.dialogos={c / 'dialogos.txt'}"] + (["-Dmaisim.oculto=true"] if WIN else [])
+        self.sobe("gecko", [self.java, f"-Duser.home={c / 'home'}", "-Dpolyglot.js.nashorn-compat=true", *extra, "-jar", str(self.jar), str(modelo), "-p", str(pg)],
                   "gecko.log", env)
         fala("subindo o Gecko (até ~1 min)…", "starting Gecko (up to ~1 min)…")
         if not espera(lambda: no_log(log, "GeckoCIRCUITS is ready"), 120):
