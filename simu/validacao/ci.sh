@@ -21,7 +21,7 @@ TELA="largura_tela scope_menu_tela agy_tela gemini_tela contextos_tela erro_copi
   lingua_tela sub_novo_tela claude_chat_tela escala_tela quebra_tela pontas_tela tema_tela cores_tela cabecalho_tela validador_tela ajustes_tela
   claude_tela pwm_tela controle_tela passo2_tela revisao_tela guia_tela scope_notacao_tela"
 API="lingua_api lingua_ia_api rodadas_api exemplos_api amostra_t0_api agy_api gemini_api ia_troca_api claude_renova_api contextos_api padrao_janela_api claude_autonomo_api segue_codigo_api
-  renomear_api janela_gecko_api colar_sms_api desativar_api claude_controladores_api atuacoes_modulos_api biblioteca_rotulos_api modulos_api
+  renomear_api janela_gecko_api colar_sms_api desativar_api fonte_gerador_api claude_controladores_api atuacoes_modulos_api biblioteca_rotulos_api modulos_api
   move_api variaveis_api ponta_migra_api controladores_api teste_controle teste_passo2 teste_revisao atraso_caminhos atraso_sub
   sub_terminais_api claude_pedido_api nao_salvo_api assinatura_api destino_api"
 ISOLADOS="fila_tema_tela scope_painel_tela comparar_tela scope_cores_tela scope_recolher_tela scope_apagar_tela"   # na instância isolada (sobe_fila.sh): o scope ao vivo
