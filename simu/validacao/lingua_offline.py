@@ -8,7 +8,8 @@
    Python e do HTML) são contados; a contagem não pode subir (texto novo vai para o dicionário) e, quando cai, a base é
    atualizada no mesmo PR (python3 lingua_offline.py --atualiza), para ela só descer. Exceção pontual: i18n-ok na linha;
 4. os pares de arquivos traduzidos (o guia, as regras da IA, os modelos de código): mesmos títulos e o mesmo código;
-5. as threads do servidor levam o idioma (lingua.thread): o threading.Thread solto também entra na catraca.
+5. as threads do servidor levam o idioma (lingua.thread): o threading.Thread solto também entra na catraca (exceção pontual:
+   i18n-ok na linha, como o publica.py, que o run.py de fora importa sem o config/).
 
     python3 lingua_offline.py              confere (OK / FALHA por linha, como os outros testes)
     python3 lingua_offline.py --atualiza   grava a base da catraca (lingua_pendentes.json) com as contagens de agora (só desce;
@@ -272,7 +273,7 @@ def textos_py(src):
 
 
 def threads_soltas(src):
-    return len(re.findall(r"\bthreading\.Thread\(", src))
+    return sum(len(re.findall(r"\bthreading\.Thread\(", l)) for l in src.split("\n") if "i18n-ok" not in l)   # a linha marcada não conta
 
 
 def contagens():

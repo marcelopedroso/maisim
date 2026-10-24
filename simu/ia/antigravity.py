@@ -76,7 +76,7 @@ class Antigravity(LoginPorTerminal, IA):
     def __init__(self, binario, pasta):
         super().__init__(binario, pasta)
         self._login_init()
-        self._uso, self._uso_l, self._trava_uso = None, None, threading.Lock()
+        self._uso, self._trava_uso = None, threading.Lock()   # _uso: o /usage cru (uso() monta no idioma do pedido)
 
     def _conta(self):
         return self.pasta / "maisim" / "conta.json"
@@ -132,36 +132,56 @@ class Antigravity(LoginPorTerminal, IA):
 
     # ---- os limites da conta: `agy -p "/usage"` (0 tokens: o comando do agy, sem o modelo), os grupos de modelos com o
     # limite semanal e o de 5 h, e quando renovam (o mesmo da tela do Antigravity). Guardado por 60 s
-    GRUPOS = {"Gemini Models": "Gemini", "Claude and GPT models": "ia_conta.grupo_claude_gpt"}   # o nome ou a chave do texto
-    JANELAS = {"weekly": "ia_conta.janela_semana", "5h": "5 h"}
+    # os nomes na tela: os nomes próprios ficam; os outros são chaves do textos.py (no idioma do pedido)
+    GRUPOS_NOME = {"Gemini Models": "Gemini"}
+    GRUPOS_CHAVE = {"Claude and GPT models": "ia_conta.grupo_claude_gpt"}
+    JANELAS_NOME = {"5h": "5 h"}
+    JANELAS_CHAVE = {"weekly": "ia_conta.janela_semana"}
+
+    @staticmethod
+    def _nome(cru, nomes, chaves, vazio):
+        if cru in chaves:
+            return lingua.tr(chaves[cru])
+        return nomes.get(cru, cru or vazio)
 
     def uso(self, forca=False):
+        """Lê o /usage do agy no máximo a cada 60 s (o guardado é o que ele respondeu, cru) e monta os rótulos, o "renova" e
+        o erro a cada pedido, no idioma dele (trocar de idioma não chama o agy de novo)."""
         with self._trava_uso:
-            l = lingua.atual()                         # guardado por idioma: os rótulos e o "renova" vêm no idioma do pedido
-            if not forca and self._uso and self._uso_l == l and time.time() - self._uso["quando"] < 60:
-                return self._uso
-            vazio = self.pasta / "maisim" / "uso"
-            vazio.mkdir(mode=0o700, parents=True, exist_ok=True)
-            try:
-                r = subprocess.run([self.bin, "-p", "/usage", "--output-format", "json"], env=self.ambiente(), cwd=str(vazio),
-                                   capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
-                grupos = ((json.loads(r.stdout or "{}").get("command") or {}).get("data") or {}).get("groups") or []
-                itens = []
-                for g in grupos:
-                    nome = lingua.tr(self.GRUPOS[g.get("name")]) if g.get("name") in self.GRUPOS else g.get("name") or "?"
-                    for b in g.get("buckets") or []:
-                        janela = lingua.tr(self.JANELAS[b.get("window")]) if b.get("window") in self.JANELAS else b.get("window") or ""
-                        # janela: o código da janela do agy ("weekly", "5h"), ao lado do rótulo traduzido
-                        itens.append({"rotulo": f"{nome} · {janela}", "pct": round((1 - float(b.get("remaining_fraction") or 0)) * 100, 1),
-                                      "renova": _quando(b.get("reset_time")), "grupo": g.get("description") or "",
-                                      "janela": b.get("window") or ""})
-                v = {"itens": itens, "quando": time.time()}
-                if not itens:
-                    v["erro"] = (r.stderr.strip().splitlines() or [lingua.tr("ia_conta.saida", codigo=r.returncode)])[-1][:200]
-            except (subprocess.SubprocessError, OSError, ValueError, TypeError) as e:
-                v = {"itens": [], "quando": time.time(), "erro": lingua.tr("ia_conta.limites_erro", erro=e)}
-            self._uso, self._uso_l = v, l
+            if forca or not self._uso or time.time() - self._uso["quando"] >= 60:
+                self._uso = self._le_uso()
+            return self._monta_uso(self._uso)
+
+    def _le_uso(self):
+        vazio = self.pasta / "maisim" / "uso"
+        vazio.mkdir(mode=0o700, parents=True, exist_ok=True)
+        try:
+            r = subprocess.run([self.bin, "-p", "/usage", "--output-format", "json"], env=self.ambiente(), cwd=str(vazio),
+                               capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
+            grupos = ((json.loads(r.stdout or "{}").get("command") or {}).get("data") or {}).get("groups") or []
+            return {"quando": time.time(), "grupos": grupos, "stderr": r.stderr, "saida": r.returncode}
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError) as e:
+            return {"quando": time.time(), "falha": str(e)}
+
+    def _monta_uso(self, cru):
+        try:
+            if "falha" in cru:
+                raise ValueError(cru["falha"])
+            itens = []
+            for g in cru["grupos"]:
+                nome = self._nome(g.get("name"), self.GRUPOS_NOME, self.GRUPOS_CHAVE, "?")
+                for b in g.get("buckets") or []:
+                    janela = self._nome(b.get("window"), self.JANELAS_NOME, self.JANELAS_CHAVE, "")
+                    # janela: o código da janela do agy ("weekly", "5h"), ao lado do rótulo traduzido
+                    itens.append({"rotulo": f"{nome} · {janela}", "pct": round((1 - float(b.get("remaining_fraction") or 0)) * 100, 1),
+                                  "renova": _quando(b.get("reset_time")), "grupo": g.get("description") or "",
+                                  "janela": b.get("window") or ""})
+            v = {"itens": itens, "quando": cru["quando"]}
+            if not itens:
+                v["erro"] = (cru["stderr"].strip().splitlines() or [lingua.tr("ia_conta.saida", codigo=cru["saida"])])[-1][:200]
             return v
+        except (ValueError, TypeError) as e:
+            return {"itens": [], "quando": cru["quando"], "erro": lingua.tr("ia_conta.limites_erro", erro=e)}
 
     def ao_iniciar(self):
         if self.logado() and not self._modelos_arq().exists():

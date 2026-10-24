@@ -10,7 +10,7 @@ T = {
     "scope_srv.rota_desconhecida": {"pt": "rota desconhecida", "en": "unknown route"},
     # apagar gravações: por que uma ficou (o "por" de cada recusada; o "codigo" ao lado não muda com o idioma)
     "scope_srv.nao_gravacao": {"pt": "não é uma gravação do scope", "en": "not a scope recording"},
-    "scope_srv.rodando": {"pt": "está rodando", "en": "is running"},
+    "scope_srv.rodando": {"pt": "está rodando", "en": "running"},
     "scope_srv.guardada": {"pt": "guardada", "en": "kept"},
     # o nome de uma rodada gravada na lista (planta · circuito · pasta · data e hora · intervalo)
     "scope_srv.planta_python": {"pt": "planta Python", "en": "Python plant"},

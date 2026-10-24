@@ -2,17 +2,11 @@
 ao servidor (POST /publicar), para não atrasar a simulação; ao fim grava tudo em scope_<tag>.npz (modo Comparar).
 Se o servidor não estiver de pé, a simulação segue e só o arquivo é gravado."""
 import json
-import sys
 import threading
 import time
 import urllib.request
-from pathlib import Path
 
 import numpy as np
-
-if str(Path(__file__).resolve().parents[1] / "config") not in sys.path:   # o lingua (o run.py de fora pode não tê-lo no caminho)
-    sys.path.append(str(Path(__file__).resolve().parents[1] / "config"))
-import lingua  # noqa: E402
 
 TWO_PI = 2 * np.pi
 
@@ -47,7 +41,7 @@ class PublicadorScope:
         self.vivo = True
         self.avisou = False
         self._post({"tipo": "inicio", "meta": meta})
-        self.th = lingua.thread(self._laco)
+        self.th = threading.Thread(target=self._laco, daemon=True)   # i18n-ok (sem texto; o run.py de fora importa este arquivo sem o config/)
         self.th.start()
 
     def _post(self, obj):
