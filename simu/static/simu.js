@@ -272,7 +272,7 @@ function ligaNoPainel(np) {
     const L = leLayoutCircuito(), g2 = secaoDaLista(L);
     if (!g2 || g2.secao !== g.secao || ks.some((k) => !g2.paineis[k] || impressao(g2.paineis[k]) !== marcas[k])) return mudou();
     const tira = new Set(ks.map((k) => g2.paineis[k])), resto = L.itens.filter((x) => !tira.has(x));
-    if (!resto.length) { msg(tr("simu.nao_apaga_tudo"), "erro"); return; }   // vazio, o scope voltaria ao automático
+    if (!resto.some((x) => !x.secao)) { msg(tr("simu.nao_apaga_tudo"), "erro"); return; }   // sem nenhum painel (só seções), o scope voltaria ao automático
     L.itens = resto;
     if (gravaLayoutCircuito(L)) msg(tr("simu.paineis_apagados", { n: tira.size, secao: nomeSecao(g2) }), "ok");
     const k = kDaSecao(g2.secao); desenhaOps(k >= 0 ? k : undefined);   // pela seção (o nome; as posições mudaram)
