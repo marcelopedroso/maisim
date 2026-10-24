@@ -11,13 +11,21 @@ const B = "http://localhost:7200";
 // o que não é texto do MaiSim (dados do usuário, números, nomes próprios): fora da varredura
 const DADO = [".rodada .info", "#so-circ > span", "#maisim-nav .marca", "#maisim-nav .pct", '[lang="en"]',   // [lang=en]: inglês de propósito (o slogan)
   // o simu: o circuito (nomes, rótulos, sinais), o código, os nomes da paleta, o histórico, a conversa, o nome do arquivo
-  "#svg", "#ctl-editor", "#ctl-diag-svg", "#itens .item", "#hist li", "#cc-msgs", "#trilha", "#titulo-pagina", "#sel-modelo", "#info"];
-const LIVRE = /^[\s\d.,:;%·\-−+×…/()°ΩµkMGBVAHzs→]*$|^(MaiSim|PT|EN|OK|Scope|Layout ▾|\?)$/;   // iguais nos dois idiomas
+  "#svg", "#ctl-editor", "#ctl-diag-svg", "#itens .item", "#hist li", "#cc-msgs", "#trilha", "#titulo-pagina", "#sel-modelo", "#info",
+  "#abas", "#bt-modelo", "#bt-globais"];   // as abas da paleta (os grupos do catálogo do Gecko), o arquivo aberto, o $x
+// iguais nos dois idiomas: números e símbolos, uma letra (atalho), nomes de arquivo .py, sinais (com _), m["…"] e p["…"] do
+// código, os nomes dos produtos
+const LIVRE = new RegExp([/^[\s\d.,:;%·\-−+×…/()°ΩµkMGBVAHzs→‹›✕▾]*$/, /^(MaiSim|PT|EN|OK|Scope|Layout ▾|\?|Ts|i|[A-Z])$/,
+  /^[\w.-]+\.py(:\d+)?$/, /^[A-Za-z]+_\w+$/, /^[mp]\["…"\]$/,
+  /^((Claude|Code|Gemini|Google|Anthropic|Antigravity|CLI|Assist|·)\s*)+$/, /^Gemini Code Assist terms and privacy notices$/].map((r) => r.source).join("|"));
 
 // o simu: o exemplo com controle aberto (um "descartar?" da instância de teste: aceita), a aba Controle, a 1ª tabela; depois a IA
-async function preparaSimu(pg) {
+async function esperaCircuito(pg) {
   for (let k = 0; k < 40 && !(await pg.evaluate(() => typeof dados !== "undefined" && !!dados && !!dados.editor).catch(() => false)); k++) {
     if (await pg.$(".modal .m-ok")) await pg.click(".modal .m-ok").catch(() => {}); await pg.waitForTimeout(500); }
+}
+async function preparaSimu(pg) {
+  await esperaCircuito(pg);
   if (!(await pg.evaluate(() => document.querySelector("#bt-ctl").classList.contains("ativo")))) await pg.click("#bt-ctl");
   await pg.waitForTimeout(800);
   await pg.click("#ctl-var-lista [data-tabela]", { timeout: 3000 }).catch(() => {}); await pg.waitForTimeout(600);
@@ -35,16 +43,21 @@ async function varre(pg) {
     const livre = new RegExp(livreSrc), fora = [];
     const visivel = (el) => !!(el && el.getClientRects().length) && getComputedStyle(el).visibility !== "hidden";
     const dadoDe = (el) => dado.some((s) => el.closest(s));
+    // um pedaço de um texto _html traduzido pelo JS (o <b> de dentro): o ⟦…⟧ envolve o bloco todo, num ancestral próximo
+    const dentro = (el, t) => { if (!t) return false; let a = el.parentElement;
+      for (let k = 0; a && k < 4; k++, a = a.parentElement) { const s = a.textContent, i = s.indexOf(t);
+        if (i >= 0 && s.lastIndexOf("⟦", i) > s.lastIndexOf("⟧", i)) return true; }
+      return false; };
     const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     for (let n = w.nextNode(); n; n = w.nextNode()) {
       const t = n.nodeValue.trim(), el = n.parentElement;
       if (!t || livre.test(t) || !visivel(el) || dadoDe(el) || el.closest("script,style")) continue;
-      if (!(el.textContent.includes("⟦") || (el.closest("[data-tr-html]") || {}).textContent?.includes("⟦"))) fora.push(t.slice(0, 60));
+      if (!(el.textContent.includes("⟦") || (el.closest("[data-tr-html]") || {}).textContent?.includes("⟦") || dentro(el, t))) fora.push(t.slice(0, 60));
     }
     for (const el of document.querySelectorAll("[title],[placeholder],[aria-label],[data-rotulo]")) {
       if (dadoDe(el) || !(visivel(el) || el.closest("#maisim-nav"))) continue;
       for (const a of ["title", "placeholder", "aria-label", "data-rotulo"]) { const v = el.getAttribute(a);
-        if (v && !livre.test(v.trim()) && !v.includes("⟦") && !(a === "title" && el.id === "so-circ")) fora.push(`${a}="${v.slice(0, 50)}"`); }
+        if (v && !livre.test(v.trim()) && !v.includes("⟦") && !(a === "title" && el.id === "so-circ") && !dentro(el, el.textContent.trim())) fora.push(`${a}="${v.slice(0, 50)}"`); }
     }
     return fora;
   }, [DADO, LIVRE.source]);
@@ -58,7 +71,9 @@ async function varre(pg) {
     const erros = []; ctx.on("page", (p) => p.on("pageerror", (e) => erros.push(e.message)));
     const inicio = await ctx.newPage(); inicio.on("pageerror", (e) => erros.push(e.message));
     await inicio.goto(B + "/"); await inicio.waitForSelector("#maisim-nav .lingua");
-    const simu = await ctx.newPage(); await simu.goto(B + "/maisim/simu/"); await simu.waitForSelector("#maisim-nav .lingua");
+    // o simu já no exemplo que a varredura abre (o editor é um só no servidor: trocar de circuito lá mudaria esta janela também)
+    const simu = await ctx.newPage(); await simu.goto(B + "/maisim/simu/?modelo=exemplos/exemplo_controle_pi.ipes"); await simu.waitForSelector("#maisim-nav .lingua");
+    await esperaCircuito(simu);
     await simu.waitForTimeout(1500); const cascaAntes = await simu.evaluate(fotoCasca);
     const antes = await inicio.evaluate(() => ({ bt: document.querySelector("#maisim-nav .lingua").textContent, h2: document.querySelector("#cartao-novo h2").textContent,
       rot: document.querySelector('#maisim-nav a.item[href="/"]').dataset.rotulo, lang: document.documentElement.lang }));
