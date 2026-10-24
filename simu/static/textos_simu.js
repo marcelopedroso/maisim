@@ -25,7 +25,7 @@ maisimI18n.add({
   "simu.ph_busca": { pt: "procurar componente…", en: "search component…" },
   "simu.dica_paleta": { pt: "clique num componente e depois na folha · Esc cancela · W: conexão", en: "click a component and then the sheet · Esc cancels · W: wire" },
   "simu.vazio": { pt: "Nenhum circuito aberto", en: "No circuit open" },
-  "simu.vazio_d": { pt: "Abra um dos seus, comece um em branco ou veja um exemplo pronto.", en: "Open one of yours, start a blank one or look at a ready example." },
+  "simu.vazio_d": { pt: "Abra um dos seus, comece um em branco ou veja um exemplo pronto.", en: "Open one of yours, start a blank one or open a ready-made example." },
   "simu.vz_novo": { pt: "+ Novo circuito", en: "+ New circuit" },
   "simu.vz_abrir": { pt: "Abrir…", en: "Open…" },
   "simu.vz_exemplos": { pt: "Exemplos", en: "Examples" },
