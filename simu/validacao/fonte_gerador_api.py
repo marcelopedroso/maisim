@@ -21,7 +21,8 @@ c = lambda op, *a: api("editor/cmd", {"op": op, "args": list(a)})
 api("editor/novo", {"modo": "descartar"})
 for a in (("U.1", 10, 10, "U"), ("R.1", 20, 10, "R"), ("I.1", 10, 30, "I"), ("R.2", 20, 30, "R"),
           ("AMP.1", 40, 6, "AMP"), ("AMP.2", 40, 10, "AMP"), ("AMP.3", 40, 26, "AMP"), ("VOLT.1", 40, 30, "VOLT"), ("GAIN.1", 50, 6, "GAIN")):
-    c("CREATE", *a)
+    r = c("CREATE", *a)
+    if r.get("erro"): ok(False, f"CREATE {a[0]}: {r['erro']}")
 for n, i, o in (("U.1", "a", "gnd"), ("R.1", "a", "gnd"), ("I.1", "gnd", "b"), ("R.2", "b", "gnd")):
     c("INNODE", n, 0, i); c("OUTNODE", n, 0, o)
 c("SETP", "U.1", "uDC", 10.0); c("SETP", "R.1", "R", 5.0); c("SETP", "I.1", "iMAX", 1.0); c("SETP", "R.2", "R", 10.0)
