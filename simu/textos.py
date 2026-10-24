@@ -242,6 +242,8 @@ T = {
                                 "en": "step between 1 ns and 10 ms and end time greater than the step, up to 10 s"},
     "rodada.passos_demais": {"pt": "{n} passos é demais para uma rodada pela tela (até 5 milhões)",
                              "en": "{n} steps is too many for a run from the page (up to 5 million)"},
+    "rodada.gerador_no_gecko": {"pt": "{canal} (a corrente da fonte {fonte}, positiva saindo pelo +) também entra em {blocos} no Gecko: lá dentro ela vale com o sinal do Gecko (positiva entrando pelo +), o oposto do scope e do m[...]",
+                                "en": "{canal} (the current of source {fonte}, positive leaving the + terminal) also feeds {blocos} in Gecko: in there it has Gecko's sign (positive entering the + terminal), the opposite of the scope and m[...]"},
     "rodada.nada_no_scope": {"pt": "nenhum sinal do circuito vai para o scope (todos só no controle): a rodada grava só o t e as colunas do scope() do código",
                              "en": "no circuit signal goes to the scope (all only in the control): the run records only t and the code's scope() columns"},
     "rodada.sem_scope": {"pt": "nada vai para o scope: os sinais estão só no controle (\"→ Controle\") e o controle está desligado — marque \"→ Scope\" em algum",

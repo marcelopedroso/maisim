@@ -1979,22 +1979,39 @@ def sinais_da_rodada(r, destino=None):
     return [x for x, u in zip(sinais, uids) if u not in fora]
 
 
+def em_fonte_de_tensao(r):
+    """{elemento para o GETM: (folha, amperímetro)} dos amperímetros que medem uma fonte de tensão da mesma folha (a
+    referência do medidor é sempre da folha dele): a corrente que o MaiSim lê como gerador (sentido_gerador)."""
+    out = {}
+    for fid, fl in r["folhas"].items():
+        lk = {e["nome"]: e for e in fl["elementos"] if e["dom"] == "LK"}
+        for e in fl["elementos"]:
+            if e["tipo"] == "AMP" and e.get("mede") and lk.get(e["mede"][0], {}).get("tipo") == "U":
+                out[e["nome"] if fid == "0" else f"{fl['nome']}#{e['nome']}"] = (fl, e)
+    return out
+
+
 def sentido_gerador(r, sinais):
     """O fator de cada sinal lido do Gecko (1 ou −1), na ordem de sinais. O Gecko mede toda corrente na convenção de
     receptor (do terminal 1 para o 2, por dentro do componente): o amperímetro numa fonte de tensão, que tem o + no
     terminal 1, lê −5 A quando ela entrega 5 A. O MaiSim mostra a fonte de tensão como gerador (a corrente sai pelo +, e a
     seta do desenho também): a corrente dela chega trocada ao scope, ao Medir e ao m[...] do controle. O arquivo do Gecko
-    não muda (um bloco do próprio Gecko ligado ao amperímetro ainda vê o sinal do Gecko). A fonte de corrente empurra a
-    corrente do terminal 1 para o 2: o Gecko já a mede como gerador, sem troca."""
-    fat = []
-    for el, _ in sinais:
-        sub, _, nome = el.rpartition("#")
-        fl = next((f for k, f in r["folhas"].items() if (f.get("nome") == sub if sub else k == "0")), None)
-        els = {e["nome"]: e for e in (fl or {}).get("elementos", [])}
-        e = els.get(nome)
-        alvo = els.get(e["mede"][0]) if e and e["tipo"] == "AMP" and e.get("mede") and e["mede"][0] else None
-        fat.append(-1.0 if alvo and alvo["dom"] == "LK" and alvo["tipo"] == "U" else 1.0)
-    return fat
+    não muda: um bloco do próprio Gecko ligado ao amperímetro ainda vê o sinal do Gecko (a rodada avisa, gerador_no_gecko).
+    A fonte de corrente empurra a corrente do terminal 1 para o 2: o Gecko já a mede como gerador, sem troca."""
+    trocar = em_fonte_de_tensao(r)
+    return [-1.0 if el in trocar else 1.0 for el, _ in sinais]
+
+
+def gerador_no_gecko(r):
+    """Os avisos dos amperímetros de fonte de tensão cuja saída também entra num bloco do Gecko (ganho, tag, soma…): lá
+    dentro a corrente vale com o sinal do Gecko, o oposto do que o MaiSim mostra (sentido_gerador)."""
+    avisos = []
+    for fl, e in em_fonte_de_tensao(r).values():
+        rot = e["saidas"][0] if e["saidas"] else ""
+        usam = sorted(x["nome"] for x in fl["elementos"] if rot and x["dom"] == "CONTROL" and rot in x["entradas"])
+        if usam:
+            avisos.append(lingua.tr("rodada.gerador_no_gecko", canal=rot, fonte=e["mede"][0], blocos=", ".join(usam)))
+    return avisos
 
 
 def canais_por_uid(r, destino=None):
@@ -2900,7 +2917,7 @@ def _rodar(c, ctl_de_fora=None):
     ao_controle = lambda v: {k: v[k] for k in canais_ctl if k in v}
     todos_atu = atuadores_disponiveis(r)
     lag = {a["nome"]: a["atraso_gecko"] for a in todos_atu}     # o atraso do próprio Gecko, por atuador (destinos_controle)
-    avisos_rodada = []
+    avisos_rodada = gerador_no_gecko(r)
     if ctl["ativo"]:                                   # controle ligado: confere tudo antes de começar
         segue_codigo(ctl, r)
         insts, erros_ctl, avisos_ctl = instancias_controle(ctl, r)
@@ -3005,7 +3022,8 @@ def _rodar(c, ctl_de_fora=None):
             log.close()
             raise
     meta = dict(planta="gecko-maisim", rotulo=nome, modelo=circuito_aberto(), chave_layout=chave_layout(), dt=dt * m, Ts=dt * m, n_fino=1,
-                dt_gecko=dt, tfim=tfim, sinais=[{"canal": k, "elemento": el} for el, k in sinais if k in canais_scope],
+                dt_gecko=dt, tfim=tfim, sinais=[{"canal": k, "elemento": el, **({"gerador": True} if f < 0 else {})}   # gerador: o sinal trocado (sentido_gerador)
+                                    for (el, k), f in zip(sinais, fator) if k in canais_scope],
                 cores=cores_efetivas(r),
                 acionamentos=acionamentos_efetivos)
     if trab:
@@ -4125,7 +4143,7 @@ def claude_contexto(c, dt, tfim):
     else:
         sinais = sinais_da_rodada(ult)                  # m[...]: os do controle; os só do scope vêm à parte, depois
         no_ctl, no_scope = {k for _, k in sinais_da_rodada(ult, "controle")}, {k for _, k in sinais_da_rodada(ult, "scope")}
-        atu = atuadores_disponiveis(ult)
+        atu, fontes = atuadores_disponiveis(ult), em_fonte_de_tensao(ult)
         L += [tr("ia_contexto.medidas"), ""]
         for el, canal in [x for x in sinais if x[1] in no_ctl]:
             fid, _, nome_el = el.rpartition("#") if "#" in el else ("0", "", el)
@@ -4134,8 +4152,7 @@ def claude_contexto(c, dt, tfim):
             if e and e["tipo"] == "VOLT":
                 o = tr("ia_contexto.m_tensao", a=e['mede'][0] or '?', b=e['mede'][1] or '?')
             elif e and e["tipo"] == "AMP":
-                alvo = next((x for x in fl["elementos"] if x["nome"] == e["mede"][0] and x["dom"] == "LK"), None)
-                o = tr("ia_contexto.m_corrente_fonte" if alvo and alvo["tipo"] == "U" else "ia_contexto.m_corrente", c=e['mede'][0] or '?')
+                o = tr("ia_contexto.m_corrente_fonte" if el in fontes else "ia_contexto.m_corrente", c=e['mede'][0] or '?')
             elif e and e["tipo"] == "CONST":
                 o = tr("ia_contexto.m_const", nome=e['nome'])
             else:
