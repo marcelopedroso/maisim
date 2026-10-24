@@ -49,7 +49,8 @@ AB="$C/home/.GeckoCIRCUITS/autoBackup.ipes"       # autoBackup de uma sessão an
 if [ -f "$AB" ]; then mkdir -p "$C/backups"; mv "$AB" "$C/backups/autoBackup_$(date +%Y%m%d-%H%M%S).ipes"
   fala "autoBackup anterior guardado em $C/backups/ (abrir pelo File > Open do Gecko, se precisar)" \
        "previous autoBackup kept in $C/backups/ (open it with Gecko's File > Open, if needed)"; fi
-DISPLAY=$TELA nohup java -Duser.home="$C/home" -Dpolyglot.js.nashorn-compat=true -jar "$JAR" "$MODELO" -p "$PG" > "$C/gecko.log" 2>&1 &
+# -Dmaisim.dialogos: a vigia do próprio Gecko (patch 0003) fecha os diálogos e anota em dialogos.txt (o simu lê)
+DISPLAY=$TELA nohup java -Duser.home="$C/home" -Dpolyglot.js.nashorn-compat=true -Dmaisim.dialogos="$C/dialogos.txt" -jar "$JAR" "$MODELO" -p "$PG" > "$C/gecko.log" 2>&1 &
 echo $! > "$C/gecko.pid"
 fala "tela $TELA, VNC $VNC, noVNC $WEB; Gecko $(basename "$JAR") na porta $PG com $MODELO" \
      "display $TELA, VNC $VNC, noVNC $WEB; Gecko $(basename "$JAR") on port $PG with $MODELO"

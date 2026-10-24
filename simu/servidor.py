@@ -319,8 +319,32 @@ def abre(arq):
     MOTOR.cmd(f"OPEN {arq}")
 
 
+DIALOGOS = Path(os.environ.get("MAISIM_GECKO_DIALOGOS") or Path(os.environ["MAISIM_CACHE"]) / "gecko" / "dialogos.txt")
+
+
+def dialogos_gecko():
+    """Os diálogos que a vigia do próprio Gecko fechou (patch 0003: com -Dmaisim.dialogos, ele anota "título TAB texto" por
+    linha e aperta o botão padrão; no Windows e no Linux, sem X11): lidos e apagados."""
+    lido = DIALOGOS.with_suffix(".lido")
+    try:
+        os.replace(DIALOGOS, lido)
+        linhas = lido.read_text(encoding="utf-8", errors="replace").splitlines()
+        lido.unlink()
+    except OSError:
+        return []
+    out = []
+    for l in linhas:
+        tit, _, txt = l.partition("\t")
+        out.append(f"{tit}: {txt[:200]}" if txt else tit)
+        print(f"{time.strftime('%H:%M:%S')} diálogo do Gecko fechado pela vigia dele: {out[-1]}", flush=True)  # i18n-ok (log)
+    return out
+
+
 def vigia_gecko():
-    """Chamada pelo motor quando um pedido demora: fecha as janelas de erro do Gecko (a foto fica para depois)."""
+    """Chamada pelo motor quando um pedido demora: fecha as janelas de erro do Gecko (a foto fica para depois); sem X11 (o
+    Windows), só o que a vigia do próprio Gecko fechou (dialogos_gecko)."""
+    if os.name == "nt":
+        return dialogos_gecko()
     fechadas = janelas_gecko.fecha(TELA, ESTADO.parent / "janelas_gecko")
     for tit, foto in fechadas:
         print(f"{time.strftime('%H:%M:%S')} janela de erro do Gecko fechada com OK: {tit} (foto: {foto})", flush=True)  # i18n-ok (log)
@@ -333,7 +357,7 @@ MOTOR.vigia = vigia_gecko
 def aviso_janelas(gecko_novo=False):
     """O que a vigia fechou durante o pedido, para a página dizer (e zera); com gecko_novo (uma resposta do editor que a página
     mostra), também o Gecko novo que o servidor refez (confere_gecko) — as outras rotas o deixam para a próxima."""
-    js, MOTOR.janelas = MOTOR.janelas, []
+    js, MOTOR.janelas = MOTOR.janelas + dialogos_gecko(), []
     partes = [lingua.tr(k, **a) for k, a in (editor.pop("gecko_novo", None) or [] if gecko_novo else [])]
     if js:
         partes.append(lingua.tr("editor.janelas_gecko_fechadas", n=len(js), titulos=", ".join(sorted(set(js)))))
@@ -438,6 +462,8 @@ def processo_gecko():
     """O processo que escuta na porta do Gecko: ("boot pid partida", há quantos segundos subiu), ou None. A partida (de
     /proc) distingue um Gecko novo que pegou o mesmo pid; o boot, um reboot. A idade é do relógio do boot (/proc/uptime), que
     não pula quando o WSL acerta o relógio da parede (o btime pula)."""
+    if os.name == "nt":
+        return processo_gecko_windows()
     try:
         r = subprocess.run(["ss", "-ltnpH", f"sport = :{os.environ['MAISIM_PORTA_GECKO']}"], capture_output=True, text=True, timeout=5)
         pid = re.search(r"pid=(\d+)", r.stdout).group(1)
@@ -446,6 +472,32 @@ def processo_gecko():
         idade = float(Path("/proc/uptime").read_text().split()[0]) - partida / os.sysconf("SC_CLK_TCK")
         return f"{boot} {pid} {partida}", idade
     except (OSError, KeyError, AttributeError, ValueError, IndexError, subprocess.SubprocessError) as e:
+        if not gecko["sem_ss"]:
+            gecko["sem_ss"] = True
+            print(f"{time.strftime('%H:%M:%S')} Gecko novo: não sei qual processo é o Gecko ({e}); sem a conferência", flush=True)  # i18n-ok (log)
+        return None
+
+
+def processo_gecko_windows():
+    """O mesmo no Windows: o pid pela porta (netstat -ano) e a hora em que o processo começou (GetProcessTimes), que
+    distingue um Gecko novo com o mesmo pid; a idade, pelo relógio do sistema."""
+    try:
+        import ctypes
+        from ctypes import wintypes
+        porta = os.environ["MAISIM_PORTA_GECKO"]
+        r = subprocess.run(["netstat", "-ano", "-p", "TCP"], capture_output=True, text=True, timeout=10)
+        pid = next(int(c[-1]) for c in (l.split() for l in r.stdout.splitlines())
+                   if len(c) >= 5 and c[-2].upper() == "LISTENING" and c[1].endswith(f":{porta}"))
+        h = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)            # PROCESS_QUERY_LIMITED_INFORMATION
+        cria, x1, x2, x3 = (wintypes.FILETIME() for _ in range(4))
+        ok = ctypes.windll.kernel32.GetProcessTimes(h, ctypes.byref(cria), ctypes.byref(x1), ctypes.byref(x2), ctypes.byref(x3))
+        ctypes.windll.kernel32.CloseHandle(h)
+        if not ok:
+            raise OSError("GetProcessTimes")
+        partida = (cria.dwHighDateTime << 32) | cria.dwLowDateTime                # centésimos de µs desde 1601
+        idade = time.time() - (partida / 1e7 - 11644473600)
+        return f"win {pid} {partida}", idade
+    except (OSError, KeyError, StopIteration, ValueError, subprocess.SubprocessError) as e:
         if not gecko["sem_ss"]:
             gecko["sem_ss"] = True
             print(f"{time.strftime('%H:%M:%S')} Gecko novo: não sei qual processo é o Gecko ({e}); sem a conferência", flush=True)  # i18n-ok (log)
