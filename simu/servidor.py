@@ -1184,15 +1184,15 @@ def lista_modelos():
     de subcircuitos, as pastas extras. Cada um: arq (a chave: relativo à raiz, ou absoluto fora dela), nome (dentro da
     pasta do grupo), grupo, apagavel (só os seus e os da biblioteca: vão para a .lixeira) e a pasta de gravação deles."""
     itens, vistos = [], set()
-    def poe(grupo, pasta, arqs, gravacao=None):
+    def poe(grupo, pasta, arqs, gravacao=None, id_grupo="extra"):   # id_grupo: o que a página confere (o grupo é texto)
         for f in sorted(arqs):
             if f.resolve() in vistos or any(s.startswith(".") for s in f.relative_to(pasta).parts):
                 continue
             vistos.add(f.resolve())
-            itens.append(dict(arq=relativo(f), nome=str(f.relative_to(pasta)), grupo=grupo, apagavel=bool(gravacao), pasta=gravacao))
-    poe("exemplos", MODELOS, MODELOS.glob("*.ipes"))
-    poe("meus circuitos", SALVOS, SALVOS.glob("*.ipes"), "circuitos")
-    poe("biblioteca de subcircuitos", LIB, LIB.glob("*.ipes"), "subcircuitos")
+            itens.append(dict(arq=relativo(f), nome=str(f.relative_to(pasta)), grupo=grupo, id_grupo=id_grupo, apagavel=bool(gravacao), pasta=gravacao))
+    poe("exemplos", MODELOS, MODELOS.glob("*.ipes"), id_grupo="exemplos")
+    poe("meus circuitos", SALVOS, SALVOS.glob("*.ipes"), "circuitos", "circuitos")
+    poe("biblioteca de subcircuitos", LIB, LIB.glob("*.ipes"), "subcircuitos", "subcircuitos")
     for nome, p in pastas_extras():                  # até três níveis de subpastas (ex.: a pasta de cada circuito)
         poe(nome, p, [f for f in p.rglob("*.ipes") if len(f.relative_to(p).parts) <= 4])
     return itens

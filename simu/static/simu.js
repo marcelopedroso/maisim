@@ -737,7 +737,9 @@ const selecionado = () => dados && ed.sel ? dados.folhas[folhaAtual].elementos.f
 // perdeu, o servidor devolve a mesma resposta sem fazer a mudança de novo. Sem conexão, a faixa "sem conexão" aparece
 const etiqueta = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 12));
 // o servidor pede confirmação (sobrescrever): pelo código, não pelo texto (o texto muda com o idioma)
-const pedeConfirmar = (e) => !!(e && e.dados && e.dados.codigo === "confirmar");
+// (um servidor de antes, ainda não reiniciado, manda só o texto: aceita também, até ele reiniciar)
+const pedeConfirmar = (e) => !!(e && e.dados && (e.dados.codigo === "confirmar" || /; confirme para sobrescrever/.test(e.message)));   // i18n-ok
+const perguntaDe = (e) => (e.dados && e.dados.pergunta) || e.message.replace(/; confirme.*$/, ".");   // i18n-ok: o servidor de antes
 async function api(rota, corpo) {
   const id = corpo ? etiqueta() : null;
   let r;
@@ -1356,7 +1358,7 @@ async function salvaNaBiblioteca(e) {
   msg("salvando na biblioteca…");
   try { let j;
     try { j = await api("editor/biblioteca", corpo); }
-    catch (er) { if (!pedeConfirmar(er) || !(await confirma("Sobrescrever?", er.dados.pergunta, "sobrescrever", true))) throw er;
+    catch (er) { if (!pedeConfirmar(er) || !(await confirma("Sobrescrever?", perguntaDe(er), "sobrescrever", true))) throw er;
       j = await api("editor/biblioteca", Object.assign(corpo, { sobrescrever: true })); }
     const s = ed.sujo; novoEstado(j); marcaSujo(s); msg(`${nomeSub(e.nome)} salvo na biblioteca: ${j.salvo}`, "ok");
     await carregaBiblioteca(); recarregaModelos($("sel-modelo").value);
@@ -1384,7 +1386,7 @@ async function salvarComo() {
   const layoutAntes = circuitoDoLayout();
   try { let j;
     try { j = await api("editor/salvar", { nome }); }
-    catch (e) { if (!pedeConfirmar(e) || !(await confirma("Sobrescrever?", e.dados.pergunta, "sobrescrever", true))) throw e;
+    catch (e) { if (!pedeConfirmar(e) || !(await confirma("Sobrescrever?", perguntaDe(e), "sobrescrever", true))) throw e;
       j = await api("editor/salvar", { nome, sobrescrever: true }); }
     novoEstado(j); marcaSujo(false); msg(`salvo em ${j.salvo}`, "ok"); levaLayout(layoutAntes, circuitoDoLayout());
     const lst = await api("modelos");                   // leitura: repete uma vez se a conexão cair

@@ -20,7 +20,7 @@ ok([(x["linha"], x["msg"][:20]) for x in c] == [(7, 'p["f_clk"] não exist'), (8
 c = srv.confere_codigo(CLOCK, [{"nome": "f_clk"}, {"nome": "duty"}], ["CONST_1"], ["Vsin", "i_R_1", "CONST_1"], [{"nome": "CONST_1"}])
 ok(c == [], "com f_clk e duty no painel: nada")
 c = srv.confere_codigo(CLOCK, [{"nome": "f_clk"}, {"nome": "duty"}], [], ["Vsin"], [{"nome": "CONST_1"}])
-ok(len(c) == 1 and "não está marcado" in c[0]["msg"] and c[0]["linha"] == 8, f"atuação não marcada: {c[0]['msg'] if c else c}")
+ok(len(c) == 1 and c[0].get("codigo") == "atuacao_nao_marcada" and "não está marcado" in c[0]["msg"] and c[0]["linha"] == 8, f"atuação não marcada: {c[0]['msg'] if c else c}")
 c = srv.confere_codigo(CLOCK.replace('"CONST_1": 1.0', '"CONST_2": 1.0'), [{"nome": "f_clk"}, {"nome": "duty"}], ["CONST_1"], ["Vsin"], [{"nome": "CONST_1"}])
 ok(len(c) == 1 and "não é atuador do circuito" in c[0]["msg"], f"atuador inexistente: {c[0]['msg'] if c else c}")
 OUTRO = '''def iniciar(par, est):

@@ -3,6 +3,7 @@ maisim-lingua, português, como sempre; com maisim-lingua=en, inglês. O que a p
 idiomas (o texto muda; o código não)."""
 import json
 import urllib.request
+from pathlib import Path
 
 B = "http://localhost:7201/maisim/simu/"
 falhas = 0
@@ -32,7 +33,9 @@ try:
     pt = api("editor/salvar", {"nome": "lingua_teste", "pasta": "circuitos"})
     en = api("editor/salvar", {"nome": "lingua_teste", "pasta": "circuitos"}, lingua="en")
     pt2 = api("editor/salvar", {"nome": "lingua_teste", "pasta": "circuitos"}, lingua="pt")
-    ok(pt.get("ERRO") == 409 and pt.get("codigo") == "confirmar" and "já existe" in pt.get("erro", "") and pt.get("pergunta", "").endswith("lingua_teste.ipes."),
+    arq = pt.get("pergunta", "")[len("já existe "):-1]
+    ok(pt.get("ERRO") == 409 and pt.get("codigo") == "confirmar" and pt.get("erro") == f"já existe {arq}; confirme para sobrescrever"
+       and arq.endswith("lingua_teste.ipes"),
        f"sem cookie, português: \"{pt.get('erro')}\" (código {pt.get('codigo')}, pergunta \"{pt.get('pergunta')}\")")
     ok(en.get("codigo") == "confirmar" and "already exists" in en.get("erro", "") and en.get("pergunta", "").endswith("already exists."),
        f"com maisim-lingua=en (e outro cookie junto), inglês: \"{en.get('erro')}\" — o mesmo código")
@@ -46,6 +49,21 @@ try:
     except urllib.error.HTTPError as e:
         ruim = json.loads(e.read())
     ok("already exists" in ruim.get("erro", ""), f"um cookie malformado antes do nosso: continua em inglês (\"{ruim.get('erro')}\")")
+    # a biblioteca de subcircuitos: o mesmo código ao salvar por cima de um que existe
+    lib = next((m for m in api("modelos") if m.get("id_grupo") == "subcircuitos"), None)
+    if lib:
+        nome_lib = lib["nome"].removesuffix(".ipes")
+        bpt = api("editor/biblioteca", {"acao": "salvar", "nome": "x", "folha": "0", "nome_lib": nome_lib})
+        ben = api("editor/biblioteca", {"acao": "salvar", "nome": "x", "folha": "0", "nome_lib": nome_lib}, lingua="en")
+        ok(bpt.get("codigo") == ben.get("codigo") == "confirmar" and bpt.get("erro") == f"já existe {nome_lib} na biblioteca; confirme para sobrescrever"
+           and ben.get("pergunta") == f"{nome_lib} already exists in the library.", f"biblioteca: \"{bpt.get('erro')}\" / \"{ben.get('pergunta')}\"")
+    else:
+        ok(False, "biblioteca: nenhum subcircuito na instância de teste para conferir")
+    # os grupos da lista de circuitos: um id que não muda com o idioma
+    ids = {m.get("id_grupo") for m in api("modelos")}
+    ok({"exemplos", "circuitos"} <= ids, f"os grupos da lista com id ({sorted(i for i in ids if i)})")
 finally:
     api("editor/abrir", {"arq": "exemplos/exemplo_buck.ipes", "modo": "descartar"})
+    for suf in (".ipes", ".controle.json", ".aparencia.json", ".scope.json"):   # o circuito que o teste salvou
+        (Path.home() / ".cache/maisim_teste/circuitos" / f"lingua_teste{suf}").unlink(missing_ok=True)
 raise SystemExit(1 if falhas else 0)
