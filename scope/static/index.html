@@ -129,6 +129,13 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
   button.b-solto { min-width:30px; }
   button.b-solto { color:var(--sutil); }
   .medicao { border-top:1px solid var(--borda); margin-top:6px; padding:6px 4px 2px; font-size:12px; }
+  .med-topo { display:flex; flex-wrap:wrap; gap:4px 10px; align-items:center; margin-bottom:4px; }
+  .med-topo .m-fecha { margin-left:0; } .med-topo .med-dica { margin-left:auto; }
+  .med-modos { display:inline-flex; } .med-modos button { padding:1px 9px; font-size:12px; border-radius:0; margin-left:-1px; }
+  .med-modos button:first-child { border-radius:6px 0 0 6px; margin-left:0; } .med-modos button:last-child { border-radius:0 6px 6px 0; }
+  .med-modos button.ativo { background:var(--acento); color:#fff; border-color:var(--acento); }
+  .medicao.sem-fourier .med-cab, .medicao.sem-fourier .med-tab, .medicao.sem-fourier .esp, .medicao.sem-fourier .med-dica { display:none !important; }
+  .med-cur .sutil { color:var(--sutil); font-weight:400; } .med-cur .cur-y { margin-top:4px; }
   .med-cab { display:flex; flex-wrap:wrap; gap:4px 10px; align-items:center; }
   .med-cab input { width:84px; padding:1px 4px; font-size:12px; }
   .med-cab input.m-n { width:52px; } .med-cab input.m-f0 { width:64px; } .med-cab input.m-hs { width:96px; }
@@ -140,6 +147,13 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
   .med-dica { color:var(--sutil); font-size:11px; margin-left:auto; }
   .med-cab .med-dica + .m-fecha { margin-left:0; }
   .med-tab { overflow-x:auto; }
+  /* os cursores A e B: Δt, 1/Δt e, por sinal, y(A), y(B), Δy, Δy/Δt */
+  .med-cur { overflow-x:auto; margin-top:6px; } .med-cur:empty { display:none; }
+  .med-cur .cur-dt { display:flex; flex-wrap:wrap; gap:4px 16px; padding:2px 6px 4px; font-variant-numeric:tabular-nums; }
+  .med-cur .cur-dt i { font-family:KaTeX_Math, "Times New Roman", serif; }
+  .med-cur table { border-collapse:collapse; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .med-cur th, .med-cur td { padding:2px 8px; text-align:right; border-bottom:1px solid var(--suave2); } .med-cur th { color:var(--sutil); font-weight:500; }
+  .med-cur td.nome { text-align:left; } .med-cur td.nome i { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:5px; }
   .med-tab table { border-collapse:collapse; font-variant-numeric:tabular-nums; white-space:nowrap; }
   .med-tab th, .med-tab td { padding:2px 6px; text-align:right; border-bottom:1px solid var(--suave2); vertical-align:top; }
   .med-tab th { font-weight:600; color:var(--sutil); font-size:11px; }
@@ -257,7 +271,7 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
       <button id="bt-salvar" title="salva todos os painéis numa imagem PNG">Salvar figura</button>
       <button id="bt-apagar" title="escolher gravações (scope_*.npz) para apagar do disco">Apagar gravações…</button>
     </div>
-    <button id="bt-ajuda" title="Zoom em cada painel: escolha X (tempo), Y (vertical) ou área e arraste no gráfico; ⟲ ou duplo clique volta a ver tudo naquele painel.
+    <button id="bt-ajuda" title="Zoom em cada painel: escolha X (tempo), Y (vertical) ou área e arraste no gráfico; o enquadrar (os quatro cantos) ou duplo clique volta a ver tudo naquele painel.
 Ctrl + roda: zoom no tempo. Ctrl + Shift + roda: vertical.
 O tempo é comum aos painéis ligados (corrente); clique na corrente para dar a um painel o seu próprio tempo (corrente partida, laranja).
 Medir: média, série de Fourier, THD e espectro num intervalo; Shift + arrastar no gráfico escolhe o intervalo.

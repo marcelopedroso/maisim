@@ -27,7 +27,7 @@ np.savez(${JSON.stringify(arq)}, meta=np.array(json.dumps(meta)), t=t, Va=1 + 18
       await pg.goto(url);
       await pg.waitForFunction(() => typeof paineis === "function" && paineis().some((p) => p.u && p.sinais.includes("Va")), null, { timeout: 30000 });
       await pg.evaluate(() => { const p = paineis().find((x) => x.u && x.sinais.includes("Va"));
-        p.sinais = ["Va", "Vb", "Vc"]; criaGrafico(p); p.med.hs = "1, 3";
+        p.sinais = ["Va", "Vb", "Vc"]; criaGrafico(p); p.med.hs = "1, 3"; p.med.comb = "ambos";   // o padrão do combinar é "nenhum"
         if (!p.med.aberto) p.el.querySelector(".b-med").click(); else mudaMed(p); });   // o Medir aberto fica no layout
       await pg.waitForTimeout(500);
     };
@@ -54,7 +54,7 @@ np.savez(${JSON.stringify(arq)}, meta=np.array(json.dumps(meta)), t=t, Va=1 + 18
     const w = 2 * Math.PI * 50;
     ok(cv && cv.rot === "Σ" && cv.partes.join() === "Va,Vb,Vc" && Math.abs(cv.y - cv.esperado) < 1e-9 && Math.abs(cv.y - (6 + 30 * Math.cos(3 * w * cv.t / 1e3))) < 1e-6
        && /^Σ:? ?-?[\d.]+/.test(cv.leg), `a curva Σ(t) no gráfico: Σ(${cv && cv.t} ms) = ${cv && cv.y} (6 + 30 cos 3ωt), legenda "${cv && cv.leg}"`);
-    // x̄ = Σ/3 (o padrão do "combinar" é "Σ e x̄"): na tabela, média 2, h1 0, h3 10 ∠ 0°; no gráfico, a curva x̄(t) = Σ(t)/3
+    // x̄ = Σ/3 (o "combinar" em "Σ e x̄"): na tabela, média 2, h1 0, h3 10 ∠ 0°; no gráfico, a curva x̄(t) = Σ(t)/3
     const xm = t.find((l) => l[0].startsWith("x̄"));
     const cx = await pg.evaluate(() => { const p = paineis().find((x) => x.u && x.sinais.includes("Va"));
       const iS = p.series.findIndex((se) => se.comb === "soma"), iM = p.series.findIndex((se) => se.comb === "media"), k = 37, d = p.u.data;
