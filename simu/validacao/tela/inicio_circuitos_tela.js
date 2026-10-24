@@ -56,6 +56,8 @@ const api = (rota, corpo) => fetch("http://localhost:7201/maisim/simu/" + rota, 
     await pg.click('.abas-circ button[data-aba="todos"]');
     const semLixo = await pg.$$eval("#lista-circ .rodada", (rs, n) => rs.filter((r) => r.querySelector("b").textContent === n).map((r) => !!r.querySelector("button.apagar")), a1.nome.replace(/\.ipes$/, ""));
     ok(semLixo.length === 1 && semLixo[0] === false, "o circuito aberto no editor não tem lixeira");
+    const recusa = await fetch("http://localhost:7201/maisim/simu/editor/apagar_arquivo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ arq: a1.arq, de_vez: true }) });
+    ok(recusa.status >= 400 && require("fs").existsSync(a1.arq), `e o servidor recusa apagar de vez o aberto (${recusa.status}), o arquivo fica`);
     await pg.fill("#filtro-circ", "inicio_apagar_t");
     await pg.click("#lista-circ button.apagar"); await pg.waitForSelector(".modal .m-ok");
     await pg.click(".modal .m-ok"); await pg.waitForTimeout(800);

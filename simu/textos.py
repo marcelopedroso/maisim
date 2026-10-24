@@ -105,6 +105,7 @@ T = {
     "editor.sub_dentro_dele": {"pt": "um subcircuito não vai dentro dele mesmo: cole noutra folha",
                                "en": "a subcircuit cannot go inside itself: paste on another sheet"},
     "editor.gecko_recusou_colado": {"pt": "o Gecko não aceitou o que foi colado", "en": "Gecko did not accept what was pasted"},
+    "modelos.apagar_aberto": {"pt": "esse circuito está aberto no editor: feche ou abra outro antes de apagar", "en": "that circuit is open in the editor: close it or open another one before deleting"},
     "modelos.so_apaga_do_maisim": {"pt": "só dá para apagar circuitos salvos pelo MaiSim e subcircuitos da biblioteca",
                                    "en": "only circuits saved by MaiSim and library subcircuits can be deleted"},
     "modelos.grupo_exemplos_gecko": {"pt": "exemplos do GeckoCIRCUITS", "en": "GeckoCIRCUITS examples"},

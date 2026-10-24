@@ -1363,6 +1363,8 @@ def apaga_arquivo(rel, de_vez=False):
     pastas = [SALVOS.resolve(), LIB.resolve()]
     if arq.suffix != ".ipes" or not arq.is_file() or arq.parent not in pastas:
         raise ErroMotor(lingua.tr("modelos.so_apaga_do_maisim"))
+    if de_vez and editor.get("aberto") and (RAIZ / str(editor["aberto"])).resolve() == arq:
+        raise ErroMotor(lingua.tr("modelos.apagar_aberto"))   # o aberto no editor não se apaga de vez (outra aba pode tê-lo aberto)
     ao_lado = [f for f in (arquivo_controle(arq), arquivo_aparencia(arq), arquivo_cores(arq), arquivo_scope(arq)) if f.exists()]
     if de_vez:
         for f in [arq, *ao_lado]:
