@@ -72,6 +72,10 @@ maisimI18n.add({
   "simu.sem_titulo": { pt: "(sem título)", en: "(untitled)" },
   "simu.op_novo_painel": { pt: "+ novo painel…", en: "+ new panel…" },
   "simu.vai_para_painel": { pt: "{canal} vai para o painel “{titulo}” (seção {secao}) no scope", en: "{canal} goes to panel “{titulo}” (section {secao}) in the scope" },
+  "simu.sai_do_painel": { pt: "{canal} sai do painel “{titulo}” (seção {secao}) no scope", en: "{canal} leaves panel “{titulo}” (section {secao}) in the scope" },
+  "simu.sem_paineis": { pt: "nenhum painel nesta seção", en: "no panels in this section" },
+  "simu.escolha_secao": { pt: "escolha uma seção para ver os painéis dela", en: "choose a section to see its panels" },
+  "simu.tambem_em": { pt: "também em: {onde}", en: "also in: {onde}" },
   "simu.m_nova_secao": { pt: "Nova seção no scope", en: "New section in the scope" },
   "simu.m_nome_secao": { pt: "Nome da seção", en: "Section name" },
   "simu.m_painel": { pt: "Painel", en: "Panel" },
@@ -318,7 +322,8 @@ maisimI18n.add({
   "simu.t_cor_padrao": { pt: "voltar à cor padrão", en: "back to the default color" },
   "simu.cor_padrao": { pt: "Padrão", en: "Default" },
   "simu.secao_scope": { pt: "seção no scope", en: "section in the scope" },
-  "simu.painel": { pt: "painel", en: "panel" },
+  "simu.paineis_sinal": { pt: "painéis", en: "panels" },
+  "simu.t_paineis": { pt: "marque os painéis do scope em que o sinal aparece (pode ser mais de um)", en: "check the scope panels where the signal shows (it can be more than one)" },
   "simu.nome_scope_aviso_html": { pt: "é com este nome que o sinal aparece no /maisim/scope (todo medidor vai para lá; sem nome, {canal})", en: "this is the name the signal shows in /maisim/scope (every meter goes there; without a name, {canal})" },
   "simu.h_rot_terminais": { pt: "rótulos dos terminais", en: "terminal labels" },
   "simu.entrada_n": { pt: "entrada {n}", en: "input {n}" },
@@ -550,4 +555,12 @@ maisimI18n.add({
   "simu.sem_circuito": { pt: "sem circuito", en: "no circuit" },
   "simu.scope_outra_aba": { pt: "o scope está aberto em outra aba do navegador: vá até ela", en: "the scope is open in another browser tab: go to it" },
   "simu.codigo_outra_aba": { pt: "o código está aberto em outra aba do navegador: vá até ela", en: "the code is open in another browser tab: go to it" },
+});
+// apagar painéis do scope pelo simu (o ✕ ao lado da lista de painéis)
+maisimI18n.add({
+  "simu.t_apagar_paineis": { pt: "apagar painéis desta seção do scope (um criado por engano, por exemplo)", en: "delete panels from this scope section (one created by mistake, for example)" },
+  "simu.m_apagar_paineis": { pt: "Apagar painéis da seção {secao}", en: "Delete panels from section {secao}" },
+  "simu.m_apagar_paineis_txt": { pt: "Marque os painéis que saem do layout do scope. Os sinais deles só deixam de aparecer ali; a gravação não muda.", en: "Check the panels to remove from the scope layout. Their signals just stop showing there; the recording does not change." },
+  "simu.n_sinais_painel": { pt: { one: "{n} sinal", other: "{n} sinais" }, en: { one: "{n} signal", other: "{n} signals" } },
+  "simu.paineis_apagados": { pt: { one: "{n} painel apagado da seção {secao} no scope", other: "{n} painéis apagados da seção {secao} no scope" }, en: { one: "{n} panel deleted from section {secao} in the scope", other: "{n} panels deleted from section {secao} in the scope" } },
 });

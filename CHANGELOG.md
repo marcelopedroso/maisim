@@ -6,6 +6,9 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Added
+- Simu: put a signal in several scope panels, and delete panels, right from the signal's panel picker (#67).
+
 ### Changed
 - A channel color chosen on the circuit also applies in the scope, which follows it right away (#66).
 
