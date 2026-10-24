@@ -341,7 +341,9 @@ def estado():
     r["cores"] = cores_efetivas(r)                   # {canal: cor} (escolhida ou padrão)
     r["cores_escolhidas"] = le_cores()
     r["pontas"] = le_pontas()                        # {canal: {"+": componente, "-": componente}}
-    r["fora"] = le_aparencia()["fora"]               # identificadores fora do scope e do controle
+    ap = le_aparencia()                              # para onde vai o sinal de cada componente (identificadores):
+    r["fora"] = ap["fora"]                           # fora do scope e do controle,
+    r["fora_scope"], r["fora_controle"] = ap["fora_scope"], ap["fora_controle"]   # fora de um deles
     r["nos_medidos"] = nos_medidos(r)                # {folha: {rótulo: [{nome, x, y}]}}
     return r
 
@@ -1509,7 +1511,7 @@ def instancias_controle(c, r):
         return [{"nome": "controle", "arquivo": "controle.py", "codigo": c["codigo"], "medidas": None, "atuacoes": None,
                  "modulos": modulos_de(c), "outros": []}], [], []
     arqs, erros, avisos, out, dono = arquivos_de(c), [], [], [], {}
-    entradas = [k for _, k in sinais_da_rodada(r)] if r else None
+    entradas = [k for _, k in sinais_da_rodada(r, "controle")] if r else None
     atu = atuadores_disponiveis(r) if r else []
     marcadas = set(c["atuacoes"])
     for q in c["controladores"]:
@@ -1618,11 +1620,17 @@ def limpa_aparencia(a):
     a = a if isinstance(a, dict) else {}
     cores = a.get("cores") if isinstance(a.get("cores"), dict) else {}
     pontas = a.get("pontas") if isinstance(a.get("pontas"), dict) else {}
-    fora = a.get("fora") if isinstance(a.get("fora"), list) else []
+    uids = lambda k: {str(u) for u in (a.get(k) if isinstance(a.get(k), list) else []) if re.match(r"^-?\d+$", str(u))}
+    # para onde vai o sinal de cada componente (Marcelo, 24/10: duas caixinhas, "→ Scope" e "→ Controle"): fora_scope, os
+    # identificadores que não viram coluna gravada na rodada; fora_controle, os que não ficam no m[...] do controle. Um
+    # arquivo de antes só tem "fora" (fora dos dois): vale para os dois. "fora" continua, derivado (os que estão fora dos
+    # dois), para quem lê só ele (a página, um MaiSim de antes abrindo o arquivo novo)
+    novo = "fora_scope" in a or "fora_controle" in a
+    fs, fc = (uids("fora_scope"), uids("fora_controle")) if novo else (uids("fora"), uids("fora"))
     return {"cores": {str(k): v for k, v in cores.items() if isinstance(v, str) and COR.match(v)},
             "pontas": {str(k): {s_: c for s_, c in v.items() if s_ in ("+", "-") and isinstance(c, str) and NOME.match(c)}
                        for k, v in pontas.items() if isinstance(v, dict)},
-            "fora": sorted({str(u) for u in fora if re.match(r"^-?\d+$", str(u))})}   # fora do scope e do controle (identificadores)
+            "fora_scope": sorted(fs), "fora_controle": sorted(fc), "fora": sorted(fs & fc)}
 
 
 def le_aparencia():
@@ -1679,7 +1687,9 @@ COR_HALL = "#0ea5e9"                                       # corrente: o azul de
 
 def cores_efetivas(r):
     """A cor de cada canal de medidor (o escolhido, ou o padrão: voltímetros na ordem dos canais do osciloscópio, amperímetros
-    no azul Hall): {canal no scope: cor}. Uma fonte só para o desenho e para o meta da rodada."""
+    no azul Hall) e dos outros sinais com cor escolhida (tags, saídas de blocos; sem escolha, o scope dá a da paleta dele):
+    {canal no scope: cor}. Uma fonte só para o desenho e para o meta da rodada. Todos os sinais (scope e controle): a cor
+    padrão de um voltímetro não muda quando outro sai do scope."""
     escolhidas, out, nv = le_cores(), {}, 0
     tipos = {(e["nome"] if fid == "0" else f"{fl['nome']}#{e['nome']}"): e["tipo"] for fid, fl in r["folhas"].items() for e in fl["elementos"]}
     for el, canal in sinais_da_rodada(r):
@@ -1688,6 +1698,8 @@ def cores_efetivas(r):
             out[canal] = escolhidas.get(canal, CANAIS_V[nv % len(CANAIS_V)]); nv += 1
         elif t == "AMP":
             out[canal] = escolhidas.get(canal, COR_HALL)
+        elif canal in escolhidas:
+            out[canal] = escolhidas[canal]
     return out
 
 
@@ -1778,7 +1790,7 @@ def salva_aparencia_junto(dest):
     """Grava a aparência (cores e pontas escolhidas) ao lado do .ipes; sem nada escolhido, apaga o arquivo antigo (senão ele
     voltaria ao reabrir). O .cores.json antigo sai: agora vai tudo no .aparencia.json."""
     a = le_aparencia()
-    if a["cores"] or a["pontas"] or a["fora"]:
+    if a["cores"] or a["pontas"] or a["fora_scope"] or a["fora_controle"]:
         arquivo_aparencia(dest).write_text(json.dumps(a, ensure_ascii=False, indent=1))
     else:
         arquivo_aparencia(dest).unlink(missing_ok=True)
@@ -1927,13 +1939,22 @@ def eh_tag(e):
     return e["tipo"] == "GAIN" and bool(re.match(r"^TAG\.\d+$", e["nome"]))
 
 
-def sinais_da_rodada(r):
+DESTINOS = ("scope", "controle")
+
+
+def sinais_da_rodada(r, destino=None):
     """(elemento para o GETM, canal no scope): saídas dos blocos de controle da folha principal e medidores dos subcircuitos
-    — menos os marcados "fora do scope e do controle" (uma medida que só alimenta blocos, ou que sai por um terminal)."""
-    sinais, fora = [], set(le_aparencia()["fora"])
+    — menos os marcados fora (as duas caixinhas do painel, na aparência). destino "scope": os que viram coluna gravada na
+    rodada; "controle": os que ficam no m[...] do controle; None: os dois juntos (o que a rodada lê do Gecko). Os nomes saem
+    sempre da mesma lista (a dos dois juntos), para um sinal ter o mesmo nome no scope e no m[...]."""
+    if destino not in (None,) + DESTINOS:
+        raise ValueError(destino)
+    ap = le_aparencia()
+    fs, fc = set(ap["fora_scope"]), set(ap["fora_controle"])
+    sinais, uids = [], []
     for fid, fl in r["folhas"].items():
         for e in fl["elementos"]:
-            if e.get("uid") in fora:
+            if e.get("uid") in fs and e.get("uid") in fc:
                 continue
             if fid == "0":
                 if e["dom"] != "CONTROL" or e["tipo"] in ("TERM", "GATE", "SCOPE") or not e["saidas"]:
@@ -1947,20 +1968,23 @@ def sinais_da_rodada(r):
             while canal in [s_[1] for s_ in sinais] or canal == "t":
                 canal += "_"
             sinais.append((el, canal))
-    return sinais
+            uids.append(e.get("uid"))
+    fora = {"scope": fs, "controle": fc}.get(destino, set())
+    return [x for x, u in zip(sinais, uids) if u not in fora]
 
 
-def canais_por_uid(r):
+def canais_por_uid(r, destino=None):
     """{identificador do medidor: canal no scope} (sinais_da_rodada, pelo identificador: sobrevive a renomear o medidor ou
     o subcircuito)."""
     uid = {(e["nome"] if fid == "0" else f"{fl['nome']}#{e['nome']}"): e["uid"] for fid, fl in r["folhas"].items() for e in fl["elementos"]}
-    return {uid[el]: canal for el, canal in sinais_da_rodada(r) if el in uid}
+    return {uid[el]: canal for el, canal in sinais_da_rodada(r, destino) if el in uid}
 
 
-def nomes_por_uid(r):
-    """{(identificador, "med" | "atu"): nome no controle} — as medidas (o canal no scope, o m[...]) e as atuações (CONST,
-    como em atuadores_disponiveis): o identificador sobrevive a renomear o componente ou o subcircuito."""
-    out = {(u, "med"): n for u, n in canais_por_uid(r).items()}
+def nomes_por_uid(r, destino=None):
+    """{(identificador, "med" | "atu"): nome no controle} — as medidas (o canal no scope, o m[...]; destino como em
+    sinais_da_rodada) e as atuações (CONST, como em atuadores_disponiveis): o identificador sobrevive a renomear o
+    componente ou o subcircuito."""
+    out = {(u, "med"): n for u, n in canais_por_uid(r, destino).items()}
     vistos = set()
     for fid, fl in r["folhas"].items():
         for e in fl["elementos"]:
@@ -2088,7 +2112,7 @@ def _alcancados(arq, arqs, outros_ctl):
 
 def _no_esquema(r):
     """(medidas, atuadores) do circuito: os nomes que o controle pode ler e escrever."""
-    nomes = nomes_por_uid(r)
+    nomes = nomes_por_uid(r, "controle")
     return {n for (_, t), n in nomes.items() if t == "med"}, {n for (_, t), n in nomes.items() if t == "atu"}
 
 
@@ -2187,7 +2211,7 @@ def variaveis_sem_esquema(c, r):
 
 NOME_TROCA = re.compile(r"^[A-Za-z0-9_]{1,120}$")              # os nomes de editor/controle/renomeia
 ROTAS_EDICAO = {"/editor/cmd", "/editor/cmds", "/editor/mede", "/editor/grupo", "/editor/colar", "/editor/fonte_sinal",
-                "/editor/fora", "/editor/desfazer", "/editor/biblioteca"}     # as que podem mudar o nome de um sinal
+                "/editor/fora", "/editor/destino", "/editor/desfazer", "/editor/biblioteca"}     # as que podem mudar o nome de um sinal
 
 
 def renomes_com_uso(antes, depois):
@@ -2476,7 +2500,7 @@ def painel_controle(c=None):
     insts, erros_ctl, avisos_ctl = instancias_controle(c, ult)
     usados = {i["arquivo"] for i in insts}
     erros, avisos = verifica_arquivos(c, usados)
-    entradas = [k for _, k in sinais_da_rodada(ult)] if ult else []
+    entradas = [k for _, k in sinais_da_rodada(ult, "controle")] if ult else []
     atu = atuadores_disponiveis(ult) if ult else []
     nomes = {a["nome"] for a in atu}
     avisos += [lingua.tr("controle.atuador_nao_existe", a=a) for a in c["atuacoes"] if ult and a not in nomes]
@@ -2522,7 +2546,7 @@ def testa_controle(dt, n=3, c=None, pasta_nome="teste_controle"):
         raise ErroControle(erros[0]["msg"], erros[0]["linha"], arquivo=erros[0]["arquivo"])
     if not (dt > 0):
         raise ErroMotor(lingua.tr("controle.dt_invalido"))
-    entradas = [k for _, k in sinais_da_rodada(ult)]
+    entradas = [k for _, k in sinais_da_rodada(ult, "controle")]
     marcadas = set(c["atuacoes"]) & {a["nome"] for a in atuadores_disponiveis(ult)}
     Ts = max(1, arred(c["Ts"] / dt)) * dt
     params = {q["nome"]: q["valor"] for q in c["parametros"]}
@@ -2819,13 +2843,19 @@ def _rodar(c, ctl_de_fora=None):
     if n > 5_000_000:
         raise ErroMotor(lingua.tr("rodada.passos_demais", n=n))
     r = estado()
-    sinais = sinais_da_rodada(r)
-    if not sinais:
-        raise ErroMotor(lingua.tr("rodada.sem_medidas"))
     amostras = max(10, min(n, int(c.get("amostras", 4000))))
     m = max(1, math.ceil(n / amostras))
     por_cima = str(c.get("por_cima", "")).lower() in ("1", "true", "sim") and not ctl_de_fora   # o autônomo sempre cria nova
     ctl = completa_controle(confere_controle(dict(ctl_de_fora))) if ctl_de_fora else le_controle()
+    # para onde vai cada sinal (as caixinhas "→ Scope" e "→ Controle"): a rodada lê do Gecko os dois juntos (sem controle, só
+    # os do scope), grava só os do scope (rodadas menores) e entrega ao m[...] só os do controle
+    canais_scope = [k for _, k in sinais_da_rodada(r, "scope")]
+    canais_ctl = [k for _, k in sinais_da_rodada(r, "controle")] if ctl["ativo"] else []
+    sinais = sinais_da_rodada(r) if ctl["ativo"] else sinais_da_rodada(r, "scope")
+    if not sinais:
+        raise ErroMotor(lingua.tr("rodada.sem_medidas" if not sinais_da_rodada(r) else "rodada.sem_scope"))
+    ao_scope = lambda v: {k: v[k] for k in canais_scope if k in v}
+    ao_controle = lambda v: {k: v[k] for k in canais_ctl if k in v}
     todos_atu = atuadores_disponiveis(r)
     lag = {a["nome"]: a["atraso_gecko"] for a in todos_atu}     # o atraso do próprio Gecko, por atuador (destinos_controle)
     avisos_rodada = []
@@ -2928,7 +2958,7 @@ def _rodar(c, ctl_de_fora=None):
             log.close()
             raise
     meta = dict(planta="gecko-maisim", rotulo=nome, modelo=circuito_aberto(), chave_layout=chave_layout(), dt=dt * m, Ts=dt * m, n_fino=1,
-                dt_gecko=dt, tfim=tfim, sinais=[{"canal": k, "elemento": el} for el, k in sinais],
+                dt_gecko=dt, tfim=tfim, sinais=[{"canal": k, "elemento": el} for el, k in sinais if k in canais_scope],
                 cores=cores_efetivas(r),
                 acionamentos=acionamentos_efetivos)
     if trab:
@@ -2962,7 +2992,7 @@ def _rodar(c, ctl_de_fora=None):
     controle_rodada["pausa"].clear(); controle_rodada["parar"].clear()
     arq = pasta / f"scope_{nome}.npz"
     rodada.clear()
-    rodada.update(estado="rodando", nome=nome, t=0.0, tfim=tfim, dt=dt, passos=n, amostras=0, sinais=[k for _, k in sinais],
+    rodada.update(estado="rodando", nome=nome, t=0.0, tfim=tfim, dt=dt, passos=n, amostras=0, sinais=list(canais_scope),
                   arquivo=relativo(arq), modelo=relativo(pasta / (nome + ".ipes")), inicio=time.time(), avisos=avisos_rodada)
 
     def anda(k0, npassos, escritas):
@@ -2997,7 +3027,7 @@ def _rodar(c, ctl_de_fora=None):
             rodada["estado"] = "rodando"
             if j in params_ev:                           # acionamentos de p[...]: valem a partir desta amostra
                 trab.pede({"op": "parametros", "p": params_ev[j]})
-            res = trab.pede({"op": "passo", "t": tt, "m": vals})
+            res = trab.pede({"op": "passo", "t": tt, "m": ao_controle(vals)})
             a, sreg = res["a"], res["s"]
             fora = [x for x in a if x not in atu or x not in ctl["atuacoes"]]
             if fora:
@@ -3015,7 +3045,8 @@ def _rodar(c, ctl_de_fora=None):
                 else:
                     agenda.setdefault(k + desl[x], []).append(f"{atu[x]}:const:{v!r}")
             if regs is None:                             # as variáveis do scope() ficam fixas na 1ª amostra (colunas alinhadas)
-                regs = {x: (x if x not in vals and x != "t" else "ctrl_" + x) for x in sorted(sreg) if IDENT.match(x)}
+                # (um sinal só do controle não é coluna: scope("x", m["x"]) o grava com o nome dele)
+                regs = {x: (x if x not in canais_scope and x != "t" else "ctrl_" + x) for x in sorted(sreg) if IDENT.match(x)}
                 avisados = set(regs)
             for x in sorted(set(sreg) - avisados):       # o que não vai para o scope: avisa uma vez (não some calado)
                 avisados.add(x)
@@ -3026,11 +3057,11 @@ def _rodar(c, ctl_de_fora=None):
                 avisos_rodada.append(lingua.tr("rodada.scope_nome_invalido", x=x) if not IDENT.match(x) else
                                      lingua.tr("rodada.scope_nome_tarde", x=x, t=f"{tt:g}"))
             if j % cada == 0:
-                pub.amostra(dict(t=tt, **vals, **{col: sreg.get(x, float("nan")) for x, col in regs.items()}))
+                pub.amostra(dict(t=tt, **ao_scope(vals), **{col: sreg.get(x, float("nan")) for x, col in regs.items()}))
             tt = anda(k, passo, escritas_do_trecho(k, passo)); k += passo; j += 1
             vals = le()
             rodada.update(t=tt, amostras=rodada["amostras"] + (1 if j % cada == 0 else 0))
-        pub.amostra(dict(t=tt, **vals, **{col: float("nan") for col in (regs or {}).values()}))
+        pub.amostra(dict(t=tt, **ao_scope(vals), **{col: float("nan") for col in (regs or {}).values()}))
         return k
 
     def laco_simples(pub, nomes):
@@ -4039,10 +4070,11 @@ def claude_contexto(c, dt, tfim):
     if not ult:
         L += [tr("ia_contexto.sem_circuito"), ""]
     else:
-        sinais = sinais_da_rodada(ult)
+        sinais = sinais_da_rodada(ult)                  # m[...]: os do controle; os só do scope vêm à parte, depois
+        no_ctl, no_scope = {k for _, k in sinais_da_rodada(ult, "controle")}, {k for _, k in sinais_da_rodada(ult, "scope")}
         atu = atuadores_disponiveis(ult)
         L += [tr("ia_contexto.medidas"), ""]
-        for el, canal in sinais:
+        for el, canal in [x for x in sinais if x[1] in no_ctl]:
             fid, _, nome_el = el.rpartition("#") if "#" in el else ("0", "", el)
             fl = next((f for k, f in ult["folhas"].items() if (k == "0" and fid == "0") or f.get("nome") == fid), None)
             e = next((x for x in (fl or {}).get("elementos", []) if x["nome"] == nome_el), None)
@@ -4054,7 +4086,13 @@ def claude_contexto(c, dt, tfim):
                 o = tr("ia_contexto.m_const", nome=e['nome'])
             else:
                 o = tr("ia_contexto.m_bloco_tipo", nome=e['nome'], tipo=e['nome_tipo']) if e else tr("ia_contexto.m_bloco", nome=el)
-            L.append(tr("ia_contexto.medida_dentro", canal=canal, o=o, sub=fid) if fid != "0" else tr("ia_contexto.medida", canal=canal, o=o))
+            L.append((tr("ia_contexto.medida_dentro", canal=canal, o=o, sub=fid) if fid != "0" else tr("ia_contexto.medida", canal=canal, o=o)) +
+                     ("" if canal in no_scope else tr("ia_contexto.so_controle")))
+        if not no_ctl:
+            L.append(tr("ia_contexto.nenhum"))
+        so_scope = [k for _, k in sinais if k in no_scope and k not in no_ctl]
+        if so_scope:
+            L += ["", tr("ia_contexto.so_scope", lista=", ".join(f"`{k}`" for k in so_scope))]
         L += ["", tr("ia_contexto.atuacoes"), ""]
         marcadas = set(c["atuacoes"])
         principal = (ult["folhas"].get("0") or {}).get("nome")
@@ -4113,7 +4151,7 @@ def claude_contexto(c, dt, tfim):
     L += ["", tr("ia_contexto.acionamentos"), ""]
     L += [f"- t = {num_txt(q['t'])} s: {q['alvo']} = {num_txt(q['valor'])}" for q in c.get("acionamentos") or []] or [tr("ia_contexto.nenhum")]
     erros, avisos = verifica_codigo(c["codigo"])
-    conf = [] if erros or not ult else confere_codigo(c["codigo"], c["parametros"], c["atuacoes"], [k for _, k in sinais_da_rodada(ult)], atuadores_disponiveis(ult))
+    conf = [] if erros or not ult else confere_codigo(c["codigo"], c["parametros"], c["atuacoes"], [k for _, k in sinais_da_rodada(ult, "controle")], atuadores_disponiveis(ult))
     if erros or avisos or conf:
         L += ["", tr("ia_contexto.acusa"), ""]
         L += [tr("ia_contexto.linha", linha=x.get('linha', '?'), msg=x['msg']) for x in list(erros) + list(conf)] + [f"- {a}" for a in avisos]
@@ -4631,7 +4669,7 @@ def claude_proposta(pasta, antes, dt, chave=None, memoria=""):
         erros += [{"arquivo": "controladores.json", "linha": 1, "coluna": 1, "msg": x} for x in erros_ctl]
         avisos += [x for x in avisos_ctl if x not in avisos]
     out.update(erros=erros, avisos=avisos, compartilhados=com_codigo(avisos, "importado_compartilhado"))
-    out["conferencia"] = [] if erros or not ult else confere_codigo(cod, c2["parametros"], c2["atuacoes"], [k for _, k in sinais_da_rodada(ult)], atu)
+    out["conferencia"] = [] if erros or not ult else confere_codigo(cod, c2["parametros"], c2["atuacoes"], [k for _, k in sinais_da_rodada(ult, "controle")], atu)
     out["atuacoes"] = c2["atuacoes"]
     so_memoria = cod == antes["codigo"] and c2["parametros"] == antes["parametros"] and c2["acionamentos"] == (antes.get("acionamentos") or []) and arqs == arqs_antes and not muda_ctl
     out["ligar"] = bool(out.get("mudou")) and not so_memoria and not antes["ativo"] and not erros and bool(ult)
@@ -5019,7 +5057,7 @@ class Manipulador(BaseHTTPRequestHandler):
         # simulando, nada muda o circuito nem o que vai para o scope (22/10: a ponta, o "fora", a cor e apagar arquivo escapavam)
         if rota in ("/editor/abrir", "/editor/cmd", "/editor/cmds", "/editor/novo", "/editor/mede", "/editor/salvar", "/editor/fio", "/editor/desfazer",
                     "/editor/biblioteca", "/editor/fonte_sinal", "/editor/copiar", "/editor/colar", "/editor/grupo", "/editor/variavel",
-                    "/editor/ponta", "/editor/fora", "/editor/cor", "/editor/apagar_arquivo", "/editor/fechar"):
+                    "/editor/ponta", "/editor/fora", "/editor/destino", "/editor/cor", "/editor/apagar_arquivo", "/editor/fechar"):
             try:
                 ocupado()
             except ErroMotor as e:
@@ -5123,17 +5161,26 @@ class Manipulador(BaseHTTPRequestHandler):
                     grava_aparencia(a)
                 return estado()
             return self._editor(ponta)
-        if rota == "/editor/fora":                    # {uid, fora}: o sinal deste componente fica fora do scope e do controle (ou volta)
-            def fora():
+        if rota in ("/editor/fora", "/editor/destino"):
+            # /editor/destino {uid, scope, controle}: para onde vai o sinal deste componente (as duas caixinhas do painel);
+            # /editor/fora {uid, fora}, o de antes: fora dos dois (ou de volta aos dois)
+            def destino():
                 uid = str(corpo.get("uid", ""))
                 if not re.match(r"^-?\d+$", uid):
                     raise ErroMotor(lingua.tr("editor.fora_invalido"))
+                if rota == "/editor/fora":
+                    vai = {"scope": not corpo.get("fora"), "controle": not corpo.get("fora")}
+                else:
+                    if not all(isinstance(corpo.get(k), bool) for k in DESTINOS):
+                        raise ErroMotor(lingua.tr("editor.destino_invalido"))
+                    vai = {k: corpo[k] for k in DESTINOS}
                 with trava_aparencia:
                     a = le_aparencia()
-                    a["fora"] = sorted(set(a["fora"]) - {uid} | ({uid} if corpo.get("fora") else set()))
+                    for k in DESTINOS:
+                        a["fora_" + k] = sorted(set(a["fora_" + k]) - {uid} | (set() if vai[k] else {uid}))
                     grava_aparencia(a)
                 return estado()
-            return self._editor(fora)
+            return self._editor(destino)
         if rota == "/editor/cor":                     # {canal, cor}: a cor do canal (cor vazia volta ao padrão)
             def cor():
                 canal, c = str(corpo.get("canal", "")), str(corpo.get("cor", ""))

@@ -178,6 +178,8 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   #rede-aviso small { display:block; color:var(--texto); margin-top:4px; } #rede-aviso small:empty { display:none; }
   #props label.no-scope { display:flex; align-items:center; gap:6px; margin:10px 0 2px; font-weight:600; color:var(--texto); cursor:pointer; }
   #props label.no-scope input { width:auto; flex:none; margin:0; }   /* o campo do painel tem 100%: o quadradinho não */
+  #props .destino { display:flex; flex-wrap:wrap; gap:4px 18px; margin:10px 0 2px; }   /* → Scope e → Controle, lado a lado */
+  #props .destino label.no-scope { margin:0; }
   #ctl-lado-bt svg { width:15px; height:15px; }
   #ctl-lado { overflow:auto; padding:8px 10px; border-right:1px solid var(--borda); }
   #ctl-lado h4 { margin:12px 0 4px; font-size:11px; color:var(--sutil); text-transform:uppercase; letter-spacing:.04em; }

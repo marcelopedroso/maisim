@@ -138,7 +138,7 @@ async function lePadraoLayout() {
 function canaisDoCircuito() {                            // os sinais que vão para o scope (medidores, tags, saídas de blocos), na ordem do scope
   const out = [];
   for (const [fid, f] of Object.entries((dados && dados.folhas) || {}))
-    for (const e of f.elementos) if ((MEDIDOR.has(e.tipo) || ehTag(e) || ehSinal(e, fid)) && !foraDoScope(e)) out.push(canalScope(e, fid));
+    for (const e of f.elementos) if ((MEDIDOR.has(e.tipo) || ehTag(e) || ehSinal(e, fid)) && noScope(e)) out.push(canalScope(e, fid));   // só os gravados (→ Scope)
   return [...new Set(out)].sort();
 }
 function leLayoutCircuito() {                          // o guardado (v5; o de antes, v4, pelo nome), o padrão ou o automático
@@ -224,8 +224,12 @@ function ligaNoPainel(np) {
 // a tag (scope e controle): um ganho 1 do Gecko (r0 = 1) chamado TAG.k — repassa o sinal ligado na entrada, e o nome da saída é o
 // nome do sinal no /maisim/scope e no m[...] do controle (como um medidor). Para levar um sinal para fora de um subcircuito
 // (por um Control Terminal) e dar a ele o nome que quiser, ou marcar qualquer ponto de controle
-// o sinal deste componente fora do scope e do controle (marcado no painel; vai junto com a aparência do circuito)
-const foraDoScope = (e) => !!(dados && dados.fora && e.uid && dados.fora.includes(e.uid));
+// para onde vai o sinal deste componente (Marcelo, 24/10: as duas caixinhas do painel, "→ Scope" e "→ Controle"; vai junto
+// com a aparência do circuito): no scope, vira coluna gravada na rodada; no controle, fica no m[...]. O servidor diz quem está
+// fora de cada um (fora_scope, fora_controle; um servidor de antes, só "fora": fora dos dois)
+const foraDe = (e, k) => !!(dados && e.uid && (dados[`fora_${k}`] || dados.fora || []).includes(e.uid));
+const noScope = (e) => !foraDe(e, "scope"), noControle = (e) => !foraDe(e, "controle");
+const destinoDe = (e) => noScope(e) ? (noControle(e) ? "ambos" : "scope") : noControle(e) ? "controle" : "fora";
 // componentes cujo sinal vai para o scope e o controle: na folha principal, os blocos de controle com saída; nos SMs, os
 // medidores e as tags (sinais_da_rodada, no servidor)
 const ehSinal = (e, fid) => fid === "0" ? e.dom === "CONTROL" && !["TERM", "GATE", "SCOPE"].includes(e.tipo) && e.saidas.length > 0
@@ -274,12 +278,31 @@ function marcaNo(g, x, y, [canal, sinal, medidor]) {   // num nó medido pelo vo
   texto(gg, 0.37, -0.72, "V" + sinal, { "text-anchor": "middle", fill: "#fff", "font-size": 0.42 * G, "font-weight": 700, "dominant-baseline": "middle" });
   textoMat(gg, 1.05, -0.72, canal, { fill: COR.texto2, "font-size": 0.45 * G, "dominant-baseline": "middle" });
 }
-function tagScope(g, x, y, canal, tipo, fora = false) {   // ao lado do medidor: o nome do sinal no /maisim/scope, com a borda na cor do canal
-  // fora do scope e do controle: apagada e tracejada (o sinal existe no circuito, mas não vira coluna nem m[...])
-  const gg = no("g", Object.assign({ class: "tag-scope" + (fora ? " fora" : ""), transform: `translate(${x * G},${y * G})` }, fora ? { opacity: 0.4 } : {}), g), cor = corCanal(canal, tipo);
+// a cor da etiqueta de um sinal: a do canal (a escolhida, ou a padrão dos medidores); um bloco ou uma tag sem cor escolhida
+// fica com a cor do controle (o scope dá a da paleta dele)
+const corSinal = (canal, e) => MEDIDOR.has(e.tipo) ? corCanal(canal, e.tipo) : (dados && dados.cores && dados.cores[canal]) || COR.ct;
+// no painel: a cor do canal e a seção e o painel do scope de um sinal que vai para o scope (medidor, tag ou saída de bloco)
+function caixaScope(e) {
+  const canal = canalScope(e), cor = corSinal(canal, e), escolhida = !!(dados.cores_escolhidas && dados.cores_escolhidas[canal]);
+  const amostras = e.tipo === "AMP" ? ["#0ea5e9", "#eab308", "#06b6d4", "#d946ef", "#22c55e", "#f97316"] : ["#eab308", "#06b6d4", "#d946ef", "#22c55e", "#0ea5e9", "#f97316"];
+  const ativa = (c) => cor === c && (MEDIDOR.has(e.tipo) || escolhida);   // um bloco sem cor escolhida: nenhuma (a do scope)
+  return `<div class="cor-canal" data-canal="${escT(canal)}"><span>${escT(tr("simu.cor_canal"))}</span>${amostras.map((c) => `<button class="amostra${ativa(c) ? " ativo" : ""}" data-cor="${c}" style="--c:${c}" title="${c}"></button>`).join("")}
+      <input type="color" value="${/^#[0-9a-f]{6}$/i.test(cor) ? cor : "#888888"}" title="${escT(tr("simu.t_outra_cor"))}"><button class="padrao" title="${escT(tr("simu.t_cor_padrao"))}">${escT(tr("simu.cor_padrao"))}</button></div>
+    ${circuitoDoLayout() ? `<div class="no-painel" data-canal="${escT(canal)}"><label><span>${escT(tr("simu.secao_scope"))}</span><select id="p-secao"></select></label>
+      <label><span>${escT(tr("simu.painel"))}</span><select id="p-painel"></select></label></div>` : ""}`;
+}
+// a etiqueta do scope (ao lado do medidor, ou na saída de um bloco): o nome do sinal no /maisim/scope, com a borda na cor do
+// canal. destino: "ambos" e "scope" — cheia (gravada na rodada); "controle" — tracejada, com "m" no lugar da onda (só no
+// m[...] do controle, não gravada); "fora" — apagada e tracejada (o sinal existe no circuito, mas não vira coluna nem m[...])
+function tagScope(g, x, y, canal, cor, destino = "ambos") {
+  const fora = destino === "fora", soCtl = destino === "controle";
+  const gg = no("g", Object.assign({ class: "tag-scope" + (fora ? " fora" : soCtl ? " so-controle" : destino === "scope" ? " so-scope" : ""),
+    transform: `translate(${x * G},${y * G})` }, fora ? { opacity: 0.4 } : soCtl ? { opacity: 0.8 } : {}), g);
+  no("title", {}, gg).textContent = tr(`simu.t_tag_${destino}`, { canal });
   const w = 0.95 + 0.33 * largMat(canal);
-  no("rect", Object.assign({ x: 0, y: -0.36 * G, width: w * G, height: 0.72 * G, rx: 0.36 * G, fill: COR.cartao, stroke: cor, "stroke-width": 1.8 }, fora ? { "stroke-dasharray": "3 2" } : {}), gg);
-  no("path", { d: `M${0.2 * G} ${0.05 * G}l${0.12 * G} ${-0.2 * G}l${0.14 * G} ${0.3 * G}l${0.14 * G} ${-0.24 * G}`, stroke: cor, "stroke-width": 1.4, fill: "none" }, gg);
+  no("rect", Object.assign({ x: 0, y: -0.36 * G, width: w * G, height: 0.72 * G, rx: 0.36 * G, fill: COR.cartao, stroke: cor, "stroke-width": 1.8 }, fora || soCtl ? { "stroke-dasharray": "3 2" } : {}), gg);
+  if (soCtl) texto(gg, 0.47, 0.02, "m", { "text-anchor": "middle", fill: cor, "font-size": 0.46 * G, "font-weight": 700, "dominant-baseline": "middle" });
+  else no("path", { d: `M${0.2 * G} ${0.05 * G}l${0.12 * G} ${-0.2 * G}l${0.14 * G} ${0.3 * G}l${0.14 * G} ${-0.24 * G}`, stroke: cor, "stroke-width": 1.4, fill: "none" }, gg);
   textoMat(gg, 0.78, 0.02, canal, { fill: COR.texto, "font-size": 0.46 * G, "font-weight": 600, "dominant-baseline": "middle" });
 }
 // onde vai o nome (e o valor) de um componente de dois pinos: o deslocamento que o Gecko guarda (dxTxt, dyTxt). O padrão
@@ -482,12 +505,18 @@ function desenha() {
       // cobria o que se liga ali, como o borne S do SM encostado no CONST)
       const atuador = typeof atuadorDe === "function" ? atuadorDe(e) : null;
       if (atuador) tagAtuador(camRot, e.x, e.y - 1.0, atuador, true);
+      // a saída de um bloco da folha principal que vai para o scope ou para o controle (Marcelo, 24/10: "o desenho mostra tudo
+      // o que vai para o scope"): a etiqueta no borne da 1ª saída, em cima da conexão (embaixo, se o bloco é um atuador: a
+      // etiqueta dele já está em cima), no lugar do rótulo (é o mesmo nome)
+      const dest = folhaAtual === "0" && !MEDIDOR.has(e.tipo) && !ehTag(e) && ehSinal(e, "0") ? destinoDe(e) : "fora";
+      const saiScope = mostrar.medicoes && dest !== "fora" ? e.terminais.find((t) => t.lado === "s") : null;
+      if (saiScope) tagScope(camRot, saiScope.x + 0.25, saiScope.y + (atuador ? 0.62 : -0.62), canalScope(e, "0"), corSinal(canalScope(e, "0"), e), dest);
       for (const t of e.terminais) {
         const borda = t.lado === "e" ? e.x - 1 : e.x + 1;
         if (t.x !== borda) no("line", { x1: t.x * G, y1: t.y * G, x2: borda * G, y2: t.y * G, stroke: COR.ct, "stroke-width": 1.4 }, g);
         if (atuador && t.lado === "s") continue;                                                              // a etiqueta já diz o nome
-        if ((MEDIDOR.has(e.tipo) || ehTag(e)) && t.lado === "s") { if (mostrar.medicoes) tagScope(camRot, t.x + 0.35, t.y, canalScope(e), e.tipo, foraDoScope(e)); }   // regra: medidor (e tag) vai para o /maisim/scope
-        else if (mostrar.rotulos && t.rotulo) rotulo(camRot, t.lado === "e" ? t.x - 0.2 : t.x + 0.2, t.y - 0.42, t.rotulo,
+        if ((MEDIDOR.has(e.tipo) || ehTag(e)) && t.lado === "s") { if (mostrar.medicoes) tagScope(camRot, t.x + 0.35, t.y, canalScope(e), corSinal(canalScope(e), e), destinoDe(e)); }   // regra: medidor (e tag) vai para o /maisim/scope
+        else if (mostrar.rotulos && t.rotulo && t !== saiScope) rotulo(camRot, t.lado === "e" ? t.x - 0.2 : t.x + 0.2, t.y - 0.42, t.rotulo,
           { "text-anchor": t.lado === "e" ? "end" : "start", fill: COR.rot, "font-size": 0.5 * G });
       }
     }
@@ -1147,14 +1176,12 @@ async function montaProps() {
     ${e.tipo === "AMP" ? `<h4>${escT(tr("simu.h_mede"))}</h4><label><span>${escT(tr("simu.corrente_de"))}</span><input id="m-comp" value="${e.mede[0] || ""}" placeholder="${escT(tr("simu.ph_busca"))}" autocomplete="off"></label>` : ""}
     ${ehTag(e) ? `<h4>${escT(tr("simu.h_marca"))}</h4><label><span>${escT(tr("simu.entrada_rotulo"))}</span><input data-in="0" value="${e.entradas[0] || ""}" placeholder="${escT(tr("simu.ph_ou_conexao"))}"></label>
       <div class="aviso">${escT(tr("simu.tag_aviso"))}</div>` : ""}
-    ${ehSinal(e, folhaDe(e)) ? `<label class="no-scope" title="${escT(tr("simu.t_noscope"))}"><input type="checkbox" id="p-noscope" ${foraDoScope(e) ? "" : "checked"}> ${escT(tr("simu.noscope"))}</label>` : ""}
+    ${ehSinal(e, folhaDe(e)) ? `<div class="destino"><label class="no-scope" title="${escT(tr("simu.t_vai_scope"))}"><input type="checkbox" id="p-scope" ${noScope(e) ? "checked" : ""}> ${escT(tr("simu.vai_scope"))}</label>
+      <label class="no-scope" title="${escT(tr("simu.t_vai_controle"))}"><input type="checkbox" id="p-controle" ${noControle(e) ? "checked" : ""}> ${escT(tr("simu.vai_controle"))}</label></div>` : ""}
     ${MEDIDOR.has(e.tipo) || ehTag(e) ? `<h4>${escT(tr("simu.h_nome_scope"))}</h4><label><span>${escT(tr("simu.sinal"))}</span><input data-out="0" value="${e.saidas[0] || ""}" placeholder="${canalScope(e)}"></label>
-      <div class="cor-canal" data-canal="${escT(canalScope(e))}"><span>${escT(tr("simu.cor_canal"))}</span>${(e.tipo === "AMP" ? ["#0ea5e9", "#eab308", "#06b6d4", "#d946ef", "#22c55e", "#f97316"]
-        : ["#eab308", "#06b6d4", "#d946ef", "#22c55e", "#0ea5e9", "#f97316"]).map((c) => `<button class="amostra${corCanal(canalScope(e), e.tipo) === c ? " ativo" : ""}" data-cor="${c}" style="--c:${c}" title="${c}"></button>`).join("")}
-        <input type="color" value="${corCanal(canalScope(e), e.tipo)}" title="${escT(tr("simu.t_outra_cor"))}"><button class="padrao" title="${escT(tr("simu.t_cor_padrao"))}">${escT(tr("simu.cor_padrao"))}</button></div>
-      ${circuitoDoLayout() ? `<div class="no-painel" data-canal="${escT(canalScope(e))}"><label><span>${escT(tr("simu.secao_scope"))}</span><select id="p-secao"></select></label>
-        <label><span>${escT(tr("simu.painel"))}</span><select id="p-painel"></select></label></div>` : ""}
-      <div class="aviso">${tr("simu.nome_scope_aviso_html", { canal: canalScope(e) })}</div>` : ""}
+      ${noScope(e) || !ehSinal(e, folhaDe(e)) ? caixaScope(e) : ""}
+      <div class="aviso">${tr("simu.nome_scope_aviso_html", { canal: canalScope(e) })}</div>`
+      : ehSinal(e, folhaDe(e)) && noScope(e) ? `<h4>${escT(tr("simu.h_no_scope"))}</h4>${caixaScope(e)}` : ""}
     ${e.dom === "CONTROL" && e.tipo !== "TERM" && !MEDIDOR.has(e.tipo) && !ehTag(e) ? `<h4>${escT(tr("simu.h_rot_terminais"))}</h4>${e.entradas.map((r, i) => `<label><span>${escT(tr("simu.entrada_n", { n: i + 1 }))}</span><input data-in="${i}" value="${r}"></label>`).join("")}
       ${e.saidas.map((r, i) => `<label><span>${escT(tr("simu.saida_n", { n: i + 1 }))}</span><input data-out="${i}" value="${r}"></label>`).join("")}` : ""}
     ${caixaHist()}`;
@@ -1174,10 +1201,12 @@ async function montaProps() {
     if (r && !/^[A-Za-z0-9_.+\-]+$/.test(r)) { msg(tr("simu.rotulo_invalido", { r }), "erro"); inp.value = ""; return; }
     pede("OUTNODE", [`${e.nome}#${inp.dataset.borne}`, 0, r], tr(r ? "simu.d_borne_ligado" : "simu.d_borne_solto", { nome: e.nome, borne: nomeTerm(inp.dataset.borne), r }));
   });
-  if (v("#p-noscope")) v("#p-noscope").onchange = async (ev) => {
-    const fora = !ev.target.checked;
-    try { novoEstado(await api("editor/fora", { uid: e.uid, fora })); if (typeof ligacoesMudaram === "function") ligacoesMudaram();
-      msg(tr(fora ? "simu.d_fora_scope" : "simu.d_volta_scope", { nome: e.nome }), "ok"); }
+  // as duas caixinhas: para onde vai o sinal (o painel se refaz com o estado novo: a cor, a seção e o painel do scope
+  // aparecem só com "→ Scope")
+  if (v("#p-scope")) v("#p-scope").onchange = v("#p-controle").onchange = async (ev) => {
+    const scope = v("#p-scope").checked, controle = v("#p-controle").checked;
+    try { novoEstado(await api("editor/destino", { uid: e.uid, scope, controle }));
+      msg(tr(`simu.d_destino_${scope ? (controle ? "ambos" : "scope") : controle ? "controle" : "fora"}`, { nome: e.nome }), "ok"); }
     catch (er) { msg(er.message, "erro"); ev.target.checked = !ev.target.checked; }
   };
   if (v("#p-bloco")) v("#p-bloco").onchange = async (ev) => {          // os bornes acompanham (posição proporcional ao tamanho)
