@@ -165,7 +165,7 @@ function ligaNoPainel(np) {
   };
   selS.onchange = async () => {
     if (selS.value === "+") {
-      const r = await modal({ titulo: tr("simu.m_nova_secao"), campos: [{ nome: "secao", rotulo: tr("simu.m_nome_secao"), valor: "" }, { nome: "painel", rotulo: tr("simu.m_painel"), valor: canal }], ok: tr("simu.criar") });
+      const r = await modal({ titulo: escT(tr("simu.m_nova_secao")), campos: [{ nome: "secao", rotulo: escT(tr("simu.m_nome_secao")), valor: "" }, { nome: "painel", rotulo: escT(tr("simu.m_painel")), valor: canal }], ok: escT(tr("simu.criar")) });
       const s = r && r.secao.trim(), t = (r && r.painel.trim()) || canal;
       if (!s) { desenhaOps(); return; }
       const L = leLayoutCircuito(), painel = { titulo: t, sinais: [], largura: 1 };
@@ -178,7 +178,7 @@ function ligaNoPainel(np) {
     const L = leLayoutCircuito(), gs = gruposDoLayout(L), g = gs[+selS.value];
     if (!g || g.secao !== selS.selectedOptions[0].dataset.secao) return mudou();   // outra janela mexeu no layout no meio
     if (selP.value === "+") {
-      const r = await modal({ titulo: tr("simu.m_novo_painel", { secao: nomeSecao(g) }), campos: [{ nome: "painel", rotulo: tr("simu.m_titulo_painel"), valor: canal }], ok: tr("simu.criar") });
+      const r = await modal({ titulo: escT(tr("simu.m_novo_painel", { secao: nomeSecao(g) })), campos: [{ nome: "painel", rotulo: escT(tr("simu.m_titulo_painel")), valor: canal }], ok: escT(tr("simu.criar")) });
       const t = r && r.painel.trim(); if (!t) { desenhaOps(+selS.value); return; }
       const painel = { titulo: t, sinais: [], largura: 1 };
       const ultimo = g.paineis.length ? g.paineis[g.paineis.length - 1] : g.item;   // no fim da seção
@@ -470,7 +470,7 @@ function desenha() {
       no("circle", { class: "borne", cx: t.x * G, cy: t.y * G, r: (livre ? 0.2 : 0.13) * G, fill: livre ? COR.cartao : cor, stroke: cor, "stroke-width": livre ? 1.4 : 0 }, g);
     }
   });
-  $("info").textContent = [ed.ligado && tr("simu.info_editando"), tr("simu.info_n", { n, nf: f.fios.length }),
+  $("info").textContent = [ed.ligado && tr("simu.info_editando"), tr("simu.info_elementos", { n }), tr("simu.info_conexoes", { n: f.fios.length }),
     folhaAtual === "0" && tr("simu.info_encaixe", { a: dados.encaixe.pontas - dados.encaixe.soltas.length, b: dados.encaixe.pontas })].filter(Boolean).join(" · ");
   ed.fantasma = no("g", { "pointer-events": "none", style: "display:none" }, svg);
   no("rect", { x: -1 * G, y: -1 * G, width: 2 * G, height: 2 * G, fill: "rgba(232,163,61,.15)", stroke: "#e8a33d", "stroke-dasharray": "4 3", rx: 3 }, ed.fantasma);
@@ -893,7 +893,7 @@ const nomeSM = (k) => nomeSub(dados.folhas[k].nome);
 const nosSMs = (fs) => fs.length > 1 ? " " + tr("simu.nos_iguais", { n: fs.length }) : (naFolhaPrincipal() ? "" : " " + tr("simu.so_no", { sm: nomeSM(folhaAtual) }));
 function textoAlvos() {
   const n = smsIguais().length, sm = nomeSM(folhaAtual);
-  if (n === 1) return tr("simu.alvo_unico", { sm });
+  if (n === 1) return tr("simu.alvo_unico_html", { sm });
   return tr(ed.todos ? "simu.alvo_todos_html" : "simu.alvo_so_html", { n, sm, m: n - 1 });
 }
 function faixaSM() {                                   // a faixa no alto da folha de um SM, em edição
@@ -1128,7 +1128,7 @@ async function montaProps() {
         <input type="color" value="${corCanal(canalScope(e), e.tipo)}" title="${escT(tr("simu.t_outra_cor"))}"><button class="padrao" title="${escT(tr("simu.t_cor_padrao"))}">${escT(tr("simu.cor_padrao"))}</button></div>
       ${circuitoDoLayout() ? `<div class="no-painel" data-canal="${escT(canalScope(e))}"><label><span>${escT(tr("simu.secao_scope"))}</span><select id="p-secao"></select></label>
         <label><span>${escT(tr("simu.painel"))}</span><select id="p-painel"></select></label></div>` : ""}
-      <div class="aviso">${tr("simu.nome_scope_aviso", { canal: canalScope(e) })}</div>` : ""}
+      <div class="aviso">${tr("simu.nome_scope_aviso_html", { canal: canalScope(e) })}</div>` : ""}
     ${e.dom === "CONTROL" && e.tipo !== "TERM" && !MEDIDOR.has(e.tipo) && !ehTag(e) ? `<h4>${escT(tr("simu.h_rot_terminais"))}</h4>${e.entradas.map((r, i) => `<label><span>${escT(tr("simu.entrada_n", { n: i + 1 }))}</span><input data-in="${i}" value="${r}"></label>`).join("")}
       ${e.saidas.map((r, i) => `<label><span>${escT(tr("simu.saida_n", { n: i + 1 }))}</span><input data-out="${i}" value="${r}"></label>`).join("")}` : ""}
     ${caixaHist()}`;
@@ -2178,15 +2178,32 @@ addEventListener("storage", (ev) => {                   // Δt e tempo final mud
 // o idioma mudou (o PT/EN do trilho, nesta janela ou noutra): o que este arquivo escreve na página volta no idioma novo (o HTML
 // estático o aplica() já trocou). A linha de mensagens e o histórico ficam como foram escritos
 maisimI18n.aoMudar(() => {
-  titulosCabecalho(); titulosPaineis(); tituloDivisoria(); estadoVer(); textosRede();
+  titulosCabecalho(); titulosPaineis(); estadoVer(); textosRede();
+  if ($("divisoria").title) tituloDivisoria();            // só a que já tem título (o posicionaScope dá o primeiro)
   const op = $("sel-modelo").querySelector(`option[value="${NOVO}"]`);   // o circuito novo, na lista escondida e no botão do modelo
   if (op && ed.novo) { op.textContent = tr("simu.op_novo", { nome: ed.novo }); if (op.parentElement) op.parentElement.label = tr("simu.grupo_novo"); }
   mostraModelo();
   if (dados) desenha();                                  // o desenho, a linha de informação, a trilha e a faixa do SM
   if (ed.catalogo) desenhaPaleta();
-  if (ed.ligado) mostraProps();                         // o painel da direita (e o histórico)
+  refazProps();                                         // o painel da direita (e o histórico), sem atrapalhar quem digita
   if (VISTA_CODIGO) { $("titulo-pagina").textContent = tr("simu.titulo_codigo"); tituloCodigo(); }
 });
+// o painel da direita no idioma novo, mas sem tirar o que está sendo digitado nele (a troca pode vir de outra janela): com o
+// foco num campo do painel (um valor pela metade, a lista de sugestões, a escolha de seção ou painel aberta), espera o foco
+// sair dele; com um modal aberto (a seção ou o painel novos), espera o modal fechar
+let propsEsperando = false;
+function refazProps() {
+  if (!ed.ligado || propsEsperando) return;
+  const P = $("props"), a = document.activeElement;
+  if (document.querySelector(".modal-fundo")) {
+    propsEsperando = true; const t = setInterval(() => { if (document.querySelector(".modal-fundo")) return;
+      clearInterval(t); propsEsperando = false; refazProps(); }, 400); return; }
+  if (!(a && a !== document.body && P.contains(a))) { mostraProps(); return; }
+  propsEsperando = true;
+  const sai = (ev) => { if (ev.relatedTarget && P.contains(ev.relatedTarget)) return;   // de um campo do painel para outro: espera
+    P.removeEventListener("focusout", sai); propsEsperando = false; setTimeout(refazProps, 0); };   // depois do "change" do campo
+  P.addEventListener("focusout", sai);
+}
 // os títulos do cabeçalho que este arquivo escreve (o cadeado, o salvar, o ▶, o guardar): já na carga, no idioma da página
 // (o HTML traz o português); depois, a cada troca de idioma
 function titulosCabecalho() {
