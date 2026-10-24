@@ -5,7 +5,10 @@ import time
 
 
 class ErroMotor(Exception):
-    pass
+    """Um erro para a página. codigo: o que a página confere (nunca o texto, que muda com o idioma); extra: mais campos na resposta."""
+    def __init__(self, msg="", codigo=None, **extra):
+        super().__init__(msg)
+        self.extra = dict(extra, **({"codigo": codigo} if codigo else {}))
 
 
 class Motor:

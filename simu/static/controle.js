@@ -366,14 +366,14 @@ function desenhaLigacoes() {
         <td><select data-k="alvo">${alvos.some(([v]) => v === q.alvo) ? "" : `<option value="${escT(q.alvo)}">${escT(q.alvo)} (não existe)</option>`}${alvos.map(([v, r]) => `<option value="${escT(v)}" ${v === q.alvo ? "selected" : ""}>${escT(r)}</option>`).join("")}</select></td>
         <td><input data-k="valor" value="${q.valor}" placeholder="valor"></td><td class="dest${escrito ? " alerta" : ""}">${escT(obs)}</td><td><button class="rm" data-rm-ac="${i}" title="tirar">×</button></td></tr>` }; });
   $("ctl-ac").innerHTML = ordenaLinhas(lAc, "ac").map((x) => x.html).join("") || vazio(5, 'ex.: em 0,01 s, p["i_ref"] = 8 (degrau de referência), ou um CONST de carga = 1: + acionamento');
-  $("ctl-avisos").innerHTML = avisosDoPainel(d.avisos) + avisoSemEsquema();
+  $("ctl-avisos").innerHTML = avisosDoPainel(d.avisos, d.compartilhados) + avisoSemEsquema();
   desenhaIndice(); filtraTabela();
 }
 // o índice da coluna "variáveis": cada tabela com o quanto tem (e um alerta: atuação escrita e não marcada, parâmetro sem uso)
 function desenhaIndice() {
   const d = ctl.dados; if (!d) return;
   const c = d.controle, nA = d.atuadores.length, nM = c.atuacoes.filter((x) => d.atuadores.some((a) => a.nome === x)).length;
-  const naoMarcada = (d.conferencia || []).some((x) => /não está marcado em atuações/.test(x.msg));
+  const naoMarcada = (d.conferencia || []).some((x) => x.codigo === "atuacao_nao_marcada");
   const semUso = c.parametros.filter((q) => q.nome && !usoPar(q.nome).length).length;
   const conflito = (c.acionamentos || []).filter((q) => /^CONST:/.test(q.alvo) && c.atuacoes.includes(q.alvo.slice(6))).length;
   const itens = [["ent", String(d.entradas.length), false, `${d.entradas.length} medidas no circuito`],
@@ -671,7 +671,8 @@ async function trocaVariavel(x) {
 document.addEventListener("click", (ev) => { if (!ev.target.closest) return;
   const b = ev.target.closest("#ctl-avisos [data-troca]"); if (b && ctl.dados) { trocaVariavel((ctl.dados.sem_esquema || [])[+b.dataset.troca]); return; }
   const vai = ev.target.closest("#ctl-avisos [data-vai]"); if (vai) { const i = vai.dataset.vai.lastIndexOf(":"); vaiParaLinha(vai.dataset.vai.slice(0, i), +vai.dataset.vai.slice(i + 1)); } });
-const avisosDoPainel = (l) => (l || []).filter((a) => !/ é importado por .*: cada controlador tem a sua cópia/.test(a)).map((a) => `<div>${escT(a)}</div>`).join("");
+// o módulo compartilhado (o servidor diz quais, pelo código): a árvore já mostra, o painel não repete
+const avisosDoPainel = (l, comp) => (l || []).filter((a) => !(comp || []).includes(a)).map((a) => `<div>${escT(a)}</div>`).join("");
 function importsDe(a) {
   const t = textoDe(a), nomes = [];
   for (const m of t.matchAll(/^[ \t]*(?:import[ \t]+([\w., \t]+)|from[ \t]+(\w+)[ \t]+import\b)/gm)) {
@@ -1190,7 +1191,7 @@ async function guardaControle() {
   try {
     const j = await api("editor/controle", { controle: pedido }); ctl.erroGuardar = "";
     const editandoPar = document.activeElement && document.activeElement.closest && document.activeElement.closest("#ctl-par, #ctl-ac, .ctl-ts, .ctl-ctl input[data-k]");
-    ctl.dados = j; if (!editandoPar) desenhaLigacoes(); else $("ctl-avisos").innerHTML = avisosDoPainel(j.avisos) + avisoSemEsquema();
+    ctl.dados = j; if (!editandoPar) desenhaLigacoes(); else $("ctl-avisos").innerHTML = avisosDoPainel(j.avisos, j.compartilhados) + avisoSemEsquema();
     marcaErros(j.erros, j.conferencia); estadoCodigo(j); desenhaEntradas();
     if (editandoPar) desenhaInstancias();
     if (typeof avisa === "function") avisa("controle");       // a outra janela (a do código, ou a do circuito) acompanha

@@ -86,7 +86,7 @@ for titulo, saida, extra in CASOS:
                                              "codigo": ORQ.replace("{SAIDA}", saida), "arquivos": arqs}})
     if titulo.startswith("u = {...}"):
         sub = [x for x in r.get("conferencia", []) if "u_ctrl" in x["msg"]]
-        ok(len(sub) == 1 and "não está marcado em atuações" in sub[0]["msg"] and not any("nao_atuador" in x["msg"] for x in r.get("conferencia", [])),
+        ok(len(sub) == 1 and sub[0].get("codigo") == "atuacao_nao_marcada" and not any("nao_atuador" in x["msg"] for x in r.get("conferencia", [])),
            f"validador: sublinha o \"u_ctrl\" do u = {{...}} na linha {sub[0]['linha'] if sub else '?'} (\"{sub[0]['msg'] if sub else ''}\"); o dicionário qualquer não")
         t = api("editor/controle/testar", {"dt": 1e-6})
         ok(t.get("ok") and all(q["fora"] == ["u_ctrl"] for q in t["passos"]), f"sem marcar, o testar avisa o que a rodada faria: fora = {[q['fora'] for q in t.get('passos', [])]}")

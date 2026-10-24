@@ -160,7 +160,7 @@ def conversa_md(hist, titulo="", de=1):
     return "\n".join(L) + "\n"
 
 
-PEDIDO_MD = re.compile(r"(?m)^## \d+\. Pedido")
+PEDIDO_MD = re.compile(r"(?m)^## \d+\. (?:Pedido|Request)")   # a conversa em português ou inglês
 
 
 def conversa_junta(base, anterior, hist, titulo=""):

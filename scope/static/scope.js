@@ -197,32 +197,33 @@ function fina(F, canal, w0, w1, semCache) {
 function catalogo() {
   const F = A; const lst = [];
   if (!F) return lst;
-  const add = (grupo, canal, rotulo) => { if (grossa(F, canal)) lst.push({ grupo, canal, rotulo, tipo: tipo(canal) }); };
+  // id: o grupo para o código (o nome do grupo é texto, muda com o idioma); braco: o nome do braço, para o rótulo
+  const add = (grupo, canal, rotulo, id, braco) => { if (grossa(F, canal)) lst.push({ grupo, canal, rotulo, tipo: tipo(canal), id, braco }); };
   add("Porta CC", "vdc", "V_dc (V)"); add("Porta CC", "idc", "i_dc da carga (A)");
   add("Potência", "P_ref", "P* (W)"); add("Potência", "Q_ref", "Q* (var)");
   for (const k of "abc") { add("Rede", `i${k}`, `i_${k} (A)`); add("Rede", `i${k}_ref`, `i_${k}* referência (A)`); add("Rede", `v${k}`, `v_${k} da rede (V)`); }
-  for (const [n, r] of Object.entries(MEDIDOS)) add("Medidas no Gecko a cada passo fino", `fino_${n}`, r);
+  for (const [n, r] of Object.entries(MEDIDOS)) add("Medidas no Gecko a cada passo fino", `fino_${n}`, r, "medidas");
   for (const k of "abc") add("Tensões PWM reconstruídas dos comandos", `e_${k}`, `e_${k} = (v_l − v_u)/2, perna ${k} (V)`);
   for (const b of BRACOS) {
-    const g = `Braço ${NOME[b]}`;
-    add(g, `iarm_${b}`, "corrente real (A)"); add(g, `iarm_hat_${b}`, "corrente estimada pelos SMs (A)");
-    add(g, `iarm_ref_${b}`, "corrente de referência (A)"); add(g, `nhat_${b}`, "N̂");
-    add(g, `varm_${b}`, "tensão do braço, PWM (V)");
-    for (let j = 1; j <= nSM(); j++) { add(g, `vc_${b}_${j}`, `v_c SM${j} (V)`); add(g, `s_${b}_${j}`, `pulso SM${j}`); add(g, `sig_${b}_${j}`, `σ SM${j} (média na janela)`); }
+    const g = `Braço ${NOME[b]}`, ab = (grupo, canal, rotulo) => add(grupo, canal, rotulo, "braco", NOME[b]);
+    ab(g, `iarm_${b}`, "corrente real (A)"); ab(g, `iarm_hat_${b}`, "corrente estimada pelos SMs (A)");
+    ab(g, `iarm_ref_${b}`, "corrente de referência (A)"); ab(g, `nhat_${b}`, "N̂");
+    ab(g, `varm_${b}`, "tensão do braço, PWM (V)");
+    for (let j = 1; j <= nSM(); j++) { ab(g, `vc_${b}_${j}`, `v_c SM${j} (V)`); ab(g, `s_${b}_${j}`, `pulso SM${j}`); ab(g, `sig_${b}_${j}`, `σ SM${j} (média na janela)`); }
   }
   // qualquer outro canal da rodada (ex.: rodadas do /maisim/simu, com os nomes dos rótulos dos medidores)
   const conhecidos = new Set(lst.map((c) => c.canal));
   for (const k of Object.keys(F.dados).sort()) {
     if (k === "t" || conhecidos.has(k) || /^(pwm_|pwmn_|fino_)/.test(k)) continue;
-    add("Sinais da rodada", k, k);
+    add("Sinais da rodada", k, k, "rodada");
   }
   return lst;
 }
 function rotulo(canal) {
   const c = catalogo().find((x) => x.canal === canal);
   if (!c) return canal;
-  if (c.grupo.startsWith("Braço")) return `${c.grupo.slice(6)}: ${c.rotulo}`;
-  if (c.grupo.startsWith("Medidas")) return /medida/.test(c.rotulo) ? c.rotulo : `${c.rotulo} medida`;
+  if (c.id === "braco") return `${c.braco}: ${c.rotulo}`;
+  if (c.id === "medidas") return /medida/.test(c.rotulo) ? c.rotulo : `${c.rotulo} medida`;
   return c.rotulo;
 }
 
@@ -1446,7 +1447,7 @@ function medeCab() { document.documentElement.style.setProperty("--cab-h", `${do
 function garantePainelDaRodada() {
   if (!A || !A.dados) return;
   const todos = catalogo().map((c) => c.canal).filter((c) => temSinal(A, c));
-  const gen = catalogo().filter((c) => c.grupo === "Sinais da rodada").map((c) => c.canal).filter((c) => temSinal(A, c));
+  const gen = catalogo().filter((c) => c.id === "rodada").map((c) => c.canal).filter((c) => temSinal(A, c));
   const usar = gen.length ? gen : todos;
   if (!usar.length || paineis().some((p) => p.sinais.some((c) => temSinal(A, c)))) return;
   adicionaSecao(circuitoDe(A) || `Rodada ${A.meta.rotulo || ""}`.trim(), 0);
@@ -1724,7 +1725,7 @@ async function abreApagar() {
   $("ap-lista").innerHTML = lst.map((x) => {
     const q = [x.rotulo, x.arq, x.nome, x.modelo, x.guardada ? "guardada" : ""].join(" ").toLowerCase();
     return `<label data-q="${escH(q)}"><input type="checkbox" data-arq="${escH(x.arq)}" data-tam="${x.pasta_tam || x.tamanho || 0}" data-guardada="${x.guardada ? 1 : ""}"${marcadas.has(x.arq) ? " checked" : ""}>` +
-      `<span>${escH(x.rotulo || x.arq)}${x.guardada ? '<span class="selo" title="guardada: “por cima” não a substitui; apagar pede confirmação">guardada</span>' : ""}</span>` +
+      `<span data-nome="${escH(x.rotulo || x.arq)}">${escH(x.rotulo || x.arq)}${x.guardada ? '<span class="selo" title="guardada: “por cima” não a substitui; apagar pede confirmação">guardada</span>' : ""}</span>` +
       `<span class="tam" title="${x.pasta ? "a pasta da rodada inteira" : "só a gravação (.npz)"}">${mb(x.pasta_tam || x.tamanho || 0)}</span>` +
       `<button class="lixo" type="button" title="apagar só esta" aria-label="apagar só esta">${LIXO}</button><span class="cam">${escH(x.arq)}</span></label>`; }).join("") ||
     "<i>nenhuma gravação</i>";
@@ -1756,7 +1757,7 @@ function resumoApagar(r) {
 async function apagaAp(ck, orfas) {
   if (apagando || (!ck.length && !orfas)) return;
   const tam = ck.reduce((a, c) => a + +c.dataset.tam, 0) + (orfas ? +$("ap-orfas").dataset.tam : 0), guard = ck.filter((c) => c.dataset.guardada).length;
-  const uma = ck.length === 1 && !orfas ? ck[0].closest("label").querySelector("span").textContent.replace(/guardada$/, "") : "";
+  const uma = ck.length === 1 && !orfas ? ck[0].closest("label").querySelector("span").dataset.nome : "";   // o nome, sem o selo
   if (!(await pergunta({ titulo: "Apagar do disco?", ok: "Apagar", perigo: true,
     texto: `${uma || `${ck.length} gravação(ões)${orfas ? " e as pastas sem gravação" : ""}`}, ${mb(tam)}. De uma rodada do simu sai a pasta inteira (os dados e a cópia do circuito daquela rodada; o seu circuito não). Não dá para desfazer.` }))) return;
   if (guard && !(await pergunta({ titulo: "Há rodadas guardadas", ok: "Apagar mesmo assim", perigo: true,

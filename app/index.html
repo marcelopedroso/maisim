@@ -174,7 +174,7 @@
                 exemplo_controle_pi: ["Controle PI digital", "PI de corrente num RL, com anti-windup e acionamentos"],
                 exemplo_controle_pwm: ["Buck com controle digital", "o PWM e o PI no código do controle (discreto, como num DSP)"] };
             try {
-                const mods = (await (await fetch("/maisim/simu/modelos")).json()).filter((m) => m.grupo === "exemplos");
+                const mods = (await (await fetch("/maisim/simu/modelos")).json()).filter((m) => (m.id_grupo || m.grupo) === "exemplos");   // pelo id (o grupo é texto)
                 if (!mods.length) return;
                 const ordem = Object.keys(DESCR), pos = (m) => { const k = ordem.indexOf(m.arq.split("/").pop().replace(/\.ipes$/, "")); return k < 0 ? 99 : k; };
                 document.querySelector("#exemplos .ex-grade").innerHTML = mods.sort((a, b) => pos(a) - pos(b)).map((m) => {

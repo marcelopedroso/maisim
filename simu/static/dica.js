@@ -6,7 +6,7 @@
   const caixa = document.createElement("div");
   caixa.id = "dica-ui"; caixa.setAttribute("role", "tooltip");
   document.body.appendChild(caixa);
-  const TECLA = /\((Ctrl\+[^()\s]+|Shift\+[^()\s]+|Alt\+[^()\s]+|Espaço|Esc|Enter|Delete|Del|[A-Z0-9])\)/g;
+  const TECLA = /\((Ctrl\+[^()\s]+|Shift\+[^()\s]+|Alt\+[^()\s]+|Espaço|Space|Esc|Enter|Delete|Del|[A-Z0-9])\)/g;
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   let alvo = null, timer = null, obs = null;
 
