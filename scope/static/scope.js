@@ -1,4 +1,4 @@
-// maisim-scope: painéis configuráveis (uPlot) em seções, cursor sincronizado no tempo, zoom X/Y/área e ⟲ em cada painel
+// maisim-scope: painéis configuráveis (uPlot) em seções, cursor sincronizado no tempo, zoom X/Y/área e o enquadrar (ver tudo) em cada painel
 // (o tempo é comum aos painéis ligados; um painel solto tem o seu), Ctrl + roda, pulsos de PWM e formas de onda medidas no
 // Gecko com a resolução do passo fino no zoom, salvar PNG.
 // Modos "Ao vivo" (SSE) e "Comparar" (A em cores; B na cor do mesmo sinal, mais clara e tracejada).
@@ -277,7 +277,7 @@ function seriesDe(p) {
   if (p.med && p.med.aberto) for (const F of B ? [A, B] : [A]) {
     const partes = out.filter((se) => se.F === F && !p.espFora.has(`${se.canal}|${F === A ? "A" : "B"}`)).map((se) => se.canal);
     if (partes.length < 2) continue;
-    const suf = B ? (F === A ? " · A" : " · B") : "", comb = p.med.comb || "ambos";
+    const suf = B ? (F === A ? " · A" : " · B") : "", comb = p.med.comb || "nenhum";
     for (const [k, rot, div] of [["soma", "Σ", 1], ["media", "x̄", partes.length]])
       if (comb === k || comb === "ambos")
         out.push({ F, soma: partes, comb: k, div, canal: rot, rot: rot + suf, cor: cores()[k], dash: F === B ? [6, 4] : undefined, largura: 2.4,
@@ -387,7 +387,7 @@ function mudaX(p, faixa) {
   if (p.solto) { p.xZoom = faixa; agenda([p]); return; }
   xFaixa = faixa; agenda(paineis().filter((q) => !q.solto));
 }
-function reseta(p) { p.yZoom = null; mudaX(p, null); }      // ⟲: vertical automática (ou o Y fixo) e o tempo todo
+function reseta(p) { p.yZoom = null; mudaX(p, null); }      // o enquadrar: vertical automática (ou o Y fixo) e o tempo todo
 
 // ---------------------------------------------------------------- medição num intervalo
 // Mesmo método de smauto.metrics (window, harmonic_phasors, thd), para os números baterem com os scripts e o artigo:
@@ -396,9 +396,9 @@ function reseta(p) { p.yZoom = null; mudaX(p, null); }      // ⟲: vertical aut
 // THD = √(Σ |X_hn|², h = 2 … 50, hn < N/2 + 1) / |X_n|, sobre x − média. Sempre o valor real (sem o ×k nem o
 // empilhamento da tela); canais "passo fino" no passo fino (1 µs), os outros a cada janela de controle.
 // comb: o que a medição mostra dos sinais juntos — "soma" (Σ), "media" (x̄ = Σ/n, a média instantânea dos n sinais; Marcelo,
-// 20/10: "a média da soma no instante, 10 sinais: soma os 10 e divide por 10") ou "ambos" (o padrão: "os dois"); oculta: as
+// 20/10: "a média da soma no instante, 10 sinais: soma os 10 e divide por 10"), "ambos" ou "nenhum" (o padrão, 23/10); oculta: as
 // curvas escondidas na legenda ({soma, media}), guardadas no layout
-const MED_PADRAO = { aberto: false, t0: 0, n: 1, f0: 50, hs: "1, 2, 3", comb: "ambos", oculta: {}, imp: { on: false, ate: 15 }, par: { on: false, ate: 10 },
+const MED_PADRAO = { aberto: false, t0: 0, n: 1, f0: 50, hs: "1, 2, 3", comb: "nenhum", oculta: {}, imp: { on: false, ate: 15 }, par: { on: false, ate: 10 },
                      esp: { aberto: false, hmax: 50, log: true, dec: 4 }, cur: { on: false, a: null, b: null, yon: false, ya: null, yb: null }, fourier: true };
 const novaMed = (cfg) => { const c = cfg || {}, m = Object.assign({}, MED_PADRAO, c); m.oculta = Object.assign({}, c.oculta || {});
   for (const k of ["imp", "par", "esp", "cur"]) m[k] = Object.assign({}, MED_PADRAO[k], c[k] || {});
@@ -585,7 +585,7 @@ function mede(p) {
     const lista = p.medRes.filter((x) => x.se.F === F && !p.espFora.has(x.chave));
     if (p.medRes.filter((x) => x.se.F === F).length < 2) continue;
     const r = medeSoma(lista, M, hs), suf = B ? (F === A ? " · A" : " · B") : "", np = (r.parte || []).length;
-    const quem = (r.parte || []).map((x) => x.nome).join(" + ") || "nenhum", comb = M.comb || "ambos";
+    const quem = (r.parte || []).map((x) => x.nome).join(" + ") || "nenhum", comb = M.comb || "nenhum";
     for (const [k, rot, dica] of [["soma", "Σ", "soma, ponto a ponto"], ["media", "x̄", `média instantânea (a soma ÷ ${np}), ponto a ponto`]]) {
       if (comb !== k && comb !== "ambos") continue;
       html += `<tr class="soma"><td class="nome-soma" title="${dica}, de: ${quem}">${rot}${suf} <span>(${np} ${np === 1 ? "sinal" : "sinais"})</span></td>`;
@@ -673,7 +673,7 @@ function mudaMed(p, guarda = true) {                   // depois de mudar t₀, 
   p.el.querySelector(".b-med").classList.toggle("ativo", M.aberto);
   box.classList.toggle("sem-fourier", !M.fourier);
   box.querySelectorAll(".m-modo").forEach((bt) => bt.classList.toggle("ativo", { fourier: M.fourier, ct: M.cur.on, cy: M.cur.yon }[bt.dataset.k]));
-  if (M.aberto) { leituraCur(p); box.querySelector(".m-comb").value = M.comb || "ambos"; }
+  if (M.aberto) { leituraCur(p); box.querySelector(".m-comb").value = M.comb || "nenhum"; }
   if (M.aberto && M.fourier) {
     box.querySelector(".m-t0").value = +M.t0.toFixed(3); box.querySelector(".m-n").value = M.n;
     box.querySelector(".m-f0").value = M.f0; box.querySelector(".m-hs").value = M.hs;
@@ -822,6 +822,7 @@ const MODOS_ZOOM = { x: "X", y: "Y", xy: "área" };
 const svg = (d) => `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px">${d}</svg>`;
 const ICONE_LIGADO = svg(`<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>`);
 const ICONE_SOLTO = svg(`<path d="M18.8 12.3l1.7-1.7a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M5.2 11.7l-1.7 1.7a5 5 0 0 0 7 7l1.7-1.7"/><path d="M8 2v3M2 8h3M16 19v3M19 16h3"/>`);
+const ICONE_TUDO = svg(`<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>`);           // ver tudo (os quatro cantos: enquadrar)
 const ICONE_SETA = svg(`<path d="M6 9l6 6 6-6"/>`);                                    // recolher (▾) / abrir (▸, girada)
 const ICONE_EXPANDE = svg(`<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>`);
 const ICONE_VOLTA = svg(`<path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/>`);
@@ -1153,7 +1154,7 @@ function menuY(p) {
   m.addEventListener("keydown", (e) => { if (e.key === "Enter") m.querySelector(".y-ok").click(); });
   return m;
 }
-function marcaY(p) { const b = p.el.querySelector(".b-y"); b.classList.toggle("ativo", !!p.yFixo); b.title = p.yFixo ? `escala vertical fixa: ${p.yFixo[0]} … ${p.yFixo[1]} (o ⟲ volta a ela)` : "fixar a escala vertical (mín/máx), guardada no layout"; }
+function marcaY(p) { const b = p.el.querySelector(".b-y"); b.classList.toggle("ativo", !!p.yFixo); b.title = p.yFixo ? `escala vertical fixa: ${p.yFixo[0]} … ${p.yFixo[1]} (o enquadrar volta a ela)` : "fixar a escala vertical (mín/máx), guardada no layout"; }
 function marcaZoom(p) {
   p.el.querySelectorAll(".b-zm").forEach((b) => b.classList.toggle("ativo", b.dataset.m === p.modo));
   const b = p.el.querySelector(".b-solto");
@@ -1209,7 +1210,7 @@ function adicionaPainel(cfg, posicao) {
     <input class="titulo" type="text"><span class="titulo-mat" title="clique para mudar o título"></span><div class="ferr"><button class="b-sinais">Sinais ▾</button>
     <span class="zoom" title="o que o arrastar faz neste painel"><span class="rot">zoom</span>${Object.entries(MODOS_ZOOM).map(([m, r]) =>
       `<button class="b-zm" data-m="${m}" title="${{ x: "arrastar escolhe o intervalo de tempo", y: "arrastar escolhe a faixa vertical deste painel", xy: "arrastar escolhe uma área (tempo e vertical)" }[m]}">${r}</button>`).join("")}<button
-      class="b-reset" title="ver tudo neste painel: vertical automática (ou o Y fixo) e o tempo todo; o tempo vale para todos os painéis ligados (duplo clique faz o mesmo)">⟲</button></span>
+      class="b-reset" title="ver tudo neste painel: vertical automática (ou o Y fixo) e o tempo todo; o tempo vale para todos os painéis ligados (duplo clique faz o mesmo)">${ICONE_TUDO}</button></span>
     <button class="b-solto"></button><button class="b-med" title="média e série de Fourier num intervalo (Shift + arrastar no gráfico)">Medir</button><button class="b-y">Y fixo</button>
     <button class="b-opc" title="largura, altura, PNG">⋯</button></div><button class="b-exp"></button><button class="b-rem" title="remover painel">✕</button></div><div class="area"></div>
     <span class="b-alca" title="arraste para esticar: a altura livre; a largura encaixa na grade (1/3, 1/2, 2/3, 5/6, inteira). Duplo clique volta ao padrão"></span>`;
