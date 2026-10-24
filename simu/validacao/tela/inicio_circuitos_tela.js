@@ -47,6 +47,22 @@ const api = (rota, corpo) => fetch("http://localhost:7201/maisim/simu/" + rota, 
     await pg.click('.abas-circ button[data-aba="todos"]');
     const nosTodos = await pg.$$eval("#lista-circ .rodada b", (bs) => bs.map((x) => x.textContent));
     ok(topo === ex.nome.replace(/\.ipes$/, "") && !nosTodos.includes(topo), `um exemplo aberto fica em cima nos Recentes (${topo}) e fora de Todos`);
+    // apagar pela tela inicial (Marcelo, 24/10: "deletar por aqui, sem achar a pasta"): um circuito descartável; o aberto no
+    // editor não tem lixeira; confirmar apaga de vez (a .lixeira fica numa pasta que a pessoa nem acha) e o tira da lista
+    await api("editor/novo", { modo: "descartar" }); await api("editor/cmd", { op: "CREATE", args: ["R.1", 10, 10, "R"] });
+    const sv = await api("editor/salvar", { nome: "inicio_apagar_t", pasta: "circuitos", sobrescrever: true });
+    await api("editor/abrir", { arq: a1.arq, modo: "descartar" });                       // aberto: a1
+    await pg.reload(); await pg.waitForSelector("#circuitos:not([hidden])");
+    await pg.click('.abas-circ button[data-aba="todos"]');
+    const semLixo = await pg.$$eval("#lista-circ .rodada", (rs, n) => rs.filter((r) => r.querySelector("b").textContent === n).map((r) => !!r.querySelector("button.apagar")), a1.nome.replace(/\.ipes$/, ""));
+    ok(semLixo.length === 1 && semLixo[0] === false, "o circuito aberto no editor não tem lixeira");
+    await pg.fill("#filtro-circ", "inicio_apagar_t");
+    await pg.click("#lista-circ button.apagar"); await pg.waitForSelector(".modal .m-ok");
+    await pg.click(".modal .m-ok"); await pg.waitForTimeout(800);
+    const fs = require("fs"), path = require("path"), arqT = sv.salvo || path.join(pastas.meus, "inicio_apagar_t.ipes");
+    const lx = path.join(pastas.meus, ".lixeira"), naLixeira = fs.existsSync(lx) ? fs.readdirSync(lx).filter((f) => f.startsWith("inicio_apagar_t_")) : [];
+    ok(!fs.existsSync(arqT) && !naLixeira.length && !(await pg.textContent("#lista-circ")).includes("inicio_apagar_t") && !(await api("modelos")).some((m) => m.nome === "inicio_apagar_t.ipes"),
+       "apagar de vez: some da lista e do disco (nada na .lixeira)");
     ok(!erros.length, `sem erros de JS ${erros.join(" ; ")}`);
   } catch (e) { ok(false, "o teste caiu: " + e.message); }
   if (b) await b.close();

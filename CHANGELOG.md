@@ -7,6 +7,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Added
+- Home page, Circuits: a delete button on your circuits (not on the one open in the editor). After a confirmation it deletes the circuit for good, with its control code and colours, so nobody has to find the folder (#PR).
 - Home page: a **Circuits** section. *Recent* lists the circuits opened last (the simu notes every open and save in `recentes.json`), *All circuits* lists yours, the library and the extra folders by group, with search; one click opens a circuit in the simu, and the folder where your circuits are kept is shown (#85).
 - CI: when the full suite passes on main, every PR merged since the last green run gets a comment saying so (with the run link), and the READMEs show the verify and full-suite status badges (#84).
 - `MAISIM_PORTA=8100` in the `.env` moves all seven ports at once (8100–8106, display :81), like `npm run maisim -- -p 8100` but for good; a port written separately still wins (#86).
