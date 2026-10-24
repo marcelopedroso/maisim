@@ -59,7 +59,7 @@ if grep -q "GeckoCIRCUITS is ready" "$C/gecko.log"; then
   fala "Gecko pronto (avisos de carga: $AV)" "Gecko ready (load warnings: $AV)"
   M="$(cd "$AQUI/../simu/motor" && pwd)"         # motor do editor: compila se o .java for mais novo
   if [ ! -f "$M/bin/maisim/MaiSimMotor.class" ] || [ "$M/src/maisim/MaiSimMotor.java" -nt "$M/bin/maisim/MaiSimMotor.class" ]; then
-    javac -nowarn -cp "$JAR" -d "$M/bin" "$M/src/maisim/MaiSimMotor.java" 2> "$C/motor_javac.log" || \
+    javac -nowarn -encoding UTF-8 -cp "$JAR" -d "$M/bin" "$M/src/maisim/MaiSimMotor.java" 2> "$C/motor_javac.log" || \
       fala "o motor não compilou (veja $C/motor_javac.log)" "the engine did not compile (see $C/motor_javac.log)"
   fi
   nohup java -cp "$JAR:$M/bin" maisim.MaiSimMotor --gecko-port "$PG" --porta "$PM" > "$C/motor.log" 2>&1 & echo $! > "$C/motor.pid"
