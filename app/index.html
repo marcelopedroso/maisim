@@ -5,7 +5,7 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=1" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#6d28d9" />
+    <meta name="theme-color" content="#6d28d9" data-claro="#f7f8fa" data-escuro="#0f1115" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MaiSim</title>
     <meta name="description" content="Open-source circuit and digital control simulation, with AI built in" />
@@ -18,6 +18,8 @@
         } catch (e) {                                   // sem localStorage: segue o sistema
             document.documentElement.dataset.tema = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'escuro' : 'claro'
         }
+        // a barra da janela do app (o MaiSim instalado) segue o tema: a cor do cabeçalho, clara ou escura
+        (function (m) { if (m) m.setAttribute("content", m.dataset[document.documentElement.dataset.tema === "escuro" ? "escuro" : "claro"]); })(document.querySelector('meta[name="theme-color"]'))
         // o tamanho (+ e − no trilho, localStorage "maisim-escala"), antes de pintar
         try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.top === window.self && [0.8, 0.9, 1.1, 1.25, 1.4].includes(z)) document.documentElement.style.zoom = z; } catch (e) { /* 100 % */ }
     </script>

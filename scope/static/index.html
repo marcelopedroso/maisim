@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=1">
 <link rel="manifest" href="/manifest.webmanifest">
-<meta name="theme-color" content="#6d28d9">
+<meta name="theme-color" content="#6d28d9" data-claro="#ffffff" data-escuro="#171a21">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>maisim-scope</title>
+<title>MaiSim</title>
 <script>
 // o tamanho do MaiSim (+ e − no trilho, localStorage "maisim-escala"), antes de pintar; embutido no simu (iframe), não: o simu já escala
 try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.top === window.self && [0.8, 0.9, 1.1, 1.25, 1.4].includes(z)) document.documentElement.style.zoom = z; } catch (e) { /* 100 % */ }
@@ -15,6 +15,8 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
 try { const t = localStorage.getItem("maisim-tema") || "sistema";
   document.documentElement.dataset.tema = t === "escuro" || (t === "sistema" && matchMedia("(prefers-color-scheme: dark)").matches) ? "escuro" : "claro"; }
 catch (e) { document.documentElement.dataset.tema = "claro"; }
+// a barra da janela do app (o MaiSim instalado) segue o tema: a cor do cabeçalho, clara ou escura
+(function (m) { if (m) m.setAttribute("content", m.dataset[document.documentElement.dataset.tema === "escuro" ? "escuro" : "claro"]); })(document.querySelector('meta[name="theme-color"]'));
 </script>
 <script src="static/maisim-i18n.js"></script>
 <script data-src="static/maisim-i18n.js">/* reserva: sem o maisim-i18n.js (a conexão caiu), o português; tenta de novo e o de verdade assume */window.maisimI18n||(function(){var d={},o=[],h=function(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]})},f=function(k,p){var e=d[k],v=e?e.pt:k;if(v&&typeof v==="object")v=p&&p.n===1?v.one:v.other;return p?String(v).replace(/\{(\w+)\}/g,function(m,x){return x in p?(/_html$/.test(k)?h(p[x]):String(p[x])):m}):v};window.maisimI18n={reserva:true,add:function(x){for(var k in x)d[k]=x[k]},dicionario:function(){return d},tr:f,tem:function(k){return k in d},lingua:function(){return"pt"},local:function(){return"pt-BR"},muda:function(){},aoMudar:function(g){o.push(g)},ouvintes:function(){return o},aplica:function(){},data:function(x,o){return new Date(x).toLocaleString("pt-BR",o)},hora:function(x,o){return new Date(x).toLocaleTimeString("pt-BR",o||{hour:"2-digit",minute:"2-digit"})},num:function(x,o){return Number(x).toLocaleString("pt-BR",o)},escH:function(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]})}};window.tr=f;var s=document.createElement("script");s.src=document.currentScript.getAttribute("data-src");s.async=false;document.head.appendChild(s)})()</script>  <!-- português e inglês (o idioma do trilho), antes de pintar -->
