@@ -50,7 +50,7 @@ languages side by side; long texts (the AI's instructions, the control guide, th
 - pages: `tr("simu.saved_to", { arq })`, with the entry in the page's `textos_*.js`
   (`"simu.saved_to": { pt: "salvo em {arq}", en: "saved to {arq}" }`); static HTML uses `data-tr="key"` (also
   `data-tr-html`, `data-tr-title`, `data-tr-ph`, `data-tr-aria`, `data-tr-msg`). The runtime is `app/public/maisim-i18n.js`.
-- servers: `lingua.tr("motor.not_found", ref=x)` with the entry in `simu/textos.py` / `scope/textos.py` (the module calls
+- servers: `lingua.tr("motor.not_found", ref=x)` with the entry in `simu/textos.py` / `scope/textos_scope.py` (the module calls
   `lingua.registra(T)` once); background
   threads are started with `lingua.thread(...)` so they keep the user's language.
 - values that are protocol (JSON keys, run states, file and folder names, routes, signal names) are never translated.
