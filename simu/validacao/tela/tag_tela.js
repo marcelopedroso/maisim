@@ -44,14 +44,23 @@ const PI = require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_con
       novoEstado(await api("editor/cmds", { cmds: [{ op: "CREATE", args: ["SUBCIRCUIT.1#TAG.2", 10, 10, "GAIN"] }, { op: "OUTNODE", args: ["SUBCIRCUIT.1#TAG.2", 0, "vc"] }] }));
       return (await api("editor/controle")).entradas; });
     ok(r.includes("Sub_1_vc"), `uma tag dentro do subcircuito: Sub_1_vc (o prefixo dele, como nos medidores)`);
-    // fora do scope e do controle: a caixinha no painel (a tag de dentro do SM)
+    // para onde vai o sinal: as duas caixinhas no painel (a tag de dentro do SM), "→ Scope" e "→ Controle"
     const uidSM = await pg.evaluate(() => dados.folhas["0"].elementos.find((x) => x.nome === "SUBCIRCUIT.1").uid);
     await pg.evaluate((u) => { abre(u); seleciona(dados.folhas[u].elementos.find((x) => x.nome === "TAG.2")); }, uidSM); await pg.waitForTimeout(500);
-    await pg.uncheck("#p-noscope"); await pg.waitForTimeout(1500);
-    const fo = await pg.evaluate(async () => ({ ent: (await api("editor/controle")).entradas, pilula: !!document.querySelector("#svg .tag-scope.fora"), msg: $("msg").textContent }));
-    ok(!fo.ent.includes("Sub_1_vc") && fo.pilula && /fora do scope/.test(fo.msg), `desmarcada "no scope e no controle": Sub_1_vc sai das medidas e a etiqueta fica apagada (${fo.msg})`);
-    await pg.check("#p-noscope"); await pg.waitForTimeout(1500);
-    ok((await pg.evaluate(async () => (await api("editor/controle")).entradas)).includes("Sub_1_vc"), "marcada de novo: Sub_1_vc volta");
+    const estadoTag = () => pg.evaluate(async () => ({ ent: (await api("editor/controle")).entradas, cls: (document.querySelector("#svg .tag-scope") || {}).className?.baseVal || "",
+      dica: (document.querySelector("#svg .tag-scope title") || {}).textContent || "", cor: !!$("props").querySelector(".cor-canal"), msg: $("msg").textContent }));
+    await pg.uncheck("#p-scope"); await pg.waitForTimeout(1500);
+    let fo = await estadoTag();
+    ok(fo.ent.includes("Sub_1_vc") && /so-controle/.test(fo.cls) && /só no controle/.test(fo.dica) && !fo.cor && /só no controle/.test(fo.msg),
+      `só "→ Controle": Sub_1_vc continua nas medidas, a etiqueta fica tracejada ("${fo.dica}") e o painel sem a cor do canal (${fo.msg})`);
+    await pg.uncheck("#p-controle"); await pg.waitForTimeout(1500);
+    fo = await estadoTag();
+    ok(!fo.ent.includes("Sub_1_vc") && / fora/.test(fo.cls) && /fora do scope/.test(fo.msg), `as duas desmarcadas: Sub_1_vc sai das medidas e a etiqueta fica apagada (${fo.msg})`);
+    await pg.check("#p-scope"); await pg.waitForTimeout(1500);
+    fo = await estadoTag();
+    ok(!fo.ent.includes("Sub_1_vc") && /so-scope/.test(fo.cls) && fo.cor && /só no scope/.test(fo.msg), `só "→ Scope": fora das medidas, a etiqueta cheia e a cor do canal no painel (${fo.msg})`);
+    await pg.check("#p-controle"); await pg.waitForTimeout(1500);
+    ok((await pg.evaluate(async () => (await api("editor/controle")).entradas)).includes("Sub_1_vc"), "as duas marcadas de novo: Sub_1_vc volta");
     // entrar no subcircuito com o bloco selecionado e voltar: o painel não fica com o bloco de outra folha; renomear funciona
     await pg.evaluate(() => { abre("0"); seleciona(dados.folhas["0"].elementos.find((x) => x.nome === "SUBCIRCUIT.1")); });
     await pg.evaluate((u) => abre(u), uidSM); await pg.waitForTimeout(400);

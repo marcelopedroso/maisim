@@ -37,7 +37,7 @@ A atuação fica valendo até ser escrita de novo. Se `passo()` não devolver um
 | Ts | painel Controle | Vira n = round(Ts/Δt) passos; o código recebe o efetivo em `p["Ts"] = n·Δt`. Ts menor que Δt vira Δt. O painel avisa quando Ts não é múltiplo de Δt e mostra quantas vezes `passo()` vai rodar. |
 | atraso da atuação | painel Controle | **logo** (t + Δt), **amostra seguinte** (t + Ts, como num DSP que atualiza o PWM na amostra seguinte) ou **latência** τ (t + round(τ/Δt)·Δt, entre Δt e Ts). |
 | atuações | painel Controle, lista **atuações** | Cada bloco CONST do circuito é um atuador possível; o nome no código é o rótulo da saída dele (ou o nome do bloco). Dentro de um subcircuito, leva o nome dele na frente: `Sub_1_x` para o SUBCIRCUIT.1 do Gecko, ou o nome que você deu ao bloco (renomeado `filtro`: `filtro_x`). O painel mostra aonde cada um chega (ex.: `CONST.1 → chave S.1`). |
-| medidas | automáticas | Na folha principal, as saídas dos blocos de controle e dos medidores (nome = rótulo da saída); dentro dos subcircuitos, os medidores e as tags, com o nome do subcircuito na frente (`Sub_1_vCSm`; renomeado `SM1`: `SM1_vCSm`). São as chaves de `m` e as colunas do scope. A **tag** (paleta, aba Measure) dá a qualquer ponto de controle o nome que se quiser: por exemplo, um voltímetro de dentro de um subcircuito sai por um Control Terminal e, no Main, a tag dá o nome. |
+| medidas | automáticas | Na folha principal, as saídas dos blocos de controle e dos medidores (nome = rótulo da saída); dentro dos subcircuitos, os medidores e as tags, com o nome do subcircuito na frente (`Sub_1_vCSm`; renomeado `SM1`: `SM1_vCSm`). São as chaves de `m` e as colunas do scope; no painel do componente, duas caixinhas dizem para onde vai cada uma: **→ Scope** (coluna gravada na rodada) e **→ Controle** (chave de `m`). Só no controle, ela não é gravada (rodadas menores), e o código ainda a manda ao scope com `scope("x", m["x"])`; só no scope, ler `m["x"]` é erro. A **tag** (paleta, aba Measure) dá a qualquer ponto de controle o nome que se quiser: por exemplo, um voltímetro de dentro de um subcircuito sai por um Control Terminal e, no Main, a tag dá o nome. |
 | parâmetros | painel Controle | `p["nome"]`; ganhos, referências, limites. Podem mudar no meio da rodada por um acionamento. |
 | acionamentos | painel Controle | Mudanças no tempo, com ou sem o controle: um CONST (ex.: degrau de carga) ou um `p[...]` (ex.: degrau de referência). |
 | código | editor do painel | Guardado numa cópia de trabalho e, ao salvar o circuito (disquete), em `<modelo>.controle.json` ao lado do `.ipes`. |
@@ -68,7 +68,7 @@ def passo(t, m, p, e):      # a cada Ts
   valor tem de virar `float` finito; senão a rodada para com erro.
 * `scope("nome", valor)` cria uma coluna no scope. As colunas se fixam na **primeira amostra**: chame `scope()` com os
   mesmos nomes em toda amostra (guarde o valor em `e` e mande sempre). Um nome que aparece depois não vai para o scope, e
-  a rodada avisa.
+  a rodada avisa. O nome de um sinal que a rodada já grava (ou `t`) vira `ctrl_x` (`scope("v_o", …)` → `ctrl_v_o`).
 * `print()` vai para a saída do controle (embaixo do editor) e para `controle.log` da rodada.
 * `math` e `scope` já vêm prontos. Pode importar o que estiver no Python do sistema (a biblioteca padrão, e o numpy 1.21).
   O processo roda com `python3 -I` (isolado: sem o diretório do usuário nem PYTHONPATH).
@@ -335,6 +335,7 @@ por estas rotas (JSON):
 | `POST editor/abrir {"arq": "exemplos/exemplo_controle_pwm.ipes"}` | abre um modelo no Gecko do MaiSim (o controle dele vem junto). O servidor só recusa (e pede `"descartar": true`) quando o modelo mudou fora do editor, pela janela do Gecko. Mudança feita pelo editor e não salva se perde sem aviso: veja antes `GET editor/pendente` (`{"pendente": true}` = há o que salvar). |
 | `GET editor/controle` | a configuração (`controle`), erros e avisos do código, `entradas` (as medidas), `atuadores` (com `destinos` e `atraso_gecko`) |
 | `POST editor/controle {"controle": {...}}` | grava a configuração (recusada durante a rodada) |
+| `POST editor/destino {"uid": "…", "scope": true, "controle": false}` | para onde vai o sinal de um componente (as caixinhas → Scope e → Controle; recusado durante a rodada); `GET editor/estado` traz `fora_scope` e `fora_controle` |
 | `POST editor/rodar {"dt": "1e-6", "tfim": "0.01", "nome": "teste", "amostras": "100000"}` | começa a rodada (o controle vai junto se `ativo`) |
 | `GET editor/rodada` | `estado` (preparando, rodando, pausada, fim, erro ou parada), `t`, `avisos`, `erro`, `erro_controle` (`linha`, `rastro`), `saida_controle`, `arquivo` (o `.npz`), `segundos` |
 | `POST editor/pausar`, `editor/continuar`, `editor/parar` | durante a rodada |

@@ -1588,3 +1588,14 @@ corrigidos.
 - Prova: `claude_autonomo_api.py` 14/14 (+ o limite: continua de onde parou, termina, Claude_1, [PRONTO]; 100 passos por
   chamada); `controladores_api.py` (+ fasor, None e número chegam; texto dá erro claro); claude_pedido_api 57/57 (as
   opções com 100 passos), teste_passo2, rede_tela, mensagens_tela, claude_chat_tela verdes.
+
+## Para onde vai cada sinal: "→ Scope" e "→ Controle" (24/10, pedido de Marcelo)
+- A caixinha "no scope e no controle" virou duas, independentes, no painel de todo componente cujo sinal vira medida
+  (medidores, tags e, na folha principal, os blocos de controle com saída): "→ Scope" grava a coluna na rodada; "→
+  Controle" põe no `m[...]`. Só no controle, não é gravado (rodadas menores; `scope("x", m["x"])` o grava pelo código).
+- Aparência (`<nome>.aparencia.json`): chaves novas `fora_scope` e `fora_controle` (identificadores). Um arquivo de antes,
+  só com `fora`, vale para as duas. O `fora` continua gravado como a interseção (fora dos dois): um MaiSim de antes que
+  abre um arquivo novo vê só ela — um sinal fora de uma só das duas volta, para ele, aos dois.
+- Rota `editor/destino {uid, scope, controle}`; `editor/fora` continua (os dois). Como a cor e a ponta, não entra no
+  desfazer (a pilha guarda só o .ipes do Gecko).
+- Prova: `validacao/destino_api.py`, `tag_tela.js`.

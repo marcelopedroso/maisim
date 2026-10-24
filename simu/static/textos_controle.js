@@ -232,6 +232,7 @@ maisimI18n.add({
   "ctl.t_soltos": { pt: "módulos que nenhum controlador importa: não rodam (ponha import no controle.py, ou ⤴ para virar controlador)", en: "modules no controller imports: they do not run (add an import in controle.py, or ⤴ to turn into controller)" },
   "ctl.soltos": { pt: "sem uso ({n})", en: "unused ({n})" },
   "ctl.sem_esquema_html": { pt: "⚠ a variável <code>{nome}</code> do código ({usos})\n    não existe no esquema", en: "⚠ the code variable <code>{nome}</code> ({usos})\n    does not exist in the schematic" },
+  "ctl.sem_esquema_so_scope_html": { pt: "⚠ <code>m[\"{nome}\"]</code> do código ({usos})\n    vai só para o scope — marque → Controle em {comp}", en: "⚠ the code's <code>m[\"{nome}\"]</code> ({usos})\n    only goes to the scope — check → Control on {comp}" },
   "ctl.sem_esquema_atu_html": { pt: "⚠ a variável <code>{nome}</code> do código ({usos})\n    não existe no esquema (como atuação)", en: "⚠ the code variable <code>{nome}</code> ({usos})\n    does not exist in the schematic (as an actuation)" },
   "ctl.t_trocar_por": { pt: "escolher um nome que existe e trocar no código", en: "pick a name that exists and replace it in the code" },
   "ctl.trocar_por": { pt: "Trocar por…", en: "Replace with…" },

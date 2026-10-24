@@ -40,7 +40,7 @@ its last value.
 | Ts | Control panel | Becomes n = round(Ts/Δt) steps; the code gets the effective value in `p["Ts"] = n·Δt`. A Ts smaller than Δt becomes Δt. The panel warns when Ts is not a multiple of Δt and shows how many times `passo()` will run. |
 | actuation delay | Control panel | **Right away** (t + Δt), **At the next sample** (t + Ts, as in a DSP that updates the PWM at the next sample) or **After a latency** τ (t + round(τ/Δt)·Δt, between Δt and Ts). In `controle.json`, `atraso.modo` is `logo`, `amostra` or `tempo`. |
 | actuations | Control panel, **Actuations** list | Each CONST block of the circuit is a possible actuator; its name in the code is the label of its output (or the block's name). Inside a subcircuit, it is prefixed with the subcircuit's name: `Sub_1_x` for Gecko's SUBCIRCUIT.1, or the name you gave the block (renamed `filtro`: `filtro_x`). The panel shows where each one goes (e.g. `CONST.1 → switch S.1`). |
-| measurements | automatic | On the main sheet, the outputs of the control blocks and of the meters (name = output label); inside subcircuits, the meters and the tags, prefixed with the subcircuit's name (`Sub_1_vCSm`; renamed `SM1`: `SM1_vCSm`). They are the keys of `m` and the scope columns. The **tag** (palette, Measure tab) gives any control point the name you want: for example, a voltmeter inside a subcircuit goes out through a Control Terminal and, on Main, the tag gives it its name. |
+| measurements | automatic | On the main sheet, the outputs of the control blocks and of the meters (name = output label); inside subcircuits, the meters and the tags, prefixed with the subcircuit's name (`Sub_1_vCSm`; renamed `SM1`: `SM1_vCSm`). They are the keys of `m` and the scope columns; in the component's panel, two checkboxes say where each one goes: **→ Scope** (a column recorded in the run) and **→ Control** (a key of `m`). Only in the control, it is not recorded (smaller runs), and the code can still send it to the scope with `scope("x", m["x"])`; only in the scope, reading `m["x"]` is an error. The **tag** (palette, Measure tab) gives any control point the name you want: for example, a voltmeter inside a subcircuit goes out through a Control Terminal and, on Main, the tag gives it its name. |
 | parameters | Control panel | `p["nome"]`; gains, references, limits. They can change mid-run through an event. |
 | events | Control panel | Changes over time, with or without the control: a CONST (e.g. a load step) or a `p[...]` (e.g. a reference step). |
 | code | the panel's editor | Kept in a working copy and, when you save the circuit (floppy disk), in `<circuit>.controle.json` next to the `.ipes`. |
@@ -71,7 +71,8 @@ def passo(t, m, p, e):      # every Ts
   and each value must convert to a finite `float`; otherwise the run stops with an error.
 * `scope("nome", valor)` creates a column in the scope. The columns are fixed at the **first sample**: call `scope()`
   with the same names at every sample (keep the value in `e` and always send it). A name that shows up later does not go
-  to the scope, and the run warns about it.
+  to the scope, and the run warns about it. The name of a signal the run already records (or `t`) becomes `ctrl_x`
+  (`scope("v_o", …)` → `ctrl_v_o`).
 * `print()` goes to the control output (below the editor) and to the run's `controle.log`.
 * `math` and `scope` come ready to use. You can import whatever is in the system Python (the standard library, and
   numpy 1.21). The process runs with `python3 -I` (isolated: no user site directory and no PYTHONPATH).
@@ -357,6 +358,7 @@ through these routes (JSON):
 | `POST editor/abrir {"arq": "exemplos/exemplo_controle_pwm.ipes"}` | opens a circuit in MaiSim's Gecko (its control comes along). The server only refuses (and asks for `"descartar": true`) when the circuit changed outside the editor, through the Gecko window. A change made through the editor and not saved is lost without warning: check `GET editor/pendente` first (`{"pendente": true}` = there is something to save). |
 | `GET editor/controle` | the configuration (`controle`), the code's errors and warnings, `entradas` (the measurements), `atuadores` (with `destinos` and `atraso_gecko`) |
 | `POST editor/controle {"controle": {...}}` | saves the configuration (refused during the run) |
+| `POST editor/destino {"uid": "…", "scope": true, "controle": false}` | where a component's signal goes (the → Scope and → Control checkboxes; refused during the run); `GET editor/estado` has `fora_scope` and `fora_controle` |
 | `POST editor/rodar {"dt": "1e-6", "tfim": "0.01", "nome": "teste", "amostras": "100000"}` | starts the run (the control goes along if `ativo`) |
 | `GET editor/rodada` | `estado` (preparando, rodando, pausada, fim, erro or parada: preparing, running, paused, done, error or stopped), `t`, `avisos`, `erro`, `erro_controle` (`linha`, `rastro`), `saida_controle`, `arquivo` (the `.npz`), `segundos` |
 | `POST editor/pausar`, `editor/continuar`, `editor/parar` | during the run |
