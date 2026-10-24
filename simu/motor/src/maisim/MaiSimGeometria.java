@@ -9,6 +9,7 @@ import ch.technokrat.gecko.geckocircuits.circuit.TerminalRelativePosition;
 import ch.technokrat.gecko.geckocircuits.circuit.circuitcomponents.CircuitTyp;
 import ch.technokrat.gecko.geckocircuits.control.ControlTyp;
 import ch.technokrat.gecko.geckocircuits.control.RegelBlock;
+import ch.technokrat.gecko.geckocircuits.control.VariableTerminalNumber;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -19,7 +20,9 @@ import java.util.List;
  * (TypeInfo.fabric(), sem a janela) e lê a posição relativa crua (_posX, _posY) de cada entrada (XIN) e saída (YOUT); o
  * ponto na folha é TerminalRelativePosition.getPointFromDirection(orientação, centro, _posX, _posY) (503: x+posX, y−posY).
  * Saída: JSON (uma linha por tipo) em stdout, para o leitor do .ipes (ipes.py) pôr os terminais onde o Gecko põe; num bloco
- * de controle com mais de uma saída, também os nomes delas (nomes_saida: o que o servidor pede ao Gecko, uma por sinal).
+ * de controle com mais de uma saída, também os nomes delas (nomes_saida: o que o servidor pede ao Gecko, uma por sinal) —
+ * e num que pode ter mais de uma conforme o arquivo (VariableTerminalNumber: o Sliding DFT, uma por frequência; o From
+ * EXTERNAL), mesmo que o de fábrica tenha uma só: o Sliding DFT só nomeia "DFT" (a 1ª), o From EXTERNAL "0", "1", "2", "etc.".
  * uso: java -Djava.awt.headless=true -cp gecko.jar:bin maisim.MaiSimGeometria > geometria.json
  */
 public final class MaiSimGeometria {
@@ -44,14 +47,18 @@ public final class MaiSimGeometria {
         return sb.append("]").toString();
     }
 
-    /** Os nomes das saídas de um bloco de controle com mais de uma (getOutputNames: o que o getOutput(bloco, saída) da
-     *  interface remota aceita), como ,"nomes_saida":[…]; nada para os outros. */
+    /** Os nomes das saídas de um bloco de controle com mais de uma, ou que pode ter mais de uma (VariableTerminalNumber: o
+     *  número de saídas vem do arquivo), pelo getOutputNames (o que o getOutput(bloco, saída) da interface remota aceita),
+     *  como ,"nomes_saida":[…]; nada para os outros (nem para um sem nome de saída). */
     private static String nomesSaida(AbstractBlockInterface b) {
-        if (!(b instanceof RegelBlock) || b.YOUT.size() < 2) {
+        if (!(b instanceof RegelBlock) || (b.YOUT.size() < 2 && !(b instanceof VariableTerminalNumber))) {
+            return "";
+        }
+        String[] nomes = ((RegelBlock) b).getOutputNames();
+        if (nomes == null || nomes.length == 0) {
             return "";
         }
         StringBuilder sb = new StringBuilder(",\"nomes_saida\":[");
-        String[] nomes = ((RegelBlock) b).getOutputNames();
         for (int i = 0; i < nomes.length; i++) {
             sb.append(i > 0 ? "," : "").append("\"").append(nomes[i].replace("\\", "\\\\").replace("\"", "\\\"")).append("\"");
         }
