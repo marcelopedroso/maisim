@@ -13,6 +13,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ### Changed
 - A channel color chosen on the circuit also applies in the scope, which follows it right away (#66).
+- Sources follow the generator convention: the current arrow of a voltage source leaves its + terminal, and its measured current (scope, Measure, the control's `m[...]`) is positive when it delivers power. Gecko measures every current from terminal 1 to terminal 2, so MaiSim flips the sign it reads for a voltage source; the Gecko file is unchanged. The current source shows its arrow (terminal 1 → 2) instead of a "+" (#71).
 
 ### Fixed
 - Scope: the "Per row" button is translated even when there is no run yet (#69).

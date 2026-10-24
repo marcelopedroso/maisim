@@ -9,7 +9,7 @@ maisimI18n.add({
   "simu.t_controle": { pt: "blocos de controle e medição: mostrar ou esconder", en: "control and measurement blocks: show or hide" },
   "simu.t_rotulos": { pt: "rótulos das conexões e terminais: mostrar ou esconder", en: "wire and terminal labels: show or hide" },
   "simu.t_medicoes": { pt: "medições: o nome de cada sinal no scope e as marcas no que é medido (A, V+ e V−) — mostrar ou esconder", en: "measurements: the name of each signal in the scope and the marks on what is measured (A, V+ and V−) — show or hide" },
-  "simu.t_corrente": { pt: "sentido positivo da corrente em cada componente (do terminal 1 para o 2, como no Gecko; é o sinal do amperímetro) — mostrar ou esconder", en: "positive current direction in each component (from terminal 1 to 2, as in Gecko; it is the ammeter's sign) — show or hide" },
+  "simu.t_corrente": { pt: "sentido positivo da corrente em cada componente (do terminal 1 para o 2, como no Gecko; na fonte de tensão, saindo pelo +, como gerador; é o sinal do amperímetro) — mostrar ou esconder", en: "positive current direction in each component (from terminal 1 to 2, as in Gecko; in a voltage source, leaving the + terminal, as a generator; it is the ammeter's sign) — show or hide" },
   "simu.t_param": { pt: "parâmetros da simulação (passo Δt, tempo final, nome da rodada, amostras guardadas) e variáveis globais ($)", en: "simulation parameters (step Δt, end time, run name, stored samples) and global variables ($)" },
   "simu.t_globais": { pt: "variáveis globais ($) do circuito: criar, mudar e apagar (num parâmetro, escreva $nome no lugar do número)", en: "the circuit's global variables ($): create, change and delete (in a parameter, write $name instead of the number)" },
   "simu.t_pausa": { pt: "pausar (Espaço)", en: "pause (Space)" },
@@ -111,6 +111,7 @@ maisimI18n.add({
   // a dica ao passar o mouse
   "simu.dica_guardado_html": { pt: "<span class=\"t\">(da variável global; no elemento está {v}, que o Gecko não usa)</span>", en: "<span class=\"t\">(from the global variable; the element holds {v}, which Gecko does not use)</span>" },
   "simu.dica_mede_i": { pt: "mede a corrente de", en: "measures the current of" },
+  "simu.dica_gerador": { pt: "fonte: a corrente que sai pelo + (gerador)", en: "source: the current leaving the + terminal (generator)" },
   "simu.dica_mede_v": { pt: "mede a tensão", en: "measures the voltage" },
   "simu.dica_comanda": { pt: "comanda", en: "drives" },
   "simu.dica_no1": { pt: "nó do 1º terminal", en: "node of terminal 1" },

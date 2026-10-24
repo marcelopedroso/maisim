@@ -386,9 +386,10 @@ function txtDe(e) {
   return e.dir === 502 || e.dir === 504 ? { dx: 0, dy: -1.75, ancora: "middle" } : { dx: 1.1, dy: -0.25, ancora: "start" };
 }
 // sentido positivo da corrente (convenção do Gecko: do terminal 1, o início/+, para o 2, dentro do componente): a seta fica
-// ao lado do corpo, do lado oposto ao nome; é o sinal que o amperímetro mede
+// ao lado do corpo, do lado oposto ao nome; é o sinal que o amperímetro mede. A fonte de tensão é gerador: a seta sai pelo +
+// (do 2 para o 1), e a rodada troca o sinal da corrente dela (sentido_gerador, no servidor)
 function setaCorrente(g, e) {
-  const [t1, t2] = e.terminais.map((t) => [t.x, t.y]), L = Math.hypot(t2[0] - t1[0], t2[1] - t1[1]) || 1;
+  const [t1, t2] = e.terminais.map((t) => [t.x, t.y])[e.tipo === "U" ? "reverse" : "slice"](), L = Math.hypot(t2[0] - t1[0], t2[1] - t1[1]) || 1;
   const u = [(t2[0] - t1[0]) / L, (t2[1] - t1[1]) / L], tx = txtDe(e);
   let n = [-u[1], u[0]];
   if (n[0] * (tx.dx || 0) + n[1] * (tx.dy || 0) > 0 || (!tx.dx && !tx.dy && n[0] + n[1] > 0)) n = [-n[0], -n[1]];
@@ -427,8 +428,11 @@ function doisPinos(g, e) {
         let d = `M ${P(soma(c, n, -0.5))}`; for (let k = 1; k <= 20; k++) { const s = -0.5 + k / 20; d += ` L ${P(soma(soma(c, n, s), u, 0.32 * Math.sin(2 * Math.PI * (s + 0.5))))}`; }
         no("path", Object.assign({ d }, corpo, { "stroke-width": 1.2 }), g);
       } else if (e.tipo === "U") texto(g, c[0], c[1], "=", { "text-anchor": "middle", fill: COR.lk });
-      else linha(soma(c, u, 0.5), soma(c, u, -0.5), Object.assign({}, corpo, { "marker-end": "" }));
-      const mais = soma(soma(c, u, -1.25), n, 0.55); texto(g, mais[0], mais[1], "+", { "text-anchor": "middle", fill: COR.lk, "font-size": 0.8 * G });
+      else {                                     // fonte de corrente: a seta do Gecko, do terminal 1 para o 2 (ela empurra a corrente para fora pelo 2)
+        linha(soma(c, u, -0.5), soma(c, u, 0.3), corpo);
+        poli([soma(c, u, 0.55), soma(soma(c, u, 0.2), n, 0.24), soma(soma(c, u, 0.2), n, -0.24)], { fill: COR.lk, "stroke-width": 0.8 });
+      }
+      if (e.tipo === "U") { const mais = soma(soma(c, u, -1.25), n, 0.55); texto(g, mais[0], mais[1], "+", { "text-anchor": "middle", fill: COR.lk, "font-size": 0.8 * G }); }
       break;
     }
     case "D": {
@@ -661,7 +665,11 @@ function dica(ev, e) {
     linhas.push([k + (p[k + "_var"] ? ` (${p[k + "_var"]})` : ""), si(p[k], UNID[k]) +
       (p[k + "_guardado"] != null ? " " + tr("simu.dica_guardado_html", { v: si(p[k + "_guardado"], UNID[k]) }) : "")]);
   }
-  if (e.tipo === "AMP" && e.mede[0]) linhas.unshift([tr("simu.dica_mede_i"), e.mede[0]]);
+  if (e.tipo === "AMP" && e.mede[0]) {
+    const alvo = dados.folhas[folhaAtual].elementos.find((x) => x.nome === e.mede[0] && x.dom === "LK");
+    if (alvo && alvo.tipo === "U") linhas.unshift(["", tr("simu.dica_gerador")]);
+    linhas.unshift([tr("simu.dica_mede_i"), e.mede[0]]);
+  }
   if (e.tipo === "VOLT" && e.mede[0]) linhas.unshift([tr("simu.dica_mede_v"), `${e.mede[0]} − ${e.mede[1] || "0"}`]);
   if (e.tipo === "GATE" && e.mede[0]) linhas.unshift([tr("simu.dica_comanda"), e.mede[0]]);
   if (e.entradas.filter(Boolean).length) linhas.push([tr(e.dom === "LK" ? "simu.dica_no1" : "simu.dica_entradas"), e.entradas.map((s) => s || "·").join(", ")]);
