@@ -326,7 +326,7 @@ function cartaoProposta(e, rodando) {
   const conf = [];
   if (p.erro) conf.push(`<li class="cc-erro">${escT(p.erro)}</li>`);
   for (const x of p.erros || []) conf.push(`<li class="cc-erro">${x.arquivo && x.arquivo !== "controle.py" ? `${escT(x.arquivo)} ` : ""}linha ${x.linha}: ${escT(x.msg)}</li>`);
-  for (const x of (p.avisos || []).filter((a) => !/ é importado por .*: cada controlador tem a sua cópia/.test(a)))   // o compartilhado: a árvore já mostra
+  for (const x of (p.avisos || []).filter((a) => !(p.compartilhados || []).includes(a)))   // o compartilhado (pelo código): a árvore já mostra
     conf.push(`<li class="cc-aviso-t">${escT(x)}</li>`);
   for (const x of p.conferencia || []) conf.push(`<li class="cc-aviso-t">linha ${x.linha}: ${escT(x.msg)}</li>`);
   if (codigoMudou && !p.teste && !(p.erros || []).length) conf.push(`<li class="cc-dica-t">o código proposto ainda não rodou: veja a diferença e, se quiser, teste (iniciar e 3 passo, sem simular)</li>`);

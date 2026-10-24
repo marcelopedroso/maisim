@@ -736,6 +736,8 @@ const selecionado = () => dados && ed.sel ? dados.folhas[folhaAtual].elementos.f
 // repetido uma vez. A mudança (POST) vai com uma etiqueta única (X-MaiSim-Pedido): se o primeiro chegou e só a resposta se
 // perdeu, o servidor devolve a mesma resposta sem fazer a mudança de novo. Sem conexão, a faixa "sem conexão" aparece
 const etiqueta = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 12));
+// o servidor pede confirmação (sobrescrever): pelo código, não pelo texto (o texto muda com o idioma)
+const pedeConfirmar = (e) => !!(e && e.dados && e.dados.codigo === "confirmar");
 async function api(rota, corpo) {
   const id = corpo ? etiqueta() : null;
   let r;
@@ -1354,7 +1356,7 @@ async function salvaNaBiblioteca(e) {
   msg("salvando na biblioteca…");
   try { let j;
     try { j = await api("editor/biblioteca", corpo); }
-    catch (er) { if (!/confirme/.test(er.message) || !(await confirma("Sobrescrever?", er.message.replace(/; confirme.*$/, "."), "sobrescrever", true))) throw er;
+    catch (er) { if (!pedeConfirmar(er) || !(await confirma("Sobrescrever?", er.dados.pergunta, "sobrescrever", true))) throw er;
       j = await api("editor/biblioteca", Object.assign(corpo, { sobrescrever: true })); }
     const s = ed.sujo; novoEstado(j); marcaSujo(s); msg(`${nomeSub(e.nome)} salvo na biblioteca: ${j.salvo}`, "ok");
     await carregaBiblioteca(); recarregaModelos($("sel-modelo").value);
@@ -1382,7 +1384,7 @@ async function salvarComo() {
   const layoutAntes = circuitoDoLayout();
   try { let j;
     try { j = await api("editor/salvar", { nome }); }
-    catch (e) { if (!/confirme/.test(e.message) || !(await confirma("Sobrescrever?", e.message.replace(/; confirme.*$/, "."), "sobrescrever", true))) throw e;
+    catch (e) { if (!pedeConfirmar(e) || !(await confirma("Sobrescrever?", e.dados.pergunta, "sobrescrever", true))) throw e;
       j = await api("editor/salvar", { nome, sobrescrever: true }); }
     novoEstado(j); marcaSujo(false); msg(`salvo em ${j.salvo}`, "ok"); levaLayout(layoutAntes, circuitoDoLayout());
     const lst = await api("modelos");                   // leitura: repete uma vez se a conexão cair

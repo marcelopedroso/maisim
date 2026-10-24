@@ -30,6 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "config"))
 import ler_config  # noqa: E402
 ler_config.aplica()                          # as portas e as pastas (config/padrao.env, o perfil, o .env), antes de ler o ambiente
 import lingua  # noqa: E402                    o idioma de cada pedido (português e inglês)
+import textos  # noqa: E402,F401               os textos do simu nos dois idiomas (registra o catálogo)
 
 from ipes import monta
 from motor import ErroMotor, Motor
@@ -167,8 +168,20 @@ def mudou_fora():
 class ErroConflito(ErroMotor):
     """Mudança no Gecko que o editor não viu: a tela pergunta o que fazer (com os dados para montar as opções)."""
     def __init__(self, msg, **extra):
-        super().__init__(msg)
-        self.extra = extra
+        super().__init__(msg, **extra)
+
+
+class Aviso(str):
+    """Um aviso (texto, como os outros) com um código: o que a página confere, nunca o texto (que muda com o idioma)."""
+    def __new__(cls, texto, codigo=None):
+        o = str.__new__(cls, texto)
+        o.codigo = codigo
+        return o
+
+
+def com_codigo(avisos, codigo):
+    """Os avisos da lista com o código dado (a página separa por eles, sem procurar frase)."""
+    return [str(a) for a in avisos if getattr(a, "codigo", None) == codigo]
 
 
 def situacao_gecko():
@@ -775,7 +788,8 @@ def salva_sub(nome, folha, nome_lib, sobrescrever=False):
         raise ErroMotor("nome na biblioteca: letras, números, _ e -, até 40")
     destino = LIB / f"{nome_lib}.ipes"
     if destino.exists() and not sobrescrever:
-        raise ErroMotor(f"já existe {nome_lib} na biblioteca; confirme para sobrescrever")
+        raise ErroMotor(lingua.tr("biblioteca.sobrescrever", nome=nome_lib), codigo="confirmar",
+                        pergunta=lingua.tr("biblioteca.sobrescrever_pergunta", nome=nome_lib))
     MOTOR.cmd(f"SAVEAS {ESTADO}")
     t, gz = _texto(ESTADO)
     folha = folhas_ok([folha], t)[0]
@@ -1416,7 +1430,8 @@ def analisa_modulos(c):
         for m in mods:
             quem = sorted(a for a in ctl if m in filhos.get(a, []))
             if len(quem) > 1:
-                avisos.append(f"{m} é importado por {', '.join(quem)}: cada controlador tem a sua cópia, sem memória comum")
+                avisos.append(Aviso(f"{m} é importado por {', '.join(quem)}: cada controlador tem a sua cópia, sem memória comum",
+                                    "importado_compartilhado"))
     return erros, avisos
 
 
@@ -1736,9 +1751,10 @@ def confere_codigo(codigo, parametros, atuacoes, entradas=None, atuadores=None, 
     def col(lin, off):                                   # o ast dá a coluna em bytes UTF-8; o editor conta caracteres
         t = linhas_cod[lin - 1] if 0 < lin <= len(linhas_cod) else ""
         return len(t.encode()[:off].decode(errors="ignore")) + 1
-    def marca(no, msg):
+    def marca(no, msg, codigo=None):
         fim = no.end_col_offset if getattr(no, "end_lineno", no.lineno) == no.lineno and no.end_col_offset else None
-        out.append({"linha": no.lineno, "coluna": col(no.lineno, no.col_offset), "fim": col(no.lineno, fim) if fim else 1000, "msg": msg})
+        out.append({"linha": no.lineno, "coluna": col(no.lineno, no.col_offset), "fim": col(no.lineno, fim) if fim else 1000, "msg": msg,
+                    **({"codigo": codigo} if codigo else {})})
     def anda(fn):                                        # o corpo da função, sem descer em funções, lambdas e classes de dentro
         pilha = list(ast.iter_child_nodes(fn))
         while pilha:
@@ -1808,7 +1824,7 @@ def confere_codigo(codigo, parametros, atuacoes, entradas=None, atuadores=None, 
                     elif disp is not None and k not in disp:
                         marca(kn, f'"{k}" não é atuador do circuito' + (f" (atuadores: {', '.join(sorted(disp)[:12])})" if disp else " (ponha um bloco CONST)"))
                     else:
-                        marca(kn, f'"{k}" não está marcado em atuações: marque no painel (senão a rodada para com erro)')
+                        marca(kn, f'"{k}" não está marcado em atuações: marque no painel (senão a rodada para com erro)', "atuacao_nao_marcada")
         # o fluxo com escrita.py: u = {"g": …} e return escrita.passo(u, …) — um dicionário fora do return com a chave de um
         # atuador do circuito que não está marcado (só atuadores: um dicionário qualquer não é saída)
         if disp:
@@ -1817,7 +1833,8 @@ def confere_codigo(codigo, parametros, atuacoes, entradas=None, atuadores=None, 
                 if isinstance(no, ast.Dict) and id(no) not in nos_ret:
                     for kn in no.keys:
                         if isinstance(kn, ast.Constant) and isinstance(kn.value, str) and kn.value in disp and kn.value not in atuacoes:
-                            marca(kn, f'"{kn.value}" não está marcado em atuações: marque no painel (senão a rodada para com erro)')
+                            marca(kn, f'"{kn.value}" não está marcado em atuações: marque no painel (senão a rodada para com erro)',
+                                  "atuacao_nao_marcada")
     return sorted(out, key=lambda c: (c["linha"], c["coluna"]))      # de cima para baixo (a linha de estado mostra o primeiro)
 
 
@@ -2397,6 +2414,7 @@ def painel_controle(c=None):
         conferencia += [dict(x, arquivo=arq) for x in confere_codigo(cod, c["parametros"], locais_a, locais_m if ult else None,
                                                                     [{"nome": k} for k in locais_a], extras={"id", "controlador", "subcircuito"})]
     return dict(controle=c, erros=erros, avisos=erros_ctl + avisos + avisos_ctl, erros_controladores=erros_ctl, conferencia=conferencia,
+                compartilhados=com_codigo(avisos + avisos_ctl, "importado_compartilhado"),
                 entradas=entradas, atuadores=atu, modelo=MODELO_CONTROLE, circuito=bool(ult),
                 modelos={"leitura.py": MODELO_LEITURA, "escrita.py": MODELO_ESCRITA, "modulo": MODELO_MODULO},
                 modulos=sorted(modulos_de(c)), sem_esquema=variaveis_sem_esquema(c, ult), do_codigo=do_codigo, mensagens_vistas=vistas_do_circuito(c),
@@ -4581,7 +4599,7 @@ def claude_proposta(pasta, antes, dt, chave=None, memoria=""):
         _, erros_ctl, avisos_ctl = instancias_controle(c2, ult)
         erros += [{"arquivo": "controladores.json", "linha": 1, "coluna": 1, "msg": x} for x in erros_ctl]
         avisos += [x for x in avisos_ctl if x not in avisos]
-    out.update(erros=erros, avisos=avisos)
+    out.update(erros=erros, avisos=avisos, compartilhados=com_codigo(avisos, "importado_compartilhado"))
     out["conferencia"] = [] if erros or not ult else confere_codigo(cod, c2["parametros"], c2["atuacoes"], [k for _, k in sinais_da_rodada(ult)], atu)
     out["atuacoes"] = c2["atuacoes"]
     so_memoria = cod == antes["codigo"] and c2["parametros"] == antes["parametros"] and c2["acionamentos"] == (antes.get("acionamentos") or []) and arqs == arqs_antes and not muda_ctl
@@ -5284,7 +5302,8 @@ class Manipulador(BaseHTTPRequestHandler):
                 pasta.mkdir(parents=True, exist_ok=True)
                 dest = pasta / f"{nome}.ipes"
                 if dest.exists() and not corpo.get("sobrescrever"):
-                    raise ErroMotor(f"já existe {relativo(dest)}; confirme para sobrescrever")
+                    raise ErroMotor(lingua.tr("editor.sobrescrever", arq=relativo(dest)), codigo="confirmar",
+                                    pergunta=lingua.tr("editor.sobrescrever_pergunta", arq=relativo(dest)))
                 MOTOR.cmd(f"SAVEAS {dest}")
                 antiga = editor.get("aberto") or "(sem arquivo)"
                 chave_vistas = str(editor.get("aberto") or "")

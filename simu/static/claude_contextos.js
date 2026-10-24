@@ -187,7 +187,7 @@ async function cxAbrir(id, depois) {
   const meta = c.meta;
   const m = cxModal("cx-abrir", `<h3>${escT(meta.titulo)}</h3>
     <div class="cx-ver cc-ele">${mdLeve(c.contexto)}</div>
-    ${c.conversa ? `<details class="cx-conversa"><summary>a conversa (${((n) => `${n} pedido${n === 1 ? "" : "s"}`)((c.conversa.match(/^## \d+\. Pedido/gm) || []).length)})</summary><div class="cc-ele">${mdLeve(c.conversa)}</div></details>` : ""}
+    ${c.conversa ? `<details class="cx-conversa"><summary>a conversa (${((n) => `${n} pedido${n === 1 ? "" : "s"}`)((c.conversa.match(/^## \d+\. (?:Pedido|Request)/gm) || []).length)})</summary><div class="cc-ele">${mdLeve(c.conversa)}</div></details>` : ""}
     <details class="cx-arqs"><summary>arquivos (${c.arquivos.length})</summary><div class="cc-dica-t">${c.arquivos.map((a) => `${escT(a.nome)} · ${cxTam(a.tamanho)}`).join("<br>")}</div></details>
     <div class="cx-editar" hidden><label class="cx-l">Título <input class="cx-titulo" maxlength="200"></label><label class="cx-l">Etiquetas <input class="cx-etiquetas"></label>
       <label class="cx-l">Nota</label><textarea class="cx-resumo" spellcheck="false"></textarea></div>
