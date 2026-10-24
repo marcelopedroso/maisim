@@ -26,6 +26,13 @@ try:
     ler_config.carrega(); ok(False, "MAISIM_PORTA=80 deveria ser recusada")
 except ValueError as e:
     ok("1024" in str(e), f"MAISIM_PORTA=80 recusada ({e})")
+for base in ("6000", "5995"):                           # a 6000 (X11) os navegadores recusam: ERR_UNSAFE_PORT (Marcelo, 24/10)
+    os.environ["MAISIM_PORTA"] = base
+    try:
+        ler_config.carrega(); ok(False, f"MAISIM_PORTA={base} deveria ser recusada (a 6000 está nas sete)")
+    except ValueError as e:
+        ok("6000" in str(e), f"MAISIM_PORTA={base} recusada: a 6000 está nas sete ({e})")
+ok(ler_config.porta_bloqueada(8100) is None and ler_config.porta_bloqueada(10075) == 10080, "porta_bloqueada: 8100 livre, 10075 pega a 10080")
 # o perfil produto (a versão "só usar": o instalador do Windows, o AppImage), num HOME de mentira
 import tempfile
 del os.environ["MAISIM_PORTA"]
@@ -40,5 +47,5 @@ pessoal = Path(v["MAISIM_CONFIG_PESSOAL"]); pessoal.parent.mkdir(parents=True); 
 v = ler_config.carrega("produto")
 ok(v["MAISIM_PORTA_PAGINA"] == "8100" and v["MAISIM_TELA_X"] == ":81" and v["MAISIM_DADOS"] == f"{h}/Outra",
    "produto: a config pessoal (a porta e a pasta que o instalador pergunta) vale por cima")
-print(f"\n{7 - falhas}/7")
+print(f"\n{10 - falhas}/10")
 raise SystemExit(1 if falhas else 0)

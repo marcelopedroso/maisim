@@ -16,6 +16,15 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[1]
 PORTAS = (("MAISIM_PORTA_PAGINA", 0), ("MAISIM_PORTA_SIMU", 1), ("MAISIM_PORTA_SCOPE", 2), ("MAISIM_PORTA_GECKO", 3),
           ("MAISIM_PORTA_MOTOR", 4), ("MAISIM_PORTA_TELA", 5), ("MAISIM_PORTA_VNC", 6))   # a partir de MAISIM_PORTA
+# as portas que os navegadores recusam abrir (ERR_UNSAFE_PORT: a lista do Chrome e do Firefox, só as de 1024 para cima);
+# o pacote/windows/MaiSim.iss tem a mesma lista
+PORTAS_BLOQUEADAS = frozenset((1719, 1720, 1723, 2049, 3659, 4045, 4190, 5060, 5061, 6000, 6566, 6665, 6666, 6667, 6668,
+                               6669, 6679, 6697, 10080))
+
+
+def porta_bloqueada(base):
+    """A primeira das sete portas do MaiSim (base…base+6) que os navegadores recusam, ou None."""
+    return next((p for p in range(base, base + len(PORTAS)) if p in PORTAS_BLOQUEADAS), None)
 
 
 def _le(arq):
@@ -53,10 +62,11 @@ def pasta_documentos():
 
 
 def pasta_cache():
-    """O cache e os registros: %LOCALAPPDATA% no Windows; $XDG_CACHE_HOME ou ~/.cache no Linux."""
+    """O cache e os registros do MaiSim: %LOCALAPPDATA%\\MaiSim\\Cache no Windows (uma pasta só dele: o desinstalar apaga
+    só ela, nunca o que mais houver em %LOCALAPPDATA%\\MaiSim); $XDG_CACHE_HOME/maisim ou ~/.cache/maisim no Linux."""
     if os.name == "nt":
-        return Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
-    return Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
+        return Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local") / "MaiSim" / "Cache"
+    return Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "maisim"
 
 
 def arquivo_pessoal():
@@ -99,6 +109,9 @@ def carrega(perfil=None):
         if not base.isdigit() or not 1024 <= int(base) <= 65000:
             raise ValueError(f"MAISIM_PORTA={base!r}: esperava um número de porta entre 1024 e 65000")
         b = int(base)
+        if porta_bloqueada(b):
+            raise ValueError(f"MAISIM_PORTA={b}: a porta {porta_bloqueada(b)} é recusada pelos navegadores / port {porta_bloqueada(b)} "
+                             "is refused by browsers (ERR_UNSAFE_PORT)")
         for nome, d in PORTAS:
             v[nome] = proprios.get(nome) or str(b + d)
         v["MAISIM_TELA_X"] = proprios.get("MAISIM_TELA_X") or f":{b // 100}"

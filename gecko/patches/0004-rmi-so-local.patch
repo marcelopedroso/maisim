@@ -1,0 +1,72 @@
+diff --git a/src/main/java/ch/technokrat/gecko/GeckoRemoteRegistry.java b/src/main/java/ch/technokrat/gecko/GeckoRemoteRegistry.java
+index 18be2149..1ae88072 100644
+--- a/src/main/java/ch/technokrat/gecko/GeckoRemoteRegistry.java
++++ b/src/main/java/ch/technokrat/gecko/GeckoRemoteRegistry.java
+@@ -20,11 +20,13 @@ import java.io.IOException;
+ import java.net.InetAddress;
+ import java.net.MalformedURLException;
+ import java.net.NetworkInterface;
++import java.net.ServerSocket;
+ import java.net.SocketException;
+ import java.net.URL;
+ import java.rmi.RemoteException;
+ import java.rmi.registry.LocateRegistry;
+ import java.rmi.registry.Registry;
++import java.rmi.server.RMIServerSocketFactory;
+ import java.rmi.server.UnicastRemoteObject;
+ import java.util.ArrayList;
+ import java.util.Enumeration;
+@@ -42,6 +44,33 @@ public class GeckoRemoteRegistry {
+     private static String _ipAddress = "127.0.0.1";
+     
+ 
++    // MaiSim: com o endereço local (o padrão, 127.0.0.1), o registro e o objeto remoto escutam só no próprio computador —
++    // não na rede (o Firewall do Windows não pergunta nada, e ninguém de fora alcança a porta)
++    private static final RMIServerSocketFactory SO_LOCAL = new RMIServerSocketFactory() {
++        @Override
++        public ServerSocket createServerSocket(int porta) throws IOException {
++            return new ServerSocket(porta, 50, InetAddress.getLoopbackAddress());
++        }
++
++        @Override
++        public boolean equals(Object o) {
++            return o != null && o.getClass() == getClass();
++        }
++
++        @Override
++        public int hashCode() {
++            return getClass().hashCode();
++        }
++    };
++
++    private static RMIServerSocketFactory fabricaServidor() {
++        try {
++            return InetAddress.getByName(_ipAddress).isLoopbackAddress() ? SO_LOCAL : null;
++        } catch (IOException e) {
++            return null;
++        }
++    }
++
+     private GeckoRemoteRegistry() {
+         // this is a "static" behavior class! -> private constructor
+     }
+@@ -122,8 +151,9 @@ public class GeckoRemoteRegistry {
+         try {            
+             remoteAccess = new GeckoCustomRemote(Fenster._scripter);            
+             
+-            GeckoRemoteInterface stub = (GeckoRemoteInterface) UnicastRemoteObject.exportObject(remoteAccess, 0);            
++            // MaiSim: o endereço antes de exportar (o stub leva o endereço de quando é criado; depois, era o IP da máquina)
+             System.setProperty("java.rmi.server.hostname",_ipAddress);
++            GeckoRemoteInterface stub = (GeckoRemoteInterface) UnicastRemoteObject.exportObject(remoteAccess, 0, null, fabricaServidor());
+             //if (_rmiRegistry == null) {
+             // Problem! This is a JAVA bug. Once a registry is opened, we cannot close it 
+             // (see http://stackoverflow.com/questions/14265232/java-rmi-registry-port-change-issue).
+@@ -136,7 +166,7 @@ public class GeckoRemoteRegistry {
+                 _rmiRegistry = LocateRegistry.getRegistry(getRemoteAccessPort());
+                 _rmiRegistry.rebind(INTERFACE_NAME, stub);            
+             } catch(Throwable throwable) {
+-                _rmiRegistry = LocateRegistry.createRegistry(getRemoteAccessPort());
++                _rmiRegistry = LocateRegistry.createRegistry(getRemoteAccessPort(), null, fabricaServidor());
+                 _rmiRegistry.bind(INTERFACE_NAME, stub);            
+             }
+             

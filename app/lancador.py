@@ -47,6 +47,14 @@ def fala(pt, en):
     print(f"maisim: {pt if PT else en}", flush=True)
 
 
+def avisa(pt, en):
+    """Um erro que quem abriu pelo atalho precisa ver: no terminal e, no Windows (o pythonw não tem terminal), numa janela."""
+    fala(pt, en)
+    if WIN:
+        import ctypes
+        ctypes.windll.user32.MessageBoxW(None, pt if PT else en, "MaiSim", 0x10)
+
+
 def no_ar(porta):
     try:
         with socket.create_connection(("127.0.0.1", int(porta)), timeout=0.5):
@@ -291,9 +299,15 @@ def main():
     a = ap.parse_args()
     if a.produto:
         os.environ["MAISIM_PERFIL"] = "produto"
-    if a.parar:
-        import ler_config
+    import ler_config
+    try:
         ler_config.aplica()
+    except (ValueError, FileNotFoundError) as e:     # a porta da config pessoal que não serve, um perfil que falta
+        arq = os.environ.get("MAISIM_CONFIG_PESSOAL") or (ler_config.arquivo_pessoal() if a.produto else ler_config.RAIZ / ".env")
+        avisa(f"O MaiSim não abriu: {e}.\nAcerte em {arq} (MAISIM_PORTA=8100, por exemplo) e abra de novo.",
+              f"MaiSim did not start: {e}.\nFix it in {arq} (MAISIM_PORTA=8100, for instance) and open it again.")
+        return 1
+    if a.parar:
         est = Path(os.environ["MAISIM_CACHE"]) / "lancador.json"
         try:
             e = json.loads(est.read_text())

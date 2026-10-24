@@ -58,6 +58,7 @@ pt.PortaSub=O endereço do MaiSim no seu navegador: http://localhost:<porta>
 pt.PortaTexto=O MaiSim usa esta porta e as 6 seguintes. Se você já roda outro MaiSim (no WSL, por exemplo), escolha outra.
 pt.PortaRotulo=Porta (1024 a 65000):
 pt.PortaInvalida=A porta precisa ser um número de 1024 a 65000.
+pt.PortaBloqueada=A porta %1 é recusada pelos navegadores (o MaiSim usa ela e as 6 seguintes). Usar a %2?
 pt.PortaOcupada=A porta %1 já está em uso neste computador (outro MaiSim, ou o WSL repassando a porta de lá). Usar a %2?
 pt.Abrir=Abrir o MaiSim agora (a primeira vez leva até um minuto)
 pt.Desligar=Desligar o MaiSim
@@ -71,6 +72,7 @@ en.PortaSub=MaiSim's address in your browser: http://localhost:<port>
 en.PortaTexto=MaiSim uses this port and the next 6. If you already run another MaiSim (in WSL, for instance), pick another one.
 en.PortaRotulo=Port (1024 to 65000):
 en.PortaInvalida=The port must be a number from 1024 to 65000.
+en.PortaBloqueada=Port %1 is refused by browsers (MaiSim uses it and the next 6). Use %2 instead?
 en.PortaOcupada=Port %1 is already in use on this computer (another MaiSim, or WSL forwarding its port). Use %2 instead?
 en.Abrir=Open MaiSim now (the first time takes up to a minute)
 en.Desligar=Stop MaiSim
@@ -82,7 +84,7 @@ Source: "{#Fonte}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs crea
 Source: "{#Imagens}\maisim.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [InstallDelete]
-; uma atualização troca o programa inteiro (os dados ficam fora: Documentos\MaiSim, %APPDATA%\MaiSim, %LOCALAPPDATA%\maisim)
+; uma atualização troca o programa inteiro (os dados ficam fora: Documentos\MaiSim, %APPDATA%\MaiSim, %LOCALAPPDATA%\MaiSim\Cache)
 Type: filesandordirs; Name: "{app}\python"
 Type: filesandordirs; Name: "{app}\jre"
 Type: filesandordirs; Name: "{app}\maisim"
@@ -129,6 +131,17 @@ begin
   else Result := LeConfig('MAISIM_DADOS', ExpandConstant('{userdocs}\MaiSim'));
 end;
 
+{ alguma das sete portas (Porta…Porta+6) é recusada pelos navegadores (ERR_UNSAFE_PORT)? a mesma lista de
+  PORTAS_BLOQUEADAS em config/ler_config.py }
+function PortaBloqueada(Porta: Integer): Boolean;
+var Lista: String; I: Integer;
+begin
+  Result := False;
+  Lista := ',1719,1720,1723,2049,3659,4045,4190,5060,5061,6000,6566,6665,6666,6667,6668,6669,6679,6697,10080,';
+  for I := Porta to Porta + 6 do
+    if Pos(',' + IntToStr(I) + ',', Lista) > 0 then Result := True;
+end;
+
 { a porta está em uso? (netstat: algo escutando nela — outro MaiSim, ou o WSL repassando a porta de lá) }
 function PortaOcupada(Porta: Integer): Boolean;
 var Saida, Texto: String; Cod: Integer; Ansi: AnsiString;
@@ -153,7 +166,7 @@ begin
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
-var P, Livre: Integer;
+var P, Livre: Integer; Chave: String;
 begin
   Result := True;
   if CurPageID = PaginaPorta.ID then begin
@@ -161,10 +174,11 @@ begin
     if (P < 1024) or (P > 65000) then begin
       MsgBox(CustomMessage('PortaInvalida'), mbError, MB_OK);
       Result := False;
-    end else if (IntToStr(P) <> LeConfig('MAISIM_PORTA', '')) and PortaOcupada(P) then begin
+    end else if PortaBloqueada(P) or ((IntToStr(P) <> LeConfig('MAISIM_PORTA', '')) and PortaOcupada(P)) then begin
       Livre := P + 100;
-      while (Livre <= 64900) and PortaOcupada(Livre) do Livre := Livre + 100;
-      if MsgBox(FmtMessage(CustomMessage('PortaOcupada'), [IntToStr(P), IntToStr(Livre)]), mbConfirmation, MB_YESNO) = IDYES then
+      while (Livre <= 64900) and (PortaBloqueada(Livre) or PortaOcupada(Livre)) do Livre := Livre + 100;
+      if PortaBloqueada(P) then Chave := 'PortaBloqueada' else Chave := 'PortaOcupada';
+      if MsgBox(FmtMessage(CustomMessage(Chave), [IntToStr(P), IntToStr(Livre)]), mbConfirmation, MB_YESNO) = IDYES then
         PaginaPorta.Values[0] := IntToStr(Livre);
       Result := False;   { mostra a porta nova na página antes de seguir }
     end;
@@ -189,7 +203,7 @@ begin
     if MsgBox(FmtMessage(CustomMessage('ApagarDados'), [Dados]), mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then begin
       DelTree(Dados, True, True, True);
       DelTree(ExpandConstant('{userappdata}\MaiSim'), True, True, True);
-      DelTree(ExpandConstant('{localappdata}\maisim'), True, True, True);
+      DelTree(ExpandConstant('{localappdata}\MaiSim\Cache'), True, True, True);   { só o cache: o resto de %LOCALAPPDATA%\MaiSim não é nosso }
     end;
   end;
 end;
