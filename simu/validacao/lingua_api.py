@@ -50,7 +50,11 @@ try:
         ruim = json.loads(e.read())
     ok("already exists" in ruim.get("erro", ""), f"um cookie malformado antes do nosso: continua em inglês (\"{ruim.get('erro')}\")")
     # a biblioteca de subcircuitos: o mesmo código ao salvar por cima de um que existe
-    lib = next((m for m in api("modelos") if m.get("id_grupo") == "subcircuitos"), None)
+    # (a máquina do GitHub começa sem nenhum: um arquivo qualquer na biblioteca de teste basta — o "já existe" vem antes)
+    LIB = Path.home() / ".cache/maisim_teste/subcircuitos"
+    LIB.mkdir(parents=True, exist_ok=True)
+    (LIB / "lingua_lib.ipes").write_bytes((Path(__file__).resolve().parents[2] / "exemplos/exemplo_buck.ipes").read_bytes())
+    lib = next((m for m in api("modelos") if m.get("id_grupo") == "subcircuitos" and m["nome"] == "lingua_lib.ipes"), None)
     if lib:
         nome_lib = lib["nome"].removesuffix(".ipes")
         bpt = api("editor/biblioteca", {"acao": "salvar", "nome": "x", "folha": "0", "nome_lib": nome_lib})
@@ -66,4 +70,5 @@ finally:
     api("editor/abrir", {"arq": "exemplos/exemplo_buck.ipes", "modo": "descartar"})
     for suf in (".ipes", ".controle.json", ".aparencia.json", ".scope.json"):   # o circuito que o teste salvou
         (Path.home() / ".cache/maisim_teste/circuitos" / f"lingua_teste{suf}").unlink(missing_ok=True)
+    (Path.home() / ".cache/maisim_teste/subcircuitos/lingua_lib.ipes").unlink(missing_ok=True)
 raise SystemExit(1 if falhas else 0)
