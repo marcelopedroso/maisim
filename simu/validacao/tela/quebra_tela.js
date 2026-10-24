@@ -59,7 +59,7 @@ const URL = "http://localhost:7200/maisim/simu/?modelo=" + encodeURIComponent(re
   const dica = await pg.evaluate(() => { const d = $("dica-ui"); return d.classList.contains("vis") ? d.innerHTML : ""; });
   ok(/quebra de linha/.test(dica) && /<kbd>Alt\+Z<\/kbd>/.test(dica), `dica no padrão do MaiSim, com a tecla: ${dica.replace(/<[^>]+>/g, "|")}`);
   const p2 = await ctx.newPage(); await p2.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */ p2.on("pageerror", (e) => erros.push(e.message));
-  await p2.route(/monaco-editor/, (r) => r.abort());
+  await p2.route(/monaco-editor|vendor\/monaco/, (r) => r.abort());   // sem o Monaco (nem o do CDN, nem o local do vendor.sh)
   await p2.goto(URL); await p2.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
   await p2.evaluate(() => { try { localStorage.setItem("maisim-simu-quebra", "1"); } catch (e) {} });
   await p2.reload(); await p2.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });

@@ -48,6 +48,7 @@ O MaiSim trabalha com a IA instalada no seu computador (opcional): o [Claude Cod
 
 ```bash
 git clone https://github.com/marcelopedroso/maisim.git && cd maisim
+simu/vendor.sh                # o editor de código (Monaco) aqui, para o MaiSim funcionar sem internet
 gecko/construir.sh            # o GeckoCIRCUITS original num commit fixo + o patch do MaiSim → gecko/build/gecko-lote.jar
 npm ci --prefix app           # a página
 cd app && npm run maisim      # sobe tudo; Ctrl+C derruba o que ele subiu

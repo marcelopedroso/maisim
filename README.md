@@ -49,6 +49,7 @@ MaiSim works with the AI installed on your computer (optional): [Claude Code](ht
 
 ```bash
 git clone https://github.com/marcelopedroso/maisim.git && cd maisim
+simu/vendor.sh                # the code editor (Monaco) here, so MaiSim works offline
 gecko/construir.sh            # upstream GeckoCIRCUITS at a pinned commit + MaiSim's patch → gecko/build/gecko-lote.jar
 npm ci --prefix app           # the web page
 cd app && npm run maisim      # starts everything; Ctrl+C stops what it started
