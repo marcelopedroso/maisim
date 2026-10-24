@@ -9,6 +9,9 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ### Changed
 - A channel color chosen on the circuit also applies in the scope, which follows it right away (#66).
 
+### Fixed
+- Scope: the "Per row" button is translated even when there is no run yet (#69).
+
 ## [0.2.0] - 2026-10-24
 
 ### Added
