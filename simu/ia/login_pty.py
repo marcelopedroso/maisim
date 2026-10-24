@@ -16,13 +16,15 @@ import threading
 import time
 from pathlib import Path
 
-import fcntl
-import termios
+if os.name != "nt":                               # o terminal (pty) é do Linux; no Windows o login abre numa janela própria
+    import fcntl
+    import termios
 
 for _p in (Path(__file__).resolve().parents[2] / "config", Path(__file__).resolve().parents[1]):   # lingua e textos (o servidor já os põe)
     if str(_p) not in sys.path:
         sys.path.append(str(_p))
 import lingua  # noqa: E402                    as mensagens no idioma do pedido
+import processos  # noqa: E402                 o grupo da ferramenta (Linux e Windows)
 import textos  # noqa: E402,F401
 
 ANSI = re.compile(r"\x1b\[[0-9;?<>=]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[=>()][0-9A-Za-z]?")
@@ -85,7 +87,9 @@ class LoginPorTerminal:
         with self._trava:
             p = self._login.get("proc")
             em_andamento = p is not None and p.poll() is None
-            if not em_andamento:
+            if not em_andamento and processos.WIN:     # (a trava sai no fim do with: o estado() a pega de novo)
+                self._entra_windows()
+            elif not em_andamento:
                 self._prepara_login()
                 vazio = self.pasta / "maisim" / "login"           # o cwd do login: uma pasta vazia (nada a ler ali)
                 vazio.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -93,20 +97,50 @@ class LoginPorTerminal:
                 fcntl.ioctl(escravo, termios.TIOCSWINSZ, struct.pack("HHHH", 50, 2000, 0, 0))   # largo: o link numa linha só
                 try:
                     proc = subprocess.Popen(self.login_argv(), stdin=escravo, stdout=escravo, stderr=escravo, cwd=str(vazio),
-                                            start_new_session=True, env=self.login_env())
+                                            **processos.GRUPO, env=self.login_env())
                 finally:
                     os.close(escravo)
                 self._login.clear()
                 self._login.update(proc=proc, fd=mestre, andamento=True, desde=time.time(), url=None, erro=None, mensagem=None,
                                    erro_t=None, mensagem_t=None)
                 lingua.thread(self._le_login, proc, mestre).start()   # as mensagens no idioma de quem pediu o login
-        if not em_andamento:
+        if not em_andamento and not processos.WIN:      # no Windows não há link a esperar: o login é na janela própria
             for _ in range(self.LOGIN_ESPERA_LINK * 10):
                 with self._trava:
                     if self._login.get("url") or not self._login.get("andamento"):
                         break
                 time.sleep(0.1)
         return self.estado()
+
+    def _entra_windows(self):
+        """No Windows não há o terminal falso (pty) para ler os menus e repassar o código: a ferramenta abre numa janela de
+        terminal própria, a pessoa faz o login ali, e o MaiSim acompanha até a conta aparecer (logado) ou a janela fechar."""
+        self._prepara_login()
+        vazio = self.pasta / "maisim" / "login"
+        vazio.mkdir(parents=True, exist_ok=True)
+        proc = subprocess.Popen(self.login_argv(), cwd=str(vazio), env=self.login_env(), creationflags=subprocess.CREATE_NEW_CONSOLE)
+        self._login.clear()
+        self._login.update(proc=proc, fd=None, andamento=True, desde=time.time(), url=None, erro=None, mensagem=None, erro_t=None, mensagem_t=None)
+        self._poe("mensagem", "janela_propria")
+        lingua.thread(self._acompanha_windows, proc).start()
+
+    def _acompanha_windows(self, proc):
+        while proc.poll() is None and not self.logado():
+            time.sleep(1)
+        entrou = self.logado()
+        if entrou:
+            try:
+                self.ao_entrar(None)                      # a peça atualiza o que precisar (os modelos); a conta, a ferramenta sabe
+            except Exception:
+                pass
+        with self._trava:
+            self._login["andamento"] = False
+            if entrou:
+                self._poe("mensagem", "feito")
+            else:
+                self._poe("erro", "janela_fechada")
+        if proc.poll() is None:                          # entrou: a ferramenta interativa continuaria aberta
+            processos.encerra(proc.pid)
 
     def _prepara_login(self):
         self.pasta.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -153,14 +187,14 @@ class LoginPorTerminal:
             if fim or erro:
                 break
         try:
-            os.killpg(proc.pid, signal.SIGTERM)              # a ferramenta interativa continuaria aberta: o MaiSim fecha
+            processos.encerra(proc.pid)              # a ferramenta interativa continuaria aberta: o MaiSim fecha
         except OSError:
             pass
         try:
             proc.wait(timeout=10)
         except subprocess.TimeoutExpired:
             try:
-                os.killpg(proc.pid, signal.SIGKILL)
+                processos.encerra(proc.pid, forte=True)
             except OSError:
                 pass
         try:
@@ -210,6 +244,6 @@ class LoginPorTerminal:
             else:
                 self._poe("erro", texto=motivo)
         try:
-            os.killpg(p.pid, signal.SIGTERM)
+            processos.encerra(p.pid)
         except OSError:
             pass
