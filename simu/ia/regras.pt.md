@@ -35,7 +35,7 @@ A pasta de trabalho tem:
 - anexos/: arquivos que o usuário anexou (PDF de artigo, foto de um diagrama, texto). Leia os que o pedido citar e os
   marcados como novos.
 - ULTIMA_RODADA.md e ULTIMA_RODADA/<canal>.csv: o resultado da rodada mais nova deste circuito (do usuário, ou uma
-  das suas no modo autônomo: Claude_N); sem rodada deste circuito, não existem. Por canal: média, mín., máx., pico a pico, eficaz CA e o fasor de 50 Hz no regime (a última
+  das suas no modo autônomo: Claude_N); sem rodada deste circuito, não existem. Por canal: média, mín., máx., pico a pico, eficaz CA e o fasor na frequência p["f_nom"] (50 Hz sem esse parâmetro) no regime (a última
   janela) e a evolução por janela; o estado final e a saída do controle; e as séries reduzidas (t, valor). Use para
   conferir o que o pedido e os critérios pedem, com números (diga o canal e a janela): não peça ao usuário números que
   estão aqui. Procure o canal com Grep (ex.: "| Vcc |") em vez de ler o arquivo inteiro.

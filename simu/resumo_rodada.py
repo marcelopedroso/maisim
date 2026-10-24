@@ -2,9 +2,9 @@
 
 Marcelo, 19/10: o Claude do MaiSim não via o resultado das rodadas — implementou a Etapa 1 da estratégia de controle e
 parou pedindo "os números, que só você consegue ler". Agora, ao fim de cada rodada, o MaiSim grava ao lado do .npz:
-  resumo.md          por canal: média, mín., máx., pico a pico, eficaz CA e o fasor de 50 Hz (pico ∠ fase, referência
-                     cosseno: x ≈ X cos(ωt + φ)) na última janela (o regime) e a média e o pico a pico em cada janela
-                     (a evolução); o estado final, o erro e o fim da saída do controle
+  resumo.md          por canal: média, mín., máx., pico a pico, eficaz CA e o fasor em f_nom (o parâmetro do
+                     controle; 50 Hz sem ele; pico ∠ fase, referência cosseno: x ≈ X cos(ωt + φ)) na última janela (o
+                     regime) e a média e o pico a pico em cada janela (a evolução); o estado final, o erro e o fim da saída do controle
   serie/<canal>.csv  a série reduzida (t, valor): a média de cada bloco de amostras (≈ 500 pontos; sem aliasing do
                      chaveamento), para o Claude ler só os canais que quiser
 No pedido seguinte (e entre as voltas do modo autônomo), o MaiSim copia os dois para a pasta do Claude como
@@ -78,11 +78,11 @@ def escreve(npz, destino=None, estado=None, saida_controle=""):
          tr("resumo.estado", estado=estado_txt(est.get('estado', '?')), erro=tr("resumo.erro", erro=est['erro']) if est.get("erro") else "",
             relogio=tr("resumo.relogio", s=est['segundos']) if est.get("segundos") is not None else ""),
          tr("resumo.tempo", t0=_fmt(t0), t1=_fmt(t1), dtg=_fmt(meta.get('dt_gecko')), dt=_fmt(meta.get('dt')),
-            ts=_fmt(ctl.get('Ts')) if ctl else tr("resumo.sem_controle"), n=len(canais)),
+            ts=f"{_fmt(ctl.get('Ts'))} s" if ctl else tr("resumo.sem_controle"), n=len(canais)),   # a unidade só com o número
          tr("resumo.fasores", f=f"{f0:g}"),
          tr("resumo.janelas", lista="; ".join(f"J{i + 1} = [{_fmt(a)}, {_fmt(b)}) s" for i, (a, b) in enumerate(js))), "",
          tr("resumo.regime"), "",
-         tr("resumo.tabela"), "|---|---|---|---|---|---|---|"]
+         tr("resumo.tabela", f=f"{f0:g}"), "|---|---|---|---|---|---|---|"]
     evol = []
     (destino / "serie").mkdir(parents=True, exist_ok=True)
     for k in canais:

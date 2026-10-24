@@ -35,7 +35,7 @@ The working folder has:
 - anexos/: files the user attached (a paper PDF, a photo of a diagram, text). Read the ones the request mentions and the
   ones marked as new.
 - ULTIMA_RODADA.md and ULTIMA_RODADA/<canal>.csv: the result of the newest run of this circuit (the user's, or one
-  of yours in autonomous mode: Claude_N); without a run of this circuit, they do not exist. Per channel: mean, min., max., peak to peak, AC RMS and the 50 Hz phasor in steady state (the last
+  of yours in autonomous mode: Claude_N); without a run of this circuit, they do not exist. Per channel: mean, min., max., peak to peak, AC RMS and the phasor at the frequency p["f_nom"] (50 Hz without that parameter) in steady state (the last
   window) and the evolution per window; the final state and the control output; and the reduced series (t, valor). Use them to
   check what the request and the criteria ask for, with numbers (say the channel and the window): do not ask the user for numbers that
   are here. Look for the channel with Grep (e.g.: "| Vcc |") instead of reading the whole file.
