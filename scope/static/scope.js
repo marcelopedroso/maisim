@@ -4,12 +4,12 @@
 // Modos "Ao vivo" (SSE) e "Comparar" (A em cores; B na cor do mesmo sinal, mais clara e tracejada).
 "use strict";
 const BRACOS = ["au", "al", "bu", "bl", "cu", "cl"];
-const NOME = { au: "sup a", al: "inf a", bu: "sup b", bl: "inf b", cu: "sup c", cl: "inf c" };
+const NOME = (b) => tr(`scope.braco.${b}`);              // o nome do braço (sup a, inf a…), no idioma
 const PALETA = ["#1f77b4", "#d62728", "#2ca02c", "#ff7f0e", "#9467bd", "#8c564b", "#e377c2", "#17becf", "#bcbd22", "#7f7f7f"];
 // cores escolhidas pelo usuário, por sinal (vale em todos os painéis; guardadas no navegador); as clássicas, para não
-// virar salada, e qualquer #rrggbb
-const CLASSICAS = [["vermelho", "#e41a1c"], ["vermelho escuro", "#8b0000"], ["laranja", "#ff7f0e"], ["marrom", "#8c564b"], ["ouro", "#b8860b"],
-  ["verde", "#2ca02c"], ["verde escuro", "#006400"], ["ciano", "#17becf"], ["azul", "#1f77b4"], ["azul escuro", "#0b3d91"], ["roxo", "#9467bd"],
+// virar salada, e qualquer #rrggbb. O nome é o da chave do dicionário (scope.cor.vermelho_escuro…), mostrado no idioma
+const CLASSICAS = [["vermelho", "#e41a1c"], ["vermelho_escuro", "#8b0000"], ["laranja", "#ff7f0e"], ["marrom", "#8c564b"], ["ouro", "#b8860b"],
+  ["verde", "#2ca02c"], ["verde_escuro", "#006400"], ["ciano", "#17becf"], ["azul", "#1f77b4"], ["azul_escuro", "#0b3d91"], ["roxo", "#9467bd"],
   ["magenta", "#d62ab0"], ["cinza", "#7f7f7f"], ["preto", "#111111"]];
 let coresSinal = (() => { try { return JSON.parse(localStorage.getItem("maisim-scope-cores") || "{}") || {}; } catch (e) { return {}; } })();
 const corValida = (c) => /^#[0-9a-fA-F]{6}$/.test(c) ? c.toLowerCase() : /^#[0-9a-fA-F]{3}$/.test(c) ? ("#" + c.slice(1).split("").map((x) => x + x).join("")).toLowerCase() : null;
@@ -76,10 +76,9 @@ window.addEventListener("storage", (e) => { if (e.key && e.key === chaveLayout()
 // medidas no Gecko a cada passo fino. EA … ECA: tensão PWM do conversor calculada das tensões medidas nas pontas das
 // cadeias de SMs, e_k = (v_kp + v_kn − V_dc)/2 e e_ab = e_a − e_b. VAB … VCA: tensão nos terminais (depois dos indutores
 // de braço), das rodadas gravadas antes de 17/10 11:47
-const MEDIDOS = { EAB: "e_ab PWM do conversor, medida (V)", EBC: "e_bc PWM do conversor, medida (V)",
-                  ECA: "e_ca PWM do conversor, medida (V)", EA: "e_a PWM de fase, medida (V)", EB: "e_b PWM de fase, medida (V)",
-                  EC: "e_c PWM de fase, medida (V)", IA: "i_a (A)", IB: "i_b (A)", IC: "i_c (A)", VDC: "V_dc (V)",
-                  VAB: "v_ab nos terminais (V)", VBC: "v_bc nos terminais (V)", VCA: "v_ca nos terminais (V)" };
+// Os nomes no dicionário (scope.cat.fino_EAB…); os E* já dizem "medida" no nome, os outros ganham o "medida" no rótulo
+const MEDIDOS = ["EAB", "EBC", "ECA", "EA", "EB", "EC", "IA", "IB", "IC", "VDC", "VAB", "VBC", "VCA"];
+const MEDIDOS_JA = new Set(["EAB", "EBC", "ECA", "EA", "EB", "EC"]);
 
 let modo = "vivo", A = null, B = null;
 let itens = [];                   // painéis e títulos de seção, na ordem
@@ -125,7 +124,7 @@ function preparaGrade() {
   }
   uniao = { x: Float64Array.from(xs, (t) => t * 1e3), iA: Int32Array.from(iA), iB: Int32Array.from(iB) };
 }
-const avisoGrade = () => uniao ? ` · intervalos diferentes (A ${fmtDt(intervalo(A))}, B ${fmtDt(intervalo(B))}): cada uma nos seus instantes` : "";
+const avisoGrade = () => uniao ? " · " + tr("scope.aviso_grade", { a: fmtDt(intervalo(A)), b: fmtDt(intervalo(B)) }) : "";
 
 // canal: "f" = tem resolução do passo fino (pulsos, tensões PWM reconstruídas, formas medidas no Gecko)
 function tipo(canal) { return /^(s_|varm_|e_[abc]$|fino_)/.test(canal) ? "f" : "c"; }
@@ -199,23 +198,24 @@ function catalogo() {
   if (!F) return lst;
   // id: o grupo para o código (o nome do grupo é texto, muda com o idioma); braco: o nome do braço, para o rótulo
   const add = (grupo, canal, rotulo, id, braco) => { if (grossa(F, canal)) lst.push({ grupo, canal, rotulo, tipo: tipo(canal), id, braco }); };
-  add("Porta CC", "vdc", "V_dc (V)"); add("Porta CC", "idc", "i_dc da carga (A)");
-  add("Potência", "P_ref", "P* (W)"); add("Potência", "Q_ref", "Q* (var)");
-  for (const k of "abc") { add("Rede", `i${k}`, `i_${k} (A)`); add("Rede", `i${k}_ref`, `i_${k}* referência (A)`); add("Rede", `v${k}`, `v_${k} da rede (V)`); }
-  for (const [n, r] of Object.entries(MEDIDOS)) add("Medidas no Gecko a cada passo fino", `fino_${n}`, r, "medidas");
-  for (const k of "abc") add("Tensões PWM reconstruídas dos comandos", `e_${k}`, `e_${k} = (v_l − v_u)/2, perna ${k} (V)`);
+  const gCC = tr("scope.cat.g_cc"), gPot = tr("scope.cat.g_potencia"), gRede = tr("scope.cat.g_rede");
+  add(gCC, "vdc", "V_dc (V)"); add(gCC, "idc", tr("scope.cat.idc"));
+  add(gPot, "P_ref", "P* (W)"); add(gPot, "Q_ref", "Q* (var)");
+  for (const k of "abc") { add(gRede, `i${k}`, `i_${k} (A)`); add(gRede, `i${k}_ref`, tr("scope.cat.i_ref", { k })); add(gRede, `v${k}`, tr("scope.cat.v_rede", { k })); }
+  for (const n of MEDIDOS) add(tr("scope.cat.g_medidas"), `fino_${n}`, tr(`scope.cat.fino_${n}`), "medidas");
+  for (const k of "abc") add(tr("scope.cat.g_pwm"), `e_${k}`, tr("scope.cat.e_perna", { k }));
   for (const b of BRACOS) {
-    const g = `Braço ${NOME[b]}`, ab = (grupo, canal, rotulo) => add(grupo, canal, rotulo, "braco", NOME[b]);
-    ab(g, `iarm_${b}`, "corrente real (A)"); ab(g, `iarm_hat_${b}`, "corrente estimada pelos SMs (A)");
-    ab(g, `iarm_ref_${b}`, "corrente de referência (A)"); ab(g, `nhat_${b}`, "N̂");
-    ab(g, `varm_${b}`, "tensão do braço, PWM (V)");
-    for (let j = 1; j <= nSM(); j++) { ab(g, `vc_${b}_${j}`, `v_c SM${j} (V)`); ab(g, `s_${b}_${j}`, `pulso SM${j}`); ab(g, `sig_${b}_${j}`, `σ SM${j} (média na janela)`); }
+    const g = tr("scope.cat.g_braco", { nome: NOME(b) }), ab = (grupo, canal, rotulo) => add(grupo, canal, rotulo, "braco", NOME(b));
+    ab(g, `iarm_${b}`, tr("scope.cat.iarm")); ab(g, `iarm_hat_${b}`, tr("scope.cat.iarm_hat"));
+    ab(g, `iarm_ref_${b}`, tr("scope.cat.iarm_ref")); ab(g, `nhat_${b}`, "N̂");
+    ab(g, `varm_${b}`, tr("scope.cat.varm"));
+    for (let j = 1; j <= nSM(); j++) { ab(g, `vc_${b}_${j}`, `v_c SM${j} (V)`); ab(g, `s_${b}_${j}`, tr("scope.cat.pulso", { j })); ab(g, `sig_${b}_${j}`, tr("scope.cat.sig", { j })); }
   }
   // qualquer outro canal da rodada (ex.: rodadas do /maisim/simu, com os nomes dos rótulos dos medidores)
   const conhecidos = new Set(lst.map((c) => c.canal));
   for (const k of Object.keys(F.dados).sort()) {
     if (k === "t" || conhecidos.has(k) || /^(pwm_|pwmn_|fino_)/.test(k)) continue;
-    add("Sinais da rodada", k, k, "rodada");
+    add(tr("scope.cat.g_rodada"), k, k, "rodada");
   }
   return lst;
 }
@@ -223,7 +223,7 @@ function rotulo(canal) {
   const c = catalogo().find((x) => x.canal === canal);
   if (!c) return canal;
   if (c.id === "braco") return `${c.braco}: ${c.rotulo}`;
-  if (c.id === "medidas") return /medida/.test(c.rotulo) ? c.rotulo : `${c.rotulo} medida`;
+  if (c.id === "medidas") return MEDIDOS_JA.has(c.canal.slice(5)) ? c.rotulo : tr("scope.cat.medida", { rot: c.rotulo });
   return c.rotulo;
 }
 
@@ -467,13 +467,13 @@ function leHs(txt) {                                 // "1, 2, 3" ou "1-7" ou "1
 function mede1(F, canal, M, hs) {
   const T = M.n / M.f0, t0 = M.t0 / 1e3;
   const am = amostras(F, canal, t0, t0 + T);
-  if (!am) return { erro: "sem dados" };
+  if (!am) return { erro: tr("scope.med.e_sem_dados") };
   const N = am.x.length, Nexato = T / am.dt, Nesp = Math.round(Nexato);
-  if (!N) return { erro: "sem amostras na janela" };
+  if (!N) return { erro: tr("scope.med.e_sem_amostras") };
   // o passo do scope nem sempre divide o período (ex.: 380 µs e 20 ms: 13 períodos = 684,2 amostras); até uma amostra de
   // diferença é a janela inteira (antes: "janela incompleta: 685 de 684 amostras" e nada medido)
-  if (N !== Nesp && Math.abs(N - Nexato) >= 1) return { erro: `janela incompleta: ${N} de ${Nesp} amostras`, N, dt: am.dt };
-  if (am.faltam) return { erro: `faltam ${am.faltam} amostra(s) na janela`, N, dt: am.dt };
+  if (N !== Nesp && Math.abs(N - Nexato) >= 1) return { erro: tr("scope.med.e_incompleta", { N, Nesp }), N, dt: am.dt };
+  if (am.faltam) return { erro: tr("scope.med.e_faltam", { k: am.faltam }), N, dt: am.dt };
   return analisa(am.x, am.dt, M, hs);
 }
 // mínimos quadrados de x[m] ≈ a₀ + Σ a_h cos(h ω m dt) + b_h sin(h ω m dt): [a₀, a_h1, b_h1, a_h2, …] (equações normais,
@@ -539,10 +539,10 @@ function analisa(x, dt, M, hs, escalaRef = 0) {
 // ex.: va + vb + vc → a sequência zero; os 3 SMs de um braço → a tensão do braço; as 18 v_c → a energia total)
 function medeSoma(lista, M, hs) {
   const ok = lista.filter((x) => !x.r.erro);
-  if (ok.length < 2) return { erro: lista.length < 2 ? "" : "Σ: menos de 2 sinais sem erro na janela", parte: ok };
+  if (ok.length < 2) return { erro: lista.length < 2 ? "" : tr("scope.med.e_soma_min"), parte: ok };
   const dt = ok[0].r.dt, N = ok[0].r.N;
   const outro = ok.find((x) => Math.abs(x.r.dt - dt) > 1e-12 * dt || x.r.N !== N);
-  if (outro) return { erro: `Σ: passos diferentes (${ok[0].nome} ${fmtDt(dt)}, ${outro.nome} ${fmtDt(outro.r.dt)}): não dá para somar ponto a ponto`, parte: ok };
+  if (outro) return { erro: tr("scope.med.e_soma_passos", { a: ok[0].nome, dta: fmtDt(dt), b: outro.nome, dtb: fmtDt(outro.r.dt) }), parte: ok };
   const soma = new Float64Array(N);
   for (const x of ok) for (let m = 0; m < N; m++) soma[m] += x.r.x[m];
   let escala = 0; for (const x of ok) { let e = 0; for (let m = 0; m < N; m++) e = Math.max(e, Math.abs(x.r.x[m])); escala += e; }
@@ -553,9 +553,9 @@ function divideRes(r, k) {                            // a linha x̄ = a linha �
   return Object.assign({}, r, { media: r.media / k, harm: r.harm.map((c) => c ? [c[0] / k, c[1]] : c) });
 }
 function celulasMed(r, hs) {                         // as colunas de uma linha da tabela da medição
-  const n = `<td${r.aprox ? ' title="o passo não divide o período: a janela tem até uma amostra a mais ou a menos que os períodos pedidos (média e harmônicos por mínimos quadrados, até 80 % da metade da taxa)"' : ""}>${r.aprox ? "≈ " : ""}${r.N || "–"}${r.dt ? ` <span>· ${fmtDt(r.dt)}</span>` : ""}</td></tr>`;
-  if (r.erro) return `<td colspan="${hs.length + 2}" class="erro">${r.erro}</td>` + n;
-  return `<td>${fmtM(r.media)}</td>` + r.harm.map((c) => c ? `<td>${fmtM(c[0])}${isFinite(c[1]) ? ` ∠ ${c[1].toFixed(1)}°` : ""}</td>` : `<td title="acima da metade da taxa de amostragem">–</td>`).join("") +
+  const n = `<td${r.aprox ? ` title="${escH(tr("scope.med.t_aprox"))}"` : ""}>${r.aprox ? "≈ " : ""}${r.N || "–"}${r.dt ? ` <span>· ${fmtDt(r.dt)}</span>` : ""}</td></tr>`;
+  if (r.erro) return `<td colspan="${hs.length + 2}" class="erro">${escH(r.erro)}</td>` + n;
+  return `<td>${fmtM(r.media)}</td>` + r.harm.map((c) => c ? `<td>${fmtM(c[0])}${isFinite(c[1]) ? ` ∠ ${c[1].toFixed(1)}°` : ""}</td>` : `<td title="${escH(tr("scope.med.t_acima"))}">–</td>`).join("") +
          `<td>${isFinite(r.thd) ? r.thd.toFixed(2) + " %" : "–"}</td>` + n;
 }
 const fmtDt = (dt) => dt >= 1e-3 ? `${+(dt * 1e3).toPrecision(4)} ms` : `${+(dt * 1e6).toPrecision(4)} µs`;
@@ -572,13 +572,13 @@ function mede(p) {
   const fim = M.t0 + M.n * 1e3 / M.f0;
   box.querySelector(".med-jan").textContent = `= ${+M.t0.toFixed(3)} … ${+fim.toFixed(3)} ms`;
   p.medRes = [];
-  if (!seriesMed(p).length) { tab.innerHTML = "<i>sem sinais neste painel</i>"; desenhaEspectro(p); return; }
-  let html = `<table><thead><tr><th>sinal</th><th>média</th>${hs.map((h) => `<th>h${h} · ${+(h * M.f0).toPrecision(5)} Hz<br><span>pico ∠ fase</span></th>`).join("")}<th>THD<br><span>h 2–50</span></th><th>N<br><span>· passo</span></th></tr></thead><tbody>`;
+  if (!seriesMed(p).length) { tab.innerHTML = `<i>${escH(tr("scope.med.sem_sinais"))}</i>`; desenhaEspectro(p); return; }
+  let html = `<table><thead><tr><th>${escH(tr("scope.med.sinal"))}</th><th>${escH(tr("scope.med.media"))}</th>${hs.map((h) => `<th>h${h} · ${+(h * M.f0).toPrecision(5)} Hz<br><span>${escH(tr("scope.med.pico_fase"))}</span></th>`).join("")}<th>THD<br><span>h 2–50</span></th><th>N<br><span>${escH(tr("scope.med.passo"))}</span></th></tr></thead><tbody>`;
   for (const se of seriesMed(p)) {
     const r = mede1(se.F, se.canal, M, hs);
     const nome = rotulo(se.canal) + (B ? (se.F === A ? " · A" : " · B") : ""), ch = `${se.canal}|${se.F === A ? "A" : "B"}`;
     p.medRes.push({ se, r, nome, chave: ch });
-    html += `<tr data-chave="${ch}" class="${p.espFora.has(ch) ? "fora" : ""}"><td class="nome" title="clique para tirar ou pôr: no gráfico, no Σ / x̄ e no espectro (como esconder na legenda)"><i style="background:${se.cor}"></i>${htmlMat(nome)}</td>`;
+    html += `<tr data-chave="${ch}" class="${p.espFora.has(ch) ? "fora" : ""}"><td class="nome" title="${escH(tr("scope.med.t_nome"))}"><i style="background:${se.cor}"></i>${htmlMat(nome)}</td>`;
     html += celulasMed(r, hs);
   }
   // Σ de cada rodada (A; e B, no Comparar), com os sinais que não foram tirados
@@ -586,11 +586,11 @@ function mede(p) {
     const lista = p.medRes.filter((x) => x.se.F === F && !p.espFora.has(x.chave));
     if (p.medRes.filter((x) => x.se.F === F).length < 2) continue;
     const r = medeSoma(lista, M, hs), suf = B ? (F === A ? " · A" : " · B") : "", np = (r.parte || []).length;
-    const quem = (r.parte || []).map((x) => x.nome).join(" + ") || "nenhum", comb = M.comb || "nenhum";
-    for (const [k, rot, dica] of [["soma", "Σ", "soma, ponto a ponto"], ["media", "x̄", `média instantânea (a soma ÷ ${np}), ponto a ponto`]]) {
+    const quem = (r.parte || []).map((x) => x.nome).join(" + ") || tr("scope.med.nenhum"), comb = M.comb || "nenhum";   // comb: o valor guardado
+    for (const [k, rot, dica] of [["soma", "Σ", tr("scope.med.t_soma", { quem })], ["media", "x̄", tr("scope.med.t_media", { np, quem })]]) {
       if (comb !== k && comb !== "ambos") continue;
-      html += `<tr class="soma"><td class="nome-soma" title="${dica}, de: ${quem}">${rot}${suf} <span>(${np} ${np === 1 ? "sinal" : "sinais"})</span></td>`;
-      html += r.erro !== undefined ? `<td colspan="${hs.length + 3}" class="erro">${r.erro || `${rot}: pelo menos 2 sinais (um clique no nome põe de volta)`}</td></tr>`
+      html += `<tr class="soma"><td class="nome-soma" title="${escH(dica)}">${rot}${suf} <span>(${tr("scope.n_sinais", { n: np })})</span></td>`;
+      html += r.erro !== undefined ? `<td colspan="${hs.length + 3}" class="erro">${escH(r.erro || tr("scope.med.min2", { rot }))}</td></tr>`
                                    : celulasMed(k === "media" ? divideRes(r, np) : r, hs);
     }
   }
@@ -621,7 +621,7 @@ function desenhaEspectro(p) {
   const ls = (p.medRes || []).filter((x) => x.r.espec && !p.espFora.has(x.chave));
   let ymax = 0; for (const x of ls) for (const v of x.r.espec) if (v && v[0] > ymax) ymax = v[0];
   p.espGeo = null;
-  if (!ls.length || !(ymax > 0)) { g.fillText(ls.length ? "sem valores no espectro" : "nenhum sinal medido no espectro", L, T + 16); return; }
+  if (!ls.length || !(ymax > 0)) { g.fillText(tr(ls.length ? "scope.esp.sem_valores" : "scope.esp.sem_sinal"), L, T + 16); return; }
   // log: M.esp.dec décadas abaixo do maior; marcas em 1, 2 e 5 de cada década (rótulo em 2 e 5 quando cabe), para que
   // um fator 2 (ex.: 10 A no braço × 20 A na fase) se leia no eixo e não só pela altura da barra
   const log = M.esp.log, lo = log ? Math.log10(ymax) - M.esp.dec : 0, hi = log ? Math.log10(ymax) + 0.12 : ymax * 1.06;
@@ -651,8 +651,8 @@ function desenhaEspectro(p) {
   g.strokeStyle = C.base; g.beginPath(); g.moveTo(L, T + ph + 0.5); g.lineTo(L + pw, T + ph + 0.5); g.stroke();
   g.fillStyle = C.texto; g.textAlign = "center"; g.textBaseline = "top";
   const passoH = [1, 2, 5, 10, 20, 50, 100, 200, 500].find((s) => s * slot >= 26) || 1000;
-  for (let h = 0; h <= hmax; h += passoH) g.fillText(h ? String(h) : "CC", L + (h + 0.5) * slot, T + ph + 4);
-  g.fillText(`harmônico h  (f = h · ${+M.f0} Hz)   ·   pico${log ? ", escala log" : ""}`, L + pw / 2, T + ph + 19);
+  for (let h = 0; h <= hmax; h += passoH) g.fillText(h ? String(h) : tr("scope.esp.cc"), L + (h + 0.5) * slot, T + ph + 4);
+  g.fillText(tr(log ? "scope.esp.eixo_log" : "scope.esp.eixo", { f0: +M.f0 }), L + pw / 2, T + ph + 19);
   p.espGeo = { L, slot, hmax, T, ph, marcas: marcas.filter((m) => m[2]).map((m) => +m[0].toPrecision(3)), yPos };
 }
 function dicaEspectro(p, e) {
@@ -660,10 +660,10 @@ function dicaEspectro(p, e) {
   const h = G ? Math.floor((e.offsetX - G.L) / G.slot) : -1;
   if (!G || h < 0 || h > G.hmax || e.offsetY > G.T + G.ph) { dica.style.display = "none"; return; }
   const ls = p.medRes.filter((x) => x.r.espec && !p.espFora.has(x.chave));
-  dica.innerHTML = `<b>${h ? `h${h} · ${+(h * p.med.f0).toPrecision(6)} Hz` : "CC (média)"}</b>` + ls.map((x) => {
+  dica.innerHTML = `<b>${h ? `h${h} · ${+(h * p.med.f0).toPrecision(6)} Hz` : escH(tr("scope.esp.cc_media"))}</b>` + ls.map((x) => {
     const v = x.r.espec[h], f1 = x.r.espec[1];
-    const val = !v ? "acima da metade da taxa" : h ? `${fmtM(v[0])} ∠ ${v[1].toFixed(1)}°${f1 && f1[0] > 0 ? ` · ${fmtM(100 * v[0] / f1[0])} % de h1` : ""}` : fmtM(x.r.media);
-    return `<div><i style="background:${x.se.cor}"></i>${x.nome}: ${val}</div>`; }).join("");
+    const val = !v ? escH(tr("scope.esp.acima")) : h ? `${fmtM(v[0])} ∠ ${v[1].toFixed(1)}°${f1 && f1[0] > 0 ? ` · ${escH(tr("scope.esp.pct_h1", { p: fmtM(100 * v[0] / f1[0]) }))}` : ""}` : fmtM(x.r.media);
+    return `<div><i style="background:${x.se.cor}"></i>${escH(x.nome)}: ${val}</div>`; }).join("");
   dica.style.display = "block";
   const cw = p.el.querySelector(".esp").clientWidth, dw = dica.offsetWidth;
   dica.style.left = `${Math.min(e.offsetX + 14, cw - dw - 4)}px`; dica.style.top = `${Math.max(0, e.offsetY - 10)}px`;
@@ -698,27 +698,28 @@ function visivel(p) {
 }
 function caixaMed(p) {
   const box = document.createElement("div"); box.className = "medicao"; box.style.display = "none";
-  box.innerHTML = `<div class="med-topo"><b title="Shift + arrastar no gráfico escolhe o intervalo: começa onde o arrasto começa, com os períodos inteiros de f₀ que cabem. Valores reais (sem o ×k da tela). Pico e fase do cosseno, fase referida ao início da janela. Mesmo método de smauto.metrics (window, harmonic_phasors, thd).">Medição</b>
-    <span class="med-modos" title="o que a medição mostra: um, outro ou os três">
-      <button class="m-modo" data-k="fourier" title="média e série de Fourier numa janela de períodos inteiros (Shift + arrastar no gráfico)">Fourier</button><button
-        class="m-modo" data-k="ct" title="duas linhas verticais, A e B, para arrastar: Δt, 1/Δt e, por sinal, Δy e Δy/Δt (os valores do que está desenhado: com zoom bem fechado nos sinais do passo fino, os do passo fino)">Cursores <i>t</i></button><button
-        class="m-modo" data-k="cy" title="duas linhas horizontais, C e D, para arrastar: os níveis e o Δy (na escala do gráfico)">Cursores <i>y</i></button></span>
-    <label class="m-comb-l" title="os sinais do painel juntos, ponto a ponto, no gráfico (curva e legenda), na tabela do Fourier e nos cursores (não é do Fourier; nenhum: sem Σ nem x̄): a soma Σ, a média instantânea x̄ = Σ/n ou as duas; clique no nome de um sinal para tirá-lo ou pô-lo">Combinar <select class="m-comb"><option value="nenhum">Nenhum</option><option value="ambos">Σ e x̄</option><option value="soma">Σ soma</option><option value="media">x̄ média (Σ/n)</option></select></label>
-    <span class="med-dica">Shift + arrastar: intervalo</span><button class="m-fecha" title="fechar a medição">✕</button></div>
+  // os textos que não mudam depois de montados levam data-tr*: o aplica() do maisim-i18n troca na hora, ao mudar o idioma
+  box.innerHTML = `<div class="med-topo"><b title="${escH(tr("scope.med.t_titulo"))}" data-tr-title="scope.med.t_titulo" data-tr="scope.med.titulo">${escH(tr("scope.med.titulo"))}</b>
+    <span class="med-modos" title="${escH(tr("scope.med.t_modos"))}" data-tr-title="scope.med.t_modos">
+      <button class="m-modo" data-k="fourier" title="${escH(tr("scope.med.t_fourier"))}" data-tr-title="scope.med.t_fourier">Fourier</button><button
+        class="m-modo" data-k="ct" title="${escH(tr("scope.med.t_ct"))}" data-tr-title="scope.med.t_ct" data-tr="scope.med.cursores">${escH(tr("scope.med.cursores"))} <i>t</i></button><button
+        class="m-modo" data-k="cy" title="${escH(tr("scope.med.t_cy"))}" data-tr-title="scope.med.t_cy" data-tr="scope.med.cursores">${escH(tr("scope.med.cursores"))} <i>y</i></button></span>
+    <label class="m-comb-l" title="${escH(tr("scope.med.t_combinar"))}" data-tr-title="scope.med.t_combinar" data-tr="scope.med.combinar">${escH(tr("scope.med.combinar"))} <select class="m-comb"><option value="nenhum" data-tr="scope.med.c_nenhum">${escH(tr("scope.med.c_nenhum"))}</option><option value="ambos" data-tr="scope.med.c_ambos">${escH(tr("scope.med.c_ambos"))}</option><option value="soma" data-tr="scope.med.c_soma">${escH(tr("scope.med.c_soma"))}</option><option value="media" data-tr="scope.med.c_media">${escH(tr("scope.med.c_media"))}</option></select></label>
+    <span class="med-dica" data-tr="scope.med.dica">${escH(tr("scope.med.dica"))}</span><button class="m-fecha" title="${escH(tr("scope.med.t_fecha"))}" data-tr-title="scope.med.t_fecha">✕</button></div>
     <div class="med-cab">
     <label>t₀ <input type="number" step="any" class="m-t0"> ms</label>
-    <label><input type="number" step="1" min="1" class="m-n"> períodos de</label>
+    <label data-tr="scope.med.periodos"><input type="number" step="1" min="1" class="m-n"> ${escH(tr("scope.med.periodos"))}</label>
     <label>f₀ <input type="number" step="any" min="0" class="m-f0"> Hz</label> <span class="med-jan"></span>
-    <label>Harmônicos <input type="text" class="m-hs" title="ex.: 1, 2, 3 ou 1-7 (pode ficar vazio se marcar ímpares ou pares)"></label>
-    <label title="todos os ímpares até este (somam-se à lista)"><input type="checkbox" class="m-imp"> Ímpares até <input type="number" min="1" max="199" step="1" class="m-imp-n"></label>
-    <label title="todos os pares até este (somam-se à lista)"><input type="checkbox" class="m-par"> Pares até <input type="number" min="2" max="200" step="1" class="m-par-n"></label>
-    <button class="m-vis" title="a janela começa no início do que está à vista, com os períodos inteiros que cabem nela">Usar o visível</button>
-    <button class="m-esp" title="espectro de harmônicos (barras) dos sinais da tabela; clique no nome de um sinal para tirá-lo ou pô-lo">Espectro</button>
+    <label data-tr="scope.med.harmonicos">${escH(tr("scope.med.harmonicos"))} <input type="text" class="m-hs" title="${escH(tr("scope.med.t_hs"))}" data-tr-title="scope.med.t_hs"></label>
+    <label title="${escH(tr("scope.med.t_imp"))}" data-tr-title="scope.med.t_imp" data-tr="scope.med.imp"><input type="checkbox" class="m-imp"> ${escH(tr("scope.med.imp"))} <input type="number" min="1" max="199" step="1" class="m-imp-n"></label>
+    <label title="${escH(tr("scope.med.t_par"))}" data-tr-title="scope.med.t_par" data-tr="scope.med.par"><input type="checkbox" class="m-par"> ${escH(tr("scope.med.par"))} <input type="number" min="2" max="200" step="1" class="m-par-n"></label>
+    <button class="m-vis" title="${escH(tr("scope.med.t_vis"))}" data-tr-title="scope.med.t_vis" data-tr="scope.med.vis">${escH(tr("scope.med.vis"))}</button>
+    <button class="m-esp" title="${escH(tr("scope.med.t_esp"))}" data-tr-title="scope.med.t_esp" data-tr="scope.med.esp">${escH(tr("scope.med.esp"))}</button>
     </div>
     <div class="med-tab"></div><div class="med-cur"></div>
-    <div class="esp" style="display:none"><div class="esp-cab"><label>Até h <input type="number" min="1" max="1000" step="1" class="m-hmax"></label>
-      <label title="escala vertical logarítmica"><input type="checkbox" class="m-log"> log</label>
-      <label title="quantas décadas abaixo do maior valor a escala log mostra">Décadas <input type="number" min="1" max="8" step="1" class="m-dec"></label></div>
+    <div class="esp" style="display:none"><div class="esp-cab"><label data-tr="scope.med.ate_h">${escH(tr("scope.med.ate_h"))} <input type="number" min="1" max="1000" step="1" class="m-hmax"></label>
+      <label title="${escH(tr("scope.med.t_log"))}" data-tr-title="scope.med.t_log"><input type="checkbox" class="m-log"> log</label>
+      <label title="${escH(tr("scope.med.t_decadas"))}" data-tr-title="scope.med.t_decadas" data-tr="scope.med.decadas">${escH(tr("scope.med.decadas"))} <input type="number" min="1" max="8" step="1" class="m-dec"></label></div>
       <canvas></canvas><div class="esp-dica"></div></div>`;
   const M = p.med;
   box.querySelector(".m-esp").onclick = () => { M.esp.aberto = !M.esp.aberto; mudaMed(p); };
@@ -820,7 +821,7 @@ function leituraCur(p) {                               // embaixo da tabela: t_A
   const el = p.el && p.el.querySelector(".med-cur"); if (!el) return;
   const M = p.med.cur;
   const yHtml = curYLigados(p) ? `<div class="cur-dt cur-y"><span><b>C</b> ${fmtM(M.ya)}</span><span><b>D</b> ${fmtM(M.yb)}</span>` +
-    `<span>Δ<i>y</i> = <b>${fmtM(M.yb - M.ya)}</b> <span class="sutil">(na escala do gráfico)</span></span></div>` : "";
+    `<span>Δ<i>y</i> = <b>${fmtM(M.yb - M.ya)}</b> <span class="sutil">${escH(tr("scope.med.na_escala"))}</span></span></div>` : "";
   const poe = (h) => { if (el._h !== h) { el._h = h; el.innerHTML = h; } };   // só quando muda (ao vivo, dá para selecionar e copiar)
   if (!curLigados(p)) { poe(yHtml); return; }
   const dt = M.b - M.a, mat = (s) => htmlMat(s);
@@ -830,11 +831,11 @@ function leituraCur(p) {                               // embaixo da tabela: t_A
       `<td>${dy != null && dt ? fmtM(dy / dt) + " /ms" : "–"}</td></tr>`; }).join("");
   poe(`<div class="cur-dt"><span><b>A</b> ${fmtT(M.a)}</span><span><b>B</b> ${fmtT(M.b)}</span>` +
     `<span>Δ<i>t</i> = <b>${fmtT(dt)}</b></span><span>1/Δ<i>t</i> = <b>${fmtF(dt ? 1e3 / Math.abs(dt) : NaN)}</b></span></div>` +
-    `<table><thead><tr><th>sinal</th><th>y(A)</th><th>y(B)</th><th>Δy</th><th>Δy/Δt</th></tr></thead><tbody>${linhas}</tbody></table>` + yHtml);
+    `<table><thead><tr><th>${escH(tr("scope.med.sinal"))}</th><th>y(A)</th><th>y(B)</th><th>Δy</th><th>Δy/Δt</th></tr></thead><tbody>${linhas}</tbody></table>` + yHtml);
 }
 
 // ---------------------------------------------------------------- painéis e seções
-const MODOS_ZOOM = { x: "X", y: "Y", xy: "Área" };
+const MODOS_ZOOM = { x: true, y: true, xy: true };   // os modos (guardados no layout); os rótulos: scope.zm.x, .y, .xy
 // ícones de corrente (ligado) e corrente partida (solto), desenhados para não depender de fonte de emoji
 const svg = (d) => `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px">${d}</svg>`;
 const ICONE_LIGADO = svg(`<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>`);
@@ -863,15 +864,21 @@ function marcaAcionamentos(u) {
     g.restore();
   });
 }
-function criaGrafico(p) {
+// refazer o gráfico (tema, idioma) sem perder o que está na tela: com "Fixar eixos" ou "Pausar", as escalas de agora e,
+// pausado, também os dados de agora (senão o gráfico novo pegava a escala automática e os dados mais novos)
+function refazGrafico(p) {
+  const u = p.u, sc = (k) => (u.scales[k].min != null ? { min: u.scales[k].min, max: u.scales[k].max } : null);
+  criaGrafico(p, u && (fixar || pausado) && sc("x") ? { x: sc("x"), y: sc("y"), dados: pausado ? u.data : null } : null);
+}
+function criaGrafico(p, manter) {
   if (p.u) { p.u.destroy(); p.u = null; }
   p.area.innerHTML = "";
-  if (!A || !p.sinais.length) { p.area.innerHTML = `<div class="vazio">${A ? "escolha os sinais em “Sinais ▾”" : "aguardando dados"}</div>`; return; }
+  if (!A || !p.sinais.length) { p.area.innerHTML = `<div class="vazio">${escH(tr(A ? "scope.p.vazio_sinais" : "scope.p.aguardando"))}</div>`; return; }
   p.series = seriesDe(p);
   p.semDados = false;
   if (!p.series.length) {                    // com dados chegando, não adianta remontar: marca para o redesenho não insistir
     p.semDados = !!(A && A.dados && A.dados.t && A.dados.t.length);
-    p.area.innerHTML = `<div class="vazio">estes sinais não existem nesta rodada</div>`; return;
+    p.area.innerHTML = `<div class="vazio">${escH(tr("scope.p.nao_existem"))}</div>`; return;
   }
   const fmt = (v) => (v == null || isNaN(v)) ? "–" : (Math.abs(v) >= 1000 ? v.toFixed(1) : +v.toPrecision(5));
   const opts = {
@@ -924,7 +931,8 @@ function criaGrafico(p) {
       }],   // faixa da medição; acionamentos da rodada (MaiSim / simu)
     },
   };
-  p.u = new uPlot(opts, dadosPainel(p), p.area);
+  const iguais = manter && manter.dados && manter.dados.length === p.series.length + 1;   // pausado: os mesmos sinais, os dados de antes
+  p.u = new uPlot(opts, iguais ? manter.dados : dadosPainel(p), p.area);
   legendaMat(p);
   p.u.over.addEventListener("wheel", (e) => {          // zoom só com Ctrl: a roda sozinha rola a página
     if (!e.ctrlKey) return;
@@ -961,15 +969,17 @@ function criaGrafico(p) {
       p.arrastoMed = false; if (p.u) { p.u.cursor.drag.x = p.modo !== "y"; p.u.cursor.drag.y = p.modo !== "x"; }
     }, 0), { once: true });
   }, true);
-  atualiza(p);
+  if (!manter) { atualiza(p); return; }
+  sincronizando = true; p.u.setScale("x", manter.x); if (manter.y) p.u.setScale("y", manter.y); sincronizando = false;
+  if (p.med && p.med.aberto && p.med.fourier) mede(p);
 }
 
 function montaMenu(p) {
   const menu = document.createElement("div"); menu.className = "menu";
   // em cima: a busca (baixa) e o × que fecha
   const topo = document.createElement("div"); topo.className = "menu-topo";
-  const busca = document.createElement("input"); busca.type = "search"; busca.className = "busca"; busca.placeholder = "procurar sinal…";
-  const fecha = document.createElement("button"); fecha.className = "menu-fecha"; fecha.type = "button"; fecha.title = "fechar (Esc)"; fecha.textContent = "×";
+  const busca = document.createElement("input"); busca.type = "search"; busca.className = "busca"; busca.placeholder = tr("scope.p.busca");
+  const fecha = document.createElement("button"); fecha.className = "menu-fecha"; fecha.type = "button"; fecha.title = tr("scope.p.fechar_esc"); fecha.textContent = "×";
   fecha.onclick = () => menu.remove();
   busca.addEventListener("keydown", (e) => { if (e.key === "Escape") { if (busca.value) { busca.value = ""; desenha(); } else menu.remove(); } });
   topo.append(busca, fecha);
@@ -977,11 +987,11 @@ function montaMenu(p) {
   menu.append(topo, lista);
   let aberta = null;                                     // o sinal com a paleta de cores aberta
   const paletaHTML = (canal, idx) => { const atual = corDoSinal(canal, idx);
-    return `<div class="paleta" data-c="${canal}">${CLASSICAS.map(([n, c]) => `<button class="amostra${c === atual ? " atual" : ""}" data-cor="${c}" style="background:${c}" title="${n} ${c}"></button>`).join("")}
-      <span class="paleta-hex"><input class="hex" value="${atual}" maxlength="7" spellcheck="false" title="qualquer cor: #rrggbb (Enter)"><input type="color" class="livre" value="${atual}" title="escolher outra cor">
-      <button class="padrao" title="volta à cor da ordem (paleta padrão)">Padrão</button></span>
-      <span class="espessuras" title="a espessura da linha (em todos os painéis)">linha ${ESPESSURAS.map((w) => `<button class="espessura${w === espessuraDoSinal(canal) ? " atual" : ""}" data-w="${w}" title="${w === 1.3 ? "normal" : w < 1.3 ? "fina" : w < 3 ? "grossa" : "mais grossa"} (${w} px)"><i style="height:${w}px;background:${atual}"></i></button>`).join("")}</span>
-      <span class="tracos" title="o traço da linha (em todos os painéis)">traço ${Object.entries(TRACOS).map(([t, d]) => `<button class="traco${t === tracoDoSinal(canal) ? " atual" : ""}" data-t="${t}" title="${t}"><svg viewBox="0 0 24 6" width="24" height="6"><line x1="1" y1="3" x2="23" y2="3" stroke="${atual}" stroke-width="2"${d ? ` stroke-dasharray="${d.map((x) => x * 0.6).join(" ")}"` : ""}/></svg></button>`).join("")}</span></div>`; };
+    return `<div class="paleta" data-c="${canal}">${CLASSICAS.map(([n, c]) => `<button class="amostra${c === atual ? " atual" : ""}" data-cor="${c}" style="background:${c}" title="${escH(tr(`scope.cor.${n}`))} ${c}"></button>`).join("")}
+      <span class="paleta-hex"><input class="hex" value="${atual}" maxlength="7" spellcheck="false" title="${escH(tr("scope.p.t_hex"))}"><input type="color" class="livre" value="${atual}" title="${escH(tr("scope.p.t_livre"))}">
+      <button class="padrao" title="${escH(tr("scope.p.t_padrao"))}">${escH(tr("scope.p.padrao"))}</button></span>
+      <span class="espessuras" title="${escH(tr("scope.p.t_espessura"))}">${escH(tr("scope.p.linha"))} ${ESPESSURAS.map((w) => `<button class="espessura${w === espessuraDoSinal(canal) ? " atual" : ""}" data-w="${w}" title="${escH(tr(w === 1.3 ? "scope.p.w_normal" : w < 1.3 ? "scope.p.w_fina" : w < 3 ? "scope.p.w_grossa" : "scope.p.w_mais"))} (${w} px)"><i style="height:${w}px;background:${atual}"></i></button>`).join("")}</span>
+      <span class="tracos" title="${escH(tr("scope.p.t_traco"))}">${escH(tr("scope.p.traco"))} ${Object.entries(TRACOS).map(([t, d]) => `<button class="traco${t === tracoDoSinal(canal) ? " atual" : ""}" data-t="${t}" title="${escH(tr(`scope.traco.${t}`))}"><svg viewBox="0 0 24 6" width="24" height="6"><line x1="1" y1="3" x2="23" y2="3" stroke="${atual}" stroke-width="2"${d ? ` stroke-dasharray="${d.map((x) => x * 0.6).join(" ")}"` : ""}/></svg></button>`).join("")}</span></div>`; };
   const desenha = () => {
     const q = busca.value.toLowerCase(); let html = "", grupo = "";
     for (const c of catalogo()) {
@@ -990,14 +1000,14 @@ function montaMenu(p) {
       if (c.grupo !== grupo) { grupo = c.grupo; html += `<h4>${grupo}</h4>`; }
       const marc = p.sinais.includes(c.canal);
       html += `<div class="item"><label><input type="checkbox" data-c="${c.canal}" ${marc ? "checked" : ""}> ${htmlMat(c.rotulo)}` +
-              (c.tipo === "f" ? ` <span class="fino">passo fino</span>` : "") + "</label>" +
-              (marc ? `<button class="cor-sinal" data-c="${c.canal}" style="background:${corDoSinal(c.canal, p.sinais.indexOf(c.canal))}" title="cor, espessura e traço do sinal (em todos os painéis)"></button>` +
-                      `<button class="abre-paleta${aberta === c.canal ? " aberta" : ""}" data-c="${c.canal}" title="${aberta === c.canal ? "recolher" : "cor, espessura e traço"}">${ICONE_SETA}</button>` +
+              (c.tipo === "f" ? ` <span class="fino">${escH(tr("scope.p.fino"))}</span>` : "") + "</label>" +
+              (marc ? `<button class="cor-sinal" data-c="${c.canal}" style="background:${corDoSinal(c.canal, p.sinais.indexOf(c.canal))}" title="${escH(tr("scope.p.t_cor"))}"></button>` +
+                      `<button class="abre-paleta${aberta === c.canal ? " aberta" : ""}" data-c="${c.canal}" title="${escH(tr(aberta === c.canal ? "scope.p.recolher" : "scope.p.t_abre"))}">${ICONE_SETA}</button>` +
                       `<span class="x">×</span><input type="number" step="any" class="ganho" data-c="${c.canal}" value="${(p.ganhos || {})[c.canal] || 1}"
-                 title="multiplica só o desenho (para sobrepor sinais de escalas diferentes); o cursor continua mostrando o valor real">` : "") + "</div>" +
+                 title="${escH(tr("scope.p.t_ganho"))}">` : "") + "</div>" +
               (marc && aberta === c.canal ? paletaHTML(c.canal, p.sinais.indexOf(c.canal)) : "");
     }
-    lista.innerHTML = html || "<i>nenhum sinal</i>";
+    lista.innerHTML = html || `<i>${escH(tr("scope.p.nenhum_sinal"))}</i>`;
     lista.querySelectorAll("input[type=checkbox]").forEach((ck) => ck.onchange = () => {
       const c = ck.dataset.c;
       p.sinais = ck.checked ? p.sinais.concat(c) : p.sinais.filter((x) => x !== c);
@@ -1072,12 +1082,12 @@ function abreSecaoDe(p) {                    // um painel que chega numa seção
 }
 function marcaRecolhida(s) {
   s.el.classList.toggle("recolhida", !!s.recolhida);
-  const b = s.el.querySelector(".b-rec"); b.title = s.recolhida ? "abrir a seção (mostrar os painéis)" : "recolher a seção (esconder os painéis; fica guardado)";
+  const b = s.el.querySelector(".b-rec"); b.title = tr(s.recolhida ? "scope.s.t_abrir" : "scope.s.t_recolher");
   b.setAttribute("aria-expanded", String(!s.recolhida));
 }
 function marcaRecolhido(p) {
   p.el.classList.toggle("recolhido", !!p.recolhido);
-  const b = p.el.querySelector(".cab .b-rec"); b.title = p.recolhido ? "abrir o painel" : "recolher o painel (fica só o título; guardado no layout)";
+  const b = p.el.querySelector(".cab .b-rec"); b.title = tr(p.recolhido ? "scope.p.t_abrir" : "scope.p.t_recolher");
   b.setAttribute("aria-expanded", String(!p.recolhido));
 }
 // expandir: o painel ocupa a janela (no simu, a doca do scope); Esc, o botão ou um clique fora volta
@@ -1090,7 +1100,7 @@ function alturaDe(p) {
 }
 function marcaExpande(p) {
   const b = p.el.querySelector(".b-exp"); b.innerHTML = p.expandido ? ICONE_VOLTA : ICONE_EXPANDE;
-  b.title = p.expandido ? "voltar ao tamanho do layout (Esc)" : "expandir: o painel ocupa a janela (Esc volta)";
+  b.title = tr(p.expandido ? "scope.p.t_voltar" : "scope.p.t_expandir");
 }
 function expande(p, sim) {
   if (sim && expandido && expandido !== p) expande(expandido, false);
@@ -1128,21 +1138,21 @@ function marcaSecoesVazias() {
 function adicionaSecao(titulo, posicao, recolhida) {
   const s = { tipo: "secao", titulo, recolhida: !!recolhida };
   const el = document.createElement("div"); el.className = "secao";
-  el.innerHTML = `<span class="b-arrasta" draggable="true" title="arraste para mudar a seção de lugar (vai com os painéis dela)">⠿</span><button class="b-rec">${ICONE_SETA}</button>
-    <input class="titulo-secao" type="text"><span class="n-rec"></span><button class="b-mais" title="novo painel no fim desta seção">+ Painel</button>
-    <button class="b-rem" title="tirar este título de seção (os painéis ficam)">✕</button><span class="dica">seção vazia: arraste um painel pela alça ⠿ para cá, ou use + Painel</span>`;
+  el.innerHTML = `<span class="b-arrasta" draggable="true" title="${escH(tr("scope.s.t_arrasta"))}" data-tr-title="scope.s.t_arrasta">⠿</span><button class="b-rec">${ICONE_SETA}</button>
+    <input class="titulo-secao" type="text"><span class="n-rec"></span><button class="b-mais" title="${escH(tr("scope.s.t_mais"))}" data-tr-title="scope.s.t_mais" data-tr="scope.h.painel">${escH(tr("scope.h.painel"))}</button>
+    <button class="b-rem" title="${escH(tr("scope.s.t_rem"))}" data-tr-title="scope.s.t_rem">✕</button><span class="dica" data-tr="scope.s.dica">${escH(tr("scope.s.dica"))}</span>`;
   s.el = el;
   const tit = el.querySelector(".titulo-secao"); tit.value = titulo;
-  tit.onchange = () => { s.titulo = tit.value; guardaLayout(); };
+  tit.onchange = () => { s.titulo = tit.value; s.autoTit = null; guardaLayout(); };
   el.querySelector(".b-mais").onclick = () => {
     let k = itens.indexOf(s) + 1; while (k < itens.length && itens[k].tipo === "painel") k++;
-    abreSecaoDe(adicionaPainel({ titulo: "Novo painel", sinais: [] }, k)); guardaLayout();
+    abreSecaoDe(adicionaPainel({ titulo: tr("scope.novo_painel"), sinais: [] }, k)); guardaLayout();   // o título novo: no idioma de agora (vira do usuário)
   };
   // apagar pede confirmação (Marcelo, 23/10: "sempre bom pedir confirmação"), a não ser numa seção vazia
   el.querySelector(".b-rem").onclick = async () => {
     const k = itens.indexOf(s), dela = []; for (let i = k + 1; i < itens.length && itens[i].tipo !== "secao"; i++) dela.push(itens[i]);
-    if (dela.length && !(await pergunta({ titulo: `Apagar a seção “${s.titulo}”?`, ok: "Apagar a seção", perigo: true,
-      texto: `Sai só a seção: os ${dela.length > 1 ? `${dela.length} painéis` : "painel"} dela ${dela.length > 1 ? "passam" : "passa"} para a seção de cima.` }))) return;
+    if (dela.length && !(await pergunta({ titulo: tr("scope.q.apaga_secao", { titulo: s.titulo }), ok: tr("scope.q.apaga_secao_ok"), perigo: true,
+      texto: tr("scope.q.apaga_secao_texto", { n: dela.length }) }))) return;
     el.remove(); itens = itens.filter((x) => x !== s); marcaSecoesVazias(); guardaLayout(); };
   el.querySelector(".b-rec").onclick = () => { s.recolhida = !s.recolhida; marcaRecolhida(s); guardaLayout(); };
   const alca = el.querySelector(".b-arrasta");
@@ -1158,9 +1168,9 @@ function adicionaSecao(titulo, posicao, recolhida) {
 function menuY(p) {
   const m = document.createElement("div"); m.className = "menu menu-y";
   const [a, b] = p.yFixo || (p.u && p.u.scales.y.min != null ? [p.u.scales.y.min, p.u.scales.y.max] : [0, 1]);
-  m.innerHTML = `<b>Escala vertical fixa</b><label>máx <input type="number" step="any" class="y-max"></label>
-    <label>mín <input type="number" step="any" class="y-min"></label>
-    <div><button class="y-ok">Fixar</button> <button class="y-auto">Automática</button></div>`;
+  m.innerHTML = `<b>${escH(tr("scope.p.y_titulo"))}</b><label>${escH(tr("scope.p.y_max"))} <input type="number" step="any" class="y-max"></label>
+    <label>${escH(tr("scope.p.y_min"))} <input type="number" step="any" class="y-min"></label>
+    <div><button class="y-ok">${escH(tr("scope.p.y_ok"))}</button> <button class="y-auto">${escH(tr("scope.p.y_auto"))}</button></div>`;
   m.querySelector(".y-max").value = +b.toPrecision(6); m.querySelector(".y-min").value = +a.toPrecision(6);
   m.querySelector(".y-ok").onclick = () => {
     const lo = parseFloat(m.querySelector(".y-min").value), hi = parseFloat(m.querySelector(".y-max").value);
@@ -1171,17 +1181,16 @@ function menuY(p) {
   m.addEventListener("keydown", (e) => { if (e.key === "Enter") m.querySelector(".y-ok").click(); });
   return m;
 }
-function marcaY(p) { const b = p.el.querySelector(".b-y"); b.classList.toggle("ativo", !!p.yFixo); b.title = p.yFixo ? `escala vertical fixa: ${p.yFixo[0]} … ${p.yFixo[1]} (o enquadrar volta a ela)` : "fixar a escala vertical (mín/máx), guardada no layout"; }
+function marcaY(p) { const b = p.el.querySelector(".b-y"); b.classList.toggle("ativo", !!p.yFixo); b.title = p.yFixo ? tr("scope.p.t_y_fixo", { min: p.yFixo[0], max: p.yFixo[1] }) : tr("scope.p.t_y"); }
 function marcaZoom(p) {
   p.el.querySelectorAll(".b-zm").forEach((b) => b.classList.toggle("ativo", b.dataset.m === p.modo));
   const b = p.el.querySelector(".b-solto");
   b.classList.toggle("solto", !!p.solto);
   b.innerHTML = p.solto ? ICONE_SOLTO : ICONE_LIGADO;
-  b.title = p.solto ? "este painel tem o seu tempo; clique para voltar ao tempo comum dos painéis ligados"
-                    : "tempo ligado aos outros painéis; clique para soltar e dar zoom no tempo só neste painel";
+  b.title = tr(p.solto ? "scope.p.t_solto" : "scope.p.t_ligado");
 }
-const ALTURAS = [[220, "baixa"], [340, "média"], [460, "alta"]];
-const LARGURAS = [[1, "linha inteira"], [1.5, "2/3"], [2, "1/2"], [3, "1/3"]];
+const ALTURAS = [[220, "baixa"], [340, "media"], [460, "alta"]];                // o rótulo: scope.p.h_<id>
+const LARGURAS = [[1, null], [1.5, "2/3"], [2, "1/2"], [3, "1/3"]];             // null: "linha inteira" (scope.p.l_inteira)
 const LARGURAS_OK = [1, 1.2, 1.5, 2, 3];                // 6/largura colunas da grade de 6: inteira, 5/6, 2/3, 1/2, 1/3
 const alturaOk = (h) => Number.isFinite(+h) ? Math.round(Math.min(1000, Math.max(140, +h))) : 220;
 // esticar o painel pelo canto (Marcelo, 22/10: em vez de só 1, 2 ou 3 por linha): a altura acompanha o mouse; a largura
@@ -1208,35 +1217,36 @@ function alcaEstica(p) {
 function aplicaLargura(p) { p.el.style.setProperty("--span", String(6 / p.largura)); }
 function menuOpc(p) {
   const m = document.createElement("div"); m.className = "menu menu-opc";
-  m.innerHTML = `<h4>Largura na linha</h4><div class="seg">${LARGURAS.map(([n, r]) => `<button data-l="${n}" class="${p.largura === n ? "ativo" : ""}">${r}</button>`).join("")}</div>
-    <h4>Altura</h4><div class="seg">${ALTURAS.map(([h, r]) => `<button data-h="${h}" class="${p.altura === h ? "ativo" : ""}">${r}</button>`).join("")}</div>
-    <h4>Imagem</h4><button class="o-png">Salvar PNG deste painel</button>`;
+  m.innerHTML = `<h4>${escH(tr("scope.p.l_titulo"))}</h4><div class="seg">${LARGURAS.map(([n, r]) => `<button data-l="${n}" class="${p.largura === n ? "ativo" : ""}">${r || escH(tr("scope.p.l_inteira"))}</button>`).join("")}</div>
+    <h4>${escH(tr("scope.p.h_titulo"))}</h4><div class="seg">${ALTURAS.map(([h, r]) => `<button data-h="${h}" class="${p.altura === h ? "ativo" : ""}">${escH(tr(`scope.p.h_${r}`))}</button>`).join("")}</div>
+    <h4>${escH(tr("scope.p.img"))}</h4><button class="o-png">${escH(tr("scope.p.png"))}</button>`;
   m.querySelectorAll("[data-l]").forEach((b) => b.onclick = () => { p.largura = +b.dataset.l; aplicaLargura(p); guardaLayout(); m.remove(); setTimeout(redimensiona, 0); });
   m.querySelectorAll("[data-h]").forEach((b) => b.onclick = () => { p.altura = +b.dataset.h; guardaLayout(); criaGrafico(p); m.remove(); });
   m.querySelector(".o-png").onclick = () => { baixa(canvasPainel(p), `${nomeArq(p.titulo)}.png`); m.remove(); };
   return m;
 }
 function adicionaPainel(cfg, posicao) {
-  const p = { tipo: "painel", id: ++seq, titulo: cfg.titulo || "Novo painel", sinais: (cfg.sinais || []).slice(), altura: cfg.altura ? alturaOk(cfg.altura) : 220,
+  const p = { tipo: "painel", id: ++seq, titulo: cfg.titulo || tr("scope.novo_painel"), sinais: (cfg.sinais || []).slice(), altura: cfg.altura ? alturaOk(cfg.altura) : 220,
               largura: LARGURAS_OK.includes(cfg.largura) ? cfg.largura : larguraPadrao,
               yFixo: cfg.yFixo || null, ganhos: Object.assign({}, cfg.ganhos || {}),
               modo: MODOS_ZOOM[cfg.modo] ? cfg.modo : "x", solto: !!cfg.solto, xZoom: null, yZoom: null,
               med: novaMed(cfg.med), espFora: new Set(), recolhido: !!cfg.recolhido, expandido: false };
   const el = document.createElement("div"); el.className = "cartao";
-  el.innerHTML = `<div class="cab"><span class="b-arrasta" draggable="true" title="arraste para mudar o painel de lugar">⠿</span><button class="b-rec">${ICONE_SETA}</button>
-    <input class="titulo" type="text"><span class="titulo-mat" title="clique para mudar o título"></span><div class="ferr"><button class="b-sinais">Sinais ▾</button>
-    <span class="zoom" title="o que o arrastar faz neste painel"><span class="rot">Zoom</span>${Object.entries(MODOS_ZOOM).map(([m, r]) =>
-      `<button class="b-zm" data-m="${m}" title="${{ x: "arrastar escolhe o intervalo de tempo", y: "arrastar escolhe a faixa vertical deste painel", xy: "arrastar escolhe uma área (tempo e vertical)" }[m]}">${r}</button>`).join("")}<button
-      class="b-reset" title="ver tudo neste painel: vertical automática (ou o Y fixo) e o tempo todo; o tempo vale para todos os painéis ligados (duplo clique faz o mesmo)">${ICONE_TUDO}</button></span>
-    <button class="b-solto"></button><button class="b-med" title="média e série de Fourier num intervalo (Shift + arrastar no gráfico)">Medir</button><button class="b-y">Y fixo</button>
-    <button class="b-opc" title="largura, altura, PNG">⋯</button></div><button class="b-exp"></button><button class="b-rem" title="remover painel">✕</button></div><div class="area"></div>
-    <span class="b-alca" title="arraste para esticar: a altura livre; a largura encaixa na grade (1/3, 1/2, 2/3, 5/6, inteira). Duplo clique volta ao padrão"></span>`;
+  // os textos fixos com data-tr* (o aplica() troca ao mudar o idioma); os títulos que mudam (b-rec, b-exp, b-solto, b-y): marca*()
+  el.innerHTML = `<div class="cab"><span class="b-arrasta" draggable="true" title="${escH(tr("scope.p.t_arrasta"))}" data-tr-title="scope.p.t_arrasta">⠿</span><button class="b-rec">${ICONE_SETA}</button>
+    <input class="titulo" type="text"><span class="titulo-mat" title="${escH(tr("scope.p.t_titulo"))}" data-tr-title="scope.p.t_titulo"></span><div class="ferr"><button class="b-sinais" data-tr="scope.p.sinais">${escH(tr("scope.p.sinais"))}</button>
+    <span class="zoom" title="${escH(tr("scope.p.t_zoom"))}" data-tr-title="scope.p.t_zoom"><span class="rot">Zoom</span>${Object.keys(MODOS_ZOOM).map((m) =>
+      `<button class="b-zm" data-m="${m}" title="${escH(tr(`scope.zm.t_${m}`))}" data-tr-title="scope.zm.t_${m}" data-tr="scope.zm.${m}">${escH(tr(`scope.zm.${m}`))}</button>`).join("")}<button
+      class="b-reset" title="${escH(tr("scope.p.t_reset"))}" data-tr-title="scope.p.t_reset">${ICONE_TUDO}</button></span>
+    <button class="b-solto"></button><button class="b-med" title="${escH(tr("scope.p.t_med"))}" data-tr-title="scope.p.t_med" data-tr="scope.p.medir">${escH(tr("scope.p.medir"))}</button><button class="b-y" data-tr="scope.p.y_fixo">${escH(tr("scope.p.y_fixo"))}</button>
+    <button class="b-opc" title="${escH(tr("scope.p.t_opc"))}" data-tr-title="scope.p.t_opc">⋯</button></div><button class="b-exp"></button><button class="b-rem" title="${escH(tr("scope.p.t_rem"))}" data-tr-title="scope.p.t_rem">✕</button></div><div class="area"></div>
+    <span class="b-alca" title="${escH(tr("scope.p.t_alca"))}" data-tr-title="scope.p.t_alca"></span>`;
   p.el = el; p.area = el.querySelector(".area");
   aplicaLargura(p);
   alcaEstica(p);
   el.appendChild(caixaMed(p));
   const tit = el.querySelector("input.titulo"); tit.value = p.titulo; tit.title = p.titulo;
-  tit.onchange = () => { p.titulo = tit.value; tit.title = tit.value; tituloMat(p); guardaLayout(); };
+  tit.onchange = () => { p.titulo = tit.value; p.autoTit = null; tit.title = tit.value; tituloMat(p); guardaLayout(); };
   // o título aparece em notação matemática; o clique abre a caixa de texto para mudar
   el.querySelector(".titulo-mat").onclick = () => { el.querySelector(".cab").classList.add("editando"); tit.focus(); };
   tit.addEventListener("blur", () => el.querySelector(".cab").classList.remove("editando")); tituloMat(p);
@@ -1269,8 +1279,8 @@ function adicionaPainel(cfg, posicao) {
   el.querySelector(".cab .b-rec").onclick = () => { p.recolhido = !p.recolhido; marcaRecolhido(p); guardaLayout(); if (!p.recolhido) setTimeout(redimensiona, 0); };
   el.querySelector(".b-exp").onclick = () => expande(p, !p.expandido);
   el.querySelector(".b-rem").onclick = async () => {        // com sinais, pergunta antes (o ✕ fica perto dos botões)
-    if (p.sinais.length && !(await pergunta({ titulo: `Apagar o painel “${p.titulo}”?`, ok: "Apagar o painel", perigo: true,
-      texto: `Sai o painel e os ${p.sinais.length > 1 ? `${p.sinais.length} sinais` : "sinal"} dele neste layout (os dados da rodada ficam).` }))) return;
+    if (p.sinais.length && !(await pergunta({ titulo: tr("scope.q.apaga_painel", { titulo: p.titulo }), ok: tr("scope.q.apaga_painel_ok"), perigo: true,
+      texto: tr("scope.q.apaga_painel_texto", { n: p.sinais.length }) }))) return;
     if (p.expandido) expande(p, false); if (p.u) p.u.destroy(); p.u = null; obsLargura.unobserve(el); el.remove(); itens = itens.filter((x) => x !== p); marcaSecoesVazias(); guardaLayout(); };
   const alca = el.querySelector(".b-arrasta");
   alca.addEventListener("dragstart", (e) => { arrastando = p; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(p.id));
@@ -1309,7 +1319,7 @@ function consultaPadrao(chave) {
     let novo = false;
     if (L) try { if (!localStorage.getItem(chave)) { localStorage.setItem(chave, JSON.stringify(L)); novo = true; } } catch (e) { /* ok */ }
     montaTudo();                                         // com o padrão; sem ele, o de antes ou o automático
-    if (novo) status(`o layout padrão do circuito ${circuitoDe(A)}`);
+    if (novo) st("scope.st.padrao_circuito", { c: circuitoDe(A) });
   });
 }
 function leLayout() {
@@ -1342,7 +1352,7 @@ function montaTudo() {
   const salvo = leLayout();
   larguraPadrao = [1, 2, 3].includes(salvo && salvo.colunas) ? salvo.colunas : 2;    // layouts antigos: as colunas viram a largura
   if (salvo && salvo.indice) indice = Object.assign({ aberto: false, unica: false, secao: -1 }, salvo.indice);
-  $("bt-porlinha").textContent = `Por linha: ${larguraPadrao}`;
+  poePorLinha();
   document.body.classList.toggle("com-indice", indice.aberto); $("ck-unica").checked = indice.unica;
   for (const cfg of (salvo ? salvo.itens : [])) { if (cfg.secao) adicionaSecao(cfg.secao, null, cfg.recolhida); else adicionaPainel(cfg); }
   garantePainelDaRodada();
@@ -1383,7 +1393,7 @@ function gruposMostraveis() {
 }
 function desenhaIndice() {
   const lista = document.querySelector("#indice .lista"); if (!lista) return;
-  lista.innerHTML = gruposMostraveis().map((g) => `<div class="s${indice.unica && g.k === indice.secao ? " atual" : ""}${g.s && g.s.recolhida ? " recolhida" : ""}" data-k="${g.k}"${g.k >= 0 ? ` draggable="true"` : ""}>${escH(g.s ? g.s.titulo : "(sem seção)")}</div>` +
+  lista.innerHTML = gruposMostraveis().map((g) => `<div class="s${indice.unica && g.k === indice.secao ? " atual" : ""}${g.s && g.s.recolhida ? " recolhida" : ""}" data-k="${g.k}"${g.k >= 0 ? ` draggable="true"` : ""}>${escH(g.s ? g.s.titulo : tr("scope.sem_secao"))}</div>` +
     g.ps.filter(mostravel).map((p) => `<div class="p" data-id="${p.id}" title="${escH(p.titulo)}">${escH(p.titulo)}</div>`).join("")).join("");
 }
 function aplicaVisibilidade() {
@@ -1391,7 +1401,7 @@ function aplicaVisibilidade() {
   if (indice.unica && gs.length && !ks.has(indice.secao)) { indice.secao = gs[0].k; desenhaIndice(); }
   for (const g of grupos()) {
     const ver = ks.has(g.k) && (!indice.unica || g.k === indice.secao);
-    if (g.s) { const n = g.ps.filter(mostravel).length; g.s.el.querySelector(".n-rec").textContent = g.s.recolhida ? `${n} ${n === 1 ? "painel" : "painéis"}` : ""; }
+    if (g.s) { const n = g.ps.filter(mostravel).length; g.s.el.querySelector(".n-rec").textContent = g.s.recolhida ? tr("scope.n_paineis", { n }) : ""; }
     for (const [x, v] of (g.s ? [[g.s, ver]] : []).concat(g.ps.map((p) => [p, ver && mostravel(p) && !(g.s && g.s.recolhida)])))
       if (x.el.classList.contains("oculto") === v) { x.el.classList.toggle("oculto", !v); mudou = true; }
   }
@@ -1450,8 +1460,12 @@ function garantePainelDaRodada() {
   const gen = catalogo().filter((c) => c.id === "rodada").map((c) => c.canal).filter((c) => temSinal(A, c));
   const usar = gen.length ? gen : todos;
   if (!usar.length || paineis().some((p) => p.sinais.some((c) => temSinal(A, c)))) return;
-  adicionaSecao(circuitoDe(A) || `Rodada ${A.meta.rotulo || ""}`.trim(), 0);
-  adicionaPainel({ titulo: `Sinais da rodada ${A.meta.rotulo || ""}`.trim(), sinais: usar.slice(0, 8), largura: 1 }, 1);
+  // os títulos do automático: no idioma de agora (ninguém compara com eles); autoTit: trocam com o idioma até o usuário mudar
+  // o título (os que vêm de um layout guardado nunca têm a marca)
+  const rotulo = A.meta.rotulo || "", s = adicionaSecao(circuitoDe(A) || tr("scope.secao_rodada", { rotulo }).trim(), 0);
+  if (!circuitoDe(A)) s.autoTit = { chave: "scope.secao_rodada", rotulo };
+  const p = adicionaPainel({ titulo: tr("scope.painel_rodada", { rotulo }).trim(), sinais: usar.slice(0, 8), largura: 1 }, 1);
+  p.autoTit = { chave: "scope.painel_rodada", rotulo };
 }
 // o gráfico acompanha a largura do cartão (painel criado com o scope escondido, tela dividida no simu, índice aberto…)
 const obsLargura = new ResizeObserver((ents) => {
@@ -1512,7 +1526,10 @@ function baixa(canvas, nome) { const a = document.createElement("a"); a.href = c
 // ---------------------------------------------------------------- Ao vivo (SSE)
 let fonteEventos = null, redesenhoPendente = false, repeticao = false, timerEscondida = null;
 let esperaEscondida = 30000;                 // aba escondida por mais que isto (ms): fecha a conexão ao vivo (ver abaixo)
-function status(txt) { $("status").textContent = txt; }
+// a linha de estado: um texto, ou uma função que o faz (st: uma chave do dicionário) — essa é refeita ao mudar o idioma
+let ultimoStatus = "";
+function status(txt) { ultimoStatus = txt; $("status").textContent = typeof txt === "function" ? txt() : txt; }
+const st = (chave, p) => status(() => tr(chave, p));
 const nomePlanta = (m) => DO_SIMU(m) ? `MaiSim / simu · ${m.rotulo || ""}` : (m.planta || "");
 function redesenha() {
   if (redesenhoPendente || pausado) return;
@@ -1523,7 +1540,6 @@ function redesenha() {
     for (const p of paineis()) atualiza(p);
   }, 400);
 }
-const SEM_RODADA = "nenhuma simulação rodando: ela aparece aqui ao vivo quando começar · para ver uma gravação, clique em Comparar";
 function conectaVivo() {
   if (fonteEventos) fonteEventos.close();
   // aberto sozinho (pelo trilho: sem ?so=rodada nem ?a=), só a rodada em andamento; sem nenhuma, vazio (Marcelo, 22/10: "se
@@ -1533,7 +1549,7 @@ function conectaVivo() {
   // ao conectar, o servidor repete a rodada em curso ("inicio" e tudo o que já veio): só esse 1º "inicio", com a meta
   // igual (o servidor numera cada rodada), é a mesma rodada; qualquer outro "inicio" é rodada nova
   fonteEventos.onopen = () => { repeticao = true; setTimeout(() => { repeticao = false; }, 3000);
-    setTimeout(() => { if (modo === "vivo" && !A) status(SEM_RODADA); }, 1200); };
+    setTimeout(() => { if (modo === "vivo" && !A) st("scope.st.sem_rodada"); }, 1200); };
   fonteEventos.addEventListener("inicio", (ev) => {
     if (modo !== "vivo") return;
     const meta = JSON.parse(ev.data), rep = repeticao; repeticao = false;
@@ -1543,7 +1559,7 @@ function conectaVivo() {
     A = { meta, dados: {} }; xFaixa = null;
     montaTudo();                             // rodada nova: os painéis deixam de apontar para a anterior
     for (const p of paineis()) { p.xZoom = null; p.yZoom = null; }
-    status(`ao vivo: ${nomePlanta(A.meta)} — aguardando dados`);
+    st("scope.st.vivo_aguardando", { nome: nomePlanta(A.meta) });
   });
   fonteEventos.addEventListener("dados", (ev) => {
     if (modo !== "vivo" || !A) return;
@@ -1551,11 +1567,11 @@ function conectaVivo() {
     for (const k in lote) { const dst = (A.dados[k] = A.dados[k] || []); for (const v of lote[k]) dst.push(v); }
     limpaCaches(A);
     const t = A.dados.t || [];
-    if (t.length) status(`ao vivo: ${nomePlanta(A.meta)} — t = ${(t[t.length - 1] * 1e3).toFixed(2)} ms (${t.length} amostras)`);
+    if (t.length) st("scope.st.vivo_t", { nome: nomePlanta(A.meta), t: (t[t.length - 1] * 1e3).toFixed(2), n: t.length });
     redesenha();
   });
-  fonteEventos.addEventListener("fim", () => { if (modo === "vivo" && A) status(`terminou: ${nomePlanta(A.meta)} — ${(A.dados.t || []).length} amostras`); });
-  fonteEventos.onerror = () => status("sem conexão com o servidor do scope (tentando de novo…)");
+  fonteEventos.addEventListener("fim", () => { if (modo === "vivo" && A) st("scope.st.terminou", { nome: nomePlanta(A.meta), n: (A.dados.t || []).length }); });
+  fonteEventos.onerror = () => st("scope.st.sem_conexao");
 }
 // a conexão ao vivo só com a aba à vista: o navegador abre no máximo 6 conexões por endereço (somando as abas, HTTP/1.1)
 // e cada EventSource aberto segura uma; com 6 abas do scope (ou do simu com o scope embutido) em segundo plano, a próxima
@@ -1576,8 +1592,8 @@ async function listaRodadas() {
   const r = await fetch("rodadas"); const lst = await r.json();
   for (const sel of [$("sel-a"), $("sel-b")]) {
     const atual = sel.value;
-    sel.innerHTML = `<option value="">${sel.id === "sel-b" ? "(nenhuma)" : "(escolha)"}</option>` +
-      lst.map((x) => `<option value="${escH(x.arq)}" title="${escH(x.arq)}">${escH(x.rotulo || x.arq)}${x.guardada ? " · guardada" : ""}</option>`).join("");   // guardada: "por cima" não a substitui
+    sel.innerHTML = `<option value="">${escH(tr(sel.id === "sel-b" ? "scope.nenhuma" : "scope.escolha"))}</option>` +
+      lst.map((x) => `<option value="${escH(x.arq)}" title="${escH(x.arq)}">${escH(x.rotulo || x.arq)}${x.guardada ? " · " + escH(tr("scope.guardada")) : ""}</option>`).join("");   // guardada: "por cima" não a substitui
     sel.value = atual;
   }
 }
@@ -1600,7 +1616,8 @@ async function carrega(arq) {
   const r = await fetch("rodada?arq=" + encodeURIComponent(arq));
   const j = await r.json().catch(() => null);
   if (!r.ok || !j || !j.dados) {                    // gravação que não existe mais (apagada) ou ilegível: avisa, sem quebrar a página
-    status(`não consegui abrir ${arq.split("/").pop()}: ${(j && j.erro) || "a gravação não existe mais?"}`); return null;
+    const nome = arq.split("/").pop(), erro = j && j.erro;
+    status(() => tr("scope.st.nao_abriu", { arq: nome, erro: erro || tr("scope.st.nao_existe") })); return null;
   }
   return j;
 }
@@ -1608,20 +1625,26 @@ function entraComparar() {
   modo = "comparar"; $("bt-comparar").classList.add("ativo"); $("bt-vivo").classList.remove("ativo"); avisaSimu();
   if (fonteEventos) fonteEventos.close();
 }
-const nomeSel = (sel) => sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : "—";
+// "A: … | B: …": as escolhidas agora, pelo nome que a lista mostra (refeito no idioma, como o aviso dos intervalos)
+function statusAB() {
+  const val = (sel) => (sel.selectedIndex < 0 ? null : sel.value), va = val($("sel-a")), vb = val($("sel-b")), comB = !!B;
+  const nome = (sel, v) => { const o = v == null ? null : [...sel.options].find((x) => x.value === v); return o ? o.textContent : "—"; };
+  status(() => `A: ${nome($("sel-a"), va)}${comB ? " | B: " + nome($("sel-b"), vb) : ""}${A ? avisoGrade() : ""}`);
+}
+function poePorLinha() { $("bt-porlinha").textContent = tr("scope.por_linha", { n: larguraPadrao }); }
 
 // ---------------------------------------------------------------- barra de ferramentas
 $("ck-fixar").onchange = (e) => { fixar = e.target.checked; };
 $("ck-pausar").onchange = (e) => { pausado = e.target.checked; if (!pausado) redesenha(); };
 $("bt-painel").onclick = () => {                       // só a rodada: no fim da seção dela (o fim do layout é uma seção do MMC, escondida)
   const alvo = soDaRodada() ? grupos().reverse().find((g) => g.ps.some((p) => p.u)) : null;
-  if (alvo) { abreSecaoDe(adicionaPainel({ titulo: "Novo painel", sinais: [] }, itens.indexOf(alvo.ps[alvo.ps.length - 1]) + 1)); indice.secao = alvo.k; }
-  else { abreSecaoDe(adicionaPainel({ titulo: "Novo painel", sinais: [] })); const gs = grupos(); indice.secao = gs[gs.length - 1].k; }
+  if (alvo) { abreSecaoDe(adicionaPainel({ titulo: tr("scope.novo_painel"), sinais: [] }, itens.indexOf(alvo.ps[alvo.ps.length - 1]) + 1)); indice.secao = alvo.k; }
+  else { abreSecaoDe(adicionaPainel({ titulo: tr("scope.novo_painel"), sinais: [] })); const gs = grupos(); indice.secao = gs[gs.length - 1].k; }
   guardaLayout();
 };
-$("bt-secao").onclick = () => { adicionaSecao("Nova seção"); const gs = grupos(); indice.secao = gs[gs.length - 1].k; guardaLayout(); };
+$("bt-secao").onclick = () => { adicionaSecao(tr("scope.nova_secao")); const gs = grupos(); indice.secao = gs[gs.length - 1].k; guardaLayout(); };
 $("bt-porlinha").onclick = () => {
-  larguraPadrao = larguraPadrao % 3 + 1; $("bt-porlinha").textContent = `Por linha: ${larguraPadrao}`;
+  larguraPadrao = larguraPadrao % 3 + 1; poePorLinha();
   for (const p of paineis()) { p.largura = larguraPadrao; aplicaLargura(p); }
   guardaLayout(); setTimeout(redimensiona, 0);
 };
@@ -1629,19 +1652,20 @@ $("bt-layout").onclick = (ev) => { ev.stopPropagation(); $("menu-layout").hidden
 document.addEventListener("click", (ev) => { if (!ev.target.closest("#menu-layout, #bt-layout")) $("menu-layout").hidden = true; });
 $("ml-guardar").onclick = async () => {
   $("menu-layout").hidden = true;
-  if (!A || !A.meta || !A.meta.modelo) { status("guardar como padrão: abra antes uma rodada do circuito"); return; }
+  if (!A || !A.meta || !A.meta.modelo) { st("scope.st.guardar_sem_rodada"); return; }
   try {
     const r = await fetch("/maisim/simu/scope/padrao", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ modelo: A.meta.modelo, layout: layoutAtual() }) });
     const j = await r.json().catch(() => ({}));
-    status(r.ok ? `layout guardado como o padrão do circuito ${circuitoDe(A)} (${j.arquivo || "ao lado dele"})` : `guardar como padrão: ${j.erro || r.statusText}`);
-  } catch (e) { status(`guardar como padrão: o simu não respondeu (${e.message})`); }
+    const c = circuitoDe(A);
+    if (r.ok) status(() => tr("scope.st.guardou", { c, arq: j.arquivo || tr("scope.st.ao_lado") })); else st("scope.st.guardar_erro", { erro: j.erro || r.statusText });
+  } catch (e) { st("scope.st.guardar_sem_simu", { msg: e.message }); }
 };
 $("ml-padrao").onclick = async () => {
   $("menu-layout").hidden = true;
   const L = A && A.meta && A.meta.modelo ? await lePadrao() : null;
-  if (!L) { status(`o circuito ${circuitoDe(A) || ""} ainda não tem padrão: monte o layout e use “Guardar como padrão deste circuito”`); return; }
+  if (!L) { st("scope.st.sem_padrao", { c: circuitoDe(A) || "" }); return; }
   try { localStorage.setItem(chaveLayout(), JSON.stringify(L)); } catch (e) { /* ok */ }
-  montaTudo(); status(`de volta ao padrão do circuito ${circuitoDe(A)}`);
+  montaTudo(); st("scope.st.de_volta", { c: circuitoDe(A) });
 };
 $("bt-padrao").onclick = () => {
   $("menu-layout").hidden = true; const k = chaveLayout();   // vazio (não apagado): nem o padrão nem o de antes voltam por cima do automático
@@ -1657,18 +1681,18 @@ $("bt-exportar").onclick = () => {
   a.href = URL.createObjectURL(new Blob([JSON.stringify(v, null, 1)], { type: "application/json" }));
   a.download = `visoes_scope_${(circuitoDe(A) || "scope").replace(/[^\w.-]+/g, "_")}_${new Date().toISOString().slice(0, 10)}.json`;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-  status(`visões exportadas: ${((layout && layout.itens) || []).length} painéis e seções, ${Object.keys(coresSinal).length} cores`);
+  st("scope.st.exportadas", { n: ((layout && layout.itens) || []).length, cores: Object.keys(coresSinal).length });
 };
 $("bt-importar").onclick = () => $("arq-visoes").click();
 $("arq-visoes").onchange = async (e) => {
   const f = e.target.files[0]; e.target.value = ""; if (!f) return;
-  let v; try { v = JSON.parse(await f.text()); } catch (er) { status(`importar visões: ${f.name} não é um JSON`); return; }
+  let v; try { v = JSON.parse(await f.text()); } catch (er) { st("scope.st.imp_nao_json", { arq: f.name }); return; }
   const itensV = v && v.formato === "scope-visoes" && v.layout && Array.isArray(v.layout.itens) ? v.layout.itens : null;
   if (!itensV || !itensV.length || itensV.length > 500 || !itensV.every((x) => x && typeof x === "object" && (typeof x.secao === "string" || Array.isArray(x.sinais)))) {
-    status(`importar visões: ${f.name} não é um arquivo de visões do scope`); return; }
-  if (!chaveLayout()) { status("importar visões: abra antes uma rodada do circuito (as visões são de cada circuito)"); return; }
-  if (!(await pergunta({ titulo: "Importar visões", ok: "Trocar",
-    texto: `Trocar as visões do circuito ${circuitoDe(A)} pelas de ${f.name}${v.de ? " (do " + v.de + ")" : ""}: ${itensV.length} painéis e seções?` }))) return;
+    st("scope.st.imp_nao_visoes", { arq: f.name }); return; }
+  if (!chaveLayout()) { st("scope.st.imp_sem_rodada"); return; }
+  if (!(await pergunta({ titulo: tr("scope.q.importa"), ok: tr("scope.q.importa_ok"),
+    texto: tr(v.de ? "scope.q.importa_texto_de" : "scope.q.importa_texto", { c: circuitoDe(A), arq: f.name, de: v.de, n: itensV.length }) }))) return;
   const cores = {};
   for (const [k, c] of Object.entries(v.cores && typeof v.cores === "object" ? v.cores : {})) { const cv = corValida(String(c)); if (cv && /^[\w.$+\-]{1,120}$/.test(k)) cores[k] = cv; }
   const esp = {};
@@ -1676,9 +1700,9 @@ $("arq-visoes").onchange = async (e) => {
   const tra = {};
   for (const [k, t] of Object.entries(v.tracos && typeof v.tracos === "object" ? v.tracos : {})) if (tracoValido(t) && t !== "continua" && /^[\w.$+\-]{1,120}$/.test(k)) tra[k] = t;
   try { localStorage.setItem(chaveLayout(), JSON.stringify(v.layout)); localStorage.setItem("maisim-scope-cores", JSON.stringify(cores)); localStorage.setItem("maisim-scope-espessuras", JSON.stringify(esp)); localStorage.setItem("maisim-scope-tracos", JSON.stringify(tra)); }
-  catch (er) { status("importar visões: o navegador não deixou guardar"); return; }
+  catch (er) { st("scope.st.imp_nao_guardou"); return; }
   coresSinal = cores; espessurasSinal = esp; tracosSinal = tra; montaTudo();
-  status(`visões importadas de ${f.name}: ${itensV.length} painéis e seções, ${Object.keys(cores).length} cores`);
+  st("scope.st.importadas", { arq: f.name, n: itensV.length, cores: Object.keys(cores).length });
 };
 // ---- apagar gravações: de uma rodada do simu, a pasta inteira (os dados e a cópia do circuito daquela rodada — nunca o
 // circuito em "meus circuitos"); de outras pastas, só o scope_*.npz. Filtro e "marcar todas (as filtradas)" (Marcelo, 22/10);
@@ -1690,7 +1714,7 @@ function pergunta({ titulo, texto, ok = "OK", perigo = false }) {
   return new Promise((res) => {
     const f = document.createElement("div"); f.className = "sc-modal-fundo";
     f.innerHTML = `<div class="sc-modal" role="dialog" aria-modal="true"><h3>${escH(titulo)}</h3><p>${escH(texto)}</p>` +
-      `<div class="sc-bts"><button class="sc-cancela">Cancelar</button><button class="sc-ok${perigo ? " perigo" : ""}">${escH(ok)}</button></div></div>`;
+      `<div class="sc-bts"><button class="sc-cancela">${escH(tr("scope.cancelar"))}</button><button class="sc-ok${perigo ? " perigo" : ""}">${escH(ok)}</button></div></div>`;
     document.body.appendChild(f);
     const fecha = (v) => { removeEventListener("keydown", tecla, true); f.remove(); res(v); };
     const tecla = (e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); fecha(false); }
@@ -1705,11 +1729,11 @@ const visiveisAp = () => [...$("ap-lista").querySelectorAll("label:not([hidden])
 function marcaAp() {                                    // o rodapé e o "marcar todas": só o que está à vista
   const vis = visiveisAp(), ck = vis.filter((c) => c.checked), orf = $("ap-orfas").checked ? +$("ap-orfas").dataset.tam : 0;
   const tam = ck.reduce((a, c) => a + +c.dataset.tam, 0) + orf;
-  $("ap-marcadas").textContent = ck.length || orf ? `${ck.length} marcadas${orf ? " + as pastas sem gravação" : ""}, ${mb(tam)}` : "nenhuma marcada";
+  $("ap-marcadas").textContent = ck.length || orf ? tr(orf ? "scope.ap.marcadas_orf" : "scope.ap.marcadas", { n: ck.length, tam: mb(tam) }) : tr("scope.ap.nenhuma_marcada");
   $("ap-ok").disabled = !ck.length && !orf;
-  $("ap-ok").textContent = ck.length || orf ? `Apagar ${ck.length ? ck.length + (ck.length > 1 ? " marcadas" : " marcada") : "as pastas sem gravação"} (${mb(tam)})` : "Apagar marcadas";
+  $("ap-ok").textContent = ck.length ? tr("scope.ap.ok_n", { n: ck.length, tam: mb(tam) }) : orf ? tr("scope.ap.ok_orf", { tam: mb(tam) }) : tr("scope.ap.ok");
   const t = $("ap-todas"); t.checked = vis.length > 0 && ck.length === vis.length; t.indeterminate = ck.length > 0 && ck.length < vis.length;
-  $("ap-vis").textContent = $("ap-filtro").value.trim() ? `(as ${vis.length} filtradas)` : "";
+  $("ap-vis").textContent = $("ap-filtro").value.trim() ? tr("scope.ap.vis", { n: vis.length }) : "";
 }
 function filtraAp() {
   const q = $("ap-filtro").value.trim().toLowerCase();
@@ -1717,27 +1741,29 @@ function filtraAp() {
   marcaAp();
 }
 const LIXO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>';
-async function abreApagar() {
+async function abreApagar(refaz) {                       // refaz: a janela já aberta, refeita no idioma novo (o "e as pastas" marcado fica)
   const marcadas = new Set([...$("ap-lista").querySelectorAll("input:checked")].map((c) => c.dataset.arq));   // refeita depois de apagar: as marcas ficam
+  const orfMarcada = refaz && $("ap-orfas").checked;
   const [lst, orf] = await Promise.all([fetch("rodadas").then((r) => r.json()), fetch("orfas").then((r) => r.json()).catch(() => ({ n: 0, tamanho: 0 }))]);
+  if (refaz && (apagando || !$("janela-apagar").classList.contains("aberta"))) return;   // fechada (ou apagando) enquanto a lista vinha
   const total = lst.reduce((a, x) => a + (x.pasta_tam || x.tamanho || 0), 0) + (orf.tamanho || 0);
-  $("ap-total").textContent = `— ${lst.length} gravações, ${mb(total)} no disco`;
+  $("ap-total").textContent = tr("scope.ap.total", { n: lst.length, tam: mb(total) });
   $("ap-lista").innerHTML = lst.map((x) => {
-    const q = [x.rotulo, x.arq, x.nome, x.modelo, x.guardada ? "guardada" : ""].join(" ").toLowerCase();
+    const q = [x.rotulo, x.arq, x.nome, x.modelo, x.guardada ? tr("scope.guardada") : ""].join(" ").toLowerCase();
     return `<label data-q="${escH(q)}"><input type="checkbox" data-arq="${escH(x.arq)}" data-tam="${x.pasta_tam || x.tamanho || 0}" data-guardada="${x.guardada ? 1 : ""}"${marcadas.has(x.arq) ? " checked" : ""}>` +
-      `<span data-nome="${escH(x.rotulo || x.arq)}">${escH(x.rotulo || x.arq)}${x.guardada ? '<span class="selo" title="guardada: “por cima” não a substitui; apagar pede confirmação">guardada</span>' : ""}</span>` +
-      `<span class="tam" title="${x.pasta ? "a pasta da rodada inteira" : "só a gravação (.npz)"}">${mb(x.pasta_tam || x.tamanho || 0)}</span>` +
-      `<button class="lixo" type="button" title="apagar só esta" aria-label="apagar só esta">${LIXO}</button><span class="cam">${escH(x.arq)}</span></label>`; }).join("") ||
-    "<i>nenhuma gravação</i>";
-  $("ap-orfas-l").hidden = !orf.n; $("ap-orfas").checked = false; $("ap-orfas").dataset.tam = orf.tamanho || 0;
-  $("ap-orfas-t").textContent = `apagar também as ${orf.n} pastas de rodada sem gravação (${mb(orf.tamanho || 0)}: sobras de quando só a gravação saía)`;
+      `<span data-nome="${escH(x.rotulo || x.arq)}">${escH(x.rotulo || x.arq)}${x.guardada ? `<span class="selo" title="${escH(tr("scope.ap.t_selo"))}">${escH(tr("scope.guardada"))}</span>` : ""}</span>` +
+      `<span class="tam" title="${escH(tr(x.pasta ? "scope.ap.t_pasta" : "scope.ap.t_npz"))}">${mb(x.pasta_tam || x.tamanho || 0)}</span>` +
+      `<button class="lixo" type="button" title="${escH(tr("scope.ap.t_lixo"))}" aria-label="${escH(tr("scope.ap.t_lixo"))}">${LIXO}</button><span class="cam">${escH(x.arq)}</span></label>`; }).join("") ||
+    `<i>${escH(tr("scope.ap.nenhuma"))}</i>`;
+  $("ap-orfas-l").hidden = !orf.n; $("ap-orfas").checked = !!(orfMarcada && orf.n); $("ap-orfas").dataset.tam = orf.tamanho || 0;
+  $("ap-orfas-t").textContent = tr("scope.ap.orfas", { n: orf.n, tam: mb(orf.tamanho || 0) });
   $("ap-lista").querySelectorAll("input").forEach((c) => c.onchange = marcaAp);
   $("ap-lista").querySelectorAll("button.lixo").forEach((b) => b.onclick = (ev) => {    // a lixeira da linha: só esta (Marcelo, 22/10)
     ev.preventDefault(); ev.stopPropagation(); apagaAp([b.closest("label").querySelector("input")], false); });
   filtraAp();                                           // o filtro de antes continua (depois de apagar, a lista é refeita)
   $("janela-apagar").classList.add("aberta");
 }
-$("bt-apagar").onclick = abreApagar;
+$("bt-apagar").onclick = () => abreApagar();      // sem o evento (o 1º parâmetro é o "refaz")
 $("ap-fechar").onclick = () => $("janela-apagar").classList.remove("aberta");
 $("ap-filtro").oninput = filtraAp;
 $("ap-orfas").onchange = marcaAp;
@@ -1750,37 +1776,38 @@ function resumoApagar(r) {
   const liberou = r.apagados.reduce((a, x) => a + x.tamanho, 0) + (r.orfas || []).reduce((a, x) => a + x.tamanho, 0);
   const motivos = {}; for (const x of r.recusados || []) motivos[x.por] = (motivos[x.por] || 0) + 1;
   const n = r.apagados.length, no = (r.orfas || []).length, nj = (r.ja || []).length;
-  return (n || no ? `${n === 1 ? "apagada 1 gravação" : `apagadas ${n} gravações`}${no ? ` e ${no} pastas sem gravação` : ""} (${mb(liberou)})` : "nada apagado") +
-    (nj ? `; ${nj === 1 ? "1 já tinha saído" : `${nj} já tinham saído`}` : "") +
-    ((r.recusados || []).length ? `; ficaram ${r.recusados.length}: ${Object.entries(motivos).map(([m, n]) => `${n} ${m}`).join(", ")}` : "");
+  // os motivos das recusadas (x.por) vêm do servidor, já como texto
+  return [n || no ? tr(no ? "scope.ap.r_apagadas_orf" : "scope.ap.r_apagadas", { n, no, tam: mb(liberou) }) : tr("scope.ap.r_nada"),
+    nj ? tr("scope.ap.r_ja", { n: nj }) : "",
+    (r.recusados || []).length ? tr("scope.ap.r_ficaram", { n: r.recusados.length, motivos: Object.entries(motivos).map(([m, k]) => `${k} ${m}`).join(", ") }) : ""].filter(Boolean).join("; ");
 }
 async function apagaAp(ck, orfas) {
   if (apagando || (!ck.length && !orfas)) return;
   const tam = ck.reduce((a, c) => a + +c.dataset.tam, 0) + (orfas ? +$("ap-orfas").dataset.tam : 0), guard = ck.filter((c) => c.dataset.guardada).length;
   const uma = ck.length === 1 && !orfas ? ck[0].closest("label").querySelector("span").dataset.nome : "";   // o nome, sem o selo
-  if (!(await pergunta({ titulo: "Apagar do disco?", ok: "Apagar", perigo: true,
-    texto: `${uma || `${ck.length} gravação(ões)${orfas ? " e as pastas sem gravação" : ""}`}, ${mb(tam)}. De uma rodada do simu sai a pasta inteira (os dados e a cópia do circuito daquela rodada; o seu circuito não). Não dá para desfazer.` }))) return;
-  if (guard && !(await pergunta({ titulo: "Há rodadas guardadas", ok: "Apagar mesmo assim", perigo: true,
-    texto: `${uma ? "Esta rodada está guardada" : `${guard} delas ${guard > 1 ? "estão guardadas" : "está guardada"}`} (“por cima” não as substitui). Apagar mesmo assim?` }))) return;
-  apagando = true; $("ap-ok").disabled = true; $("ap-ok").textContent = "apagando…"; $("janela-apagar").classList.add("apagando");
-  status(`apagando ${ck.length} gravação(ões), ${mb(tam)}…`);
+  if (!(await pergunta({ titulo: tr("scope.q.apagar"), ok: tr("scope.q.apagar_ok"), perigo: true,
+    texto: tr("scope.q.apagar_texto", { quem: uma || tr(orfas ? "scope.q.n_gravacoes_orf" : "scope.q.n_gravacoes", { n: ck.length }), tam: mb(tam) }) }))) return;
+  if (guard && !(await pergunta({ titulo: tr("scope.q.guardadas"), ok: tr("scope.q.guardadas_ok"), perigo: true,
+    texto: uma ? tr("scope.q.guardada_uma") : tr("scope.q.guardadas_n", { n: guard }) }))) return;
+  apagando = true; $("ap-ok").disabled = true; $("ap-ok").textContent = tr("scope.ap.apagando"); $("janela-apagar").classList.add("apagando");
+  st("scope.st.apagando", { n: ck.length, tam: mb(tam) });
   try {
     const r = await (await fetch("apagar", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ arqs: ck.map((c) => c.dataset.arq), guardadas: guard > 0, orfas }) })).json();
-    status(resumoApagar(r));
-  } catch (e) { status(`apagar: o servidor do scope não respondeu (${e.message})`); }
+    status(() => resumoApagar(r));
+  } catch (e) { st("scope.st.apagar_sem_servidor", { msg: e.message }); }
   finally { apagando = false; $("janela-apagar").classList.remove("apagando"); }
   await listaRodadas(); await abreApagar();
 };
 $("bt-vivo").onclick = () => {
   modo = "vivo"; $("bt-vivo").classList.add("ativo"); $("bt-comparar").classList.remove("ativo"); avisaSimu();
-  A = null; B = null; uniao = null; xFaixa = null; montaTudo(); status(SEM_RODADA); conectaVivo();
+  A = null; B = null; uniao = null; xFaixa = null; montaTudo(); st("scope.st.sem_rodada"); conectaVivo();
 };
-$("bt-comparar").onclick = async () => { entraComparar(); await listaRodadas(); status("escolha A (e B, se quiser comparar) e clique em Carregar"); };
+$("bt-comparar").onclick = async () => { entraComparar(); await listaRodadas(); st("scope.st.escolha_ab"); };
 $("bt-carregar").onclick = async () => {
-  status("carregando…"); entraComparar();
+  st("scope.st.carregando"); entraComparar();
   A = await carrega($("sel-a").value); B = await carrega($("sel-b").value); xFaixa = null; preparaGrade();
-  status(`A: ${nomeSel($("sel-a"))}${B ? " | B: " + nomeSel($("sel-b")) : ""}${avisoGrade()}`);
+  statusAB();
   montaTudo();
 };
 // clique fora de um menu fecha os menus. O caminho do clique (composedPath) é o da hora do clique: um botão do menu que o
@@ -1806,7 +1833,7 @@ function acompanhaTema() {
   if (novo === temaDesenhado) return;
   temaDesenhado = novo;
   for (const p of paineis()) {
-    if (p.u) criaGrafico(p);
+    if (p.u) refazGrafico(p);
     if (p.med && p.med.aberto && p.med.esp.aberto) desenhaEspectro(p);
   }
 }
@@ -1814,19 +1841,46 @@ let temaDesenhado = temaAtual();
 window.addEventListener("storage", (e) => { if (e.key === "maisim-tema") acompanhaTema(); });
 window.addEventListener("maisim-tema", acompanhaTema);
 try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", acompanhaTema); } catch (e) { /* ok */ }
+// o idioma mudou (o trilho, nesta janela ou noutra; dentro do simu também): o aplica() do maisim-i18n já trocou o HTML fixo e
+// os data-tr* dos painéis, das seções e da medição; aqui, o que o scope.js escreve, sem remontar o layout (o zoom, os cursores,
+// os sinais escolhidos e o painel expandido ficam): os gráficos refeitos (legendas, tabela da medição, espectro), os títulos
+// que mudam, o índice, a linha de estado, as listas de rodadas e a janela de apagar, se aberta. Um menu aberto fecha
+maisimI18n.aoMudar(() => {
+  document.querySelectorAll(".menu").forEach((m) => m.remove());
+  poePorLinha();
+  for (const x of itens) if (x.tipo === "secao") marcaRecolhida(x);
+  for (const p of paineis()) {
+    marcaY(p); marcaZoom(p); marcaRecolhido(p); marcaExpande(p);
+    const tab = p.el.querySelector(".med-tab"); if (tab) tab.dataset.chave = "";     // a tabela da medição é refeita (mede)
+    refazGrafico(p);                                   // com Fixar eixos / Pausar, o que está na tela fica
+  }
+  // os títulos do automático (só esses; os guardados ficam como estão): no idioma novo, sem gravar o layout
+  for (const x of itens) if (x.autoTit) {
+    x.titulo = tr(x.autoTit.chave, { rotulo: x.autoTit.rotulo }).trim();
+    if (x.tipo === "secao") x.el.querySelector(".titulo-secao").value = x.titulo;
+    else { const t = x.el.querySelector("input.titulo"); t.value = t.title = x.titulo; tituloMat(x); }
+  }
+  if (expandido) expande(expandido, true);
+  desenhaIndice(); aplicaVisibilidade();
+  if (typeof ultimoStatus === "function") status(ultimoStatus);
+  listaRodadas().then(() => { if (typeof ultimoStatus === "function") status(ultimoStatus); })   // o "A: …" com os nomes da lista nova
+    .catch(() => { /* sem o servidor: as listas ficam */ });
+  if ($("janela-apagar").classList.contains("aberta") && !apagando) abreApagar(true).catch(() => { /* idem */ });
+});
 window.addEventListener("resize", () => { clearTimeout(tRes); tRes = setTimeout(() => { medeCab(); redimensiona(); if (expandido) expande(expandido, true); }, 150); });
 
 // endereço: /maisim/scope/?a=<arquivo>&b=<arquivo>&x=<min>,<max> (ms) abre direto no modo Comparar, com zoom;
 // os pedidos ao servidor usam caminhos relativos (eventos, rodadas…), para funcionar também atrás do maisim-app
 (async () => {
   const q = new URLSearchParams(location.search);
+  st("scope.st.aguardando");                 // o "aguardando…" do HTML, no idioma
   await listaRodadas();
   if (q.get("a")) {
     entraComparar();
     $("sel-a").value = q.get("a"); $("sel-b").value = q.get("b") || "";
     A = await carrega(q.get("a")); B = await carrega(q.get("b")); preparaGrade();
     if (q.get("x")) { const [a, b] = q.get("x").split(",").map(Number); xFaixa = [a, b]; }
-    if (A) status(`A: ${nomeSel($("sel-a"))}${B ? " | B: " + nomeSel($("sel-b")) : ""}${avisoGrade()}`);
+    if (A) statusAB();
     montaTudo();
   } else {
     montaTudo();

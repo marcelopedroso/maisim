@@ -18,6 +18,7 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
 </script>
 <script src="static/maisim-i18n.js"></script>
 <script data-src="static/maisim-i18n.js">/* reserva: sem o maisim-i18n.js (a conexão caiu), o português; tenta de novo e o de verdade assume */window.maisimI18n||(function(){var d={},o=[],h=function(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]})},f=function(k,p){var e=d[k],v=e?e.pt:k;if(v&&typeof v==="object")v=p&&p.n===1?v.one:v.other;return p?String(v).replace(/\{(\w+)\}/g,function(m,x){return x in p?(/_html$/.test(k)?h(p[x]):String(p[x])):m}):v};window.maisimI18n={reserva:true,add:function(x){for(var k in x)d[k]=x[k]},dicionario:function(){return d},tr:f,tem:function(k){return k in d},lingua:function(){return"pt"},local:function(){return"pt-BR"},muda:function(){},aoMudar:function(g){o.push(g)},ouvintes:function(){return o},aplica:function(){},data:function(x,o){return new Date(x).toLocaleString("pt-BR",o)},hora:function(x,o){return new Date(x).toLocaleTimeString("pt-BR",o||{hour:"2-digit",minute:"2-digit"})},num:function(x,o){return Number(x).toLocaleString("pt-BR",o)},escH:function(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]})}};window.tr=f;var s=document.createElement("script");s.src=document.currentScript.getAttribute("data-src");s.async=false;document.head.appendChild(s)})()</script>  <!-- português e inglês (o idioma do trilho), antes de pintar -->
+<script src="static/textos_scope.js"></script>  <!-- os textos do scope (pt e en) -->
 <link rel="stylesheet" href="static/uPlot.min.css">
 <style>
   /* tema (claro e escuro, como no simu); as cores dos eixos, da grade e das marcas no canvas ficam no scope.js (COR_TEMA) */
@@ -250,30 +251,30 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
 <header>
   <div class="linha">
     <h1>Scope</h1>
-    <div class="grupo"><button id="bt-vivo" class="ativo">Ao vivo</button><button id="bt-comparar">Comparar</button></div>
+    <div class="grupo"><button id="bt-vivo" class="ativo" data-tr="scope.h.vivo">Ao vivo</button><button id="bt-comparar" data-tr="scope.h.comparar">Comparar</button></div>
     <div class="grupo"><label>A <select id="sel-a" class="sel-rodada"></select></label>
-      <label>B <select id="sel-b" class="sel-rodada"></select></label><button id="bt-carregar">Carregar</button></div>
-    <span id="status">aguardando…</span>
+      <label>B <select id="sel-b" class="sel-rodada"></select></label><button id="bt-carregar" data-tr="scope.h.carregar">Carregar</button></div>
+    <span id="status">aguardando…</span>   <!-- o scope.js escreve (no idioma) -->
   </div>
   <div class="linha">
-    <button id="bt-indice" title="índice das seções e painéis, ao lado (clique para ir direto a um gráfico)">☰ Índice</button>
-    <label title="durante a rodada ao vivo, não reajusta as escalas"><input type="checkbox" id="ck-fixar"> Fixar eixos</label>
-    <label title="para de redesenhar (os dados continuam chegando)"><input type="checkbox" id="ck-pausar"> Pausar</label>
+    <button id="bt-indice" title="índice das seções e painéis, ao lado (clique para ir direto a um gráfico)" data-tr-title="scope.h.t_indice" data-tr="scope.h.indice">☰ Índice</button>
+    <label title="durante a rodada ao vivo, não reajusta as escalas" data-tr-title="scope.h.t_fixar" data-tr="scope.h.fixar"><input type="checkbox" id="ck-fixar"> Fixar eixos</label>
+    <label title="para de redesenhar (os dados continuam chegando)" data-tr-title="scope.h.t_pausar" data-tr="scope.h.pausar"><input type="checkbox" id="ck-pausar"> Pausar</label>
     <div class="grupo">
-      <button id="bt-painel">+ Painel</button>
-      <button id="bt-secao" title="novo título de seção no fim">+ Seção</button>
-      <button id="bt-porlinha" title="quantos painéis por linha, para todos (cada painel muda o seu no menu ⋯)">Por linha: 2</button>
-      <span class="menu-layout"><button id="bt-layout" title="o layout deste circuito: guardar como padrão, voltar ao padrão, ou o automático">Layout ▾</button>
-        <span id="menu-layout" hidden><button id="ml-guardar" title="guarda o layout de agora como o padrão do circuito, ao lado dele (vai junto com o circuito)">Guardar como padrão deste circuito</button>
-        <button id="ml-padrao" title="volta ao padrão guardado do circuito (o que você mexeu depois sai)">Voltar ao padrão</button>
-        <button id="bt-padrao" title="o layout automático: um painel com os sinais da rodada (o dos outros circuitos fica)">Automático (os sinais da rodada)</button></span></span>
-      <button id="bt-exportar" title="baixa um arquivo com os painéis, as seções e as cores dos sinais (para outro MaiSim ou um colega)">Exportar visões</button>
-      <button id="bt-importar" title="troca os painéis, as seções e as cores pelos de um arquivo exportado (do MaiSim ou do PEW)">Importar visões…</button>
+      <button id="bt-painel" data-tr="scope.h.painel">+ Painel</button>
+      <button id="bt-secao" title="novo título de seção no fim" data-tr-title="scope.h.t_secao" data-tr="scope.h.secao">+ Seção</button>
+      <button id="bt-porlinha" title="quantos painéis por linha, para todos (cada painel muda o seu no menu ⋯)" data-tr-title="scope.h.t_porlinha">Por linha: 2</button>
+      <span class="menu-layout"><button id="bt-layout" title="o layout deste circuito: guardar como padrão, voltar ao padrão, ou o automático" data-tr-title="scope.h.t_layout">Layout ▾</button>
+        <span id="menu-layout" hidden><button id="ml-guardar" title="guarda o layout de agora como o padrão do circuito, ao lado dele (vai junto com o circuito)" data-tr-title="scope.h.t_ml_guardar" data-tr="scope.h.ml_guardar">Guardar como padrão deste circuito</button>
+        <button id="ml-padrao" title="volta ao padrão guardado do circuito (o que você mexeu depois sai)" data-tr-title="scope.h.t_ml_padrao" data-tr="scope.h.ml_padrao">Voltar ao padrão</button>
+        <button id="bt-padrao" title="o layout automático: um painel com os sinais da rodada (o dos outros circuitos fica)" data-tr-title="scope.h.t_bt_padrao" data-tr="scope.h.bt_padrao">Automático (os sinais da rodada)</button></span></span>
+      <button id="bt-exportar" title="baixa um arquivo com os painéis, as seções e as cores dos sinais (para outro MaiSim ou um colega)" data-tr-title="scope.h.t_exportar" data-tr="scope.h.exportar">Exportar visões</button>
+      <button id="bt-importar" title="troca os painéis, as seções e as cores pelos de um arquivo exportado (do MaiSim ou do PEW)" data-tr-title="scope.h.t_importar" data-tr="scope.h.importar">Importar visões…</button>
       <input type="file" id="arq-visoes" accept=".json,application/json" hidden>
-      <button id="bt-salvar" title="salva todos os painéis numa imagem PNG">Salvar figura</button>
-      <button id="bt-apagar" title="escolher gravações (scope_*.npz) para apagar do disco">Apagar gravações…</button>
+      <button id="bt-salvar" title="salva todos os painéis numa imagem PNG" data-tr-title="scope.h.t_salvar" data-tr="scope.h.salvar">Salvar figura</button>
+      <button id="bt-apagar" title="escolher gravações (scope_*.npz) para apagar do disco" data-tr-title="scope.h.t_apagar" data-tr="scope.h.apagar">Apagar gravações…</button>
     </div>
-    <button id="bt-ajuda" title="Zoom em cada painel: escolha X (tempo), Y (vertical) ou área e arraste no gráfico; o enquadrar (os quatro cantos) ou duplo clique volta a ver tudo naquele painel.
+    <button id="bt-ajuda" data-tr-title="scope.h.t_ajuda" title="Zoom em cada painel: escolha X (tempo), Y (vertical) ou área e arraste no gráfico; o enquadrar (os quatro cantos) ou duplo clique volta a ver tudo naquele painel.
 Ctrl + roda: zoom no tempo. Ctrl + Shift + roda: vertical.
 O tempo é comum aos painéis ligados (corrente); clique na corrente para dar a um painel o seu próprio tempo (corrente partida, laranja).
 Medir: média, série de Fourier, THD e espectro num intervalo; Shift + arrastar no gráfico escolhe o intervalo.
@@ -286,22 +287,22 @@ A em cores; B em preto tracejado.">?</button>
   </div>
 </header>
 <div id="corpo">
-<nav id="indice"><label class="unica" title="mostra só a seção escolhida no índice, como abas"><input type="checkbox" id="ck-unica"> Uma seção por vez</label>
+<nav id="indice"><label class="unica" title="mostra só a seção escolhida no índice, como abas" data-tr-title="scope.h.t_unica"><input type="checkbox" id="ck-unica"> <span data-tr="scope.h.unica">Uma seção por vez</span></label>
   <div class="lista"></div></nav>
 <main>
   <div id="paineis"></div>
-  <div id="so-vazio" class="vazio" hidden>Aguardando os sinais da rodada… inicie a simulação no simu (Simulação ▸ Iniciar, ou Ctrl+Enter).</div>
+  <div id="so-vazio" class="vazio" hidden data-tr="scope.h.so_vazio">Aguardando os sinais da rodada… inicie a simulação no simu (Simulação ▸ Iniciar, ou Ctrl+Enter).</div>
 </main>
 </div>
 <div id="fundo-exp" hidden></div>
 <div id="janela-apagar"><div class="caixa">
-  <div class="topo">Apagar gravações do maisim-scope <span id="ap-total" style="font-weight:400;color:var(--sutil)"></span></div>
-  <div class="filtros"><input id="ap-filtro" type="search" placeholder="filtrar: circuito, nome da rodada, data (ex.: 22/10)…" aria-label="filtrar as gravações">
-    <label class="todas"><input type="checkbox" id="ap-todas"> Marcar todas <span id="ap-vis"></span></label></div>
+  <div class="topo" data-tr="scope.h.ap_topo">Apagar gravações do maisim-scope <span id="ap-total" style="font-weight:400;color:var(--sutil)"></span></div>
+  <div class="filtros"><input id="ap-filtro" type="search" placeholder="filtrar: circuito, nome da rodada, data (ex.: 22/10)…" aria-label="filtrar as gravações" data-tr-ph="scope.h.ph_ap_filtro" data-tr-aria="scope.h.a_ap_filtro">
+    <label class="todas" data-tr="scope.h.ap_todas"><input type="checkbox" id="ap-todas"> Marcar todas <span id="ap-vis"></span></label></div>
   <div class="lista" id="ap-lista"></div>
   <label class="orfas" id="ap-orfas-l" hidden><input type="checkbox" id="ap-orfas"> <span id="ap-orfas-t"></span></label>
   <div class="rodape"><span id="ap-marcadas" style="margin-right:auto;color:var(--sutil)"></span>
-    <button id="ap-fechar">Cancelar</button><button id="ap-ok" class="perigo">Apagar marcadas</button></div>
+    <button id="ap-fechar" data-tr="scope.cancelar">Cancelar</button><button id="ap-ok" class="perigo">Apagar marcadas</button>   <!-- o ap-ok: o scope.js escreve --></div>
 </div></div>
 <script src="static/uPlot.iife.min.js"></script>
 <script src="static/scope.js"></script>

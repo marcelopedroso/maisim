@@ -8,10 +8,10 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
 const B = "http://localhost:7200";
 // o que não é texto do MaiSim (dados do usuário, números, nomes próprios): fora da varredura
 const DADO = [".rodada .info", "#so-circ > span", "#maisim-nav .marca", "#maisim-nav .pct", '[lang="en"]'];   // [lang=en]: inglês de propósito (o slogan)
-const LIVRE = /^[\s\d.,:;%·\-−+×…/()°ΩµkMGBVAHzs→]*$|^(MaiSim|PT|EN|OK)$/;
+const LIVRE = /^[\s\d.,:;%·\-−+×…/()°ΩµkMGBVAHzs→]*$|^(MaiSim|PT|EN|OK|Scope|Layout ▾|\?)$/;   // iguais nos dois idiomas
 
 // as páginas prontas (cada PR de tradução põe a sua aqui)
-const PRONTAS = [["página inicial", "/"]];
+const PRONTAS = [["página inicial", "/"], ["scope", "/maisim/scope/"]];
 // a casca do simu (o HTML traduzido) e os títulos que o código troca: ida ao inglês e volta devolvem o mesmo português
 const fotoCasca = () => [...document.querySelectorAll("[data-tr],[data-tr-html],[data-tr-title],[data-tr-ph],[data-tr-aria],[data-tr-msg],#ctl-lado-bt,th[data-col]")]
   .map((e) => [e.id || e.className, e.getAttribute("title"), e.getAttribute("placeholder"), e.getAttribute("aria-label"), e.getAttribute("data-msg"), e.textContent].join("|"));
