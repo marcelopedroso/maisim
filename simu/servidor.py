@@ -148,7 +148,7 @@ def salva_conferencia():
     tmp.unlink(missing_ok=True)
     MOTOR.cmd(f"SAVEAS {tmp}")
     if not tmp.is_file() or tmp.stat().st_size < 200:
-        raise ErroMotor(f"o Gecko não conseguiu gravar {tmp} para conferir o circuito (veja a janela de aviso dele)")
+        raise ErroMotor(lingua.tr("editor.gecko_nao_gravou_conferencia", arq=tmp))
     return tmp
 
 
@@ -206,14 +206,15 @@ def situacao_gecko():
         circuito = any(fl["elementos"] for fl in r["folhas"].values())
         a = le_aparencia()
         controle, cores = controle_em_uso(le_controle()), bool(a["cores"] or a["pontas"])
-    itens = [n for n, v in (("o circuito", circuito), ("o controle", controle), ("a aparência (cores e pontas)", cores)) if v]
+    itens = [lingua.tr(n) for n, v in (("editor.item_circuito", circuito), ("editor.item_controle", controle),
+                                         ("editor.item_aparencia", cores)) if v]
     return {"pendente": bool(itens), "circuito": circuito, "controle": controle, "cores": cores, "itens": itens, "visto": ja_visto(agora)}
 
 
 def salva_aberto():
     """Grava o que está no Gecko (e o controle e as cores) no arquivo aberto — só arquivo da pasta do MaiSim."""
     if not aberto_salvavel():
-        raise ErroMotor("o modelo aberto não está na pasta do MaiSim: use Salvar como")
+        raise ErroMotor(lingua.tr("editor.aberto_fora_da_pasta"))
     dest = RAIZ / editor["aberto"]
     MOTOR.cmd(f"SAVEAS {dest}")
     salva_controle_junto(dest)
@@ -223,11 +224,11 @@ def salva_aberto():
 
 
 def nome_aberto():
-    return Path(editor["aberto"]).name if editor.get("aberto") else "o circuito novo (sem arquivo)"
+    return Path(editor["aberto"]).name if editor.get("aberto") else lingua.tr("editor.circuito_novo_sem_arquivo")
 
 
 def lista_itens(itens):
-    return itens[0] if len(itens) == 1 else ", ".join(itens[:-1]) + " e " + itens[-1]
+    return itens[0] if len(itens) == 1 else lingua.tr("editor.lista_e", antes=", ".join(itens[:-1]), ultimo=itens[-1])
 
 
 def aberto_salvavel():
@@ -303,7 +304,7 @@ def vigia_gecko():
     """Chamada pelo motor quando um pedido demora: fecha as janelas de erro do Gecko (a foto fica para depois)."""
     fechadas = janelas_gecko.fecha(TELA, ESTADO.parent / "janelas_gecko")
     for tit, foto in fechadas:
-        print(f"{time.strftime('%H:%M:%S')} janela de erro do Gecko fechada com OK: {tit} (foto: {foto})", flush=True)
+        print(f"{time.strftime('%H:%M:%S')} janela de erro do Gecko fechada com OK: {tit} (foto: {foto})", flush=True)  # i18n-ok (log)
     return [tit for tit, _ in fechadas]
 
 
@@ -315,8 +316,7 @@ def aviso_janelas():
     js, MOTOR.janelas = MOTOR.janelas, []
     if not js:
         return ""
-    return (f"o Gecko abriu {'uma janela' if len(js) == 1 else f'{len(js)} janelas'} de erro ({', '.join(sorted(set(js)))}) na tela "
-            "dele, que você não vê, e ficou esperando o OK; o MaiSim fechou. Confira o desenho (Ctrl+Z volta)")
+    return lingua.tr("editor.janelas_gecko_fechadas", n=len(js), titulos=", ".join(sorted(set(js))))
 
 
 def estado():
@@ -331,7 +331,7 @@ def estado():
         VISTO.write_text(hash_assinatura(editor["assinatura"]))   # o mesmo modelo não pergunta à toa
     except OSError:
         pass
-    r["arq"] = editor["aberto"] or "(o que estava aberto no Gecko do MaiSim)"
+    r["arq"] = editor["aberto"] or lingua.tr("editor.arq_sem_nome")   # entre parênteses: a página reconhece pelo "(" do começo
     r["chave_layout"] = chave_layout()
     aberto = (RAIZ / editor["aberto"]).resolve() if editor["aberto"] else None       # arquivo do MaiSim? (Salvar grava por cima)
     pasta = next((k for k, d in (("circuitos", SALVOS), ("subcircuitos", LIB)) if aberto and aberto.parent == d.resolve()), None)
@@ -418,7 +418,7 @@ def acopla(nome, campos, ref=None, folhas=None, dominio="CONTROL"):
         if ref is not None:
             alvo = next((u for _, n2, u, f2 in blocos if n2 == ref and f2 == fo), None)
             if not alvo:
-                raise ErroMotor(f"não achei o componente {ref}" + ("" if fo == "0" else " num dos subcircuitos"))
+                raise ErroMotor(lingua.tr("editor.nao_achei_componente" if fo == "0" else "editor.nao_achei_componente_sub", ref=ref))
             b = re.sub(r"\ncoupledReferenceID\[\] [^\n]*", f"\ncoupledReferenceID[] {alvo} ", b)
             b = re.sub(r"\ncopyCoupledReferenceID\[\] [^\n]*", f"\ncopyCoupledReferenceID[] {alvo} ", b)
         partes += [t[fim:m.start()], b]
@@ -426,7 +426,8 @@ def acopla(nome, campos, ref=None, folhas=None, dominio="CONTROL"):
         feitas.add(fo)
     faltam = [f for f in folhas if f not in feitas]
     if faltam:
-        raise ErroMotor(f"não achei {nome}" + (" na folha principal" if faltam == ["0"] else f" em {len(faltam)} subcircuito(s)"))
+        raise ErroMotor(lingua.tr("editor.nao_achei_na_principal", nome=nome) if faltam == ["0"] else
+                        lingua.tr("editor.nao_achei_em_subs", nome=nome, n=len(faltam)))
     arq = ESTADO.with_name("acoplado.ipes")
     t2 = "".join(partes) + t[fim:]
     arq.write_bytes(gzip.compress(t2.encode()) if gz else t2.encode())
@@ -436,7 +437,7 @@ def acopla(nome, campos, ref=None, folhas=None, dominio="CONTROL"):
     for fo in folhas:
         e = next((x for x in r["folhas"].get(fo, {"elementos": []})["elementos"] if x["nome"] == nome), None)
         if e is None or [x or "" for x in e["mede"][:len(esperado)]] != esperado:
-            raise ErroMotor(f"o Gecko não aceitou o acoplamento de {nome} (ficou {e and e['mede']})")
+            raise ErroMotor(lingua.tr("editor.gecko_recusou_acoplamento", nome=nome, ficou=e and e['mede']))
     return r
 
 
@@ -454,11 +455,11 @@ def expande(cantos):
     for (x0, y0), (x1, y1) in zip(cantos, cantos[1:]):
         x0, y0, x1, y1 = int(x0), int(y0), int(x1), int(y1)
         if x0 != x1 and y0 != y1:
-            raise ErroMotor("a conexão anda só na horizontal ou na vertical entre dois cantos")
+            raise ErroMotor(lingua.tr("editor.conexao_reta"))
         sx, sy = (x1 > x0) - (x1 < x0), (y1 > y0) - (y1 < y0)
         pts += [(x0 + sx * k, y0 + sy * k) for k in range(1, abs(x1 - x0) + abs(y1 - y0) + 1)]
     if len(pts) < 2 or len(pts) > 2000 or any(abs(c) > 100000 for p in pts for c in p):
-        raise ErroMotor("conexão inválida")
+        raise ErroMotor(lingua.tr("editor.conexao_invalida"))
     return pts
 
 
@@ -487,10 +488,10 @@ def folhas_ok(folhas, t):
     """As folhas pedidas: "0" ou subcircuitos que existem no arquivo."""
     folhas = [str(f) for f in (folhas or ["0"])]
     if not folhas or len(folhas) > 200 or len(set(folhas)) != len(folhas):
-        raise ErroMotor("folhas inválidas")
+        raise ErroMotor(lingua.tr("editor.folhas_invalidas"))
     for f in folhas:
         if not FOLHA.match(f) or (f != "0" and f"\nuniqueObjectIdentifier {f}\n" not in t):
-            raise ErroMotor(f"folha desconhecida: {f}")
+            raise ErroMotor(lingua.tr("editor.folha_desconhecida", folha=f))
     return folhas
 
 
@@ -502,9 +503,9 @@ def tem_fio(r, pts, folha="0"):
 
 def fio_novo(cantos, dom, rotulo="", folhas=None):
     if dom not in TIPO_FIO:
-        raise ErroMotor(f"domínio da conexão: {', '.join(TIPO_FIO)}")
+        raise ErroMotor(lingua.tr("editor.dominio_conexao", dominios=", ".join(TIPO_FIO)))
     if not ROTULO.match(rotulo):
-        raise ErroMotor("rótulo sem espaço")
+        raise ErroMotor(lingua.tr("editor.rotulo_sem_espaco"))
     pts = expande(cantos)
     MOTOR.cmd(f"SAVEAS {ESTADO}")
     t, gz = _texto(ESTADO)
@@ -517,21 +518,21 @@ def fio_novo(cantos, dom, rotulo="", folhas=None):
     r = reabre(blocos + t, gz)
     faltam = [f for f in folhas if not tem_fio(r, pts, f)]
     if faltam:
-        raise ErroMotor(f"o Gecko não aceitou a conexão ({len(faltam)} de {len(folhas)} folhas)")
+        raise ErroMotor(lingua.tr("editor.gecko_recusou_conexao", n=len(faltam), total=len(folhas)))
     return r
 
 
 def fio_muda(cantos, apagar=False, rotulo=None, folhas=None):
     pts = expande(cantos)
     if not apagar and not ROTULO.match(rotulo or ""):
-        raise ErroMotor("rótulo sem espaço")
+        raise ErroMotor(lingua.tr("editor.rotulo_sem_espaco"))
     MOTOR.cmd(f"SAVEAS {ESTADO}")
     t, gz = _texto(ESTADO)
     folhas = folhas_ok(folhas, t)
     for f in folhas:
         m = acha_fio(t, pts, f)
         if m is None:
-            raise ErroMotor("não achei essa conexão" + ("" if f == "0" else " num dos subcircuitos"))
+            raise ErroMotor(lingua.tr("editor.nao_achei_conexao" if f == "0" else "editor.nao_achei_conexao_sub"))
         if apagar:
             t = t[:m.start()] + t[m.end():]
         else:
@@ -542,9 +543,9 @@ def fio_muda(cantos, apagar=False, rotulo=None, folhas=None):
         fl = r["folhas"].get(f, {"fios": []})["fios"]
         mesmos = [w for w in fl if [tuple(p) for p in w["pts"]] in (alvo, alvo[::-1])]
         if apagar and mesmos:
-            raise ErroMotor("o Gecko manteve a conexão")
+            raise ErroMotor(lingua.tr("editor.gecko_manteve_conexao"))
         if not apagar and not any(w["rotulo"] == (rotulo or "") for w in mesmos):
-            raise ErroMotor("o Gecko não aceitou o rótulo da conexão")
+            raise ErroMotor(lingua.tr("editor.gecko_recusou_rotulo"))
     return r
 
 
@@ -632,7 +633,7 @@ def _poe_globais(t, nomes, valores):
     corpo_n = "/" + "/".join(n.strip() for n in nomes) if nomes else ""
     corpo_v = (" ".join(valores) + " ") if valores else " "
     if not re.search(r"\noptimizerName\[\][^\n]*", t) or not re.search(r"\noptimizerValue\[\][^\n]*", t):
-        raise ErroMotor("o circuito aberto não tem a lista de variáveis globais")
+        raise ErroMotor(lingua.tr("editor.sem_lista_globais"))
     t = re.sub(r"\noptimizerName\[\][^\n]*", lambda m: "\noptimizerName[] " + corpo_n, t, count=1)
     return re.sub(r"\noptimizerValue\[\][^\n]*", lambda m: "\noptimizerValue[] " + corpo_v, t, count=1)
 
@@ -663,15 +664,15 @@ def variavel(corpo):
     (componente, parametro, valor; folhas). O Gecko reabre o arquivo e confere."""
     acao, var = str(corpo.get("acao", "")), str(corpo.get("nome", "")).strip()
     if acao not in ("nova", "apaga", "liga", "desliga"):
-        raise ErroMotor("ação: nova, apaga, liga ou desliga")
+        raise ErroMotor(lingua.tr("editor.variavel_acao"))
     lista = [str(x).strip() for x in corpo["nomes"]] if acao == "apaga" and isinstance(corpo.get("nomes"), list) else [var]
     if acao != "desliga" and (not lista or len(lista) > 500 or not all(VARIAVEL.match(x) for x in lista)):
-        raise ErroMotor("nome da variável: $ seguido de letras, números ou _ (ex.: $Vp, $f_rede)")
+        raise ErroMotor(lingua.tr("editor.variavel_nome"))
     MOTOR.cmd(f"SAVEAS {ESTADO}")
     t, gz = _texto(ESTADO)
     g = _globais(t)
     if g is None:
-        raise ErroMotor("o circuito aberto não tem a lista de variáveis globais")
+        raise ErroMotor(lingua.tr("editor.sem_lista_globais"))
     nomes, valores = list(g[0]), list(g[1])
     def valor_de(v, padrao=None):
         try:
@@ -681,17 +682,17 @@ def variavel(corpo):
         if x is None or not math.isfinite(x):
             if padrao is not None:
                 return padrao
-            raise ErroMotor("valor: um número (ex.: 325, 50, 1e-3)")
+            raise ErroMotor(lingua.tr("editor.variavel_valor"))
         return x
     if acao == "nova":
         if var in nomes:
-            raise ErroMotor(f"{var} já existe")
+            raise ErroMotor(lingua.tr("editor.variavel_existe", var=var))
         nomes.append(var); valores.append(_num_gecko(valor_de(corpo.get("valor"))))
         t = _poe_globais(t, nomes, valores)
     elif acao == "apaga":
         for var in lista:
             if var not in nomes:
-                raise ErroMotor(f"não há a variável {var}")
+                raise ErroMotor(lingua.tr("editor.variavel_nao_ha", var=var))
             val = float(valores[nomes.index(var)])
             partes, fim = [], 0
             for m in BLOCO_EL.finditer(t):             # quem a usa fica com o valor dela, sem a ligação
@@ -712,7 +713,7 @@ def variavel(corpo):
     else:
         comp, curto = str(corpo.get("componente", "")), str(corpo.get("parametro", ""))
         if not NOME.match(comp) or "#" in comp:
-            raise ErroMotor(f"componente inválido: {comp!r}")
+            raise ErroMotor(lingua.tr("editor.componente_invalido", comp=repr(comp)))
         folhas = folhas_ok(corpo.get("folhas"), t)
         if acao == "liga" and var not in nomes:        # nova: com o valor pedido (ou o do parâmetro)
             nomes.append(var); valores.append(_num_gecko(valor_de(corpo.get("valor"))))
@@ -725,31 +726,33 @@ def variavel(corpo):
                 continue
             p = parametro_gecko(m.group(2), d.get("typ", -1), curto)
             if p is None:
-                raise ErroMotor(f"{comp} não tem o parâmetro {curto}")
+                raise ErroMotor(lingua.tr("editor.sem_parametro", comp=comp, par=curto))
             if p["valor"] not in ("Double", "Integer"):
-                raise ErroMotor(f"{curto} não é um número: não pode vir de uma variável")
+                raise ErroMotor(lingua.tr("editor.parametro_nao_numero", par=curto))
             val = float(valores[nomes.index(var)]) if acao == "liga" else valor_de(corpo.get("valor"))
             partes += [t[fim:m.start(3)], _liga_no_bloco("\n" + m.group(3), p, var if acao == "liga" else "", val)[1:]]
             fim = m.end(3)
             feitas.add(fo)
         faltam = [f for f in folhas if f not in feitas]
         if faltam:
-            raise ErroMotor(f"não achei {comp}" + (" na folha principal" if faltam == ["0"] else f" em {len(faltam)} subcircuito(s)"))
+            raise ErroMotor(lingua.tr("editor.nao_achei_na_principal", nome=comp) if faltam == ["0"] else
+                            lingua.tr("editor.nao_achei_em_subs", nome=comp, n=len(faltam)))
         t = "".join(partes) + t[fim:]
     r = reabre(t, gz)
     # conferência: o Gecko releu o que escrevemos
     if acao == "nova" and var not in r["globais"]:
-        raise ErroMotor(f"o Gecko não aceitou a variável {var}")
+        raise ErroMotor(lingua.tr("editor.gecko_recusou_variavel", var=var))
     if acao == "apaga" and (set(lista) & set(r["globais"]) or any(v in lista for f in r["folhas"].values() for e in f["elementos"]
                                                                    for k, v in e["par"].items() if k.endswith("_var"))):
-        raise ErroMotor("o Gecko manteve a variável")
+        raise ErroMotor(lingua.tr("editor.gecko_manteve_variavel"))
     if acao in ("liga", "desliga"):
         for fo in folhas:
             e = next((x for x in r["folhas"].get(fo, {"elementos": []})["elementos"] if x["nome"] == comp), None)
             p = e and parametro_gecko(e["dom"], e["typ"], curto)
             ligada = e and p and e["par"].get(p["id"] + "_var", "")
             if not e or (acao == "liga" and ligada != var) or (acao == "desliga" and ligada):
-                raise ErroMotor(f"o Gecko não aceitou a ligação de {comp}.{curto}" + (f" a {var}" if acao == "liga" else ""))
+                raise ErroMotor(lingua.tr("editor.gecko_recusou_ligacao_a", comp=comp, par=curto, var=var) if acao == "liga" else
+                                lingua.tr("editor.gecko_recusou_ligacao", comp=comp, par=curto))
     return r
 
 
@@ -785,7 +788,7 @@ def _sem_rotulos_de_fora(t, uid):
 
 def salva_sub(nome, folha, nome_lib, sobrescrever=False):
     if not NOME_ARQ.match(nome_lib):
-        raise ErroMotor("nome na biblioteca: letras, números, _ e -, até 40")
+        raise ErroMotor(lingua.tr("biblioteca.nome_invalido"))
     destino = LIB / f"{nome_lib}.ipes"
     if destino.exists() and not sobrescrever:
         raise ErroMotor(lingua.tr("biblioteca.sobrescrever", nome=nome_lib), codigo="confirmar",
@@ -796,11 +799,11 @@ def salva_sub(nome, folha, nome_lib, sobrescrever=False):
     alvo = next((m for m in BLOCO_EL.finditer(t) if _campos(m.group(3)).get("idStringDialog", "").strip() == nome
                  and _campos(m.group(3)).get("parentSheetIdentifier", "0").strip() == folha), None)
     if alvo is None:
-        raise ErroMotor(f"não achei o subcircuito {nome}")
+        raise ErroMotor(lingua.tr("biblioteca.nao_achei_sub", nome=nome))
     uid = _campos(alvo.group(3)).get("uniqueObjectIdentifier", "").strip()
     folhas = subarvore(t, uid)
     if folhas == {uid} and f"\nparentSheetIdentifier {uid}\n" not in t:
-        raise ErroMotor(f"{nome} não é um subcircuito (ou está vazio)")
+        raise ErroMotor(lingua.tr("biblioteca.nao_e_sub", nome=nome))
 
     def fica(m, corpo):                              # o bloco do subcircuito e tudo o que está dentro dele
         d = _campos(corpo)
@@ -830,7 +833,7 @@ def salva_sub(nome, folha, nome_lib, sobrescrever=False):
     sub = [e for e in r["folhas"]["0"]["elementos"] if e["tipo"] == "SUBCIRCUIT"]
     if len(sub) != 1 or len(r["folhas"]) < 2:
         destino.unlink(missing_ok=True)
-        raise ErroMotor("o Gecko não regravou o subcircuito como esperado")
+        raise ErroMotor(lingua.tr("biblioteca.gecko_nao_regravou"))
     return dict(estado(), biblioteca=lista_biblioteca(), salvo=relativo(destino))
 
 
@@ -850,7 +853,7 @@ def lista_biblioteca():
 
 def insere_sub(nome_lib, x, y, folha="0"):
     if not NOME_ARQ.match(nome_lib) or not (LIB / f"{nome_lib}.ipes").is_file():
-        raise ErroMotor(f"não há {nome_lib} na biblioteca")
+        raise ErroMotor(lingua.tr("biblioteca.nao_ha", nome=nome_lib))
     L, _ = _texto(LIB / f"{nome_lib}.ipes")
     MOTOR.cmd(f"SAVEAS {ESTADO}")
     t, gz = _texto(ESTADO)
@@ -858,7 +861,7 @@ def insere_sub(nome_lib, x, y, folha="0"):
     bloco = next((m for m in BLOCO_EL.finditer(L) if _campos(m.group(3)).get("parentSheetIdentifier", "0").strip() == "0"
                   and f"\nparentSheetIdentifier {_campos(m.group(3)).get('uniqueObjectIdentifier', '').strip()}\n" in L), None)
     if bloco is None:
-        raise ErroMotor(f"{nome_lib} não tem um subcircuito na folha principal")
+        raise ErroMotor(lingua.tr("biblioteca.sem_sub_na_principal", nome=nome_lib))
     uid = _campos(bloco.group(3)).get("uniqueObjectIdentifier", "").strip()
     L = _sem_rotulos_de_fora(L, uid)                     # um arquivo da biblioteca de antes ainda traz os nomes de fora
     bloco = next(m for m in BLOCO_EL.finditer(L) if _campos(m.group(3)).get("uniqueObjectIdentifier", "").strip() == uid)
@@ -898,14 +901,14 @@ def insere_sub(nome_lib, x, y, folha="0"):
         t2 = re.sub(r"\noptimizerName\[\] ([^\n]*)", lambda m: "\noptimizerName[] " + m.group(1).rstrip() + "".join("/" + k for k, _ in faltam), t2, count=1)
         t2 = re.sub(r"\noptimizerValue\[\] ([^\n]*)", lambda m: "\noptimizerValue[] " + m.group(1).rstrip() + " " + " ".join(v for _, v in faltam) + " ", t2, count=1)
     elif gl and not gt and gl[0]:
-        raise ErroMotor("o circuito aberto não tem a lista de variáveis globais para receber as do subcircuito")
+        raise ErroMotor(lingua.tr("biblioteca.sem_lista_globais"))
     arq = ESTADO.with_name("biblioteca_inserido.ipes")
     arq.write_bytes(gzip.compress(t2.encode()) if gz else t2.encode())
     abre(arq)
     r = estado()
     e = next((x for x in r["folhas"].get(folha, {"elementos": []})["elementos"] if x["nome"] == nome), None)
     if e is None or e["uid"] not in r["folhas"]:
-        raise ErroMotor("o Gecko não aceitou o subcircuito")
+        raise ErroMotor(lingua.tr("biblioteca.gecko_recusou_sub"))
     r["inserido"] = nome
     r["globais_novas"] = [k for k, _ in faltam]
     return r
@@ -935,12 +938,12 @@ def _blocos_grupo(t, nomes, fios, folha):
             els[n] = m
     faltam = [n for n in nomes if n not in els]
     if faltam:
-        raise ErroMotor(f"não achei {', '.join(faltam)} nesta folha")
+        raise ErroMotor(lingua.tr("editor.nao_achei_nesta_folha", nomes=", ".join(faltam)))
     alvo = {tuple(map(tuple, p)) for p in fios}
     fs = [m for m in BLOCO_FIO.finditer(t) if _campos(m.group(2)).get("parentSheetIdentifier", "0").strip() == folha
           and (tuple(_pts_fio(m.group(2))) in alvo or tuple(_pts_fio(m.group(2))[::-1]) in alvo)]
     if len(fs) < len(alvo):
-        raise ErroMotor("não achei todas as conexões da seleção nesta folha")
+        raise ErroMotor(lingua.tr("editor.nao_achei_conexoes_selecao"))
     return [els[n] for n in nomes], fs
 
 
@@ -954,7 +957,7 @@ def _desloca_fio(bloco, dx, dy, folha=None):
 def copia_grupo(nomes, fios, folha):
     """Guarda a cópia de componentes (de um subcircuito, com o que tem dentro) e das conexões selecionadas."""
     if not nomes and not fios:
-        raise ErroMotor("nada selecionado para copiar")
+        raise ErroMotor(lingua.tr("editor.nada_para_copiar"))
     MOTOR.cmd(f"SAVEAS {ESTADO}")
     t, _ = _texto(ESTADO)
     folha = folhas_ok([folha], t)[0]
@@ -983,7 +986,7 @@ def cola_grupo(x, y, folha, folhas=None):
     try:
         c = json.loads(COPIA.read_text())
     except (OSError, ValueError):
-        raise ErroMotor("nada copiado ainda (selecione e Ctrl+C)")
+        raise ErroMotor(lingua.tr("editor.nada_copiado"))
     if "itens" not in c:                               # cópia da versão anterior (um componente só)
         c = dict(itens=[dict(nome=c["nome"], bloco=c["bloco"], dentro=c.get("dentro", []), fios=c.get("fios", []), folhas=c.get("folhas", []),
                              x=c["x"], y=c["y"])], fios=[], folha=c["folha"], globais=c.get("globais"), ref=[c["x"], c["y"]])
@@ -994,7 +997,7 @@ def cola_grupo(x, y, folha, folhas=None):
         alvos = [str(folha)] + alvos
     for f_ in alvos:
         if any(f_ in it["folhas"] for it in c["itens"]):
-            raise ErroMotor("um subcircuito não vai dentro dele mesmo: cole noutra folha")
+            raise ErroMotor(lingua.tr("editor.sub_dentro_dele"))
     dx, dy = int(x) - c["ref"][0], int(y) - c["ref"][1]
     usados = set(re.findall(r"\nuniqueObjectIdentifier (\S+)", t))
     # nomes: um componente só numa folha, o de antes se livre (recortar e colar não muda o nome), senão o próximo da série
@@ -1074,7 +1077,7 @@ def cola_grupo(x, y, folha, folhas=None):
     for folha_ in alvos:
         presentes = {e["nome"] for e in r["folhas"].get(folha_, {"elementos": []})["elementos"]}
         if not all(n in presentes for n in mapa.values()):
-            raise ErroMotor("o Gecko não aceitou o que foi colado")
+            raise ErroMotor(lingua.tr("editor.gecko_recusou_colado"))
     r["colado"] = [mapa[it["nome"]] for it in c["itens"]]
     r["colado_em"] = alvos
     r["fios_colados"] = [[[a + dx, b + dy] for a, b in _pts_fio(re.search(r"<Verbindung>\n(.*?)<\\Verbindung>", f_, re.S).group(1))] for f_ in c["fios"]]
@@ -1152,7 +1155,7 @@ def apaga_arquivo(rel):
     arq = (RAIZ / str(rel)).resolve()
     pastas = [SALVOS.resolve(), LIB.resolve()]
     if arq.suffix != ".ipes" or not arq.is_file() or arq.parent not in pastas:
-        raise ErroMotor("só dá para apagar circuitos salvos pelo MaiSim e subcircuitos da biblioteca")
+        raise ErroMotor(lingua.tr("modelos.so_apaga_do_maisim"))
     lixo = arq.parent / ".lixeira"
     lixo.mkdir(exist_ok=True)
     dest = lixo / f"{arq.stem}_{time.strftime('%Y%m%d-%H%M%S')}.ipes"
@@ -1175,7 +1178,7 @@ def pastas_extras():
             r.append((nome.strip() or p.name, p.resolve()))
     g = RAIZ / "gecko" / "build" / "GeckoCIRCUITS" / "resources"
     if g.is_dir() and os.environ.get("MAISIM_EXEMPLOS_GECKO", "0") == "1":
-        r.append(("exemplos do GeckoCIRCUITS", g.resolve()))
+        r.append((lingua.tr("modelos.grupo_exemplos_gecko"), g.resolve()))
     return r
 
 
@@ -1190,9 +1193,9 @@ def lista_modelos():
                 continue
             vistos.add(f.resolve())
             itens.append(dict(arq=relativo(f), nome=str(f.relative_to(pasta)), grupo=grupo, id_grupo=id_grupo, apagavel=bool(gravacao), pasta=gravacao))
-    poe("exemplos", MODELOS, MODELOS.glob("*.ipes"), id_grupo="exemplos")
-    poe("meus circuitos", SALVOS, SALVOS.glob("*.ipes"), "circuitos", "circuitos")
-    poe("biblioteca de subcircuitos", LIB, LIB.glob("*.ipes"), "subcircuitos", "subcircuitos")
+    poe(lingua.tr("modelos.grupo_exemplos"), MODELOS, MODELOS.glob("*.ipes"), id_grupo="exemplos")
+    poe(lingua.tr("modelos.grupo_meus"), SALVOS, SALVOS.glob("*.ipes"), "circuitos", "circuitos")
+    poe(lingua.tr("modelos.grupo_biblioteca"), LIB, LIB.glob("*.ipes"), "subcircuitos", "subcircuitos")
     for nome, p in pastas_extras():                  # até três níveis de subpastas (ex.: a pasta de cada circuito)
         poe(nome, p, [f for f in p.rglob("*.ipes") if len(f.relative_to(p).parts) <= 4])
     return itens
@@ -1216,13 +1219,13 @@ def fonte_sinal(nome, sinal, folhas=None):
     (SimulationsKern.definiereInteraktion_SignalgesteuerteQuelle_Regler: parameterString[0]). A interface remota não
     escreve esse campo: tipo pela interface, rótulo pelo arquivo (como nos medidores); o Gecko reabre e confere."""
     if not sinal or not ROTULO.match(sinal):
-        raise ErroMotor("o sinal de controle é um rótulo (letras, números, _ . $ + -)")
+        raise ErroMotor(lingua.tr("editor.sinal_rotulo"))
     folhas = [str(f) for f in (folhas or ["0"])]
     ult = editor.get("ultimo") or estado()
     for f in folhas:
         fl = ult["folhas"].get(f)
         if fl is None:
-            raise ErroMotor(f"folha desconhecida: {f}")
+            raise ErroMotor(lingua.tr("editor.folha_desconhecida", folha=f))
         MOTOR.cmd(f"SETP {nome if f == '0' else fl['nome'] + '#' + nome} type 400")
     return acopla(nome, [sinal, "NIX_NIX_NIX", "0"], folhas=folhas, dominio="LK")
 
@@ -1247,7 +1250,8 @@ IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 class ErroControle(ErroMotor):
     def __init__(self, msg, linha=None, rastro="", arquivo=None, instancia=None):
         arquivo = arquivo or "controle.py"
-        super().__init__(f"{arquivo}{f' linha {linha}' if linha else ''}{f' ({instancia})' if instancia else ''}: {msg}")
+        onde = lingua.tr("controle.arquivo_linha", arquivo=arquivo, linha=linha) if linha else arquivo
+        super().__init__(f"{onde}{f' ({instancia})' if instancia else ''}: {msg}")
         self.linha, self.rastro, self.arquivo, self.instancia = linha, rastro, arquivo, instancia
 
 
@@ -1319,7 +1323,8 @@ def _importavel(nome):
         spec = importlib.util.find_spec(nome)
     except (ImportError, ValueError):
         return False
-    return bool(spec) and not (spec.origin and Path(spec.origin).resolve().parent == AQUI.resolve())
+    # nem o simu/ nem o config/ (o lingua, o ler_config): o processo do controle não os enxerga como módulos do usuário
+    return bool(spec) and not (spec.origin and Path(spec.origin).resolve().parent in (AQUI.resolve(), (RAIZ / "config").resolve()))
 
 
 def ordem_do_fluxo(arqs, mods, ctl, imports):
@@ -1349,21 +1354,21 @@ def ordem_do_fluxo(arqs, mods, ctl, imports):
         cs = chamadas(passo, "passo")
         ordem = [x[2] for x in cs]
         if "leitura" in ordem and ordem[0] != "leitura":
-            avisos.append(f"{arq} linha {cs[0][0]}: leitura.passo() deve ser a 1ª chamada do passo() (ler antes de calcular; aqui vem {ordem[0]}.passo() antes)")
+            avisos.append(lingua.tr("controle.leitura_primeiro", arq=arq, linha=cs[0][0], mod=ordem[0]))
         if "escrita" in ordem:
             if ordem[-1] != "escrita":
-                avisos.append(f"{arq} linha {cs[-1][0]}: escrita.passo() deve ser a última chamada do passo() (escrever depois de calcular; aqui vem {ordem[-1]}.passo() depois)")
+                avisos.append(lingua.tr("controle.escrita_por_ultimo", arq=arq, linha=cs[-1][0], mod=ordem[-1]))
             chamada = next(x[3] for x in reversed(cs) if x[2] == "escrita")
             ligados = {t.id for n in ast.walk(passo) if isinstance(n, ast.Assign) and n.value is chamada for t in n.targets if isinstance(t, ast.Name)}
             rets = [n for n in ast.walk(passo) if isinstance(n, ast.Return) and n.value is not None]
             if not rets or not all(r.value is chamada or (isinstance(r.value, ast.Name) and r.value.id in ligados) for r in rets):
-                avisos.append(f"{arq}: o return de passo() não é o que o escrita.passo() devolve — os limites do atuador (saturação, resolução) ficam de fora")
+                avisos.append(lingua.tr("controle.return_escrita", arq=arq))
         ini = funcs.get("iniciar")
         iniciados = {x[2] for x in chamadas(ini, "iniciar")} if ini else set()
         for m in sorted(set(ordem)):
             tem_iniciar = any(isinstance(f, ast.FunctionDef) and f.name == "iniciar" for f in (ast.parse(mods[m + ".py"]).body if _sintaxe_ok(mods[m + ".py"]) else []))
             if tem_iniciar and m not in iniciados:
-                avisos.append(f"{arq}: {m}.iniciar() não é chamado no iniciar() — o estado do {m} não começa (e[\"{m}\"] = {m}.iniciar(p))")
+                avisos.append(lingua.tr("controle.iniciar_modulo", arq=arq, m=m))
     return avisos
 
 
@@ -1381,7 +1386,7 @@ def analisa_modulos(c):
     erros, avisos, imports = [], [], {}
     for k in mods:
         if k[:-3] in NOMES_RESERVADOS:
-            erros.append({"arquivo": k, "linha": 1, "coluna": 1, "msg": f"o nome {k[:-3]} é de um módulo do Python (ou do MaiSim): renomeie o arquivo"})
+            erros.append({"arquivo": k, "linha": 1, "coluna": 1, "msg": lingua.tr("controle.nome_reservado", nome=k[:-3])})
     for arq, cod in arqs.items():
         try:
             arv = ast.parse(cod)
@@ -1396,15 +1401,13 @@ def analisa_modulos(c):
         imports[arq] = im
         for nome, lin in im:
             if nome + ".py" in ctl and nome + ".py" != arq:
-                erros.append({"arquivo": arq, "linha": lin, "coluna": 1, "msg": f"import {nome}: {nome}.py é um controlador (roda à parte, com atraso); "
-                              "para chamar na mesma amostra, faça dele um módulo"})
+                erros.append({"arquivo": arq, "linha": lin, "coluna": 1, "msg": lingua.tr("controle.import_controlador", nome=nome)})
             elif nome + ".py" not in mods and not _importavel(nome):
-                erros.append({"arquivo": arq, "linha": lin, "coluna": 1, "msg": f"import {nome}: não há {nome}.py na árvore (nem é um módulo do Python)"})
+                erros.append({"arquivo": arq, "linha": lin, "coluna": 1, "msg": lingua.tr("controle.import_nao_ha", nome=nome)})
         if arq in mods:
             f = next((n for n in arv.body if isinstance(n, ast.FunctionDef) and n.name == "passo"), None)
             if f and [a.arg for a in f.args.args] == ["t", "m", "p", "e"]:
-                avisos.append(f"{arq}: passo(t, m, p, e) é a assinatura de um controlador; um módulo é chamado por quem o importa "
-                              "(passo(entrada, p, estado)) — se ele deve rodar sozinho, faça dele um controlador na árvore")
+                avisos.append(lingua.tr("controle.modulo_com_passo", arq=arq))
     avisos += ordem_do_fluxo(arqs, mods, ctl, imports)
     filhos = {a: [n + ".py" for n, _ in imports.get(a, []) if n + ".py" in mods] for a in arqs}
     alcance, fila = set(), [a for a in ctl if a in arqs]
@@ -1412,7 +1415,7 @@ def analisa_modulos(c):
         for m in filhos.get(fila.pop(), []):
             if m not in alcance:
                 alcance.add(m); fila.append(m)
-    avisos += [f"{k} (módulo) não é importado por nenhum controlador: não roda" for k in mods if k not in alcance]
+    avisos += [lingua.tr("controle.modulo_sem_import", k=k) for k in mods if k not in alcance]
     ciclos, cor = set(), {}
     def anda(a, pilha):
         cor[a] = 1
@@ -1425,13 +1428,12 @@ def analisa_modulos(c):
     for k in mods:
         if not cor.get(k):
             anda(k, [k])
-    avisos += [f"import em ciclo: {x} (o Python importa pela metade: evite)" for x in sorted(ciclos)]
+    avisos += [lingua.tr("controle.import_ciclo", ciclo=x) for x in sorted(ciclos)]
     if len(ctl) > 1:
         for m in mods:
             quem = sorted(a for a in ctl if m in filhos.get(a, []))
             if len(quem) > 1:
-                avisos.append(Aviso(f"{m} é importado por {', '.join(quem)}: cada controlador tem a sua cópia, sem memória comum",
-                                    "importado_compartilhado"))
+                avisos.append(Aviso(lingua.tr("controle.importado_compartilhado", m=m, quem=", ".join(quem)), "importado_compartilhado"))
     return erros, avisos
 
 
@@ -1451,11 +1453,11 @@ def instancias_controle(c, r):
         visoes = []
         for sub in q["subcircuitos"]:
             if r is None:
-                erros.append(f"o controlador {q['nome']} vale em subcircuitos: abra a edição (lápis) para o MaiSim conhecê-los")
+                erros.append(lingua.tr("controle.ctl_subs_sem_edicao", nome=q['nome']))
                 break
             fids = [k for k, f in r["folhas"].items() if k != "0" and f["nome"] == sub]
             if not fids:
-                erros.append(f"o controlador {q['nome']}: não há o subcircuito {sub}")
+                erros.append(lingua.tr("controle.ctl_sem_sub", nome=q['nome'], sub=sub))
                 continue
             pref = prefixo_sub(sub) + "_"
             med = {k[len(pref):]: k for k in entradas if k.startswith(pref)}
@@ -1468,21 +1470,21 @@ def instancias_controle(c, r):
                 med = None
             for k in ([] if med is None else q["medidas"]):
                 if entradas is not None and k not in entradas:
-                    erros.append(f"o controlador {q['nome']} lê {k}, que não é medida do circuito")
+                    erros.append(lingua.tr("controle.ctl_le_nao_medida", nome=q['nome'], k=k))
                 med[k] = k
             for k in q["atuacoes"]:
                 if k not in marcadas:
-                    erros.append(f"o controlador {q['nome']} escreve {k}: marque {k} em atuações")
+                    erros.append(lingua.tr("controle.ctl_escreve_nao_marcada", nome=q['nome'], k=k))
                 at[k] = k
             for k in at.values():
                 if k in dono and dono[k] != nome:
-                    erros.append(f"a atuação {k} é escrita por dois controladores ({dono[k]} e {nome}): cada atuação tem um dono só")
+                    erros.append(lingua.tr("controle.atuacao_dois_donos", k=k, a=dono[k], b=nome))
                 dono.setdefault(k, nome)
             out.append({"nome": nome, "arquivo": q["arquivo"], "codigo": arqs.get(q["arquivo"], ""), "medidas": med, "atuacoes": at, "p": extra,
                         "modulos": modulos_de(c), "outros": sorted(arquivos_controladores(c) - {q["arquivo"]})})
     nomes = [i["nome"] for i in out]
-    erros += [f"dois controladores com o nome {n}" for n in sorted({x for x in nomes if nomes.count(x) > 1})]
-    avisos += [f"a atuação {k} está marcada, mas nenhum controlador a escreve" for k in sorted(marcadas - set(dono))]
+    erros += [lingua.tr("controle.ctl_nome_repetido", nome=n) for n in sorted({x for x in nomes if nomes.count(x) > 1})]
+    avisos += [lingua.tr("controle.atuacao_sem_dono", k=k) for k in sorted(marcadas - set(dono))]
     return out, erros, avisos
 
 
@@ -1643,9 +1645,9 @@ def arquivo_scope(arq_ipes):
 def limpa_layout(L):
     """Só o que o scope entende, com tamanhos limitados (o arquivo vai para o repositório nos exemplos)."""
     if not isinstance(L, dict) or not isinstance(L.get("itens"), list) or not 0 < len(L["itens"]) <= 500:
-        raise ErroMotor("layout inválido")
+        raise ErroMotor(lingua.tr("scope.layout_invalido"))
     if len(json.dumps(L)) > 400_000:
-        raise ErroMotor("layout grande demais")
+        raise ErroMotor(lingua.tr("scope.layout_grande"))
     nome = lambda x: isinstance(x, str) and 0 < len(x) <= 120
     itens = []
     for x in L["itens"]:
@@ -1659,7 +1661,7 @@ def limpa_layout(L):
             p["sinais"] = [c for c in x["sinais"] if nome(c)][:200]
             itens.append(p)
     if not itens:
-        raise ErroMotor("layout vazio")
+        raise ErroMotor(lingua.tr("scope.layout_vazio"))
     out = {"itens": itens}
     if L.get("colunas") in (1, 2, 3):
         out["colunas"] = L["colunas"]
@@ -1670,10 +1672,10 @@ def ipes_do_modelo(modelo):
     """O .ipes do circuito de uma rodada (o meta.modelo dela)."""
     modelo = str(modelo or "")
     if not modelo or modelo.startswith("novo"):
-        raise ErroMotor("salve o circuito antes: o padrão do scope fica ao lado dele")
+        raise ErroMotor(lingua.tr("scope.padrao_salve_antes"))
     arq = (Path(modelo) if Path(modelo).is_absolute() else RAIZ / modelo).resolve()
     if arq.suffix != ".ipes" or not modelo_ok(arq):
-        raise ErroMotor("circuito fora das pastas do MaiSim")
+        raise ErroMotor(lingua.tr("scope.padrao_fora_das_pastas"))
     return arq
 
 
@@ -1688,9 +1690,9 @@ def scope_padrao_le(modelo):
 def scope_padrao_grava(modelo, layout):
     arq = ipes_do_modelo(modelo)
     if not arq.is_file():                                # apagado (ou nunca salvo): o padrão ficaria órfão ao lado de nada
-        raise ErroMotor("o circuito não existe mais (foi apagado?): abra ou salve o circuito antes de guardar o padrão")
+        raise ErroMotor(lingua.tr("scope.padrao_circuito_sumiu"))
     if arq.parent.resolve() not in (SALVOS.resolve(), LIB.resolve()):
-        raise ErroMotor("este circuito é só de leitura (um exemplo?): salve uma cópia nos seus circuitos para guardar o padrão do scope dele")
+        raise ErroMotor(lingua.tr("scope.padrao_so_leitura"))
     f = arquivo_scope(arq)
     f.write_text(json.dumps(limpa_layout(layout), ensure_ascii=False, indent=1) + "\n")
     return {"ok": True, "arquivo": relativo(f)}
@@ -1731,7 +1733,7 @@ def verifica_codigo(codigo):
     except SyntaxError as e:
         return [{"linha": e.lineno or 1, "coluna": e.offset or 1, "msg": e.msg}], []
     funcs = {n.name for n in arvore.body if n.__class__.__name__ == "FunctionDef"}
-    return [], ([] if "passo" in funcs else ["o código não define passo(t, m, p, e)"])
+    return [], ([] if "passo" in funcs else [lingua.tr("controle.sem_passo")])
 
 
 def confere_codigo(codigo, parametros, atuacoes, entradas=None, atuadores=None, extras=()):
@@ -1792,7 +1794,7 @@ def confere_codigo(codigo, parametros, atuacoes, entradas=None, atuadores=None, 
     if passo and not passo.args.vararg:
         n_arg, n_pad = len(nomes_args(passo)), len(passo.args.defaults)
         if not (n_arg - n_pad <= 4 <= n_arg):
-            marca(passo, f"passo() é chamado com 4 argumentos (t, m, p, e); este recebe {n_arg}")
+            marca(passo, lingua.tr("controle.passo_4_args", n=n_arg))
     for fn, pos_p, pos_m in ((passo, 2, 1), (funcs.get("iniciar"), 0, None)):
         if not fn:
             continue
@@ -1806,9 +1808,12 @@ def confere_codigo(codigo, parametros, atuacoes, entradas=None, atuadores=None, 
             if k is None:
                 continue
             if no.value.id == pn and k not in pars and k not in criadas:
-                marca(no, f'p["{k}"] não existe no painel: crie o parâmetro {k} (+ parâmetro)')
+                marca(no, lingua.tr("controle.p_nao_existe", k=k))
             elif no.value.id == mn and entradas is not None and k not in entradas:
-                marca(no, f'm["{k}"] não é medida ' + ("deste controlador" if extras else "do circuito") + (f" (medidas: {', '.join(entradas[:12])}{'…' if len(entradas) > 12 else ''})" if entradas else ""))
+                lista = f"{', '.join(entradas[:12])}{'…' if len(entradas) > 12 else ''}" if entradas else ""
+                chave_m = {(True, True): "controle.m_nao_medida_ctl_lista", (True, False): "controle.m_nao_medida_ctl",
+                           (False, True): "controle.m_nao_medida_lista", (False, False): "controle.m_nao_medida"}[(bool(extras), bool(entradas))]
+                marca(no, lingua.tr(chave_m, k=k, medidas=lista))
     if passo:
         disp = {a["nome"] for a in atuadores} if atuadores is not None else None
         for no in anda(passo):
@@ -1820,11 +1825,13 @@ def confere_codigo(codigo, parametros, atuacoes, entradas=None, atuadores=None, 
                     if k in atuacoes and (disp is None or k in disp):
                         continue
                     if disp is not None and k not in disp and extras:
-                        marca(kn, f'"{k}" não é atuação deste controlador' + (f" (atuações dele: {', '.join(sorted(disp)[:12])})" if disp else " (ele não escreve nenhuma)"))
+                        marca(kn, lingua.tr("controle.nao_atuacao_ctl_lista", k=k, lista=", ".join(sorted(disp)[:12])) if disp else
+                             lingua.tr("controle.nao_atuacao_ctl_nenhuma", k=k))
                     elif disp is not None and k not in disp:
-                        marca(kn, f'"{k}" não é atuador do circuito' + (f" (atuadores: {', '.join(sorted(disp)[:12])})" if disp else " (ponha um bloco CONST)"))
+                        marca(kn, lingua.tr("controle.nao_atuador_lista", k=k, lista=", ".join(sorted(disp)[:12])) if disp else
+                             lingua.tr("controle.nao_atuador_nenhum", k=k))
                     else:
-                        marca(kn, f'"{k}" não está marcado em atuações: marque no painel (senão a rodada para com erro)', "atuacao_nao_marcada")
+                        marca(kn, lingua.tr("controle.atuacao_nao_marcada", k=k), "atuacao_nao_marcada")
         # o fluxo com escrita.py: u = {"g": …} e return escrita.passo(u, …) — um dicionário fora do return com a chave de um
         # atuador do circuito que não está marcado (só atuadores: um dicionário qualquer não é saída)
         if disp:
@@ -1833,8 +1840,7 @@ def confere_codigo(codigo, parametros, atuacoes, entradas=None, atuadores=None, 
                 if isinstance(no, ast.Dict) and id(no) not in nos_ret:
                     for kn in no.keys:
                         if isinstance(kn, ast.Constant) and isinstance(kn.value, str) and kn.value in disp and kn.value not in atuacoes:
-                            marca(kn, f'"{kn.value}" não está marcado em atuações: marque no painel (senão a rodada para com erro)',
-                                  "atuacao_nao_marcada")
+                            marca(kn, lingua.tr("controle.atuacao_nao_marcada", k=kn.value), "atuacao_nao_marcada")
     return sorted(out, key=lambda c: (c["linha"], c["coluna"]))      # de cima para baixo (a linha de estado mostra o primeiro)
 
 
@@ -1939,15 +1945,15 @@ def usos_no_controle(c, nomes):
     for q in c.get("controladores") or []:
         for n in nomes:
             if n in (q.get("medidas") or []):
-                usos[n].append({"onde": f"cartão {q['nome']}", "linha": "lê"})
+                usos[n].append({"onde": lingua.tr("controle.uso_cartao", nome=q['nome']), "linha": lingua.tr("controle.uso_le")})
             if n in (q.get("atuacoes") or []):
-                usos[n].append({"onde": f"cartão {q['nome']}", "linha": "escreve"})
+                usos[n].append({"onde": lingua.tr("controle.uso_cartao", nome=q['nome']), "linha": lingua.tr("controle.uso_escreve")})
     for n in nomes:
         if n in (c.get("atuacoes") or []):
-            usos[n].append({"onde": "atuações", "linha": "marcada"})
+            usos[n].append({"onde": lingua.tr("controle.uso_atuacoes"), "linha": lingua.tr("controle.uso_marcada")})
         k = sum(1 for q in c.get("acionamentos") or [] if q.get("alvo") == f"CONST:{n}")
         if k:
-            usos[n].append({"onde": "acionamentos", "linha": f"{k} acionamento{'s' if k > 1 else ''}"})
+            usos[n].append({"onde": lingua.tr("controle.uso_acionamentos"), "linha": lingua.tr("controle.uso_n_acionamentos", n=k)})
     return usos
 
 
@@ -2104,7 +2110,7 @@ def variaveis_sem_esquema(c, r):
                 for d in dics:
                     for k in d.keys:
                         if isinstance(k, ast.Constant) and isinstance(k.value, str) and k.value not in tem_a:
-                            poe(k.value, "atuação", q["arquivo"], k.lineno)
+                            poe(k.value, "atuação", q["arquivo"], k.lineno)  # i18n-ok (o tipo é código: a página confere)
     return list(out.values())
 
 
@@ -2290,12 +2296,14 @@ def destinos_fora_do_passo(a, pedido, escrita):
     motivo)]. Destino sem atraso conhecido: passo None."""
     out = []
     for q in a["destinos"]:
-        alvo = f"{q['tipo']} {q['nome'] or q.get('gate', '')}" + (f" ({q['folha']})" if q.get("folha") not in (None, "principal") else "")
+        tipo = {"chave": "rodada.destino_chave", "fonte": "rodada.destino_fonte"}.get(q["tipo"], "rodada.destino_subcircuito")
+        alvo = lingua.tr(tipo, nome=q['nome'] or q.get('gate', '')) + \
+            (f" ({q['folha']})" if q.get("folha") not in (None, "principal") else "")
         if q["atraso"] is None:
-            out.append((alvo, None, "o caminho sai por um subcircuito que o MaiSim não achou: o atraso do outro lado não é compensado"))
+            out.append((alvo, None, lingua.tr("rodada.caminho_sub_perdido")))
         elif escrita + q["atraso"] != pedido:
-            out.append((alvo, escrita + q["atraso"], f"o Gecko leva no mínimo {q['atraso']} Δt por esse caminho" if q["atraso"] == a["atraso_gecko"]
-                        else "o mesmo CONST chega a destinos com atrasos diferentes no Gecko; o que sente primeiro fica exato"))
+            out.append((alvo, escrita + q["atraso"], lingua.tr("rodada.gecko_leva_minimo", n=q['atraso']) if q["atraso"] == a["atraso_gecko"]
+                        else lingua.tr("rodada.atrasos_diferentes")))
     return out
 
 
@@ -2400,7 +2408,7 @@ def painel_controle(c=None):
     entradas = [k for _, k in sinais_da_rodada(ult)] if ult else []
     atu = atuadores_disponiveis(ult) if ult else []
     nomes = {a["nome"] for a in atu}
-    avisos += [f"o atuador {a} não existe no circuito aberto" for a in c["atuacoes"] if ult and a not in nomes]
+    avisos += [lingua.tr("controle.atuador_nao_existe", a=a) for a in c["atuacoes"] if ult and a not in nomes]
     avisos += analisa_modulos(c)[1]                     # os riscos do fluxo de módulos (não impedem rodar)
     conferencia = []
     for arq in [a for a in arquivos_de(c) if a in usados and not any(x["arquivo"] == a for x in erros)]:
@@ -2433,7 +2441,7 @@ def testa_controle(dt, n=3, c=None, pasta_nome="teste_controle"):
     (pasta / "controle.log").unlink(missing_ok=True)     # a saída mostrada é só a deste teste
     ult = editor.get("ultimo")
     if not ult:
-        raise ErroMotor("abra a edição (lápis): o teste usa as medidas e os atuadores do circuito")
+        raise ErroMotor(lingua.tr("controle.teste_sem_edicao"))
     segue_codigo(c, ult)
     insts, erros_ctl, _ = instancias_controle(c, ult)
     if erros_ctl:
@@ -2442,7 +2450,7 @@ def testa_controle(dt, n=3, c=None, pasta_nome="teste_controle"):
     if erros:
         raise ErroControle(erros[0]["msg"], erros[0]["linha"], arquivo=erros[0]["arquivo"])
     if not (dt > 0):
-        raise ErroMotor("Δt inválido")
+        raise ErroMotor(lingua.tr("controle.dt_invalido"))
     entradas = [k for _, k in sinais_da_rodada(ult)]
     marcadas = set(c["atuacoes"]) & {a["nome"] for a in atuadores_disponiveis(ult)}
     Ts = max(1, arred(c["Ts"] / dt)) * dt
@@ -2471,89 +2479,89 @@ def confere_controle(c):
     """A configuração que veio da tela, conferida (o código é guardado mesmo com erro de sintaxe, para não se perder)."""
     if not isinstance(c, dict) or not isinstance(c.get("atraso", {}), dict) or \
             not all(isinstance(q, dict) for q in list(c.get("parametros") or []) + list(c.get("acionamentos") or [])):
-        raise ErroMotor("configuração do controle malformada")
+        raise ErroMotor(lingua.tr("controle.config_malformada"))
     out = controle_padrao()
     out["ativo"] = bool(c.get("ativo"))
     Ts = float(c.get("Ts", out["Ts"]))
     if not (1e-8 <= Ts <= 1.0):
-        raise ErroMotor("Ts entre 10 ns e 1 s")
+        raise ErroMotor(lingua.tr("controle.ts_faixa"))
     out["Ts"] = Ts
     out["atuacoes"] = [str(a) for a in c.get("atuacoes", []) if IDENT.match(str(a))][:500]
     pars = []
     for q in c.get("parametros", [])[:200]:
         nome = str(q.get("nome", "")).strip()
         if not IDENT.match(nome) or nome == "Ts":
-            raise ErroMotor(f"parâmetro inválido: {nome!r} (letras, números e _, sem começar por número; Ts já existe)")
+            raise ErroMotor(lingua.tr("controle.parametro_invalido", nome=repr(nome)))
         valor = float(q.get("valor", 0.0))
         if not math.isfinite(valor):
-            raise ErroMotor(f"parâmetro {nome}: valor finito")
+            raise ErroMotor(lingua.tr("controle.parametro_finito", nome=nome))
         pars.append({"nome": nome, "valor": valor, "unidade": str(q.get("unidade", ""))[:20]})
     if len({q["nome"] for q in pars}) != len(pars):
-        raise ErroMotor("parâmetros com o mesmo nome")
+        raise ErroMotor(lingua.tr("controle.parametros_repetidos"))
     out["parametros"] = pars
     at = c.get("atraso") or {}
     modo = str(at.get("modo", "logo"))
     if modo not in ATRASOS:
-        raise ErroMotor(f"atraso: {', '.join(ATRASOS)}")
+        raise ErroMotor(lingua.tr("controle.atraso_modos", modos=", ".join(ATRASOS)))
     tau = float(at.get("tempo", 0.0))
     if not (0.0 <= tau <= 1.0):
-        raise ErroMotor("latência entre 0 e 1 s")
+        raise ErroMotor(lingua.tr("controle.latencia_faixa"))
     out["atraso"] = {"modo": modo, "tempo": tau}
     acs = []
     for q in (c.get("acionamentos") or [])[:500]:     # mudanças no tempo: um bloco CONST ou um parâmetro do controle
         alvo = str(q.get("alvo", ""))
         tipo, _, nome = alvo.partition(":")
         if tipo not in ("CONST", "p") or not IDENT.match(nome):
-            raise ErroMotor(f"acionamento com alvo inválido: {alvo!r} (CONST:<atuador> ou p:<parâmetro>)")
+            raise ErroMotor(lingua.tr("controle.acionamento_alvo", alvo=repr(alvo)))
         t_ac, v_ac = float(q.get("t", 0.0)), float(q.get("valor", 0.0))
         if not (0.0 <= t_ac < 1e3) or not math.isfinite(v_ac):
-            raise ErroMotor(f"acionamento de {alvo}: tempo ≥ 0 e valor finito")
+            raise ErroMotor(lingua.tr("controle.acionamento_valores", alvo=alvo))
         acs.append({"t": t_ac, "alvo": alvo, "valor": v_ac})
     out["acionamentos"] = sorted(acs, key=lambda q: q["t"])
     codigo = str(c.get("codigo", ""))
     if len(codigo) > 200_000:
-        raise ErroMotor("código grande demais (até 200 mil caracteres)")
+        raise ErroMotor(lingua.tr("controle.codigo_grande"))
     out["codigo"] = codigo
     arqs = {}
     for k, v in (c.get("arquivos") or {}).items():
         if not ARQ_PY.match(str(k)) or k == "controle.py":
-            raise ErroMotor(f"arquivo do controle inválido: {k!r} (letras, números e _, terminando em .py)")
+            raise ErroMotor(lingua.tr("controle.arquivo_invalido", arq=repr(k)))
         if not isinstance(v, str) or len(v) > 200_000:
-            raise ErroMotor(f"{k}: código grande demais (até 200 mil caracteres)")
+            raise ErroMotor(lingua.tr("controle.arquivo_grande", arq=k))
         arqs[str(k)] = v
     # limites só contra um pedido desgovernado (Marcelo, 19/10: o MMC trifásico com 19 DSPs passou dos 30 arquivos de antes)
     if len(arqs) > 1000:
-        raise ErroMotor("até 1000 arquivos no controle")
+        raise ErroMotor(lingua.tr("controle.arquivos_demais"))
     if len(codigo) + sum(len(v) for v in arqs.values()) > 20_000_000:
-        raise ErroMotor("o controle inteiro passa de 20 milhões de caracteres")
+        raise ErroMotor(lingua.tr("controle.controle_grande"))
     out["arquivos"] = arqs
     ctls = []
     if len(c.get("controladores") or []) > 500:
-        raise ErroMotor("até 500 controladores")
+        raise ErroMotor(lingua.tr("controle.controladores_demais"))
     for q in (c.get("controladores") or []):
         if not isinstance(q, dict):
-            raise ErroMotor("controlador malformado")
+            raise ErroMotor(lingua.tr("controle.controlador_malformado"))
         nome, arq = str(q.get("nome", "")).strip(), str(q.get("arquivo", "controle.py"))
         if not IDENT.match(nome):
-            raise ErroMotor(f"nome de controlador inválido: {nome!r} (letras, números e _, sem começar por número)")
+            raise ErroMotor(lingua.tr("controle.controlador_nome", nome=repr(nome)))
         if arq != "controle.py" and arq not in arqs:
-            raise ErroMotor(f"o controlador {nome} usa {arq}, que não existe")
+            raise ErroMotor(lingua.tr("controle.controlador_sem_arquivo", nome=nome, arq=arq))
         lista = lambda k: [str(x) for x in (q.get(k) or []) if isinstance(x, str)][:500]
         meds, atus, subs = lista("medidas"), lista("atuacoes"), lista("subcircuitos")
         if not all(NOME_SINAL.match(x) for x in meds + atus) or not all(NOME.match(x) for x in subs):
-            raise ErroMotor(f"controlador {nome}: medidas, atuações ou subcircuitos com nome inválido")
+            raise ErroMotor(lingua.tr("controle.controlador_nomes_invalidos", nome=nome))
         todas = bool(q.get("todas"))
         if todas and subs:
-            raise ErroMotor(f"controlador {nome}: 'lê todas' não combina com subcircuitos (cada instância lê as do seu subcircuito)")
+            raise ErroMotor(lingua.tr("controle.controlador_todas_subs", nome=nome))
         ctls.append({"nome": nome, "arquivo": arq, "todas": todas, "medidas": [] if todas else list(dict.fromkeys(meds)),
                      "atuacoes": list(dict.fromkeys(atus)), "subcircuitos": list(dict.fromkeys(subs))})
     if len({q["nome"] for q in ctls}) != len(ctls):
-        raise ErroMotor("controladores com o mesmo nome")
+        raise ErroMotor(lingua.tr("controle.controladores_repetidos"))
     out["controladores"] = ctls
     enxuga_controladores(out)
     lat = float((c.get("rede") or {}).get("latencia", 0.0))
     if not (0.0 <= lat <= 1.0):
-        raise ErroMotor("latência da rede entre 0 e 1 s")
+        raise ErroMotor(lingua.tr("controle.latencia_rede_faixa"))
     out["rede"] = {"latencia": lat}
     return out
 
@@ -2563,9 +2571,10 @@ class Trabalhador:
     controladores calcularem juntos)."""
     def __init__(self, log):
         self.proc = subprocess.Popen([sys.executable, "-I", str(AQUI / "controle_worker.py")], stdin=subprocess.PIPE,
-                                     stdout=subprocess.PIPE, stderr=log, text=True, bufsize=1, cwd=str(Path(log.name).parent))
+                                     stdout=subprocess.PIPE, stderr=log, text=True, bufsize=1, cwd=str(Path(log.name).parent),
+                                     env={**os.environ, "MAISIM_LINGUA": lingua.atual()})   # as mensagens do controle_worker no idioma do pedido
         self.fila = queue.Queue()
-        threading.Thread(target=self._le, daemon=True).start()
+        lingua.thread(self._le).start()
 
     def _le(self):
         for linha in self.proc.stdout:
@@ -2577,16 +2586,16 @@ class Trabalhador:
             self.proc.stdin.write(json.dumps(pedido) + "\n")
             self.proc.stdin.flush()
         except (BrokenPipeError, OSError):
-            raise ErroControle("o processo do controle terminou (veja controle.log)")
+            raise ErroControle(lingua.tr("controle.processo_terminou"))
 
     def resposta(self, prazo=5):
         try:
             linha = self.fila.get(timeout=prazo)
         except queue.Empty:
             self.fecha()
-            raise ErroControle(f"o código não respondeu em {prazo} s (laço infinito?)")
+            raise ErroControle(lingua.tr("controle.nao_respondeu", s=prazo))
         if linha is None:
-            raise ErroControle("o processo do controle terminou (veja controle.log)")
+            raise ErroControle(lingua.tr("controle.processo_terminou"))
         r = json.loads(linha)
         if not r.get("ok"):
             raise ErroControle(r.get("erro", "erro"), r.get("linha"), r.get("traceback", ""), r.get("arquivo"), r.get("instancia"))
@@ -2697,15 +2706,15 @@ def recupera_rodada_interrompida():
         if valores:
             MOTOR.cmd("SETM " + " ".join(f"{b}:const:{v}" for b, v in valores.items()))
         DEVOLVER.unlink(missing_ok=True)
-        print(f"rodada interrompida: devolvi {len(valores)} CONST ao valor de antes", flush=True)
+        print(f"rodada interrompida: devolvi {len(valores)} CONST ao valor de antes", flush=True)  # i18n-ok (log)
     except (ErroMotor, ValueError, OSError) as e:
-        print(f"rodada interrompida: não consegui devolver os CONST ({e}); fica para a próxima partida", flush=True)
+        print(f"rodada interrompida: não consegui devolver os CONST ({e}); fica para a próxima partida", flush=True)  # i18n-ok (log)
 RODANDO = ("preparando", "rodando", "pausada")
 
 
 def ocupado():
     if rodada.get("estado") in RODANDO:
-        raise ErroMotor("a simulação está rodando: pare ou espere terminar antes de mudar o circuito")
+        raise ErroMotor(lingua.tr("rodada.ocupado"))
 
 
 def rodar(c, ctl_de_fora=None):
@@ -2732,16 +2741,16 @@ def _rodar(c, ctl_de_fora=None):
     dt, tfim = float(c.get("dt", 1e-6)), float(c.get("tfim", 0.04))
     nome = str(c.get("nome", "") or "rodada").strip()
     if not re.match(r"^[A-Za-z0-9_\-]{1,40}$", nome):
-        raise ErroMotor("nome da rodada: letras, números, _ e -, até 40")
+        raise ErroMotor(lingua.tr("rodada.nome_invalido"))
     if not (1e-9 <= dt <= 1e-2) or not (dt < tfim <= 10.0):
-        raise ErroMotor("passo entre 1 ns e 10 ms e tempo final maior que o passo, até 10 s")
+        raise ErroMotor(lingua.tr("rodada.passo_tfim_faixa"))
     n = arred(tfim / dt)
     if n > 5_000_000:
-        raise ErroMotor(f"{n} passos é demais para uma rodada pela tela (até 5 milhões)")
+        raise ErroMotor(lingua.tr("rodada.passos_demais", n=n))
     r = estado()
     sinais = sinais_da_rodada(r)
     if not sinais:
-        raise ErroMotor("não há o que medir: ponha um voltímetro ou amperímetro (aba Measure) e diga o que ele mede")
+        raise ErroMotor(lingua.tr("rodada.sem_medidas"))
     amostras = max(10, min(n, int(c.get("amostras", 4000))))
     m = max(1, math.ceil(n / amostras))
     por_cima = str(c.get("por_cima", "")).lower() in ("1", "true", "sim") and not ctl_de_fora   # o autônomo sempre cria nova
@@ -2763,11 +2772,10 @@ def _rodar(c, ctl_de_fora=None):
         atu = {a["nome"]: a["bloco"] for a in todos_atu}
         faltam = [a for a in ctl["atuacoes"] if a not in atu]
         if faltam:
-            raise ErroMotor(f"atuadores marcados que não existem no circuito: {', '.join(faltam)}")
+            raise ErroMotor(lingua.tr("rodada.atuadores_faltam", lista=", ".join(faltam)))
         nTs = max(1, arred(ctl["Ts"] / dt))
         if abs(nTs * dt - ctl["Ts"]) > 1e-9 * ctl["Ts"]:
-            avisos_rodada.append(f"Ts = {ctl['Ts']:g} s não é múltiplo de Δt = {dt:g} s: o controle roda com Ts = {nTs} × Δt = "
-                                 f"{nTs * dt:g} s (é o p[\"Ts\"] que o código recebe)")
+            avisos_rodada.append(lingua.tr("rodada.ts_nao_multiplo", Ts=f"{ctl['Ts']:g}", dt=f"{dt:g}", n=nTs, efetivo=f"{nTs * dt:g}"))
         d_atu = passos_de_atraso(ctl["atraso"], nTs, dt)
         # cada atuação é escrita antes do passo k·n + desl: o circuito sente em k·n + d em todos os destinos que der
         desl = {x: max(0, d_atu - lag[x]) for x in ctl["atuacoes"]}
@@ -2775,11 +2783,10 @@ def _rodar(c, ctl_de_fora=None):
             if a["nome"] not in ctl["atuacoes"]:
                 continue
             if not a["destinos"]:
-                avisos_rodada.append(f"a atuação {a['nome']} não chega a chave nem a fonte controlada (pelo traçado do MaiSim): o atraso é "
-                                     "tratado como o de uma fonte (1 Δt do Gecko), sem garantia")
+                avisos_rodada.append(lingua.tr("rodada.atuacao_sem_destino", nome=a['nome']))
             for alvo, passo_, motivo in destinos_fora_do_passo(a, d_atu, desl[a["nome"]]):
-                avisos_rodada.append(f"atuação {a['nome']} → {alvo}: " + (motivo if passo_ is None else
-                                     f"o circuito sente em t + {passo_} × Δt, não em t + {d_atu} × Δt ({motivo})"))
+                avisos_rodada.append(lingua.tr("rodada.atuacao_destino_motivo", nome=a['nome'], alvo=alvo, motivo=motivo) if passo_ is None else
+                                     lingua.tr("rodada.atuacao_destino_sente", nome=a['nome'], alvo=alvo, passo=passo_, d=d_atu, motivo=motivo))
     # acionamentos: CONST valendo no circuito a partir do passo j = round(t/Δt) (escrita antes do passo j − atraso do Gecko:
     # j − 1 para fonte, j para chave direto no GATE); p[...] na 1ª amostra ≥ t
     blocos_const = {a["nome"]: a["bloco"] for a in todos_atu}
@@ -2788,25 +2795,25 @@ def _rodar(c, ctl_de_fora=None):
         tipo, _, alvo = q["alvo"].partition(":")
         j_ev = arred(q["t"] / dt)
         if j_ev >= n:
-            avisos_rodada.append(f"acionamento de {alvo} em {q['t']} s fica depois do fim: não acontece"); continue
+            avisos_rodada.append(lingua.tr("rodada.acionamento_depois_do_fim", alvo=alvo, t=q['t'])); continue
         if tipo == "CONST":
             if alvo not in blocos_const:
-                raise ErroMotor(f"acionamento: não há bloco CONST {alvo} no circuito")
+                raise ErroMotor(lingua.tr("rodada.acionamento_sem_const", alvo=alvo))
             escritas_ev.setdefault(max(0, j_ev - lag[alvo]), []).append(f"{blocos_const[alvo]}:const:{q['valor']!r}")
             a = next(x for x in todos_atu if x["nome"] == alvo)   # o que não dá para compensar, avisado (uma vez cada)
-            fora = [] if a["destinos"] else [("", None, "o CONST não chega a chave nem a fonte controlada (pelo traçado do MaiSim): "
-                                                          "o atraso é tratado como o de uma fonte, sem garantia")]
+            fora = [] if a["destinos"] else [("", None, lingua.tr("rodada.const_sem_destino"))]
             for alvo2, passo_, motivo in fora + destinos_fora_do_passo(a, j_ev, max(0, j_ev - lag[alvo])):
-                txt = f"acionamento de {alvo} em {q['t']} s" + (f" → {alvo2}" if alvo2 else "") + ": " + (
-                    motivo if passo_ is None else f"o circuito sente em t = {passo_ * dt:g} s ({motivo})")
+                destino = f" → {alvo2}" if alvo2 else ""
+                txt = lingua.tr("rodada.acionamento_motivo", alvo=alvo, t=q['t'], destino=destino, motivo=motivo) if passo_ is None else \
+                    lingua.tr("rodada.acionamento_sente", alvo=alvo, t=q['t'], destino=destino, ts=f"{passo_ * dt:g}", motivo=motivo)
                 if txt not in avisos_rodada:
                     avisos_rodada.append(txt)
         elif not ctl["ativo"]:
-            avisos_rodada.append(f"acionamento de p[\"{alvo}\"] ignorado: o controle está desligado")
+            avisos_rodada.append(lingua.tr("rodada.acionamento_p_desligado", alvo=alvo))
         elif alvo not in {x["nome"] for x in ctl["parametros"]}:
-            raise ErroMotor(f"acionamento de p[\"{alvo}\"]: não há esse parâmetro no painel")
+            raise ErroMotor(lingua.tr("rodada.acionamento_p_sem_parametro", alvo=alvo))
         elif -(-j_ev // nTs) * nTs >= n:
-            avisos_rodada.append(f"acionamento de p[\"{alvo}\"] em {q['t']} s cai depois da última amostra: não acontece")
+            avisos_rodada.append(lingua.tr("rodada.acionamento_p_depois", alvo=alvo, t=q['t']))
         else:
             params_ev.setdefault(-(-j_ev // nTs), {})[alvo] = q["valor"]   # k = ⌈j/n⌉: a 1ª amostra em t ≥ t do acionamento
     # quando cada acionamento de fato acontece (as marcas no scope): CONST no passo j (≥ o atraso do Gecko); p[...] na amostra k
@@ -2819,7 +2826,7 @@ def _rodar(c, ctl_de_fora=None):
         t_ef = max(lag.get(alvo, 1), j_ev) * dt if tipo == "CONST" else -(-j_ev // nTs) * nTs * dt
         chave = (q["alvo"], round(t_ef / dt))
         if chave in efetivos:
-            avisos_rodada.append(f"acionamento de {alvo} em {efetivos[chave]['t_pedido']} s substituído pelo de {q['t']} s (mesmo instante)")
+            avisos_rodada.append(lingua.tr("rodada.acionamento_substituido", alvo=alvo, t1=efetivos[chave]['t_pedido'], t2=q['t']))
         efetivos[chave] = dict(q, t=t_ef, t_pedido=q["t"])
     acionamentos_efetivos = sorted(efetivos.values(), key=lambda q: q["t"])
     # os CONST que a rodada escreve voltam ao valor de antes no fim (senão a próxima rodada começa de outro estado)
@@ -2835,7 +2842,7 @@ def _rodar(c, ctl_de_fora=None):
         except FileExistsError:
             continue
     else:
-        raise ErroMotor(f"não consegui uma pasta nova para a rodada {nome}")
+        raise ErroMotor(lingua.tr("rodada.sem_pasta", nome=nome))
     trab = None
     if ctl["ativo"]:
         for arq_py, cod in arquivos_de(ctl).items():      # todos os arquivos do controle, como estavam
@@ -2923,13 +2930,12 @@ def _rodar(c, ctl_de_fora=None):
             a, sreg = res["a"], res["s"]
             fora = [x for x in a if x not in atu or x not in ctl["atuacoes"]]
             if fora:
-                raise ErroControle(f"passo() devolveu {', '.join(fora)}, que não é atuação marcada no painel")
+                raise ErroControle(lingua.tr("rodada.devolveu_nao_marcada", lista=", ".join(fora)))
             passo = min(nTs, n - k)
             for x, v in a.items():                       # vale no circuito em k + d (antes do passo k + desl, ver destinos_controle)
                 if isinstance(v, list):                  # o padrão dentro da amostra: o valor o vale em k + d + o (escrito só onde muda)
                     if len(v) != nTs:
-                        raise ErroControle(f"a atuação {x} veio com {len(v)} valores: o padrão dentro da amostra tem um valor "
-                                           f"por Δt, Ts/Δt = {nTs}")
+                        raise ErroControle(lingua.tr("rodada.padrao_tamanho", x=x, n=len(v), nTs=nTs))
                     ant = None
                     for o, vo in enumerate(v):
                         if vo != ant:
@@ -2944,11 +2950,10 @@ def _rodar(c, ctl_de_fora=None):
                 avisados.add(x)
                 if len(avisados) - len(regs) > 5:       # nome novo a cada amostra: não enche a lista de avisos
                     if len(avisados) - len(regs) == 6:
-                        avisos_rodada.append("scope(): mais nomes novos depois da 1ª amostra (também não vão para o scope)")
+                        avisos_rodada.append(lingua.tr("rodada.scope_mais_nomes"))
                     continue
-                avisos_rodada.append(f"scope(\"{x}\") " + ("não é um nome válido (letras, números e _)" if not IDENT.match(x) else
-                                     f"apareceu só em t = {tt:g} s, depois da 1ª amostra") + ": não vai para o scope — chame "
-                                     "scope() com os mesmos nomes desde a 1ª amostra (guarde o valor em e e mande sempre)")
+                avisos_rodada.append(lingua.tr("rodada.scope_nome_invalido", x=x) if not IDENT.match(x) else
+                                     lingua.tr("rodada.scope_nome_tarde", x=x, t=f"{tt:g}"))
             if j % cada == 0:
                 pub.amostra(dict(t=tt, **vals, **{col: sreg.get(x, float("nan")) for x, col in regs.items()}))
             tt = anda(k, passo, escritas_do_trecho(k, passo)); k += passo; j += 1
@@ -2999,22 +3004,22 @@ def _rodar(c, ctl_de_fora=None):
                     MOTOR.cmd("SETM " + " ".join(f"{b}:const:{v}" for b, v in valores_antes.items()))
                 DEVOLVER.unlink(missing_ok=True)
             except ErroMotor as e:
-                rodada.setdefault("avisos", []).append(f"não consegui devolver os CONST ao valor de antes: {e}")
+                rodada.setdefault("avisos", []).append(lingua.tr("rodada.nao_devolveu_const", erro=e))
             pub.fecha(arq)                                       # grava o .npz antes de dizer "fim" (a tela abre o arquivo)
             rodada.update(segundos=round(time.time() - rodada["inicio"], 2), amostras=len(pub.tudo.get("t", [])))
-            fim_ = locals().get("final") or dict(estado="erro", erro="a rodada terminou sem estado")
+            fim_ = locals().get("final") or dict(estado="erro", erro=lingua.tr("rodada.sem_estado"))
             try:                                         # os "olhos" do Claude do MaiSim: o resumo ao lado do .npz
                 resumo_rodada.escreve(arq, pasta, estado=dict(fim_, segundos=rodada.get("segundos")),
                                       saida_controle=rodada.get("saida_controle") or "")
             except Exception as e:
-                print(f"{time.strftime('%H:%M:%S')} resumo da rodada {nome}: {e}", flush=True)
+                print(f"{time.strftime('%H:%M:%S')} resumo da rodada {nome}: {e}", flush=True)  # i18n-ok (log)
             if por_cima and fim_.get("estado") in ("fim", "parada"):
                 try:
                     fim_["substituidas"] = substitui_anteriores(nome, meta["modelo"], pasta)
                 except OSError as e:
-                    rodada.setdefault("avisos", []).append(f"não consegui tirar a rodada anterior de mesmo nome: {e}")
+                    rodada.setdefault("avisos", []).append(lingua.tr("rodada.nao_tirou_anterior", erro=e))
             rodada.update(fim_)
-    threading.Thread(target=laco, daemon=True).start()
+    lingua.thread(laco).start()                       # os avisos da rodada no idioma de quem a começou
     return dict(rodada)
 
 
@@ -3027,17 +3032,17 @@ GUARDADA = ".guardada"
 
 def circuito_aberto():
     """O circuito como a rodada o grava no meta (e no resumo.md): o arquivo aberto ou "novo (sem arquivo)"."""
-    return editor["aberto"] or "novo (sem arquivo)"
+    return editor["aberto"] or "novo (sem arquivo)"  # i18n-ok (marcador: o meta e o resumo.md o comparam)
 
 
 def chave_layout():
     """De quem é o layout do scope (guardado no navegador): o caminho do circuito; um novo, o momento em que foi criado (cada
     circuito novo com o seu). A página do simu e o meta da rodada dizem o mesmo, e as duas páginas leem o mesmo layout."""
-    return editor["aberto"] or (f"novo:{editor['novo_desde']:.0f}" if editor.get("novo_desde") else "novo (sem arquivo)")
+    return editor["aberto"] or (f"novo:{editor['novo_desde']:.0f}" if editor.get("novo_desde") else "novo (sem arquivo)")  # i18n-ok (marcador)
 
 
 def substitui_anteriores(nome, modelo, pasta_nova):
-    if modelo == "novo (sem arquivo)":                   # os circuitos sem arquivo são todos "novo": não dá para saber se é o mesmo
+    if modelo == "novo (sem arquivo)":  # i18n-ok (marcador)                   # os circuitos sem arquivo são todos "novo": não dá para saber se é o mesmo
         return []
     import numpy as np                                   # só aqui: ler o meta das rodadas antigas
     padrao, out = re.compile(r"^\d{4}-\d\d-\d\d_\d{6}_" + re.escape(nome) + "$"), []
@@ -3062,7 +3067,7 @@ def guarda_rodada(rel, guardar=True):
     arq = (RAIZ / rel if not Path(rel).is_absolute() else Path(rel)).resolve()
     d = arq.parent
     if d.parent.resolve() != RODADAS.resolve() or not arq.name.startswith("scope_") or not arq.is_file():
-        raise ErroMotor("só uma rodada do simu (na pasta das rodadas) pode ser guardada")
+        raise ErroMotor(lingua.tr("rodada.so_do_simu_guarda"))
     if guardar:
         (d / GUARDADA).write_text(time.strftime("%Y-%m-%d %H:%M") + "\n")
     else:
@@ -3085,16 +3090,16 @@ def comando(op, a):
     """Um pedido de edição, com os argumentos conferidos, no protocolo do motor."""
     num = lambda v: repr(float(v))
     inteiro = lambda v: str(int(v))
-    nome = lambda v: v if NOME.match(str(v)) else (_ for _ in ()).throw(ErroMotor(f"nome inválido: {v!r}"))
-    rot = lambda v: v if ROTULO.match(str(v)) else (_ for _ in ()).throw(ErroMotor(f"rótulo inválido: {v!r}"))
+    nome = lambda v: v if NOME.match(str(v)) else (_ for _ in ()).throw(ErroMotor(lingua.tr("editor.nome_invalido", nome=repr(v))))
+    rot = lambda v: v if ROTULO.match(str(v)) else (_ for _ in ()).throw(ErroMotor(lingua.tr("editor.rotulo_invalido", rotulo=repr(v))))
     if op == "CREATE":
         if not re.match(r"^[A-Za-z0-9_ .\->]+$", str(a[3])):
-            raise ErroMotor(f"tipo inválido: {a[3]!r}")
+            raise ErroMotor(lingua.tr("editor.tipo_invalido", tipo=repr(a[3])))
         return f"CREATE {nome(a[0])} {inteiro(a[1])} {inteiro(a[2])} {a[3]}"
     formas = {"DELETE": (nome,), "ROTATE": (nome,), "MOVE": (nome, inteiro, inteiro), "RENAME": (nome, nome),
               "SETP": (nome, nome, num), "SETG": (nome, num), "INNODE": (nome, inteiro, rot), "OUTNODE": (nome, inteiro, rot)}
     if op not in formas or len(a) != len(formas[op]):
-        raise ErroMotor(f"pedido desconhecido: {op} {a}")
+        raise ErroMotor(lingua.tr("editor.pedido_desconhecido", op=op, args=a))
     return " ".join([op] + [f(v) for f, v in zip(formas[op], a)])
 
 
@@ -3106,7 +3111,8 @@ def comando(op, a):
 # aqui o terminal vai para a posição livre mais perto, na mesma borda. Pela interface remota, o Gecko só encosta ao mover
 # (criar deixa o terminal onde está, com o lado padrão, esquerda) e ignora um passo com dx == dy (moveComponent).
 TIPOS_TERMINAL = {"CIRCUIT_TERMINAL", "CONTROL_TERMINAL"}
-LADO_NOME = {0: "em cima", 1: "à esquerda", 2: "à direita", 3: "embaixo"}
+LADO_NOME = {0: "editor.lado_cima", 1: "editor.lado_esquerda", 2: "editor.lado_direita", 3: "editor.lado_embaixo"}   # lingua.tr(…)
+LADO_ID = "cedb"                                       # o lado como a página o conhece (ipes.py: t["lado"], o LADO_TXT do simu.js)
 
 
 def borda_gecko(x, y, sx, sy):
@@ -3128,10 +3134,11 @@ def sm_da_folha(r, prefixo):
     """(bloco, folha) do subcircuito chamado prefixo (o nome antes do # nos pedidos)."""
     fids = [k for k, f in r["folhas"].items() if k != "0" and f["nome"] == prefixo]
     if len(fids) != 1:
-        raise ErroMotor(f"não achei o subcircuito {prefixo}" if not fids else f"há {len(fids)} subcircuitos chamados {prefixo}")
+        raise ErroMotor(lingua.tr("biblioteca.nao_achei_sub", nome=prefixo) if not fids else
+                        lingua.tr("editor.subs_mesmo_nome", n=len(fids), nome=prefixo))
     bloco = next((e for f in r["folhas"].values() for e in f["elementos"] if e["tipo"] == "SUBCIRCUIT" and e["uid"] == fids[0]), None)
     if bloco is None or "tamanho" not in r["folhas"][fids[0]]:
-        raise ErroMotor(f"não achei o bloco do subcircuito {prefixo}")
+        raise ErroMotor(lingua.tr("editor.nao_achei_bloco_sub", nome=prefixo))
     return bloco, r["folhas"][fids[0]]
 
 
@@ -3162,8 +3169,7 @@ def plano_terminal(op, a, r):
             return dict(nome=str(a[0]), curto=nome, sm=prefixo, ponto=p, lado=lado, pedido=[int(a[1]), int(a[2])], vizinhos=vizinhos,
                         borne=borne_relativo(lado, p[0], p[1], bx, by, sx, sy), deslizou=p != (px, py), criado=op == "CREATE")
     n = by if lado in (1, 2) else bx
-    raise ErroMotor(f"o bloco {prefixo} não tem borne livre {LADO_NOME[lado]} (cabem {n} desse lado, um por quadrado): aumente o "
-                    f"tamanho do bloco (nas propriedades do subcircuito) ou leve o terminal para outra borda da folha")
+    raise ErroMotor(lingua.tr("editor.sem_borne_livre", bloco=prefixo, lado=lingua.tr(LADO_NOME[lado]), n=n))
 
 
 def poe_terminal(p):
@@ -3186,7 +3192,7 @@ def poe_terminal(p):
         MOTOR.cmd(f"MOVE {nome} {tx} {ty}")
         if pos() == (tx, ty):
             return
-    raise ErroMotor(f"o Gecko não levou {nome} até ({tx}, {ty})")
+    raise ErroMotor(lingua.tr("editor.gecko_nao_levou", nome=nome, x=tx, y=ty))
 
 
 def confere_terminal(r, p):
@@ -3194,8 +3200,9 @@ def confere_terminal(r, p):
     bloco, _ = sm_da_folha(r, p["sm"])
     t = next((t for t in bloco["terminais"] if t.get("interno") == p["curto"]), None)
     feito = t is not None and (t["x"] - bloco["x"], t["y"] - bloco["y"]) == tuple(p["borne"])
-    return dict(nome=p["curto"], lado=LADO_NOME[p["lado"]], ponto=list(p["ponto"]), pedido=p["pedido"], deslizou=p["deslizou"],
-                ok=feito, **({} if feito else {"aviso": p.get("falhou") or f"o borne de {p['curto']} não ficou onde devia: confira o bloco {p['sm']}"}))
+    return dict(nome=p["curto"], lado=lingua.tr(LADO_NOME[p["lado"]]), lado_id=LADO_ID[p["lado"]], ponto=list(p["ponto"]),
+                pedido=p["pedido"], deslizou=p["deslizou"], ok=feito,
+                **({} if feito else {"aviso": p.get("falhou") or lingua.tr("editor.borne_fora", nome=p['curto'], bloco=p['sm'])}))
 
 
 def confere_tamanho(r, nome, par, valor, tam=None):
@@ -3219,8 +3226,9 @@ def confere_tamanho(r, nome, par, valor, tam=None):
         return {(a, b) for v in onde.values() for a in v for b in v if a < b}
     novos = pares(*((valor, by) if par == "blockSizeX" else (bx, valor))) - pares(bx, by)   # os que já estavam juntos não impedem
     if novos:
-        raise ErroMotor(f"com {'largura' if par == 'blockSizeX' else 'altura'} {valor}, " + "; ".join(" e ".join(v) for v in sorted(novos))
-                        + " ficariam no mesmo borne: afaste os terminais na folha de dentro antes, ou use um bloco maior")
+        juntos = "; ".join(lingua.tr("editor.lista_e", antes=a_, ultimo=b_) for a_, b_ in sorted(novos))
+        raise ErroMotor(lingua.tr("editor.bornes_juntos_largura" if par == "blockSizeX" else "editor.bornes_juntos_altura",
+                                  valor=valor, pares=juntos))
     return [valor, by] if par == "blockSizeX" else [bx, valor]
 
 
@@ -3246,7 +3254,7 @@ def executa(op, a, r=None):
         plano = plano_terminal(op, a, r or estado())
     if op == "SETP" and str(a[1]) in ("blockSizeX", "blockSizeY"):
         if not (float(a[2]).is_integer() and 2 <= float(a[2]) <= 40):
-            raise ErroMotor("tamanho do bloco: um número inteiro de 2 a 40 quadrados")
+            raise ErroMotor(lingua.tr("editor.tamanho_bloco"))
         confere_tamanho(r or estado(), str(a[0]), str(a[1]), int(float(a[2])))
     if plano and op == "CREATE":
         linha = comando(op, [a[0], plano["ponto"][0], plano["ponto"][1], a[3]])
@@ -3281,7 +3289,8 @@ def executa(op, a, r=None):
 IAS = ias_maisim.registro()                                     # o Claude; na instância de teste (MAISIM_IA_TESTE=1), também o Eco
 CLAUDE = IAS["claude"]
 for _a in IAS.values():                                      # a lista de modelos do Antigravity etc. (em segundo plano)
-    threading.Thread(target=_a.ao_iniciar, daemon=True).start()
+    with lingua.com(lingua.ultima()):                 # na partida não há pedido: a última língua vista
+        lingua.thread(_a.ao_iniciar).start()
 CLAUDE_DIR, CLAUDE_BIN = CLAUDE.pasta, CLAUDE.bin           # MAISIM_CLAUDE_DIR / MAISIM_CLAUDE_BIN: testes
 CLAUDE_URL_AUTO = ESTADO.with_name("claude_url_auto.txt")   # o claude_navegador.sh grava aqui a URL de retorno automático
 claude_login = {}                                            # o login em andamento (um por vez): proc, andamento, urls, erro…
@@ -3336,10 +3345,10 @@ def _le_login(proc):
             return
         claude_login.update(andamento=False, proc=None)
         if proc.returncode == 0 and "Login successful" in limpo:
-            claude_login.update(mensagem="login feito", erro=None)
+            claude_login.update(mensagem=lingua.tr("login.feito"), erro=None)
         elif not claude_login.get("erro"):
             linhas = [x.strip() for x in limpo.splitlines() if re.search(r"(?i)error|failed|invalid|expired", x)]
-            claude_login["erro"] = (linhas[-1] if linhas else f"o login terminou (saída {proc.returncode})")[:300]
+            claude_login["erro"] = (linhas[-1] if linhas else lingua.tr("login.terminou", saida=proc.returncode))[:300]
 
 
 def claude_login_inicia():
@@ -3351,7 +3360,7 @@ def claude_login_inicia():
         else:
             em_andamento = False
             if not Path(CLAUDE_BIN).exists():
-                raise ErroMotor("o Claude Code (claude) não está instalado neste computador")
+                raise ErroMotor(lingua.tr("login.claude_nao_instalado"))
             CLAUDE_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
             CLAUDE_URL_AUTO.unlink(missing_ok=True)
             proc = subprocess.Popen([CLAUDE_BIN, "auth", "login", "--claudeai"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -3359,7 +3368,7 @@ def claude_login_inicia():
                                     env=ambiente_claude(BROWSER=str(AQUI / "claude_navegador.sh"), MAISIM_CLAUDE_URL_ARQ=str(CLAUDE_URL_AUTO)))
             claude_login.clear()
             claude_login.update(proc=proc, andamento=True, desde=time.time(), url_auto=None, url_manual=None, erro=None, mensagem=None)
-            threading.Thread(target=_le_login, args=(proc,), daemon=True).start()
+            lingua.thread(_le_login, proc).start()
             # sem prazo (pedido do Marcelo): o login espera a autorização o tempo que for, até ela chegar ou o cancelar
     if not em_andamento:
         for _ in range(200):                             # até 20 s pelos dois links (o automático vem logo depois do manual)
@@ -3378,11 +3387,11 @@ def claude_login_codigo(codigo):
     """O código que a página da Anthropic mostrou (forma xxxx#yyyy), repassado ao `claude auth login`."""
     codigo = re.sub(r"\s+", "", str(codigo))
     if not re.fullmatch(r"[A-Za-z0-9_.~\-]+#[A-Za-z0-9_.~\-]+", codigo) or len(codigo) > 2000:
-        raise ErroMotor("o código tem a forma xxxx#yyyy: copie inteiro, da página da Anthropic")
+        raise ErroMotor(lingua.tr("login.codigo_forma"))
     with trava_claude:
         p = claude_login.get("proc")
         if p is None or p.poll() is not None:
-            raise ErroMotor("não há login em andamento: clique em entrar de novo")
+            raise ErroMotor(lingua.tr("login.sem_andamento"))
         p.stdin.write((codigo + "\n").encode())
         p.stdin.flush()
     for _ in range(300):                                 # a troca do código leva uns segundos
@@ -3393,7 +3402,8 @@ def claude_login_codigo(codigo):
     return claude_estado()
 
 
-def claude_login_cancela(proc=None, motivo="cancelado"):
+def claude_login_cancela(proc=None, motivo=None):
+    motivo = motivo or lingua.tr("login.cancelado")
     with trava_claude:
         p = claude_login.get("proc")
         if p is None or (proc is not None and p is not proc):
@@ -3417,7 +3427,7 @@ def claude_sai():
         claude_login.clear()
     out = claude_estado()
     if out["logado"]:
-        raise ErroMotor(f"o logout não saiu: {(r.stdout + r.stderr).strip()[-200:]}")
+        raise ErroMotor(lingua.tr("login.logout_falhou", saida=(r.stdout + r.stderr).strip()[-200:]))
     return out
 
 
@@ -3427,19 +3437,21 @@ def claude_sai():
 def ia_com_login(ia):
     a = IAS.get(str(ia or ""))
     if a is None or not a.tem_login:
-        raise ErroMotor(f"IA desconhecida (ou sem login pelo MaiSim): {ia}")
+        raise ErroMotor(lingua.tr("login.ia_desconhecida", ia=ia))
     return a
 
 
 def ia_logada(a):
     if a.tem_login and not a.estado().get("logado"):
-        raise ErroMotor(f"entre com a conta do {a.nome} antes (o balão da IA no cabeçalho)")
+        raise ErroMotor(lingua.tr("login.entre_antes", ia=a.nome))
 
 
 def ia_conta(ia, acao, *args):
     a = ia_com_login(ia)
     if not hasattr(a, acao):
-        raise ErroMotor(f"{a.nome}: não dá para {acao.replace('_', ' ')}")
+        acoes = {"entra": "login.acao_entra", "codigo": "login.acao_codigo", "cancela": "login.acao_cancela", "sai": "login.acao_sai"}
+        raise ErroMotor(lingua.tr("login.acao_indisponivel", ia=a.nome,
+                                  acao=lingua.tr(acoes[acao]) if acao in acoes else acao.replace('_', ' ')))
     try:
         return getattr(a, acao)(*args) if acao != "cancela" else (a.cancela(), a.estado())[1]
     except ValueError as e:
@@ -3504,7 +3516,7 @@ def limpa_trava_login(idade=5, ia=None):
             except OSError:
                 pass
     shutil.rmtree(t, ignore_errors=True)
-    print(f"a trava de login órfã {t} foi tirada", flush=True)
+    print(f"a trava de login órfã {t} foi tirada", flush=True)  # i18n-ok (log)
     return True
 trava_sessoes = threading.Lock()                  # sessoes.json: ler-mudar-gravar (ordem: trava_claude → trava_sessoes, nunca o contrário)
 REGRAS_CLAUDE = """Você é o Claude do MaiSim, um simulador de eletrônica de potência em
@@ -3598,22 +3610,23 @@ def uso_texto(texto):
         if not m:
             return (txt or "").strip()
         mes, dia, h, mi, ap = m.groups()
-        hora = f"{int(h) % 12 + (12 if ap.lower() == 'pm' else 0):02d}h{int(mi or 0):02d}"
+        hora = lingua.tr("uso.hora", h=f"{int(h) % 12 + (12 if ap.lower() == 'pm' else 0):02d}", m=f"{int(mi or 0):02d}")
         if not mes:
-            return f"às {hora}"
+            return lingua.tr("uso.as_hora", hora=hora)
         n_mes, hoje, amanha = meses.get(mes.lower()), time.localtime(), time.localtime(time.time() + 86400)
         if (n_mes, int(dia)) == (hoje.tm_mon, hoje.tm_mday):
-            return f"hoje às {hora}"
+            return lingua.tr("uso.hoje_as", hora=hora)
         if (n_mes, int(dia)) == (amanha.tm_mon, amanha.tm_mday):
-            return f"amanhã às {hora}"
-        return f"{int(dia):02d}/{n_mes or 0:02d} às {hora}"
+            return lingua.tr("uso.amanha_as", hora=hora)
+        return lingua.tr("uso.dia_as", dia=f"{int(dia):02d}", mes=f"{n_mes or 0:02d}", hora=hora)
     def rotulo(r):
         r = r.strip()
         if re.match(r"current session", r, re.I):
-            return "sessão (5 h)"
+            return lingua.tr("uso.sessao")      # a página tira o " (5 h)" na barra curta
         m = re.match(r"current week\s*(?:\((.+)\))?", r, re.I)
         if m:
-            return "semana" if not m.group(1) or m.group(1).lower() == "all models" else f"semana · {m.group(1)}"
+            return lingua.tr("uso.semana") if not m.group(1) or m.group(1).lower() == "all models" else \
+                lingua.tr("uso.semana_modelo", modelo=m.group(1))   # o "·": a página separa por ele
         return r
     itens = []
     for m in re.finditer(r"^\s*([^:\n]+?):\s*(\d+(?:[.,]\d+)?)\s*%\s*used(?:\s*[·•|-]\s*resets\s+(.+?))?\s*$", texto or "", re.M | re.I):
@@ -3624,12 +3637,13 @@ def uso_texto(texto):
 def claude_uso(forca=False):
     """O uso da conta, o mesmo do /usage do Claude Code (sessão de 5 h e semana), por `claude -p "/usage"`: não chama o
     modelo (0 turnos, 0 tokens), só consulta o medidor da conta. NÃO é documentado (conferido no CLI 2.1.273): se o texto
-    mudar, volta o texto como veio e a tela diz que não conseguiu ler. Guardado por 60 s."""
+    mudar, volta o texto como veio e a tela diz que não conseguiu ler. Guardado por 60 s — só o que veio (o texto, a saída,
+    o erro): os rótulos e as datas são montados a cada pedido, no idioma dele (uso_montado)."""
     with trava_uso:
         if not forca and uso_cache["v"] is not None and time.time() - uso_cache["t"] < 60:
-            return uso_cache["v"]
+            return uso_montado(uso_cache["v"])
         if pedido_rodando():                             # um pedido rodando: o guardado (sem outro `claude` renovando o login)
-            return uso_cache["v"] or {"itens": [], "texto": "", "quando": time.time()}
+            return uso_montado(uso_cache["v"]) or {"itens": [], "texto": "", "quando": time.time()}
         vazio = CLAUDE_CASA / "uso"
         vazio.mkdir(parents=True, exist_ok=True)
         try:
@@ -3637,13 +3651,24 @@ def claude_uso(forca=False):
                 r = subprocess.run(CLAUDE.comando_uso(), env=ambiente_claude(), cwd=str(vazio), capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
             j = json.loads(r.stdout or "{}")
             texto = str(j.get("result") or "").strip()
-            v = {"itens": uso_texto(texto), "texto": texto[:1000], "quando": time.time()}
-            if j.get("is_error") or not texto:
-                v["erro"] = (texto or r.stderr.strip() or f"saída {r.returncode}")[:300]
+            v = {"texto": texto, "quando": time.time(), "is_error": bool(j.get("is_error")), "stderr": r.stderr.strip(), "saida": r.returncode}
         except (subprocess.SubprocessError, OSError, ValueError) as e:
-            v = {"itens": [], "texto": "", "quando": time.time(), "erro": f"não consegui ler o uso: {e}"}
+            v = {"texto": "", "quando": time.time(), "falha": str(e)}
         uso_cache.update(t=time.time(), v=v)
-        return v
+        return uso_montado(v)
+
+
+def uso_montado(v):
+    """O uso para a tela, no idioma do pedido, do que veio do `claude` (uso_cache guarda só isso)."""
+    if v is None:
+        return None
+    if "falha" in v:
+        return {"itens": [], "texto": "", "quando": v["quando"], "erro": lingua.tr("uso.nao_leu", erro=v["falha"])}
+    texto = v["texto"]
+    out = {"itens": uso_texto(texto), "texto": texto[:1000], "quando": v["quando"]}
+    if v.get("is_error") or not texto:
+        out["erro"] = (texto or v.get("stderr") or lingua.tr("uso.saida", saida=v.get("saida")))[:300]
+    return out
 
 
 def le_memoria():
@@ -3656,7 +3681,7 @@ def le_memoria():
 def grava_memoria(texto):
     texto = str(texto or "")
     if len(texto) > 20_000:
-        raise ErroMotor("memória grande demais (até 20 mil caracteres)")
+        raise ErroMotor(lingua.tr("pedido.memoria_grande"))
     grava_atomico(CLAUDE_MEMORIA, texto)
     return {"texto": texto}
 
@@ -3681,7 +3706,7 @@ def grava_sessoes(d):
 
 def conversa_atual(nova=False):
     """A conversa do circuito aberto (uma por circuito): {id, iniciada, anexos_vistos} e a pasta dela."""
-    chave = editor.get("aberto") or "(sem arquivo)"
+    chave = editor.get("aberto") or "(sem arquivo)"  # i18n-ok (a chave da conversa, não é texto)
     with trava_sessoes:
         d = le_sessoes()
         if nova or chave not in d or not re.fullmatch(r"[0-9a-f-]{36}", str(d[chave].get("id", ""))):
@@ -3753,16 +3778,16 @@ def claude_anexa(nome, dados_b64):
     """Guarda um anexo (PDF, imagem, texto) na pasta da conversa do circuito aberto."""
     nome = re.sub(r"[^\w.\- ]", "_", Path(str(nome)).name).strip() or "anexo"
     if Path(nome).suffix.lower() not in ANEXO_TIPOS:
-        raise ErroMotor(f"anexo: PDF, imagem (png, jpg, webp, gif) ou texto (txt, md, csv); veio {Path(nome).suffix or 'sem extensão'}")
+        raise ErroMotor(lingua.tr("pedido.anexo_tipo", veio=Path(nome).suffix or lingua.tr("pedido.sem_extensao")))
     try:
         dados = base64.b64decode(dados_b64 or "", validate=True)
     except ValueError:
-        raise ErroMotor("anexo malformado")
+        raise ErroMotor(lingua.tr("pedido.anexo_malformado"))
     if not dados or len(dados) > ANEXO_MAX:
-        raise ErroMotor(f"anexo vazio ou maior que {ANEXO_MAX // 2**20} MB")
+        raise ErroMotor(lingua.tr("pedido.anexo_tamanho", mb=ANEXO_MAX // 2**20))
     _, _, pasta = conversa_atual()
     if len(lista_anexos(pasta)) >= ANEXOS_MAX and not (pasta / "anexos" / nome).exists():
-        raise ErroMotor(f"até {ANEXOS_MAX} anexos por conversa (tire algum ou comece uma conversa nova)")
+        raise ErroMotor(lingua.tr("pedido.anexos_demais", n=ANEXOS_MAX))
     (pasta / "anexos" / nome).write_bytes(dados)
     return claude_pedido_estado()
 
@@ -3825,7 +3850,7 @@ def _resumo_ia(cid, modelo, esforco, ia="claude"):
                     except subprocess.TimeoutExpired:
                         os.killpg(proc.pid, signal.SIGTERM)
                         out, errs = proc.communicate()
-                        erro = f"passou de {CLAUDE_PRAZO // 60} min"
+                        erro = lingua.tr("pedido.passou_prazo", min=CLAUDE_PRAZO // 60)
                     if not erro:
                         j = _json_da_saida(out) or _json_da_saida(errs)
                         r = a.le_resultado_json(j) or {}
@@ -3833,7 +3858,7 @@ def _resumo_ia(cid, modelo, esforco, ia="claude"):
                             texto, usado = str(r["texto"]).strip(), r.get("modelo") or modelo
                         else:
                             erro = str(r.get("texto") or "; ".join(r.get("erros") or []) or
-                                       ((errs or "").strip().splitlines() or [f"saída {proc.returncode}"])[-1])[:400]
+                                       ((errs or "").strip().splitlines() or [lingua.tr("uso.saida", saida=proc.returncode)])[-1])[:400]
                 except (OSError, ValueError) as e:
                     erro = str(e)
                 try:
@@ -3866,7 +3891,7 @@ def _json_da_saida(texto):
 
 def _confere_ia_resumo(ia, modelo, esforco):
     if ia not in IAS or modelo not in IAS[ia].modelos or esforco not in IAS[ia].esforcos:
-        raise ErroMotor("IA, modelo ou esforço desconhecido")
+        raise ErroMotor(lingua.tr("pedido.ia_modelo_esforco"))
     ia_logada(IAS[ia])
 
 
@@ -3876,14 +3901,14 @@ def claude_contexto_resumo_ia(cid, modelo="", esforco="", ia="claude"):
     _confere_ia_resumo(ia, modelo, esforco)
     m = contextos.meta(CONTEXTOS, cid)
     if m is None:
-        raise ErroMotor(f"não há o contexto {cid}")
+        raise ErroMotor(lingua.tr("pedido.sem_contexto", cid=cid))
     if cid in resumos_ativos:
-        raise ErroMotor("o resumo deste contexto já está sendo feito")
+        raise ErroMotor(lingua.tr("pedido.resumo_em_andamento"))
     if not (CONTEXTOS / cid / "conversa.md").is_file():
-        raise ErroMotor("este contexto não tem a conversa: não há o que resumir")
+        raise ErroMotor(lingua.tr("pedido.contexto_sem_conversa"))
     resumos_ativos.add(cid)
     contextos.poe_resumo_ia(CONTEXTOS, cid, "gerando", modelo=modelo or None)
-    threading.Thread(target=_resumo_ia, args=(cid, modelo, esforco, ia), daemon=True).start()
+    lingua.thread(_resumo_ia, cid, modelo, esforco, ia).start()
     return claude_contextos()
 def _ctx(f):
     """Os erros do contextos.py viram a mensagem da tela."""
@@ -3925,7 +3950,7 @@ def claude_contextos():
     for c in lst:
         r = c.get("resumo_ia") or {}
         if r.get("estado") == "gerando" and c["id"] not in resumos_ativos:
-            c["resumo_ia"] = dict(r, estado="falhou", erro="interrompido (o MaiSim reiniciou no meio)")
+            c["resumo_ia"] = dict(r, estado="falhou", erro=lingua.tr("pedido.resumo_interrompido"))
     return {"contextos": lst, "usados": list(conv.get("contextos") or []),
             "anteriores": conversas_anteriores(conv["id"]), "conversa": conv["id"]}
 
@@ -3937,24 +3962,25 @@ def claude_contexto_salva(corpo):
     chave, conv, _ = conversa_atual()
     sid = str(corpo.get("conversa") or conv["id"])
     if not re.fullmatch(r"[0-9a-f-]{36}", sid):
-        raise ErroMotor("conversa inválida")
+        raise ErroMotor(lingua.tr("pedido.conversa_invalida"))
     atual, inc = sid == conv["id"], dict({"conversa": True, "controle": True, "rodada": True, "anexos": False}, **(corpo.get("incluir") or {}))
     hist = historico(sid)
     juntar = str(corpo.get("juntar") or "")
     if juntar:
         if not atual or juntar not in (conv.get("contextos") or []):
-            raise ErroMotor("só dá para juntar com um contexto em uso nesta conversa")
+            raise ErroMotor(lingua.tr("pedido.juntar_so_em_uso"))
         if (contextos.meta(CONTEXTOS, juntar) or {}).get("conversa") == sid:
-            raise ErroMotor("esse contexto foi salvo desta mesma conversa (ela já está nele): salve sem juntar")
+            raise ErroMotor(lingua.tr("pedido.juntar_mesma_conversa"))
         if not hist:
-            raise ErroMotor("esta conversa ainda não tem pedidos: não há o que juntar")
+            raise ErroMotor(lingua.tr("pedido.juntar_sem_pedidos"))
         inc["conversa"], corpo["resumo_ia"] = True, True     # a junção é o resumo único pela IA, da conversa inteira
     if not hist and not str(corpo.get("resumo") or "").strip():
-        raise ErroMotor("a conversa está vazia: escreva uma nota ou converse antes")
+        raise ErroMotor(lingua.tr("pedido.conversa_vazia"))
     ia_resumo = str(corpo.get("ia") or "claude")
     if corpo.get("resumo_ia") and inc["conversa"] and hist:   # antes de salvar: sem login, nada fica salvo pela metade
         _confere_ia_resumo(ia_resumo, str(corpo.get("modelo") or ""), str(corpo.get("esforco") or ""))
-    titulo = str(corpo.get("titulo") or "").strip() or f"{Path(chave).stem if atual else 'conversa'} {time.strftime('%d/%m %H:%M')}"
+    titulo = str(corpo.get("titulo") or "").strip() or \
+        f"{Path(chave).stem if atual else lingua.tr('pedido.conversa')} {time.strftime(lingua.tr('pedido.formato_data'))}"
     c = (le_controle() if atual else controle_aplicado(sid)) if inc["controle"] else None
     rod = resumo_rodada.ultima(RODADAS, circuito_aberto()) if inc["rodada"] and atual else None
     anexos = CLAUDE_CONVERSAS / sid / "anexos" if inc["anexos"] else None
@@ -4124,7 +4150,7 @@ def claude_pedido_estado():
     out["outro_circuito"] = bool(out.get("circuito") and out["circuito"] != chave)
     if out.get("andamento") and out.get("desde"):        # o tempo do pedido medido aqui: o relógio do WSL e o do navegador (Windows)
         out["decorrido"] = round(time.time() - out["desde"], 1)   # podem diferir de minutos (o contador saía negativo: "-120 s")
-    out["uso"] = uso_cache["v"]
+    out["uso"] = uso_montado(uso_cache["v"])
     return out
 
 
@@ -4150,29 +4176,30 @@ def claude_pede(texto, dt, tfim, modelo="", esforco="", autonomo=0, ia="claude")
     try:
         autonomo = int(autonomo or 0)
     except (TypeError, ValueError):
-        raise ErroMotor("modo autônomo: o número de rodadas")
+        raise ErroMotor(lingua.tr("pedido.autonomo_numero"))
     if not 0 <= autonomo <= AUTONOMO_MAX:
-        raise ErroMotor(f"modo autônomo: de 0 a {AUTONOMO_MAX} rodadas")
+        raise ErroMotor(lingua.tr("pedido.autonomo_faixa", max=AUTONOMO_MAX))
     ia = str(ia or "claude")
     if ia not in IAS:
-        raise ErroMotor(f"IA desconhecida: {ia} (há {', '.join(IAS)})")
+        raise ErroMotor(lingua.tr("pedido.ia_desconhecida", ia=ia, ias=", ".join(IAS)))
     a = IAS[ia]
     if modelo not in a.modelos or esforco not in a.esforcos:
-        raise ErroMotor(f"modelo ({', '.join(m for m in a.modelos if m)}) ou esforço ({', '.join(e for e in a.esforcos if e)}) inválido")
+        raise ErroMotor(lingua.tr("pedido.modelo_esforco_invalido", modelos=", ".join(m for m in a.modelos if m),
+                                  esforcos=", ".join(e for e in a.esforcos if e)))
     texto = str(texto or "").strip()
     if not texto:
-        raise ErroMotor("escreva o pedido")
+        raise ErroMotor(lingua.tr("pedido.vazio"))
     if len(texto) > 20_000:
-        raise ErroMotor("pedido longo demais (até 20 mil caracteres; anexe um arquivo)")
+        raise ErroMotor(lingua.tr("pedido.longo"))
     if not (dt > 0) or not (tfim > 0):
-        raise ErroMotor("Δt e tempo final inválidos")
+        raise ErroMotor(lingua.tr("pedido.dt_tfim"))
     if not a.instalado():
-        raise ErroMotor("o Claude Code (claude) não está instalado neste computador" if ia == "claude" else f"{a.nome}: a ferramenta não está instalada")
+        raise ErroMotor(lingua.tr("login.claude_nao_instalado") if ia == "claude" else lingua.tr("pedido.ferramenta_nao_instalada", ia=a.nome))
     ia_logada(a)
     vez = uuid.uuid4().hex
     with trava_claude:                                   # reserva já: um segundo pedido junto é recusado aqui
         if claude_pedido.get("andamento"):
-            raise ErroMotor(f"o {(IAS.get(claude_pedido.get('ia')) or a).nome} ainda está no pedido anterior (espere ou pare)")
+            raise ErroMotor(lingua.tr("pedido.em_andamento", ia=(IAS.get(claude_pedido.get('ia')) or a).nome))
         claude_pedido.clear()
         claude_pedido.update(proc=None, vez=vez, andamento=True, desde=time.time(), pedido=texto, eventos=[], fala="", resposta=None,
                              proposta=None, erro=None, gasto=None, negados=[], modelo=None, anexos=[], ia=ia,
@@ -4182,7 +4209,7 @@ def claude_pede(texto, dt, tfim, modelo="", esforco="", autonomo=0, ia="claude")
     except Exception as e:
         with trava_claude:
             if claude_pedido.get("vez") == vez:
-                claude_pedido.update(andamento=False, erro=f"não consegui começar: {e}")
+                claude_pedido.update(andamento=False, erro=lingua.tr("pedido.nao_comecou", erro=e))
         raise
 
 
@@ -4293,7 +4320,7 @@ def _claude_lanca(prompt, c, dt, vez, chave, conv, pasta, anexos, memoria, model
         except OSError:
             pass
         return claude_pedido_estado()
-    threading.Thread(target=_acompanha_claude, args=(proc, c, dt, chave, pasta, anexos, memoria, ia), daemon=True).start()
+    lingua.thread(_acompanha_claude, proc, c, dt, chave, pasta, anexos, memoria, ia).start()
     return claude_pedido_estado()
 
 
@@ -4308,8 +4335,9 @@ def _linha_do_erro(txt):
 
 def _evento_ferramenta(nome, ent):
     arq = Path(str(ent.get("file_path") or ent.get("path") or ent.get("pattern") or "")).name
-    return {"Read": f"lendo {arq}", "Edit": f"editando {arq}", "Write": f"escrevendo {arq}", "Glob": "procurando arquivos",
-            "Grep": f"procurando “{ent.get('pattern', '')}”"}.get(nome, nome)
+    chave = {"Read": "pedido.ev_lendo", "Edit": "pedido.ev_editando", "Write": "pedido.ev_escrevendo", "Glob": "pedido.ev_procurando_arquivos",
+             "Grep": "pedido.ev_procurando"}.get(nome)
+    return lingua.tr(chave, arq=arq, padrao=ent.get('pattern', '')) if chave else nome
 
 
 def _acompanha_claude(proc, antes, dt, chave, pasta, anexos, memoria="", ia="claude"):
@@ -4338,7 +4366,7 @@ def _acompanha_claude(proc, antes, dt, chave, pasta, anexos, memoria="", ia="cla
                     elif t == "ferramenta":
                         claude_pedido["eventos"] = (claude_pedido["eventos"] + [_evento_ferramenta(e.get("nome"), e.get("entrada") or {})])[-40:]
                     elif t == "recusa":
-                        claude_pedido["eventos"] = (claude_pedido["eventos"] + [f"recusado: {e['msg'][:160]}"])[-40:]
+                        claude_pedido["eventos"] = (claude_pedido["eventos"] + [lingua.tr("pedido.ev_recusado", msg=e['msg'][:160])])[-40:]
                     elif t == "resultado":
                         resultado = e
                         if e.get("modelo"):                  # o que respondeu de fato (o Gemini começa no "auto")
@@ -4353,18 +4381,18 @@ def _acompanha_claude(proc, antes, dt, chave, pasta, anexos, memoria="", ia="cla
         prazo.cancel()
     proposta, erro = None, None
     if resultado is None:
-        erro = a.erro_conhecido(erro_txt) or _linha_do_erro(erro_txt) or f"o {a.nome} parou (saída {proc.returncode})"
+        erro = a.erro_conhecido(erro_txt) or _linha_do_erro(erro_txt) or lingua.tr("pedido.ia_parou", ia=a.nome, saida=proc.returncode)
     elif not resultado["erro"] and not resultado.get("texto") and a.erro_conhecido(erro_txt):
         erro = a.erro_conhecido(erro_txt)               # terminou "bem" mas sem resposta: o agy parou numa permissão negada
     else:
         if resultado["erro"]:                          # erros de execução vêm em "erros" (sem texto); erro da API, no texto
             erro = str(resultado.get("texto") or "; ".join(resultado.get("erros") or []) or resultado.get("subtipo") or "erro")[:600]
             if resultado.get("limite_passos"):
-                erro = f"o {a.nome} chegou ao limite de {CLAUDE_PASSOS} passos neste pedido (a proposta parcial, se houver, está abaixo)"
+                erro = lingua.tr("pedido.limite_passos", ia=a.nome, n=CLAUDE_PASSOS)
         try:
             proposta = claude_proposta(pasta, antes, dt, chave, memoria)
         except Exception as e:                         # a proposta é só leitura de arquivos e teste: não derruba o servidor
-            proposta = {"erro": f"não consegui montar a proposta: {e}"}
+            proposta = {"erro": lingua.tr("pedido.proposta_falhou", erro=e)}
         if resultado["erro"] and not proposta.get("mudou"):
             proposta = None                            # deu erro sem mexer em nada: não há proposta (com mudança parcial, há)
     if erro and a.erro_passageiro(erro):                 # passageiro: outro processo renovava o login — tenta de novo, uma vez
@@ -4372,8 +4400,8 @@ def _acompanha_claude(proc, antes, dt, chave, pasta, anexos, memoria="", ia="cla
             lanc = claude_pedido.get("lancado")
             if claude_pedido.get("proc") is proc and lanc and not claude_pedido.get("tentou_de_novo"):
                 claude_pedido.update(proc=None, tentou_de_novo=True,
-                                     eventos=(claude_pedido.get("eventos") or []) + ["o login estava sendo renovado por outro processo: tentando de novo"])
-                threading.Thread(target=lambda: (time.sleep(5), _claude_lanca(*lanc)), daemon=True).start()
+                                     eventos=(claude_pedido.get("eventos") or []) + [lingua.tr("pedido.ev_login_renovando")])
+                lingua.thread(lambda: (time.sleep(5), _claude_lanca(*lanc))).start()
                 return
     uso = (resultado or {}).get("uso") or {}
     gasto = None if resultado is None else {
@@ -4395,31 +4423,31 @@ def _acompanha_claude(proc, antes, dt, chave, pasta, anexos, memoria="", ia="cla
         segue = bool(auto) and bool(resultado) and bool(resultado.get("limite_passos")) and auto.get("seguidas", 0) < 3
         if auto and not segue:
             if erro or not proposta:
-                motivo_fim = f"parou: o {a.nome} não deixou uma versão para simular" if not erro else None
+                motivo_fim = lingua.tr("pedido.fim_sem_versao", ia=a.nome) if not erro else None
             elif "[PRONTO]" in (resposta or ""):
-                motivo_fim = f"o {a.nome} disse [PRONTO]"
+                motivo_fim = lingua.tr("pedido.fim_pronto", ia=a.nome)
             elif not proposta.get("mudou"):
-                motivo_fim = f"o {a.nome} não mudou nada nesta volta"
+                motivo_fim = lingua.tr("pedido.fim_sem_mudanca", ia=a.nome)
             elif proposta.get("erro") or proposta.get("erros"):
-                motivo_fim = "a versão tem erros: não dá para simular (veja a proposta)"
+                motivo_fim = lingua.tr("pedido.fim_versao_com_erros")
             elif auto["feitas"] >= auto["max"]:
-                motivo_fim = f"as {auto['max']} rodadas acabaram"
+                motivo_fim = lingua.tr("pedido.fim_rodadas_acabaram", n=auto['max'])
             if motivo_fim:
                 auto["fim"] = motivo_fim
         continua = bool(auto) and not motivo_fim and (segue or not erro)
         if continua and segue:                               # chegou ao limite de passos: continua de onde parou (sem simular)
             auto["seguidas"] = auto.get("seguidas", 0) + 1
-            claude_pedido["eventos"] = (claude_pedido["eventos"] + [f"chegou ao limite de {CLAUDE_PASSOS} passos: continua de onde parou"])[-40:]
+            claude_pedido["eventos"] = (claude_pedido["eventos"] + [lingua.tr("pedido.ev_limite_continua", n=CLAUDE_PASSOS)])[-40:]
         elif continua:
             auto["feitas"] += 1
             auto["seguidas"] = 0
-            claude_pedido["eventos"] = (claude_pedido["eventos"] + [f"simulando a proposta (rodada {auto['feitas']} de {auto['max']})"])[-40:]
+            claude_pedido["eventos"] = (claude_pedido["eventos"] + [lingua.tr("pedido.ev_simulando", k=auto['feitas'], n=auto['max'])])[-40:]
         claude_pedido.update(proc=None, andamento=continua, resposta=resposta, proposta=proposta, erro=erro, gasto=gasto,
                              negados=[f"{d.get('nome')} {json.dumps(d.get('entrada') or {}, ensure_ascii=False)[:120]}"
                                       for d in (resultado or {}).get("negados") or []][:10])
         vez = claude_pedido.get("vez")
     if continua:
-        threading.Thread(target=_claude_continua if segue else _claude_volta_autonoma, args=(antes, dt, chave, pasta, memoria, vez), daemon=True).start()
+        lingua.thread(_claude_continua if segue else _claude_volta_autonoma, antes, dt, chave, pasta, memoria, vez).start()
     try:
         claude_uso(forca=True)                               # o uso depois do pedido
     except Exception:
@@ -4433,7 +4461,7 @@ def _claude_continua(antes, dt, chave, pasta, memoria, vez):
         if claude_pedido.get("vez") != vez or not claude_pedido.get("andamento"):
             return
         auto = dict(claude_pedido.get("auto") or {})
-        claude_pedido.update(pedido="(modo autônomo: continua depois do limite de passos)", fala="", resposta=None)
+        claude_pedido.update(pedido=lingua.tr("pedido.auto_continua"), fala="", resposta=None)
     prompt = (f"(MaiSim, modo autônomo) A chamada anterior chegou ao limite de {CLAUDE_PASSOS} passos. Os arquivos da pasta estão "
               "como você deixou. Continue de onde parou e termine a versão; quando você terminar, o MaiSim a simula e te devolve o resumo. "
               + LEMBRETE_FORMATO)
@@ -4443,7 +4471,7 @@ def _claude_continua(antes, dt, chave, pasta, memoria, vez):
     except Exception as e:
         with trava_claude:
             if claude_pedido.get("vez") == vez:
-                claude_pedido.update(andamento=False, erro=f"modo autônomo parou: não consegui chamar a IA de novo ({e})")
+                claude_pedido.update(andamento=False, erro=lingua.tr("pedido.auto_parou_chamar", erro=e))
 
 
 def _claude_volta_autonoma(antes, dt, chave, pasta, memoria, vez):
@@ -4476,7 +4504,7 @@ def _claude_volta_autonoma(antes, dt, chave, pasta, memoria, vez):
     try:
         rodar({"dt": auto["dt"], "tfim": auto["tfim"], "nome": nome, "amostras": 2500}, ctl_de_fora=c)
     except Exception as e:
-        fim(f"modo autônomo parou: a rodada {i} não começou ({e})", erro=f"a rodada {i} não começou: {e}")
+        fim(lingua.tr("pedido.auto_parou_rodada", i=i, erro=e), erro=lingua.tr("pedido.rodada_nao_comecou", i=i, erro=e))
         return
     while rodada.get("estado") in ("preparando", "rodando", "pausada"):
         if not vivo() and rodada.get("nome") == nome:    # parado pelo usuário: para a rodada também
@@ -4490,8 +4518,9 @@ def _claude_volta_autonoma(antes, dt, chave, pasta, memoria, vez):
     with trava_claude:
         if claude_pedido.get("vez") != vez:
             return
-        claude_pedido["eventos"] = (claude_pedido["eventos"] + [f"rodada {i}: {est}" + (f" ({rodada.get('erro')})" if rodada.get("erro") else "")])[-40:]
-        claude_pedido.update(pedido=f"(modo autônomo: resultado da rodada {i} de {auto['max']})", fala="", resposta=None)
+        claude_pedido["eventos"] = (claude_pedido["eventos"] + [lingua.tr("pedido.ev_rodada", i=i, estado=est)
+                                                                 + (f" ({rodada.get('erro')})" if rodada.get("erro") else "")])[-40:]
+        claude_pedido.update(pedido=lingua.tr("pedido.auto_resultado", i=i, n=auto['max']), fala="", resposta=None)
     estado_txt = est + (f" — erro: {rodada.get('erro')}" if rodada.get("erro") else "")
     prompt = (f"(MaiSim, modo autônomo) A rodada {i} de {auto['max']} da sua versão terminou: {estado_txt}. "
               + ("O resumo está em ULTIMA_RODADA.md e as séries em ULTIMA_RODADA/<canal>.csv. " if tem else "Não há resumo desta rodada. ")
@@ -4502,7 +4531,7 @@ def _claude_volta_autonoma(antes, dt, chave, pasta, memoria, vez):
     try:
         _claude_lanca(prompt, antes, dt, vez, chave, conv, pasta, [], memoria, auto.get("modelo", ""), auto.get("esforco", ""), auto.get("ia", "claude"))
     except Exception as e:
-        fim(f"modo autônomo parou: não consegui chamar a IA de novo ({e})", erro=str(e))
+        fim(lingua.tr("pedido.auto_parou_chamar", erro=e), erro=str(e))
 
 
 def chaves_devolvidas(codigo, modulos=()):
@@ -4553,15 +4582,15 @@ def claude_proposta(pasta, antes, dt, chave=None, memoria=""):
         pars = json.loads((pasta / "parametros.json").read_text())
         acs = json.loads((pasta / "acionamentos.json").read_text())
         if not isinstance(pars, list) or not isinstance(acs, list):
-            raise ValueError("parametros.json e acionamentos.json são listas")
+            raise ValueError(lingua.tr("pedido.json_listas"))
         try:                                             # os controladores (Marcelo, 19/10: "3 DSPs… uma trava no Claude")
             cj = json.loads((pasta / "controladores.json").read_text())
         except OSError:
             cj = {"controladores": ctls_antes, "rede": rede_antes}
         if not isinstance(cj, dict) or not isinstance(cj.get("controladores", []), list) or not isinstance(cj.get("rede", {}), dict):
-            raise ValueError('controladores.json é {"controladores": [...], "rede": {"latencia": s}}')
+            raise ValueError(lingua.tr("pedido.json_controladores"))
     except (OSError, ValueError) as e:
-        out.update(erro=f"a IA deixou um arquivo inválido: {e}", parametros=antes["parametros"], acionamentos=out["acionamentos_antes"],
+        out.update(erro=lingua.tr("pedido.arquivo_invalido", erro=e), parametros=antes["parametros"], acionamentos=out["acionamentos_antes"],
                    controladores=ctls_antes, rede=rede_antes)
         return out
     ctls = cj.get("controladores", [])
@@ -4572,7 +4601,7 @@ def claude_proposta(pasta, antes, dt, chave=None, memoria=""):
         c2 = confere_controle(dict(antes, codigo=cod, parametros=pars, acionamentos=acs, arquivos=arqs, controladores=ctls,
                                    rede=cj.get("rede", rede_antes)))
     except (ErroMotor, ValueError, TypeError) as e:
-        out.update(erro=f"proposta inválida: {e}", parametros=pars, acionamentos=acs, controladores=ctls_antes, rede=rede_antes)
+        out.update(erro=lingua.tr("pedido.proposta_invalida", erro=e), parametros=pars, acionamentos=acs, controladores=ctls_antes, rede=rede_antes)
         return out
     muda_ctl = c2.get("controladores", []) != ctls_antes or (c2.get("rede") or {}) != rede_antes
     out.update(parametros=c2["parametros"], acionamentos=c2["acionamentos"], controladores=c2.get("controladores", []), rede=c2.get("rede") or rede_antes,
@@ -4586,7 +4615,7 @@ def claude_proposta(pasta, antes, dt, chave=None, memoria=""):
     erros += erros_m
     avisos += avisos_m
     ult = editor.get("ultimo")
-    if chave is not None and (editor.get("aberto") or "(sem arquivo)") != chave:
+    if chave is not None and (editor.get("aberto") or "(sem arquivo)") != chave:  # i18n-ok (a chave da conversa)
         ult = None                                       # outro circuito aberto no meio: medidas e atuações não são as do pedido
     atu = atuadores_disponiveis(ult) if ult else []
     if not erros and ult:                                # marca o que o código (módulos e controladores) e os controladores escrevem
@@ -4613,7 +4642,7 @@ def claude_testa(dt):
     with trava_claude:
         p = dict(claude_pedido.get("proposta") or {})
         if claude_pedido.get("andamento") or not p.get("mudou"):
-            raise ErroMotor("não há proposta para testar")
+            raise ErroMotor(lingua.tr("pedido.sem_proposta"))
     c = dict(le_controle(), codigo=p["codigo"], parametros=p["parametros"], acionamentos=p["acionamentos"], atuacoes=p.get("atuacoes") or [])
     if p.get("controladores") is not None:
         c.update(controladores=p["controladores"], rede=p.get("rede") or c.get("rede"))
@@ -4726,7 +4755,7 @@ def claude_mudanca(i):
     _, conv, _ = conversa_atual()
     h = historico(conv["id"])
     if not (0 <= i < len(h)) or not h[i].get("mudanca"):
-        raise ErroMotor("não há mudança guardada para esse pedido")
+        raise ErroMotor(lingua.tr("pedido.sem_mudanca_guardada"))
     return dict(h[i]["mudanca"], pedido=h[i].get("pedido") or "", desfeita=bool(h[i].get("desfeita")))
 
 
@@ -4792,18 +4821,18 @@ class Manipulador(BaseHTTPRequestHandler):
                 arq = RAIZ / "app" / "public" / "maisim-i18n.js"
             if arq.is_file():
                 return self._resposta(200, arq.read_bytes(), TIPOS.get(arq.suffix, "application/octet-stream"))
-            return self._resposta(404, {"erro": "não achei"})
+            return self._resposta(404, {"erro": lingua.tr("servidor.nao_achei")})
         if rota in ("/claude/estado", "/claude/uso", "/claude/pedido", "/claude/memoria", "/claude/mudanca", "/claude/contextos",
                     "/claude/contexto", "/claude/contexto/exportar", "/claude/ias", "/claude/ia/uso"):
             if not pedido_local(self, False):
-                return self._resposta(403, {"erro": "só da própria máquina"})
+                return self._resposta(403, {"erro": lingua.tr("servidor.so_local")})
             if rota == "/claude/ias":                  # as IAs do MaiSim (ia/): o seletor da conversa e as contas (o estado do
                 return self._resposta(200, [{"id": a.id, "nome": a.nome, "instalado": a.instalado(), "modelos": list(a.modelos),   # login
                                              "esforcos": list(a.esforcos), "tem_login": a.tem_login, "rotulos": a.rotulos(),   # das outras IAs:
                                              **({"estado": a.estado()} if a.tem_login else {})} for a in IAS.values()])  # arquivos, rápido
             q = {k: v[0] for k, v in parse_qs(u.query).items()}
             if rota == "/claude/ia/uso":               # os limites da conta de uma outra IA (o Antigravity: o /usage dele)
-                return self._editor(lambda: ia_com_login(q.get("ia")).uso("forca" in q) or {"itens": [], "erro": "esta IA não informa os limites"})
+                return self._editor(lambda: ia_com_login(q.get("ia")).uso("forca" in q) or {"itens": [], "erro": lingua.tr("uso.ia_sem_limites")})
             if rota == "/claude/contextos":            # os contextos salvos, os usados nesta conversa e as conversas anteriores
                 return self._editor(claude_contextos)
             if rota == "/claude/contexto":             # um contexto: meta, contexto.md, conversa.md e os arquivos
@@ -4835,11 +4864,11 @@ class Manipulador(BaseHTTPRequestHandler):
             rel = parse_qs(u.query).get("arq", [""])[0]
             arq = (RAIZ / rel).resolve()
             if not modelo_ok(arq) or arq.suffix != ".ipes" or not arq.is_file():
-                return self._resposta(400, {"erro": "modelo inválido"})
+                return self._resposta(400, {"erro": lingua.tr("modelos.invalido")})
             try:
                 r = monta(arq)
             except Exception as e:                   # arquivo que o leitor não entende: dizer, não derrubar
-                return self._resposta(500, {"erro": f"não consegui ler {rel}: {e}"})
+                return self._resposta(500, {"erro": lingua.tr("modelos.nao_leu", arq=rel, erro=e)})
             r["arq"] = rel
             return self._resposta(200, r)
         if rota == "/editor/controle":
@@ -4848,7 +4877,7 @@ class Manipulador(BaseHTTPRequestHandler):
             try:                                     # o circuito, o controle e as cores, contra o arquivo aberto (situacao_gecko)
                 sit = situacao_gecko()
                 return self._resposta(200, {"pendente": sit["pendente"], "arquivo": editor["aberto"], "itens": sit["itens"],
-                                            "motivo": f"{lista_itens(sit['itens'])} sem salvar" if sit["itens"] else ""})
+                                            "motivo": lingua.tr("editor.itens_sem_salvar", itens=lista_itens(sit['itens'])) if sit["itens"] else ""})
             except Exception as e:                   # sem motor (Gecko fora do ar) ou arquivo ilegível: não dá para saber
                 return self._resposta(200, {"pendente": None, "motivo": str(e)})
         if rota == "/biblioteca":
@@ -4869,7 +4898,7 @@ class Manipulador(BaseHTTPRequestHandler):
             nome, dom, typ = q.get("nome", [""])[0], q.get("dom", [""])[0], q.get("typ", [""])[0]
             def params():
                 if not NOME.match(nome):
-                    raise ErroMotor(f"nome inválido: {nome!r}")
+                    raise ErroMotor(lingua.tr("editor.nome_invalido", nome=repr(nome)))
                 lst = []
                 for ent in MOTOR.cmd(f"PARAMS {nome}").split("||"):
                     campos = ent.split("\t")
@@ -4886,7 +4915,7 @@ class Manipulador(BaseHTTPRequestHandler):
                     lst.append(item)
                 return lst
             return self._editor(params)
-        return self._resposta(404, {"erro": "rota desconhecida"})
+        return self._resposta(404, {"erro": lingua.tr("servidor.rota_desconhecida")})
 
     def _editor(self, f):
         try:
@@ -4907,7 +4936,7 @@ class Manipulador(BaseHTTPRequestHandler):
             aviso = aviso_janelas()
             return self._resposta(409, {"erro": str(e) + (f" ({aviso})" if aviso else ""), **getattr(e, "extra", {})})
         except (ValueError, TypeError, IndexError, AttributeError, KeyError) as e:
-            return self._resposta(400, {"erro": f"pedido inválido: {e}"})
+            return self._resposta(400, {"erro": lingua.tr("servidor.pedido_invalido", erro=e)})
 
     def do_POST(self):
         """Um pedido de mudança pode chegar duas vezes: quando a conexão cai no caminho (a ponte Windows ↔ WSL), a página repete
@@ -4928,7 +4957,7 @@ class Manipulador(BaseHTTPRequestHandler):
                 feito = pedidos_feitos.get(pid)
             if isinstance(feito, tuple):
                 return self._resposta(*feito)
-            return self._resposta(409, {"erro": "o pedido repetido não terminou: confira o desenho"})
+            return self._resposta(409, {"erro": lingua.tr("servidor.repetido_nao_terminou")})
         self._pedido_id = pid
         try:
             self._do_post()
@@ -4946,14 +4975,14 @@ class Manipulador(BaseHTTPRequestHandler):
         # todo POST (guardar e testar o controle, rodar, editar…): só a página do MaiSim, na própria máquina — sem isso, uma
         # página de fora mandaria um controle.py e o testaria (código rodando aqui); o X-MaiSim, só nas rotas do Claude
         if not pedido_local(self, rota.startswith("/claude/")):
-            return self._resposta(403, {"erro": "só pela página do MaiSim, na própria máquina"})
+            return self._resposta(403, {"erro": lingua.tr("servidor.so_pagina_local")})
         try:
             corpo = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
         except ValueError:
-            return self._resposta(400, {"erro": "JSON inválido"})
+            return self._resposta(400, {"erro": lingua.tr("servidor.json_invalido")})
         if rota.startswith("/claude/"):                # o login do Claude do MaiSim
             if not pedido_local(self, True):
-                return self._resposta(403, {"erro": "só pela página do MaiSim, na própria máquina"})
+                return self._resposta(403, {"erro": lingua.tr("servidor.so_pagina_local")})
             acoes = {"/claude/login": claude_login_inicia, "/claude/codigo": lambda: claude_login_codigo(corpo.get("codigo", "")),
                      "/claude/cancelar": lambda: (claude_login_cancela(), claude_estado())[1], "/claude/sair": claude_sai,
                      # as contas das outras IAs (o Gemini): {"ia": id}
@@ -4983,7 +5012,7 @@ class Manipulador(BaseHTTPRequestHandler):
                      "/claude/contexto/resumo_ia": lambda: claude_contexto_resumo_ia(corpo.get("id", ""), corpo.get("modelo", ""), corpo.get("esforco", ""),
                                                                                      corpo.get("ia", "claude"))}
             if rota not in acoes:
-                return self._resposta(404, {"erro": "não achei"})
+                return self._resposta(404, {"erro": lingua.tr("servidor.nao_achei")})
             return self._editor(acoes[rota])
         # simulando, nada muda o circuito nem o que vai para o scope (22/10: a ponta, o "fora", a cor e apagar arquivo escapavam)
         if rota in ("/editor/abrir", "/editor/cmd", "/editor/cmds", "/editor/novo", "/editor/mede", "/editor/salvar", "/editor/fio", "/editor/desfazer",
@@ -4999,28 +5028,27 @@ class Manipulador(BaseHTTPRequestHandler):
             def abrir():
                 arq = (RAIZ / str(corpo.get("arq", ""))).resolve()
                 if not modelo_ok(arq) or arq.suffix != ".ipes" or not arq.is_file():
-                    raise ErroMotor("modelo inválido")
+                    raise ErroMotor(lingua.tr("modelos.invalido"))
                 modo = str(corpo.get("modo") or ("descartar" if corpo.get("descartar") else ""))
                 if modo not in ("", "descartar", "manter", "salvar"):
-                    raise ErroMotor("modo: descartar, manter ou salvar")
+                    raise ErroMotor(lingua.tr("editor.abrir_modo"))
                 mesmo = bool(editor.get("aberto")) and (RAIZ / editor["aberto"]).resolve() == arq
                 if mesmo and modo in ("", "manter"):     # o mesmo arquivo: nunca reabre (só no descartar) — entrar de novo na edição
                     sit = situacao_gecko()              # não pode jogar fora nada; o controle e as cores de trabalho ficam
                     if modo == "" and sit["circuito"] and not sit["visto"]:
-                        raise ErroConflito(f"{nome_aberto()} tem, no Gecko do MaiSim, mudanças que este editor não viu (pela janela do Gecko, "
-                                           "ou de antes de o servidor reiniciar)", conflito=True, mesmo=True, aberto=editor.get("aberto"),
+                        raise ErroConflito(lingua.tr("editor.conflito_nao_visto", nome=nome_aberto()), conflito=True, mesmo=True, aberto=editor.get("aberto"),
                                            salvavel=aberto_salvavel(), itens=sit["itens"])
                     r = estado()
                     r["mantido"] = sit["pendente"]
                     return r
                 if modo == "manter":
-                    raise ErroMotor("manter as mudanças só vale para o modelo que já está aberto no Gecko")
+                    raise ErroMotor(lingua.tr("editor.manter_so_aberto"))
                 if modo == "salvar":                    # grava o modelo do Gecko no arquivo dele e então abre o pedido
                     salva_aberto()
                 elif modo == "" and not editor.get("fechado"):   # fechado: nada a perder
                     sit = situacao_gecko()
                     if sit["pendente"]:
-                        raise ErroConflito(f"{nome_aberto()} tem {lista_itens(sit['itens'])} sem salvar; abrir outro modelo descarta",
+                        raise ErroConflito(lingua.tr("editor.conflito_abrir", nome=nome_aberto(), itens=lista_itens(sit['itens'])),
                                            conflito=True, mesmo=False, aberto=editor.get("aberto"), salvavel=aberto_salvavel(), itens=sit["itens"])
                 abre(arq)
                 marca_aberto(relativo(arq))
@@ -5053,20 +5081,20 @@ class Manipulador(BaseHTTPRequestHandler):
             fios = corpo.get("fios") or []
             if not all(NOME.match(n) for n in nomes) or not isinstance(fios, list) or len(nomes) + len(fios) > 2000 or \
                     not all(isinstance(w, list) and all(isinstance(p, list) and len(p) == 2 for p in w) for w in fios):
-                return self._resposta(400, {"erro": "seleção inválida"})
+                return self._resposta(400, {"erro": lingua.tr("editor.selecao_invalida")})
             folha, acao = str(corpo.get("folha", "0")), ("copiar" if rota == "/editor/copiar" else str(corpo.get("acao", "")))
             if acao == "copiar":
                 return self._editor(lambda: copia_grupo(nomes, fios, folha))
             if acao == "mover":
                 return self._editor(com_desfazer(lambda: move_grupo(nomes, fios, int(corpo.get("dx", 0)), int(corpo.get("dy", 0)), folha),
-                                                 corpo.get("descr") or "grupo movido", manter_se_falhar=True))
+                                                 corpo.get("descr") or lingua.tr("editor.desfazer_grupo_movido"), manter_se_falhar=True))
             if acao == "apagar":
-                return self._editor(com_desfazer(lambda: apaga_grupo(nomes, fios, folha), corpo.get("descr") or "grupo apagado", manter_se_falhar=True))
-            return self._resposta(400, {"erro": "ação do grupo: copiar, mover ou apagar"})
+                return self._editor(com_desfazer(lambda: apaga_grupo(nomes, fios, folha), corpo.get("descr") or lingua.tr("editor.desfazer_grupo_apagado"), manter_se_falhar=True))
+            return self._resposta(400, {"erro": lingua.tr("editor.grupo_acao")})
         if rota == "/editor/colar":                     # {x, y, folha}: insere a cópia guardada (o canto de cima à esquerda em x, y)
             alvos_c = corpo.get("folhas") if isinstance(corpo.get("folhas"), list) else None     # vários SMs iguais de uma vez
             return self._editor(com_desfazer(lambda: cola_grupo(int(corpo.get("x", 0)), int(corpo.get("y", 0)), str(corpo.get("folha", "0")), alvos_c),
-                                             corpo.get("descr") or "colado", manter_se_falhar=True))
+                                             corpo.get("descr") or lingua.tr("editor.desfazer_colado"), manter_se_falhar=True))
         if rota == "/editor/biblioteca":                # acao: salvar (nome, folha, nome_lib, sobrescrever) | inserir (nome_lib, x, y, folha)
             acao = str(corpo.get("acao", ""))
             if acao == "salvar":
@@ -5074,14 +5102,14 @@ class Manipulador(BaseHTTPRequestHandler):
                                                       bool(corpo.get("sobrescrever"))))
             if acao == "inserir":
                 return self._editor(com_desfazer(lambda: insere_sub(str(corpo.get("nome_lib", "")), int(corpo.get("x", 0)), int(corpo.get("y", 0)),
-                                                                    str(corpo.get("folha", "0"))), corpo.get("descr") or "subcircuito da biblioteca",
+                                                                    str(corpo.get("folha", "0"))), corpo.get("descr") or lingua.tr("editor.desfazer_sub_biblioteca"),
                                                  manter_se_falhar=True))
-            return self._resposta(400, {"erro": "ação: salvar ou inserir"})
+            return self._resposta(400, {"erro": lingua.tr("biblioteca.acao")})
         if rota == "/editor/ponta":                   # {canal, sinal "+"|"-", componente}: em que componente fica a ponta (vazio: automático)
             def ponta():
                 canal, sinal, comp = str(corpo.get("canal", "")), str(corpo.get("sinal", "")), str(corpo.get("componente", ""))
                 if not re.match(r"^[A-Za-z0-9_]{1,80}$", canal) or sinal not in ("+", "-") or (comp and not NOME.match(comp)):
-                    raise ErroMotor("ponta: canal, sinal (+ ou -) e o componente")
+                    raise ErroMotor(lingua.tr("editor.ponta_invalida"))
                 with trava_aparencia:
                     a = le_aparencia()
                     p = a["pontas"].setdefault(canal, {})
@@ -5096,7 +5124,7 @@ class Manipulador(BaseHTTPRequestHandler):
             def fora():
                 uid = str(corpo.get("uid", ""))
                 if not re.match(r"^-?\d+$", uid):
-                    raise ErroMotor("fora: o identificador do componente")
+                    raise ErroMotor(lingua.tr("editor.fora_invalido"))
                 with trava_aparencia:
                     a = le_aparencia()
                     a["fora"] = sorted(set(a["fora"]) - {uid} | ({uid} if corpo.get("fora") else set()))
@@ -5107,7 +5135,7 @@ class Manipulador(BaseHTTPRequestHandler):
             def cor():
                 canal, c = str(corpo.get("canal", "")), str(corpo.get("cor", ""))
                 if not re.match(r"^[A-Za-z0-9_]{1,80}$", canal) or (c and not COR.match(c)):
-                    raise ErroMotor("cor: canal (letras, números e _) e #rrggbb")
+                    raise ErroMotor(lingua.tr("editor.cor_invalida"))
                 with trava_aparencia:
                     cs = le_cores()
                     if c:
@@ -5127,14 +5155,14 @@ class Manipulador(BaseHTTPRequestHandler):
             except ErroMotor as e:
                 return self._resposta(409, {"erro": str(e)})
             except (ValueError, TypeError) as e:
-                return self._resposta(400, {"erro": f"pedido inválido: {e}"})
+                return self._resposta(400, {"erro": lingua.tr("servidor.pedido_invalido", erro=e)})
         if rota == "/editor/controle/renomeia":        # pares [[de, para], …]: o código (entre aspas), os cartões, as atuações e os acionamentos
             if rodada.get("estado") in RODANDO:
-                return self._resposta(409, {"erro": "a simulação está rodando: o controle fica travado até ela parar"})
+                return self._resposta(409, {"erro": lingua.tr("controle.travado_rodando")})
             def renomeia():
                 pares = corpo.get("pares")
                 if not isinstance(pares, list) or not all(isinstance(q, list) and len(q) == 2 and all(isinstance(x, str) and NOME_TROCA.match(x) for x in q) for q in pares):
-                    raise ErroMotor("pares inválidos: [[nome de antes, nome novo], …]")
+                    raise ErroMotor(lingua.tr("controle.pares_invalidos"))
                 c, n = renomeia_no_controle(le_controle(), pares)
                 c = confere_controle(c)
                 grava_controle(c)
@@ -5144,9 +5172,9 @@ class Manipulador(BaseHTTPRequestHandler):
             return self._editor(renomeia)
         if rota == "/editor/controle":                 # guarda a configuração do controle (sempre; erros de sintaxe voltam)
             if editor.get("fechado"):                  # fechado: nada a controlar (e o abrir/novo de depois não perguntaria)
-                return self._resposta(409, {"erro": "nenhum circuito aberto: abra um ou comece um novo"})
+                return self._resposta(409, {"erro": lingua.tr("editor.nenhum_aberto")})
             if rodada.get("estado") in RODANDO:
-                return self._resposta(409, {"erro": "a simulação está rodando: o controle fica travado até ela parar"})
+                return self._resposta(409, {"erro": lingua.tr("controle.travado_rodando")})
             def guarda():
                 c = segue_codigo(confere_controle(corpo.get("controle") or {}), editor.get("ultimo"))
                 grava_controle(c)
@@ -5156,15 +5184,15 @@ class Manipulador(BaseHTTPRequestHandler):
             def fonte():
                 nome = str(corpo.get("nome", ""))
                 if not NOME.match(nome):
-                    raise ErroMotor(f"nome inválido: {nome!r}")
+                    raise ErroMotor(lingua.tr("editor.nome_invalido", nome=repr(nome)))
                 return fonte_sinal(nome, str(corpo.get("sinal", "")).strip(), corpo.get("folhas"))
-            return self._editor(com_desfazer(fonte, corpo.get("descr") or "fonte controlada por sinal", manter_se_falhar=True))
+            return self._editor(com_desfazer(fonte, corpo.get("descr") or lingua.tr("editor.desfazer_fonte_sinal"), manter_se_falhar=True))
         if rota == "/editor/apagar_arquivo":
             return self._editor(lambda: apaga_arquivo(corpo.get("arq", "")))
         if rota == "/editor/desfazer":
             def desfazer():
                 if not pilha:
-                    raise ErroMotor("nada para desfazer")
+                    raise ErroMotor(lingua.tr("editor.nada_para_desfazer"))
                 arq, descr = pilha.pop()
                 abre(arq)
                 r = estado()
@@ -5176,7 +5204,7 @@ class Manipulador(BaseHTTPRequestHandler):
             def cmds():
                 lst = corpo.get("cmds")
                 if not isinstance(lst, list) or not 1 <= len(lst) <= 400:
-                    raise ErroMotor("lote: de 1 a 400 pedidos")
+                    raise ErroMotor(lingua.tr("editor.lote_tamanho"))
                 ultimo0 = editor.get("ultimo")              # o estado de antes (a ponta e a cor seguem o medidor renomeado)
                 pedidos = [(str(c.get("op", "")), normaliza(str(c.get("op", "")), list(c.get("args", [])))) for c in lst]
                 for op, a in pedidos:                     # confere todos antes
@@ -5195,7 +5223,7 @@ class Manipulador(BaseHTTPRequestHandler):
                     try:
                         planos.append(executa(op, a, antes))
                     except ErroMotor as e:
-                        raise ErroMotor(f"aplicado em {k} de {len(pedidos)}; falhou em {str(a[0]) if a else op}: {e}")
+                        raise ErroMotor(lingua.tr("editor.lote_falhou", k=k, n=len(pedidos), onde=str(a[0]) if a else op, erro=e))
                     if op == "SETP" and str(a[1]) in ("blockSizeX", "blockSizeY") and k + 1 < len(pedidos):
                         antes = estado()                  # o bloco mudou (e o arquivo foi reaberto): o próximo confere com o novo
                 r = estado()
@@ -5204,7 +5232,7 @@ class Manipulador(BaseHTTPRequestHandler):
                 if planos and planos[0]:
                     r["terminal"] = confere_terminal(r, planos[0])
                 return r
-            return self._editor(com_desfazer(cmds, corpo.get("descr") or "lote", manter_se_falhar=True))   # parte pode ter sido aplicada
+            return self._editor(com_desfazer(cmds, corpo.get("descr") or lingua.tr("editor.desfazer_lote"), manter_se_falhar=True))   # parte pode ter sido aplicada
         if rota in ("/editor/novo", "/editor/fechar"):
             fechar = rota == "/editor/fechar"
             def novo():                                # modo: (nada) | descartar | salvar — como no abrir
@@ -5214,8 +5242,8 @@ class Manipulador(BaseHTTPRequestHandler):
                 elif modo != "descartar" and not editor.get("fechado"):
                     sit = situacao_gecko()
                     if sit["pendente"]:
-                        raise ErroConflito(f"{nome_aberto()} tem {lista_itens(sit['itens'])} sem salvar; "
-                                           f"{'fechar' if fechar else 'começar um circuito novo'} descarta",
+                        raise ErroConflito(lingua.tr("editor.conflito_fechar" if fechar else "editor.conflito_novo", nome=nome_aberto(),
+                                                     itens=lista_itens(sit['itens'])),
                                            conflito=True, mesmo=False, novo=True, aberto=editor.get("aberto"), salvavel=aberto_salvavel(),
                                            itens=sit["itens"])
                 MOTOR.cmd("CLEAR")
@@ -5224,28 +5252,28 @@ class Manipulador(BaseHTTPRequestHandler):
                 marca_fechado(fechar)
                 if fechar:
                     esquece(tudo=True)               # fechado não se desfaz (o circuito está no arquivo, se foi salvo); as cópias saem do disco
-                claude_esquece("(sem arquivo)")      # folha nova: conversa nova com o Claude
+                claude_esquece("(sem arquivo)")      # folha nova: conversa nova com o Claude  # i18n-ok (a chave da conversa)
                 esquece_vistas("")                   # e sem o que foi nas mensagens da folha sem arquivo de antes
                 grava_controle(controle_padrao())
                 grava_aparencia({})
                 r = estado()
                 marca_base()
                 return r
-            return self._editor(novo if fechar else com_desfazer(novo, "folha em branco"))
+            return self._editor(novo if fechar else com_desfazer(novo, lingua.tr("editor.desfazer_folha_em_branco")))
         if rota == "/editor/mede":
             def mede():
                 nome, tipo = str(corpo.get("nome", "")), str(corpo.get("tipo", ""))
                 if not NOME.match(nome):
-                    raise ErroMotor(f"nome inválido: {nome!r}")
+                    raise ErroMotor(lingua.tr("editor.nome_invalido", nome=repr(nome)))
                 if tipo == "V":
                     n1, n2 = str(corpo.get("no1", "")).strip(), str(corpo.get("no2", "")).strip()
                     if not (n1 and ROTULO.match(n1) and ROTULO.match(n2)):
-                        raise ErroMotor("diga os nós: rótulos sem espaço")
+                        raise ErroMotor(lingua.tr("editor.mede_nos"))
                     return acopla(nome, [n1, n2 or "NIX_NIX_NIX", "0"], folhas=corpo.get("folhas"))
                 if tipo == "I":
                     comp = str(corpo.get("componente", ""))
                     if not NOME.match(comp):
-                        raise ErroMotor(f"componente inválido: {comp!r}")
+                        raise ErroMotor(lingua.tr("editor.componente_invalido", comp=repr(comp)))
                     return acopla(nome, [comp, "NIX_NIX_NIX", "0"], ref=comp, folhas=corpo.get("folhas"))
                 if tipo == "G":                          # GATE: a chave que ele comanda (o mesmo acoplamento do amperímetro)
                     comp = str(corpo.get("componente", ""))
@@ -5253,29 +5281,29 @@ class Manipulador(BaseHTTPRequestHandler):
                     tipos = {e["tipo"] for f in (corpo.get("folhas") or ["0"]) for e in ult["folhas"].get(str(f), {"elementos": []})["elementos"]
                              if e["nome"] == comp}
                     if not NOME.match(comp) or (tipos and not tipos & CHAVES):
-                        raise ErroMotor(f"{comp!r} não é uma chave (ideal, IGBT, MOSFET ou tiristor)")
+                        raise ErroMotor(lingua.tr("editor.nao_e_chave", comp=repr(comp)))
                     return acopla(nome, [comp, "NIX_NIX_NIX", "0"], ref=comp, folhas=corpo.get("folhas"))
-                raise ErroMotor("tipo: V, I ou G")
-            return self._editor(com_desfazer(mede, corpo.get("descr") or "medidor", manter_se_falhar=True))
+                raise ErroMotor(lingua.tr("editor.mede_tipo"))
+            return self._editor(com_desfazer(mede, corpo.get("descr") or lingua.tr("editor.desfazer_medidor"), manter_se_falhar=True))
         if rota == "/editor/variavel":                 # acao: nova | apaga | liga | desliga (ver variavel())
-            return self._editor(com_desfazer(lambda: variavel(corpo), corpo.get("descr") or "variável global", manter_se_falhar=True))
+            return self._editor(com_desfazer(lambda: variavel(corpo), corpo.get("descr") or lingua.tr("editor.desfazer_variavel"), manter_se_falhar=True))
         if rota == "/editor/fio":                      # acao: novo (cantos, dom, rotulo) | apagar (cantos) | rotulo (cantos, rotulo)
             def fio():
                 cantos, acao = corpo.get("cantos") or [], str(corpo.get("acao", "novo"))
                 if not isinstance(cantos, list) or not all(isinstance(c, list) and len(c) == 2 for c in cantos) or len(cantos) < 2:
-                    raise ErroMotor("cantos da conexão: [[x, y], …] com dois ou mais")
+                    raise ErroMotor(lingua.tr("editor.cantos_invalidos"))
                 folhas = corpo.get("folhas")
                 if folhas is not None and not isinstance(folhas, list):
-                    raise ErroMotor("folhas: lista")
+                    raise ErroMotor(lingua.tr("editor.folhas_lista"))
                 if acao == "novo":
                     return fio_novo(cantos, str(corpo.get("dom", "LK")), str(corpo.get("rotulo", "")).strip(), folhas)
                 if acao in ("apagar", "rotulo"):
                     return fio_muda(cantos, apagar=acao == "apagar", rotulo=str(corpo.get("rotulo", "")).strip(), folhas=folhas)
-                raise ErroMotor("ação da conexão: novo, apagar ou rotulo")
-            return self._editor(com_desfazer(fio, corpo.get("descr") or "conexão", manter_se_falhar=True))
+                raise ErroMotor(lingua.tr("editor.fio_acao"))
+            return self._editor(com_desfazer(fio, corpo.get("descr") or lingua.tr("editor.desfazer_conexao"), manter_se_falhar=True))
         if rota == "/editor/rodar":
             if editor.get("fechado"):
-                return self._resposta(409, {"erro": "nenhum circuito aberto: abra um ou comece um novo"})
+                return self._resposta(409, {"erro": lingua.tr("editor.nenhum_aberto")})
             return self._editor(lambda: rodar(corpo))
         if rota == "/scope/padrao":                    # {modelo, layout}: guardar como o padrão do scope do circuito
             return self._editor(lambda: scope_padrao_grava(corpo.get("modelo"), corpo.get("layout")))
@@ -5284,28 +5312,28 @@ class Manipulador(BaseHTTPRequestHandler):
         if rota in ("/editor/pausar", "/editor/continuar", "/editor/parar"):
             def muda():
                 if rodada.get("estado") not in ("rodando", "pausada"):
-                    raise ErroMotor("não há simulação rodando")
+                    raise ErroMotor(lingua.tr("rodada.nenhuma_rodando"))
                 {"/editor/pausar": controle_rodada["pausa"].set, "/editor/continuar": controle_rodada["pausa"].clear,
                  "/editor/parar": controle_rodada["parar"].set}[rota]()
                 return dict(rodada)
             return self._editor(muda)
         if rota == "/editor/salvar" and editor.get("fechado"):   # fechado: não há o que salvar (gravaria um arquivo vazio)
-            return self._resposta(409, {"erro": "nenhum circuito aberto: abra um ou comece um novo"})
+            return self._resposta(409, {"erro": lingua.tr("editor.nenhum_aberto")})
         if rota == "/editor/salvar":
             def salvar():
                 nome = str(corpo.get("nome", "")).strip()
                 if not re.match(r"^[A-Za-z0-9_\-]{1,60}$", nome):
-                    raise ErroMotor("nome do arquivo: letras, números, _ e -, até 60")
+                    raise ErroMotor(lingua.tr("editor.nome_arquivo"))
                 pasta = {"circuitos": SALVOS, "subcircuitos": LIB}.get(str(corpo.get("pasta", "circuitos")))   # o MaiSim só grava nessas duas
                 if pasta is None:
-                    raise ErroMotor("pasta: circuitos ou subcircuitos")
+                    raise ErroMotor(lingua.tr("editor.pasta_invalida"))
                 pasta.mkdir(parents=True, exist_ok=True)
                 dest = pasta / f"{nome}.ipes"
                 if dest.exists() and not corpo.get("sobrescrever"):
                     raise ErroMotor(lingua.tr("editor.sobrescrever", arq=relativo(dest)), codigo="confirmar",
                                     pergunta=lingua.tr("editor.sobrescrever_pergunta", arq=relativo(dest)))
                 MOTOR.cmd(f"SAVEAS {dest}")
-                antiga = editor.get("aberto") or "(sem arquivo)"
+                antiga = editor.get("aberto") or "(sem arquivo)"  # i18n-ok (a chave da conversa)
                 chave_vistas = str(editor.get("aberto") or "")
                 if chave_vistas:                          # o padrão do scope vai junto para a cópia
                     try:
@@ -5318,7 +5346,7 @@ class Manipulador(BaseHTTPRequestHandler):
                     arquivo_scope(dest).unlink(missing_ok=True)   # sem padrão na origem: o que estava no destino era de outro circuito
                 marca_aberto(str(relativo(dest)))
                 if not chave_vistas:                      # um circuito novo ganhou nome: as rodadas dele vão junto (a IA as acha)
-                    resumo_rodada.muda_modelo(RODADAS, "novo (sem arquivo)", str(relativo(dest)), editor.get("novo_desde"))
+                    resumo_rodada.muda_modelo(RODADAS, "novo (sem arquivo)", str(relativo(dest)), editor.get("novo_desde"))  # i18n-ok (marcador)
                 muda_chave_vistas(chave_vistas, str(relativo(dest)))   # o que foi nas mensagens também segue
                 claude_muda_chave(antiga, str(relativo(dest)))   # a conversa com o Claude segue o circuito
                 salva_controle_junto(dest)                # o controle e as cores dos canais vão junto, ao lado do .ipes
@@ -5328,7 +5356,7 @@ class Manipulador(BaseHTTPRequestHandler):
                 r["salvo"] = editor["aberto"]
                 return r
             return self._editor(salvar)
-        return self._resposta(404, {"erro": "rota desconhecida"})
+        return self._resposta(404, {"erro": lingua.tr("servidor.rota_desconhecida")})
 
 
 def main():
@@ -5344,7 +5372,8 @@ def main():
     for arq in (ESTADO.parent / "desfazer").glob("*.ipes"):        # a pilha é da memória: o que ficou de antes é órfão
         arq.unlink(missing_ok=True)
     print(f"maisim-simu em http://localhost:{a.porta}{PREFIXO}/", flush=True)
-    threading.Thread(target=recupera_rodada_interrompida, daemon=True).start()
+    with lingua.com(lingua.ultima()):                 # na partida não há pedido: a última língua vista
+        lingua.thread(recupera_rodada_interrompida).start()
     srv.serve_forever()
 
 
