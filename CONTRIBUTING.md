@@ -23,6 +23,8 @@
    the logs and screenshots.
 4. **Version:** the `VERSION` file ([SemVer](https://semver.org)). A PR that changes `VERSION` becomes, after the merge
    and a green full suite, the tag `vX.Y.Z` and a GitHub Release with notes generated from the PRs.
+5. **Changelog:** every PR adds one line to [`CHANGELOG.md`](CHANGELOG.md) under **Unreleased** (Added, Changed or Fixed,
+   with the PR number). The PR that bumps `VERSION` moves those lines under the new version, with the date.
 
 ## Running the tests on your machine
 
