@@ -7,6 +7,21 @@
 <meta name="theme-color" content="#6d28d9">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MaiSim · gecko</title>
+<script src="/maisim-i18n.js"></script>
+<script data-src="/maisim-i18n.js">/* reserva: sem o maisim-i18n.js (a conexão caiu), o português; tenta de novo e o de verdade assume */window.maisimI18n||(function(){var d={},o=[],h=function(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]})},f=function(k,p){var e=d[k],v=e?e.pt:k;if(v&&typeof v==="object")v=p&&p.n===1?v.one:v.other;return p?String(v).replace(/\{(\w+)\}/g,function(m,x){return x in p?(/_html$/.test(k)?h(p[x]):String(p[x])):m}):v};window.maisimI18n={reserva:true,add:function(x){for(var k in x)d[k]=x[k]},dicionario:function(){return d},tr:f,tem:function(k){return k in d},lingua:function(){return"pt"},local:function(){return"pt-BR"},muda:function(){},aoMudar:function(g){o.push(g)},ouvintes:function(){return o},aplica:function(){},data:function(x,o){return new Date(x).toLocaleString("pt-BR",o)},hora:function(x,o){return new Date(x).toLocaleTimeString("pt-BR",o||{hour:"2-digit",minute:"2-digit"})},num:function(x,o){return Number(x).toLocaleString("pt-BR",o)},escH:function(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]})}};window.tr=f;var s=document.createElement("script");s.src=document.currentScript.getAttribute("data-src");s.async=false;document.head.appendChild(s)})()</script>  <!-- português e inglês (o idioma do trilho), antes de pintar -->
+<script>
+// os textos desta página, em português e inglês (aqui mesmo: a página é servida também direto na porta da tela, sem o resto)
+maisimI18n.add({
+  "gecko.conectando": { pt: "conectando…", en: "connecting…" },
+  "gecko.conectado": { pt: "conectado", en: "connected" },
+  "gecko.sem_conexao": { pt: "sem conexão (o Gecko do MaiSim está no ar? sobe.sh) · tentando de novo…",
+    en: "no connection (is MaiSim's Gecko running? sobe.sh) · trying again…" },
+  "gecko.cred": { pt: "GeckoCIRCUITS, simulador de código aberto · tela virtual (Xvfb) pelo noVNC",
+    en: "GeckoCIRCUITS, open-source simulator · virtual display (Xvfb) through noVNC" },
+  "gecko.cheia": { pt: "tela cheia", en: "full screen" },
+  "gecko.t_cheia": { pt: "tela cheia (Esc sai)", en: "full screen (Esc exits)" },
+});
+</script>
 <style>
   :root { --barra: 34px; }
   html, body { margin:0; height:100%; background:#1b1f24; color:#e6e9ee; font-family:system-ui, -apple-system, "Segoe UI", sans-serif; overflow:hidden; }
@@ -22,9 +37,9 @@
 </style>
 </head>
 <body>
-<div id="barra"><b>maisim / gecko</b><span id="estado">conectando…</span>
-  <span class="cred">GeckoCIRCUITS, simulador de código aberto · tela virtual (Xvfb) pelo noVNC</span>
-  <button id="cheia" title="tela cheia (Esc sai)">tela cheia</button></div>
+<div id="barra"><b>maisim / gecko</b><span id="estado" data-tr-js>conectando…</span>
+  <span class="cred" data-tr="gecko.cred">GeckoCIRCUITS, simulador de código aberto · tela virtual (Xvfb) pelo noVNC</span>
+  <button id="cheia" title="tela cheia (Esc sai)" data-tr-title="gecko.t_cheia" data-tr="gecko.cheia">tela cheia</button></div>
 <div id="tela"></div>
 <script type="module">
 // a tela do Gecko pelo cliente do noVNC (núcleo do pacote do sistema, em ./novnc); websocket no mesmo caminho da página
@@ -33,13 +48,17 @@ import RFB from "./novnc/core/rfb.js";
 const est = document.getElementById("estado");
 const url = (location.protocol === "https:" ? "wss://" : "ws://") + location.host + location.pathname.replace(/[^/]*$/, "") + "websockify";
 let rfb = null;
+// o estado (o texto no idioma da página; trocar o idioma reescreve)
+const TEXTO = { "": "gecko.conectando", ok: "gecko.conectado", erro: "gecko.sem_conexao" };
+const mostra = (c) => { est.className = c; est.textContent = tr(TEXTO[c]); };
+maisimI18n.aoMudar(() => mostra(est.className));
 function conecta() {
-  est.className = ""; est.textContent = "conectando…";
+  mostra("");
   rfb = new RFB(document.getElementById("tela"), url);
   rfb.scaleViewport = true; rfb.resizeSession = false;
-  rfb.addEventListener("connect", () => { est.className = "ok"; est.textContent = "conectado"; rfb.focus(); });
+  rfb.addEventListener("connect", () => { mostra("ok"); rfb.focus(); });
   rfb.addEventListener("disconnect", () => {
-    est.className = "erro"; est.textContent = "sem conexão (o Gecko do MaiSim está no ar? sobe.sh) · tentando de novo…";
+    mostra("erro");
     setTimeout(conecta, 2500);
   });
   rfb.addEventListener("desktopname", (e) => { document.title = "MaiSim · gecko"; });

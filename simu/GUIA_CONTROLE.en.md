@@ -51,16 +51,16 @@ written by the run go back to their previous values; if the server goes down mid
 ## 3. The code: `iniciar` and `passo`
 
 ```python
-def iniciar(p, e):          # uma vez, antes da 1ª amostra
+def iniciar(p, e):          # once, before the 1st sample
     e["integral"] = 0.0
 
 
-def passo(t, m, p, e):      # a cada Ts
+def passo(t, m, p, e):      # every Ts
     erro = p["i_ref"] - m["i_L"]
     e["integral"] += erro * p["Ts"]
     u = p["Kp"] * erro + p["Ki"] * e["integral"]
-    scope("u", u)           # manda uma variável sua para o scope
-    return {"u_ctrl": u}    # atuações: {atuador: valor}
+    scope("u", u)           # sends a variable of yours to the scope
+    return {"u_ctrl": u}    # actuations: {actuator: value}
 ```
 
 * `t`: the sample time (s); the first one is t = 0.
@@ -102,10 +102,10 @@ it — in the same process and in the **same sample**, with no delay. The order 
 10 times (one PLL per phase) is just a `for`. The contract of every module:
 
 ```python
-def iniciar(p):                  # roda uma vez: devolve o estado do módulo (um dicionário seu)
+def iniciar(p):                  # runs once: returns the module's state (a dictionary of yours)
     return {}
 
-def passo(entrada, p, estado):   # a cada chamada: devolve a saída
+def passo(entrada, p, estado):   # on every call: returns the output
     return entrada
 ```
 
@@ -120,10 +120,10 @@ def iniciar(p, e):
     e["leitura"], e["pll"], e["escrita"] = leitura.iniciar(p), pll.iniciar(p), escrita.iniciar(p)
 
 def passo(t, m, p, e):
-    x = leitura.passo(m, p, e["leitura"])        # 1. ler: medidas tratadas (ganho, offset, quantização do ADC…)
-    th = pll.passo(x, p, e["pll"])                # 2. controlar: os módulos, na ordem
+    x = leitura.passo(m, p, e["leitura"])        # 1. read: processed measurements (gain, offset, ADC quantization…)
+    th = pll.passo(x, p, e["pll"])                # 2. control: the modules, in order
     u = {"u_ctrl": ...}
-    return escrita.passo(u, p, e["escrita"])     # 3. escrever: saturação, resolução do PWM… → as atuações
+    return escrita.passo(u, p, e["escrita"])     # 3. write: saturation, PWM resolution… → the actuations
 ```
 
 * **Same sample, proven:** the example's current PI written as modules (`leitura → pi → escrita`) gives the SAME result,
@@ -187,11 +187,11 @@ run on its own; a double click renames it (the controller follows); the × delet
 Example (acquisition + control, with the PI from `exemplo_controle_pi`):
 
 ```python
-# aquisicao.py — lê i_L
+# aquisicao.py — reads i_L
 def passo(t, m, p, e):
     envia("controle", {"i": m["i_L"]})
 
-# controle.py — escreve u_ctrl; não lê i_L: recebe pela rede
+# controle.py — writes u_ctrl; does not read i_L: receives it over the network
 def iniciar(p, e):
     e["integral"] = 0.0
     e["i"] = 0.0
@@ -368,18 +368,19 @@ import json, time, urllib.request
 import numpy as np
 B = "http://localhost:7101/maisim/simu/"
 def api(rota, corpo=None):
+    # the maisim-lingua cookie: the server answers in English (errors, warnings); without it, in Portuguese
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None,
-                                 headers={"Content-Type": "application/json"})
+                                 headers={"Content-Type": "application/json", "Cookie": "maisim-lingua=en"})
     return json.loads(urllib.request.urlopen(req, timeout=600).read())
 
-c = api("editor/controle")["controle"]            # a configuração atual do modelo aberto
-c["codigo"] = open("controle.py").read()           # o código novo
+c = api("editor/controle")["controle"]            # the current configuration of the open model
+c["codigo"] = open("controle.py").read()           # the new code
 api("editor/controle", {"controle": c})
 j = api("editor/rodar", {"dt": "1e-6", "tfim": "0.01", "nome": "teste", "amostras": "100000"})
 while j["estado"] in ("preparando", "rodando", "pausada"):
     time.sleep(0.5); j = api("editor/rodada")
 print(j["estado"], j.get("erro"), j.get("avisos"))
-d = np.load(j["arquivo"])                          # caminho relativo à raiz do projeto (ou absoluto)
+d = np.load(j["arquivo"])                          # path relative to the project root (or absolute)
 ```
 
 Rules for whoever touches the control, person or agent:

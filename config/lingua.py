@@ -1,6 +1,6 @@
 """O idioma de cada pedido (Marcelo, 24/10/2026: o MaiSim em português e inglês). A página manda o cookie maisim-lingua
-("pt" ou "en", copiado do localStorage pelo maisim-i18n.js); sem cookie, português (os testes de API em Python ficam como
-sempre). Os textos ficam nos catálogos de cada módulo (simu/textos.py, scope/textos_scope.py), os dois idiomas lado a lado:
+("pt" ou "en", gravado pelo maisim-i18n.js: o idioma escolhido no botão PT/EN ou, antes de escolher, o do navegador — o
+maisim-lingua-auto que vai junto é só da página); sem cookie, português (os testes de API em Python ficam como sempre). Os textos ficam nos catálogos de cada módulo (simu/textos.py, scope/textos_scope.py), os dois idiomas lado a lado:
 
     T = {"motor.nao_achei": {"pt": "não achei {ref}", "en": "could not find {ref}"},
          "rodadas.n": {"pt": {"one": "{n} rodada", "other": "{n} rodadas"}, "en": {"one": "{n} run", "other": "{n} runs"}}}

@@ -674,7 +674,7 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
     <button id="bt-baixo" title="scope embaixo (tela dividida na horizontal)" data-tr-title="simu.t_baixo"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><path d="M1.5 8.5h13"/><path d="M1.5 8.5h13V12a1.5 1.5 0 0 1-1.5 1.5H3A1.5 1.5 0 0 1 1.5 12z" fill="currentColor" fill-opacity=".35"/></svg></button>
   </div>
   <div class="grupo-bt icones" id="g-claude">
-    <button id="bt-claude" title="IA do MaiSim"><svg class="mascote" width="22" height="22" aria-hidden="true"><use href="#maisim-claude"/></svg></button>
+    <button id="bt-claude" title="IA do MaiSim" data-tr-title="ia.bt"><svg class="mascote" width="22" height="22" aria-hidden="true"><use href="#maisim-claude"/></svg></button>
   </div>
   <button id="bt-guardar" data-tr-js hidden title="guardar esta rodada: a próxima com o mesmo nome não a substitui (e a ⚙ já abre com outro nome para a próxima)" aria-label="guardar esta rodada" data-tr-aria="simu.a_guardar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg></button>
   <div id="progresso" title="simulação" data-tr-title="simu.t_progresso"><span class="sim-diodo"></span><div class="barra"><i></i></div><span class="sim-t"></span></div>
@@ -725,16 +725,16 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
         <div class="cd-rolo"><svg id="ctl-diag-svg" xmlns="http://www.w3.org/2000/svg"></svg></div>
       </div>
       <div id="ctl-tabela" hidden>
-        <div class="ct-topo"><b id="ct-titulo"></b><span class="ctl-i" id="ct-dica" tabindex="0">i</span><span class="ct-esp"></span><input id="ct-filtro" type="search" placeholder="filtrar por nome" aria-label="filtrar por nome" data-tr-aria="ctl.a_filtro">
+        <div class="ct-topo"><b id="ct-titulo"></b><span class="ctl-i" id="ct-dica" tabindex="0">i</span><span class="ct-esp"></span><input id="ct-filtro" type="search" placeholder="filtrar por nome" aria-label="filtrar por nome" data-tr-aria="ctl.a_filtro" data-tr-js>
           <button id="ctl-par-novo" class="ct-mais" data-tr="ctl.par_novo">+ parâmetro</button><button id="ctl-ac-novo" class="ct-mais" data-tr="ctl.ac_novo">+ acionamento</button><button id="ct-fecha" title="fechar a tabela (volta ao código; ou clique num arquivo)" data-tr-title="ctl.t_tab_fecha" aria-label="fechar a tabela" data-tr-aria="ctl.a_tab_fecha">✕</button></div>
         <div class="ct-rolo">
           <table class="ct" data-t="ent"><thead><tr><th data-col="nome" data-tr="ctl.col_medida">Medida <small>m["…"]</small></th><th data-col="por" class="col-ctl" data-tr="ctl.col_controlador">Controlador</th>
-            <th data-col="uso" data-tr-js title="onde o nome aparece nos arquivos (clique: abre na linha)" data-tr="ctl.col_uso">No código</th></tr></thead><tbody id="ctl-ent"></tbody></table>
+            <th data-col="uso" data-tr="ctl.col_uso">No código</th></tr></thead><tbody id="ctl-ent"></tbody></table>
           <table class="ct" data-t="par"><thead><tr><th data-col="nome" style="width:24%" data-tr="ctl.col_nome">Nome <small>p["…"]</small></th><th data-col="valor" style="width:18%" data-tr="ctl.col_valor">Valor</th><th data-col="unidade" style="width:11%" data-tr="ctl.col_unidade">Unidade</th>
-            <th data-col="uso" data-tr-js title="onde o nome aparece nos arquivos (clique: abre na linha)" data-tr="ctl.col_uso">No código</th><th class="estreita"></th></tr></thead><tbody id="ctl-par"></tbody></table>
-          <table class="ct" data-t="atu"><thead><tr><th data-col="marc" data-tr-js class="estreita" title="marcada: o código pode escrever nela (senão a rodada para)">✓</th><th data-col="nome" data-tr="ctl.col_nome">Nome <small data-tr="ctl.col_no_codigo">no código</small></th>
-            <th data-col="bloco" data-tr="ctl.col_bloco">Bloco CONST</th><th data-col="destino" data-tr="ctl.col_destino">O que comanda</th><th data-col="uso" data-tr-js title="onde o nome aparece nos arquivos (clique: abre na linha)" data-tr="ctl.col_uso">No código</th>
-            <th data-col="ac" data-tr-js data-tr="ctl.col_ac" title="acionamentos programados neste CONST (tabela Acionamentos)">Acionamentos</th></tr></thead><tbody id="ctl-atu"></tbody></table>
+            <th data-col="uso" data-tr="ctl.col_uso">No código</th><th class="estreita"></th></tr></thead><tbody id="ctl-par"></tbody></table>
+          <table class="ct" data-t="atu"><thead><tr><th data-col="marc" class="estreita">✓</th><th data-col="nome" data-tr="ctl.col_nome">Nome <small data-tr="ctl.col_no_codigo">no código</small></th>
+            <th data-col="bloco" data-tr="ctl.col_bloco">Bloco CONST</th><th data-col="destino" data-tr="ctl.col_destino">O que comanda</th><th data-col="uso" data-tr="ctl.col_uso">No código</th>
+            <th data-col="ac" data-tr="ctl.col_ac">Acionamentos</th></tr></thead><tbody id="ctl-atu"></tbody></table>
           <table class="ct" data-t="ac"><thead><tr><th data-col="t" style="width:12%">t (s)</th><th data-col="alvo" style="width:26%" data-tr="ctl.col_alvo">Alvo</th><th data-col="valor" style="width:12%" data-tr="ctl.col_valor">Valor</th>
             <th data-col="obs" data-tr="ctl.col_obs">Observação</th><th class="estreita"></th></tr></thead><tbody id="ctl-ac"></tbody></table>
         </div>

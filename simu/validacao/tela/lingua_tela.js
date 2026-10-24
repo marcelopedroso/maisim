@@ -1,17 +1,31 @@
 // o MaiSim em português e inglês (24/10/2026), pela tela (instância de teste 7200): o botão PT/EN no pé do trilho troca o
 // idioma, e as outras janelas acompanham (a do simu aberta antes, a janela à parte do scope); a escolha fica (recarregar);
 // voltar ao português devolve os mesmos textos de antes. A varredura com o pseudo-idioma (?lingua=xx: todo texto traduzido
-// aparece como ⟦…⟧) conta o que ainda escapa da tradução em cada página pronta — tem que dar zero.
+// aparece como ⟦…⟧) conta o que ainda escapa da tradução em cada página pronta (o simu com a aba Controle, uma tabela e a
+// janela da IA abertas) — tem que dar zero. A 1ª vez, sem nada escolhido, segue o navegador (e o servidor também).
 const { chromium } = require("playwright");
+const fs = require("fs"), os = require("os"), path = require("path");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
 const B = "http://localhost:7200";
 // o que não é texto do MaiSim (dados do usuário, números, nomes próprios): fora da varredura
-const DADO = [".rodada .info", "#so-circ > span", "#maisim-nav .marca", "#maisim-nav .pct", '[lang="en"]'];   // [lang=en]: inglês de propósito (o slogan)
+const DADO = [".rodada .info", "#so-circ > span", "#maisim-nav .marca", "#maisim-nav .pct", '[lang="en"]',   // [lang=en]: inglês de propósito (o slogan)
+  // o simu: o circuito (nomes, rótulos, sinais), o código, os nomes da paleta, o histórico, a conversa, o nome do arquivo
+  "#svg", "#ctl-editor", "#ctl-diag-svg", "#itens .item", "#hist li", "#cc-msgs", "#trilha", "#titulo-pagina", "#sel-modelo", "#info"];
 const LIVRE = /^[\s\d.,:;%·\-−+×…/()°ΩµkMGBVAHzs→]*$|^(MaiSim|PT|EN|OK|Scope|Layout ▾|\?)$/;   // iguais nos dois idiomas
 
-// as páginas prontas (cada PR de tradução põe a sua aqui)
-const PRONTAS = [["página inicial", "/"], ["scope", "/maisim/scope/"]];
+// o simu: o exemplo com controle aberto (um "descartar?" da instância de teste: aceita), a aba Controle, a 1ª tabela; depois a IA
+async function preparaSimu(pg) {
+  for (let k = 0; k < 40 && !(await pg.evaluate(() => typeof dados !== "undefined" && !!dados && !!dados.editor).catch(() => false)); k++) {
+    if (await pg.$(".modal .m-ok")) await pg.click(".modal .m-ok").catch(() => {}); await pg.waitForTimeout(500); }
+  if (!(await pg.evaluate(() => document.querySelector("#bt-ctl").classList.contains("ativo")))) await pg.click("#bt-ctl");
+  await pg.waitForTimeout(800);
+  await pg.click("#ctl-var-lista [data-tabela]", { timeout: 3000 }).catch(() => {}); await pg.waitForTimeout(600);
+}
+async function abreIA(pg) { await pg.click("#bt-claude", { timeout: 3000 }).catch(() => {}); await pg.waitForTimeout(1500); }
+// as páginas prontas (cada PR de tradução põe a sua aqui): [nome, endereço, [[o que abrir antes de varrer, função]…]]
+const PRONTAS = [["página inicial", "/"], ["scope", "/maisim/scope/"],
+  ["simu", "/maisim/simu/?modelo=exemplos/exemplo_controle_pi.ipes", [["a aba Controle e uma tabela", preparaSimu], ["a janela da IA", abreIA]]]];
 // a casca do simu (o HTML traduzido) e os títulos que o código troca: ida ao inglês e volta devolvem o mesmo português
 const fotoCasca = () => [...document.querySelectorAll("[data-tr],[data-tr-html],[data-tr-title],[data-tr-ph],[data-tr-aria],[data-tr-msg],#ctl-lado-bt,th[data-col]")]
   .map((e) => [e.id || e.className, e.getAttribute("title"), e.getAttribute("placeholder"), e.getAttribute("aria-label"), e.getAttribute("data-msg"), e.textContent].join("|"));
@@ -90,11 +104,14 @@ async function varre(pg) {
     await sem.close();
     // a varredura (pseudo-idioma) nas páginas prontas e no trilho: nada escapa
     const vp = await ctx.newPage();
-    for (const [nome, url] of PRONTAS) {
+    for (const [nome, url, passos] of PRONTAS) {
       await vp.goto(B + url + (url.includes("?") ? "&" : "?") + "lingua=xx"); await vp.waitForTimeout(1500);
       if (url === "/") { await vp.click("#cartao-exemplos", { timeout: 2000 }).catch(() => {}); await vp.click("#bt-todas", { timeout: 2000 }).catch(() => {}); await vp.waitForTimeout(400); }
-      const fora = await varre(vp);
-      ok(fora.length === 0, `varredura de ${nome} (em inglês, com o pseudo-idioma): ${fora.length} texto(s) fora da tradução${fora.length ? " — " + fora.slice(0, 6).join(" | ") : ""}`);
+      for (const [rotulo, f] of passos || [["", null]]) {
+        if (f) await f(vp);
+        const fora = await varre(vp);
+        ok(fora.length === 0, `varredura de ${nome}${rotulo ? " (" + rotulo + ")" : ""} (em inglês, com o pseudo-idioma): ${fora.length} texto(s) fora da tradução${fora.length ? " — " + fora.slice(0, 6).join(" | ") : ""}`);
+      }
     }
     // de volta ao português: os mesmos textos de antes
     await Promise.all([inicio.waitForNavigation(), inicio.click("#maisim-nav .lingua")]); await inicio.waitForSelector("#maisim-nav .lingua");
@@ -105,15 +122,26 @@ async function varre(pg) {
     const difs = cascaVolta.filter((x, i) => x !== cascaAntes[i]);
     ok(cascaAntes.length > 100 && cascaVolta.length === cascaAntes.length && !difs.length,
       `o simu de volta ao português: a casca igual (${cascaAntes.length} elementos${difs.length ? "; diferentes: " + difs.slice(0, 3).join(" ; ") : ""})`);
-    // a 1ª vez, sem nada escolhido: o idioma do navegador (perfis novos, fora do _lingua.js que fixa o português nos testes)
-    for (const [locale, espera] of [["en-US", "+ New circuit"], ["pt-PT", "+ Novo circuito"], ["pt-BR", "+ Novo circuito"]]) {
-      const dir = require("fs").mkdtempSync(require("path").join(require("os").tmpdir(), "maisim-lingua-"));
-      const pc = await chromium.launchPersistentContext(dir, { locale });
+    // a 1ª vez, sem nada escolhido: o idioma do navegador (perfis novos, fora do _lingua.js que fixa o português nos testes); o
+    // cookie leva a marca de detectado (maisim-lingua-auto) e o servidor responde no mesmo idioma (um erro de propósito: um
+    // arquivo do simu que não existe — sem mudar nada)
+    for (const [locale, espera, erroApi] of [["en-US", "+ New circuit", "not found"], ["pt-PT", "+ Novo circuito", "não achei"], ["pt-BR", "+ Novo circuito", "não achei"]]) {
+      let dir = null, pc = null;
       try {
-        const pg = pc.pages()[0] || await pc.newPage(); await pg.goto(B + "/"); await pg.waitForSelector("#maisim-nav .lingua");
-        const r = await pg.evaluate(() => ({ h2: document.querySelector("#cartao-novo h2").textContent, l: maisimI18n.lingua(), ck: document.cookie.match(/maisim-lingua=\w+/)?.[0] }));
-        ok(r.h2 === espera && r.ck === `maisim-lingua=${r.l}`, `a 1ª vez com o navegador em ${locale}: "${r.h2}" (${r.l}, ${r.ck})`);
-      } finally { await pc.close(); require("fs").rmSync(dir, { recursive: true, force: true }); }
+        dir = fs.mkdtempSync(path.join(os.tmpdir(), "maisim-lingua-"));
+        pc = await chromium.launchPersistentContext(dir, { locale });
+        const pg = pc.pages()[0] || await pc.newPage(); pg.on("pageerror", (e) => erros.push(`${locale}: ${e.message}`));
+        await pg.goto(B + "/"); await pg.waitForSelector("#maisim-nav .lingua");
+        const r = await pg.evaluate(async () => {
+          const api = await fetch("/maisim/simu/static/lingua_nao_existe.js").then(async (q) => ({ st: q.status, erro: (await q.json().catch(() => ({}))).erro }))
+            .catch((e) => ({ st: 0, erro: e.message }));
+          return { h2: document.querySelector("#cartao-novo h2").textContent, l: maisimI18n.lingua(), ck: document.cookie.match(/maisim-lingua=\w+/)?.[0],
+            auto: /(?:^|;\s*)maisim-lingua-auto=1\b/.test(document.cookie), api };
+        });
+        ok(r.h2 === espera && r.ck === `maisim-lingua=${r.l}` && r.auto && r.api.st === 404 && r.api.erro === erroApi,
+          `a 1ª vez com o navegador em ${locale}: "${r.h2}" (${r.l}, ${r.ck}${r.auto ? " + a marca auto" : ", SEM a marca auto"}); o servidor: ${r.api.st} "${r.api.erro}"`);
+      } catch (e) { ok(false, `a 1ª vez com o navegador em ${locale}: caiu (${e.message.split("\n")[0]})`); }
+      finally { if (pc) await pc.close().catch(() => {}); if (dir) fs.rmSync(dir, { recursive: true, force: true }); }
     }
     ok(!erros.length, `sem erros de JS ${erros.join(" ; ")}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message.split("\n")[0]}`); }
