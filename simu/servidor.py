@@ -1979,6 +1979,24 @@ def sinais_da_rodada(r, destino=None):
     return [x for x, u in zip(sinais, uids) if u not in fora]
 
 
+def sentido_gerador(r, sinais):
+    """O fator de cada sinal lido do Gecko (1 ou −1), na ordem de sinais. O Gecko mede toda corrente na convenção de
+    receptor (do terminal 1 para o 2, por dentro do componente): o amperímetro numa fonte de tensão, que tem o + no
+    terminal 1, lê −5 A quando ela entrega 5 A. O MaiSim mostra a fonte de tensão como gerador (a corrente sai pelo +, e a
+    seta do desenho também): a corrente dela chega trocada ao scope, ao Medir e ao m[...] do controle. O arquivo do Gecko
+    não muda (um bloco do próprio Gecko ligado ao amperímetro ainda vê o sinal do Gecko). A fonte de corrente empurra a
+    corrente do terminal 1 para o 2: o Gecko já a mede como gerador, sem troca."""
+    fat = []
+    for el, _ in sinais:
+        sub, _, nome = el.rpartition("#")
+        fl = next((f for k, f in r["folhas"].items() if (f.get("nome") == sub if sub else k == "0")), None)
+        els = {e["nome"]: e for e in (fl or {}).get("elementos", [])}
+        e = els.get(nome)
+        alvo = els.get(e["mede"][0]) if e and e["tipo"] == "AMP" and e.get("mede") and e["mede"][0] else None
+        fat.append(-1.0 if alvo and alvo["dom"] == "LK" and alvo["tipo"] == "U" else 1.0)
+    return fat
+
+
 def canais_por_uid(r, destino=None):
     """{identificador do medidor: canal no scope} (sinais_da_rodada, pelo identificador: sobrevive a renomear o medidor ou
     o subcircuito)."""
@@ -2875,6 +2893,9 @@ def _rodar(c, ctl_de_fora=None):
     sinais = sinais_da_rodada(r) if ctl["ativo"] else sinais_da_rodada(r, "scope")
     if not sinais:
         raise ErroMotor(lingua.tr("rodada.sem_medidas" if not sinais_da_rodada(r) else "rodada.sem_scope"))
+    fator = sentido_gerador(r, sinais)              # a corrente da fonte de tensão como gerador (sentido_gerador)
+    le_gecko = lambda: {canal: f * float(v) for (_, canal), f, v in
+                        zip(sinais, fator, MOTOR.cmd("GETM " + " ".join(el for el, _ in sinais)).split())}
     ao_scope = lambda v: {k: v[k] for k in canais_scope if k in v}
     ao_controle = lambda v: {k: v[k] for k in canais_ctl if k in v}
     todos_atu = atuadores_disponiveis(r)
@@ -3006,9 +3027,8 @@ def _rodar(c, ctl_de_fora=None):
         iniciais = None
         if sinais:
             MOTOR.cmd("STEP 1")
-            prova = MOTOR.cmd("GETM " + " ".join(el for el, _ in sinais)).split()
+            iniciais = le_gecko()
             MOTOR.cmd(f"INIT {dt!r} {tfim!r}")
-            iniciais = {canal: float(v) for (_, canal), v in zip(sinais, prova)}
     except BaseException:
         if trab:
             trab.fecha()
@@ -3042,11 +3062,10 @@ def _rodar(c, ctl_de_fora=None):
                 esc.setdefault(w - k0, []).extend(v)      # na mesma escrita, o acionamento vem depois (prevalece)
         return esc
 
-    def laco_controle(pub, nomes):
+    def laco_controle(pub):
         """A cada Ts: medidas → passo() do usuário → atuações nos CONST → Ts no Gecko. Publica a cada "cada" períodos."""
-        le = lambda: {canal: float(v) for (_, canal), v in zip(sinais, MOTOR.cmd(f"GETM {nomes}").split())}
         k, j, tt, regs, avisados = 0, 0, 0.0, None, set()
-        vals = dict(iniciais) if iniciais else le()       # t = 0: o estado inicial (o passo de prova), não os zeros
+        vals = dict(iniciais) if iniciais else le_gecko()       # t = 0: o estado inicial (o passo de prova), não os zeros
         while k < n and not controle_rodada["parar"].is_set():
             if controle_rodada["pausa"].is_set():
                 rodada["estado"] = "pausada"; time.sleep(0.1); continue
@@ -3094,30 +3113,29 @@ def _rodar(c, ctl_de_fora=None):
             if j % cada == 0:
                 pub.amostra(dict(t=tt, **ao_scope(vals), **{col: sreg.get(x, float("nan")) for x, col in regs.items()}))
             tt = anda(k, passo, escritas_do_trecho(k, passo)); k += passo; j += 1
-            vals = le()
+            vals = le_gecko()
             rodada.update(t=tt, amostras=rodada["amostras"] + (1 if j % cada == 0 else 0))
         pub.amostra(dict(t=tt, **ao_scope(vals), **{col: float("nan") for col in (regs or {}).values()}))
         return k
 
-    def laco_simples(pub, nomes):
+    def laco_simples(pub):
         """Sem controle: anda m passos, lê e publica."""
         k = 0
-        pub.amostra(dict(t=0.0, **(iniciais or {canal: float(v) for (_, canal), v in zip(sinais, MOTOR.cmd(f"GETM {nomes}").split())})))
+        pub.amostra(dict(t=0.0, **(iniciais or le_gecko())))
         while k < n and not controle_rodada["parar"].is_set():
             if controle_rodada["pausa"].is_set():
                 rodada["estado"] = "pausada"; time.sleep(0.1); continue
             rodada["estado"] = "rodando"
             passo = min(m, n - k)
             tt = anda(k, passo, escritas_do_trecho(k, passo)); k += passo
-            pub.amostra(dict(t=tt, **{canal: float(v) for (_, canal), v in zip(sinais, MOTOR.cmd(f"GETM {nomes}").split())}))
+            pub.amostra(dict(t=tt, **le_gecko()))
             rodada.update(t=tt, amostras=rodada["amostras"] + 1)
         return k
 
     def laco():
         pub = PublicadorScope(SCOPE, meta)
-        nomes = " ".join(el for el, _ in sinais)
         try:
-            k = laco_controle(pub, nomes) if trab else laco_simples(pub, nomes)
+            k = laco_controle(pub) if trab else laco_simples(pub)
             final = dict(estado="fim" if k >= n else "parada")
         except ErroControle as e:                                # erro no código do usuário: linha e rastro para o editor
             final = dict(estado="erro", erro=str(e), erro_controle=dict(linha=e.linha, rastro=e.rastro, arquivo=e.arquivo))
@@ -4116,7 +4134,8 @@ def claude_contexto(c, dt, tfim):
             if e and e["tipo"] == "VOLT":
                 o = tr("ia_contexto.m_tensao", a=e['mede'][0] or '?', b=e['mede'][1] or '?')
             elif e and e["tipo"] == "AMP":
-                o = tr("ia_contexto.m_corrente", c=e['mede'][0] or '?')
+                alvo = next((x for x in fl["elementos"] if x["nome"] == e["mede"][0] and x["dom"] == "LK"), None)
+                o = tr("ia_contexto.m_corrente_fonte" if alvo and alvo["tipo"] == "U" else "ia_contexto.m_corrente", c=e['mede'][0] or '?')
             elif e and e["tipo"] == "CONST":
                 o = tr("ia_contexto.m_const", nome=e['nome'])
             else:

@@ -111,6 +111,7 @@ maisimI18n.add({
   // a dica ao passar o mouse
   "simu.dica_guardado_html": { pt: "<span class=\"t\">(da variável global; no elemento está {v}, que o Gecko não usa)</span>", en: "<span class=\"t\">(from the global variable; the element holds {v}, which Gecko does not use)</span>" },
   "simu.dica_mede_i": { pt: "mede a corrente de", en: "measures the current of" },
+  "simu.dica_gerador": { pt: "fonte: a corrente que sai pelo + (gerador)", en: "source: the current leaving the + terminal (generator)" },
   "simu.dica_mede_v": { pt: "mede a tensão", en: "measures the voltage" },
   "simu.dica_comanda": { pt: "comanda", en: "drives" },
   "simu.dica_no1": { pt: "nó do 1º terminal", en: "node of terminal 1" },

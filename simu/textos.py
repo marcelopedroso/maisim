@@ -714,6 +714,8 @@ T = {
     "ia_contexto.medidas": {"pt": "## Medidas (m[\"nome\"] no código)", "en": "## Measurements (m[\"name\"] in the code)"},
     "ia_contexto.m_tensao": {"pt": "tensão entre os nós {a} (+) e {b} (−), em V", "en": "voltage between nodes {a} (+) and {b} (−), in V"},
     "ia_contexto.m_corrente": {"pt": "corrente no componente {c}, em A", "en": "current in component {c}, in A"},
+    "ia_contexto.m_corrente_fonte": {"pt": "corrente da fonte {c}, em A, como gerador (positiva quando sai pelo + da fonte)",
+                                     "en": "current of source {c}, in A, as a generator (positive when it leaves the source's + terminal)"},
     "ia_contexto.m_const": {"pt": "a saída do bloco {nome} (o valor atual dessa atuação)", "en": "the output of block {nome} (the current value of this actuation)"},
     "ia_contexto.m_bloco": {"pt": "a saída do bloco {nome}", "en": "the output of block {nome}"},
     "ia_contexto.m_bloco_tipo": {"pt": "a saída do bloco {nome} ({tipo})", "en": "the output of block {nome} ({tipo})"},
