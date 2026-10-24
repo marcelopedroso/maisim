@@ -90,6 +90,12 @@ function textoMat(pai, x, y, s, at = {}) {             // como texto(), com o no
   }
   return t;
 }
+// o mesmo nome em HTML (a lista de painéis do sinal; Marcelo, 24/10: "no seletor de painel trazer a notação também"): a
+// letra em itálico na fonte do LaTeX, o subscrito em pé; o resto do texto escapado
+function htmlMat(s) {
+  return partesMat(s).map((q) => q.txt != null ? escT(q.txt)
+    : `<span class="mat"><span class="${q.base.length === 1 ? "mat-l" : "mat-b"}">${escT(q.base)}</span><sub>${escT(q.sub)}</sub></span>`).join("");
+}
 const largMat = (s) => partesMat(s).reduce((n, q) => n + (q.txt != null ? q.txt.length : q.base.length * 1.1 + q.sub.length * 0.8), 0);   // em caracteres
 function texto(pai, x, y, s, at = {}) { const t = no("text", Object.assign({ x: x * G, y: y * G, "font-size": 0.62 * G, "dominant-baseline": "middle" }, at), pai); t.textContent = s; return t; }
 const P = (p) => `${p[0] * G},${p[1] * G}`;
@@ -221,7 +227,7 @@ function ligaNoPainel(np) {
     const g = gs[sAtual], trava = esperando ? " disabled" : "";
     lista.innerHTML = !g ? `<i>${escT(tr(gs.some((x) => x.paineis.some(tem)) ? "simu.escolha_secao" : "simu.op_fora_painel"))}</i>`
       : !g.paineis.length ? `<i>${escT(tr("simu.sem_paineis"))}</i>`
-      : g.paineis.map((p, k) => `<label><input type="checkbox" data-k="${k}" data-titulo="${escT(p.titulo || "")}" data-impressao="${escT(impressao(p))}"${tem(p) ? " checked" : ""}${trava}><span>${escT(tituloDe(p))}</span></label>`).join("");
+      : g.paineis.map((p, k) => `<label><input type="checkbox" data-k="${k}" data-titulo="${escT(p.titulo || "")}" data-impressao="${escT(impressao(p))}"${tem(p) ? " checked" : ""}${trava}><span title="${escT(tituloDe(p))}">${htmlMat(tituloDe(p))}</span></label>`).join("");
     const fora = gs.flatMap((x, k) => (k === sAtual ? [] : x.paineis.filter(tem).map((p) => `${nomeSecao(x)} › ${tituloDe(p)}`)));
     tambem.textContent = fora.length ? tr("simu.tambem_em", { onde: fora.join(" · ") }) : ""; tambem.hidden = !fora.length;
     selS.disabled = esperando; btNovo.disabled = !g || esperando; btApaga.disabled = !g || !g.paineis.length || esperando;

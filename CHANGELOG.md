@@ -12,6 +12,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 - Simu: put a signal in several scope panels, and delete panels, right from the signal's panel picker (#67).
 
 ### Changed
+- Simu: the signal's panel list shows the panel names in math notation (`i_L` → *i* with L as a subscript), like the drawing and the scope (#PR).
 - A channel color chosen on the circuit also applies in the scope, which follows it right away (#66).
 - Sources follow the generator convention: the current arrow of a voltage source leaves its + terminal, and its measured current (scope, Measure, the control's `m[...]`) is positive when it delivers power. Gecko measures every current from terminal 1 to terminal 2, so MaiSim flips the sign it reads for a voltage source; the Gecko file is unchanged. The current source shows its arrow (terminal 1 → 2) instead of a "+" (#71).
 

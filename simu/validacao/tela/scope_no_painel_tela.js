@@ -56,6 +56,13 @@ const api = (rota, corpo) => fetch("http://localhost:7201/maisim/simu/" + rota, 
     ok(ult[0].secao === "Medidas" && ult[1].titulo === "i_L sozinha" && ult[1].sinais.join() === "i_L" && sinaisDe(L2, "Corrente no indutor").join() === "i_L"
        && a2.s === "Medidas" && a2.p === "i_L sozinha" && /exemplo_buck › Corrente no indutor/.test(a2.tambem),
        `nova seção: "Medidas" com o painel "i_L sozinha" (o i_L fica no de antes: "${a2.tambem}")`);
+    // a lista mostra o nome em notação, como o desenho e o scope (Marcelo, 24/10): i_L → i itálico com o L subscrito
+    const nt = await pg.evaluate(() => { const sp = document.querySelector('#p-paineis input[data-titulo="i_L sozinha"] + span');
+      return sp ? { sub: [...sp.querySelectorAll("sub")].map((x) => x.textContent).join(), letra: (sp.querySelector(".mat-l") || {}).textContent,
+        estilo: sp.querySelector(".mat-l") ? getComputedStyle(sp.querySelector(".mat-l")).fontStyle : "", txt: sp.textContent, dica: sp.title,
+        sobra: sp.querySelector("sub") ? Math.round(sp.getBoundingClientRect().bottom - sp.querySelector("sub").getBoundingClientRect().bottom) : null } : null; });
+    ok(nt && nt.letra === "i" && nt.sub === "L" && nt.estilo === "italic" && nt.txt === "iL sozinha" && nt.dica === "i_L sozinha" && nt.sobra >= 0,
+       `o painel "i_L sozinha" na lista em notação, o subscrito inteiro dentro da linha (sobra ≥ 0 px): ${JSON.stringify(nt)}`);
     // um painel que já existe, noutra seção: marcar põe o sinal nele (e ele continua nos outros)
     await pg.selectOption("#p-secao", { label: "exemplo_buck" }); await pg.waitForTimeout(300);
     const a3a = await sel(); await marca("Sinais da rodada");
