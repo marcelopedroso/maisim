@@ -4,7 +4,8 @@
 // volta); os sim/não do Gecko (useExternal, display) são caixinhas; num parâmetro que aceita variável, o $ abre a lista das
 // variáveis globais do circuito ("$Vin = 10"), filtrada pelo que vem depois do $ (↑/↓ e Enter, Tab, Esc, clique).
 // useExternal (24/10): amplitude, f, offset, fase e d vêm das 5 entradas (a ordem do Gecko): os campos ficam cinza, com a
-// nota da entrada; o bloco desenha as entradas onde o Gecko as põe, o ∿ à vista e a etiqueta da saída fora da caixa.
+// nota da entrada; o bloco desenha as entradas onde o Gecko as põe, o ∿ à vista e a etiqueta da saída fora da caixa. O mesmo
+// no LIMIT (min e max nas entradas 2 e 3) e no HYS (h na entrada 2; a caixinha dele se chama "external"), criados pelo teste.
 // O circuito: exemplos/exemplo_buck.ipes (o SIGNAL.1 é a portadora triangular, typQuelle 403).
 const { chromium } = require("playwright");
 let falhas = 0;
@@ -23,8 +24,8 @@ const abre = () => fetch("http://localhost:7201/maisim/simu/editor/abrir", { met
       if (await pg.$(".modal .m-ok")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }
     g0 = await pg.evaluate(() => Object.keys(dados.globais || {}));
     const espera = async (f, arg, ms = 30000) => { for (const t0 = Date.now(); Date.now() - t0 < ms;) { if (await pg.evaluate(f, arg)) return true; await pg.waitForTimeout(300); } return false; };
-    const escolhe = async (n) => { await pg.evaluate((n) => seleciona(dados.folhas["0"].elementos.find((x) => x.nome === n)), n);
-      await pg.waitForSelector('#p-params [data-p="type"]', { timeout: 30000 }); };
+    const escolhe = async (n, par = "type") => { await pg.evaluate((n) => seleciona(dados.folhas["0"].elementos.find((x) => x.nome === n)), n);
+      await pg.waitForSelector(`#p-params [data-p="${par}"]`, { timeout: 30000 }); };
     const params = () => pg.evaluate(async () => api("editor/params?nome=SIGNAL.1&dom=CONTROL&typ=4"));
     const valor = async (p) => ((await params()).find((q) => q.nome === p) || {}).valor;
     const lista = () => pg.evaluate(() => { const s = document.querySelector('#p-params select[data-p="type"]');
@@ -109,6 +110,53 @@ const abre = () => fetch("http://localhost:7201/maisim/simu/editor/abrir", { met
     ex = await painelExt(); dx = await desenhoExt();
     ok(ex.join() === "amplMAX:livre:,f:livre:,offset:livre:,phase:livre:,d:livre:" && dx && dx.entradas === 0 && dx.simbDentro && dx.saidaFora && !dx.pinos,
       `sem useExternal de novo: campos livres, sem entradas (${ex.join(" ")}; ${dx && dx.entradas} entradas)`);
+
+    // 2c. o LIMIT e o HYS com useExternal (Marcelo, 24/10): o Gecko tira min e max das entradas 2 e 3 (LimitCalculatorExternal;
+    // a 1 é o sinal) e o h da entrada 2 (HysteresisCalculatorExternal); os campos ficam cinza com o número da entrada, as entradas
+    // vão para (x − 1, y + 2 …) (setExpanded), com os nomes do Gecko junto do borne (min, max, h) dentro da caixa e sem cobrir o
+    // símbolo, e os rótulos dos terminais dizem o que cada uma dá; desmarcar volta tudo. Os blocos são criados aqui e apagados no fim.
+    const cmd = (op, ...args) => pg.evaluate(async ([op, args]) => { novoEstado(await api("editor/cmd", { op, args })); }, [op, args]);
+    for (const [nome, typ, cx, pars, bornes, pinos, rotulos, x, y] of [
+      ["LIMIT.1", 27, "useExternal", ["min", "max"], "-2,0 -1,2 -1,3", "min max", "entrada 1|entrada 2 · mínimo|entrada 3 · máximo", 40, 20],
+      ["HYS.1", 11, "external", ["h"], "-2,0 -1,2", "h", "entrada 1|entrada 2 · limiar h", 40, 28]]) {
+      const ger = (p) => pg.evaluate(async ([nome, typ, p]) => ((await api(`editor/params?nome=${nome}&dom=CONTROL&typ=${typ}`)).find((q) => q.nome === p) || {}).valor, [nome, typ, p]);
+      const painel = () => pg.evaluate((pars) => pars.map((p) => { const i = document.querySelector(`#p-params [data-p="${p}"]`), l = i && i.closest("label");
+        return i ? `${p}:${i.disabled ? "cinza" : "livre"}:${((l.querySelector(".nota-ext") || {}).textContent || "")}` : `${p}:?`; }), pars);
+      const desenho = () => pg.evaluate((nome) => {
+        const f = dados.folhas["0"], i = f.elementos.findIndex((x) => x.nome === nome), e = f.elementos[i], g = document.querySelector(`#svg g.el[data-i="${i}"]`);
+        if (!g) return null;
+        const bb = (n) => n.getBoundingClientRect(), cruza = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+        const caixa = bb(g.querySelector(".corpo")), simb = g.querySelector(".simbolo"), pn = [...g.querySelectorAll(".pino-ext")];
+        return { entradas: e.entradas.length, bornes: e.terminais.filter((t) => t.lado === "e").map((t) => `${t.x - e.x},${t.y - e.y}`).join(" "),
+          pinos: pn.map((n) => n.textContent).join(" "),
+          pinosDentro: pn.every((n) => { const r = bb(n); return r.left >= caixa.left && r.right <= caixa.right && r.top >= caixa.top && r.bottom <= caixa.bottom; }),
+          simbLivre: !!simb && !pn.some((n) => cruza(bb(n), bb(simb))),
+          rotulos: [...document.querySelectorAll("#props [data-in]")].map((n) => n.closest("label").querySelector("span").textContent) };
+      }, nome);
+      const livre = pars.map((p) => `${p}:livre:`).join(), cinza = pars.map((p, k) => `${p}:cinza:vem da entrada externa ${k + 2}`).join();
+      await cmd("CREATE", nome, x, y, nome.split(".")[0]);
+      await escolhe(nome, cx);
+      let pa = await painel();
+      ok(pa.join() === livre, `${nome} sem ${cx}: ${pars.join(", ")} livres (${pa.join(" ")})`);
+      await pg.check(`#p-params input[data-p="${cx}"]`);
+      ok(await espera(async ([nome, typ, cx]) => ((await api(`editor/params?nome=${nome}&dom=CONTROL&typ=${typ}`)).find((q) => q.nome === cx) || {}).valor === 1, [nome, typ, cx]),
+        `${nome}: marcar ${cx}, o Gecko fica com ${await ger(cx)}`);
+      await espera(([nome, n, cx]) => { const e = dados.folhas["0"].elementos.find((x) => x.nome === nome); return e && e.entradas.length === n + 1
+        && document.querySelector(`#p-params input[data-p="${cx}"]:checked`) && document.querySelectorAll("#p-params .nota-ext").length === n; }, [nome, pars.length, cx]);
+      pa = await painel(); let de = await desenho();
+      ok(pa.join() === cinza, `${nome} com ${cx}: cinza, com a entrada (${pa.join(" · ")})`);
+      ok(de && de.entradas === pars.length + 1 && de.bornes === bornes, `${nome}: as entradas onde o Gecko as põe (${de && de.bornes})`);
+      ok(de && de.pinos === pinos && de.pinosDentro && de.simbLivre, `${nome}: "${de && de.pinos}" junto dos bornes, na caixa, sem cobrir o símbolo (${de && JSON.stringify([de.pinosDentro, de.simbLivre])})`);
+      ok(de && de.rotulos.join("|") === rotulos, `${nome}: rótulos dos terminais: ${de && de.rotulos.join(" · ")}`);
+      await pg.uncheck(`#p-params input[data-p="${cx}"]`);
+      ok(await espera(async ([nome, typ, cx]) => ((await api(`editor/params?nome=${nome}&dom=CONTROL&typ=${typ}`)).find((q) => q.nome === cx) || {}).valor === 0, [nome, typ, cx]),
+        `${nome}: desmarcar ${cx}, o Gecko fica com ${await ger(cx)}`);
+      await espera(([nome, cx]) => { const e = dados.folhas["0"].elementos.find((x) => x.nome === nome); return e && e.entradas.length === 1
+        && document.querySelector(`#p-params input[data-p="${cx}"]:not(:checked)`) && !document.querySelector("#p-params .nota-ext"); }, [nome, cx]);
+      pa = await painel(); de = await desenho();
+      ok(pa.join() === livre && de && de.entradas === 1 && !de.pinos, `${nome} sem ${cx} de novo: livres, uma entrada (${pa.join(" ")}; ${de && de.entradas} entrada(s))`);
+      await cmd("DELETE", nome);
+    }
 
     // 3. o $ num parâmetro que aceita variável (f, a frequência): sem variáveis, a dica de criar no $x
     await escolhe("SIGNAL.1");
