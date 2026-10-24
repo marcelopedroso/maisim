@@ -3,7 +3,7 @@
 // é guardada no servidor a cada mudança (POST editor/controle) e vai junto quando o circuito é salvo; a rodada com o
 // controle ligado chama passo() a cada Ts (servidor.py, laco_controle). Usa as funções globais do simu.js.
 const MONACO = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs";
-const ctl = { dados: null, carregado: false, editor: null, texto: null, monaco: null, timer: null, timerLig: null, guardando: null, quebra: quebraGuardada(),
+const ctl = { dados: null, modelosIdioma: {}, carregado: false, editor: null, texto: null, monaco: null, timer: null, timerLig: null, guardando: null, quebra: quebraGuardada(),
   arq: "controle.py", lista: ["controle.py"], modelos: {}, textos: {}, vistas: {} };   // os arquivos do controle: um modelo do Monaco (ou um texto) por arquivo
 
 // quebra de linha no editor (botão ao lado do "?", Alt+Z como no VS Code): as linhas longas continuam embaixo, sem rolar
@@ -187,22 +187,19 @@ function vaiParaLinha(arq, linha) {
   mostraArquivo(arq);
   if (ctl.editor) { ctl.editor.revealLineInCenter(linha); ctl.editor.setPosition({ lineNumber: linha, column: 1 }); ctl.editor.focus(); }
 }
-// o modelo de um controlador novo: é código Python (com os comentários em português) que vai para o editor — os modelos
-// em inglês são do PR dos modelos de código (13/14); aqui o texto fica como está
-const MODELO_OUTRO = `# Outro controlador do circuito (MaiSim / simu). Em "controladores" (no painel) ele ganha um nome, as medidas que lê (m) e
-# as atuações que escreve; ou vale em subcircuitos (uma instância por subcircuito, com os nomes sem o prefixo).
-#   envia("outro", {"x": valor})   manda uma mensagem a outro controlador (chega depois da latência da rede)
-#   recebe()                       as mensagens que chegaram: [{"de": nome, "t": instante do envio, "dados": {...}}]
-#   p["id"]                        o nome desta instância (p["subcircuito"]: o subcircuito dela)
-# Guia completo: o "?" do painel.
-
-def iniciar(p, e):
-    pass
-
-
-def passo(t, m, p, e):
-    return {}
-`;
+// os modelos de código (o botão "Modelo", o arquivo novo, o leitura.py/escrita.py) vêm do servidor (simu/*_modelo.py e
+// *_modelo.en.py), no idioma do pedido — o painel diz qual (lingua). Guardados por idioma, à parte do ctl.dados: um GET
+// antigo ainda no caminho ao trocar o idioma troca o ctl.dados, mas não traz de volta os modelos do idioma de antes
+function modelosCodigo() {
+  const l = maisimI18n.lingua(), d = ctl.dados || {};
+  if (d.lingua && d.modelos) ctl.modelosIdioma[d.lingua] = { lingua: d.lingua, modelo: d.modelo || "", modelos: d.modelos };
+  return ctl.modelosIdioma[l] || { lingua: l, modelo: d.modelo || "", modelos: d.modelos || {} };
+}
+function buscaModelosCodigo() {                           // ao trocar o idioma (o cookie já é o novo)
+  const l = maisimI18n.lingua();
+  if (!ctl.dados || ctl.modelosIdioma[l]) return;
+  api("editor/controle").then((j) => { if (j.lingua === l && j.modelos) ctl.modelosIdioma[l] = { lingua: l, modelo: j.modelo || "", modelos: j.modelos }; }).catch(() => {});
+}
 // arquivo novo = um MÓDULO (pedido de Marcelo, 19/10): o controle.py faz import e chama na mesma amostra, sem atraso; para um
 // controlador à parte (outro DSP, com atraso nas mensagens), "virar controlador" na árvore
 async function novoArquivo() {
@@ -215,7 +212,7 @@ async function novoArquivo() {
   if (!/^[A-Za-z_][A-Za-z0-9_]{0,40}\.py$/.test(nome)) { poeEstado(tr("ctl.nome_arq_invalido"), "erro"); return; }
   if (ctl.lista.includes(nome)) { poeEstado(tr("ctl.ja_existe", { nome }), "erro"); return; }
   const c = coleta(); if (c.invalido) return;
-  criaArquivo(nome, (ctl.dados.modelos || {}).modulo || "");
+  criaArquivo(nome, modelosCodigo().modelos.modulo || "");
   Object.assign(ctl.dados.controle, c, { arquivos: arquivosDoEditor() }); desenhaLigacoes(); mostraArquivo(nome); guardaControle();
   poeEstado(tr("ctl.modulo_criado", { arq: nome, mod: nomeDoArquivo(nome) }), "ok");
 }
@@ -224,7 +221,8 @@ function organizaDSP() {
   if (travado() || !ctl.carregado || !ctl.dados) return;
   const c = coleta(); if (c.invalido) return;
   const novos = ["leitura.py", "escrita.py"].filter((a) => !ctl.lista.includes(a));
-  for (const a of novos) criaArquivo(a, (ctl.dados.modelos || {})[a] || "");
+  const ms = modelosCodigo().modelos;
+  for (const a of novos) criaArquivo(a, ms[a] || "");
   Object.assign(ctl.dados.controle, c, { arquivos: arquivosDoEditor() }); desenhaLigacoes(); guardaControle();
   poeEstado(tr("ctl.dsp_criados", { arqs: listaE(novos) }), "ok");
 }
@@ -1443,8 +1441,8 @@ function tagAtuador(g, x, y, nome, centrada = false) {   // centrada: x é o mei
     setTimeout(() => { caixa.focus(); caixa.setSelectionRange(caixa.value.length, caixa.value.length); caixa.scrollTop = 0; }, 80);
   };   // a saída do testar (e da rodada) fecha; o ▷ Testar abre de novo
   $("ctl-modelo").onclick = async () => { if (await confirma(tr("ctl.modelo_titulo"), tr("ctl.modelo_texto_html", { arq: ctl.arq }), tr("ctl.trocar"), true)) {
-    const d = ctl.dados || {}, ms = d.modelos || {};
-    poeCodigo(ctl.arq === "controle.py" ? (d.modelo || "") : ms[ctl.arq] || (ehModulo(ctl.arq) ? ms.modulo : MODELO_OUTRO), ctl.arq);
+    const d = modelosCodigo(), ms = d.modelos;
+    poeCodigo(ctl.arq === "controle.py" ? (d.modelo || "") : ms[ctl.arq] || (ehModulo(ctl.arq) ? ms.modulo : ms.outro) || "", ctl.arq);
     if (ctl.arq === "controle.py") for (const a of ["leitura.py", "escrita.py"]) if (!ctl.lista.includes(a) && ms[a]) criaArquivo(a, ms[a]);   // o modelo importa os dois
     if (ctl.dados) ctl.dados.controle.arquivos = arquivosDoEditor();
     guardaControle(); } };
@@ -1515,4 +1513,6 @@ maisimI18n.aoMudar(() => {
   if (ctl.botaoLinhas) ctl.botaoLinhas();
   fechaPicker();                                         // o título dela é do idioma de antes; abre de novo com um clique
   redesenhaIdioma();
+  // os modelos de código (o botão "Modelo", o arquivo novo) no idioma novo: o servidor os escolhe pelo cookie, já trocado
+  buscaModelosCodigo();
 });

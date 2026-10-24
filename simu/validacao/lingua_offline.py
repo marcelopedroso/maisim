@@ -418,10 +418,41 @@ def itens(md):
 
 
 def sem_comentarios_py(src):
-    try:
-        return ast.dump(ast.parse(src))
-    except SyntaxError:
-        return None
+    """O código sem os comentários e sem as docstrings (o mesmo critério do servidor: lingua.codigo_sem_comentarios)."""
+    sys.path.insert(0, str(RAIZ / "config"))
+    import lingua
+    return lingua.codigo_sem_comentarios(src)
+
+
+TRAD_EXEMPLO = {".controle": {"codigo"}, ".scope": {"titulos"}}   # <nome>.controle.en.json e <nome>.scope.en.json
+
+
+def confere_exemplos():
+    """As traduções dos exemplos (exemplos/<nome>.controle.en.json, <nome>.scope.en.json): ao lado de um arquivo que existe,
+    só as chaves conhecidas, o código traduzido é o mesmo do original (só os comentários mudam) e todo título do layout tem
+    a tradução (e só os que existem nele)."""
+    for f in sorted((RAIZ / "exemplos").glob("*.*.*.json")):
+        tipo, l = Path(f.stem).with_suffix("").suffix, Path(f.stem).suffix[1:]
+        orig = f.with_name(f.name[:-len(f".{l}.json")] + ".json")
+        nome, ruins = f.relative_to(RAIZ), []
+        try:
+            t, d = json.loads(f.read_text()), json.loads(orig.read_text())
+        except (OSError, ValueError) as e:
+            ok(False, f"{nome}: a tradução ou o original ({orig.name}) não lê ({e.__class__.__name__})"); continue
+        if l not in ("en",) or tipo not in TRAD_EXEMPLO or not isinstance(t, dict) or set(t) - TRAD_EXEMPLO[tipo]:
+            ok(False, f"{nome}: tradução desconhecida (só <nome>.controle.en.json com codigo e <nome>.scope.en.json com titulos)"); continue
+        for arq, cod in (t.get("codigo") or {}).items():
+            o = d.get("codigo") if arq == "controle.py" else (d.get("arquivos") or {}).get(arq)
+            if not isinstance(o, str) or not isinstance(cod, str) or sem_comentarios_py(o) is None or sem_comentarios_py(o) != sem_comentarios_py(cod):
+                ruins.append(f"o {arq} não é o mesmo código de {orig.name} (o servidor fica com o original)")
+        if tipo == ".scope":
+            tit = t.get("titulos") if isinstance(t.get("titulos"), dict) else {}
+            nomes = {x.get(k) for x in d.get("itens") or [] if isinstance(x, dict) for k in ("secao", "titulo")} - {None, ""}
+            ruins += [f"sem tradução: \"{x}\"" for x in sorted(nomes - set(tit))]
+            ruins += [f"\"{x}\" não está no layout" for x in sorted(set(tit) - nomes)]
+            ruins += [f"tradução vazia: \"{x}\"" for x, v in tit.items() if not isinstance(v, str) or not v.strip()]
+        ok(not ruins, f"{nome}: a tradução de {orig.name} (o mesmo código, todos os títulos do layout)"
+           + ("" if not ruins else " — " + "; ".join(ruins[:5])))
 
 
 def confere_pares():
@@ -433,6 +464,8 @@ def confere_pares():
             ok(False, f"{b.relative_to(RAIZ)}: falta o par ({a.name} e {b.name} precisam existir os dois)")
             continue
         if not b.exists():
+            if tipo == "py":                             # o servidor lê os dois (modelo_codigo): o modelo sem o par não sobe
+                ok(False, f"{a.relative_to(RAIZ)}: falta o par em inglês ({b.name})")
             continue
         ta, tb = a.read_text(), b.read_text()
         if tipo == "md":
@@ -443,7 +476,11 @@ def confere_pares():
                f"as mesmas tabelas ({sum(len(x) for x in la)} linhas em {len(la)}, as mesmas células) e os mesmos itens de lista "
                f"{itens(ta)} de {a.name}" + (f" — diferem: {', '.join(dif)}" if dif else ""))
         else:
-            ok(sem_comentarios_py(ta) == sem_comentarios_py(tb), f"{b.relative_to(RAIZ)}: o mesmo código de {a.name} (só os comentários mudam)")
+            ok(sem_comentarios_py(ta) is not None and sem_comentarios_py(ta) == sem_comentarios_py(tb),
+               f"{b.relative_to(RAIZ)}: o mesmo código de {a.name} (só os comentários e as docstrings mudam)")
+    orfaos = [p.relative_to(RAIZ) for p in sorted((RAIZ / "simu").glob("*.en.py")) if not p.with_name(p.name[:-len(".en.py")] + ".py").exists()]
+    ok(not orfaos, "os .en.py têm o original em português" + (f" — sem: {', '.join(map(str, orfaos))}" if orfaos else ""))
+    confere_exemplos()
 
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ sempre). Os textos ficam nos catálogos de cada módulo (simu/textos.py, scope/t
 
 tr(chave, **params) escolhe pelo idioma do pedido. As threads de fundo (a rodada, o pedido da IA) levam o idioma de quem as
 começou: thread(alvo, ...) no lugar de threading.Thread(target=alvo, ...)."""
+import ast
 import contextvars
 import re
 import threading
@@ -96,3 +97,23 @@ def thread(alvo, *args, daemon=True, nome=None, **kw):
 
 
 t = tr                                                    # o mesmo, com o nome curto
+
+
+def codigo_sem_comentarios(src):
+    """O código Python sem os comentários (o ast não os guarda) e sem as docstrings: o que tem de ser igual nas duas versões
+    de um código traduzido (os modelos *_modelo.py / *_modelo.en.py, o código dos exemplos). None se não compila."""
+    try:
+        arv = ast.parse(src)
+    except (SyntaxError, ValueError, TypeError):
+        return None
+    for n in ast.walk(arv):
+        if isinstance(n, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and n.body and \
+                isinstance(n.body[0], ast.Expr) and isinstance(n.body[0].value, ast.Constant) and isinstance(n.body[0].value.value, str):
+            n.body = n.body[1:] or [ast.Pass()]
+    return ast.dump(arv)
+
+
+def mesmo_codigo(a, b):
+    """As duas versões são o mesmo código (só os comentários e as docstrings mudam)."""
+    x = codigo_sem_comentarios(a)
+    return x is not None and x == codigo_sem_comentarios(b)

@@ -1,0 +1,7 @@
+{
+ "titulos": {
+  "Buck com degrau de carga": "Buck with a load step",
+  "Tensão de saída v_o (V)": "Output voltage v_o (V)",
+  "Corrente no indutor i_L (A)": "Inductor current i_L (A)"
+ }
+}
