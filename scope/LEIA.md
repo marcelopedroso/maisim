@@ -25,10 +25,10 @@ continuam (quem publica rodadas de fora usa `/publicar`).
 - **Recolher, expandir, arrastar seções**: a seta ▾ recolhe a seção (os painéis somem) ou o painel (fica o título),
   guardado no layout; **⤢** expande o painel para a janela (Esc volta); a ⠿ da seção a leva inteira, com os painéis
   (no índice, arraste o nome dela). Ver a seção "Recolher, expandir e arrastar seções" abaixo.
-- Zoom em cada painel: **zoom X | Y | área** escolhe o que o arrastar faz naquele painel (fica no layout guardado);
-  **⟲** ou duplo clique = ver tudo naquele painel (vertical automática, ou o **Y fixo** se houver, e o tempo todo).
+- A barra de cada painel: **Sinais · Y fixo · Zoom (Área | X | Y) · ⛶ · 🔗 · Medir · ⋯**. O zoom escolhe o que o arrastar faz
+  naquele painel (fica no layout guardado); **⛶** (enquadrar) ou duplo clique = ver tudo naquele painel (vertical automática, ou o **Y fixo** se houver, e o tempo todo).
   O tempo é comum aos painéis ligados (ícone de corrente): zoom X num deles vale para todos os ligados. Clicar na
-  corrente solta o painel (corrente partida, laranja): o zoom no tempo, o ⟲ e o passo fino
+  corrente solta o painel (corrente partida, laranja): o zoom no tempo, o ⛶ e o passo fino
   passam a valer só para ele. O zoom Y vale só para o painel onde foi feito. **Ctrl + roda** = zoom no tempo;
   Ctrl + Shift + roda = vertical (a roda sozinha rola a página). O cursor continua sincronizado entre todos os painéis.
   **Fixar eixos** (ao vivo não reajusta), **Pausar** (não redesenha). **Salvar figura**: todos os painéis num PNG.
