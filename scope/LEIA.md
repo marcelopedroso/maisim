@@ -46,8 +46,13 @@ continuam (quem publica rodadas de fora usa `/publicar`).
 - **Potência** (na medição, um modo como o Fourier e os cursores): os pares tensão/corrente do painel pelos nomes (`v_X`,
   `V_X`, `u_X` ou `vX` com `i_X`, `I_X` ou `iX` de mesmo sufixo: v_R1 ↔ i_R1, Va ↔ ia; nenhum casado, a 1ª tensão com a
   1ª corrente); as listas v e i de cada par trocam, ✕ tira, **+ par** põe, **Automático** volta aos pelos nomes (os
-  escolhidos ficam no layout, em `med.pot.pares`). Cada par vira a curva p(t) = v(t)·i(t) (p_X na legenda, no mesmo eixo,
-  valores reais sem o ×k; clicar na legenda esconde) e uma linha na tabela, na janela do Fourier (t₀, n períodos de f₀,
+  escolhidos ficam no layout, em `med.pot.pares`). Cada par vira a curva p(t) = v(t)·i(t) (p_X na legenda, com o W; valores
+  reais sem o ×k; clicar na legenda esconde) no **eixo da potência**, à direita, em W (marcas com o prefixo: 500 W, 1.5 kW;
+  na cor da curva quando há um par só), com a sua escala automática: v e i ficam com a faixa deles no eixo da esquerda (com
+  v ~ 100 V e p ~ 1 kW no mesmo eixo, um dos dois ficava espremido). O zoom vertical (arrastar, Ctrl + Shift + roda) muda
+  os dois eixos juntos e o enquadrar volta os dois; **Y fixo** tem também o mín/máx do eixo da potência (em branco,
+  automático; no layout, `pFixo`); os cursores y (C, D) leem o eixo da esquerda. Escondidas todas as p(t), o eixo sai.
+  O eixo está no PNG (é do gráfico). Cada par também vira uma linha na tabela, na janela do Fourier (t₀, n períodos de f₀,
   à vista mesmo com o Fourier desligado): P = média de v·i, V_rms, I_rms, S = V_rms·I_rms, λ = P/S e, dos fasores de pico
   da fundamental (φ₁ = ∠V₁ − ∠I₁), P₁ = (V₁·I₁/2)·cos φ₁ e Q₁ = (V₁·I₁/2)·sin φ₁ (positiva com a corrente atrasada). Em CC,
   P₁ = Q₁ = 0. Com um canal do passo fino no par, a tabela mede os dois no passo fino e a curva, sem o zoom fino, é a média
