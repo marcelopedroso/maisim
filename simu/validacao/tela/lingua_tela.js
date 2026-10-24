@@ -12,6 +12,9 @@ const LIVRE = /^[\s\d.,:;%·\-−+×…/()°ΩµkMGBVAHzs→]*$|^(MaiSim|PT|EN|O
 
 // as páginas prontas (cada PR de tradução põe a sua aqui)
 const PRONTAS = [["página inicial", "/"]];
+// a casca do simu (o HTML traduzido) e os títulos que o código troca: ida ao inglês e volta devolvem o mesmo português
+const fotoCasca = () => [...document.querySelectorAll("[data-tr],[data-tr-html],[data-tr-title],[data-tr-ph],[data-tr-aria],[data-tr-msg],#ctl-lado-bt,th[data-col]")]
+  .map((e) => [e.id || e.className, e.getAttribute("title"), e.getAttribute("placeholder"), e.getAttribute("aria-label"), e.getAttribute("data-msg"), e.textContent].join("|"));
 
 async function varre(pg) {
   return pg.evaluate(([dado, livreSrc]) => {
@@ -42,6 +45,7 @@ async function varre(pg) {
     const inicio = await ctx.newPage(); inicio.on("pageerror", (e) => erros.push(e.message));
     await inicio.goto(B + "/"); await inicio.waitForSelector("#maisim-nav .lingua");
     const simu = await ctx.newPage(); await simu.goto(B + "/maisim/simu/"); await simu.waitForSelector("#maisim-nav .lingua");
+    await simu.waitForTimeout(1500); const cascaAntes = await simu.evaluate(fotoCasca);
     const antes = await inicio.evaluate(() => ({ bt: document.querySelector("#maisim-nav .lingua").textContent, h2: document.querySelector("#cartao-novo h2").textContent,
       rot: document.querySelector('#maisim-nav a.item[href="/"]').dataset.rotulo, lang: document.documentElement.lang }));
     ok(antes.bt === "EN" && antes.h2 === "+ Novo circuito" && antes.rot === "Início" && antes.lang === "pt-BR",
@@ -55,8 +59,11 @@ async function varre(pg) {
     ok(en.bt === "PT" && en.h2 === "+ New circuit" && /^Build circuits/.test(en.p) && en.rot === "Home" && /^Theme:/.test(en.tema) && en.lang === "en-US" && en.ck === "maisim-lingua=en",
       `PT/EN: a página inicial em inglês ("${en.h2}", "${en.p.slice(0, 40)}…", o trilho "${en.rot}", "${en.tema}"), <html lang=${en.lang}>, ${en.ck}`);
     await simu.waitForTimeout(500);
-    const s2 = await simu.evaluate(() => ({ l: maisimI18n.lingua(), rot: document.querySelector('#maisim-nav a[href="/maisim/simu/"]').dataset.rotulo, bt: document.querySelector("#maisim-nav .lingua").textContent }));
-    ok(s2.l === "en" && s2.rot === "Simu · build and simulate" && s2.bt === "PT", `a outra janela (o simu) acompanha na hora: ${JSON.stringify(s2)}`);
+    const s2 = await simu.evaluate(() => ({ l: maisimI18n.lingua(), rot: document.querySelector('#maisim-nav a[href="/maisim/simu/"]').dataset.rotulo, bt: document.querySelector("#maisim-nav .lingua").textContent,
+      vz: document.querySelector("#vz-novo").textContent, novo: document.querySelector("#bt-novo").getAttribute("title"), ph: document.querySelector("#busca").placeholder,
+      ctl: document.querySelector('#abas-doca [data-aba="controle"]').textContent, msg: document.querySelector("#painel-controle").dataset.msg.slice(0, 15) }));
+    ok(s2.l === "en" && s2.rot === "Simu · build and simulate" && s2.bt === "PT" && s2.vz === "+ New circuit" && s2.novo === "new circuit (blank sheet)"
+       && s2.ph === "search component…" && s2.ctl === "Control" && s2.msg === "no circuit open", `a outra janela (o simu) acompanha na hora, com a casca: ${JSON.stringify(s2)}`);
     // a janela à parte (o scope, janela=1) abre já em inglês; recarregar mantém
     const sj = await ctx.newPage(); await sj.goto(B + "/maisim/scope/?janela=1"); await sj.waitForTimeout(800);
     await inicio.reload(); await inicio.waitForSelector("#maisim-nav .lingua");
@@ -94,6 +101,10 @@ async function varre(pg) {
     const volta = await inicio.evaluate(() => ({ bt: document.querySelector("#maisim-nav .lingua").textContent, h2: document.querySelector("#cartao-novo h2").textContent,
       rot: document.querySelector('#maisim-nav a.item[href="/"]').dataset.rotulo, lang: document.documentElement.lang }));
     ok(JSON.stringify(volta) === JSON.stringify(antes), `de volta ao português: os mesmos textos (${JSON.stringify(volta)})`);
+    await simu.waitForTimeout(500); const cascaVolta = await simu.evaluate(fotoCasca);
+    const difs = cascaVolta.filter((x, i) => x !== cascaAntes[i]);
+    ok(cascaAntes.length > 100 && cascaVolta.length === cascaAntes.length && !difs.length,
+      `o simu de volta ao português: a casca igual (${cascaAntes.length} elementos${difs.length ? "; diferentes: " + difs.slice(0, 3).join(" ; ") : ""})`);
     ok(!erros.length, `sem erros de JS ${erros.join(" ; ")}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message.split("\n")[0]}`); }
   finally { if (b) await b.close(); }
