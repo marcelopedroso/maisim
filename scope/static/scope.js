@@ -672,7 +672,8 @@ function dicaEspectro(p, e) {
 // dica diz por quê (Marcelo, 24/10: "x̄ média" num painel só com o i_L não mostrava nada e parecia um defeito)
 function marcaComb(p) {
   const sel = p.el && p.el.querySelector(".m-comb"); if (!sel) return;
-  const poucos = (p.sinais || []).length < 2;
+  const na = (F) => (F ? (p.sinais || []).filter((c) => grossa(F, c)).length : 0);   // os que a rodada A (ou a B) tem de fato
+  const poucos = Math.max(na(A), na(B)) < 2;
   sel.disabled = poucos; sel.title = poucos ? tr("scope.med.t_combinar_poucos") : "";
 }
 function mudaMed(p, guarda = true) {                   // depois de mudar t₀, n, f₀ ou harmônicos
