@@ -26,9 +26,20 @@ import java.util.List;
  * uso: java -cp gecko.jar:bin maisim.MaiSimMotor [--gecko-port 7103] [--porta 7104]   (as portas de config/padrao.env)
  */
 public final class MaiSimMotor {
-    private final GeckoRemoteInterface g;
+    private GeckoRemoteInterface g;
+    private final int portaGecko;
 
-    private MaiSimMotor(GeckoRemoteInterface g) { this.g = g; }
+    private MaiSimMotor(GeckoRemoteInterface g, int portaGecko) { this.g = g; this.portaGecko = portaGecko; }
+
+    /** O Gecko caiu ou é outro (a referência remota velha só dá RemoteException): procura de novo no registro da porta.
+     *  O comando que falhou volta com o ERR dele; o servidor vê o java.rmi, confere o Gecko (o novo é reconhecido) e repete. */
+    private void reconecta() {
+        try {
+            GeckoRemoteInterface n = (GeckoRemoteInterface) LocateRegistry.getRegistry("localhost", portaGecko).lookup("GeckoRemoteInterface");
+            n.connect();
+            g = n;
+        } catch (Exception e) { System.out.println("reconectar ao Gecko: " + e); }
+    }
 
     public static void main(String[] args) throws Exception {
         int portaGecko = 7103, porta = 7104;
@@ -38,7 +49,7 @@ public final class MaiSimMotor {
         }
         GeckoRemoteInterface g = (GeckoRemoteInterface) LocateRegistry.getRegistry("localhost", portaGecko).lookup("GeckoRemoteInterface");
         g.connect();
-        MaiSimMotor m = new MaiSimMotor(g);
+        MaiSimMotor m = new MaiSimMotor(g, portaGecko);
         try (ServerSocket ss = new ServerSocket(porta, 10, InetAddress.getByName("127.0.0.1"))) {
             System.out.println("MaiSimMotor: Gecko na porta " + portaGecko + ", ouvindo em 127.0.0.1:" + porta);
             while (true) {
@@ -49,7 +60,12 @@ public final class MaiSimMotor {
                     while ((linha = in.readLine()) != null) {
                         String r;
                         try { r = "OK " + m.trata(linha.trim()); }
-                        catch (Throwable e) { Throwable c = e.getCause() != null ? e.getCause() : e; r = "ERR " + String.valueOf(c).replace('\n', ' '); }
+                        catch (Throwable e) {
+                            Throwable c = e.getCause() != null ? e.getCause() : e;
+                            Throwable rmi = e instanceof java.rmi.RemoteException ? e : c instanceof java.rmi.RemoteException ? c : null;
+                            if (rmi != null) m.reconecta();       // e o ERR diz java.rmi… (o servidor reconhece o Gecko caído/novo)
+                            r = "ERR " + String.valueOf(rmi != null ? rmi : c).replace('\n', ' ');
+                        }
                         out.println(r);
                         if (linha.trim().equals("QUIT")) break;
                     }

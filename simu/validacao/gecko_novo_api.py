@@ -130,8 +130,33 @@ gecko_novo(); os.utime(ESTADO, (time.time() - 3600,) * 2)
 r = estado_depois()
 ok(x_de(r, "R.1") == 10 and hash_arq(A) == hA, f"sem registro, um Gecko que subiu bem depois, com outra coisa: reaberto do arquivo (R.1 em x = {x_de(r, 'R.1')})")
 
+# só o Gecko cai e volta, o motor fica no ar (com a referência remota do Gecko de antes; Codex no #82): o motor procura o
+# Gecko de novo e responde java.rmi; o servidor confere, refaz e recusa o pedido; o seguinte vale
+gecko_novo()
+api("editor/abrir", {"arq": str(A), "modo": "descartar"})
+s7203 = subprocess.run(["ss", "-ltnpH", "sport = :7203"], capture_output=True, text=True).stdout
+for pid in set(re.findall(r"pid=(\d+)", s7203)): os.kill(int(pid), signal.SIGTERM)
+for _ in range(30):
+    if not subprocess.run(["ss", "-ltnH", "sport = :7203"], capture_output=True, text=True).stdout.strip(): break
+    time.sleep(0.3)
+cfg = dict(re.findall(r"(MAISIM_\w+)='?([^'\n]*)'?", subprocess.run(["python3", str(AQUI.parents[1] / "config" / "ler_config.py"), "--shell", "teste"], capture_output=True, text=True).stdout))
+T = Path(cfg["MAISIM_DADOS"]); jar = cfg.get("MAISIM_GECKO_JAR") or str(AQUI.parents[1] / "gecko" / "build" / "gecko-lote.jar")
+(T / "gecko.log").write_text("")
+subprocess.Popen(["setsid", "nohup", "java", f"-Duser.home={T}/home", "-Dpolyglot.js.nashorn-compat=true", "-jar", jar, str(T / "modelo.ipes"), "-p", cfg["MAISIM_PORTA_GECKO"]],
+                 cwd=T, env=dict(os.environ, DISPLAY=cfg["MAISIM_TELA_X"]), stdout=open(T / "gecko.log", "w"), stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
+for _ in range(60):
+    if "GeckoCIRCUITS is ready" in (T / "gecko.log").read_text(errors="replace"): break
+    time.sleep(1)
+r = api("editor/cmd", {"op": "MOVE", "args": ["R.1", 30, 10]})
+e = api("editor/estado")
+ok(r.get("codigo") == "gecko_novo" and x_de(e, "R.1") == 10 and api("editor/pendente").get("pendente") is False and hash_arq(A) == hA,
+   f"só o Gecko caiu (o motor no ar): reconhecido, pedido recusado, reaberto do arquivo ({r.get('codigo')}, R.1 em x = {x_de(e, 'R.1')})")
+r = api("editor/cmd", {"op": "MOVE", "args": ["R.1", 30, 10]})
+ok(not r.get("ERRO") and x_de(r, "R.1") == 30, f"e o pedido repetido vale ({r.get('erro', 'ok')})")
+gecko_novo()                                         # o Gecko e o motor como os outros testes esperam
+
 api("editor/novo", {"modo": "descartar"})
 for f in [A, Bq, C, *(copias() - c0)]:
     f.unlink(missing_ok=True)
-print(f"\n{22 - falhas}/22")
+print(f"\n{24 - falhas}/24")
 raise SystemExit(1 if falhas else 0)

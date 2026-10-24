@@ -46,6 +46,7 @@ class Motor:
         # ao_conectar: chamada na 1ª conexão com cada motor (um motor novo pode ter um Gecko novo) e de novo, a cada pedido,
         # enquanto conferir for True (quem é chamado o desliga quando conferiu); pode recusar o pedido (ErroMotor)
         self.ao_conectar, self.conferir, self._conferindo = None, False, False
+        self._local = threading.local()                 # repetiu: o comando já voltou uma vez depois de um ERR java.rmi
 
     def _olha(self):
         """Enquanto um pedido demora (mais de 2 s), a vigia olha a tela do Gecko a cada segundo: uma janela de erro aberta no
@@ -99,4 +100,13 @@ class Motor:
         r = r.rstrip("\n")
         if r.startswith("OK"):
             return r[3:]
+        if r.startswith("ERR java.rmi.") and self.ao_conectar and not self._conferindo and not getattr(self._local, "repetiu", False):
+            # o Gecko caiu ou é outro com o motor no ar (a conexão com o motor não caiu): o motor já procurou o Gecko de
+            # novo; o servidor confere qual é (o novo é refeito e este pedido, recusado) e o comando é repetido uma vez
+            self.conferir = True
+            self._local.repetiu = True
+            try:
+                return self.cmd(linha)
+            finally:
+                self._local.repetiu = False
         raise ErroMotor(traduz_erro(r[4:] if r.startswith("ERR ") else r))

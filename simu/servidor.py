@@ -528,9 +528,9 @@ def refaz_gecko():
         shutil.copy2(ESTADO, copia)
     try:                                             # o que o Gecko novo tinha (um modelo da partida, algo feito na tela dele)
         do_novo = _copia_gecko("gecko_novo")
-    except (ErroMotor, OSError) as e:                # sem a cópia (o Gecko não gravou): refaz assim mesmo, e o log diz
-        do_novo = None
-        print(f"{time.strftime('%H:%M:%S')} Gecko novo: não consegui guardar o que ele tinha ({e})", flush=True)  # i18n-ok (log)
+    except (ErroMotor, OSError) as e:                # sem a cópia, nada é refeito: o que o Gecko novo tem é a única cópia
+        print(f"{time.strftime('%H:%M:%S')} Gecko novo: não consegui guardar o que ele tinha ({e}); não refaço", flush=True)  # i18n-ok (log)
+        raise                                        # conta como falha (o pedido é recusado, a próxima conexão tenta de novo)
     reaberto = arq is not None and arq.is_file()
     if reaberto:
         abre(arq)
