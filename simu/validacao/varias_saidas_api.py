@@ -7,7 +7,7 @@ GETM → getOutput(bloco, saída)), com o rótulo dela ou <bloco>_<saída>. Conf
   (b−c)(cosθ + √3 sinθ))/3 e q = −(2(a−b)sinθ + (b−c)(sinθ − √3 cosθ))/3, que para a = A·sin(ωt + φ) dá d = A·sin φ = 1 e
   q = −A·cos φ = −√3, constantes; a saída d com rótulo (v_d), a q sem (ABCDQ_1_q);
 - DEMUX de 5 saídas de um MUX de cinco CONST (1…5): DEMUX_1_0 … DEMUX_1_3 = 1 … 4; a 5ª o Gecko não nomeia
-  (getOutputNames do DEMUX: "0", "1", "2", "etc.") — fica fora da rodada com aviso, e a rodada vai até o fim;
+  (getOutputNames do DEMUX: "0", "1", "2", "etc.") — nem vira sinal (nem no estado nem na rodada), e a rodada vai até o fim;
 - o estado diz os canais de cada saída (canais_saidas) e as medidas do controle os têm; "→ Scope" desmarcado no DEMUX tira
   as saídas dele todas da gravação (as caixinhas são do bloco)."""
 import json, math, os, re, shutil, time, urllib.request
@@ -79,7 +79,7 @@ try:
     est = api("editor/estado")
     el = {e["nome"]: e for e in est["folhas"]["0"]["elementos"]}
     cs = est.get("canais_saidas") or {}
-    demux = [f"DEMUX_1_{i}" for i in range(5)]
+    demux = [f"DEMUX_1_{i}" for i in range(4)]                  # a 5ª não tem nome no Gecko: não é sinal
     ok(len(el.get("DEMUX.1", {}).get("saidas", [])) == 5 and len(el.get("MUX.1", {}).get("entradas", [])) == 5,
        f"MUX de 5 entradas e DEMUX de 5 saídas ({len(el.get('MUX.1', {}).get('entradas', []))}, {len(el.get('DEMUX.1', {}).get('saidas', []))})")
     ok(cs.get("ABCDQ.1") == ["v_d", "ABCDQ_1_q"] and cs.get("DEMUX.1") == demux,
@@ -99,8 +99,8 @@ try:
        f"abc>>dq do trifásico equilibrado: d = {faixa(d)} (1), q = {faixa(q)} (−√3 = −1.732), constantes")
     ok(all(k in z and np.allclose(z[k][1:], i + 1) for i, k in enumerate(demux[:4])),
        f"DEMUX: as 4 primeiras saídas = 1, 2, 3, 4 ({[float(z[k][-1]) for k in demux[:4] if k in z]})")
-    ok("DEMUX_1_4" not in z and "DEMUX_1_4" in av and "DEMUX_1_4" not in (j.get("sinais") or []),
-       f"a 5ª saída do DEMUX (o Gecko não a nomeia) fica fora, com aviso: {av[:200]!r}")
+    ok("DEMUX_1_4" not in z and "DEMUX_1_4" not in (j.get("sinais") or []) and "DEMUX_1_4" not in av,
+       f"a 5ª saída do DEMUX (o Gecko não a nomeia) não é sinal: fora da gravação, sem aviso na rodada ({av[:120]!r})")
     meta = json.loads(str(z["meta"])) if "meta" in z else {}
     ok({"ABCDQ.1@d", "ABCDQ.1@q", "DEMUX.1@etc."} <= {x["elemento"] for x in meta.get("sinais", [])},
        f"o meta da gravação diz bloco@saída de cada sinal ({[x['elemento'] for x in meta.get('sinais', []) if '@' in x['elemento']]})")

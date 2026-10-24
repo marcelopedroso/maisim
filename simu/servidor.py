@@ -1954,13 +1954,17 @@ def saidas_gecko(e):
     só lê o bloco de uma saída sem dizer qual (getOutput(bloco): "has more than one output"); com várias, cada saída pelo
     nome que o bloco dá (getOutput(bloco, saída); os nomes, getOutputNames, vêm do próprio Gecko em geometria_gecko.json,
     nomes_saida). Os que numeram as saídas (Java, C/C++ e DEMUX: "0", "1", …) entram com o número; o DEMUX só nomeia
-    "0", "1", "2" e "etc." (a 4ª): da 5ª em diante o Gecko não a acha, e a rodada a deixa de fora com aviso (sinal_ilegivel).
+    "0", "1", "2" e "etc." (a 4ª): da 5ª em diante o Gecko não a acha, e ela nem vira sinal (nem no painel do controle nem
+    no desenho: seria aceita no código e cairia em toda rodada). Uma saída que ainda falhe na rodada fica de fora com aviso
+    (sinal_ilegivel).
     No canal, + − * do nome viram p, n e _ref (s1+ e s1− do Sparse não colidem; v_q* → v_q_ref)."""
     import ipes
     nomes = (ipes.GEOMETRIA.get(e.get("id_gecko")) or {}).get("nomes_saida") or []
     numera = not nomes or nomes[0] == "0"
     out = []
     for i in range(len(e["saidas"])):
+        if nomes and not all(n.isdigit() for n in nomes) and i >= len(nomes):
+            break                                       # sem nome no Gecko (a 5ª do DEMUX em diante): não se lê
         g = str(i) if numera and all(n.isdigit() for n in nomes) else nomes[i] if i < len(nomes) else str(i)
         out.append((g, str(i) if numera else g.replace("+", "p").replace("-", "n").replace("*", "_ref")))
     return out
