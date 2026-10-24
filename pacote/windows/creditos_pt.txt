@@ -1,0 +1,13 @@
+MaiSim — simulação de circuitos e controle digital, com IA embarcada no seu trabalho.
+Software livre (GNU GPL v3), de Marcelo Pedroso. https://maisim.org
+
+Feito sobre:
+- GeckoCIRCUITS (GPL v3): o simulador de circuitos por trás do MaiSim, com modificações do MaiSim (o código e os patches
+  acompanham o MaiSim, em gecko/patches).
+- Python e NumPy (BSD); Eclipse Temurin (o Java, GPL v2 com Classpath Exception).
+- uPlot (MIT): os gráficos do scope. Monaco Editor (MIT): o editor de código. KaTeX (MIT): as equações. marked (MIT).
+- IA: o MaiSim não inclui IA. Ele chama, no seu computador, os programas oficiais Claude Code (Anthropic) e Google
+  Antigravity, que você instala e usa com a sua própria conta; cada um segue os próprios termos de uso. O MaiSim não é
+  afiliado a nenhuma dessas empresas.
+
+Abra pelo atalho "MaiSim" (menu Iniciar ou área de trabalho). Para desligar: "Desligar o MaiSim" no menu Iniciar.

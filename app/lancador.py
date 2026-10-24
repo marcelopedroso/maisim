@@ -82,7 +82,10 @@ class Lancador:
         self.estado = self.cache / "lancador.json"
         self.subiu = {}                                  # nome → Popen (só o que este lançador subiu)
         self.sem_gecko = sem_gecko
-        self.java = self.cfg.get("MAISIM_JAVA") or shutil.which("java") or "java"
+        # o Java: o do pacote (a pasta jre ao lado do código, no instalador do Windows), o de MAISIM_JAVA (o AppRun do
+        # AppImage) ou o do sistema (a versão de programador)
+        junto = RAIZ.parent / "jre" / "bin" / ("java.exe" if WIN else "java")
+        self.java = self.cfg.get("MAISIM_JAVA") or (str(junto) if junto.is_file() else None) or shutil.which("java") or "java"
         self.jar = Path(self.cfg.get("MAISIM_GECKO_JAR") or RAIZ / "gecko" / "build" / "gecko-lote.jar")
 
     def porta(self, k):
