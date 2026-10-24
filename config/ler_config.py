@@ -37,9 +37,41 @@ def _le(arq):
     return v
 
 
+def pasta_documentos():
+    """Onde ficam os dados de quem usa a versão "só usar" (perfil produto): no Windows, a pasta Documentos do sistema (a de
+    verdade, mesmo levada para o OneDrive ou outro disco); no Linux, a pasta pessoal (~/MaiSim, à vista)."""
+    if os.name == "nt":
+        try:
+            import ctypes
+            buf = ctypes.create_unicode_buffer(260)
+            if ctypes.windll.shell32.SHGetFolderPathW(None, 5, None, 0, buf) == 0 and buf.value:   # CSIDL_PERSONAL
+                return Path(buf.value)
+        except (AttributeError, OSError):
+            pass
+        return Path.home() / "Documents"
+    return Path.home()
+
+
+def pasta_cache():
+    """O cache e os registros: %LOCALAPPDATA% no Windows; $XDG_CACHE_HOME ou ~/.cache no Linux."""
+    if os.name == "nt":
+        return Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
+    return Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
+
+
+def arquivo_pessoal():
+    """A config de quem usa a versão "só usar" (a porta e as pastas que o instalador pergunta; sobrevive às atualizações):
+    %APPDATA%\MaiSim\maisim.env no Windows; $XDG_CONFIG_HOME/maisim/maisim.env (~/.config/maisim/maisim.env) no Linux."""
+    if os.name == "nt":
+        return Path(os.environ.get("APPDATA") or Path.home() / "AppData" / "Roaming") / "MaiSim" / "maisim.env"
+    return Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "maisim" / "maisim.env"
+
+
 def _expande(x):
-    """~, $HOME e $RAIZ no começo de cada caminho: no início do valor, depois de ":" (listas) e depois de "=" (nome=pasta)."""
-    for ini, por in ((r"~", str(Path.home())), (r"\$HOME", str(Path.home())), (r"\$RAIZ", str(RAIZ))):
+    """~, $HOME e $RAIZ no começo de cada caminho: no início do valor, depois de ":" (listas) e depois de "=" (nome=pasta);
+    e, para o perfil produto, $DOCUMENTOS (pasta_documentos) e $CACHE_SISTEMA (pasta_cache)."""
+    for ini, por in ((r"~", str(Path.home())), (r"\$HOME", str(Path.home())), (r"\$RAIZ", str(RAIZ)),
+                     (r"\$DOCUMENTOS", str(pasta_documentos())), (r"\$CACHE_SISTEMA", str(pasta_cache()))):
         x = re.sub(r"(^|[:=])" + ini + r"(?=/|$|:)", lambda m: m.group(1) + por, x)
     return x
 
@@ -50,6 +82,8 @@ def carrega(perfil=None):
     arqs = [RAIZ / "config" / "padrao.env"] + ([RAIZ / "config" / f"{perfil}.env"] if perfil else [RAIZ / ".env"])
     if perfil and not arqs[1].is_file():
         raise FileNotFoundError(f"perfil {perfil!r}: falta {arqs[1]}")
+    if perfil == "produto":                          # a versão "só usar": por cima, a config de quem usa (arquivo_pessoal)
+        arqs.append(arquivo_pessoal())
     v, proprios = {}, {}
     for k, a in enumerate(arqs):
         lido = {n: _expande(x) for n, x in _le(a).items()}
@@ -71,6 +105,8 @@ def carrega(perfil=None):
     v.update(amb)
     if perfil:
         v["MAISIM_PERFIL"] = perfil
+    if perfil == "produto":
+        v.setdefault("MAISIM_CONFIG_PESSOAL", str(arquivo_pessoal()))   # onde o instalador e o lançador gravam a porta
     return v
 
 

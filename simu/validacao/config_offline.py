@@ -26,5 +26,19 @@ try:
     ler_config.carrega(); ok(False, "MAISIM_PORTA=80 deveria ser recusada")
 except ValueError as e:
     ok("1024" in str(e), f"MAISIM_PORTA=80 recusada ({e})")
-print(f"\n{5 - falhas}/5")
+# o perfil produto (a versão "só usar": o instalador do Windows, o AppImage), num HOME de mentira
+import tempfile
+del os.environ["MAISIM_PORTA"]
+h = tempfile.mkdtemp(); os.environ["HOME"] = h
+for k in ("XDG_CONFIG_HOME", "XDG_CACHE_HOME"):
+    os.environ.pop(k, None)
+v = ler_config.carrega("produto")
+ok(v["MAISIM_DADOS"] == f"{h}/MaiSim" and v["MAISIM_CACHE"] == f"{h}/.cache/maisim" and v["MAISIM_PORTA_PAGINA"] == "7100"
+   and v["MAISIM_CONFIG_PESSOAL"] == f"{h}/.config/maisim/maisim.env",
+   f"produto: dados à vista em ~/MaiSim, cache em ~/.cache/maisim, a config pessoal em ~/.config/maisim ({v['MAISIM_DADOS']})")
+pessoal = Path(v["MAISIM_CONFIG_PESSOAL"]); pessoal.parent.mkdir(parents=True); pessoal.write_text("MAISIM_PORTA=8100\nMAISIM_DADOS=~/Outra\n")
+v = ler_config.carrega("produto")
+ok(v["MAISIM_PORTA_PAGINA"] == "8100" and v["MAISIM_TELA_X"] == ":81" and v["MAISIM_DADOS"] == f"{h}/Outra",
+   "produto: a config pessoal (a porta e a pasta que o instalador pergunta) vale por cima")
+print(f"\n{7 - falhas}/7")
 raise SystemExit(1 if falhas else 0)
