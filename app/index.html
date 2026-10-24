@@ -212,9 +212,10 @@
                 const hora = d.toLocaleTimeString(maisimI18n.local(), { hour: "2-digit", minute: "2-digit" });
                 return d.toDateString() === h.toDateString() ? tr("inicio.hoje", { hora }) : `${d.toLocaleDateString(maisimI18n.local(), { day: "2-digit", month: "2-digit" })}, ${hora}`; };
             let mods, pastas = {};
-            try { mods = (await (await fetch("/maisim/simu/modelos")).json()).filter((m) => (m.id_grupo || m.grupo) !== "exemplos"); } catch (e) { return; }   // sem o simu: sem a seção
+            let todos;                                   // os exemplos só entram em Recentes, se foram abertos (a grade deles já está acima)
+            try { todos = await (await fetch("/maisim/simu/modelos")).json(); mods = todos.filter((m) => (m.id_grupo || m.grupo) !== "exemplos"); } catch (e) { return; }   // sem o simu: sem a seção
             try { pastas = await (await fetch("/maisim/simu/modelos/pastas")).json(); } catch (e) { /* sem o caminho */ }
-            if (!mods.length) return;
+            if (!mods.length && !todos.some((m) => m.aberto_em)) return;
             const sec = document.getElementById("circuitos"), lista = document.getElementById("lista-circ"), filtro = document.getElementById("filtro-circ");
             const nome = (m) => m.nome.replace(/\.ipes$/, "");
             const linha = (m, det) => `<div class="rodada"><div class="info"><b title="${esc(m.arq)}">${esc(nome(m))}</b><div class="det">${esc(det)}</div></div>` +
@@ -222,7 +223,7 @@
             let aba = "recentes";
             const desenha = () => {
                 if (aba === "recentes") {
-                    const abertos = mods.filter((m) => m.aberto_em).sort((a, b) => b.aberto_em - a.aberto_em);
+                    const abertos = todos.filter((m) => m.aberto_em).sort((a, b) => b.aberto_em - a.aberto_em);
                     const lst = (abertos.length ? abertos : [...mods].sort((a, b) => (b.alterado || 0) - (a.alterado || 0))).slice(0, 8);
                     lista.innerHTML = lst.map((m) => linha(m, [m.grupo, m.aberto_em ? tr("inicio.circ_aberto", { q: quando(m.aberto_em) }) : tr("inicio.circ_alterado", { q: quando(m.alterado) })].join(" · "))).join("");
                 } else {

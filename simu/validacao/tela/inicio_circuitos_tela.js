@@ -39,6 +39,14 @@ const api = (rota, corpo) => fetch("http://localhost:7201/maisim/simu/" + rota, 
     ok((await pg.textContent("#circuitos h2")) === "Circuits" && (await pg.textContent('.abas-circ button[data-aba="todos"]')) === "All circuits"
        && /opened/.test(await pg.textContent("#lista-circ .rodada .det")), "em inglês: Circuits, All circuits, opened …");
     await pg.evaluate(() => maisimI18n.muda("pt"));
+    // um exemplo aberto também entra em Recentes (Codex no #85); em "Todos" não (a grade dos exemplos já está acima)
+    const ex = (await api("modelos")).find((m) => m.id_grupo === "exemplos");
+    await api("editor/abrir", { arq: ex.arq, modo: "descartar" });
+    await pg.reload(); await pg.waitForSelector("#circuitos:not([hidden])");
+    const topo = await pg.$eval("#lista-circ .rodada b", (x) => x.textContent);
+    await pg.click('.abas-circ button[data-aba="todos"]');
+    const nosTodos = await pg.$$eval("#lista-circ .rodada b", (bs) => bs.map((x) => x.textContent));
+    ok(topo === ex.nome.replace(/\.ipes$/, "") && !nosTodos.includes(topo), `um exemplo aberto fica em cima nos Recentes (${topo}) e fora de Todos`);
     ok(!erros.length, `sem erros de JS ${erros.join(" ; ")}`);
   } catch (e) { ok(false, "o teste caiu: " + e.message); }
   if (b) await b.close();
