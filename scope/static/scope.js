@@ -1640,6 +1640,7 @@ function statusAB() {
   status(() => `A: ${nome($("sel-a"), va)}${comB ? " | B: " + nome($("sel-b"), vb) : ""}${A ? avisoGrade() : ""}`);
 }
 function poePorLinha() { $("bt-porlinha").textContent = tr("scope.por_linha", { n: larguraPadrao }); }
+poePorLinha();                                         // já na abertura: sem nenhuma rodada o layout não monta, e o botão ficava com o texto do HTML (em português)
 
 // ---------------------------------------------------------------- barra de ferramentas
 $("ck-fixar").onchange = (e) => { fixar = e.target.checked; };
