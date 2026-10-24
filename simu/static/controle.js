@@ -1216,6 +1216,7 @@ async function guardaControle() {
     const j = await api("editor/controle", { controle: pedido }); ctl.erroGuardar = "";
     const editandoPar = document.activeElement && document.activeElement.closest && document.activeElement.closest("#ctl-par, #ctl-ac, .ctl-ts, .ctl-ctl input[data-k]");
     ctl.dados = j; if (!editandoPar) desenhaLigacoes(); else $("ctl-avisos").innerHTML = avisosDoPainel(j.avisos, j.compartilhados) + avisoSemEsquema();
+    if (ctl.idiomaPendente) redesenhaIdioma();          // o idioma trocou com um valor inválido à vista: agora vale para tudo
     marcaErros(j.erros, j.conferencia); estadoCodigo(j); desenhaEntradas();
     if (editandoPar) desenhaInstancias();
     if (typeof avisa === "function") avisa("controle");       // a outra janela (a do código, ou a do circuito) acompanha
@@ -1494,11 +1495,12 @@ function redesenhaIdioma() {
     return;
   }
   const c = coleta();
+  ctl.idiomaPendente = !!c.invalido;
   if (!c.invalido) {
     Object.assign(ctl.dados.controle, c);
     desenhaLigacoes();                                  // as tabelas, os cartões, a árvore, o índice e os ⓘ
   } else {                                              // um valor inválido à vista (e marcado): as tabelas e os cartões
-    desenhaIndice(); infoTs(); infoAtraso(); infoRede();   // ficam; o próximo guardar que der certo os redesenha
+    desenhaIndice(); infoTs(); infoAtraso(); infoRede();   // ficam; o próximo guardar que der certo refaz a troca
   }
   $("ctl-abas").dataset.chave = "";                      // as mesmas abas: sem isso, só as classes mudariam
   desenhaAbas(); aplicaTabela(); marcaOrdem();
