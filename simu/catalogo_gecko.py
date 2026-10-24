@@ -24,6 +24,12 @@ for arq, dom in (("CircuitTyp", None), ("ControlTyp", "CONTROL"), ("SpecialTyp",
     for nome, cod, classe in re.findall(r"^\s*([A-Z][A-Za-z0-9_]*)\((-?\d+),\s*([A-Za-z0-9_]+)\.\w+", le(arq), re.M):
         d = dom or ("THERM" if nome.startswith("TH_") else "REL" if nome.startswith(("REL_", "NONLIN_REL")) else "LK")
         TIPOS[nome] = dict(enum=nome, dom=d, typ=int(cod), classe=classe)
+    # o enum que sobrescreve getTypeNumber() grava no .ipes o código de outro (Data from File e Random Walk: o do Signal
+    # Source, 4 — no arquivo são uma fonte de sinal com outro typQuelle): typ é o do arquivo, typ_enum o do enum
+    for nome, outro in re.findall(r"^\s*([A-Z][A-Za-z0-9_]*)\(-?\d+,[^)]*\)\s*\{\s*@Override\s*public\s+int\s+getTypeNumber\(\)\s*\{\s*"
+                                  r"return\s+([A-Z][A-Za-z0-9_]*)\.getTypeNumber\(\)", le(arq), re.M):
+        if outro in TIPOS:
+            TIPOS[nome].update(typ=TIPOS[outro]["typ"], typ_enum=TIPOS[nome]["typ"])
 
 
 def info(classe):
