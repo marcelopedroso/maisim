@@ -59,5 +59,10 @@ subprocess.run([REINICIA])
 r = api("editor/abrir", {"arq": A}); ok(r.get("ERRO") == 409 and r.get("mesmo") is True, f"mudança não vista: pergunta ({r.get('erro')})")
 r = api("editor/abrir", {"arq": A, "modo": "manter"}); x = next(e["x"] for e in r["folhas"]["0"]["elementos"] if e["nome"] == "R.1")
 ok(r.get("mantido") and x == 14, f"manter: fica o que está no Gecko (x = {x})")
+# um circuito novo (a folha em branco, o controle padrão, que já traz o leitura.py e o escrita.py de modelo) não tem nada por
+# salvar: antes os arquivos-modelo contavam como controle em uso, e todo circuito novo parecia ter controle sem salvar
+api("editor/novo", {"modo": "descartar"})
+r = api("editor/pendente")
+ok(r.get("pendente") is False and not r.get("itens"), f"circuito novo, intocado: nada por salvar ({r.get('itens')})")
 api("editor/abrir", {"arq": A, "modo": "descartar"})
 print("falhas:", falhas)

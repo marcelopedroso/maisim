@@ -1817,7 +1817,15 @@ def arquivo_controle(arq_ipes):
 
 def controle_em_uso(c):
     return bool(c["ativo"] or c["atuacoes"] or c["parametros"] or c.get("acionamentos") or canon_codigo(c["codigo"]) != MODELOS_CODIGO["controle"]["pt"]
-                or c.get("arquivos") or c.get("controladores"))
+                or arquivos_em_uso(c.get("arquivos") or {}) or c.get("controladores"))
+
+
+def arquivos_em_uso(arqs):
+    """Os arquivos do controle além do controle.py contam como uso só se não forem os modelos que todo circuito novo já
+    traz (leitura.py e escrita.py intocados, em qualquer idioma: modelos_arquivos); antes, um circuito novo parecia ter
+    sempre um controle sem salvar (o MaiSim perguntava por ele ao fechar, e o lançador deixava o Gecko no ar)."""
+    modelos = {f"{k}.py": MODELOS_CODIGO[k]["pt"] for k in ("leitura", "escrita")}
+    return set(arqs) - set(modelos) != set() or any(canon_codigo(v) != modelos[k] for k, v in arqs.items() if k in modelos)
 
 
 def arred(x):
