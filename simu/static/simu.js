@@ -530,7 +530,7 @@ function desenha() {
   const ALT_MARCA = 0.86, caixa = ([x, y, m]) => [x - 0.15, x + 1.05 + largMat(m[0]) * 0.27, y - 1.13, y - 0.32];
   const postas = [];
   for (const mk of marcas.sort((a, b) => a[1] - b[1] || a[0] - b[0])) {
-    for (let k = 0; k < 30; k++) {
+    for (;;) {                                         // cada passo desce abaixo de uma já posta: termina (são finitas)
       const [a0, a1, b0, b1] = caixa(mk);
       const bate = postas.find((q) => { const [c0, c1, d0, d1] = caixa(q); return a0 < c1 && c0 < a1 && b0 < d1 + 0.05 && d0 < b1 + 0.05; });
       if (!bate) break;
