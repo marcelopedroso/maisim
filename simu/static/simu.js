@@ -51,7 +51,7 @@ const externaDe = (e) => { const x = EXTERNA[e.tipo]; return x && e.entradas.len
 // os bornes das entradas externas, na ordem de pars (os de antes, como o sinal do LIMIT, ficam de fora); sem elas, null
 const bornesExternos = (e) => { const x = EXTERNA[e.tipo], t = x && e.terminais.filter((u) => u.lado === "e");
   return t && t.length === x.de + x.pars.length ? t.slice(x.de) : null; };
-const SIMBOLO = { CONST: "C", SIGNAL: "∿", GATE: "G", GAIN: "K", ADD: "+", SUB: "−", NOT: "¬", AND: "&", DELAY: "Δt", GE: "≥", VOLT: "V", AMP: "A" };
+const SIMBOLO = { LIMIT: "LIM", CONST: "C", SIGNAL: "∿", GATE: "G", GAIN: "K", ADD: "+", SUB: "−", NOT: "¬", AND: "&", DELAY: "Δt", GE: "≥", VOLT: "V", AMP: "A" };
 const UNID = { resistance: "Ω", inductance: "H", capacitance: "F", amplitude: "V", dcValue: "V", frequency: "Hz", onResistance: "Ω",
   offResistance: "Ω", frequenz: "Hz", phaseDegrees: "°", phase: "°", initialCurrent: "A" };
 const $ = (id) => document.getElementById(id);
