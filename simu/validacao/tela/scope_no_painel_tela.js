@@ -61,7 +61,7 @@ const api = (rota, corpo) => fetch("http://localhost:7201/maisim/simu/" + rota, 
     const a3a = await sel(); await marca("Sinais da rodada");
     const L3a = await leL(), a3 = await sel(), m3a = await pg.textContent("#msg");
     ok(a3a.p === "Corrente no indutor" && a3a.todos.includes("Sinais da rodada") && sinaisDe(L3a, "Sinais da rodada").includes("i_L") && sinaisDe(L3a, "i_L sozinha").join() === "i_L"
-       && sinaisDe(L3a, "Corrente no indutor").join() === "i_L" && a3.p === "Sinais da rodada,Corrente no indutor" && /vai para o painel “Sinais da rodada”/.test(m3a),
+       && sinaisDe(L3a, "Corrente no indutor").join() === "i_L" && a3.p === "Sinais da rodada,Corrente no indutor" && /entra no painel “Sinais da rodada”/.test(m3a),
        `painel que já existe: i_L em "Sinais da rodada", "Corrente no indutor" e "i_L sozinha" ("${m3a}")`);
     // ✕: apagar um painel da seção (a janela lista os painéis com quantos sinais têm); some do layout e do scope
     await pg.click("#p-painel-apaga"); await pg.waitForSelector(".modal .apaga-paineis");

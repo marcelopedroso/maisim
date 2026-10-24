@@ -71,7 +71,7 @@ maisimI18n.add({
   "simu.op_fora_painel": { pt: "fora de qualquer painel", en: "outside any panel" },
   "simu.sem_titulo": { pt: "(sem título)", en: "(untitled)" },
   "simu.op_novo_painel": { pt: "+ novo painel…", en: "+ new panel…" },
-  "simu.vai_para_painel": { pt: "{canal} vai para o painel “{titulo}” (seção {secao}) no scope", en: "{canal} goes to panel “{titulo}” (section {secao}) in the scope" },
+  "simu.entra_no_painel": { pt: "{canal} entra no painel “{titulo}” (seção {secao}) no scope", en: "{canal} added to panel “{titulo}” (section {secao}) in the scope" },
   "simu.sai_do_painel": { pt: "{canal} sai do painel “{titulo}” (seção {secao}) no scope", en: "{canal} leaves panel “{titulo}” (section {secao}) in the scope" },
   "simu.sem_paineis": { pt: "nenhum painel nesta seção", en: "no panels in this section" },
   "simu.escolha_secao": { pt: "escolha uma seção para ver os painéis dela", en: "choose a section to see its panels" },
@@ -562,5 +562,6 @@ maisimI18n.add({
   "simu.m_apagar_paineis": { pt: "Apagar painéis da seção {secao}", en: "Delete panels from section {secao}" },
   "simu.m_apagar_paineis_txt": { pt: "Marque os painéis que saem do layout do scope. Os sinais deles só deixam de aparecer ali; a gravação não muda.", en: "Check the panels to remove from the scope layout. Their signals just stop showing there; the recording does not change." },
   "simu.n_sinais_painel": { pt: { one: "{n} sinal", other: "{n} sinais" }, en: { one: "{n} signal", other: "{n} signals" } },
+  "simu.nao_apaga_tudo": { pt: "não dá para apagar todos os painéis do scope: o layout ficaria vazio (deixe ao menos um)", en: "cannot delete every panel of the scope: the layout would be empty (keep at least one)" },
   "simu.paineis_apagados": { pt: { one: "{n} painel apagado da seção {secao} no scope", other: "{n} painéis apagados da seção {secao} no scope" }, en: { one: "{n} panel deleted from section {secao} in the scope", other: "{n} panels deleted from section {secao} in the scope" } },
 });

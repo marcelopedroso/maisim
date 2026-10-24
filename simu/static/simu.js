@@ -201,11 +201,14 @@ function ligaNoPainel(np) {
   const canal = np.dataset.canal, selS = np.querySelector("#p-secao"), lista = np.querySelector("#p-paineis");
   const btNovo = np.querySelector("#p-painel-novo"), btApaga = np.querySelector("#p-painel-apaga"), tambem = np.querySelector("#p-tambem");
   const tituloDe = (p) => p.titulo || tr("simu.sem_titulo"), tem = (p) => Array.isArray(p.sinais) && p.sinais.includes(canal);
+  // a impressão de um painel: dois sem título (ou de mesmo título) na mesma posição não passam um pelo outro se algo mudou
+  const impressao = (p) => JSON.stringify({ titulo: p.titulo, sinais: p.sinais, largura: p.largura });
+  const kDaSecao = (nome) => gruposDoLayout(leLayoutCircuito()).findIndex((g) => g.secao === nome);
   // enquanto o padrão do circuito vem, tudo espera (marcar agora gravaria o automático, e o padrão não entraria mais)
   let esperando = true;
   // a seção mostrada: a escolhida (a posição dela na lista; -1: nenhuma), ou a 1ª em que o sinal está
   const desenhaOps = (secaoEscolhida) => {
-    if (!np.isConnected) { redesenhaNoPainel = null; return; }   // o painel de propriedades já é outro
+    if (!np.isConnected) { if (redesenhaNoPainel === redesenha) redesenhaNoPainel = null; return; }   // o painel de propriedades já é outro
     const gs = gruposDoLayout(leLayoutCircuito());
     const sAtual = secaoEscolhida === -1 ? -1 : gs[secaoEscolhida] ? secaoEscolhida : gs.findIndex((g) => g.paineis.some(tem));
     // data-secao, data-titulo: o nome de verdade (a conferência abaixo não depende do texto mostrado, que muda com o idioma)
@@ -213,7 +216,7 @@ function ligaNoPainel(np) {
     const g = gs[sAtual], trava = esperando ? " disabled" : "";
     lista.innerHTML = !g ? `<i>${escT(tr(gs.some((x) => x.paineis.some(tem)) ? "simu.escolha_secao" : "simu.op_fora_painel"))}</i>`
       : !g.paineis.length ? `<i>${escT(tr("simu.sem_paineis"))}</i>`
-      : g.paineis.map((p, k) => `<label><input type="checkbox" data-k="${k}" data-titulo="${escT(p.titulo || "")}"${tem(p) ? " checked" : ""}${trava}><span>${escT(tituloDe(p))}</span></label>`).join("");
+      : g.paineis.map((p, k) => `<label><input type="checkbox" data-k="${k}" data-titulo="${escT(p.titulo || "")}" data-impressao="${escT(impressao(p))}"${tem(p) ? " checked" : ""}${trava}><span>${escT(tituloDe(p))}</span></label>`).join("");
     const fora = gs.flatMap((x, k) => (k === sAtual ? [] : x.paineis.filter(tem).map((p) => `${nomeSecao(x)} › ${tituloDe(p)}`)));
     tambem.textContent = fora.length ? tr("simu.tambem_em", { onde: fora.join(" · ") }) : ""; tambem.hidden = !fora.length;
     selS.disabled = esperando; btNovo.disabled = !g || esperando; btApaga.disabled = !g || !g.paineis.length || esperando;
@@ -224,12 +227,12 @@ function ligaNoPainel(np) {
     const g = o && o.dataset.secao != null ? gruposDoLayout(L)[+selS.value] : null; return g && g.secao === o.dataset.secao ? g : null; };
   selS.onchange = async () => {
     if (selS.value === "+") {
-      const r = await modal({ titulo: escT(tr("simu.m_nova_secao")), campos: [{ nome: "secao", rotulo: escT(tr("simu.m_nome_secao")), valor: "" }, { nome: "painel", rotulo: escT(tr("simu.m_painel")), valor: canal }], ok: escT(tr("simu.criar")) });
+      const r = await modal({ titulo: escT(tr("simu.m_nova_secao")), campos: [{ nome: "secao", rotulo: escT(tr("simu.m_nome_secao")), valor: "" }, { nome: "painel", rotulo: escT(tr("simu.m_painel")), valor: escT(canal) }], ok: escT(tr("simu.criar")) });
       const s = r && r.secao.trim(), t = (r && r.painel.trim()) || canal;
       if (!s) { desenhaOps(); return; }
       const L = leLayoutCircuito();
       L.itens.push({ secao: s }, { titulo: t, sinais: [canal], largura: 1 });
-      if (gravaLayoutCircuito(L)) msg(tr("simu.vai_para_painel", { canal, titulo: t, secao: s }), "ok");
+      if (gravaLayoutCircuito(L)) msg(tr("simu.entra_no_painel", { canal, titulo: t, secao: s }), "ok");
       desenhaOps(gruposDoLayout(L).length - 1); return;   // a seção nova é a última
     }
     desenhaOps(selS.value === "" ? -1 : +selS.value);
@@ -237,20 +240,20 @@ function ligaNoPainel(np) {
   lista.onchange = (ev) => {                             // um quadradinho: o sinal entra ou sai SÓ deste painel
     const cx = ev.target; if (!cx.matches("input[data-k]")) return;
     const L = leLayoutCircuito(), g = secaoDaLista(L), painel = g && g.paineis[+cx.dataset.k];
-    if (!painel || (painel.titulo || "") !== cx.dataset.titulo) return mudou();
+    if (!painel || impressao(painel) !== cx.dataset.impressao) return mudou();
     const sinais = Array.isArray(painel.sinais) ? painel.sinais.filter((c) => c !== canal) : [];
     painel.sinais = cx.checked ? [...sinais, canal] : sinais;
-    if (gravaLayoutCircuito(L)) msg(tr(cx.checked ? "simu.vai_para_painel" : "simu.sai_do_painel", { canal, titulo: tituloDe(painel), secao: nomeSecao(g) }), "ok");
+    if (gravaLayoutCircuito(L)) msg(tr(cx.checked ? "simu.entra_no_painel" : "simu.sai_do_painel", { canal, titulo: tituloDe(painel), secao: nomeSecao(g) }), "ok");
     desenhaOps(+selS.value);
   };
   btNovo.onclick = async () => {                         // um painel novo no fim da seção, já com o sinal
     const g = secaoDaLista(leLayoutCircuito()); if (!g) return mudou();
-    const r = await modal({ titulo: escT(tr("simu.m_novo_painel", { secao: nomeSecao(g) })), campos: [{ nome: "painel", rotulo: escT(tr("simu.m_titulo_painel")), valor: canal }], ok: escT(tr("simu.criar")) });
+    const r = await modal({ titulo: escT(tr("simu.m_novo_painel", { secao: nomeSecao(g) })), campos: [{ nome: "painel", rotulo: escT(tr("simu.m_titulo_painel")), valor: escT(canal) }], ok: escT(tr("simu.criar")) });
     const t = r && r.painel.trim(); if (!t) return;
     const L = leLayoutCircuito(), g2 = secaoDaLista(L); if (!g2 || g2.secao !== g.secao) return mudou();
     const ultimo = g2.paineis.length ? g2.paineis[g2.paineis.length - 1] : g2.item;
     L.itens.splice(ultimo ? L.itens.indexOf(ultimo) + 1 : L.itens.length, 0, { titulo: t, sinais: [canal], largura: 1 });
-    if (gravaLayoutCircuito(L)) msg(tr("simu.vai_para_painel", { canal, titulo: t, secao: nomeSecao(g2) }), "ok");
+    if (gravaLayoutCircuito(L)) msg(tr("simu.entra_no_painel", { canal, titulo: t, secao: nomeSecao(g2) }), "ok");
     desenhaOps(+selS.value);
   };
   // ✕: apagar painéis da seção (um criado por engano polui a lista; Marcelo, 24/10) — escolhe numa janela, com quantos sinais
@@ -258,7 +261,7 @@ function ligaNoPainel(np) {
   btApaga.onclick = async () => {
     const g = secaoDaLista(leLayoutCircuito());
     if (!g || !g.paineis.length) return mudou();
-    let caixa = null;
+    let caixa = null; const marcas = g.paineis.map(impressao);   // como estavam ao abrir a janela
     const html = `<div class="apaga-paineis">${g.paineis.map((p, k) => `<label><input type="checkbox" data-k="${k}"> ${escT(tituloDe(p))}
       <small>${escT(tr("simu.n_sinais_painel", { n: (p.sinais || []).length }))}</small></label>`).join("")}</div>`;
     const r = await modal({ titulo: escT(tr("simu.m_apagar_paineis", { secao: nomeSecao(g) })), texto: escT(tr("simu.m_apagar_paineis_txt")), html,
@@ -267,15 +270,18 @@ function ligaNoPainel(np) {
     const ks = [...caixa.querySelectorAll("input[data-k]:checked")].map((i) => +i.dataset.k);
     if (!ks.length) return;
     const L = leLayoutCircuito(), g2 = secaoDaLista(L);
-    if (!g2 || g2.secao !== g.secao || ks.some((k) => !g2.paineis[k] || (g2.paineis[k].titulo || "") !== (g.paineis[k].titulo || ""))) return mudou();
-    const tira = new Set(ks.map((k) => g2.paineis[k]));
-    L.itens = L.itens.filter((x) => !tira.has(x));
+    if (!g2 || g2.secao !== g.secao || ks.some((k) => !g2.paineis[k] || impressao(g2.paineis[k]) !== marcas[k])) return mudou();
+    const tira = new Set(ks.map((k) => g2.paineis[k])), resto = L.itens.filter((x) => !tira.has(x));
+    if (!resto.length) { msg(tr("simu.nao_apaga_tudo"), "erro"); return; }   // vazio, o scope voltaria ao automático
+    L.itens = resto;
     if (gravaLayoutCircuito(L)) msg(tr("simu.paineis_apagados", { n: tira.size, secao: nomeSecao(g2) }), "ok");
-    desenhaOps(+selS.value);
+    const k = kDaSecao(g2.secao); desenhaOps(k >= 0 ? k : undefined);   // pela seção (o nome; as posições mudaram)
   };
-  // o layout mudou noutra janela (o scope): refaz, na mesma seção se ela ainda existe (pelo nome)
-  redesenhaNoPainel = () => { const o = selS.selectedOptions[0], nome = o && o.dataset.secao;
-    const k = nome == null ? -2 : gruposDoLayout(leLayoutCircuito()).findIndex((g) => g.secao === nome); desenhaOps(k >= 0 ? k : undefined); };
+  // o layout mudou noutra janela (o scope): refaz, na mesma seção se ela ainda existe (pelo nome); com "—", fica em "—"
+  const redesenha = () => { const o = selS.selectedOptions[0], nome = o && o.dataset.secao;
+    if (nome == null) return desenhaOps(o && o.value === "" ? -1 : undefined);
+    const k = kDaSecao(nome); desenhaOps(k >= 0 ? k : undefined); };
+  redesenhaNoPainel = redesenha;
   desenhaOps();
   lePadraoLayout().then(() => { esperando = false; desenhaOps(); });
 }
