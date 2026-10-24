@@ -287,17 +287,21 @@ def grava(dados, json_only):
     (SAIDA / "vistoria.md").write_text("\n".join(linhas) + "\n")
 
 
-def limpa_rodadas():
-    """As pastas de rodada desta vistoria (data_hora_vistoria_componentes), só na pasta de rodadas da instância de teste."""
+def rodadas_da_vistoria():
+    """As pastas de rodada de vistorias (data_hora_vistoria_componentes), só na pasta de rodadas da instância de teste."""
     pasta = pasta_rodadas()
     if "maisim_teste" not in str(pasta) or not pasta.is_dir():
-        return 0
-    padrao, n = re.compile(r"^\d{4}-\d\d-\d\d_\d{6}_" + re.escape(NOME_RODADA) + "$"), 0
-    for d in pasta.iterdir():
-        if d.is_dir() and padrao.match(d.name):
-            shutil.rmtree(d, ignore_errors=True)
-            n += 1
-    return n
+        return set()
+    padrao = re.compile(r"^\d{4}-\d\d-\d\d_\d{6}_" + re.escape(NOME_RODADA) + "$")
+    return {d for d in pasta.iterdir() if d.is_dir() and padrao.match(d.name)}
+
+
+def limpa_rodadas(antes):
+    """Apaga só as pastas de rodada criadas por esta vistoria: as de antes (de uma vistoria com --manter-rodadas) ficam."""
+    novas = rodadas_da_vistoria() - antes
+    for d in novas:
+        shutil.rmtree(d, ignore_errors=True)
+    return len(novas)
 
 
 def main():
@@ -318,6 +322,7 @@ def main():
         raise KeyboardInterrupt(f"sinal {sig}")
     signal.signal(signal.SIGTERM, termina)
 
+    antes = rodadas_da_vistoria()                       # as de vistorias de antes (--manter-rodadas) não saem no fim
     cat = json.loads(CATALOGO.read_text())
     todos = [dict(it, aba=ab["aba"]) for ab in cat["abas"] for it in ab["itens"]]
     so = a.so.lower()
@@ -373,7 +378,7 @@ def main():
         volta = api("editor/abrir", {"arq": RESTAURA, "modo": "descartar"}) if livre else {"ERRO": "ocupado", "erro": "rodada presa"}
         if volta.get("ERRO"):
             print(f"não consegui voltar o editor ao {RESTAURA}: {erro_de(volta)}", flush=True)
-        apagadas = 0 if a.manter_rodadas else limpa_rodadas()
+        apagadas = 0 if a.manter_rodadas else limpa_rodadas(antes)
         dados = {"quando": time.strftime("%Y-%m-%d %H:%M:%S"), "base": B, "dt": DT, "tfim": TFIM, "amostras": AMOSTRAS,
                  "prazo": a.prazo, "so": a.so, "interrompida": interrompida, "editor_restaurado": not volta.get("ERRO"),
                  "rodadas_apagadas": apagadas, "resumo": resumo(saida), "itens": saida}
