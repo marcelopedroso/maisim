@@ -1,5 +1,6 @@
 # After every merge into main: the full test suite (simu/validacao/ci.sh completo — UI, API, offline and the live scope
-# on the isolated instance). Green and VERSION changed → the vX.Y.Z tag and a Release with notes. Red → an issue.
+# on the isolated instance). Green → a comment on every PR merged since the last green run ("full suite passed"), and,
+# if VERSION changed, the vX.Y.Z tag and a Release with notes. Red → an issue.
 # Started by verify.yml (after merging a PR) or by a push to main (a merge made on the GitHub page).
 name: full suite
 
@@ -57,6 +58,33 @@ jobs:
           v="v$(tr -d ' \n' < VERSION)"
           if git rev-parse -q --verify "refs/tags/$v" > /dev/null; then echo "$v already exists: nothing to do"; exit 0; fi
           gh release create "$v" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "MaiSim $v" --generate-notes
+
+  covered:
+    name: tell the PRs it covered
+    needs: suite
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: comment on each PR merged since the last green full suite
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # the previous green run (this one is still in progress, so it is not listed); a run cancelled by a newer merge
+          # never gets here, and the next green one covers its PRs too
+          prev=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow full-suite.yml --branch main --status success --limit 1 --json headSha -q '.[0].headSha')
+          if [ -n "$prev" ] && git cat-file -e "$prev^{commit}" 2>/dev/null; then faixa="$prev..$GITHUB_SHA"; else faixa="-1 $GITHUB_SHA"; fi
+          prs=$(git log --format=%s $faixa | grep -o '(#[0-9]\+)$' | tr -d '(#)' | sort -un)
+          run="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          for n in $prs; do
+            gh pr comment "$n" --repo "$GITHUB_REPOSITORY" --body "✅ **Full suite passed** on main at ${GITHUB_SHA::7}, which includes this PR: $run" || true
+          done
+          echo "covered: ${prs:-none}"
 
   report:
     name: report failure

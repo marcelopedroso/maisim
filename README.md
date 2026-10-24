@@ -4,6 +4,8 @@
 
 **English** | [Português](README.pt-BR.md)
 
+[![verify](https://github.com/marcelopedroso/maisim/actions/workflows/verify.yml/badge.svg)](https://github.com/marcelopedroso/maisim/actions/workflows/verify.yml) [![full suite](https://github.com/marcelopedroso/maisim/actions/workflows/full-suite.yml/badge.svg?branch=main)](https://github.com/marcelopedroso/maisim/actions/workflows/full-suite.yml)
+
 **Open-source power electronics simulation and control platform, with AI.**
 
 MaiSim runs in your browser, on your own machine, with [GeckoCIRCUITS](https://github.com/geckocircuits/GeckoCIRCUITS)

@@ -4,6 +4,8 @@
 
 [English](README.md) | **Português**
 
+[![verify](https://github.com/marcelopedroso/maisim/actions/workflows/verify.yml/badge.svg)](https://github.com/marcelopedroso/maisim/actions/workflows/verify.yml) [![full suite](https://github.com/marcelopedroso/maisim/actions/workflows/full-suite.yml/badge.svg?branch=main)](https://github.com/marcelopedroso/maisim/actions/workflows/full-suite.yml)
+
 **Plataforma aberta de simulação e controle de eletrônica de potência, com IA.**
 
 O MaiSim roda no seu navegador, na sua máquina, com o [GeckoCIRCUITS](https://github.com/geckocircuits/GeckoCIRCUITS)
