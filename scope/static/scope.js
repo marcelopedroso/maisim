@@ -274,7 +274,7 @@ function seriesDe(p) {
   // com o Medir aberto, a curva Σ(t): a soma ponto a ponto dos sinais que estão no Σ da tabela (os mesmos: um clique no
   // nome tira/põe), com os valores reais; o valor no cursor vai para a legenda (Marcelo, 20/10: "a soma tem que ser dos
   // pontos no gráfico também: va(t) + vb(t) + vc(t) = 0"); clicar no Σ da legenda esconde a curva (e a escala volta)
-  if (p.med && p.med.aberto && p.med.fourier) for (const F of B ? [A, B] : [A]) {   // Σ e x̄ são do Fourier (o "combinar")
+  if (p.med && p.med.aberto) for (const F of B ? [A, B] : [A]) {
     const partes = out.filter((se) => se.F === F && !p.espFora.has(`${se.canal}|${F === A ? "A" : "B"}`)).map((se) => se.canal);
     if (partes.length < 2) continue;
     const suf = B ? (F === A ? " · A" : " · B") : "", comb = p.med.comb || "ambos";
@@ -673,10 +673,10 @@ function mudaMed(p, guarda = true) {                   // depois de mudar t₀, 
   p.el.querySelector(".b-med").classList.toggle("ativo", M.aberto);
   box.classList.toggle("sem-fourier", !M.fourier);
   box.querySelectorAll(".m-modo").forEach((bt) => bt.classList.toggle("ativo", { fourier: M.fourier, ct: M.cur.on, cy: M.cur.yon }[bt.dataset.k]));
-  if (M.aberto) leituraCur(p);
+  if (M.aberto) { leituraCur(p); box.querySelector(".m-comb").value = M.comb || "ambos"; }
   if (M.aberto && M.fourier) {
     box.querySelector(".m-t0").value = +M.t0.toFixed(3); box.querySelector(".m-n").value = M.n;
-    box.querySelector(".m-f0").value = M.f0; box.querySelector(".m-hs").value = M.hs; box.querySelector(".m-comb").value = M.comb || "ambos";
+    box.querySelector(".m-f0").value = M.f0; box.querySelector(".m-hs").value = M.hs;
     for (const k of ["imp", "par"]) { box.querySelector(`.m-${k}`).checked = M[k].on; box.querySelector(`.m-${k}-n`).value = M[k].ate; }
     box.querySelector(".med-tab").dataset.chave = "";
     mede(p);
@@ -702,6 +702,7 @@ function caixaMed(p) {
       <button class="m-modo" data-k="fourier" title="média e série de Fourier numa janela de períodos inteiros (Shift + arrastar no gráfico)">Fourier</button><button
         class="m-modo" data-k="ct" title="duas linhas verticais, A e B, para arrastar: Δt, 1/Δt e, por sinal, Δy e Δy/Δt">Cursores <i>t</i></button><button
         class="m-modo" data-k="cy" title="duas linhas horizontais, C e D, para arrastar: os níveis e o Δy (na escala do gráfico)">Cursores <i>y</i></button></span>
+    <label class="m-comb-l" title="os sinais do painel juntos, ponto a ponto, no gráfico (curva e legenda), na tabela do Fourier e nos cursores (não é do Fourier; nenhum: sem Σ nem x̄): a soma Σ, a média instantânea x̄ = Σ/n ou as duas; clique no nome de um sinal para tirá-lo ou pô-lo">combinar <select class="m-comb"><option value="nenhum">nenhum</option><option value="ambos">Σ e x̄</option><option value="soma">Σ soma</option><option value="media">x̄ média (Σ/n)</option></select></label>
     <span class="med-dica">Shift + arrastar: intervalo</span><button class="m-fecha" title="fechar a medição">✕</button></div>
     <div class="med-cab">
     <label>t₀ <input type="number" step="any" class="m-t0"> ms</label>
@@ -712,7 +713,6 @@ function caixaMed(p) {
     <label title="todos os pares até este (somam-se à lista)"><input type="checkbox" class="m-par"> pares até <input type="number" min="2" max="200" step="1" class="m-par-n"></label>
     <button class="m-vis" title="a janela começa no início do que está à vista, com os períodos inteiros que cabem nela">usar o visível</button>
     <button class="m-esp" title="espectro de harmônicos (barras) dos sinais da tabela; clique no nome de um sinal para tirá-lo ou pô-lo">Espectro</button>
-    <label title="os sinais da tabela juntos, ponto a ponto, no gráfico (curva e legenda) e na tabela: a soma Σ, a média instantânea x̄ = Σ/n ou as duas; clique no nome de um sinal para tirá-lo ou pô-lo">combinar <select class="m-comb"><option value="ambos">Σ e x̄</option><option value="soma">Σ soma</option><option value="media">x̄ média (Σ/n)</option></select></label>
     </div>
     <div class="med-tab"></div><div class="med-cur"></div>
     <div class="esp" style="display:none"><div class="esp-cab"><label>até h <input type="number" min="1" max="1000" step="1" class="m-hmax"></label>

@@ -60,8 +60,13 @@ const URL = "http://localhost:7200/maisim/scope/?a=" + encodeURIComponent(path.r
     // o Fourier desligado: somem a tabela e os campos; os cursores continuam
     await pg.click('.medicao .m-modo[data-k="fourier"]'); await pg.waitForTimeout(150);
     const semF = await pg.evaluate(() => ({ tab: getComputedStyle(document.querySelector(".med-tab")).display, cab: getComputedStyle(document.querySelector(".med-cab")).display,
-      cur: !!document.querySelector(".med-cur .cur-dt"), cy: !!document.querySelector(".med-cur .cur-y"), somas: paineis()[0].series.filter((se) => se.soma).length }));
-    ok(semF.tab === "none" && semF.cab === "none" && semF.cur && semF.cy && semF.somas === 0, "Fourier desligado: a tabela, os campos e as curvas Σ/x̄ somem; os cursores t e y ficam");
+      cur: !!document.querySelector(".med-cur .cur-dt"), cy: !!document.querySelector(".med-cur .cur-y") }));
+    ok(semF.tab === "none" && semF.cab === "none" && semF.cur && semF.cy, "Fourier desligado: a tabela e os campos somem; os cursores t e y ficam");
+    // o "combinar" (Σ e x̄) não é do Fourier: fica no topo, com o Fourier desligado continua; "nenhum" tira as curvas
+    const comb0 = await pg.evaluate(() => ({ topo: !!document.querySelector(".med-topo .m-comb"), vis: getComputedStyle(document.querySelector(".m-comb")).display !== "none" }));
+    await pg.selectOption(".medicao .m-comb", "nenhum"); await pg.waitForTimeout(200);
+    const somas = await pg.evaluate(() => paineis()[0].series.filter((se) => se.soma).length);
+    ok(comb0.topo && comb0.vis && somas === 0, "o combinar fica no topo do Medir (à vista sem o Fourier); \"nenhum\" tira Σ e x̄");
     // ficam no layout; o PNG sai
     await abre();
     const volta = await pg.evaluate(() => { const m = paineis()[0].med, c = m.cur; return c.on && c.yon && !m.fourier && Math.abs(c.b - 2.75) < 1e-9; });
