@@ -1,0 +1,27 @@
+diff --git a/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/AbstractTypeInfo.java b/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/AbstractTypeInfo.java
+--- a/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/AbstractTypeInfo.java
++++ b/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/AbstractTypeInfo.java
+@@ -140,6 +140,12 @@
+             final AbstractCircuitSheetComponent parent) {
+         final AbstractCircuitBlockInterface returnValue = (AbstractCircuitBlockInterface) typ.getTypeInfo().fabric();
+         returnValue.setParent(parent);
++        // hidden sub-components (e.g. the two "U" sources inside NLRel) are never addressed by name, and their
++        // parents later rename them with setNameUnChecked, which bypasses the name registry: if they were
++        // registered under "U.1", "U.2", ... those names would stay "in use" forever (even after the parent
++        // is deleted or the sheet is cleared). Keep them out of the registry with an unregistered ID string.
++        returnValue.getIDStringDialog().deleteIDString();
++        returnValue.setDummyIDStringDialog();
+         return returnValue;
+     }
+     
+diff --git a/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/SchematischeEingabe2.java b/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/SchematischeEingabe2.java
+--- a/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/SchematischeEingabe2.java
++++ b/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/SchematischeEingabe2.java
+@@ -673,6 +673,7 @@
+         for (AbstractCircuitSheetComponent comp : _circuitSheet.getAllElements().toArray(new AbstractCircuitSheetComponent[0])) {
+             comp.deleteComponent();
+         }
++        IDStringDialog.clearAllNames(); // empty sheet: no name may stay "in use" (drops any leaked registration)
+         // default-Einstellungen:
+         _mouseMoveMode = MouseMoveMode.NONE;
+         _selectedComponents.clear();
