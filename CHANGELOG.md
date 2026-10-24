@@ -6,6 +6,8 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-24
+
 ### Added
 - `npm run maisim -- -p PORT` serves MaiSim on another port: the page on PORT, the other services right after it (#63).
 - **MaiSim in Portuguese and English** (#42–#56). The first visit follows the browser language, and the PT/EN button on the rail switches every window at once. Pages, server messages, the AI (rules, prompts, the files it reads), the control guide, code templates and examples come in both languages. A strict guard in every PR keeps any new text bilingual.
@@ -63,6 +65,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
   - ports and folders in one configuration file;
   - CI on GitHub Actions (#1).
 
-[Unreleased]: https://github.com/marcelopedroso/maisim/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/marcelopedroso/maisim/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/marcelopedroso/maisim/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/marcelopedroso/maisim/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/marcelopedroso/maisim/releases/tag/v0.1.0
