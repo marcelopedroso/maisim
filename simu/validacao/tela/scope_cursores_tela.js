@@ -69,9 +69,11 @@ const URL = "http://localhost:7200/maisim/scope/?a=" + encodeURIComponent(path.r
     ok(semF.tab === "none" && semF.cab === "none" && semF.cur && semF.cy, "Fourier desligado: a tabela e os campos somem; os cursores t e y ficam");
     // o "combinar" (Σ e x̄) não é do Fourier: fica no topo, com o Fourier desligado continua; "nenhum" tira as curvas
     const comb0 = await pg.evaluate(() => ({ topo: !!document.querySelector(".med-topo .m-comb"), vis: getComputedStyle(document.querySelector(".m-comb")).display !== "none" }));
-    await pg.selectOption(".medicao .m-comb", "nenhum"); await pg.waitForTimeout(200);
+    // com um sinal só no painel, o combinar fica desligado, com a dica do porquê (não há o que somar nem tirar a média)
+    const um = await pg.evaluate(() => { const s = document.querySelector(".medicao .m-comb"); return { off: s.disabled, dica: s.title }; });
     const somas = await pg.evaluate(() => paineis()[0].series.filter((se) => se.soma).length);
-    ok(comb0.topo && comb0.vis && somas === 0, "o combinar fica no topo do Medir (à vista sem o Fourier); \"nenhum\" tira Σ e x̄");
+    ok(comb0.topo && comb0.vis && somas === 0 && um.off && /2 ou mais sinais/.test(um.dica),
+      `o combinar fica no topo do Medir (à vista sem o Fourier); com um sinal só, desligado ("${um.dica.slice(0, 40)}…"), sem Σ nem x̄`);
     // ficam no layout; o PNG sai
     await abre();
     const volta2 = await pg.evaluate(() => { const m = paineis()[0].med, c = m.cur; return c.on && c.yon && !m.fourier && c.b > c.a; });

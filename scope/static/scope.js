@@ -668,13 +668,20 @@ function dicaEspectro(p, e) {
   const cw = p.el.querySelector(".esp").clientWidth, dw = dica.offsetWidth;
   dica.style.left = `${Math.min(e.offsetX + 14, cw - dw - 4)}px`; dica.style.top = `${Math.max(0, e.offsetY - 10)}px`;
 }
+// o Combinar (Σ e x̄ ponto a ponto entre os sinais do painel) só faz sentido com 2 ou mais sinais: com menos, desligado e a
+// dica diz por quê (Marcelo, 24/10: "x̄ média" num painel só com o i_L não mostrava nada e parecia um defeito)
+function marcaComb(p) {
+  const sel = p.el && p.el.querySelector(".m-comb"); if (!sel) return;
+  const poucos = (p.sinais || []).length < 2;
+  sel.disabled = poucos; sel.title = poucos ? tr("scope.med.t_combinar_poucos") : "";
+}
 function mudaMed(p, guarda = true) {                   // depois de mudar t₀, n, f₀ ou harmônicos
   const box = p.el.querySelector(".medicao"), M = p.med;
   box.style.display = M.aberto ? "" : "none";
   p.el.querySelector(".b-med").classList.toggle("ativo", M.aberto);
   box.classList.toggle("sem-fourier", !M.fourier);
   box.querySelectorAll(".m-modo").forEach((bt) => bt.classList.toggle("ativo", { fourier: M.fourier, ct: M.cur.on, cy: M.cur.yon }[bt.dataset.k]));
-  if (M.aberto) { leituraCur(p); box.querySelector(".m-comb").value = M.comb || "nenhum"; }
+  if (M.aberto) { leituraCur(p); box.querySelector(".m-comb").value = M.comb || "nenhum"; marcaComb(p); }
   if (M.aberto && M.fourier) {
     box.querySelector(".m-t0").value = +M.t0.toFixed(3); box.querySelector(".m-n").value = M.n;
     box.querySelector(".m-f0").value = M.f0; box.querySelector(".m-hs").value = M.hs;
@@ -873,6 +880,7 @@ function refazGrafico(p) {
 function criaGrafico(p, manter) {
   if (p.u) { p.u.destroy(); p.u = null; }
   p.area.innerHTML = "";
+  marcaComb(p);                                         // os sinais do painel mudaram: o Combinar acompanha
   if (!A || !p.sinais.length) { p.area.innerHTML = `<div class="vazio">${escH(tr(A ? "scope.p.vazio_sinais" : "scope.p.aguardando"))}</div>`; return; }
   p.series = seriesDe(p);
   p.semDados = false;

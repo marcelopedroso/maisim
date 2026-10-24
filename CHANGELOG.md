@@ -31,6 +31,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 - **Windows:** separate code and scope windows, shown as a narrow strip in the simu (#25, #26, #33).
 
 ### Changed
+- Scope Measure: **Combine** (Σ and x̄ across the panel's signals) is disabled when the panel has fewer than 2 signals, with a tooltip saying why (#64).
 - The window title bar and the rail follow the theme (light or dark); the title is just "MaiSim" (#58, #60).
 - The scope panel toolbar reads Signals · Y fixed · Zoom (Area | X | Y) · fit · link · Measure (#57).
 - Buttons, labels and options start with a capital letter (#41).
