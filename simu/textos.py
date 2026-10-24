@@ -790,8 +790,8 @@ T = {
     "resumo.estado": {"pt": "- estado final: {estado}{erro}{relogio}", "en": "- final state: {estado}{erro}{relogio}"},
     "resumo.erro": {"pt": " — erro: {erro}", "en": " — error: {erro}"},
     "resumo.relogio": {"pt": " ({s} s de relógio)", "en": " ({s} s wall clock)"},
-    "resumo.tempo": {"pt": "- tempo simulado: {t0} a {t1} s; passo do Gecko {dtg} s; uma amostra do scope a cada {dt} s; Ts do controle {ts} s; {n} canais",
-                     "en": "- simulated time: {t0} to {t1} s; Gecko step {dtg} s; one scope sample every {dt} s; control Ts {ts} s; {n} channels"},
+    "resumo.tempo": {"pt": "- tempo simulado: {t0} a {t1} s; passo do Gecko {dtg} s; uma amostra do scope a cada {dt} s; Ts do controle {ts}; {n} canais",
+                     "en": "- simulated time: {t0} to {t1} s; Gecko step {dtg} s; one scope sample every {dt} s; control Ts {ts}; {n} channels"},
     "resumo.sem_controle": {"pt": "— (sem controle)", "en": "— (no control)"},
     "resumo.fasores": {"pt": "- fasores em {f} Hz, por mínimos quadrados num número inteiro de ciclos do fim da janela; fase com referência "
                              "cosseno (x ≈ X·cos(ωt + φ)); \"eficaz CA\" é o desvio padrão (sem a média)",
