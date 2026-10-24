@@ -25,6 +25,14 @@ for _p in (Path(__file__).resolve().parents[1] / "config", Path(__file__).resolv
 import lingua  # noqa: E402                    o resumo no idioma de quem rodou (a linha "- modelo: …" é do protocolo: não muda)
 import textos  # noqa: E402,F401
 
+ESTADOS = ("preparando", "rodando", "pausada", "parada", "fim", "erro")   # os da rodada (servidor.py)
+
+
+def estado_txt(est):
+    """O estado da rodada para ler: em português a palavra do protocolo (como antes); em inglês, traduzida."""
+    return lingua.tr(f"rodada_estado.{est}") if est in ESTADOS else str(est)
+
+
 JANELAS = 5          # a rodada em 5 janelas iguais: a última é o "regime"
 PONTOS = 500         # pontos de cada série reduzida
 
@@ -67,7 +75,7 @@ def escreve(npz, destino=None, estado=None, saida_controle=""):
     tr = lingua.tr
     L = [tr("resumo.titulo", rotulo=meta.get('rotulo', npz.stem)), "",
          f"- modelo: {meta.get('modelo', '?')}",         # protocolo: do_modelo() e muda_modelo() leem esta linha
-         tr("resumo.estado", estado=est.get('estado', '?'), erro=tr("resumo.erro", erro=est['erro']) if est.get("erro") else "",
+         tr("resumo.estado", estado=estado_txt(est.get('estado', '?')), erro=tr("resumo.erro", erro=est['erro']) if est.get("erro") else "",
             relogio=tr("resumo.relogio", s=est['segundos']) if est.get("segundos") is not None else ""),
          tr("resumo.tempo", t0=_fmt(t0), t1=_fmt(t1), dtg=_fmt(meta.get('dt_gecko')), dt=_fmt(meta.get('dt')),
             ts=_fmt(ctl.get('Ts')) if ctl else tr("resumo.sem_controle"), n=len(canais)),

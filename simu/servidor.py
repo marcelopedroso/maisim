@@ -3525,11 +3525,12 @@ REGRAS = AQUI / "ia"
 
 
 def regras_texto(l=None):
-    """As regras no idioma l (o do pedido, se não dado); sem o arquivo do idioma, as em português."""
-    arq = REGRAS / f"regras.{l or lingua.atual()}.md"
+    """(as regras, o idioma delas) no idioma l (o do pedido, se não dado); sem o arquivo do idioma, as em português."""
+    l = l or lingua.atual()
+    arq = REGRAS / f"regras.{l}.md"
     if not arq.is_file():
-        arq = REGRAS / "regras.pt.md"
-    return arq.read_text(encoding="utf-8").removesuffix("\n")
+        l, arq = "pt", REGRAS / "regras.pt.md"
+    return arq.read_text(encoding="utf-8").removesuffix("\n"), l
 
 
 def uso_texto(texto):
@@ -3957,10 +3958,12 @@ def claude_contexto(c, dt, tfim):
     nTs = max(1, arred(c["Ts"] / dt)) if dt > 0 else 1
     at = c.get("atraso") or {}
     d_at = passos_de_atraso(at, nTs, dt) if dt > 0 else 1   # o atraso efetivo, em Δt (a latência fica entre Δt e Ts)
+    modo = at.get('modo', 'logo')
+    modo_txt = tr(f"ia_contexto.modo_{modo}") if modo in ("logo", "amostra", "tempo") else str(modo)
     L += [tr("ia_contexto.ts", ts=num_txt(c['Ts']), ef=num_txt(nTs * dt), nts=nTs,
              vezes=int(tfim / (nTs * dt)) if dt > 0 and tfim > 0 else '?'),
-          tr("ia_contexto.atraso_tempo", modo=at.get('modo', 'logo'), d=d_at, tau=num_txt(at.get('tempo'))) if at.get("modo") == "tempo"
-          else tr("ia_contexto.atraso", modo=at.get('modo', 'logo'), d=d_at),
+          tr("ia_contexto.atraso_tempo", modo=modo_txt, d=d_at, tau=num_txt(at.get('tempo'))) if at.get("modo") == "tempo"
+          else tr("ia_contexto.atraso", modo=modo_txt, d=d_at),
           tr("ia_contexto.ligado_sim" if c["ativo"] else "ia_contexto.ligado_nao"), ""]
     if not ult:
         L += [tr("ia_contexto.sem_circuito"), ""]
@@ -4218,8 +4221,9 @@ def guarda_sessao_da_ia(chave, conv_id, ia, sid):
 
 def regras_da(a):
     """As regras do MaiSim para a IA, no idioma do pedido (as mesmas para todas; só o nome dela no começo)."""
-    r = regras_texto()
-    return r if a.id == "claude" else r.replace(lingua.tr("ia.voce_claude"), lingua.tr("ia.voce_ia", nome=a.nome), 1)
+    r, l = regras_texto()
+    with lingua.com(l):                                 # a frase do nome no idioma das regras que vieram (sem o .en.md, as pt)
+        return r if a.id == "claude" else r.replace(lingua.tr("ia.voce_claude"), lingua.tr("ia.voce_ia", nome=a.nome), 1)
 
 
 def _claude_lanca(prompt, c, dt, vez, chave, conv, pasta, anexos, memoria, modelo="", esforco="", ia="claude"):
@@ -4444,7 +4448,8 @@ def _claude_volta_autonoma(antes, dt, chave, pasta, memoria, vez):
         claude_pedido["eventos"] = (claude_pedido["eventos"] + [lingua.tr("pedido.ev_rodada", i=i, estado=est)
                                                                  + (f" ({rodada.get('erro')})" if rodada.get("erro") else "")])[-40:]
         claude_pedido.update(pedido=lingua.tr("pedido.auto_resultado", i=i, n=auto['max']), fala="", resposta=None)
-    estado_txt = lingua.tr("ia.prompt_rodada_erro", estado=est, erro=rodada.get("erro")) if rodada.get("erro") else est
+    est_l = resumo_rodada.estado_txt(est)            # em inglês, "finished"…; em português, a palavra de sempre
+    estado_txt = lingua.tr("ia.prompt_rodada_erro", estado=est_l, erro=rodada.get("erro")) if rodada.get("erro") else est_l
     prompt = lingua.tr("ia.prompt_rodada", i=i, n=auto["max"], estado=estado_txt,
                        resumo=lingua.tr("ia.prompt_rodada_tem_resumo" if tem else "ia.prompt_rodada_sem_resumo"),
                        lembrete=lingua.tr("ia.lembrete_formato"))

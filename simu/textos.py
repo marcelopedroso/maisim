@@ -595,8 +595,8 @@ T = {
 
     # PR 11: o que a IA lê, no idioma do pedido. As regras (o prompt de sistema) ficam em ia/regras.pt.md e ia/regras.en.md.
     # O nome no começo das regras (a mesma frase dos dois arquivos: o servidor troca pela da outra IA)
-    "ia.voce_claude": {"pt": "Você é o Claude do MaiSim", "en": "You are the Claude inside MaiSim"},
-    "ia.voce_ia": {"pt": "Você é a IA do MaiSim ({nome})", "en": "You are the AI inside MaiSim ({nome})"},
+    "ia.voce_claude": {"pt": "Você é o Claude do MaiSim", "en": "You are MaiSim's Claude"},
+    "ia.voce_ia": {"pt": "Você é a IA do MaiSim ({nome})", "en": "You are MaiSim's AI ({nome})"},
     # o Antigravity: só no começo da conversa, depois das regras
     "ia.regra_agy": {"pt": "No MaiSim você NÃO tem terminal, navegador nem acesso a arquivos fora desta pasta: não tente (o pedido para "
                            "sem resposta). Leia e edite só os arquivos desta pasta; o MaiSim testa e simula o código.",
@@ -688,11 +688,15 @@ T = {
     "ia_contexto.atraso": {"pt": "- Atraso da atuação: {modo} → o circuito sente a atuação calculada em t no instante t + {d} × Δt"
                                  " (logo = t + Δt; amostra = t + Ts, como num DSP; tempo = t + τ)",
                            "en": "- Actuation delay: {modo} → the circuit feels the actuation computed at t at the instant t + {d} × Δt"
-                                 " (logo = t + Δt; amostra = t + Ts, as in a DSP; tempo = t + τ)"},
+                                 " (logo (Right away) = t + Δt; amostra (At the next sample) = t + Ts, as in a DSP; tempo (After a latency) = t + τ)"},
     "ia_contexto.atraso_tempo": {"pt": "- Atraso da atuação: {modo} → o circuito sente a atuação calculada em t no instante t + {d} × Δt"
                                        " (latência pedida τ = {tau} s, limitada a [Δt, Ts]) (logo = t + Δt; amostra = t + Ts, como num DSP; tempo = t + τ)",
                                  "en": "- Actuation delay: {modo} → the circuit feels the actuation computed at t at the instant t + {d} × Δt"
-                                       " (requested latency τ = {tau} s, limited to [Δt, Ts]) (logo = t + Δt; amostra = t + Ts, as in a DSP; tempo = t + τ)"},
+                                       " (requested latency τ = {tau} s, limited to [Δt, Ts]) (logo (Right away) = t + Δt; amostra (At the next sample) = t + Ts, as in a DSP; tempo (After a latency) = t + τ)"},
+    # o modo do atraso: a palavra do protocolo primeiro (em inglês, com o rótulo do painel ao lado)
+    "ia_contexto.modo_logo": {"pt": "logo", "en": "logo (Right away)"},
+    "ia_contexto.modo_amostra": {"pt": "amostra", "en": "amostra (At the next sample)"},
+    "ia_contexto.modo_tempo": {"pt": "tempo", "en": "tempo (After a latency)"},
     "ia_contexto.ligado_sim": {"pt": "- Controle ligado na simulação: sim", "en": "- Control turned on in the simulation: yes"},
     "ia_contexto.ligado_nao": {"pt": "- Controle ligado na simulação: não (o MaiSim liga ao aplicar: \"usar este controle ao simular\")",
                                "en": "- Control turned on in the simulation: no (MaiSim turns it on when applying: \"Use this control when simulating\")"},
@@ -734,7 +738,7 @@ T = {
     "ia_contexto.bloco_gate": {"pt": "- bloco {nome} ({tipo}): comanda {alvo}", "en": "- block {nome} ({tipo}): drives {alvo}"},
     "ia_contexto.parametros": {"pt": "## Parâmetros atuais (parametros.json)", "en": "## Current parameters (parametros.json)"},
     "ia_contexto.nenhum": {"pt": "- nenhum", "en": "- none"},
-    "ia_contexto.acionamentos": {"pt": "## Acionamentos atuais (acionamentos.json)", "en": "## Current triggers (acionamentos.json)"},
+    "ia_contexto.acionamentos": {"pt": "## Acionamentos atuais (acionamentos.json)", "en": "## Current events (acionamentos.json)"},
     "ia_contexto.acusa": {"pt": "## O que o MaiSim acusa no código atual", "en": "## What MaiSim reports in the current code"},
     "ia_contexto.linha": {"pt": "- linha {linha}: {msg}", "en": "- line {linha}: {msg}"},
     "ia_contexto.controladores": {"pt": "## Controladores (controladores.json: cada um no seu processo, isolado; calculam juntos a cada amostra; o que cada um lê e escreve você muda lá)",
@@ -814,6 +818,13 @@ T = {
     "conversa_md.sem_resposta": {"pt": "(sem resposta)", "en": "(no answer)"},
     "conversa_md.erro": {"pt": "Erro: {erro}", "en": "Error: {erro}"},
     "conversa_md.continua_de": {"pt": "{titulo} (continua de “{de}”)", "en": "{titulo} (continues from “{de}”)"},
+    # o estado da rodada no resumo.md e no pedido do modo autônomo (em português, a palavra do protocolo, como antes)
+    "rodada_estado.preparando": {"pt": "preparando", "en": "preparing"},
+    "rodada_estado.rodando": {"pt": "rodando", "en": "running"},
+    "rodada_estado.pausada": {"pt": "pausada", "en": "paused"},
+    "rodada_estado.parada": {"pt": "parada", "en": "stopped"},
+    "rodada_estado.fim": {"pt": "fim", "en": "finished"},
+    "rodada_estado.erro": {"pt": "erro", "en": "error"},
     # PR 11: fim
 }
 

@@ -54,11 +54,16 @@ def _grava(arq, texto):
     os.replace(tmp, arq)
 
 
+def _toml(texto):
+    """Escapa para uma string básica do TOML (entre aspas): a barra invertida e a aspa (uma tradução não quebra a política)."""
+    return texto.replace("\\", "\\\\").replace('"', '\\"')
+
+
 def politica(regras_escrita=None):
     """A política do MaiSim em TOML: nega tudo (prioridade 1), libera a leitura e, se houver, a escrita com o argsPattern dado."""
     t = ("# Gerada pelo MaiSim (ia/gemini.py) a cada chamada; passada com --admin-policy (o nível de administrador: nada a sobrepõe).\n"   # i18n-ok (comentário do arquivo da política)
          "[[rule]]\ntoolName = \"*\"\ndecision = \"deny\"\npriority = 1\n"
-         f"denyMessage = \"{lingua.tr('ia.gemini_nega')}\"\n\n"
+         f"denyMessage = \"{_toml(lingua.tr('ia.gemini_nega'))}\"\n\n"
          "[[rule]]\ntoolName = [" + ", ".join(f'"{x}"' for x in LEITURA) + "]\ndecision = \"allow\"\npriority = 100\n")
     if regras_escrita:
         t += ("\n[[rule]]\ntoolName = [\"write_file\", \"replace\"]\n"
