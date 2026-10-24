@@ -77,21 +77,21 @@ async function varre(pg) {
     await simu.waitForTimeout(1500); const cascaAntes = await simu.evaluate(fotoCasca);
     const antes = await inicio.evaluate(() => ({ bt: document.querySelector("#maisim-nav .lingua").textContent, h2: document.querySelector("#cartao-novo h2").textContent,
       rot: document.querySelector('#maisim-nav a.item[href="/"]').dataset.rotulo, lang: document.documentElement.lang }));
-    ok(antes.bt === "EN" && antes.h2 === "+ Novo circuito" && antes.rot === "Início" && antes.lang === "pt-BR",
-      `em português: o botão mostra "${antes.bt}" (o outro idioma), "${antes.h2}", o trilho "${antes.rot}", <html lang=${antes.lang}>`);
+    ok(antes.bt === "PT" && antes.h2 === "+ Novo circuito" && antes.rot === "Início" && antes.lang === "pt-BR",
+      `em português: o botão mostra "${antes.bt}" (o idioma de agora), "${antes.h2}", o trilho "${antes.rot}", <html lang=${antes.lang}>`);
     // trocar no trilho da página inicial: ela recarrega em inglês; o simu (outra janela) acompanha sem recarregar
     await Promise.all([inicio.waitForNavigation(), inicio.click("#maisim-nav .lingua")]);
     await inicio.waitForSelector("#maisim-nav .lingua"); await inicio.waitForTimeout(300);
     const en = await inicio.evaluate(() => ({ bt: document.querySelector("#maisim-nav .lingua").textContent, h2: document.querySelector("#cartao-novo h2").textContent,
       p: document.querySelector("header p[data-tr]").textContent, rot: document.querySelector('#maisim-nav a.item[href="/"]').dataset.rotulo,
       tema: document.querySelector("#maisim-nav .tema").dataset.rotulo, lang: document.documentElement.lang, ck: document.cookie.match(/maisim-lingua=\w+/)?.[0] }));
-    ok(en.bt === "PT" && en.h2 === "+ New circuit" && /^Build circuits/.test(en.p) && en.rot === "Home" && /^Theme:/.test(en.tema) && en.lang === "en-US" && en.ck === "maisim-lingua=en",
+    ok(en.bt === "EN" && en.h2 === "+ New circuit" && /^Build circuits/.test(en.p) && en.rot === "Home" && /^Theme:/.test(en.tema) && en.lang === "en-US" && en.ck === "maisim-lingua=en",
       `PT/EN: a página inicial em inglês ("${en.h2}", "${en.p.slice(0, 40)}…", o trilho "${en.rot}", "${en.tema}"), <html lang=${en.lang}>, ${en.ck}`);
     await simu.waitForTimeout(500);
     const s2 = await simu.evaluate(() => ({ l: maisimI18n.lingua(), rot: document.querySelector('#maisim-nav a[href="/maisim/simu/"]').dataset.rotulo, bt: document.querySelector("#maisim-nav .lingua").textContent,
       vz: document.querySelector("#vz-novo").textContent, novo: document.querySelector("#bt-novo").getAttribute("title"), ph: document.querySelector("#busca").placeholder,
       ctl: document.querySelector('#abas-doca [data-aba="controle"]').textContent, msg: document.querySelector("#painel-controle").dataset.msg.slice(0, 15) }));
-    ok(s2.l === "en" && s2.rot === "Simu · build and simulate" && s2.bt === "PT" && s2.vz === "+ New circuit" && s2.novo === "new circuit (blank sheet)"
+    ok(s2.l === "en" && s2.rot === "Simu · build and simulate" && s2.bt === "EN" && s2.vz === "+ New circuit" && s2.novo === "new circuit (blank sheet)"
        && s2.ph === "search component…" && s2.ctl === "Control" && s2.msg === "no circuit open", `a outra janela (o simu) acompanha na hora, com a casca: ${JSON.stringify(s2)}`);
     // a janela à parte (o scope, janela=1) abre já em inglês; recarregar mantém
     const sj = await ctx.newPage(); await sj.goto(B + "/maisim/scope/?janela=1"); await sj.waitForTimeout(800);
@@ -104,10 +104,10 @@ async function varre(pg) {
     await ctx.route(I18N, (r) => (cargas++ ? r.continue() : r.abort()));
     const rp = await ctx.newPage(); await rp.goto(B + "/");
     let rr = null;
-    for (let i = 0; i < 25 && !(rr && rr.h2 === "+ New circuit" && rr.bt === "PT" && rr.rot === "Home"); i++) { await rp.waitForTimeout(400);
+    for (let i = 0; i < 25 && !(rr && rr.h2 === "+ New circuit" && rr.bt === "EN" && rr.rot === "Home"); i++) { await rp.waitForTimeout(400);
       rr = await rp.evaluate(() => ({ h2: document.querySelector("#cartao-novo h2")?.textContent, rot: document.querySelector('#maisim-nav a.item[href="/"]')?.dataset.rotulo,
         bt: document.querySelector("#maisim-nav .lingua:not([hidden])")?.textContent, reserva: !!window.maisimI18n?.reserva })).catch(() => null); }
-    ok(cargas >= 2 && rr && rr.h2 === "+ New circuit" && rr.rot === "Home" && rr.bt === "PT" && !rr.reserva,
+    ok(cargas >= 2 && rr && rr.h2 === "+ New circuit" && rr.rot === "Home" && rr.bt === "EN" && !rr.reserva,
       `sem o maisim-i18n.js na 1ª carga: a reserva e depois o de verdade, em inglês (${cargas} cargas, ${JSON.stringify(rr)})`);
     await ctx.unroute(I18N); await rp.close();
     // uma página só com o trilho, sem o motor (a do Gecko): os rótulos em português, nenhuma chave crua
