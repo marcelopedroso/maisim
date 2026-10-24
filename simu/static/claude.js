@@ -22,8 +22,11 @@ async function apiClaude(rota, corpo) {                 // o cabeçalho X-MaiSim
   const r = await fetch(`claude/${rota}`, corpo ? { method: "POST", headers: { "Content-Type": "application/json", "X-MaiSim": "1" }, body: JSON.stringify(corpo) } : {});
   const j = await r.json().catch(() => null);
   if (!r.ok) throw new Error((j && j.erro) || r.statusText);
-  if (j === null) throw new Error("resposta inválida do servidor"); return j;
+  if (j === null) throw new Error(tr("ia.resposta_invalida")); return j;
 }
+// uma chave _html com pedaços que já são HTML (o <span> da pasta, a lista de <code>): tr() escapa os parâmetros, então esses
+// entram depois, crus, no lugar do {nome} que o tr() deixou
+const poeHtml = (s, html) => s.replace(/\{(\w+)\}/g, (m, k) => (k in html ? html[k] : m));
 const emAndamento = () => !!(cla.estado && cla.estado.login && cla.estado.login.andamento && !cla.estado.logado);
 
 const outrasIAs = () => (cla.ias || []).filter((a) => a.tem_login && a.estado);
@@ -40,10 +43,10 @@ function botaoClaude() {
   const logado = !!(e && e.logado), outras = outrasIAs().filter((a) => a.estado.logado);
   if (e) avisaTrilho([logado ? "Claude" : "", ...outras.map((a) => a.nome)].filter(Boolean));
   b.classList.toggle("logado", logado || outras.length > 0); b.classList.toggle("andamento", emAndamento() || iaAndando()); b.classList.toggle("falha", !!cla.falha && !e);
-  b.title = (!e ? `IA do MaiSim${cla.falha ? `: sem resposta do servidor (${cla.falha})` : ""}`
-    : !e.instalado ? "IA do MaiSim: o Claude Code (claude) não está instalado neste computador"
-    : logado ? `IA do MaiSim — Claude: conectado como ${e.email || "?"}${e.plano ? ` (${e.plano})` : ""}` : emAndamento() ? "IA do MaiSim — Claude: login em andamento" : "IA do MaiSim — Claude: entrar")
-    + outras.map((a) => ` · ${a.nome}: conectado como ${a.estado.email || "?"}`).join("");
+  b.title = (!e ? (cla.falha ? tr("ia.bt_falha", { erro: cla.falha }) : tr("ia.bt"))
+    : !e.instalado ? tr("ia.bt_ausente")
+    : logado ? tr(e.plano ? "ia.bt_logado_plano" : "ia.bt_logado", { email: e.email || "?", plano: e.plano }) : emAndamento() ? tr("ia.bt_andamento") : tr("ia.bt_entrar"))
+    + outras.map((a) => ` · ${tr("ia.bt_outra", { nome: a.nome, email: a.estado.email || "?" })}`).join("");
 }
 // as outras IAs (o Gemini): a lista com o estado do login (arquivos no servidor: rápido). Enquanto um login anda, acompanha
 async function atualizaIAs() {
@@ -63,7 +66,7 @@ let seqClaude = 0, aplicadoClaude = 0;
 async function atualizaClaude() {
   const meu = ++seqClaude;
   try { const e = await apiClaude("estado"); if (meu < aplicadoClaude) return cla.estado; aplicadoClaude = meu; cla.estado = e; cla.falha = ""; }
-  catch (err) { if (meu < aplicadoClaude) return cla.estado; aplicadoClaude = meu; cla.falha = err.message || "erro"; }
+  catch (err) { if (meu < aplicadoClaude) return cla.estado; aplicadoClaude = meu; cla.falha = err.message || tr("ia.erro"); }
   botaoClaude(); desenhaJanelaClaude(); acompanhaClaude();
   if (typeof cc !== "undefined" && cc.aberto) desenhaChat();          // a conversa do controle depende do login
   return cla.estado;
@@ -100,36 +103,32 @@ function desenhaJanelaClaude() {
   // o que se digita nos campos de código (o do Claude e os das outras IAs) sobrevive ao redesenho, com o foco
   const campos = [...m.querySelectorAll("input")].filter((x) => x.id).map((x) => ({ id: x.id, v: x.value, foco: document.activeElement === x,
     sel: [x.selectionStart, x.selectionEnd] }));
-  const pasta = `<span class="cla-pasta" title="pasta: ${escT((e && e.pasta) || "~/.claude-maisim")}">um login só dele</span>`, aberta = !!cla.aberta.claude;
+  const pasta = tr("ia.pasta_html", { pasta: (e && e.pasta) || "~/.claude-maisim" }), aberta = !!cla.aberta.claude;
   const corpo = {
-    falha: `<p class="cla-erro">Sem resposta do servidor do MaiSim${cla.falha ? `: ${escT(cla.falha)}` : ""}.</p>`,
-    ausente: `<p>O Claude Code (o comando <code>claude</code>) não está instalado neste computador.</p>`,
-    logado: `<p class="cla-ok">Conectado como <b>${escT((e && e.email) || "?")}</b>${e && e.plano ? ` · plano ${escT(e.plano)}` : ""}.</p>
-      ${aberta ? `<div class="cla-det">${htmlUso(cla.uso)}<p>A IA do MaiSim usa ${pasta}: o seu outro login do Claude não muda.</p></div>` : ""}`,
-    andamento: `<p>1. Abra a página da Anthropic, entre na sua conta e autorize. Ao terminar, a página volta sozinha e o MaiSim fica conectado.</p>
-      <p><a class="cla-link" target="_blank" rel="noopener noreferrer" id="cla-auto">Abrir a página de login ↗</a></p>
-      <p class="cla-alt">2. Se a página não voltar sozinha (ou mostrar um código), use <a target="_blank" rel="noopener noreferrer" id="cla-manual">este outro link</a>:
-      ele mostra um código; cole aqui.</p>
-      <label class="cla-cod"><input id="cla-codigo" placeholder="código (xxxx#yyyy)" autocomplete="off" spellcheck="false"><button id="cla-enviar"${cla.enviando ? " disabled" : ""}>${cla.enviando ? "Conferindo…" : "Enviar"}</button></label>
-      <p class="cla-espera">esperando a autorização…</p>`,
-    deslogado: `<p>O MaiSim usa o Claude Code deste computador, com ${pasta}: o seu outro login do Claude não muda.
-      A autenticação é na página da própria Anthropic.</p>${l.erro ? `<p class="cla-erro">Último login: ${escT(l.erro)}</p>` : ""}`,
+    falha: `<p class="cla-erro">${escT(cla.falha ? tr("ia.sem_servidor_erro", { erro: cla.falha }) : tr("ia.sem_servidor"))}</p>`,
+    ausente: `<p>${tr("ia.ausente_html")}</p>`,
+    logado: `<p class="cla-ok">${tr(e && e.plano ? "ia.conectado_plano_html" : "ia.conectado_html", { email: (e && e.email) || "?", plano: e && e.plano })}</p>
+      ${aberta ? `<div class="cla-det">${htmlUso(cla.uso)}<p>${poeHtml(tr("ia.usa_pasta_html", { nome: "Claude" }), { pasta })}</p></div>` : ""}`,
+    andamento: `<p>${escT(tr("ia.passo1_anthropic"))}</p>
+      <p><a class="cla-link" target="_blank" rel="noopener noreferrer" id="cla-auto">${escT(tr("ia.abrir_login"))}</a></p>
+      <p class="cla-alt">${tr("ia.passo2_anthropic_html")}</p>
+      <label class="cla-cod"><input id="cla-codigo" placeholder="${escT(tr("ia.ph_codigo"))}" autocomplete="off" spellcheck="false"><button id="cla-enviar"${cla.enviando ? " disabled" : ""}>${escT(cla.enviando ? tr("ia.conferindo") : tr("ia.enviar"))}</button></label>
+      <p class="cla-espera">${escT(tr("ia.esperando_aut"))}</p>`,
+    deslogado: `<p>${poeHtml(tr("ia.deslogado_html"), { pasta })}</p>${l.erro ? `<p class="cla-erro">${escT(tr("ia.ultimo_login", { erro: l.erro }))}</p>` : ""}`,
   }[modo] + (e && e.erro ? `<p class="cla-erro">${escT(e.erro)}</p>` : "") + (cla.aviso ? `<p class="cla-erro">${escT(cla.aviso)}</p>` : "")
-    + (cla.falha && e ? `<p class="cla-erro">Sem resposta do servidor agora (${escT(cla.falha)}); tentando de novo.</p>` : "");
+    + (cla.falha && e ? `<p class="cla-erro">${escT(tr("ia.sem_servidor_agora", { erro: cla.falha }))}</p>` : "");
   const botoes = {
-    falha: `<button id="cla-tentar">Tentar de novo</button>`, ausente: "",
-    logado: `${botaoDetalhes("claude")}<button id="cla-sair" class="perigo">Sair</button>`,
-    andamento: `<button id="cla-cancelar">Cancelar</button>`,
-    deslogado: `<button id="cla-entrar" class="primario">Entrar</button>`,
+    falha: `<button id="cla-tentar">${escT(tr("ia.tentar"))}</button>`, ausente: "",
+    logado: `${botaoDetalhes("claude")}<button id="cla-sair" class="perigo">${escT(tr("ia.sair"))}</button>`,
+    andamento: `<button id="cla-cancelar">${escT(tr("ia.cancelar"))}</button>`,
+    deslogado: `<button id="cla-entrar" class="primario">${escT(tr("ia.entrar"))}</button>`,
   }[modo];
   const algumaLogada = (e && e.logado) || outrasIAs().some((a) => a.estado.logado);
   // o aviso geral (Marcelo, 23/10): a IA é a da pessoa, no computador dela, e segue os termos de cada empresa
-  m.innerHTML = `<h3>IA do MaiSim — contas</h3><p class="cla-termos">Cada IA roda neste computador, com a <b>sua</b> conta e o <b>seu</b> plano,
-    e segue os termos da empresa dela (<a target="_blank" rel="noopener noreferrer" href="https://code.claude.com/docs/en/legal-and-compliance">Claude Code</a>,
-    <a target="_blank" rel="noopener noreferrer" href="https://antigravity.google/terms">Google Antigravity</a>). O login fica só neste computador (quem o grava é o programa da empresa; o MaiSim nunca o lê). O MaiSim não fornece IA e não é afiliado a essas empresas.</p>
-    <section class="cla-ia"><h4>Claude <small>Anthropic · ${modo === "logado" ? "conectado" : "Claude Code"}</small></h4>${corpo}
+  m.innerHTML = `<h3>${escT(tr("ia.titulo"))}</h3><p class="cla-termos">${tr("ia.termos_html")}</p>
+    <section class="cla-ia"><h4>Claude <small>Anthropic · ${modo === "logado" ? escT(tr("ia.conectado")) : "Claude Code"}</small></h4>${corpo}
     ${botoes ? `<div class="cla-bts">${botoes}</div>` : ""}</section>${outrasIAs().map(htmlContaIA).join("")}
-    <div class="modal-botoes"><button class="m-ok${algumaLogada ? "" : " primario"}">Fechar</button>${algumaLogada ? `<button id="cla-pedir" class="primario">Pedir à IA</button>` : ""}</div>`;
+    <div class="modal-botoes"><button class="m-ok${algumaLogada ? "" : " primario"}">${escT(tr("ia.fechar"))}</button>${algumaLogada ? `<button id="cla-pedir" class="primario">${escT(tr("ia.pedir"))}</button>` : ""}</div>`;
   // os links vêm do CLI; entram pela propriedade href (nada de HTML), e só https
   for (const [id, u] of [["cla-auto", l.url_auto || l.url_manual], ["cla-manual", l.url_manual]]) {
     const a = m.querySelector(`#${id}`); if (a && u && /^https:\/\//.test(u)) a.href = u; else if (a) a.removeAttribute("href");
@@ -153,14 +152,14 @@ function desenhaJanelaClaude() {
   on("cla-entrar", entraClaude);
   on("cla-tentar", atualizaClaude);
   on("cla-cancelar", async () => { cla.aviso = ""; try { cla.estado = await apiClaude("cancelar", {}); } catch (err) { cla.aviso = err.message; } atualizaClaude(); });
-  on("cla-sair", async () => { if (!(await confirma("Sair da conta do Claude", "Desconectar a conta do Claude da IA do MaiSim? (o seu outro login do Claude não muda)", "Sair", true))) return;
+  on("cla-sair", async () => { if (!(await confirma(tr("ia.sair_titulo", { nome: "Claude" }), tr("ia.sair_texto", { nome: "Claude" }), tr("ia.sair"), true))) return;
     cla.aviso = ""; try { cla.estado = await apiClaude("sair", {}); } catch (err) { cla.aviso = err.message; } atualizaClaude(); });
   on("cla-enviar", enviaCodigoClaude);
   on("cla-pedir", () => { fechaJanelaClaude(); mostraDoca("controle"); ccAbre(true); });
   on("cla-uso-atualiza", () => carregaUsoClaude(true));
   if (modo === "logado" && aberta && !cla.uso && !cla.lendoUso) carregaUsoClaude();
 }
-const botaoDetalhes = (id) => `<button class="cla-mini cla-abre" data-abre="${id}" aria-expanded="${!!cla.aberta[id]}">${cla.aberta[id] ? "Ocultar detalhes ▴" : "Detalhes e limites ▾"}</button>`;
+const botaoDetalhes = (id) => `<button class="cla-mini cla-abre" data-abre="${id}" aria-expanded="${!!cla.aberta[id]}">${escT(cla.aberta[id] ? tr("ia.ocultar_det") : tr("ia.det"))}</button>`;
 // os limites de uma outra IA (o Antigravity: o /usage dele, sem gastar o modelo)
 async function carregaUsoIA(id, forca = false) {
   cla.iaUso = { ...cla.iaUso, [id]: cla.iaUso[id] && forca ? { ...cla.iaUso[id], lendo: true } : cla.iaUso[id] };
@@ -177,59 +176,61 @@ async function carregaUsoClaude(forca = false) {
   desenhaJanelaClaude();
 }
 function htmlUso(u, ia = "claude") {
-  if (!u) return `<p class="cla-espera">lendo o uso da conta…</p>`;
-  if (!u.itens || !u.itens.length) return `<p class="cla-erro">Não consegui ler o uso da conta${u.erro ? ` (${escT(u.erro)})` : ""}.</p>`;
+  if (!u) return `<p class="cla-espera">${escT(tr("ia.lendo_uso"))}</p>`;
+  if (!u.itens || !u.itens.length) return `<p class="cla-erro">${escT(u.erro ? tr("ia.uso_falhou_erro", { erro: u.erro }) : tr("ia.uso_falhou"))}</p>`;
   const nivel = (p) => (p >= 90 ? "alto" : p >= 70 ? "medio" : "");
-  const pct = (p) => (p > 0 && p < 10 ? p.toFixed(1).replace(".", ",") : Math.round(p));   // o pouco usado aparece (0,8%, não 1%)
-  const claude = ia === "claude", de = claude ? "o mesmo do /usage do Claude Code" : "o mesmo da tela de uso do Antigravity";
-  return `<div class="cla-uso" title="${de}">${u.itens.map((i) => `<div class="cla-uso-l"${i.grupo ? ` title="${escT(i.grupo)}"` : ""}><span>${escT(i.rotulo)}</span>
+  const virgula = (0.5).toLocaleString(maisimI18n.local()).charAt(1);              // a vírgula decimal do idioma (pt "," · en ".")
+  const pct = (p) => (p > 0 && p < 10 ? p.toFixed(1).replace(".", virgula) : Math.round(p));   // o pouco usado aparece (0,8%, não 1%)
+  const claude = ia === "claude", de = claude ? tr("ia.uso_de_claude") : tr("ia.uso_de_antigravity");
+  return `<div class="cla-uso" title="${escT(de)}">${u.itens.map((i) => `<div class="cla-uso-l"${i.grupo ? ` title="${escT(i.grupo)}"` : ""}><span>${escT(i.rotulo)}</span>
     <span class="barra"><i class="${nivel(i.pct)}" style="width:${Math.max(0, Math.min(100, i.pct))}%"></i></span><b>${pct(i.pct)}%</b>
-    ${i.renova ? `<small>renova ${escT(i.renova)}</small>` : ""}</div>`).join("")}</div>
-    <p class="cla-espera">${claude ? "uso da conta (o mesmo do /usage)" : "usado de cada limite (o mesmo do Antigravity)"} · <button ${claude ? 'id="cla-uso-atualiza"' : `data-uso="${escT(ia)}"`} class="cla-mini">Atualizar</button></p>`;
+    ${i.renova ? `<small>${escT(tr("ia.renova", { quando: i.renova }))}</small>` : ""}</div>`).join("")}</div>
+    <p class="cla-espera">${escT(claude ? tr("ia.uso_rodape_claude") : tr("ia.uso_rodape_ia"))} · <button ${claude ? 'id="cla-uso-atualiza"' : `data-uso="${escT(ia)}"`} class="cla-mini">${escT(tr("ia.atualizar"))}</button></p>`;
 }
 
-// as contas das outras IAs (o Google Antigravity; o Gemini só em teste): uma seção cada, com o login delas pelo MaiSim
+// as contas das outras IAs (o Google Antigravity; o Gemini só em teste): uma seção cada, com o login delas pelo MaiSim.
+// Os textos são getters: lidos na hora de desenhar, no idioma de agora
 const IA_DE = {
   antigravity: { empresa: "Google", ferramenta: "Antigravity CLI", instala: "curl -fsSL https://antigravity.google/cli/install.sh | bash",
     // os termos do Antigravity limitam o uso junto com produtos que não são do Google, e há relatos de contas suspensas (23/10)
-    atencao: { href: "https://antigravity.google/terms", texto: "Atenção: os termos do Antigravity limitam o uso dele junto com programas que não são do Google, e há relatos de contas suspensas por isso. Leia os termos antes de conectar; a decisão e a conta são suas." },
+    atencao: { href: "https://antigravity.google/terms", get texto() { return tr("ia.antigravity_atencao"); } },
     conta: "",
-    pagina: "Abra a página do Google, entre na sua conta e autorize o Antigravity.", codigo: "A página mostra um código de autorização: copie e cole aqui." },
+    get pagina() { return tr("ia.pagina_google", { nome: "Antigravity" }); }, get codigo() { return tr("ia.codigo_cola"); } },
   gemini: { empresa: "Google", ferramenta: "Gemini CLI", instala: "npm install -g @google/gemini-cli",
     termos: "https://developers.google.com/gemini-code-assist/resources/privacy-notices",
-    conta: "Atenção: o Google não atende mais contas pessoais pelo Gemini CLI (a cota grátis, o Google AI Pro e o Ultra vão agora pelo Antigravity; resposta do Google em 21/10). Pela conta Google, só contas de organização com o Gemini Code Assist Standard ou Enterprise.",
-    pagina: "Abra a página do Google, entre na sua conta e autorize o Gemini CLI.", codigo: "A página mostra um código de autorização: copie e cole aqui." },
+    get conta() { return tr("ia.gemini_conta"); },
+    get pagina() { return tr("ia.pagina_google", { nome: "Gemini CLI" }); }, get codigo() { return tr("ia.codigo_cola"); } },
 };
 function htmlContaIA(a) {
   const e = a.estado, l = e.login || {}, d = IA_DE[a.id] || {}, av = cla.iaAviso[a.id], env = cla.iaEnviando[a.id];
   const modo = !e.instalado ? "ausente" : e.logado ? "logado" : l.andamento ? "andamento" : "deslogado";
-  const pasta = `<span class="cla-pasta" title="pasta: ${escT(e.pasta || "")}">um login só dele</span>`, ferr = escT(d.ferramenta || a.nome), nome = escT(a.nome);
+  const pasta = tr("ia.pasta_html", { pasta: e.pasta || "" }), ferr0 = d.ferramenta || a.nome, ferr = escT(ferr0), nome = escT(a.nome);
+  const conectado = e.email ? (e.plano ? "ia.conectado_plano_html" : "ia.conectado_html") : e.plano ? "ia.conectado_so_plano_html" : "ia.conectado_so_html";
   const corpo = {
-    ausente: `<p>O ${ferr} não está instalado neste computador.${d.instala ? ` Para instalar (Node 20 ou mais novo): <code>${escT(d.instala)}</code>` : ""}</p>`,
-    logado: `<p class="cla-ok">${e.email ? `Conectado como <b>${escT(e.email)}</b>` : "Conectado"}${e.plano ? ` · plano ${escT(e.plano)}` : ""}.</p>
-      ${cla.aberta[a.id] ? `<div class="cla-det">${htmlUso(cla.iaUso[a.id], a.id)}<p>A IA do MaiSim usa ${pasta}: o seu outro login do ${nome} não muda.${e.email ? ` O plano o ${ferr} não informa.` : ""}</p></div>` : ""}`,
-    andamento: `<p>1. ${escT(d.pagina || "Abra a página de login e autorize.")}</p>
-      <p><a class="cla-link" target="_blank" rel="noopener noreferrer" id="iac-link-${a.id}">Abrir a página de login ↗</a></p>
-      <p class="cla-alt">2. ${escT(d.codigo || "Cole aqui o código que a página mostrar.")}</p>
-      <label class="cla-cod"><input id="iac-codigo-${a.id}" data-ia-codigo="${a.id}" placeholder="código de autorização" autocomplete="off" spellcheck="false"><button data-ia="${a.id}" data-ia-acao="codigo"${env ? " disabled" : ""}>${env ? "Conferindo…" : "Enviar"}</button></label>
-      <p class="cla-espera">esperando o código… (a página vale por 5 minutos)</p>`,
-    deslogado: `<p>${d.conta ? escT(d.conta) + " " : ""}O MaiSim usa o ${ferr} deste computador, com ${pasta}: o seu outro login do ${nome} não muda.
-      A autenticação é na página do próprio ${escT(d.empresa || nome)}.</p>
+    ausente: `<p>${escT(tr("ia.outra_ausente", { ferr: ferr0 }))}${d.instala ? ` ${tr("ia.instalar_html", { cmd: d.instala })}` : ""}</p>`,
+    logado: `<p class="cla-ok">${tr(conectado, { email: e.email, plano: e.plano })}</p>
+      ${cla.aberta[a.id] ? `<div class="cla-det">${htmlUso(cla.iaUso[a.id], a.id)}<p>${poeHtml(tr("ia.usa_pasta_html", { nome: a.nome }), { pasta })}${e.email ? ` ${escT(tr("ia.plano_nao_informa", { ferr: ferr0 }))}` : ""}</p></div>` : ""}`,
+    andamento: `<p>1. ${escT(d.pagina || tr("ia.pagina_padrao"))}</p>
+      <p><a class="cla-link" target="_blank" rel="noopener noreferrer" id="iac-link-${a.id}">${escT(tr("ia.abrir_login"))}</a></p>
+      <p class="cla-alt">2. ${escT(d.codigo || tr("ia.codigo_padrao"))}</p>
+      <label class="cla-cod"><input id="iac-codigo-${a.id}" data-ia-codigo="${a.id}" placeholder="${escT(tr("ia.ph_codigo_aut"))}" autocomplete="off" spellcheck="false"><button data-ia="${a.id}" data-ia-acao="codigo"${env ? " disabled" : ""}>${escT(env ? tr("ia.conferindo") : tr("ia.enviar"))}</button></label>
+      <p class="cla-espera">${escT(tr("ia.esperando_cod"))}</p>`,
+    deslogado: `<p>${d.conta ? escT(d.conta) + " " : ""}${poeHtml(tr("ia.outra_deslogado_html", { ferr: ferr0, nome: a.nome, empresa: d.empresa || a.nome }), { pasta })}</p>
 
-      ${d.termos ? `<p class="cla-alt">Valem os <a target="_blank" rel="noopener noreferrer" href="${d.termos}">termos e os avisos de privacidade do Gemini Code Assist</a>: veja o que dizem sobre o uso dos dados antes de mandar algo sensível. O MaiSim desliga o envio de estatísticas de uso.</p>` : ""}
-      ${l.erro ? `<p class="iac-erro">Último login: ${escT(l.erro)}</p>` : ""}`,
+      ${d.termos ? `<p class="cla-alt">${tr("ia.gemini_termos_html", { href: d.termos })}</p>` : ""}
+      ${l.erro ? `<p class="iac-erro">${escT(tr("ia.ultimo_login", { erro: l.erro }))}</p>` : ""}`,
   }[modo] + (d.atencao && (modo === "ausente" || modo === "deslogado")   // antes de instalar e antes de conectar
-    ? `<p class="iac-atencao">${escT(d.atencao.texto)} <a target="_blank" rel="noopener noreferrer" href="${d.atencao.href}">Os termos ↗</a></p>` : "")
+    ? `<p class="iac-atencao">${escT(d.atencao.texto)} <a target="_blank" rel="noopener noreferrer" href="${d.atencao.href}">${escT(tr("ia.os_termos"))}</a></p>` : "")
     + (av ? `<p class="iac-erro">${escT(av)}</p>` : "");
-  const bts = { ausente: "", logado: `${botaoDetalhes(a.id)}<button class="perigo" data-ia="${a.id}" data-ia-acao="sair">Sair</button>`,
-    andamento: `<button data-ia="${a.id}" data-ia-acao="cancelar">Cancelar</button>`,
-    deslogado: `<button class="primario" data-ia="${a.id}" data-ia-acao="entrar"${env ? " disabled" : ""}>${env ? "Abrindo…" : "Entrar"}</button>` }[modo];
-  return `<section class="cla-ia" id="iac-${a.id}"><h4>${nome} <small>${escT(d.empresa || "")} · ${modo === "logado" ? "conectado" : ferr}</small></h4>${corpo}${bts ? `<div class="cla-bts">${bts}</div>` : ""}</section>`;
+  const bts = { ausente: "", logado: `${botaoDetalhes(a.id)}<button class="perigo" data-ia="${a.id}" data-ia-acao="sair">${escT(tr("ia.sair"))}</button>`,
+    andamento: `<button data-ia="${a.id}" data-ia-acao="cancelar">${escT(tr("ia.cancelar"))}</button>`,
+    deslogado: `<button class="primario" data-ia="${a.id}" data-ia-acao="entrar"${env ? " disabled" : ""}>${escT(env ? tr("ia.abrindo") : tr("ia.entrar"))}</button>` }[modo];
+  return `<section class="cla-ia" id="iac-${a.id}"><h4>${nome} <small>${escT(d.empresa || "")} · ${modo === "logado" ? escT(tr("ia.conectado")) : ferr}</small></h4>${corpo}${bts ? `<div class="cla-bts">${bts}</div>` : ""}</section>`;
 }
 async function acaoIA(ia, acao) {
   const a = (cla.ias || []).find((x) => x.id === ia); if (!a) return;
   if (acao === "codigo") return enviaCodigoIA(ia);
-  if (acao === "sair" && !(await confirma(`Sair da conta do ${a.nome}`, `Desconectar a conta do ${a.nome} da IA do MaiSim? (o seu outro login do ${a.nome} não muda)`, "Sair", true))) return;
+  if (acao === "sair" && !(await confirma(tr("ia.sair_titulo", { nome: a.nome }), tr("ia.sair_texto", { nome: a.nome }), tr("ia.sair"), true))) return;
   cla.iaAviso = { ...cla.iaAviso, [ia]: "" };
   if (acao === "entrar") { cla.iaEnviando = { ...cla.iaEnviando, [ia]: true }; desenhaJanelaClaude(); }   // o CLI leva uns segundos para dar o link
   try { a.estado = await apiClaude(`ia/${acao}`, { ia }); } catch (err) { cla.iaAviso = { ...cla.iaAviso, [ia]: err.message }; }
@@ -242,7 +243,7 @@ async function enviaCodigoIA(ia) {
   try {
     const e = await apiClaude("ia/codigo", { ia, codigo: ci.value }), a = (cla.ias || []).find((x) => x.id === ia); if (a) a.estado = e;
     const n = $(`iac-codigo-${ia}`); if (n) n.value = "";
-    if (!e.logado && e.login && e.login.erro) cla.iaAviso = { ...cla.iaAviso, [ia]: `o login não entrou: ${e.login.erro}` };
+    if (!e.logado && e.login && e.login.erro) cla.iaAviso = { ...cla.iaAviso, [ia]: tr("ia.login_nao_entrou", { erro: e.login.erro }) };
   } catch (err) { cla.iaAviso = { ...cla.iaAviso, [ia]: err.message }; }
   finally { cla.iaEnviando = { ...cla.iaEnviando, [ia]: false }; }
   atualizaIAs();
@@ -268,7 +269,7 @@ async function enviaCodigoClaude() {
 async function abreJanelaClaude() {
   fechaJanelaClaude();
   const fundo = document.createElement("div"); fundo.className = "modal-fundo";
-  fundo.innerHTML = `<div class="modal largo cla" role="dialog" aria-modal="true"><h3>IA do MaiSim — contas</h3><p>consultando…</p></div>`;
+  fundo.innerHTML = `<div class="modal largo cla" role="dialog" aria-modal="true"><h3>${escT(tr("ia.titulo"))}</h3><p>${escT(tr("ia.consultando"))}</p></div>`;
   fundo.addEventListener("mousedown", (ev) => { if (ev.target === fundo) fechaJanelaClaude(); });
   document.body.appendChild(fundo); cla.janela = fundo; addEventListener("keydown", teclaJanelaClaude, true);
   atualizaIAs();
@@ -281,4 +282,6 @@ async function abreJanelaClaude() {
   b.onclick = abreJanelaClaude;
   atualizaClaude(); atualizaIAs();
   addEventListener("focus", () => { if (!cla.timer) atualizaClaude(); if (!cla.iaTimer) atualizaIAs(); });   // voltou à aba (login feito noutra janela?)
+  // trocou o idioma: o title do botão e a janela das contas (se já desenhada; sem o estado ainda, ela espera o servidor)
+  maisimI18n.aoMudar(() => { botaoClaude(); if (cla.desenhado) { cla.desenhado = ""; desenhaJanelaClaude(); } });
 })();
