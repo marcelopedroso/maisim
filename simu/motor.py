@@ -1,7 +1,13 @@
 """Cliente do motor do editor (motor/src/maisim/MaiSimMotor.java, 127.0.0.1:6120): uma conexão, um pedido de cada vez."""
 import socket
+import sys
 import threading
 import time
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "config"))   # quem importa só o motor (um teste) acha o lingua
+import lingua  # noqa: E402                    o idioma do pedido
+import textos  # noqa: E402,F401               os textos do simu (registra o catálogo: os do motor estão lá)
 
 
 class ErroMotor(Exception):
@@ -32,9 +38,9 @@ class Motor:
     def cmd(self, linha):
         """Manda uma linha e devolve o que vem depois de "OK "; "ERR …" vira ErroMotor."""
         if "\n" in linha or "\r" in linha:
-            raise ErroMotor("comando com quebra de linha")
+            raise ErroMotor(lingua.tr("motor.quebra_de_linha"))
         if self.vigia and self._olho is None:
-            self._olho = threading.Thread(target=self._olha, daemon=True)
+            self._olho = lingua.thread(self._olha)
             self._olho.start()
         with self.trava:
             for tentativa in (1, 2):
@@ -50,12 +56,12 @@ class Motor:
                     finally:
                         self._desde = None
                     if not r:
-                        raise ConnectionError("o motor fechou a conexão")
+                        raise ConnectionError(lingua.tr("motor.fechou_conexao"))
                     break
                 except (OSError, ConnectionError) as e:
                     self.f = None
                     if tentativa == 2:
-                        raise ErroMotor(f"sem o motor do editor (o Gecko do MaiSim está no ar? gecko/sobe.sh): {e}")
+                        raise ErroMotor(lingua.tr("motor.sem_motor", erro=e))
         r = r.rstrip("\n")
         if r.startswith("OK"):
             return r[3:]
