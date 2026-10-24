@@ -24,10 +24,10 @@
   const ouvintes = [];
   const pseudo = /[?&]lingua=xx\b/.test(location.search);       // testes: todo texto traduzido aparece como ⟦…⟧
   const valida = (l) => (LINGUAS.includes(l) ? l : null);
-  // o escolhido: o localStorage desta porta; senão o cookie (o mesmo em todas as portas do localhost: uma página aberta direto
-  // no simu ou no scope segue o idioma das outras janelas, em vez de impor o padrão)
+  // o escolhido: o cookie primeiro (o mesmo em todas as portas do localhost, e muda() grava nele: é a escolha mais nova — uma
+  // página aberta direto no simu ou no scope segue as outras janelas); senão o localStorage desta porta
   const doCookie = () => { const m = /(?:^|;\s*)maisim-lingua=(pt|en)\b/.exec(document.cookie || ""); return m ? m[1] : null; };
-  const salva = () => { let l = null; try { l = valida(localStorage.getItem("maisim-lingua")); } catch (e) { /* ok */ } return l || doCookie(); };
+  const salva = () => { let l = null; try { l = valida(localStorage.getItem("maisim-lingua")); } catch (e) { /* ok */ } return doCookie() || l; };
   const doNavegador = () => (DETECTA_NAVEGADOR ? (/^pt\b/i.test(navigator.language || "") ? "pt" : "en") : "pt");
   let atual = salva() || doNavegador();
 
@@ -74,7 +74,9 @@
   // outra janela do MaiSim trocou (o storage chega também ao scope dentro do simu); ao voltar à aba, o cookie é o desta
   window.addEventListener("storage", (e) => { if (e.key !== "maisim-lingua") return; const l = valida(e.newValue) || doNavegador();
     if (l !== atual) { atual = l; avisa(); } });
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) poeMarcas(); });
+  // ao voltar à aba: se o idioma mudou noutra porta (o cookie), acompanha; senão o cookie volta a ser o desta
+  document.addEventListener("visibilitychange", () => { if (document.hidden) return; const c = doCookie();
+    if (c && c !== atual) { atual = c; try { localStorage.setItem("maisim-lingua", c); } catch (e) { /* ok */ } avisa(); } else poeMarcas(); });
 
   // datas e números no idioma (no lugar do "pt-BR" fixo)
   const data = (d, o) => new Date(d).toLocaleString(LOCAL[atual], o);
