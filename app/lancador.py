@@ -39,6 +39,10 @@ def portugues():
 PT = portugues()
 
 
+def t(pt, en):
+    return pt if PT else en
+
+
 def fala(pt, en):
     print(f"maisim: {pt if PT else en}", flush=True)
 
@@ -272,12 +276,12 @@ def termina(pid):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="MaiSim: sobe, abre e para (Linux e Windows).")
-    ap.add_argument("--produto", action="store_true", help="o perfil da versão \"só usar\" (config/produto.env)")
-    ap.add_argument("--abrir", action="store_true", help="abre o navegador como app quando estiver pronto")
-    ap.add_argument("--parar", action="store_true", help="para um lançador que está no ar")
-    ap.add_argument("--sem-gecko", action="store_true", help="sem o Gecko (só a página, o scope e o simulador)")
-    ap.add_argument("--forcar", action="store_true", help="com --parar: derruba o Gecko mesmo com circuito sem salvar")
+    ap = argparse.ArgumentParser(description=t("MaiSim: sobe, abre e para (Linux e Windows).", "MaiSim: start, open and stop (Linux and Windows)."))
+    ap.add_argument("--produto", action="store_true", help=t("o perfil da versão \"só usar\" (config/produto.env)", "the \"just use it\" profile (config/produto.env)"))
+    ap.add_argument("--abrir", action="store_true", help=t("abre o navegador como app quando estiver pronto", "opens the browser as an app when ready"))
+    ap.add_argument("--parar", action="store_true", help=t("para um lançador que está no ar", "stops a running launcher"))
+    ap.add_argument("--sem-gecko", action="store_true", help=t("sem o Gecko (só a página, o scope e o simulador)", "without Gecko (only the page, scope and simulator)"))
+    ap.add_argument("--forcar", action="store_true", help=t("com --parar: derruba o Gecko mesmo com circuito sem salvar", "with --parar: stops Gecko even with an unsaved circuit"))
     a = ap.parse_args()
     if a.produto:
         os.environ["MAISIM_PERFIL"] = "produto"
@@ -289,12 +293,13 @@ def main():
             e = json.loads(est.read_text())
         except (OSError, ValueError):
             fala("nenhum lançador no ar", "no launcher running"); return 0
+        pedido = est.with_name("lancador.parar")
         if vivo(e.get("lancador")) and not a.forcar:     # o lançador no ar: ele mesmo derruba (e pergunta do Gecko)
-            if WIN:
-                termina(e["lancador"])
-            else:
-                os.kill(e["lancador"], signal.SIGTERM)
-            return 0
+            pedido.write_text("parar")                    # o pedido que ele confere a cada segundo (no Windows não há SIGTERM)
+            if espera(lambda: not vivo(e["lancador"]), 60):
+                return 0
+            fala("o lançador não respondeu; tente --parar --forcar", "the launcher did not respond; try --parar --forcar")
+            return 1
         # o lançador já saiu (ou --forcar): o que ficou no ar dele (o Gecko que ficou por um circuito sem salvar)
         lc = Lancador()
         lc.subiu = {n: Morto(pid) for n, pid in e.get("processos", {}).items() if vivo(pid)}
@@ -302,6 +307,11 @@ def main():
             for p in lc.subiu.values():
                 termina(p.pid)
             lc.subiu = {}
+            if vivo(e.get("lancador")):                  # e o próprio lançador (só ele: os filhos já foram)
+                if WIN:
+                    subprocess.run(["taskkill", "/PID", str(e["lancador"]), "/F"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                else:
+                    os.kill(e["lancador"], signal.SIGKILL)
             lc.grava()
             fala("parado (forçado)", "stopped (forced)")
         else:
@@ -328,8 +338,13 @@ def main():
         lc.gecko()
     fala(f"no ar em http://localhost:{lc.porta('PAGINA')}/ — Ctrl+C (ou --parar) derruba o que subiu",
          f"running at http://localhost:{lc.porta('PAGINA')}/ — Ctrl+C (or --parar) stops what it started")
-    while True:
-        time.sleep(3600)
+    pedido = lc.estado.with_name("lancador.parar")
+    pedido.unlink(missing_ok=True)
+    while True:                                          # o --parar (de outro terminal, ou o atalho "Desligar o MaiSim") pede aqui
+        time.sleep(1)
+        if pedido.exists():
+            pedido.unlink(missing_ok=True)
+            fim()
 
 
 if __name__ == "__main__":
