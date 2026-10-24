@@ -7,7 +7,8 @@
 3. a catraca do português solto: em cada arquivo, os textos com cara de português fora dos dicionários (literais do JS, do
    Python e do HTML) são contados; a contagem não pode subir (texto novo vai para o dicionário) e, quando cai, a base é
    atualizada no mesmo PR (python3 lingua_offline.py --atualiza), para ela só descer. Exceção pontual: i18n-ok na linha;
-4. os pares de arquivos traduzidos (o guia, as regras da IA, os modelos de código): mesmos títulos e o mesmo código;
+4. os pares de arquivos traduzidos (o guia, as regras da IA, os modelos de código): mesmos títulos (com os números), o
+   mesmo código, as mesmas tabelas (célula a célula) e os mesmos itens de lista (o par do guia tem de existir);
 5. as threads do servidor levam o idioma (lingua.thread): o threading.Thread solto também entra na catraca (exceção pontual:
    i18n-ok na linha, como o publica.py, que o run.py de fora importa sem o config/).
 
@@ -384,12 +385,36 @@ def confere_motores():
 
 
 # ---------------------------------------------------------------- os pares de arquivos traduzidos
+def sem_blocos(md):
+    """O texto fora dos blocos de código (o # de um comentário Python dentro de um bloco não é título)."""
+    return re.sub(r"```.*?```", "", md, flags=re.S)
+
+
 def titulos(md):
-    return [len(m.group(1)) for m in re.finditer(r"^(#{1,6})\s", md, re.M)]
+    """(nível, número) de cada título, na ordem: "### 3.0.1 Módulos" → (3, "3.0.1"); sem número, "" (o texto muda, o número não)."""
+    return [(len(m.group(1)), m.group(2) or "") for m in re.finditer(r"^(#{1,6})\s+(\d+(?:\.\d+)*\.?)?", sem_blocos(md), re.M)]
 
 
 def blocos(md):
     return re.findall(r"```.*?```", md, re.S)
+
+
+def tabelas(md):
+    """As tabelas, na ordem: em cada uma, quantas células tem cada linha (linhas seguidas que começam por |; a célula se
+    separa no | que não vem depois de \\)."""
+    out, t = [], []
+    for l in sem_blocos(md).split("\n") + [""]:
+        if l.lstrip().startswith("|"):
+            t.append(len(re.split(r"(?<!\\)\|", l.strip().strip("|"))))
+        elif t:
+            out.append(t); t = []
+    return out
+
+
+def itens(md):
+    """Os itens de lista fora dos blocos (* ou - e 1.), contados por tipo."""
+    fora = sem_blocos(md)
+    return (len(re.findall(r"^\s*[*-]\s", fora, re.M)), len(re.findall(r"^\s*\d+\.\s", fora, re.M)))
 
 
 def sem_comentarios_py(src):
@@ -400,15 +425,23 @@ def sem_comentarios_py(src):
 
 
 def confere_pares():
-    pares = [(RAIZ / "simu/GUIA_CONTROLE.md", RAIZ / "simu/GUIA_CONTROLE.en.md", "md"),
-             (RAIZ / "simu/ia/regras.pt.md", RAIZ / "simu/ia/regras.en.md", "md")]
-    pares += [(p, p.with_name(p.stem + ".en.py"), "py") for p in sorted((RAIZ / "simu").glob("*_modelo.py"))]
-    for a, b, tipo in pares:
+    pares = [(RAIZ / "simu/GUIA_CONTROLE.md", RAIZ / "simu/GUIA_CONTROLE.en.md", "md", True),   # o guia: o par já existe (PR 12)
+             (RAIZ / "simu/ia/regras.pt.md", RAIZ / "simu/ia/regras.en.md", "md", False)]
+    pares += [(p, p.with_name(p.stem + ".en.py"), "py", False) for p in sorted((RAIZ / "simu").glob("*_modelo.py"))]
+    for a, b, tipo, obrigatorio in pares:
+        if obrigatorio and not (a.exists() and b.exists()):
+            ok(False, f"{b.relative_to(RAIZ)}: falta o par ({a.name} e {b.name} precisam existir os dois)")
+            continue
         if not b.exists():
             continue
         ta, tb = a.read_text(), b.read_text()
         if tipo == "md":
-            ok(titulos(ta) == titulos(tb) and blocos(ta) == blocos(tb), f"{b.relative_to(RAIZ)}: os mesmos títulos e o mesmo código de {a.name}")
+            ha, hb, ca, cb, la, lb = titulos(ta), titulos(tb), blocos(ta), blocos(tb), tabelas(ta), tabelas(tb)
+            dif = [x for x, c in (("títulos (nível, número e ordem)", ha == hb), ("blocos de código (os mesmos, byte a byte)", ca == cb),
+                                  ("tabelas (as células de cada linha)", la == lb), ("itens de lista", itens(ta) == itens(tb))) if not c]
+            ok(not dif, f"{b.relative_to(RAIZ)}: os mesmos títulos ({len(ha)}, com os números), o mesmo código ({len(ca)} blocos), "
+               f"as mesmas tabelas ({sum(len(x) for x in la)} linhas em {len(la)}, as mesmas células) e os mesmos itens de lista "
+               f"{itens(ta)} de {a.name}" + (f" — diferem: {', '.join(dif)}" if dif else ""))
         else:
             ok(sem_comentarios_py(ta) == sem_comentarios_py(tb), f"{b.relative_to(RAIZ)}: o mesmo código de {a.name} (só os comentários mudam)")
 

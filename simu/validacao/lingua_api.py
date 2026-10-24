@@ -63,6 +63,13 @@ try:
            and ben.get("pergunta") == f"{nome_lib} already exists in the library.", f"biblioteca: \"{bpt.get('erro')}\" / \"{ben.get('pergunta')}\"")
     else:
         ok(False, "biblioteca: nenhum subcircuito na instância de teste para conferir")
+    # o guia do controle (/guia): sem cookie, o GUIA_CONTROLE.md de sempre; em inglês, o GUIA_CONTROLE.en.md
+    def guia(lingua=None):
+        h = {"Cookie": f"maisim-lingua={lingua}"} if lingua else {}
+        return urllib.request.urlopen(urllib.request.Request(B + "guia", headers=h), timeout=60).read()
+    RAIZ = Path(__file__).resolve().parents[2]
+    ok(guia() == (RAIZ / "simu/GUIA_CONTROLE.md").read_bytes() and guia("en") == (RAIZ / "simu/GUIA_CONTROLE.en.md").read_bytes(),
+       "o guia do controle: sem cookie, o de sempre; com maisim-lingua=en, o GUIA_CONTROLE.en.md")
     # os grupos da lista de circuitos: um id que não muda com o idioma
     ids = {m.get("id_grupo") for m in api("modelos")}
     ok({"exemplos", "circuitos"} <= ids, f"os grupos da lista com id ({sorted(i for i in ids if i)})")
