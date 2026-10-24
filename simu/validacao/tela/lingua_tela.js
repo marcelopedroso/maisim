@@ -8,7 +8,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
 const B = "http://localhost:7200";
 // o que não é texto do MaiSim (dados do usuário, números, nomes próprios): fora da varredura
 const DADO = [".rodada .info", "#so-circ > span", "#maisim-nav .marca", "#maisim-nav .pct", '[lang="en"]'];   // [lang=en]: inglês de propósito (o slogan)
-const LIVRE = /^[\s\d.,:;%·\-−+×…/()°ΩµkMGBVAHzs→]*$|^(MaiSim|PT|EN|OK)$/;
+const LIVRE = /^[\s\d.,:;%·\-−+×…/()°ΩµkMGBVAHzs→]*$|^(MaiSim|PT|EN|OK|Scope|Layout ▾|\?)$/;   // iguais nos dois idiomas
 
 // as páginas prontas (cada PR de tradução põe a sua aqui)
 const PRONTAS = [["página inicial", "/"], ["scope", "/maisim/scope/"]];
