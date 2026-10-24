@@ -418,10 +418,44 @@ def itens(md):
 
 
 def sem_comentarios_py(src):
+    """O código sem os comentários (o ast não os guarda) e sem as docstrings: o que tem de ser igual nos dois idiomas."""
     try:
-        return ast.dump(ast.parse(src))
+        arv = ast.parse(src)
     except SyntaxError:
         return None
+    for n in ast.walk(arv):
+        if isinstance(n, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and n.body and \
+                isinstance(n.body[0], ast.Expr) and isinstance(n.body[0].value, ast.Constant) and isinstance(n.body[0].value.value, str):
+            n.body = n.body[1:] or [ast.Pass()]
+    return ast.dump(arv)
+
+
+def confere_exemplos():
+    """Os exemplos (exemplos/) com "traducoes": o código traduzido é o mesmo (só os comentários mudam) e os títulos
+    traduzidos do layout do scope existem no layout."""
+    for f in sorted((RAIZ / "exemplos").glob("*.json")):
+        try:
+            d = json.loads(f.read_text())
+        except ValueError:
+            ok(False, f"{f.relative_to(RAIZ)}: o JSON não lê"); continue
+        tr = d.get("traducoes") if isinstance(d, dict) else None
+        if not tr:
+            continue
+        ruins = []
+        for l, t in tr.items():
+            if l not in ("en",) or not isinstance(t, dict) or set(t) - {"codigo", "titulos"}:
+                ruins.append(f"{l}: só en, com codigo e titulos"); continue
+            for arq, cod in (t.get("codigo") or {}).items():
+                orig = d.get("codigo") if arq == "controle.py" else (d.get("arquivos") or {}).get(arq)
+                if not isinstance(orig, str) or not isinstance(cod, str) or sem_comentarios_py(orig) is None \
+                        or sem_comentarios_py(orig) != sem_comentarios_py(cod):
+                    ruins.append(f"{l}: o {arq} não é o mesmo código")
+            nomes = {x.get(k) for x in d.get("itens") or [] if isinstance(x, dict) for k in ("secao", "titulo")}
+            for de, para in (t.get("titulos") or {}).items():
+                if de not in nomes or not isinstance(para, str) or not para.strip():
+                    ruins.append(f"{l}: o título \"{de}\" não está no layout (ou a tradução está vazia)")
+        ok(not ruins, f"{f.relative_to(RAIZ)}: as traduções do exemplo (o mesmo código, os títulos do layout)"
+           + ("" if not ruins else " — " + "; ".join(ruins[:5])))
 
 
 def confere_pares():
@@ -433,6 +467,8 @@ def confere_pares():
             ok(False, f"{b.relative_to(RAIZ)}: falta o par ({a.name} e {b.name} precisam existir os dois)")
             continue
         if not b.exists():
+            if tipo == "py":                             # o servidor lê os dois (modelo_codigo): o modelo sem o par não sobe
+                ok(False, f"{a.relative_to(RAIZ)}: falta o par em inglês ({b.name})")
             continue
         ta, tb = a.read_text(), b.read_text()
         if tipo == "md":
@@ -443,7 +479,9 @@ def confere_pares():
                f"as mesmas tabelas ({sum(len(x) for x in la)} linhas em {len(la)}, as mesmas células) e os mesmos itens de lista "
                f"{itens(ta)} de {a.name}" + (f" — diferem: {', '.join(dif)}" if dif else ""))
         else:
-            ok(sem_comentarios_py(ta) == sem_comentarios_py(tb), f"{b.relative_to(RAIZ)}: o mesmo código de {a.name} (só os comentários mudam)")
+            ok(sem_comentarios_py(ta) is not None and sem_comentarios_py(ta) == sem_comentarios_py(tb),
+               f"{b.relative_to(RAIZ)}: o mesmo código de {a.name} (só os comentários e as docstrings mudam)")
+    confere_exemplos()
 
 
 if __name__ == "__main__":
