@@ -19,6 +19,13 @@ import time
 import uuid
 from pathlib import Path
 
+for _p in (Path(__file__).resolve().parents[2] / "config", Path(__file__).resolve().parents[1]):   # os textos da IA (pt e en)
+    if str(_p) not in sys.path:
+        sys.path.append(str(_p))
+import textos  # noqa: E402                    o pedido vem no idioma de quem pediu: o de mentira reconhece os dois
+from contextos import PEDIDO_MD  # noqa: E402  "## N. Pedido" ou "## N. Request"
+RESUMO = {textos.T[k][l] for k in ("ia.resumo_pedido", "ia.resumo_junta") for l in ("pt", "en")}   # o pedido do resumo de um contexto
+
 args = sys.argv[1:]
 casa = Path(os.environ.get("HOME", "."))
 agy = casa / ".gemini" / "antigravity-cli"
@@ -120,13 +127,13 @@ else:
 uso = {"input_tokens": 2000, "output_tokens": 300, "thinking_tokens": 50, "cache_read_tokens": 1000, "total_tokens": 3350}
 
 # ---------------------------------------------------------------- o resumo de um contexto salvo (-o json)
-if "Resuma a conversa do MaiSim guardada nesta pasta" in prompt:
+if prompt in RESUMO:
     assert saida == "json", "resumo: JSON"
     if cenario == "resumo_falha":
         print(json.dumps({"conversation_id": cid, "status": "ERROR", "response": "", "error": "quota exceeded"}, indent=2))
         sys.exit(1)
     conv = Path("conversa.md").read_text() if Path("conversa.md").exists() else ""
-    n = len(re.findall(r"(?m)^## \d+\. Pedido", conv))
+    n = len(PEDIDO_MD.findall(conv))
     print(json.dumps({"conversation_id": cid, "status": "SUCCESS", "response": f"## Objetivo\nTeste.\n\n## O que foi feito\nAntigravity leu conversa.md: {n} pedido(s).",
                       "duration_seconds": 1.5, "num_turns": 1, "usage": uso}, indent=2))
     sys.exit(0)
@@ -183,10 +190,11 @@ if cenario == "ganho":
 elif cenario == "le_conversa":
     if "CONVERSA.md" in prompt and Path("CONVERSA.md").exists():
         usa("view_file", AbsolutePath="CONVERSA.md")
-        n = len(re.findall(r"(?m)^## \d+\. Pedido", Path("CONVERSA.md").read_text()))
+        n = len(PEDIDO_MD.findall(Path("CONVERSA.md").read_text()))
         resposta = f"li a conversa: {n} pedido(s)"
     else:
-        resposta = "sem CONVERSA.md" + (" (com as regras do MaiSim)" if "Você é a IA do MaiSim" in prompt else "")
+        resposta = "sem CONVERSA.md" + (" (com as regras do MaiSim)" if any(textos.T["ia.voce_ia"][l].split(" ({nome})")[0] in prompt
+                                                                            for l in ("pt", "en")) else "")
 elif cenario == "terminal":                                    # tenta o terminal: com a regra do MaiSim, negado e segue; sem, para
     usa("run_command", CommandLine="python3 controle.py")
     if "command(*)" not in nega:

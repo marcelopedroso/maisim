@@ -24,8 +24,7 @@ import lingua  # noqa: E402                    as mensagens no idioma do pedido 
 ESTADO_AGY = (".gemini", "antigravity-cli")
 NEGA = ["command(*)", "unsandboxed(*)", "read_url(*)", "execute_url(*)", "mcp(*)"]
 PARADA = re.compile(r'a tool required the "([^"]+)" permission that headless mode cannot prompt for')
-REGRA_AGY = ("\n\nNo MaiSim você NÃO tem terminal, navegador nem acesso a arquivos fora desta pasta: não tente (o pedido para "
-             "sem resposta). Leia e edite só os arquivos desta pasta; o MaiSim testa e simula o código.")
+# a regra a mais do Antigravity, depois das regras do MaiSim, no começo da conversa: lingua.tr("ia.regra_agy") (simu/textos.py)
 
 
 def _quando(iso):
@@ -285,7 +284,7 @@ class Antigravity(LoginPorTerminal, IA):
 
     def comando(self, prompt, sessao, retoma, regras, modelo="", esforco="", passos=100, editaveis=(), pasta=None):
         self._prepara()
-        texto = prompt if retoma else f"{regras}{REGRA_AGY}\n\n---\n\n{prompt}"   # as regras do MaiSim no começo da conversa
+        texto = prompt if retoma else f"{regras}\n\n{lingua.tr('ia.regra_agy')}\n\n---\n\n{prompt}"   # as regras do MaiSim no começo da conversa
         return [self.bin, "-p", texto, "--output-format", "stream-json", "--sandbox", "--disable-slash-commands",
                 *(["--model", modelo] if modelo else []), *(["--effort", esforco] if esforco else []),
                 *(["--conversation", sessao] if retoma else [])]

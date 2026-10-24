@@ -16,6 +16,29 @@ import sys
 import time
 from pathlib import Path
 
+for _p in (Path(__file__).resolve().parents[2] / "config", Path(__file__).resolve().parents[1]):   # os textos da IA (pt e en)
+    if str(_p) not in sys.path:
+        sys.path.append(str(_p))
+import textos  # noqa: E402                    o pedido vem no idioma de quem pediu: o de mentira reconhece os dois
+from contextos import PEDIDO_MD  # noqa: E402  "## N. Pedido" ou "## N. Request"
+
+
+def casa(chave, texto, **grupos):
+    """O texto da chave (em português ou inglês) dentro de texto: cada {x} vira um grupo (grupos[x], ou qualquer coisa)."""
+    for l in ("pt", "en"):
+        partes = re.split(r"\{(\w+)\}", textos.T[chave][l])
+        rx = "".join(re.escape(x) if i % 2 == 0 else f"(?P<{x}>{grupos.get(x, '.*?')})" for i, x in enumerate(partes))
+        m = re.search(rx, texto, re.S)
+        if m:
+            return m
+    return None
+
+
+def eh(chave, texto):
+    """texto é exatamente o da chave, num dos dois idiomas."""
+    return texto in (textos.T[chave]["pt"], textos.T[chave]["en"])
+
+
 REAL = str(Path.home() / ".local" / "bin" / "claude")
 args = sys.argv[1:]
 conf = Path(os.environ.get("CLAUDE_CONFIG_DIR", "."))
@@ -44,7 +67,7 @@ if "stream-json" in args and "--verbose" not in args:   # como o CLI 2.1.273
     sys.exit(1)
 
 cenario = (conf / "falso_cenario").read_text().strip() if (conf / "falso_cenario").exists() else "ganho"
-if "Resuma a conversa do MaiSim guardada nesta pasta" in prompt:   # o resumo pela IA de um contexto salvo: JSON, sem sessão, só leitura
+if eh("ia.resumo_pedido", prompt) or eh("ia.resumo_junta", prompt):   # o resumo pela IA de um contexto salvo: JSON, sem sessão, só leitura
     assert "--no-session-persistence" in args and args[args.index("--tools") + 1] == "Read,Glob,Grep", "resumo: sem sessão e só leitura"
     if (conf / "falso_resumo_lento").exists():
         time.sleep(float((conf / "falso_resumo_lento").read_text() or 3))
@@ -52,9 +75,9 @@ if "Resuma a conversa do MaiSim guardada nesta pasta" in prompt:   # o resumo pe
         print(json.dumps({"type": "result", "subtype": "success", "is_error": True, "result": "API Error: 529 overloaded"}))
         sys.exit(1)
     conv = Path("conversa.md").read_text() if Path("conversa.md").exists() else ""
-    n = len(re.findall(r"(?m)^## \d+\. Pedido", conv))
+    n = len(PEDIDO_MD.findall(conv))
     junta = ""                                   # a junção: o pedido manda ler anterior.md (o contexto de onde continua)
-    if "leia anterior.md" in prompt and Path("anterior.md").exists():
+    if eh("ia.resumo_junta", prompt) and Path("anterior.md").exists():
         junta = f" li anterior.md: {Path('anterior.md').read_text().splitlines()[0].lstrip('# ')}."
     print(json.dumps({"type": "result", "subtype": "success", "is_error": False, "model": "claude-falso",
                       "result": f"## Objetivo\nControle (teste).\n\n## O que foi feito\nli conversa.md: {n} pedido(s).{junta}\n\n## Resultado\n$i_L$ em 10 A."}))
@@ -131,9 +154,9 @@ if cenario in ("ganho", "metade"):
         Path("acionamentos.json").write_text(json.dumps(acs, indent=1))
         resposta += f" Na metade do tempo (t = {tfim / 2:g} s), Kp vai a 9."
 elif cenario == "autonomo":                              # o modo autônomo: versão 1; lê a rodada 1 e faz a 2; na 2, [PRONTO]
-    volta = re.search(r"A rodada (\d+) de (\d+)", prompt)
+    volta = casa("ia.prompt_rodada", prompt, i=r"\d+", n=r"\d+")
     pars = json.loads(Path("parametros.json").read_text())
-    if not volta or volta.group(1) == "1":
+    if not volta or volta.group("i") == "1":
         lido = ""
         if volta:
             usa("Read", file_path="ULTIMA_RODADA.md")
@@ -148,7 +171,7 @@ elif cenario == "autonomo":                              # o modo autônomo: ver
     else:
         resposta = "os critérios passaram.\n[PRONTO]"
 elif cenario == "limite":                                # modo autônomo: a 1ª chamada estoura o limite de passos no meio da versão
-    if "chegou ao limite" in prompt:                      # a continuação termina a versão
+    if casa("ia.prompt_continua", prompt):               # a continuação termina a versão
         pars = json.loads(Path("parametros.json").read_text())
         for q in pars:
             if q["nome"] == "Kp":
@@ -156,7 +179,7 @@ elif cenario == "limite":                                # modo autônomo: a 1ª
         usa("Edit", file_path="parametros.json")
         Path("parametros.json").write_text(json.dumps(pars, indent=1))
         resposta = "terminei a versão (continuei de onde parei)"
-    elif re.search(r"A rodada (\d+) de", prompt):
+    elif casa("ia.prompt_rodada", prompt, i=r"\d+", n=r"\d+"):
         resposta = "rodou bem.\n[PRONTO]"
     else:                                                 # a 1ª: começa a versão e estoura o limite
         usa("Write", file_path="ajuda.py")
@@ -222,7 +245,7 @@ elif cenario == "le_contexto":                           # lê os contextos salv
 elif cenario == "le_conversa":                          # a troca de IA: lê o CONVERSA.md que o pedido cita
     if "CONVERSA.md" in prompt and Path("CONVERSA.md").exists():
         usa("Read", file_path="CONVERSA.md")
-        n = len(re.findall(r"(?m)^## \d+\. Pedido", Path("CONVERSA.md").read_text()))
+        n = len(PEDIDO_MD.findall(Path("CONVERSA.md").read_text()))
         resposta = f"li a conversa: {n} pedido(s)"
     else:
         resposta = "sem CONVERSA.md"
@@ -230,7 +253,8 @@ elif cenario == "anexo":
     nomes = sorted(x.name for x in Path("anexos").iterdir()) if Path("anexos").is_dir() else []
     for n in nomes:
         usa("Read", file_path=f"anexos/{n}")
-    novos = re.findall(r"anexos/([^,()]+?) \(novo\)", prompt)
+    novos = [m.group("nome") for l in ("pt", "en")
+             for m in re.finditer(re.escape(textos.T["ia.nota_anexo_novo"][l]).replace(re.escape("{nome}"), "(?P<nome>[^,()]+?)"), prompt)]
     resposta = f"li os anexos: {', '.join(nomes) or 'nenhum'}; novos: {', '.join(novos) or 'nenhum'}"
 elif cenario == "recusa":
     usa("Edit", file_path="/etc/passwd")

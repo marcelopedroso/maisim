@@ -119,51 +119,61 @@ def le(base, cid):
 
 
 def contexto_md(meta, resumo, resumo_ia=""):
+    """O contexto.md, no idioma do pedido que o (re)escreve (salvar, renomear, o resumo pela IA)."""
+    tr = lingua.tr
     linhas = [f"# {meta['titulo']}", ""]
     ant = meta.get("continua_de") or {}
-    linhas += [f"- {k}: {v}" for k, v in (("circuito", meta.get("circuito")), ("quando", meta.get("quando")),
-                                          ("IA", " · ".join(x for x in (meta.get("ia"), meta.get("modelo")) if x)),
-                                          ("autor", meta.get("autor")), ("etiquetas", ", ".join(meta.get("etiquetas") or [])),
-                                          ("continua de", f"{ant.get('titulo')} ({ant.get('id')})" if ant else ""))
+    linhas += [tr(k, v=v) for k, v in (("contexto_md.circuito", meta.get("circuito")), ("contexto_md.quando", meta.get("quando")),
+                                       ("contexto_md.ia", " · ".join(x for x in (meta.get("ia"), meta.get("modelo")) if x)),
+                                       ("contexto_md.autor", meta.get("autor")), ("contexto_md.etiquetas", ", ".join(meta.get("etiquetas") or [])),
+                                       ("contexto_md.continua_de", f"{ant.get('titulo')} ({ant.get('id')})" if ant else ""))
                if v]
     tem = meta.get("tem") or {}
-    linhas += ["", resumo.strip() or "(sem nota: veja a conversa)", ""]
+    linhas += ["", resumo.strip() or tr("contexto_md.sem_nota"), ""]
     if resumo_ia.strip():                     # o resumo pela IA (feito depois de salvar, a partir da conversa guardada)
         corpo = re.sub(r"(?m)^(#{1,5}) ", r"#\1 ", resumo_ia.strip())      # as seções dele ficam um nível abaixo
-        linhas += ["## Resumo pela IA" + (f" ({meta['resumo_ia'].get('modelo')})" if (meta.get("resumo_ia") or {}).get("modelo") else ""), "", corpo, ""]
-    linhas += ["## Arquivos deste contexto", ""]
+        mod = (meta.get("resumo_ia") or {}).get("modelo")
+        linhas += [tr("contexto_md.resumo_ia_modelo", modelo=meta['resumo_ia'].get('modelo')) if mod else tr("contexto_md.resumo_ia"), "", corpo, ""]
+    linhas += [tr("contexto_md.arquivos"), ""]
     if tem.get("conversa.md"):
-        linhas.append("- conversa.md: " + ("as conversas em ordem: a do contexto anterior e a que continuou dele" if ant else
-                                           "a conversa inteira (pedido e resposta)"))
+        linhas.append(tr("contexto_md.a_conversa_junta" if ant else "contexto_md.a_conversa"))
     if tem.get("anterior.md"):
-        linhas.append("- anterior.md: o contexto anterior (a nota e o resumo pela IA dele), de onde esta conversa continuou")
+        linhas.append(tr("contexto_md.a_anterior"))
     if tem.get("controle"):
-        linhas.append("- controle/: o controle daquele momento (controle.json e os .py) — referência; o controle em uso é o da pasta da conversa")
+        linhas.append(tr("contexto_md.a_controle"))
     if tem.get("rodada"):
-        linhas.append("- rodada/: o resumo (resumo.md) e as séries (serie/<canal>.csv) da rodada mais nova daquele momento")
+        linhas.append(tr("contexto_md.a_rodada"))
     if tem.get("anexos"):
-        linhas.append("- anexos/: os anexos da conversa")
+        linhas.append(tr("contexto_md.a_anexos"))
     return "\n".join(linhas) + "\n"
+
+
+# o título "## Arquivos deste contexto" (ou o inglês): o anterior.md é o contexto.md de lá até ele (um ou outro idioma)
+ARQUIVOS_MD = re.compile("\n(?:" + "|".join(re.escape(textos.T["contexto_md.arquivos"][l]) for l in lingua.LINGUAS) + ")")
 
 
 def conversa_md(hist, titulo="", de=1):
     """A conversa do histórico do MaiSim em markdown: cada pedido, quem respondeu e a resposta (ou o erro). de: o número
     do primeiro pedido (numa junção, a conversa nova segue a numeração da anterior)."""
-    L = [f"# Conversa{f' — {titulo}' if titulo else ''}", ""]
+    tr = lingua.tr
+    L = [tr("conversa_md.titulo_de", titulo=titulo) if titulo else tr("conversa_md.titulo"), ""]
+    data = "%d/%m/%Y %H:%M" if lingua.atual() == "pt" else "%Y-%m-%d %H:%M"
     for k, h in enumerate(hist or [], de):
-        quando = time.strftime("%d/%m/%Y %H:%M", time.localtime(h["quando"])) if isinstance(h.get("quando"), (int, float)) else ""
-        L += [f"## {k}. Pedido{f' ({quando})' if quando else ''}", "", str(h.get("pedido") or "").strip(), ""]
+        quando = time.strftime(data, time.localtime(h["quando"])) if isinstance(h.get("quando"), (int, float)) else ""
+        L += [tr("conversa_md.pedido_quando", k=k, quando=quando) if quando else tr("conversa_md.pedido", k=k), "",
+              str(h.get("pedido") or "").strip(), ""]
         if h.get("anexos"):
-            L += [f"Anexos: {', '.join(h['anexos'])}", ""]
+            L += [tr("conversa_md.anexos", lista=', '.join(h['anexos'])), ""]
         g = h.get("gasto") or {}
         info = " · ".join(x for x in (h.get("ia") or "", h.get("modelo") or "",
                                        f"{g['segundos']:.0f} s" if isinstance(g.get("segundos"), (int, float)) else "",
-                                       "aplicada" if h.get("aplicada") else "", "desfeita" if h.get("desfeita") else "") if x)
-        L += [f"### Resposta{f' ({info})' if info else ''}", ""]
+                                       tr("conversa_md.aplicada") if h.get("aplicada") else "",
+                                       tr("conversa_md.desfeita") if h.get("desfeita") else "") if x)
+        L += [tr("conversa_md.resposta_info", info=info) if info else tr("conversa_md.resposta"), ""]
         corpo = h.get("resposta") or h.get("fala") or ""
-        L += [str(corpo).strip() or "(sem resposta)", ""]
+        L += [str(corpo).strip() or tr("conversa_md.sem_resposta"), ""]
         if h.get("erro"):
-            L += [f"Erro: {h['erro']}", ""]
+            L += [tr("conversa_md.erro", erro=h['erro']), ""]
     return "\n".join(L) + "\n"
 
 
@@ -178,7 +188,8 @@ def conversa_junta(base, anterior, hist, titulo=""):
     if m is None:
         raise FileNotFoundError(lingua.tr("contextos.nao_ha", cid=anterior))
     antes = (d / "conversa.md").read_text(errors="replace").rstrip() + "\n\n" if (d / "conversa.md").is_file() else ""
-    return antes + conversa_md(hist, f"{titulo} (continua de “{m.get('titulo', anterior)}”)", de=len(PEDIDO_MD.findall(antes)) + 1)
+    return antes + conversa_md(hist, lingua.tr("conversa_md.continua_de", titulo=titulo, de=m.get('titulo', anterior)),
+                               de=len(PEDIDO_MD.findall(antes)) + 1)
 
 
 def _escreve_controle(destino, c):
@@ -211,7 +222,7 @@ def salva(base, titulo, resumo, etiquetas=(), conversa=None, controle=None, roda
         tem = {}
         if ant:                                # a lista de arquivos dele fala dos arquivos de lá: fica de fora
             txt = (da / "contexto.md").read_text(errors="replace") if (da / "contexto.md").is_file() else f"# {ant['titulo']}\n"
-            (tmp / "anterior.md").write_text(txt.split("\n## Arquivos deste contexto")[0].rstrip() + "\n")
+            (tmp / "anterior.md").write_text(ARQUIVOS_MD.split(txt, 1)[0].rstrip() + "\n")
             tem["anterior.md"] = True
         if conversa:
             (tmp / "conversa.md").write_text(conversa)
