@@ -48,6 +48,28 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   const re = await pg.evaluate((a) => api("editor/abrir", { arq: a, modo: "descartar" }), ARQ);
   const canal = await pg.evaluate(() => canalScope(dados.folhas["0"].elementos.find((x) => x.nome === "VOLT.1")));
   ok(re.pontas[canal] && re.pontas[canal]["+"] === "U.1" && re.pontas[canal]["-"] === "U.1", `salvar e reabrir: ${JSON.stringify(re.pontas)}`);
+  // duas pontas no mesmo nó (Marcelo, 24/10: "uma ponteira ficou por baixo da outra"): o − de v_a no R.1 (embaixo dele) e o
+  // + de v_b no R.2 (em cima dele), com o R.2 logo abaixo do R.1 (um fio curto entre os dois, pelo rótulo m); e o mesmo com
+  // dois resistores deitados (R.3, R.4: as marcas ao lado dos terminais, quase no mesmo ponto). Nenhuma marca cobre outra
+  await post("editor/novo", { modo: "descartar" });
+  for (const a of [["R.1", 40, 10, "R"], ["R.2", 40, 16, "R"], ["R.3", 40, 30, "R"], ["R.4", 46, 30, "R"],
+    ["VOLT.1", 60, 10, "VOLT"], ["VOLT.2", 60, 14, "VOLT"], ["VOLT.3", 60, 18, "VOLT"], ["VOLT.4", 60, 22, "VOLT"]]) await post("editor/cmd", { op: "CREATE", args: a });
+  for (const n of ["R.3", "R.4"]) await post("editor/cmd", { op: "ROTATE", args: [n] });
+  for (const [n, i, o] of [["R.1", "a", "m"], ["R.2", "m", "b"], ["R.3", "c", "n"], ["R.4", "n", "d"]]) { await post("editor/cmd", { op: "INNODE", args: [n, 0, i] }); await post("editor/cmd", { op: "OUTNODE", args: [n, 0, o] }); }
+  for (const [v, a, c, canal] of [["VOLT.1", "a", "m", "v_a"], ["VOLT.2", "m", "b", "v_b"], ["VOLT.3", "c", "n", "v_c"], ["VOLT.4", "n", "d", "v_d"]]) {
+    await post("editor/mede", { nome: v, tipo: "V", no1: a, no2: c }); await post("editor/cmd", { op: "OUTNODE", args: [v, 0, canal] }); }
+  for (const [canal, sinal, comp] of [["v_a", "-", "R.1"], ["v_b", "+", "R.2"], ["v_c", "-", "R.3"], ["v_d", "+", "R.4"]]) await post("editor/ponta", { canal, sinal, componente: comp });
+  await pg.evaluate(async () => { dados = await api("editor/estado"); folhaAtual = "0"; desenha(); });
+  // a caixa de cada marca: o retângulo V± e o nome do sinal ao lado (o texto com data-txt)
+  const cx = await pg.evaluate(() => [...document.querySelectorAll("#svg g.medido")].filter((g) => g.querySelector("rect")).map((g) => {
+    const r = g.querySelector("rect").getBoundingClientRect(), t = g.querySelector("[data-txt]"), q = t ? t.getBoundingClientRect() : r;
+    return { m: g.querySelector("text").textContent, canal: t ? t.dataset.txt : "", e: Math.min(r.left, q.left), d: Math.max(r.right, q.right), cima: Math.min(r.top, q.top), baixo: Math.max(r.bottom, q.bottom), rcima: r.top }; }));
+  const cobre = [];
+  cx.forEach((a, i) => cx.slice(i + 1).forEach((b) => { if (a.e < b.d - 1 && b.e < a.d - 1 && a.cima < b.baixo - 1 && b.cima < a.baixo - 1) cobre.push(`${a.m} ${a.canal} × ${b.m} ${b.canal}`); }));
+  await pg.evaluate(() => ajusta()); await pg.waitForTimeout(300); await pg.screenshot({ path: "pontas_no.png" });
+  const vm = cx.find((c) => c.m === "V−" && c.canal === "v_a"), vp = cx.find((c) => c.m === "V+" && c.canal === "v_b");
+  ok(cx.length === 8 && !cobre.length && vm && vp && vm.rcima < vp.rcima,
+     `pontas no mesmo nó (em pé e deitados): ${cx.length} marcas, nenhuma cobre outra${cobre.length ? " — cobrem: " + cobre.join(", ") + " " + JSON.stringify(cx.map((c) => [c.m, c.canal, Math.round(c.cima), Math.round(c.baixo), Math.round(c.rcima)])) : ""}; o V− do R.1 acima do V+ do R.2`);
   ok(!erros.length, `sem erros de JS nem diálogos ${erros.join(" ; ")}`);
   await b.close(); process.exit(falhas ? 1 : 0);
 })();

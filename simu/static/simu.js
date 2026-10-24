@@ -498,7 +498,7 @@ function desenha() {
   const medidos = medicoes(f), nosMarcados = new Set();
   // pontas escolhidas (pedido de Marcelo): a marca do voltímetro vai no terminal do componente escolhido, como a ponteira de
   // verdade; sem escolha, no primeiro ponto do nó (abaixo)
-  const pontasFeitas = [];
+  const marcas = [];                                   // [x, y, [canal, sinal, medidor]]: desenhadas no fim, sem uma cobrir a outra
   if (mostrar.medicoes) for (const e of f.elementos) if (e.tipo === "VOLT") {
     const canal = canalScope(e), pp = (dados.pontas && dados.pontas[canal]) || {}, comps = (dados.nos_medidos && dados.nos_medidos[folhaAtual]) || {};
     e.mede.slice(0, 2).forEach((no_, k) => {
@@ -506,7 +506,7 @@ function desenha() {
       // a marca fica do lado de fora do componente: acima do terminal de cima, abaixo do de baixo, ao lado se ele está deitado
       const dx = t.x - (t.cx ?? t.x), dy = t.y - (t.cy ?? t.y - 1);
       const [mx, my] = Math.abs(dy) >= Math.abs(dx) ? [t.x, dy > 0 ? t.y + 1.2 : t.y - 0.5] : [dx > 0 ? t.x + 0.45 : t.x - 1.45, t.y + 0.35];
-      pontasFeitas.push([mx, my, [canal, k ? "−" : "+", e.nome]]);
+      marcas.push([mx, my, [canal, k ? "−" : "+", e.nome]]);
       const pv = medidos.V.get(no_); if (pv && pv[0] === canal) nosMarcados.add(no_);   // o automático deste nó era este medidor
     });
   }
@@ -518,12 +518,26 @@ function desenha() {
     no("polyline", { "data-fio": k, points: pts, fill: "none", stroke: sel ? "#e8a33d" : w.dom === "LK" ? COR.fioLK : COR.fioCT, "stroke-width": sel ? 3 : 1.4, "stroke-linejoin": "round" }, camFios);
     if (clicaveis) no("polyline", { class: "fio", "data-k": k, points: pts, fill: "none", stroke: "transparent", "stroke-width": 0.6 * G }, camFios);
     if (mostrar.rotulos && w.rotulo) rotulo(camRot, w.pts[0][0] + 0.2, w.pts[0][1] - 0.45, w.rotulo, { fill: COR.rot, "font-size": 0.55 * G });
-    if (mostrar.medicoes && w.rotulo && medidos.V.has(w.rotulo) && !nosMarcados.has(w.rotulo)) { nosMarcados.add(w.rotulo); marcaNo(camRot, w.pts[0][0], w.pts[0][1] - 0.5, medidos.V.get(w.rotulo)); }
+    if (mostrar.medicoes && w.rotulo && medidos.V.has(w.rotulo) && !nosMarcados.has(w.rotulo)) { nosMarcados.add(w.rotulo); marcas.push([w.pts[0][0], w.pts[0][1] - 0.5, medidos.V.get(w.rotulo)]); }
   });
   desenhaJuncoes(camFios, f);
   for (const e of f.elementos) for (const t of e.terminais || [])           // nó medido só por rótulo de terminal (sem conexão com o rótulo)
-    if (mostrar.medicoes && t.rotulo && (t.dom || e.dom) === "LK" && medidos.V.has(t.rotulo) && !nosMarcados.has(t.rotulo)) { nosMarcados.add(t.rotulo); marcaNo(camRot, t.x, t.y - 0.5, medidos.V.get(t.rotulo)); }
-  for (const [x, y, m] of pontasFeitas) marcaNo(camRot, x, y, m);
+    if (mostrar.medicoes && t.rotulo && (t.dom || e.dom) === "LK" && medidos.V.has(t.rotulo) && !nosMarcados.has(t.rotulo)) { nosMarcados.add(t.rotulo); marcas.push([t.x, t.y - 0.5, medidos.V.get(t.rotulo)]); }
+  // as marcas dos voltímetros, as das pontas escolhidas e as automáticas dos nós, desenhadas juntas no fim (Marcelo, 24/10:
+  // "uma ponteira de sinal ficou por baixo da outra" — o − embaixo de um resistor e o + em cima do seguinte, no mesmo nó): de
+  // cima para baixo, uma que cairia sobre outra já posta (a caixa V± e o nome do sinal) desce até ficar livre
+  // a caixa de uma marca: o V± (0,62 de altura) e o nome do sinal ao lado, mais alto com o subscrito (0,81)
+  const ALT_MARCA = 0.86, caixa = ([x, y, m]) => [x - 0.15, x + 1.05 + largMat(m[0]) * 0.27, y - 1.13, y - 0.32];
+  const postas = [];
+  for (const mk of marcas.sort((a, b) => a[1] - b[1] || a[0] - b[0])) {
+    for (let k = 0; k < 30; k++) {
+      const [a0, a1, b0, b1] = caixa(mk);
+      const bate = postas.find((q) => { const [c0, c1, d0, d1] = caixa(q); return a0 < c1 && c0 < a1 && b0 < d1 + 0.05 && d0 < b1 + 0.05; });
+      if (!bate) break;
+      mk[1] = bate[1] + ALT_MARCA;
+    }
+    postas.push(mk); marcaNo(camRot, mk[0], mk[1], mk[2]);
+  }
   let n = 0;
   f.elementos.forEach((e, i) => {
     if (e.tipo === "SCOPE") return;                                    // o /maisim/scope faz esse papel
