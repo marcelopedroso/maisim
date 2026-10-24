@@ -7,7 +7,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Added
-- Config profile `produto` for the upcoming Windows installer and AppImage (`MAISIM_PERFIL=produto`): data in a visible folder (`Documents\\MaiSim` on Windows, `~/MaiSim` on Linux), cache in the system's place, and a personal config file on top (`%APPDATA%\\MaiSim\\maisim.env` / `~/.config/maisim/maisim.env`) where the installer writes the chosen port and folders. The developer setup is unchanged (#PR).
+- Config profile `produto` for the upcoming Windows installer and AppImage (`MAISIM_PERFIL=produto`): data in a visible folder (`Documents\\MaiSim` on Windows, `~/MaiSim` on Linux), cache in the system's place, and a personal config file on top (`%APPDATA%\\MaiSim\\maisim.env` / `~/.config/maisim/maisim.env`) where the installer writes the chosen port and folders. The developer setup is unchanged (#92).
 - Home page, Circuits: a delete button on your circuits (not on the one open in the editor). After a confirmation it deletes the circuit for good, with its control code and colours, so nobody has to find the folder (#87).
 - Home page: a **Circuits** section. *Recent* lists the circuits opened last (the simu notes every open and save in `recentes.json`), *All circuits* lists yours, the library and the extra folders by group, with search; one click opens a circuit in the simu, and the folder where your circuits are kept is shown (#85).
 - CI: when the full suite passes on main, every PR merged since the last green run gets a comment saying so (with the run link), and the READMEs show the verify and full-suite status badges (#84).
