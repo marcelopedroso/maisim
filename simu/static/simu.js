@@ -176,6 +176,24 @@ function gruposDoLayout(L) {                             // [{secao, paineis: [i
   return gs;
 }
 const nomeSecao = (g) => g.secao || tr("simu.sem_secao");
+// a cor escolhida aqui vale também no scope (Marcelo, 24/10: "a cor quando seleciona pelo circuito tb ir pra lá"): a cor do
+// sinal no scope fica no navegador (maisim-scope-cores, a mesma de "cor, espessura e traço" lá); "Padrão" tira a de lá também.
+// O scope aberto (noutra janela ou aqui dentro) ouve o storage e redesenha
+// ao abrir um circuito (ou quando as cores dele mudam por outro caminho), as cores escolhidas nele vão para o scope também;
+// só quando mudam (o desenho se refaz muito) e sem apagar as do scope que este circuito não escolheu
+let coresSincronizadas = null;
+function sincronizaCores() {
+  const c = (dados && dados.cores_escolhidas) || {}, k = JSON.stringify(c);
+  if (k === coresSincronizadas) return; coresSincronizadas = k;
+  try { const s = JSON.parse(localStorage.getItem("maisim-scope-cores") || "{}") || {}; let mudou = false;
+    for (const [canal, cor] of Object.entries(c)) if (cor && s[canal] !== cor) { s[canal] = cor; mudou = true; }
+    if (mudou) localStorage.setItem("maisim-scope-cores", JSON.stringify(s)); } catch (e) { /* sem o navegador guardar: só no circuito */ }
+}
+function corNoScope(canal, cor) {
+  try { const c = JSON.parse(localStorage.getItem("maisim-scope-cores") || "{}") || {};
+    if (cor) c[canal] = cor; else delete c[canal];
+    localStorage.setItem("maisim-scope-cores", JSON.stringify(c)); } catch (e) { /* sem o navegador guardar: só no circuito */ }
+}
 function ligaNoPainel(np) {
   const canal = np.dataset.canal, selS = np.querySelector("#p-secao"), selP = np.querySelector("#p-painel");
   const desenhaOps = (secaoEscolhida) => {
@@ -409,6 +427,7 @@ function valorPrincipal(e) {
 
 // ---------------------------------------------------------------- folha
 function desenha() {
+  sincronizaCores();                                   // as cores escolhidas deste circuito também no scope (ao abrir)
   document.body.classList.toggle("sem-circuito", !!(dados && dados.fechado));
   const svg = $("svg"); svg.innerHTML = ""; rotulosFeitos = new Set();
   const f = dados.folhas[folhaAtual];
@@ -1292,7 +1311,7 @@ async function montaProps() {
   });
   const cc = P.querySelector(".cor-canal");
   if (cc) {                                              // a cor do canal: guardada ao lado do circuito (<nome>.cores.json) e no meta da rodada
-    const muda = async (cor) => { try { const j = await api("editor/cor", { canal: cc.dataset.canal, cor }); novoEstado(j);
+    const muda = async (cor) => { try { const j = await api("editor/cor", { canal: cc.dataset.canal, cor }); novoEstado(j); corNoScope(cc.dataset.canal, cor);
       msg(tr(cor ? "simu.d_cor" : "simu.d_cor_padrao", { canal: cc.dataset.canal, cor }), "ok"); } catch (er) { msg(er.message, "erro"); } };
     cc.querySelectorAll("[data-cor]").forEach((b) => { b.onclick = () => muda(b.dataset.cor); });
     cc.querySelector("input[type=color]").onchange = (ev) => muda(ev.target.value);

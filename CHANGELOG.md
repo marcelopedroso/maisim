@@ -6,6 +6,9 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Changed
+- A channel color chosen on the circuit also applies in the scope, which follows it right away (#66).
+
 ## [0.2.0] - 2026-10-24
 
 ### Added
