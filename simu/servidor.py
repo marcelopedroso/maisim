@@ -311,12 +311,14 @@ def vigia_gecko():
 MOTOR.vigia = vigia_gecko
 
 
-def aviso_janelas():
-    """O que a vigia fechou durante o pedido, para a página dizer (e zera)."""
+def aviso_janelas(gecko_novo=False):
+    """O que a vigia fechou durante o pedido, para a página dizer (e zera); com gecko_novo (uma resposta do editor que a página
+    mostra), também o Gecko novo que o servidor refez (confere_gecko) — as outras rotas o deixam para a próxima."""
     js, MOTOR.janelas = MOTOR.janelas, []
-    if not js:
-        return ""
-    return lingua.tr("editor.janelas_gecko_fechadas", n=len(js), titulos=", ".join(sorted(set(js))))
+    partes = [lingua.tr(k, **a) for k, a in (editor.pop("gecko_novo", None) or [] if gecko_novo else [])]
+    if js:
+        partes.append(lingua.tr("editor.janelas_gecko_fechadas", n=len(js), titulos=", ".join(sorted(set(js)))))
+    return "; ".join(partes)
 
 
 def estado():
@@ -391,6 +393,186 @@ def com_desfazer(f, descr, manter_se_falhar=False):
         apara()
         return r
     return g
+
+
+# ---------------------------------------------------------------- um Gecko novo (24/10: o Gecko foi parado e o MaiSim
+# reiniciado; o servidor voltou com o arquivo do Marcelo no editor, mas o Gecko novo tinha o modelo da partida — o editor
+# mostrava outro circuito com o nome do arquivo, "sem salvar", e Salvar gravaria o modelo da partida por cima dele). O Gecko
+# costuma sobreviver a reiniciar o servidor; quando ele é outro (caiu, para.sh, reboot, atualização), o servidor o põe como
+# o editor o tinha: reabre o arquivo aberto (do disco; nunca grava nele) ou deixa a folha vazia (circuito novo, fechado).
+# Nada se perde em silêncio: o que o Gecko novo tinha e a última cópia do que não estava salvo no de antes (ESTADO) ficam em
+# GECKO_COPIAS, e a página avisa. Quando: na 1ª conexão com cada motor (o sobe.sh sobe um motor novo com cada Gecko), antes do
+# pedido que a abriu, e na partida do servidor assim que o motor responder (o maisim.sh sobe o Gecko junto: até ~1 min). O
+# pedido que encontrou o Gecko novo não segue (salvar gravaria o arquivo reaberto, ou a folha vazia, por cima de outro;
+# uma edição cairia no circuito reaberto): recusado com o código "gecko_novo", e a página relê o estado. Leituras (GET, a
+# conferência da partida) seguem: já leem o Gecko refeito.
+GECKO_VISTO = ESTADO.with_name("gecko_visto.txt")     # o processo do Gecko que o editor conhece (boot, pid e partida)
+GECKO_COPIAS = ESTADO.with_name("gecko_reiniciado")   # o que um Gecko novo tinha e o que não estava salvo num que saiu
+GECKO_COPIAS_N = 40                                   # as mais novas ficam
+GECKO_TENTATIVAS = 3                                  # refazer falhou: tenta de novo nos próximos pedidos, até aqui
+GECKO_FOLGA = 30                                      # sem registro: só é novo o Gecko que subiu bem depois da última leitura (s)
+gecko = {"vez": 0, "falhas": 0, "sem_ss": False}      # vez: quantos Geckos novos (uma rodada no meio de uma troca não devolve CONST)
+pedido_leitura = threading.local()                    # .sim: o pedido desta thread só lê (GET, a conferência da partida)
+
+
+def processo_gecko():
+    """O processo que escuta na porta do Gecko: ("boot pid partida", há quantos segundos subiu), ou None. A partida (de
+    /proc) distingue um Gecko novo que pegou o mesmo pid; o boot, um reboot. A idade é do relógio do boot (/proc/uptime), que
+    não pula quando o WSL acerta o relógio da parede (o btime pula)."""
+    try:
+        r = subprocess.run(["ss", "-ltnpH", f"sport = :{os.environ['MAISIM_PORTA_GECKO']}"], capture_output=True, text=True, timeout=5)
+        pid = re.search(r"pid=(\d+)", r.stdout).group(1)
+        partida = int(Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[19])   # o 22º campo: tiques desde o boot
+        boot = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+        idade = float(Path("/proc/uptime").read_text().split()[0]) - partida / os.sysconf("SC_CLK_TCK")
+        return f"{boot} {pid} {partida}", idade
+    except (OSError, KeyError, AttributeError, ValueError, IndexError, subprocess.SubprocessError) as e:
+        if not gecko["sem_ss"]:
+            gecko["sem_ss"] = True
+            print(f"{time.strftime('%H:%M:%S')} Gecko novo: não sei qual processo é o Gecko ({e}); sem a conferência", flush=True)  # i18n-ok (log)
+        return None
+
+
+def _hora():
+    """Para o nome das cópias: até o milésimo (duas no mesmo segundo não se sobrescrevem)."""
+    t = time.time()
+    return time.strftime("%Y%m%d-%H%M%S", time.localtime(t)) + f"-{int(t * 1000) % 1000:03d}"
+
+
+def _copia_gecko(nome):
+    """O que o Gecko tem agora, numa cópia em GECKO_COPIAS (as mais antigas além de GECKO_COPIAS_N saem)."""
+    GECKO_COPIAS.mkdir(parents=True, exist_ok=True)
+    arq = GECKO_COPIAS / f"{nome}_{_hora()}.ipes"
+    MOTOR.cmd(f"SAVEAS {arq}")
+    for velho in sorted(GECKO_COPIAS.glob("*.ipes"), key=lambda f: f.stat().st_mtime)[:-GECKO_COPIAS_N]:
+        velho.unlink(missing_ok=True)
+    return arq
+
+
+def _parece_novo(idade):
+    """Sem registro (a 1ª partida com esta conferência): é outro Gecko se subiu bem depois da última leitura do editor (o mesmo
+    só é lido segundos depois de subir: o motor sobe depois dele) E tem outra coisa que o editor viu por último. Na dúvida,
+    não: um Gecko tomado por novo reabriria o arquivo por cima do que só ele tinha (ficaria numa cópia, mas a troca assusta)."""
+    if not ESTADO.is_file() or time.time() - ESTADO.stat().st_mtime < idade + GECKO_FOLGA:
+        return False
+    try:
+        return VISTO.read_text().strip() != hash_assinatura(assinatura(monta(salva_conferencia())))
+    except (OSError, ErroMotor, ValueError):
+        return False
+
+
+def _registra_gecko(ident):
+    try:
+        GECKO_VISTO.write_text(ident)
+    except OSError:
+        pass
+
+
+def confere_gecko():
+    """Chamada pelo motor na 1ª conexão com cada motor (e de novo enquanto refazer falha): se o Gecko não é o que o editor
+    conhece, põe nele o que o editor tem; o pedido que o encontrou é recusado (ErroMotor "gecko_novo"), menos as leituras."""
+    p = processo_gecko()
+    if p is None:                                    # sem o ss ou sem o /proc: como antes
+        MOTOR.conferir = False
+        return
+    ident, idade = p
+    try:
+        conhecido = GECKO_VISTO.read_text().strip() or None
+    except OSError:
+        conhecido = None
+    if conhecido == ident or (conhecido is None and not _parece_novo(idade)):
+        _registra_gecko(ident)
+        MOTOR.conferir = False
+        return
+    try:
+        aviso = refaz_gecko()
+    except Exception as e:                           # tenta de novo no próximo pedido; depois de GECKO_TENTATIVAS, desiste
+        gecko["falhas"] += 1
+        print(f"{time.strftime('%H:%M:%S')} Gecko novo: não consegui refazer o editor nele ({e}), tentativa {gecko['falhas']}", flush=True)  # i18n-ok (log)
+        if gecko["falhas"] < GECKO_TENTATIVAS:
+            raise ErroMotor(lingua.tr("editor.gecko_novo_falhou", erro=e), codigo="gecko_novo")
+        gecko["falhas"] = 0
+        _registra_gecko(ident)
+        MOTOR.conferir = False
+        if editor.get("aberto"):                     # o editor deixa de dizer que é o arquivo (Salvar pede um nome)
+            marca_aberto(None)
+        raise ErroMotor(lingua.tr("editor.gecko_novo_desistiu", erro=e), codigo="gecko_novo")
+    gecko["falhas"] = 0
+    _registra_gecko(ident)
+    MOTOR.conferir = False
+    if aviso and not getattr(pedido_leitura, "sim", False):
+        editor.pop("gecko_novo", None)               # a mensagem vai no erro
+        raise ErroMotor(lingua.tr("editor.gecko_novo_pedido", aviso="; ".join(lingua.tr(k, **a) for k, a in aviso)),
+                        codigo="gecko_novo")
+
+
+def refaz_gecko():
+    """O Gecko novo com o que o editor tem: o arquivo aberto, do disco, ou a folha vazia (circuito novo, fechado). Devolve os
+    avisos para a página (vazio: fechado, nada a dizer; None: nada mudou)."""
+    visto = hash_assinatura(editor["assinatura"]) if editor.get("assinatura") is not None else None
+    if visto is None:
+        try:
+            visto = VISTO.read_text().strip() or None
+        except OSError:
+            pass
+    base = base_conhecida()
+    arq = (RAIZ / editor["aberto"]) if editor.get("aberto") else None
+    if arq is None and base is None and not editor.get("fechado"):
+        return None                                  # o editor nunca abriu nem começou um circuito: o Gecko fica com o dele
+    gecko["vez"] += 1
+    DEVOLVER.unlink(missing_ok=True)                 # os CONST de uma rodada eram do Gecko de antes (não vão para o arquivo reaberto)
+    copia = None
+    if visto and base and visto != base and ESTADO.is_file():   # havia o que não estava salvo: a última cópia vista fica
+        GECKO_COPIAS.mkdir(parents=True, exist_ok=True)
+        copia = GECKO_COPIAS / f"{arq.stem if arq else 'novo'}_{_hora()}.ipes"
+        shutil.copy2(ESTADO, copia)
+    try:                                             # o que o Gecko novo tinha (um modelo da partida, algo feito na tela dele)
+        do_novo = _copia_gecko("gecko_novo")
+    except (ErroMotor, OSError) as e:                # sem a cópia, nada é refeito: o que o Gecko novo tem é a única cópia
+        print(f"{time.strftime('%H:%M:%S')} Gecko novo: não consegui guardar o que ele tinha ({e}); não refaço", flush=True)  # i18n-ok (log)
+        raise                                        # conta como falha (o pedido é recusado, a próxima conexão tenta de novo)
+    reaberto = arq is not None and arq.is_file()
+    if reaberto:
+        abre(arq)
+        aviso = [("editor.gecko_novo_reaberto", {"nome": arq.name})]
+    else:
+        MOTOR.cmd("CLEAR")
+        if arq is not None:                          # o arquivo sumiu do disco: fica um circuito novo
+            marca_aberto(None)
+            aviso = [("editor.gecko_novo_sumiu", {"nome": arq.name})]
+        else:
+            aviso = [] if editor.get("fechado") else [("editor.gecko_novo_vazio", {})]
+    esquece(tudo=True)                               # os passos do desfazer eram do Gecko de antes
+    estado()
+    marca_base()
+    if aviso:
+        if copia is not None:
+            aviso.append(("editor.gecko_novo_copia", {"copia": str(copia)}))
+        if do_novo is not None:
+            aviso.append(("editor.gecko_novo_tinha", {"copia": str(do_novo)}))
+        editor["gecko_novo"] = aviso                 # a página diz na próxima resposta do editor (aviso_janelas)
+    print(f"{time.strftime('%H:%M:%S')} Gecko novo: " + (f"reaberto {arq}" if reaberto else "folha vazia")  # i18n-ok (log)
+          + (f"; o que ele tinha em {do_novo}" if do_novo else "") + (f"; o que não estava salvo em {copia}" if copia else ""), flush=True)  # i18n-ok (log)
+    return aviso
+
+
+MOTOR.ao_conectar = confere_gecko
+
+
+def espera_gecko():
+    """Partida do servidor: assim que o motor responder, a conferência do Gecko (sem esperar um pedido) e, depois dela, os CONST
+    de uma rodada interrompida (antes, os dois corriam juntos: os CONST de antes caíam no arquivo recém-reaberto)."""
+    pedido_leitura.sim = True
+    for _ in range(200):                             # ~10 min (o Gecko sobe junto com o servidor e leva até ~1 min)
+        try:
+            MOTOR.cmd("PING")
+            break
+        except ErroMotor:
+            time.sleep(3)
+    else:
+        return
+    pedido_leitura.sim = False
+    recupera_rodada_interrompida()
 
 
 def _texto(arq):
@@ -3065,6 +3247,7 @@ def _rodar(c, ctl_de_fora=None):
     escritos = sorted({blocos_const[x] for x in (ctl["atuacoes"] if ctl["ativo"] else []) if x in blocos_const} |
                       {e.split(":")[0] for v in escritas_ev.values() for e in v})
     valores_antes = {b: MOTOR.cmd(f"GETP {b} const") for b in escritos}
+    vez_gecko = gecko["vez"]                             # um Gecko novo no meio: os CONST de antes não vão para o arquivo reaberto
     t0 = time.time()                                     # uma pasta só desta rodada: duas no mesmo segundo, a 2ª vai para o
     for k in range(120):                                 # segundo seguinte (o nome continua data_hora_nome; "por cima" a reconhece)
         pasta = RODADAS / f"{time.strftime('%Y-%m-%d_%H%M%S', time.localtime(t0 + k))}_{nome}"
@@ -3260,7 +3443,7 @@ def _rodar(c, ctl_de_fora=None):
             except ErroMotor:
                 pass
             try:                                         # os CONST escritos pela rodada voltam ao valor de antes
-                if valores_antes:
+                if valores_antes and gecko["vez"] == vez_gecko:
                     MOTOR.cmd("SETM " + " ".join(f"{b}:const:{v}" for b, v in valores_antes.items()))
                 DEVOLVER.unlink(missing_ok=True)
             except ErroMotor as e:
@@ -5009,9 +5192,10 @@ class Manipulador(BaseHTTPRequestHandler):
 
     def do_GET(self):
         lingua.do_pedido(self.headers)
+        pedido_leitura.sim = True                     # um GET só lê: encontrar um Gecko novo não o recusa (confere_gecko)
         u = urlparse(self.path)
         rota = u.path[len(PREFIXO):] if u.path.startswith(PREFIXO + "/") else u.path
-        self._rota = None
+        self._rota, self._caminho = None, rota
         if u.path in ("/", PREFIXO):
             self.send_response(302)
             self.send_header("Location", PREFIXO + "/" + (("?" + u.query) if u.query else ""))
@@ -5127,7 +5311,7 @@ class Manipulador(BaseHTTPRequestHandler):
         try:
             antes = editor.get("ultimo") if getattr(self, "_rota", None) in ROTAS_EDICAO else None
             r = f()
-            aviso = aviso_janelas()
+            aviso = aviso_janelas(isinstance(r, dict) and str(getattr(self, "_caminho", "")).startswith("/editor/"))
             if aviso and isinstance(r, dict):
                 r["aviso_gecko"] = aviso
             if antes is not None and isinstance(r, dict):
@@ -5139,7 +5323,7 @@ class Manipulador(BaseHTTPRequestHandler):
                     print(f"renomeados: {e}", flush=True)
             return self._resposta(200, r)
         except ErroMotor as e:
-            aviso = aviso_janelas()
+            aviso = aviso_janelas(str(getattr(self, "_caminho", "")).startswith("/editor/"))
             return self._resposta(409, {"erro": str(e) + (f" ({aviso})" if aviso else ""), **getattr(e, "extra", {})})
         except (ValueError, TypeError, IndexError, AttributeError, KeyError) as e:
             return self._resposta(400, {"erro": lingua.tr("servidor.pedido_invalido", erro=e)})
@@ -5177,7 +5361,8 @@ class Manipulador(BaseHTTPRequestHandler):
     def _do_post(self):
         u = urlparse(self.path)
         rota = u.path[len(PREFIXO):] if u.path.startswith(PREFIXO + "/") else u.path
-        self._rota = rota
+        self._rota = self._caminho = rota
+        pedido_leitura.sim = False
         # todo POST (guardar e testar o controle, rodar, editar…): só a página do MaiSim, na própria máquina — sem isso, uma
         # página de fora mandaria um controle.py e o testaria (código rodando aqui); o X-MaiSim, só nas rotas do Claude
         if not pedido_local(self, rota.startswith("/claude/")):
@@ -5596,7 +5781,7 @@ def main():
         arq.unlink(missing_ok=True)
     print(f"maisim-simu em http://localhost:{a.porta}{PREFIXO}/", flush=True)
     with lingua.com(lingua.ultima()):                 # na partida não há pedido: a última língua vista
-        lingua.thread(recupera_rodada_interrompida).start()
+        lingua.thread(espera_gecko).start()        # o Gecko conferido e, depois, os CONST de uma rodada interrompida
     srv.serve_forever()
 
 
