@@ -43,6 +43,14 @@ continuam (quem publica rodadas de fora usa `/publicar`).
   Conferido contra o `smauto.metrics` na gravação do Gecko de 600 V (8 casos, por janela de controle e no passo fino): diferença ≤ 3·10⁻¹²
   da fundamental. As amostras que faltam nas gravações vão do servidor como null (antes iam como 0).
   Harmônicos: a lista por vírgulas, mais **ímpares até** e/ou **pares até** um valor (marcar e digitar; somam-se).
+- **Potência** (na medição, um modo como o Fourier e os cursores): os pares tensão/corrente do painel pelos nomes (`v_X`,
+  `V_X`, `u_X` ou `vX` com `i_X`, `I_X` ou `iX` de mesmo sufixo: v_R1 ↔ i_R1, Va ↔ ia; nenhum casado, a 1ª tensão com a
+  1ª corrente); as listas v e i de cada par trocam, ✕ tira, **+ par** põe, **Automático** volta aos pelos nomes (os
+  escolhidos ficam no layout, em `med.pot.pares`). Cada par vira a curva p(t) = v(t)·i(t) (p_X na legenda, no mesmo eixo,
+  valores reais sem o ×k; clicar na legenda esconde) e uma linha na tabela, na janela do Fourier (t₀, n períodos de f₀,
+  à vista mesmo com o Fourier desligado): P = média de v·i, V_rms, I_rms, S = V_rms·I_rms, λ = P/S e, dos fasores de pico
+  da fundamental (φ₁ = ∠V₁ − ∠I₁), P₁ = (V₁·I₁/2)·cos φ₁ e Q₁ = (V₁·I₁/2)·sin φ₁ (positiva com a corrente atrasada). Em CC,
+  P₁ = Q₁ = 0. Com os cursores t, p em A e em B na leitura. Teste: `scope_potencia_tela`.
 - **Espectro** (na medição): barras de CC e h = 1 … h máx (pico) de cada sinal da tabela, escala log (décadas abaixo
   do maior: padrão 4; marcas em 1, 2 e 5 de cada década, para ler um fator 2 no eixo) ou linear; passar o mouse mostra pico ∠ fase e % de h1; clicar no nome de um sinal na tabela tira-o ou põe-o no
   espectro. Com N = n·P amostras (P inteiro por período), os n períodos são somados num só antes da DFT, o que é exato

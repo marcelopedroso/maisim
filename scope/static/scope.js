@@ -50,10 +50,12 @@ function corClara(cor, t = 0.5) {
 const COR_TEMA = {
   claro: { eixo: "#3d4550", grade: "rgba(0,0,0,.07)", texto: "#5b6470", textoForte: "#3d4550", textoFraco: "#8a939d", gradeForte: "#dde2e8",
     gradeFraca: "#eef1f4", base: "#9aa3ad", faixa: "rgba(31, 78, 121, 0.09)", faixaBorda: "rgba(31, 78, 121, 0.75)",
-    acA: "rgba(217,119,6,.85)", acAtxt: "#92400e", acB: "rgba(55,65,81,.7)", acBtxt: "#374151", fundo: "#fff", titulo: "#1b1f24", soma: "#111827", media: "#7c3aed" },
+    acA: "rgba(217,119,6,.85)", acAtxt: "#92400e", acB: "rgba(55,65,81,.7)", acBtxt: "#374151", fundo: "#fff", titulo: "#1b1f24", soma: "#111827", media: "#7c3aed",
+    pot: ["#c2410c", "#0f766e", "#a21caf", "#4d7c0f", "#1d4ed8"] },
   escuro: { eixo: "#aab3bf", grade: "rgba(255,255,255,.08)", texto: "#9aa3ae", textoForte: "#cbd5e1", textoFraco: "#6b7480", gradeForte: "#2f3540",
     gradeFraca: "#232831", base: "#5b6470", faixa: "rgba(139, 92, 246, 0.14)", faixaBorda: "rgba(167, 139, 250, 0.85)",
-    acA: "rgba(251,146,60,.9)", acAtxt: "#fdba74", acB: "rgba(203,213,225,.7)", acBtxt: "#cbd5e1", fundo: "#171a21", titulo: "#e6e8ec", soma: "#f3f4f6", media: "#c4b5fd" } };
+    acA: "rgba(251,146,60,.9)", acAtxt: "#fdba74", acB: "rgba(203,213,225,.7)", acBtxt: "#cbd5e1", fundo: "#171a21", titulo: "#e6e8ec", soma: "#f3f4f6", media: "#c4b5fd",
+    pot: ["#fb923c", "#2dd4bf", "#e879f9", "#a3e635", "#93c5fd"] } };
 const temaAtual = () => (document.documentElement.dataset.tema === "escuro" ? "escuro" : "claro");
 const cores = () => COR_TEMA[temaAtual()];
 const LIMITE_FINO_MS = 40;
@@ -260,6 +262,42 @@ function legendaMat(p) {                               // os nomes da legenda do
 }
 function tituloMat(p) { const t = p.el && p.el.querySelector(".titulo-mat"); if (t) t.innerHTML = htmlMat(p.titulo); }
 
+// ---------------------------------------------------------------- potência (Marcelo, 24/10: "medição de potência no Medir")
+// os pares tensão/corrente do painel pelos nomes: v_X (ou V_X, u_X, vX) com i_X (ou I_X, iX) de mesmo sufixo (v_R1 ↔ i_R1,
+// v_o ↔ i_o, Va ↔ ia); nenhum casado, mas há tensão e corrente: a 1ª de cada. Os escolhidos à mão ficam no med do layout
+// (pot.pares; null = os automáticos)
+const RE_V = /^[vVu]_?([A-Za-z0-9].*)$/, RE_I = /^[iI]_?([A-Za-z0-9].*)$/;
+const sufixo = (c, re) => { const m = String(c).match(re); return m ? m[1] : null; };
+const normSuf = (s) => String(s).toLowerCase().replace(/_/g, "");
+function paresAuto(sinais) {
+  const vs = sinais.filter((c) => sufixo(c, RE_V) != null), is = sinais.filter((c) => sufixo(c, RE_I) != null), usados = new Set(), out = [];
+  for (const v of vs) {
+    const i = is.find((c) => !usados.has(c) && normSuf(sufixo(c, RE_I)) === normSuf(sufixo(v, RE_V)));
+    if (i) { usados.add(i); out.push({ v, i }); }
+  }
+  if (!out.length && vs.length && is.length) out.push({ v: vs[0], i: is[0] });
+  return out;
+}
+const sinaisPot = (p) => (p.sinais || []).filter((c) => grossa(A, c) || (B && grossa(B, c)));   // os que alguma rodada tem
+// os escolhidos à mão que o painel ainda tem; nenhum deles (os sinais do painel mudaram): os automáticos de novo
+function paresDe(p) {
+  const ss = sinaisPot(p), pr = p.med && p.med.pot && p.med.pot.pares;
+  const ok = Array.isArray(pr) ? pr.filter((x) => ss.includes(x.v) && ss.includes(x.i)) : [];
+  return Array.isArray(pr) && (ok.length || !pr.length) ? ok : paresAuto(ss);
+}
+// o nome da curva: p com o sufixo do par (p_a; v_o com i_L: p_o_L, na notação p com "o,L"); repetido ou sem sufixo, o número
+function nomesPot(pares) {
+  const limpa = (s) => String(s || "").replace(/[^A-Za-z0-9_]+/g, "").replace(/_+/g, "_").replace(/^_|_$/g, "");
+  const usados = new Set();
+  return pares.map((par, k) => {
+    const sv = limpa(sufixo(par.v, RE_V)), si = limpa(sufixo(par.i, RE_I));
+    let n = `p_${(sv && si && normSuf(sv) !== normSuf(si) ? `${sv}_${si}` : sv || si) || k + 1}`;
+    if (usados.has(n)) n = `${n}_${k + 1}`;
+    usados.add(n); return n;
+  });
+}
+const corPot = (k) => { const l = cores().pot; return l[k % l.length]; };
+
 // ---------------------------------------------------------------- dados de um painel
 function seriesDe(p) {
   const out = []; let kp = 0;
@@ -284,11 +322,20 @@ function seriesDe(p) {
         out.push({ F, soma: partes, comb: k, div, canal: rot, rot: rot + suf, cor: cores()[k], dash: F === B ? [6, 4] : undefined, largura: 2.4,
                    desloc: 0, ganho: 1, degrau: partes.every((c) => tipo(c) === "f") });
   }
+  // com a Potência ligada, p(t) = v(t)·i(t) de cada par, com os valores reais (sem o ×k), no mesmo eixo, como o Σ; clicar
+  // no nome na legenda esconde a curva (e a escala volta)
+  if (p.med && p.med.aberto && p.med.pot.on) {
+    const pares = paresDe(p), nomes = nomesPot(pares);
+    pares.forEach((par, k) => { for (const F of B ? [A, B] : [A]) if (grossa(F, par.v) && grossa(F, par.i))
+      out.push({ F, pot: [par.v, par.i], canal: nomes[k], rot: nomes[k] + (B ? (F === A ? " · A" : " · B") : ""), cor: corPot(k), dash: F === B ? [6, 4] : undefined,
+                 largura: 2, desloc: 0, ganho: 1, degrau: tipo(par.v) === "f" && tipo(par.i) === "f" }); });
+  }
   return out;
 }
 const chaveSe = (se) => `${se.canal}|${se.F === A ? "A" : "B"}`;      // o sinal na tabela, no espectro e no Σ
-const seriesMed = (p) => (p.series || []).filter((se) => !se.soma);     // as da tabela da medição (sem a curva Σ)
-const assinaturaComb = (ss) => JSON.stringify((ss || []).filter((se) => se.soma).map((se) => [se.comb, se.F === A, se.soma]));
+const seriesMed = (p) => (p.series || []).filter((se) => !se.soma && !se.pot);   // as da tabela da medição (sem as curvas Σ e p)
+const assinaturaComb = (ss) => JSON.stringify((ss || []).filter((se) => se.soma || se.pot).map((se) => [se.comb || se.canal, se.F === A, se.soma || se.pot]));
+const ocultaDe = (se) => (se.soma ? se.comb : `pot:${se.canal}`);      // a chave da curva Σ / x̄ / p escondida na legenda (med.oculta)
 // x̄: a soma dividida pelo número de parcelas (e a escala do resíduo numérico também)
 const divide = (se, y) => { if (!(se.div > 1)) return y; se.escala /= se.div; for (let k = 0; k < y.length; k++) if (y[k] != null) y[k] /= se.div; return y; };
 // faixa de tempo de um painel: a comum (painel ligado) ou a própria (painel solto); null = tudo
@@ -307,6 +354,12 @@ function dadosPainel(p) {
           for (const g of gs) { const q = g && w < g.length ? g[w] : null; if (q == null || q !== q) { v = null; break; } v += q; } y[k] = v; }
         return divide(se, y);
       }
+      if (se.pot) {                                     // p = v·i: só onde as duas têm valor
+        const [gv, gi] = se.pot.map((c) => grossa(se.F, c));
+        for (let k = 0; k < n; k++) { const w = idx[k]; if (w < 0 || !gv || !gi || w >= gv.length || w >= gi.length) continue;
+          const a = gv[w], b = gi[w]; if (a != null && b != null && a === a && b === b) y[k] = a * b; }
+        return y;
+      }
       const g = grossa(se.F, se.canal);
       if (g) for (let k = 0; k < n; k++) { const w = idx[k]; if (w >= 0 && w < g.length && g[w] != null && g[w] === g[w]) y[k] = g[w] * se.ganho + se.desloc; }
       return y;
@@ -324,6 +377,11 @@ function dadosPainel(p) {
           se.escala += e; }
         return divide(se, y);
       }
+      if (se.pot) {
+        const [gv, gi] = se.pot.map((c) => grossa(se.F, c)), y = new Float64Array(W).fill(NaN);
+        if (gv && gi) for (let w = 0, m = Math.min(W, gv.length, gi.length); w < m; w++) { const a = gv[w], b = gi[w]; y[w] = a == null || b == null ? NaN : a * b; }
+        return y;
+      }
       const g = grossa(se.F, se.canal); const y = new Float64Array(W).fill(NaN);
       if (g) for (let w = 0; w < Math.min(W, g.length); w++) { const v = g[w]; y[w] = v == null ? NaN : v * se.ganho + se.desloc; }
       return y;
@@ -339,6 +397,9 @@ function dadosPainel(p) {
     if (se.soma) { const y = new Float64Array(len); se.escala = 0;
       for (const c of se.soma) { const f = fina(se.F, c, w0, w1); let e = 0; for (let k = 0; k < len; k++) { y[k] += f[k]; if (f[k] === f[k]) e = Math.max(e, Math.abs(f[k])); } se.escala += e; }
       return divide(se, y); }
+    if (se.pot) { const fv = fina(se.F, se.pot[0], w0, w1), fi = fina(se.F, se.pot[1], w0, w1), y = new Float64Array(len);
+      for (let k = 0; k < len; k++) y[k] = fv[k] * fi[k];
+      return y; }
     const f = fina(se.F, se.canal, w0, w1);
     if (!se.desloc && se.ganho === 1) return f;
     const y = new Float64Array(len); for (let k = 0; k < len; k++) y[k] = f[k] * se.ganho + se.desloc; return y;
@@ -374,6 +435,7 @@ function atualiza(p) {
   if (fy) p.u.setScale("y", fy);
   sincronizando = false;
   if (p.med && p.med.aberto && p.med.fourier) mede(p);   // o Fourier desligado não calcula (ao vivo, seria a cada quadro)
+  if (p.med && p.med.aberto && p.med.pot.on) medePot(p);
 }
 let quadroPendente = false;
 const pendentes = new Set();
@@ -398,11 +460,15 @@ function reseta(p) { p.yZoom = null; mudaX(p, null); }      // o enquadrar: vert
 // empilhamento da tela); canais "passo fino" no passo fino (1 µs), os outros a cada janela de controle.
 // comb: o que a medição mostra dos sinais juntos — "soma" (Σ), "media" (x̄ = Σ/n, a média instantânea dos n sinais; Marcelo,
 // 20/10: "a média da soma no instante, 10 sinais: soma os 10 e divide por 10"), "ambos" ou "nenhum" (o padrão, 23/10); oculta: as
-// curvas escondidas na legenda ({soma, media}), guardadas no layout
+// curvas escondidas na legenda ({soma, media, "pot:p_a"…}), guardadas no layout. pot: a Potência (on) e os pares v/i escolhidos
+// à mão ([{v, i}]; null = os automáticos, pelos nomes)
 const MED_PADRAO = { aberto: false, t0: 0, n: 1, f0: 50, hs: "1, 2, 3", comb: "nenhum", oculta: {}, imp: { on: false, ate: 15 }, par: { on: false, ate: 10 },
-                     esp: { aberto: false, hmax: 50, log: true, dec: 4 }, cur: { on: false, a: null, b: null, yon: false, ya: null, yb: null }, fourier: true };
+                     esp: { aberto: false, hmax: 50, log: true, dec: 4 }, cur: { on: false, a: null, b: null, yon: false, ya: null, yb: null }, fourier: true,
+                     pot: { on: false, pares: null } };
 const novaMed = (cfg) => { const c = cfg || {}, m = Object.assign({}, MED_PADRAO, c); m.oculta = Object.assign({}, c.oculta || {});
-  for (const k of ["imp", "par", "esp", "cur"]) m[k] = Object.assign({}, MED_PADRAO[k], c[k] || {});
+  for (const k of ["imp", "par", "esp", "cur", "pot"]) m[k] = Object.assign({}, MED_PADRAO[k], c[k] || {});
+  m.pot.on = !!m.pot.on;
+  m.pot.pares = Array.isArray(m.pot.pares) ? m.pot.pares.filter((x) => x && x.v && x.i).map((x) => ({ v: String(x.v), i: String(x.i) })) : null;
   return m; };
 // harmônicos da tabela: a lista por vírgulas, mais os ímpares e/ou os pares até o valor marcado (em ordem, sem repetir)
 function hsDe(M) {
@@ -464,7 +530,8 @@ function leHs(txt) {                                 // "1, 2, 3" ou "1-7" ou "1
   }
   return hs.length && hs.length <= 60 ? hs : null;
 }
-function mede1(F, canal, M, hs) {
+// as amostras de um canal na janela de medição (t₀, n períodos de f₀), ou o erro (sem dados, janela incompleta, faltam amostras)
+function janelaMed(F, canal, M) {
   const T = M.n / M.f0, t0 = M.t0 / 1e3;
   const am = amostras(F, canal, t0, t0 + T);
   if (!am) return { erro: tr("scope.med.e_sem_dados") };
@@ -474,8 +541,9 @@ function mede1(F, canal, M, hs) {
   // diferença é a janela inteira (antes: "janela incompleta: 685 de 684 amostras" e nada medido)
   if (N !== Nesp && Math.abs(N - Nexato) >= 1) return { erro: tr("scope.med.e_incompleta", { N, Nesp }), N, dt: am.dt };
   if (am.faltam) return { erro: tr("scope.med.e_faltam", { k: am.faltam }), N, dt: am.dt };
-  return analisa(am.x, am.dt, M, hs);
+  return { x: am.x, dt: am.dt, N, aprox: Math.abs(N * am.dt * M.f0 - M.n) >= 1e-6 * M.n };
 }
+function mede1(F, canal, M, hs) { const j = janelaMed(F, canal, M); return j.erro ? j : analisa(j.x, j.dt, M, hs); }
 // mínimos quadrados de x[m] ≈ a₀ + Σ a_h cos(h ω m dt) + b_h sin(h ω m dt): [a₀, a_h1, b_h1, a_h2, …] (equações normais,
 // eliminação de Gauss com pivô parcial; K ≤ 2·|hh| + 1)
 function ajusteLS(x, dt, f0, hh) {
@@ -569,8 +637,7 @@ function mede(p) {
   const tab = box.querySelector(".med-tab");
   if (tab.dataset.chave === chave) return;
   tab.dataset.chave = chave;
-  const fim = M.t0 + M.n * 1e3 / M.f0;
-  box.querySelector(".med-jan").textContent = `= ${+M.t0.toFixed(3)} … ${+fim.toFixed(3)} ms`;
+  poeJanela(p);
   p.medRes = [];
   if (!seriesMed(p).length) { tab.innerHTML = `<i>${escH(tr("scope.med.sem_sinais"))}</i>`; desenhaEspectro(p); return; }
   let html = `<table><thead><tr><th>${escH(tr("scope.med.sinal"))}</th><th>${escH(tr("scope.med.media"))}</th>${hs.map((h) => `<th>h${h} · ${+(h * M.f0).toPrecision(5)} Hz<br><span>${escH(tr("scope.med.pico_fase"))}</span></th>`).join("")}<th>THD<br><span>h 2–50</span></th><th>N<br><span>${escH(tr("scope.med.passo"))}</span></th></tr></thead><tbody>`;
@@ -602,6 +669,95 @@ function mede(p) {
     if (p.u) criaGrafico(p); else mede(p);              // a curva dele some/volta e o Σ(t) muda junto (criaGrafico → atualiza → mede)
   });
   desenhaEspectro(p);
+}
+
+function poeJanela(p) {                               // o "= t₀ … t₁ ms" ao lado de t₀, n e f₀
+  const M = p.med, fim = M.t0 + M.n * 1e3 / M.f0;
+  p.el.querySelector(".medicao .med-jan").textContent = `= ${+M.t0.toFixed(3)} … ${+fim.toFixed(3)} ms`;
+}
+
+// ---- potência de cada par v/i na janela da medição (a mesma do Fourier: t₀, n períodos de f₀), com os valores reais:
+// P = média de p = v·i; V_rms, I_rms; S = V_rms·I_rms; λ = P/S; na fundamental (os fasores de pico do Fourier, φ₁ = ∠V₁ − ∠I₁):
+// P₁ = (V₁·I₁/2)·cos φ₁, Q₁ = (V₁·I₁/2)·sin φ₁ (positiva com a corrente atrasada). Em CC, P = média de v·i e P₁ = Q₁ = 0
+function medePot1(F, par, M) {
+  const jv = janelaMed(F, par.v, M); if (jv.erro) return jv;
+  const ji = janelaMed(F, par.i, M); if (ji.erro) return ji;
+  if (jv.N !== ji.N || Math.abs(jv.dt - ji.dt) > 1e-12 * jv.dt)
+    return { erro: tr("scope.med.e_pot_passos", { dtv: fmtDt(jv.dt), dti: fmtDt(ji.dt) }), N: jv.N, dt: jv.dt };
+  const v = jv.x, i = ji.x, N = jv.N;
+  let sp = 0, sv = 0, si = 0;
+  for (let m = 0; m < N; m++) { sp += v[m] * i[m]; sv += v[m] * v[m]; si += i[m] * i[m]; }
+  const Vr = Math.sqrt(sv / N), Ir = Math.sqrt(si / N), S = Vr * Ir, M1 = Object.assign({}, M, { esp: { aberto: false } });
+  const zero = (x) => (Math.abs(x) <= 1e-9 * S ? 0 : x);   // o resíduo numérico (ex.: v e i em quadratura) vira 0
+  const P = zero(sp / N), hv = analisa(v, jv.dt, M1, [1]).harm[0], hi = analisa(i, ji.dt, M1, [1]).harm[0];
+  let P1 = NaN, Q1 = NaN, fi = NaN;
+  if (hv && hi) {
+    if (hv[0] > 0 && hi[0] > 0 && isFinite(hv[1]) && isFinite(hi[1])) {
+      fi = hv[1] - hi[1]; fi -= 360 * Math.round(fi / 360);
+      const a = hv[0] * hi[0] / 2, r = fi * Math.PI / 180;
+      P1 = zero(a * Math.cos(r)); Q1 = zero(a * Math.sin(r));
+    } else { P1 = 0; Q1 = 0; }                           // sem fundamental (CC): nada na fundamental
+  }
+  return { P, Vr, Ir, S, fp: S > 0 ? P / S : NaN, P1, Q1, fi, N, dt: jv.dt, aprox: jv.aprox };
+}
+// com os prefixos do SI: 433.0 W, 1.250 kVA, 12.00 mA (4 algarismos)
+function fmtSI(v, un) {
+  if (v == null || !isFinite(v)) return "–";
+  if (v === 0) return `0 ${un}`;
+  const PRE = [[1e9, "G"], [1e6, "M"], [1e3, "k"], [1, ""], [1e-3, "m"], [1e-6, "µ"], [1e-9, "n"]], a = Math.abs(v);
+  const [f, s] = PRE.find(([f]) => a >= f * 0.99995) || PRE[PRE.length - 1];
+  return `${(v / f).toPrecision(4)} ${s}${un}`;
+}
+function medePot(p) {
+  const M = p.med, box = p.el.querySelector(".medicao"), el = box && box.querySelector(".med-pot");
+  if (!el || !M.aberto || !M.pot.on) return;
+  const pares = paresDe(p), nomes = nomesPot(pares), ss = sinaisPot(p), manual = Array.isArray(M.pot.pares);
+  const chave = JSON.stringify([M.t0, M.n, M.f0, pares, manual, ss, A && A.dados.t ? A.dados.t.length : 0, B && B.dados.t ? B.dados.t.length : 0,
+                                A && A.meta.rotulo, B && B.meta.rotulo, A && A.ger, temaAtual()]);
+  if (el.dataset.chave === chave) return;
+  el.dataset.chave = chave;
+  poeJanela(p);
+  // os pares: as duas listas (v e i) de cada um, tirar, mais um e voltar aos automáticos
+  const opcoes = (atual) => ss.map((c) => `<option value="${escH(c)}"${c === atual ? " selected" : ""}>${escH(rotulo(c))}</option>`).join("");
+  let html = `<div class="pot-pares"><b>${escH(tr("scope.med.pot_pares"))}</b>` + pares.map((par, k) =>
+    `<span class="pot-par" data-k="${k}"><i style="background:${corPot(k)}"></i>${htmlMat(nomes[k])}: <i>v</i> <select class="pot-v" title="${escH(tr("scope.med.t_pot_v"))}">${opcoes(par.v)}</select>` +
+    ` <i>i</i> <select class="pot-i" title="${escH(tr("scope.med.t_pot_i"))}">${opcoes(par.i)}</select><button class="pot-rem" title="${escH(tr("scope.med.t_pot_rem"))}">✕</button></span>`).join("") +
+    (ss.length ? `<button class="pot-add" title="${escH(tr("scope.med.t_pot_add"))}">${escH(tr("scope.med.pot_add"))}</button>` : "") +
+    (manual ? `<button class="pot-auto" title="${escH(tr("scope.med.t_pot_auto"))}">${escH(tr("scope.med.pot_auto"))}</button>` : "") + "</div>";
+  if (!ss.length) html += `<i>${escH(tr("scope.med.sem_sinais"))}</i>`;
+  else if (!pares.length) html += `<i>${escH(tr("scope.med.pot_nenhum"))}</i>`;
+  else {
+    const th = (txt, sub, dica) => `<th title="${escH(tr(dica))}">${txt}${sub ? `<br><span>${sub}</span>` : ""}</th>`;
+    html += `<div class="pot-tab"><table><thead><tr><th>${escH(tr("scope.med.pot_par"))}</th>` +
+      th("<i>P</i>", escH(tr("scope.med.pot_media_p")), "scope.med.t_pot_P") + th(htmlMat("V_rms"), "", "scope.med.t_pot_rms") + th(htmlMat("I_rms"), "", "scope.med.t_pot_rms") +
+      th("<i>S</i>", htmlMat("V_rms") + "·" + htmlMat("I_rms"), "scope.med.t_pot_S") + th("<i>λ</i>", "<i>P</i>/<i>S</i>", "scope.med.t_pot_fp") +
+      th(htmlMat("P_1"), escH(tr("scope.med.pot_h1")), "scope.med.t_pot_P1") + th(htmlMat("Q_1"), escH(tr("scope.med.pot_h1")), "scope.med.t_pot_Q1") +
+      th("<i>φ</i><sub>1</sub>", "∠V₁ − ∠I₁", "scope.med.t_pot_fi") + `<th>N<br><span>${escH(tr("scope.med.passo"))}</span></th></tr></thead><tbody>`;
+    p.potRes = [];
+    pares.forEach((par, k) => { for (const F of B ? [A, B] : [A]) {
+      if (!grossa(F, par.v) || !grossa(F, par.i)) continue;
+      const r = medePot1(F, par, M), suf = B ? (F === A ? " · A" : " · B") : "";
+      p.potRes.push({ nome: nomes[k] + suf, par, F, r });
+      const n = `<td${r.aprox ? ` title="${escH(tr("scope.med.t_aprox"))}"` : ""}>${r.aprox ? "≈ " : ""}${r.N || "–"}${r.dt ? ` <span>· ${fmtDt(r.dt)}</span>` : ""}</td>`;
+      html += `<tr data-par="${k}" data-f="${F === A ? "A" : "B"}"><td class="nome-pot" title="${escH(`${rotulo(par.v)} · ${rotulo(par.i)}`)}"><i style="background:${corPot(k)}"></i>${htmlMat(nomes[k] + suf)}</td>`;
+      html += r.erro ? `<td colspan="8" class="erro">${escH(r.erro)}</td>${n}</tr>`
+        : `<td>${fmtSI(r.P, "W")}</td><td>${fmtSI(r.Vr, "V")}</td><td>${fmtSI(r.Ir, "A")}</td><td>${fmtSI(r.S, "VA")}</td><td>${isFinite(r.fp) ? r.fp.toPrecision(4) : "–"}</td>` +
+          `<td>${fmtSI(r.P1, "W")}</td><td>${fmtSI(r.Q1, "VAr")}</td><td>${isFinite(r.fi) ? r.fi.toFixed(1) + "°" : "–"}</td>${n}</tr>`;
+    } });
+    html += "</tbody></table></div>";
+  }
+  el.innerHTML = html;
+  const muda = (f) => { const lst = paresDe(p).map((x) => ({ v: x.v, i: x.i })); f(lst); M.pot.pares = lst; mudaMed(p); };
+  el.querySelectorAll(".pot-par").forEach((sp) => { const k = +sp.dataset.k;
+    sp.querySelector(".pot-v").onchange = (e) => muda((l) => { l[k].v = e.target.value; });
+    sp.querySelector(".pot-i").onchange = (e) => muda((l) => { l[k].i = e.target.value; });
+    sp.querySelector(".pot-rem").onclick = () => muda((l) => { l.splice(k, 1); }); });
+  const add = el.querySelector(".pot-add");
+  if (add) add.onclick = () => muda((l) => {               // a tensão e a corrente que ainda não estão num par (senão, as primeiras)
+    const livre = (re) => ss.find((c) => re.test(c) && !l.some((x) => x.v === c || x.i === c)) || ss.find((c) => re.test(c));
+    l.push({ v: livre(RE_V) || ss[0], i: livre(RE_I) || ss[Math.min(1, ss.length - 1)] }); });
+  const auto = el.querySelector(".pot-auto");
+  if (auto) auto.onclick = () => { M.pot.pares = null; mudaMed(p); };
 }
 
 // ---- espectro: barras dos harmônicos (CC, h = 1 … h máx) de cada sinal da tabela, pico; passar o mouse mostra os valores
@@ -681,21 +837,23 @@ function mudaMed(p, guarda = true) {                   // depois de mudar t₀, 
   box.style.display = M.aberto ? "" : "none";
   p.el.querySelector(".b-med").classList.toggle("ativo", M.aberto);
   box.classList.toggle("sem-fourier", !M.fourier);
-  box.querySelectorAll(".m-modo").forEach((bt) => bt.classList.toggle("ativo", { fourier: M.fourier, ct: M.cur.on, cy: M.cur.yon }[bt.dataset.k]));
+  box.classList.toggle("com-pot", M.pot.on);            // a Potência usa a janela do Fourier (t₀, n, f₀), mesmo com ele desligado
+  box.querySelectorAll(".m-modo").forEach((bt) => bt.classList.toggle("ativo", { fourier: M.fourier, ct: M.cur.on, cy: M.cur.yon, pot: M.pot.on }[bt.dataset.k]));
   if (M.aberto) { leituraCur(p); box.querySelector(".m-comb").value = M.comb || "nenhum"; marcaComb(p); }
-  if (M.aberto && M.fourier) {
+  if (M.aberto && (M.fourier || M.pot.on)) {
     box.querySelector(".m-t0").value = +M.t0.toFixed(3); box.querySelector(".m-n").value = M.n;
     box.querySelector(".m-f0").value = M.f0; box.querySelector(".m-hs").value = M.hs;
     for (const k of ["imp", "par"]) { box.querySelector(`.m-${k}`).checked = M[k].on; box.querySelector(`.m-${k}-n`).value = M[k].ate; }
-    box.querySelector(".med-tab").dataset.chave = "";
-    mede(p);
   }
+  if (M.aberto && M.fourier) { box.querySelector(".med-tab").dataset.chave = ""; mede(p); }
+  if (M.aberto && M.pot.on) { box.querySelector(".med-pot").dataset.chave = ""; medePot(p); }
   if (p.u && assinaturaComb(seriesDe(p)) !== assinaturaComb(p.series)) criaGrafico(p);   // as curvas Σ(t)/x̄(t) entram ou saem
   else if (p.u) p.u.redraw(false, false);
   if (guarda) guardaLayout();                          // não durante a montagem: gravaria o layout pela metade
 }
 function intervaloMed(p, a, b) {                       // a, b em ms: começa em a, períodos inteiros de f₀ (pelo menos 1)
-  const M = p.med; M.aberto = true; M.fourier = true;   // escolher o intervalo é do Fourier: liga se estava desligado
+  const M = p.med; M.aberto = true;
+  if (!M.pot.on) M.fourier = true;                       // escolher o intervalo é do Fourier (ou da Potência): liga se estava desligado
   M.t0 = Math.round(Math.min(a, b) * 1e3) / 1e3;
   M.n = Math.max(1, Math.floor(Math.abs(b - a) * M.f0 / 1e3 + 1e-9));
   mudaMed(p);
@@ -711,20 +869,21 @@ function caixaMed(p) {
     <span class="med-modos" title="${escH(tr("scope.med.t_modos"))}" data-tr-title="scope.med.t_modos">
       <button class="m-modo" data-k="fourier" title="${escH(tr("scope.med.t_fourier"))}" data-tr-title="scope.med.t_fourier">Fourier</button><button
         class="m-modo" data-k="ct" title="${escH(tr("scope.med.t_ct"))}" data-tr-title="scope.med.t_ct" data-tr="scope.med.cursores">${escH(tr("scope.med.cursores"))} <i>t</i></button><button
-        class="m-modo" data-k="cy" title="${escH(tr("scope.med.t_cy"))}" data-tr-title="scope.med.t_cy" data-tr="scope.med.cursores">${escH(tr("scope.med.cursores"))} <i>y</i></button></span>
+        class="m-modo" data-k="cy" title="${escH(tr("scope.med.t_cy"))}" data-tr-title="scope.med.t_cy" data-tr="scope.med.cursores">${escH(tr("scope.med.cursores"))} <i>y</i></button><button
+        class="m-modo" data-k="pot" title="${escH(tr("scope.med.t_potencia"))}" data-tr-title="scope.med.t_potencia" data-tr="scope.med.potencia">${escH(tr("scope.med.potencia"))}</button></span>
     <label class="m-comb-l" title="${escH(tr("scope.med.t_combinar"))}" data-tr-title="scope.med.t_combinar" data-tr="scope.med.combinar">${escH(tr("scope.med.combinar"))} <select class="m-comb"><option value="nenhum" data-tr="scope.med.c_nenhum">${escH(tr("scope.med.c_nenhum"))}</option><option value="ambos" data-tr="scope.med.c_ambos">${escH(tr("scope.med.c_ambos"))}</option><option value="soma" data-tr="scope.med.c_soma">${escH(tr("scope.med.c_soma"))}</option><option value="media" data-tr="scope.med.c_media">${escH(tr("scope.med.c_media"))}</option></select></label>
     <span class="med-dica" data-tr="scope.med.dica">${escH(tr("scope.med.dica"))}</span><button class="m-fecha" title="${escH(tr("scope.med.t_fecha"))}" data-tr-title="scope.med.t_fecha">✕</button></div>
     <div class="med-cab">
     <label>t₀ <input type="number" step="any" class="m-t0"> ms</label>
     <label data-tr="scope.med.periodos"><input type="number" step="1" min="1" class="m-n"> ${escH(tr("scope.med.periodos"))}</label>
     <label>f₀ <input type="number" step="any" min="0" class="m-f0"> Hz</label> <span class="med-jan"></span>
-    <label data-tr="scope.med.harmonicos">${escH(tr("scope.med.harmonicos"))} <input type="text" class="m-hs" title="${escH(tr("scope.med.t_hs"))}" data-tr-title="scope.med.t_hs"></label>
-    <label title="${escH(tr("scope.med.t_imp"))}" data-tr-title="scope.med.t_imp" data-tr="scope.med.imp"><input type="checkbox" class="m-imp"> ${escH(tr("scope.med.imp"))} <input type="number" min="1" max="199" step="1" class="m-imp-n"></label>
-    <label title="${escH(tr("scope.med.t_par"))}" data-tr-title="scope.med.t_par" data-tr="scope.med.par"><input type="checkbox" class="m-par"> ${escH(tr("scope.med.par"))} <input type="number" min="2" max="200" step="1" class="m-par-n"></label>
+    <label class="so-fourier" data-tr="scope.med.harmonicos">${escH(tr("scope.med.harmonicos"))} <input type="text" class="m-hs" title="${escH(tr("scope.med.t_hs"))}" data-tr-title="scope.med.t_hs"></label>
+    <label class="so-fourier" title="${escH(tr("scope.med.t_imp"))}" data-tr-title="scope.med.t_imp" data-tr="scope.med.imp"><input type="checkbox" class="m-imp"> ${escH(tr("scope.med.imp"))} <input type="number" min="1" max="199" step="1" class="m-imp-n"></label>
+    <label class="so-fourier" title="${escH(tr("scope.med.t_par"))}" data-tr-title="scope.med.t_par" data-tr="scope.med.par"><input type="checkbox" class="m-par"> ${escH(tr("scope.med.par"))} <input type="number" min="2" max="200" step="1" class="m-par-n"></label>
     <button class="m-vis" title="${escH(tr("scope.med.t_vis"))}" data-tr-title="scope.med.t_vis" data-tr="scope.med.vis">${escH(tr("scope.med.vis"))}</button>
-    <button class="m-esp" title="${escH(tr("scope.med.t_esp"))}" data-tr-title="scope.med.t_esp" data-tr="scope.med.esp">${escH(tr("scope.med.esp"))}</button>
+    <button class="m-esp so-fourier" title="${escH(tr("scope.med.t_esp"))}" data-tr-title="scope.med.t_esp" data-tr="scope.med.esp">${escH(tr("scope.med.esp"))}</button>
     </div>
-    <div class="med-tab"></div><div class="med-cur"></div>
+    <div class="med-tab"></div><div class="med-pot"></div><div class="med-cur"></div>
     <div class="esp" style="display:none"><div class="esp-cab"><label data-tr="scope.med.ate_h">${escH(tr("scope.med.ate_h"))} <input type="number" min="1" max="1000" step="1" class="m-hmax"></label>
       <label title="${escH(tr("scope.med.t_log"))}" data-tr-title="scope.med.t_log"><input type="checkbox" class="m-log"> log</label>
       <label title="${escH(tr("scope.med.t_decadas"))}" data-tr-title="scope.med.t_decadas" data-tr="scope.med.decadas">${escH(tr("scope.med.decadas"))} <input type="number" min="1" max="8" step="1" class="m-dec"></label></div>
@@ -752,6 +911,7 @@ function caixaMed(p) {
   box.querySelectorAll(".m-modo").forEach((bt) => bt.onclick = () => {
     const k = bt.dataset.k, C = M.cur;
     if (k === "fourier") M.fourier = !M.fourier;
+    if (k === "pot") M.pot.on = !M.pot.on;
     // ao ligar: se a posição guardada está vazia ou fora do que está à vista (outra rodada, outro zoom), volta ao terço e aos dois terços
     const fora = (v, a, b) => v == null || !isFinite(v) || v < Math.min(a, b) || v > Math.max(a, b);
     if (k === "ct") { C.on = !C.on; const [a, b] = visivel(p); if (C.on && (fora(C.a, a, b) || fora(C.b, a, b))) { C.a = a + (b - a) / 3; C.b = a + 2 * (b - a) / 3; } }
@@ -761,7 +921,7 @@ function caixaMed(p) {
   return box;
 }
 function faixaMed(u, p) {                              // gancho draw: faixa sombreada da janela de medição
-  const M = p.med; if (!M || !M.aberto || !M.fourier) return;
+  const M = p.med; if (!M || !M.aberto || !(M.fourier || M.pot.on)) return;
   const a = u.valToPos(M.t0, "x", true), b = u.valToPos(M.t0 + M.n * 1e3 / M.f0, "x", true);
   const { left, top, width, height } = u.bbox, x0 = Math.max(left, a), x1 = Math.min(left + width, b);
   if (!(x1 > x0)) return;
@@ -897,7 +1057,7 @@ function criaGrafico(p, manter) {
       label: se.rot, stroke: se.cor, width: se.largura || 1.3, dash: se.dash, points: { show: false }, spanGaps: !!uniao,
       // um sinal escondido (na legenda ou com um clique no nome na tabela) fica fora do Σ, da x̄, do espectro e da escala:
       // a soma é a do que está à vista (Marcelo, 20/10: escondidos na legenda, o Σ somava os 20 sinais, os 600 V do V_dc junto)
-      show: se.soma ? !(p.med.oculta && p.med.oculta[se.comb]) : !p.espFora.has(chaveSe(se)),
+      show: se.soma || se.pot ? !(p.med.oculta && p.med.oculta[ocultaDe(se)]) : !p.espFora.has(chaveSe(se)),
       paths: se.degrau ? uPlot.paths.stepped({ align: 1 }) : undefined,
       // Σ: o resíduo numérico (va + vb + vc ~ 1e-13) é 0, pela escala das parcelas, como na tabela
       value: (u, v) => fmt(v == null || isNaN(v) ? v : se.soma && Math.abs(v) <= 1e-9 * (se.escala || 0) ? 0 : (v - se.desloc) / se.ganho) }))),     // valor real (sem ×k nem empilhamento)
@@ -928,7 +1088,7 @@ function criaGrafico(p, manter) {
       draw: [(u) => faixaMed(u, p), (u) => cursoresMed(u, p), marcaAcionamentos],
       setSeries: [(u, i) => {                // clique na legenda: a escala vertical refaz sem a escondida
         const se = i != null && p.series[i - 1];
-        if (se && se.soma) { (p.med.oculta = p.med.oculta || {})[se.comb] = !u.series[i].show; guardaLayout(); }
+        if (se && (se.soma || se.pot)) { (p.med.oculta = p.med.oculta || {})[ocultaDe(se)] = !u.series[i].show; guardaLayout(); }
         else if (se) {                       // um sinal: entra ou sai do Σ, da x̄, da tabela e do espectro
           const ch = chaveSe(se), fora = !u.series[i].show;
           if (fora !== p.espFora.has(ch)) {
@@ -981,6 +1141,7 @@ function criaGrafico(p, manter) {
   if (!manter) { atualiza(p); return; }
   sincronizando = true; p.u.setScale("x", manter.x); if (manter.y) p.u.setScale("y", manter.y); sincronizando = false;
   if (p.med && p.med.aberto && p.med.fourier) mede(p);
+  if (p.med && p.med.aberto && p.med.pot.on) medePot(p);
 }
 
 function montaMenu(p) {
@@ -1864,7 +2025,7 @@ maisimI18n.aoMudar(() => {
   for (const x of itens) if (x.tipo === "secao") marcaRecolhida(x);
   for (const p of paineis()) {
     marcaY(p); marcaZoom(p); marcaRecolhido(p); marcaExpande(p);
-    const tab = p.el.querySelector(".med-tab"); if (tab) tab.dataset.chave = "";     // a tabela da medição é refeita (mede)
+    p.el.querySelectorAll(".med-tab, .med-pot").forEach((tab) => { tab.dataset.chave = ""; });   // as tabelas da medição são refeitas (mede, medePot)
     refazGrafico(p);                                   // com Fixar eixos / Pausar, o que está na tela fica
   }
   // os títulos do automático (só esses; os guardados ficam como estão): no idioma novo, sem gravar o layout

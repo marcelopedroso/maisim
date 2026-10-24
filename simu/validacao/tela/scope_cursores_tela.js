@@ -31,7 +31,7 @@ const URL = "http://localhost:7200/maisim/scope/?a=" + encodeURIComponent(path.r
     const modos0 = await pg.$$eval(".medicao .m-modo", (bs) => bs.map((b) => b.dataset.k + (b.classList.contains("ativo") ? "+" : "")).join(" "));
     await pg.click('.medicao .m-modo[data-k="ct"]'); await pg.waitForTimeout(200);
     const lig = await pg.evaluate(() => { const c = paineis()[0].med.cur; return { on: c.on, a: c.a, b: c.b, vis: !!document.querySelector(".med-cur .cur-dt") }; });
-    ok(modos0 === "fourier+ ct cy" && lig.on && lig.vis && lig.a > 0 && lig.b > lig.a,
+    ok(modos0 === "fourier+ ct cy pot" && lig.on && lig.vis && lig.a > 0 && lig.b > lig.a,
       `o Medir abre só com o Fourier (${modos0}); "Cursores t" liga A e B no terço e nos dois terços do visível (${lig.a.toFixed(2)} e ${lig.b.toFixed(2)} ms) e a leitura embaixo`);
     // um período (do pico ao pico seguinte): Δt = 1 ms, 1/Δt = 1 kHz, Δy ≈ 0; o nome em notação
     await poe(2.25, 3.25); await pg.waitForTimeout(150);

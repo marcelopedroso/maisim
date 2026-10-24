@@ -14,7 +14,7 @@ L="$MAISIM_DADOS/bateria"; mkdir -p "$L"; : > "$L/resumo.txt"
 export NODE_PATH=${NODE_PATH:-$HOME/ns-test/node_modules}
 
 OFFLINE="validador_offline casos_tracado claude_offline lingua_offline"
-TELA="largura_tela scope_menu_tela agy_tela gemini_tela contextos_tela erro_copia_tela claude_tex_tela scope_soma_tela scope_tema_tela scope_visoes_tela
+TELA="largura_tela scope_menu_tela agy_tela gemini_tela contextos_tela erro_copia_tela claude_tex_tela scope_soma_tela scope_potencia_tela scope_tema_tela scope_visoes_tela
   diagrama_zoom_tela envia_for_tela sem_esquema_tela renomear_tela sub_iguais_tela desativar_tela diagrama_tela escolha_tela mensagens_tela
   claude_controladores_tela arvore_tela tabelas_tela saida_tela giro_tela claude_modulos_tela modulos_tela divisor_tela beira_tela
   scope_cursores_tela variaveis_tela selecao_tela fechar_tela trilho_ia_tela scope_fora_tela scope_no_painel_tela scope_padrao_tela copia_tela tag_tela rede_tela app_tela inicio_tela codigo_tela controladores_tela dica_tela sub_terminais_tela
