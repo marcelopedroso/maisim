@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # npm run maisim — o MaiSim inteiro numa tacada: o scope, o simulador, o Gecko (tela virtual, Gecko, motor do editor) e a
-# página (Vite). As portas e as pastas vêm de config/ (padrao.env; o .env da raiz muda o que for seu). O que já estiver no
+# página (app/pagina.py; o Vite com MAISIM_PAGINA=vite). As portas e as pastas vêm de config/ (padrao.env; o .env da raiz muda o que for seu). O que já estiver no
 # ar é reaproveitado e continua no ar. Ctrl+C derruba o que ESTE comando subiu. O Gecko só cai se não houver circuito sem
 # salvar (o simulador compara o que está no Gecko com o arquivo aberto); se houver, ele fica no ar e o comando diz como derrubar.
 # Variável: MAISIM_SEM_GECKO=1 (não sobe o Gecko).
@@ -108,10 +108,13 @@ if no_ar "$PORTA"; then
             "maisim: everything is running at http://localhost:$PORTA — Ctrl+C stops what this command started"
   sleep infinity & VITE=$!; wait "$VITE"
 else
-  linha "$PAG" "http://localhost:$PORTA" "$(fala "subindo (Vite)" "starting (Vite)")"
+  # a página: o Python (app/pagina.py, sem Node; a dos pacotes também) ou, com MAISIM_PAGINA=vite, o Vite de antes
+  if [ "${MAISIM_PAGINA:-}" = vite ]; then QUEM=Vite; else QUEM=Python; fi
+  linha "$PAG" "http://localhost:$PORTA" "$(fala "subindo ($QUEM)" "starting ($QUEM)")"
   echo; fala "maisim: abra http://localhost:$PORTA — Ctrl+C derruba o que este comando subiu" \
             "maisim: open http://localhost:$PORTA — Ctrl+C stops what this command started"; echo
-  (cd "$APP" && exec ./node_modules/.bin/vite --port "$PORTA" --strictPort) &
+  if [ "$QUEM" = Vite ]; then (cd "$APP" && exec ./node_modules/.bin/vite --port "$PORTA" --strictPort) &
+  else (exec python3 "$APP/pagina.py" --porta "$PORTA") & fi
   VITE=$!; SUBI[pagina]=$VITE
   wait "$VITE"
 fi
