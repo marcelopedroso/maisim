@@ -778,7 +778,10 @@ function valorEm(p, k, t) {                             // a série k do painel 
   while (lo > 0 && !ok(lo)) lo--;
   while (hi < x.length - 1 && !ok(hi)) hi++;
   const y0 = ok(lo) ? y[lo] : null, y1 = ok(hi) ? y[hi] : null;
-  let v = y0 == null ? y1 : y1 == null || x[hi] === x[lo] ? y0 : se.degrau ? (t >= x[hi] ? y1 : y0)   // degrau: o valor mantido, como no desenho
+  // só um lado com amostra (fora do trecho desta gravação no Comparar): nada, a não ser em cima da própria amostra
+  const em = (i) => Math.abs(x[i] - t) <= 1e-9 * Math.max(1, Math.abs(t));
+  let v = y0 == null ? (y1 != null && em(hi) ? y1 : null) : y1 == null ? (em(lo) ? y0 : null) : x[hi] === x[lo] ? y0
+    : se.degrau ? (t >= x[hi] ? y1 : y0)                 // degrau: o valor mantido, como no desenho
     : y0 + (y1 - y0) * (t - x[lo]) / (x[hi] - x[lo]);
   if (v == null) return null;
   v = (v - (se.desloc || 0)) / (se.ganho || 1);
