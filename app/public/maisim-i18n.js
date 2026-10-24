@@ -19,8 +19,8 @@
   const antes = (reserva && reserva.dicionario && reserva.dicionario()) || {};
   const LINGUAS = ["pt", "en"];
   const LOCAL = { pt: "pt-BR", en: "en-US" };
-  // a 1ª vez pelo idioma do navegador: ligado só quando tudo estiver traduzido (o último PR); até lá, português
-  const DETECTA_NAVEGADOR = false;
+  // a 1ª vez (nada escolhido ainda): o idioma do navegador — português (pt-BR, pt-PT…) → pt, qualquer outro → en
+  const DETECTA_NAVEGADOR = true;
   const dic = Object.assign({}, antes);
   const ouvintes = (reserva && reserva.ouvintes && reserva.ouvintes().slice()) || [];
   const pseudo = /[?&]lingua=xx\b/.test(location.search);       // testes: todo texto traduzido aparece como ⟦…⟧

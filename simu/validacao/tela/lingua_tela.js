@@ -105,6 +105,16 @@ async function varre(pg) {
     const difs = cascaVolta.filter((x, i) => x !== cascaAntes[i]);
     ok(cascaAntes.length > 100 && cascaVolta.length === cascaAntes.length && !difs.length,
       `o simu de volta ao português: a casca igual (${cascaAntes.length} elementos${difs.length ? "; diferentes: " + difs.slice(0, 3).join(" ; ") : ""})`);
+    // a 1ª vez, sem nada escolhido: o idioma do navegador (perfis novos, fora do _lingua.js que fixa o português nos testes)
+    for (const [locale, espera] of [["en-US", "+ New circuit"], ["pt-PT", "+ Novo circuito"], ["pt-BR", "+ Novo circuito"]]) {
+      const dir = require("fs").mkdtempSync(require("path").join(require("os").tmpdir(), "maisim-lingua-"));
+      const pc = await chromium.launchPersistentContext(dir, { locale });
+      try {
+        const pg = pc.pages()[0] || await pc.newPage(); await pg.goto(B + "/"); await pg.waitForSelector("#maisim-nav .lingua");
+        const r = await pg.evaluate(() => ({ h2: document.querySelector("#cartao-novo h2").textContent, l: maisimI18n.lingua(), ck: document.cookie.match(/maisim-lingua=\w+/)?.[0] }));
+        ok(r.h2 === espera && r.ck === `maisim-lingua=${r.l}`, `a 1ª vez com o navegador em ${locale}: "${r.h2}" (${r.l}, ${r.ck})`);
+      } finally { await pc.close(); require("fs").rmSync(dir, { recursive: true, force: true }); }
+    }
     ok(!erros.length, `sem erros de JS ${erros.join(" ; ")}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message.split("\n")[0]}`); }
   finally { if (b) await b.close(); }

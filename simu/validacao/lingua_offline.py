@@ -6,7 +6,8 @@
 2. o uso: todo tr("k") (JS e Python) e todo data-tr*="k" (HTML) existe num dicionário;
 3. a catraca do português solto: em cada arquivo, os textos com cara de português fora dos dicionários (literais do JS, do
    Python e do HTML) são contados; a contagem não pode subir (texto novo vai para o dicionário) e, quando cai, a base é
-   atualizada no mesmo PR (python3 lingua_offline.py --atualiza), para ela só descer. Exceção pontual: i18n-ok na linha;
+   atualizada no mesmo PR (python3 lingua_offline.py --atualiza), para ela só descer. Exceção pontual: i18n-ok na linha
+   (no HTML, data-tr-js: o elemento que o JS escreve pelo tr()). Desde o PR 14 a catraca é estrita: zero, em todo arquivo;
 4. os pares de arquivos traduzidos (o guia, as regras da IA, os modelos de código): mesmos títulos (com os números), o
    mesmo código, as mesmas tabelas (célula a célula) e os mesmos itens de lista (o par do guia tem de existir);
 5. as threads do servidor levam o idioma (lingua.thread): o threading.Thread solto também entra na catraca (exceção pontual:
@@ -248,6 +249,8 @@ def textos_html(src):
     corpo = "\n".join(l for l in corpo.split("\n") if "i18n-ok" not in l)
     for m in re.finditer(r"<([a-zA-Z][\w-]*)\b([^>]*)>([^<]*)", corpo):
         atrs, texto = m.group(2), m.group(3)
+        if "data-tr-js" in atrs:                            # o texto (e as dicas) deste elemento o JS escreve, pelo tr()
+            continue
         if texto.strip() and portugues(texto) and "data-tr=" not in atrs and "data-tr-html=" not in atrs:
             out.append(texto.strip())
         for a, chave in (("title", "data-tr-title"), ("placeholder", "data-tr-ph"), ("aria-label", "data-tr-aria")):
@@ -334,6 +337,9 @@ def main():
           + ". Ponha o texto no dicionário (tr(\"chave\")); exceção pontual: i18n-ok na linha"))
     ok(not caiu, "catraca: a base acompanha o que já foi traduzido" + ("" if not caiu else
        " — caiu (bom!): " + "; ".join(f"{k} {a} → {b}" for k, a, b in caiu[:8]) + ". Atualize: python3 lingua_offline.py --atualiza"))
+    soltos = sorted((k, v) for k, v in c.items() if v)
+    ok(not soltos, "catraca estrita: nenhum texto em português fora dos dicionários, em nenhum arquivo"
+       + ("" if not soltos else " — " + "; ".join(f"{k}: {v}" for k, v in soltos[:8]) + " (python3 lingua_offline.py --lista ARQ)"))
     confere_pares()
     confere_motores()
     return 1 if falhas else 0
