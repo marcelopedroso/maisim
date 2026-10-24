@@ -115,7 +115,12 @@ function desenhaJuncoes(g, f) {
 }
 // medidores: o nome com que o sinal vai para o /maisim/scope (o rótulo da saída, ou o nome do bloco, como em rodar() no servidor)
 // dentro de um subcircuito, o nome leva o SM na frente (SM_1_vCSm), como em rodar() no servidor
-const canalScope = (e, fid = folhaAtual) => { const c = (e.saidas[0] || e.nome).replace(/[^A-Za-z0-9_]/g, "_");
+// o nome que o servidor dá (dados.canais: com o desempate de dois rótulos que viram o mesmo nome, v-o e v+o → v_o e v_o_);
+// sem ele (um componente fora dos dois destinos), o nome montado aqui, como antes
+const canalScope = (e, fid = folhaAtual) => {
+  const el = fid === "0" ? e.nome : `${dados.folhas[fid].nome}#${e.nome}`;
+  if (dados && dados.canais && dados.canais[el]) return dados.canais[el];
+  const c = (e.saidas[0] || e.nome).replace(/[^A-Za-z0-9_]/g, "_");
   return fid === "0" ? c : `${prefixoSub(dados.folhas[fid].nome)}_${c}`; };
 const MEDIDOR = new Set(["VOLT", "AMP"]);
 // a seção e o painel do scope de um sinal (Marcelo, 23/10): o layout do scope é por circuito, guardado no navegador (o mesmo

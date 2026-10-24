@@ -344,6 +344,7 @@ def estado():
     ap = le_aparencia()                              # para onde vai o sinal de cada componente (identificadores):
     r["fora"] = ap["fora"]                           # fora do scope e do controle,
     r["fora_scope"], r["fora_controle"] = ap["fora_scope"], ap["fora_controle"]   # fora de um deles
+    r["canais"] = dict(sinais_da_rodada(r))          # {componente (ou SM#componente): canal}: o nome que a rodada usa (com o "_" de desempate)
     r["nos_medidos"] = nos_medidos(r)                # {folha: {rótulo: [{nome, x, y}]}}
     return r
 
