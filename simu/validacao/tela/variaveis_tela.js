@@ -35,11 +35,11 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     await pg.click("#bt-param"); await pg.waitForSelector(".modal .m-abas");
     let m = await pg.evaluate(() => ({ abas: [...document.querySelectorAll(".m-abas button")].map((x) => x.textContent), ativa: document.querySelector(".m-abas .ativo").textContent,
       dt: !!document.querySelector('.modal input[name="dt"]') && getComputedStyle(document.querySelector('.m-aba[data-aba="sim"]')).display !== "none" }));
-    ok(m.abas.join("|") === "simulação|variáveis globais ($)" && m.ativa === "simulação" && m.dt, `⚙: abas ${m.abas.join(" · ")}, abre em "${m.ativa}" (Δt à vista)`);
+    ok(m.abas.join("|") === "Simulação|Variáveis globais ($)" && m.ativa === "Simulação" && m.dt, `⚙: abas ${m.abas.join(" · ")}, abre em "${m.ativa}" (Δt à vista)`);
     await pg.click('.m-abas button[data-aba="vars"]'); await pg.waitForTimeout(200);
     const linha = () => pg.evaluate(() => { const i = document.querySelector('.gv input[data-g="$Vdc_t"]'); return i && { v: i.value, usos: i.parentElement.querySelector("small").textContent, ok: document.querySelector(".modal .m-ok").textContent }; });
     let l = await linha();
-    ok(l && l.usos === "2 usos" && l.ok === "fechar", `aba das variáveis: $Vdc_t = ${l && l.v}, ${l && l.usos} (o botão vira "${l && l.ok}")`);
+    ok(l && l.usos === "2 usos" && l.ok === "Fechar", `aba das variáveis: $Vdc_t = ${l && l.v}, ${l && l.usos} (o botão vira "${l && l.ok}")`);
     // mudar o valor (Enter não fecha a janela)
     await pg.fill('.gv input[data-g="$Vdc_t"]', "42"); await pg.press('.gv input[data-g="$Vdc_t"]', "Enter"); await pg.waitForTimeout(2500);
     ok(await pg.evaluate(() => dados.globais["$Vdc_t"] === 42 && !!document.querySelector(".modal")), "valor 42 + Enter: a variável muda e a janela continua aberta");

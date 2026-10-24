@@ -80,7 +80,7 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
       aviso: !document.querySelector(".cc-dif-parcial").hidden }));
     await pg.click(".m-aplicar"); await pg.waitForTimeout(2000);
     const parc = await pg.evaluate(async () => ({ arqs: arquivosDoEditor(), cod: codigoAtual(), aviso: $("cc-aviso").textContent, r: await api("editor/controle") }));
-    ok(jan.cabe && jan.rola && jan.bt === "aplicar" && esc.bt === "aplicar 2 de 3" && /leitura\.py/.test(esc.riscada) && esc.aviso
+    ok(jan.cabe && jan.rola && jan.bt === "Aplicar" && esc.bt === "Aplicar 2 de 3" && /leitura\.py/.test(esc.riscada) && esc.aviso
        && parc.arqs["pll.py"] && /import pll/.test(parc.cod) && parc.arqs["leitura.py"] === original.arqs["leitura.py"] && parc.r.controle.arquivos["leitura.py"] === original.arqs["leitura.py"]
        && /aplicada em parte: ficaram como estavam leitura\.py/.test(parc.aviso),
       `por arquivo: a janela cabe na tela, as abas rolam; recusado o leitura.py ("${esc.bt}", com o aviso): pll.py entrou, controle.py mudou, leitura.py ficou — "${parc.aviso}"`);
@@ -99,10 +99,10 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
     await pg.waitForFunction(() => cc.estado && cc.estado.andamento, null, { timeout: 15000 }); await pg.waitForTimeout(500);
     const bt = await pg.evaluate(() => ({ dis: $("cc-enviar").disabled, txt: $("cc-enviar").textContent, bg: getComputedStyle($("cc-enviar")).backgroundColor, ph: $("cc-texto").placeholder }));
     const cli2 = fs.readFileSync(path.join(CONF, "falso_chamadas.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)).filter((x) => x.args.includes("--allowedTools")).pop().args;
-    ok(bt.dis && bt.txt === "respondendo…" && bt.bg !== "rgb(124, 58, 237)" && /respondendo/.test(bt.ph), `respondendo: o enviar desligado ("${bt.txt}", fundo ${bt.bg}) e o aviso no campo`);
+    ok(bt.dis && bt.txt === "Respondendo…" && bt.bg !== "rgb(124, 58, 237)" && /respondendo/.test(bt.ph), `respondendo: o enviar desligado ("${bt.txt}", fundo ${bt.bg}) e o aviso no campo`);
     ok(cli2[cli2.indexOf("--model") + 1] === "haiku" && cli2[cli2.indexOf("--effort") + 1] === "low", "o modelo (haiku) e o esforço (baixo) escolhidos foram ao CLI");
     await pg.click("#cc-parar"); await pg.waitForFunction(() => cc.estado && !cc.estado.andamento, null, { timeout: 30000 });
-    ok(await pg.evaluate(() => !$("cc-enviar").disabled && $("cc-enviar").textContent === "enviar"), "parado: o enviar volta");
+    ok(await pg.evaluate(() => !$("cc-enviar").disabled && $("cc-enviar").textContent === "Enviar"), "parado: o enviar volta");
     await pg.reload(); await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
     ok(await pg.evaluate(() => $("cc-modelo").value === "haiku" && $("cc-esforco").value === "low"), "recarregado: o modelo e o esforço continuam escolhidos");
     ok(!erros.length, `sem erros de JS nem diálogos ${erros.join(" ; ")}`);

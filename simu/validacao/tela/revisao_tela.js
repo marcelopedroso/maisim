@@ -29,6 +29,7 @@ const rodadas = () => fs.readdirSync(os.homedir() + "/.cache/maisim_teste/rodada
   ok(!(await pg.evaluate((sel) => document.querySelector(sel).classList.contains("invalido"), campo)), "corrigido para 0,012 (vírgula): guardado, sem marca");
   // ▶ duas vezes seguidas: uma rodada só; (c) durante a rodada, "modelo" e os campos desabilitados
   const n0 = rodadas();
+  await pg.evaluate(() => { sim.par.por_cima = "0"; });   // uma pasta nova (por cima, substituiria a de antes e a conta daria 0)
   await pg.evaluate(() => { $("bt-play").click(); $("bt-play").click(); });
   await pg.waitForFunction(() => sim.estado === "rodando", null, { timeout: 30000 });
   const trava = await pg.evaluate(() => ({ modelo: $("ctl-modelo").disabled, novo: $("ctl-ac-novo").disabled, ts: $("ctl-ts").disabled, leitura: ctl.editor.getOption(monaco.editor.EditorOption.readOnly) }));

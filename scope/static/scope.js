@@ -702,22 +702,22 @@ function caixaMed(p) {
       <button class="m-modo" data-k="fourier" title="média e série de Fourier numa janela de períodos inteiros (Shift + arrastar no gráfico)">Fourier</button><button
         class="m-modo" data-k="ct" title="duas linhas verticais, A e B, para arrastar: Δt, 1/Δt e, por sinal, Δy e Δy/Δt (os valores do que está desenhado: com zoom bem fechado nos sinais do passo fino, os do passo fino)">Cursores <i>t</i></button><button
         class="m-modo" data-k="cy" title="duas linhas horizontais, C e D, para arrastar: os níveis e o Δy (na escala do gráfico)">Cursores <i>y</i></button></span>
-    <label class="m-comb-l" title="os sinais do painel juntos, ponto a ponto, no gráfico (curva e legenda), na tabela do Fourier e nos cursores (não é do Fourier; nenhum: sem Σ nem x̄): a soma Σ, a média instantânea x̄ = Σ/n ou as duas; clique no nome de um sinal para tirá-lo ou pô-lo">combinar <select class="m-comb"><option value="nenhum">nenhum</option><option value="ambos">Σ e x̄</option><option value="soma">Σ soma</option><option value="media">x̄ média (Σ/n)</option></select></label>
+    <label class="m-comb-l" title="os sinais do painel juntos, ponto a ponto, no gráfico (curva e legenda), na tabela do Fourier e nos cursores (não é do Fourier; nenhum: sem Σ nem x̄): a soma Σ, a média instantânea x̄ = Σ/n ou as duas; clique no nome de um sinal para tirá-lo ou pô-lo">Combinar <select class="m-comb"><option value="nenhum">Nenhum</option><option value="ambos">Σ e x̄</option><option value="soma">Σ soma</option><option value="media">x̄ média (Σ/n)</option></select></label>
     <span class="med-dica">Shift + arrastar: intervalo</span><button class="m-fecha" title="fechar a medição">✕</button></div>
     <div class="med-cab">
     <label>t₀ <input type="number" step="any" class="m-t0"> ms</label>
     <label><input type="number" step="1" min="1" class="m-n"> períodos de</label>
     <label>f₀ <input type="number" step="any" min="0" class="m-f0"> Hz</label> <span class="med-jan"></span>
-    <label>harmônicos <input type="text" class="m-hs" title="ex.: 1, 2, 3 ou 1-7 (pode ficar vazio se marcar ímpares ou pares)"></label>
-    <label title="todos os ímpares até este (somam-se à lista)"><input type="checkbox" class="m-imp"> ímpares até <input type="number" min="1" max="199" step="1" class="m-imp-n"></label>
-    <label title="todos os pares até este (somam-se à lista)"><input type="checkbox" class="m-par"> pares até <input type="number" min="2" max="200" step="1" class="m-par-n"></label>
-    <button class="m-vis" title="a janela começa no início do que está à vista, com os períodos inteiros que cabem nela">usar o visível</button>
+    <label>Harmônicos <input type="text" class="m-hs" title="ex.: 1, 2, 3 ou 1-7 (pode ficar vazio se marcar ímpares ou pares)"></label>
+    <label title="todos os ímpares até este (somam-se à lista)"><input type="checkbox" class="m-imp"> Ímpares até <input type="number" min="1" max="199" step="1" class="m-imp-n"></label>
+    <label title="todos os pares até este (somam-se à lista)"><input type="checkbox" class="m-par"> Pares até <input type="number" min="2" max="200" step="1" class="m-par-n"></label>
+    <button class="m-vis" title="a janela começa no início do que está à vista, com os períodos inteiros que cabem nela">Usar o visível</button>
     <button class="m-esp" title="espectro de harmônicos (barras) dos sinais da tabela; clique no nome de um sinal para tirá-lo ou pô-lo">Espectro</button>
     </div>
     <div class="med-tab"></div><div class="med-cur"></div>
-    <div class="esp" style="display:none"><div class="esp-cab"><label>até h <input type="number" min="1" max="1000" step="1" class="m-hmax"></label>
+    <div class="esp" style="display:none"><div class="esp-cab"><label>Até h <input type="number" min="1" max="1000" step="1" class="m-hmax"></label>
       <label title="escala vertical logarítmica"><input type="checkbox" class="m-log"> log</label>
-      <label title="quantas décadas abaixo do maior valor a escala log mostra">décadas <input type="number" min="1" max="8" step="1" class="m-dec"></label></div>
+      <label title="quantas décadas abaixo do maior valor a escala log mostra">Décadas <input type="number" min="1" max="8" step="1" class="m-dec"></label></div>
       <canvas></canvas><div class="esp-dica"></div></div>`;
   const M = p.med;
   box.querySelector(".m-esp").onclick = () => { M.esp.aberto = !M.esp.aberto; mudaMed(p); };
@@ -833,7 +833,7 @@ function leituraCur(p) {                               // embaixo da tabela: t_A
 }
 
 // ---------------------------------------------------------------- painéis e seções
-const MODOS_ZOOM = { x: "X", y: "Y", xy: "área" };
+const MODOS_ZOOM = { x: "X", y: "Y", xy: "Área" };
 // ícones de corrente (ligado) e corrente partida (solto), desenhados para não depender de fonte de emoji
 const svg = (d) => `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px">${d}</svg>`;
 const ICONE_LIGADO = svg(`<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>`);
@@ -978,7 +978,7 @@ function montaMenu(p) {
   const paletaHTML = (canal, idx) => { const atual = corDoSinal(canal, idx);
     return `<div class="paleta" data-c="${canal}">${CLASSICAS.map(([n, c]) => `<button class="amostra${c === atual ? " atual" : ""}" data-cor="${c}" style="background:${c}" title="${n} ${c}"></button>`).join("")}
       <span class="paleta-hex"><input class="hex" value="${atual}" maxlength="7" spellcheck="false" title="qualquer cor: #rrggbb (Enter)"><input type="color" class="livre" value="${atual}" title="escolher outra cor">
-      <button class="padrao" title="volta à cor da ordem (paleta padrão)">padrão</button></span>
+      <button class="padrao" title="volta à cor da ordem (paleta padrão)">Padrão</button></span>
       <span class="espessuras" title="a espessura da linha (em todos os painéis)">linha ${ESPESSURAS.map((w) => `<button class="espessura${w === espessuraDoSinal(canal) ? " atual" : ""}" data-w="${w}" title="${w === 1.3 ? "normal" : w < 1.3 ? "fina" : w < 3 ? "grossa" : "mais grossa"} (${w} px)"><i style="height:${w}px;background:${atual}"></i></button>`).join("")}</span>
       <span class="tracos" title="o traço da linha (em todos os painéis)">traço ${Object.entries(TRACOS).map(([t, d]) => `<button class="traco${t === tracoDoSinal(canal) ? " atual" : ""}" data-t="${t}" title="${t}"><svg viewBox="0 0 24 6" width="24" height="6"><line x1="1" y1="3" x2="23" y2="3" stroke="${atual}" stroke-width="2"${d ? ` stroke-dasharray="${d.map((x) => x * 0.6).join(" ")}"` : ""}/></svg></button>`).join("")}</span></div>`; };
   const desenha = () => {
@@ -1140,7 +1140,7 @@ function adicionaSecao(titulo, posicao, recolhida) {
   // apagar pede confirmação (Marcelo, 23/10: "sempre bom pedir confirmação"), a não ser numa seção vazia
   el.querySelector(".b-rem").onclick = async () => {
     const k = itens.indexOf(s), dela = []; for (let i = k + 1; i < itens.length && itens[i].tipo !== "secao"; i++) dela.push(itens[i]);
-    if (dela.length && !(await pergunta({ titulo: `Apagar a seção “${s.titulo}”?`, ok: "apagar a seção", perigo: true,
+    if (dela.length && !(await pergunta({ titulo: `Apagar a seção “${s.titulo}”?`, ok: "Apagar a seção", perigo: true,
       texto: `Sai só a seção: os ${dela.length > 1 ? `${dela.length} painéis` : "painel"} dela ${dela.length > 1 ? "passam" : "passa"} para a seção de cima.` }))) return;
     el.remove(); itens = itens.filter((x) => x !== s); marcaSecoesVazias(); guardaLayout(); };
   el.querySelector(".b-rec").onclick = () => { s.recolhida = !s.recolhida; marcaRecolhida(s); guardaLayout(); };
@@ -1224,7 +1224,7 @@ function adicionaPainel(cfg, posicao) {
   const el = document.createElement("div"); el.className = "cartao";
   el.innerHTML = `<div class="cab"><span class="b-arrasta" draggable="true" title="arraste para mudar o painel de lugar">⠿</span><button class="b-rec">${ICONE_SETA}</button>
     <input class="titulo" type="text"><span class="titulo-mat" title="clique para mudar o título"></span><div class="ferr"><button class="b-sinais">Sinais ▾</button>
-    <span class="zoom" title="o que o arrastar faz neste painel"><span class="rot">zoom</span>${Object.entries(MODOS_ZOOM).map(([m, r]) =>
+    <span class="zoom" title="o que o arrastar faz neste painel"><span class="rot">Zoom</span>${Object.entries(MODOS_ZOOM).map(([m, r]) =>
       `<button class="b-zm" data-m="${m}" title="${{ x: "arrastar escolhe o intervalo de tempo", y: "arrastar escolhe a faixa vertical deste painel", xy: "arrastar escolhe uma área (tempo e vertical)" }[m]}">${r}</button>`).join("")}<button
       class="b-reset" title="ver tudo neste painel: vertical automática (ou o Y fixo) e o tempo todo; o tempo vale para todos os painéis ligados (duplo clique faz o mesmo)">${ICONE_TUDO}</button></span>
     <button class="b-solto"></button><button class="b-med" title="média e série de Fourier num intervalo (Shift + arrastar no gráfico)">Medir</button><button class="b-y">Y fixo</button>
@@ -1268,7 +1268,7 @@ function adicionaPainel(cfg, posicao) {
   el.querySelector(".cab .b-rec").onclick = () => { p.recolhido = !p.recolhido; marcaRecolhido(p); guardaLayout(); if (!p.recolhido) setTimeout(redimensiona, 0); };
   el.querySelector(".b-exp").onclick = () => expande(p, !p.expandido);
   el.querySelector(".b-rem").onclick = async () => {        // com sinais, pergunta antes (o ✕ fica perto dos botões)
-    if (p.sinais.length && !(await pergunta({ titulo: `Apagar o painel “${p.titulo}”?`, ok: "apagar o painel", perigo: true,
+    if (p.sinais.length && !(await pergunta({ titulo: `Apagar o painel “${p.titulo}”?`, ok: "Apagar o painel", perigo: true,
       texto: `Sai o painel e os ${p.sinais.length > 1 ? `${p.sinais.length} sinais` : "sinal"} dele neste layout (os dados da rodada ficam).` }))) return;
     if (p.expandido) expande(p, false); if (p.u) p.u.destroy(); p.u = null; obsLargura.unobserve(el); el.remove(); itens = itens.filter((x) => x !== p); marcaSecoesVazias(); guardaLayout(); };
   const alca = el.querySelector(".b-arrasta");
@@ -1666,7 +1666,7 @@ $("arq-visoes").onchange = async (e) => {
   if (!itensV || !itensV.length || itensV.length > 500 || !itensV.every((x) => x && typeof x === "object" && (typeof x.secao === "string" || Array.isArray(x.sinais)))) {
     status(`importar visões: ${f.name} não é um arquivo de visões do scope`); return; }
   if (!chaveLayout()) { status("importar visões: abra antes uma rodada do circuito (as visões são de cada circuito)"); return; }
-  if (!(await pergunta({ titulo: "Importar visões", ok: "trocar",
+  if (!(await pergunta({ titulo: "Importar visões", ok: "Trocar",
     texto: `Trocar as visões do circuito ${circuitoDe(A)} pelas de ${f.name}${v.de ? " (do " + v.de + ")" : ""}: ${itensV.length} painéis e seções?` }))) return;
   const cores = {};
   for (const [k, c] of Object.entries(v.cores && typeof v.cores === "object" ? v.cores : {})) { const cv = corValida(String(c)); if (cv && /^[\w.$+\-]{1,120}$/.test(k)) cores[k] = cv; }
@@ -1757,9 +1757,9 @@ async function apagaAp(ck, orfas) {
   if (apagando || (!ck.length && !orfas)) return;
   const tam = ck.reduce((a, c) => a + +c.dataset.tam, 0) + (orfas ? +$("ap-orfas").dataset.tam : 0), guard = ck.filter((c) => c.dataset.guardada).length;
   const uma = ck.length === 1 && !orfas ? ck[0].closest("label").querySelector("span").textContent.replace(/guardada$/, "") : "";
-  if (!(await pergunta({ titulo: "Apagar do disco?", ok: "apagar", perigo: true,
+  if (!(await pergunta({ titulo: "Apagar do disco?", ok: "Apagar", perigo: true,
     texto: `${uma || `${ck.length} gravação(ões)${orfas ? " e as pastas sem gravação" : ""}`}, ${mb(tam)}. De uma rodada do simu sai a pasta inteira (os dados e a cópia do circuito daquela rodada; o seu circuito não). Não dá para desfazer.` }))) return;
-  if (guard && !(await pergunta({ titulo: "Há rodadas guardadas", ok: "apagar mesmo assim", perigo: true,
+  if (guard && !(await pergunta({ titulo: "Há rodadas guardadas", ok: "Apagar mesmo assim", perigo: true,
     texto: `${uma ? "Esta rodada está guardada" : `${guard} delas ${guard > 1 ? "estão guardadas" : "está guardada"}`} (“por cima” não as substitui). Apagar mesmo assim?` }))) return;
   apagando = true; $("ap-ok").disabled = true; $("ap-ok").textContent = "apagando…"; $("janela-apagar").classList.add("apagando");
   status(`apagando ${ck.length} gravação(ões), ${mb(tam)}…`);

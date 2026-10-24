@@ -11,8 +11,8 @@ const cc = { voltou: false, aberto: false, estado: null, timer: null, antes: nul
 // ---------------------------------------------------------------- qual IA responde (hub de IA, etapa 3): o seletor e os modelos dela
 // (a conversa é a mesma: trocar no meio continua de onde a outra parou — o MaiSim passa a ela a conversa em CONVERSA.md)
 const MODELOS_IA = {
-  claude: [["", "modelo: padrão"], ["fable", "Fable"], ["opus", "Opus"], ["sonnet", "Sonnet"], ["haiku", "Haiku"]],
-  gemini: [["", "modelo: automático"], ["pro", "Pro"], ["flash", "Flash"], ["flash-lite", "Flash-Lite"]],
+  claude: [["", "Modelo: padrão"], ["fable", "Fable"], ["opus", "Opus"], ["sonnet", "Sonnet"], ["haiku", "Haiku"]],
+  gemini: [["", "Modelo: automático"], ["pro", "Pro"], ["flash", "Flash"], ["flash-lite", "Flash-Lite"]],
 };
 const ccIA = () => ($("cc-ia") && $("cc-ia").value) || "claude";
 const chaveModelo = (ia) => (ia === "claude" ? "maisim-simu-cc-modelo" : `maisim-simu-cc-modelo-${ia}`);   // o do Claude: a chave de sempre
@@ -38,7 +38,7 @@ function ccMontaIA() {
 function ccModelos() {
   const ia = ccIA(), sm = $("cc-modelo"), se = $("cc-esforco"); if (!sm) return;
   const a = (cc.ias || []).find((x) => x.id === ia);
-  const ops = MODELOS_IA[ia] || (a ? a.modelos.map((m) => [m, m ? (a.rotulos && a.rotulos[m]) || m : "modelo: padrão"]) : MODELOS_IA.claude);
+  const ops = MODELOS_IA[ia] || (a ? a.modelos.map((m) => [m, m ? (a.rotulos && a.rotulos[m]) || m : "Modelo: padrão"]) : MODELOS_IA.claude);
   const html = ops.map(([v, t]) => `<option value="${escT(v)}">${escT(t)}</option>`).join("");
   if (sm.dataset.ia !== ia || sm.dataset.html !== html) { sm.innerHTML = html; sm.dataset.ia = ia; sm.dataset.html = html; }   // a lista pode chegar depois (o Antigravity)   // sem dica: IA, modelo e esforço são óbvios (Marcelo, 21/10)
   try { const v = localStorage.getItem(chaveModelo(ia)); if (v !== null && [...sm.options].some((o) => o.value === v)) sm.value = v; } catch (e) { /* padrão */ }
@@ -254,7 +254,7 @@ function desenhaChat() {
   desenhaUsoChat();
   const e = cc.estado, logado = iaLogada(), anda = !!(e && e.andamento);
   const rodando = document.body.classList.contains("sim-rodando");
-  $("cc-enviar").disabled = anda || cc.enviando; $("cc-enviar").textContent = cc.enviando ? "enviando…" : anda ? "respondendo…" : "enviar";
+  $("cc-enviar").disabled = anda || cc.enviando; $("cc-enviar").textContent = cc.enviando ? "Enviando…" : anda ? "Respondendo…" : "Enviar";
   $("cc-texto").placeholder = anda ? "a IA está respondendo… (pode escrever o próximo: envia quando ela terminar)" : "Peça à IA… (Ctrl+Enter envia)";
   $("cc-parar").style.display = anda ? "" : "none";
   $("cc-aviso").textContent = cc.aviso || cc.avisoOk || ""; $("cc-aviso").classList.toggle("ok", !cc.aviso && !!cc.avisoOk);   // avisoOk: deu certo (verde)
@@ -269,7 +269,7 @@ function desenhaChat() {
   const box = $("cc-msgs"), noFim = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
   let h = "";
   if (!cla.estado) h = `<div class="cc-vazio">consultando a IA do MaiSim…</div>`;
-  else if (!logado) h = `<div class="cc-vazio"><div class="cc-oi"><svg class="mascote" width="40" height="40" aria-hidden="true"><use href="#maisim-claude"/></svg><p>Para pedir à IA, entre com a sua conta do ${escT(nomeIA())} (o balão no cabeçalho)${(cc.ias || []).filter((a) => a.instalado).length > 1 ? ", ou escolha outra IA embaixo" : ""}.</p></div><button id="cc-entrar" class="primario">entrar com o ${escT(nomeIA())}</button></div>`;
+  else if (!logado) h = `<div class="cc-vazio"><div class="cc-oi"><svg class="mascote" width="40" height="40" aria-hidden="true"><use href="#maisim-claude"/></svg><p>Para pedir à IA, entre com a sua conta do ${escT(nomeIA())} (o balão no cabeçalho)${(cc.ias || []).filter((a) => a.instalado).length > 1 ? ", ou escolha outra IA embaixo" : ""}.</p></div><button id="cc-entrar" class="primario">Entrar com o ${escT(nomeIA())}</button></div>`;
   else {
     const hist = (e && e.conversa && e.conversa.historico) || [];
     if (!hist.length && !anda) h += `<div class="cc-vazio"><div class="cc-oi"><svg class="mascote" width="40" height="40" aria-hidden="true"><use href="#maisim-claude"/></svg><b>IA do MaiSim</b></div><p>Ela lê o circuito e o código e propõe o controle; você vê a diferença antes de aplicar.</p>
@@ -333,8 +333,8 @@ function cartaoProposta(e, rodando) {
   if (p.teste) conf.push(p.teste.ok ? `<li class="cc-ok">teste (iniciar e 3 passo, sem simular): ok${p.teste.passos && p.teste.passos[0] ? ` · devolve ${escT(Object.entries(p.teste.passos[0].a).map(([k, v]) => `${k} = ${fmtNum(v)}`).join(", ") || "nada")}` : ""}</li>`
     : `<li class="cc-erro">teste: ${escT(p.teste.erro)}</li>`);
   const aplicada = !!e.aplicada, bloqueio = rodando ? "a simulação está rodando: o controle fica travado até ela parar" : "";
-  const bts = aplicada && cc.voltou ? `<span class="cc-aviso-t">aplicada e desfeita: voltou ao de antes.</span>` : aplicada ? `<span class="cc-ok">aplicada.</span>${cc.antes ? `<button id="cc-voltar" title="volta o código, os parâmetros e os acionamentos de antes da proposta">↶ voltar ao de antes</button>` : ""}`
-    : `${codigoMudou ? `<button id="cc-ver">ver diferença</button>` : ""}${!codigoMudou || p.teste || (p.erros || []).length ? "" : `<button id="cc-testar" title="roda iniciar() e 3 passo() do código proposto, sem simular — o código roda neste computador: veja a diferença antes">▷ testar</button>`}<button id="cc-aplicar" class="primario" ${bloqueio ? `disabled title="${escT(bloqueio)}"` : ""}>aplicar</button><button id="cc-descartar">descartar</button>`;
+  const bts = aplicada && cc.voltou ? `<span class="cc-aviso-t">aplicada e desfeita: voltou ao de antes.</span>` : aplicada ? `<span class="cc-ok">aplicada.</span>${cc.antes ? `<button id="cc-voltar" title="volta o código, os parâmetros e os acionamentos de antes da proposta">↶ Voltar ao de antes</button>` : ""}`
+    : `${codigoMudou ? `<button id="cc-ver">Ver diferença</button>` : ""}${!codigoMudou || p.teste || (p.erros || []).length ? "" : `<button id="cc-testar" title="roda iniciar() e 3 passo() do código proposto, sem simular — o código roda neste computador: veja a diferença antes">▷ Testar</button>`}<button id="cc-aplicar" class="primario" ${bloqueio ? `disabled title="${escT(bloqueio)}"` : ""}>Aplicar</button><button id="cc-descartar">Descartar</button>`;
   const difs = muds.map((f) => `${muds.length > 1 ? `<div class="cc-diff-rot">${escT(f.arq)}${f.novo ? " (novo)" : ""}</div>` : ""}${htmlDiff(f.ops, muds.length > 1 ? 30 : 60)}`).join("");
   return `<div class="cc-prop"><h5>Proposta</h5><ul>${itens.map((x) => `<li>${x}</li>`).join("")}</ul>${difs}${opsMem ? `<div class="cc-diff-rot">memória do MaiSim</div>${htmlDiff(opsMem, 20)}` : ""}${conf.length ? `<ul>${conf.join("")}</ul>` : ""}<div class="cc-bts">${bts}</div></div>`;
 }
@@ -391,13 +391,13 @@ async function ccAplica(op = {}) {
     !igual(c.acionamentos || [], p.acionamentos_antes || []) && "os acionamentos",
     p.arquivos && !igual(ordena(arquivosDoEditor()), ordena(p.arquivos_antes)) && "os outros arquivos",
     p.controladores && !igual(c.controladores || [], p.controladores_antes || []) && "os controladores"].filter(Boolean);
-  if (mudou.length && !(await confirma("Aplicar a proposta", `Depois do pedido, ${mudou.join(" e ")} mudaram na tela. Aplicar troca pelo da proposta (o atual volta com “voltar ao de antes”).`, "aplicar", false))) return;
+  if (mudou.length && !(await confirma("Aplicar a proposta", `Depois do pedido, ${mudou.join(" e ")} mudaram na tela. Aplicar troca pelo da proposta (o atual volta com “voltar ao de antes”).`, "Aplicar", false))) return;
   cc.aplicando = true;
   const memMudou = memoriaMudou(p);
   if (memMudou) {                                        // a memória mexida depois do pedido (botão "memória"): pergunta
     let atual = null; try { atual = (await apiClaude("memoria")).texto; } catch (e) { /* segue */ }
     if (atual !== null && atual.trim() !== (p.memoria_antes || "").trim() &&
-        !(await confirma("Aplicar a proposta", "A memória do MaiSim mudou depois do pedido. Aplicar troca pela da proposta (a atual volta com “voltar ao de antes”).", "aplicar", false))) { cc.aplicando = false; return; }
+        !(await confirma("Aplicar a proposta", "A memória do MaiSim mudou depois do pedido. Aplicar troca pela da proposta (a atual volta com “voltar ao de antes”).", "Aplicar", false))) { cc.aplicando = false; return; }
   }
   cc.antes = { codigo: codigoAtual(), parametros: JSON.parse(JSON.stringify(c.parametros)), acionamentos: JSON.parse(JSON.stringify(c.acionamentos || [])),
     atuacoes: [...c.atuacoes], ativo: !!c.ativo, arquivos: arquivosDoEditor(),
@@ -457,7 +457,7 @@ async function ccMemoria() {
     <p class="cc-dica-t">Vale em todas as conversas e circuitos: como você gosta dos controles, convenções, lições (ex.: “anti-windup por
     clamping”, “ganhos em V/A”, “Ts sempre múltiplo de 1/fsw”). A IA lê em todo pedido e pode propor linhas novas, que entram
     quando você aplica a proposta.</p><textarea class="cc-mem-txt" spellcheck="false" placeholder="- uma preferência por linha"></textarea>
-    <div class="modal-botoes"><button class="m-fechar">fechar</button><button class="m-guardar primario">guardar</button></div></div>`;
+    <div class="modal-botoes"><button class="m-fechar">Fechar</button><button class="m-guardar primario">Guardar</button></div></div>`;
   document.body.appendChild(fundo);
   const ta = fundo.querySelector("textarea"); ta.value = txt; ta.focus();
   const fecha = () => { removeEventListener("keydown", tecla, true); fundo.remove(); };
@@ -489,12 +489,12 @@ function ccDiferenca(p0, op = {}) {
   const escolhe = !op.historico && !cc.estado.aplicada, porArq = escolhe && muds.length > 1, recusados = new Set();   // começa tudo aceito
   muds.forEach((f) => { f.apagado = !f.novo && !Object.assign({ "controle.py": p.codigo || "" }, p.arquivos || p.arquivos_antes || {}).hasOwnProperty(f.arq); });
   fundo.innerHTML = `<div class="modal cc-dif" role="dialog" aria-modal="true"><div class="cc-dif-cab"><h3>${escT(titulo)}</h3>
-    ${porArq ? `<span class="grupo-bt cc-dif-escolha" title="este arquivo (a aba aberta): aplicar a mudança dele ou deixar como está"><button data-aceita="1">✓ aceitar</button><button data-aceita="0">✗ recusar</button></span>` : ""}
-    <span class="grupo-bt cc-dif-modo"><button data-modo="uni" title="como o git diff: o que sai em vermelho, o que entra em verde">unificado</button><button data-modo="lado" title="antes à esquerda, proposta à direita">lado a lado</button></span></div>
+    ${porArq ? `<span class="grupo-bt cc-dif-escolha" title="este arquivo (a aba aberta): aplicar a mudança dele ou deixar como está"><button data-aceita="1">✓ Aceitar</button><button data-aceita="0">✗ Recusar</button></span>` : ""}
+    <span class="grupo-bt cc-dif-modo"><button data-modo="uni" title="como o git diff: o que sai em vermelho, o que entra em verde">Unificado</button><button data-modo="lado" title="antes à esquerda, proposta à direita">Lado a lado</button></span></div>
     ${muds.length > 1 ? `<div class="grupo-bt cc-dif-arqs">${muds.map((f, i) => `<button data-i="${i}" title="${f.novo ? "arquivo novo" : f.apagado ? "a proposta apaga este arquivo" : "a diferença deste arquivo"}">${porArq ? '<i class="cc-dif-marca">✓</i>' : ""}${escT(f.arq)}${f.novo ? " (novo)" : f.apagado ? " (apagado)" : ""}</button>`).join("")}</div>` : ""}
-    ${op.sub ? `<p class="cc-dif-sub">${escT(op.sub)}</p>` : ""}<div class="cc-dif-ed"></div>${pars.length ? `<div class="cc-dif-par"><b>Parâmetros, acionamentos e controladores</b>${escolhe ? ` <label class="cc-dif-pars-ok"><input type="checkbox" checked> aplicar também</label>` : ""}<ul>${pars.map((x) => `<li>${escT(x)}</li>`).join("")}</ul></div>` : ""}
+    ${op.sub ? `<p class="cc-dif-sub">${escT(op.sub)}</p>` : ""}<div class="cc-dif-ed"></div>${pars.length ? `<div class="cc-dif-par"><b>Parâmetros, acionamentos e controladores</b>${escolhe ? ` <label class="cc-dif-pars-ok"><input type="checkbox" checked> Aplicar também</label>` : ""}<ul>${pars.map((x) => `<li>${escT(x)}</li>`).join("")}</ul></div>` : ""}
     ${porArq ? `<p class="cc-dif-parcial" hidden>os arquivos dependem uns dos outros (um nome que um muda, o outro usa): aplicar só parte pode quebrar — rode o “testar” depois</p>` : ""}
-    <div class="modal-botoes"><button class="m-fechar">fechar</button>${op.historico || cc.estado.aplicada ? "" : `<button class="m-aplicar primario" ${rodando ? "disabled" : ""}>aplicar</button>`}</div></div>`;
+    <div class="modal-botoes"><button class="m-fechar">Fechar</button>${op.historico || cc.estado.aplicada ? "" : `<button class="m-aplicar primario" ${rodando ? "disabled" : ""}>Aplicar</button>`}</div></div>`;
   document.body.appendChild(fundo);
   const el = fundo.querySelector(".cc-dif-ed"); let dif = null, modelos = [], atual = 0;
   const voltaFoco = document.activeElement;
@@ -503,7 +503,7 @@ function ccDiferenca(p0, op = {}) {
       b.classList.toggle("recusado", r); const m = b.querySelector(".cc-dif-marca"); if (m) m.textContent = r ? "✗" : "✓"; });
     fundo.querySelectorAll(".cc-dif-escolha button").forEach((b) => b.classList.toggle("ativo", (b.dataset.aceita === "1") !== recusados.has(muds[atual].arq)));
     const ap = fundo.querySelector(".m-aplicar"), cb = fundo.querySelector(".cc-dif-pars-ok input"), comPars = !cb || cb.checked, n = muds.length - recusados.size;
-    if (ap) { ap.textContent = recusados.size ? `aplicar ${n} de ${muds.length}` : !comPars ? "aplicar sem os parâmetros" : "aplicar";
+    if (ap) { ap.textContent = recusados.size ? `Aplicar ${n} de ${muds.length}` : !comPars ? "Aplicar sem os parâmetros" : "Aplicar";
       ap.disabled = document.body.classList.contains("sim-rodando") || (!n && (!pars.length || !comPars)); }
     const av = fundo.querySelector(".cc-dif-parcial"); if (av) av.hidden = !recusados.size;
   };
@@ -596,7 +596,7 @@ function divisorConversa() {
   $("cc-parar").onclick = async () => { try { cc.estado = await apiClaude("parar", {}); } catch (e) { cc.aviso = e.message; } desenhaChat(); acompanhaChat(); };
   $("cc-nova").onclick = async () => {
     if (cc.estado && cc.estado.andamento) return;
-    if (!(await confirma("Nova conversa", "Começar uma conversa nova com a IA neste circuito? Ela esquece esta, e os anexos saem.", "nova conversa", false))) return;
+    if (!(await confirma("Nova conversa", "Começar uma conversa nova com a IA neste circuito? Ela esquece esta, e os anexos saem.", "Nova conversa", false))) return;
     try { cc.estado = await apiClaude("nova", {}); cc.antes = null; } catch (e) { cc.aviso = e.message; } desenhaChat();
   };
   $("cc-texto").addEventListener("keydown", (ev) => { if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); ccEnvia(); } });

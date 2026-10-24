@@ -71,7 +71,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
       copia: [...m.querySelectorAll("[data-copia]")].every((b) => !b.disabled), outros: [...m.querySelectorAll(".gv button:not([data-copia]), #gv-cria")].every((b) => b.disabled),
       ok: m.querySelector(".m-ok").textContent, cancela: !!m.querySelector(".m-cancela") }; });
   await pg.click(".modal .m-ok"); await pg.waitForTimeout(200);
-  ok(travaP.aviso && travaP.ins > 0 && !travaP.livres.length && travaP.copia && travaP.outros && travaP.ok === "fechar" && !travaP.cancela,
+  ok(travaP.aviso && travaP.ins > 0 && !travaP.livres.length && travaP.copia && travaP.outros && travaP.ok === "Fechar" && !travaP.cancela,
     `simulando, a ⚙ só mostra: aviso, ${travaP.ins} campos travados${travaP.livres.length ? ` (livres: ${travaP.livres})` : ""}, criar/apagar travados, copiar o nome ativo, "fechar"`);
   // simulando, o circuito só para ver (Marcelo, 22/10): clicar seleciona e mostra os dados (travados, com o aviso); girar (R),
   // arrastar, salvar, abrir, fio e a paleta não mudam nada; o servidor recusa também a ponta, o "fora", a cor e apagar arquivo
@@ -97,7 +97,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   await pg.click("#bt-param"); await pg.waitForSelector(".modal input[name='dt']");
   const livre = await pg.evaluate(() => { const m = document.querySelector(".modal"); return { aviso: !!m.querySelector(".m-trava"), presos: [...m.querySelectorAll("input")].filter((x) => x.disabled).length, ok: m.querySelector(".m-ok").textContent }; });
   await pg.click(".modal .m-cancela"); await pg.waitForTimeout(200);
-  ok(!livre.aviso && !livre.presos && livre.ok === "guardar", `parada, a ⚙ volta a editar (sem aviso, nenhum campo travado, "${livre.ok}")`);
+  ok(!livre.aviso && !livre.presos && livre.ok === "Guardar", `parada, a ⚙ volta a editar (sem aviso, nenhum campo travado, "${livre.ok}")`);
   await pg.evaluate(() => seleciona(dados.folhas[folhaAtual].elementos.find((x) => x.tipo !== "TERM"))); await pg.waitForTimeout(400);
   const solto = await pg.evaluate(() => ({ aviso: !!$("props").querySelector(".trava-circ"), livres: [...$("props").querySelectorAll("input")].filter((x) => !x.disabled).length,
     barra: ["bt-modelo", "bt-novo", "bt-salvar", "bt-salvar-como", "bt-fio"].every((id) => !$(id).disabled) }));

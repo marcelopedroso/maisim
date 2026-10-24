@@ -46,7 +46,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     ok(v[0].rot === "nA" && v[1].rot === "x2", `escrever um nome liga o borne ao nó: "${v[0].rot}"`);
     // 2. o tamanho nos iguais
     const caixa = await pg.evaluate(() => ({ ck: $("p-juntos") && $("p-juntos").checked, txt: (document.querySelector("#props label.p-juntos") || {}).textContent || "" }));
-    ok(caixa.ck && /mudar os 2 iguais juntos/.test(caixa.txt), `no painel do bloco: "${caixa.txt.trim()}" (marcado)`);
+    ok(caixa.ck && /Mudar os 2 iguais juntos/.test(caixa.txt), `no painel do bloco: "${caixa.txt.trim()}" (marcado)`);
     await muda("#p-bloco", "6 × 4");
     v = await sms();
     ok(v.every((s) => s.bloco === "6×4"), `largura × altura 6 × 4: os dois mudam (${v.map((s) => s.bloco).join(", ")}; antes ${B0})`);

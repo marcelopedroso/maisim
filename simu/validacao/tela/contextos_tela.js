@@ -63,7 +63,7 @@ const antes = new Set(fs.existsSync(CTX) ? fs.readdirSync(CTX) : []);
     ok(/Buck — Kp dobrado/.test(lin) && /buck/.test(lin) && /claude-falso/.test(lin), `na biblioteca: ${lin.slice(0, 120)}…`);
     await pg.click(`${item} [data-a="usar"]`); await pg.waitForTimeout(500);
     const uso = await pg.evaluate((s) => ({ bt: document.querySelector(`${s} [data-a="usar"]`).textContent, chip: [...document.querySelectorAll("#cc-anexos .cx-em-uso")].map((x) => x.textContent.trim()) }), item);
-    ok(uso.bt === "em uso ✓" && uso.chip.length === 1 && /Buck — Kp dobrado/.test(uso.chip[0]), `usar nesta conversa: "${uso.bt}", a etiqueta ${JSON.stringify(uso.chip)} ao lado dos anexos`);
+    ok(uso.bt === "Em uso ✓" && uso.chip.length === 1 && /Buck — Kp dobrado/.test(uso.chip[0]), `usar nesta conversa: "${uso.bt}", a etiqueta ${JSON.stringify(uso.chip)} ao lado dos anexos`);
     // abrir: o resumo formatado e a conversa; editar o título
     await pg.click(`${item} [data-a="abrir"]`); await pg.waitForSelector(".cx-abrir");
     const ab = await pg.evaluate(() => ({ h: [...document.querySelectorAll(".cx-abrir .cx-ver .md-h")].map((x) => x.textContent), conv: (document.querySelector(".cx-abrir .cx-conversa summary") || {}).textContent,

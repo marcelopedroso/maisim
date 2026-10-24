@@ -108,8 +108,8 @@ const ORQ = CTL('    envia("dsp_a", {"theta": 1.0})\n    envia("dsp_b", {"theta"
         return Math.abs(i.x - (cx(de).x + cx(de).width)) < 1 && Math.abs(f.x - (cx(para).x - 2)) < 1; }); });
     await pg.click("#cd-linhas"); await pg.waitForTimeout(400);
     const jun = await pontas();
-    ok(sep.bt === "juntar linhas" && sep.guardado === "separadas" && distintos(sep.saiCtl) && sep.saiCtl.length === 2 && distintos(sep.chegaB) && sep.chegaB.length === 3
-       && distintos(sep.chegaCtl) && sep.chegaCtl.length === 3 && ladosSep && jun.bt === "separar linhas" && jun.guardado === "juntas" && new Set(jun.saiCtl).size === 1,
+    ok(sep.bt === "Juntar linhas" && sep.guardado === "separadas" && distintos(sep.saiCtl) && sep.saiCtl.length === 2 && distintos(sep.chegaB) && sep.chegaB.length === 3
+       && distintos(sep.chegaCtl) && sep.chegaCtl.length === 3 && ladosSep && jun.bt === "Separar linhas" && jun.guardado === "juntas" && new Set(jun.saiCtl).size === 1,
       `separar linhas: cada ligação no seu ponto (o controle sai em ${JSON.stringify(sep.saiCtl)}, chegam ao dsp_b em ${JSON.stringify(sep.chegaB)}, ao controle em ${JSON.stringify(sep.chegaCtl)}), ainda entrando pela esquerda e saindo pela direita, guardado; juntar: o controle sai de um ponto só (${JSON.stringify(jun.saiCtl)})`);
     // o que foi nas mensagens (Marcelo, 22/10: envia("controle", c["sobe"]) com o dicionário montado num laço aparecia só como
     // "mensagem"): depois do "testar", o rótulo traz as chaves de verdade (até 3 + quantas mais) e a dica diz de onde vieram;

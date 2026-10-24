@@ -164,7 +164,7 @@ function ligaNoPainel(np) {
   };
   selS.onchange = async () => {
     if (selS.value === "+") {
-      const r = await modal({ titulo: "Nova seção no scope", campos: [{ nome: "secao", rotulo: "nome da seção", valor: "" }, { nome: "painel", rotulo: "painel", valor: canal }], ok: "criar" });
+      const r = await modal({ titulo: "Nova seção no scope", campos: [{ nome: "secao", rotulo: "Nome da seção", valor: "" }, { nome: "painel", rotulo: "Painel", valor: canal }], ok: "Criar" });
       const s = r && r.secao.trim(), t = (r && r.painel.trim()) || canal;
       if (!s) { desenhaOps(); return; }
       const L = leLayoutCircuito(), painel = { titulo: t, sinais: [], largura: 1 };
@@ -177,7 +177,7 @@ function ligaNoPainel(np) {
     const L = leLayoutCircuito(), gs = gruposDoLayout(L), g = gs[+selS.value];
     if (!g || g.secao !== selS.selectedOptions[0].textContent) return mudou();   // outra janela mexeu no layout no meio
     if (selP.value === "+") {
-      const r = await modal({ titulo: `Novo painel em ${g.secao}`, campos: [{ nome: "painel", rotulo: "título do painel", valor: canal }], ok: "criar" });
+      const r = await modal({ titulo: `Novo painel em ${g.secao}`, campos: [{ nome: "painel", rotulo: "Título do painel", valor: canal }], ok: "Criar" });
       const t = r && r.painel.trim(); if (!t) { desenhaOps(+selS.value); return; }
       const painel = { titulo: t, sinais: [], largura: 1 };
       const ultimo = g.paineis.length ? g.paineis[g.paineis.length - 1] : g.item;   // no fim da seção
@@ -763,7 +763,7 @@ function avisoRede(fora) {
   if (!f) {
     f = document.createElement("div"); f.id = "rede-aviso"; f.setAttribute("role", "alert");
     f.innerHTML = `<b>sem conexão com o servidor do MaiSim</b> <span>— a ponte Windows ↔ WSL pode ter derrubado a conexão</span>
-      <button type="button">testar de novo</button><small></small>`;
+      <button type="button">Testar de novo</button><small></small>`;
     document.body.appendChild(f);
     f.querySelector("button").onclick = () => testaRede(true);
   }
@@ -808,7 +808,7 @@ async function perguntaRenomes(ren) {
       texto: `Mudou o nome de ${n === 1 ? "um sinal" : `${n} sinais`} que o controle usa (${nUsos} ${nUsos === 1 ? "lugar" : "lugares"}):`,
       html: `<ul class="m-renomes">${lista}</ul><p class="m-dica">Renomear troca o nome entre aspas no código (m["…"], return {"…": …}),
         nos cartões dos controladores, nas atuações marcadas e nos acionamentos. Comentários ficam como estão.</p>`,
-      ok: "renomear no controle também", cancelar: "deixar como está", extra: [{ rotulo: "desfazer a mudança", valor: "desfazer" }], largo: true });
+      ok: "Renomear no controle também", cancelar: "Deixar como está", extra: [{ rotulo: "Desfazer a mudança", valor: "desfazer" }], largo: true });
     if (r && r._botao === "desfazer") { await desfazer(); return; }
     if (!r) { msg(`o controle ficou com ${n === 1 ? "o nome antigo" : "os nomes antigos"} (${ren.map((x) => x.de).slice(0, 3).join(", ")}${n > 3 ? "…" : ""}): veja os avisos do controle`, "erro"); return; }
     if (typeof guardaControle === "function" && ctl.carregado) await guardaControle();   // o que está no editor de código vai antes
@@ -876,9 +876,9 @@ function caixaIguais(e) {                              // no painel do bloco, na
   const bs = iguaisDoBloco(e);
   if (bs.length < 2) return "";
   const dif = bs.slice(1).filter((b) => txtTamanho(b) !== txtTamanho(e));
-  return `<label class="p-juntos" title="o mesmo &quot;mudar os N juntos&quot; de dentro do subcircuito"><input type="checkbox" id="p-juntos" ${ed.todos ? "checked" : ""}> mudar os ${bs.length} iguais juntos</label>
+  return `<label class="p-juntos" title="o mesmo &quot;mudar os N juntos&quot; de dentro do subcircuito"><input type="checkbox" id="p-juntos" ${ed.todos ? "checked" : ""}> Mudar os ${bs.length} iguais juntos</label>
     <div class="aviso">${ed.todos ? `o tamanho do bloco e da folha vale para os ${bs.length} subcircuitos iguais (${bs.map((b) => escT(nomeSub(b.nome))).join(", ")})` : `só o ${escT(nomeSub(e.nome))} muda de tamanho`}${dif.length
-      ? `<div class="p-dif">${dif.map((b) => `${escT(nomeSub(b.nome))} está com ${txtTamanho(b)}`).join("; ")} <button id="p-iguala" title="o tamanho deste (${txtTamanho(e)}) nos ${bs.length} iguais">igualar a este</button></div>` : ""}</div>`;
+      ? `<div class="p-dif">${dif.map((b) => `${escT(nomeSub(b.nome))} está com ${txtTamanho(b)}`).join("; ")} <button id="p-iguala" title="o tamanho deste (${txtTamanho(e)}) nos ${bs.length} iguais">Igualar a este</button></div>` : ""}</div>`;
 }
 const nomeSM = (k) => nomeSub(dados.folhas[k].nome);
 const nosSMs = (fs) => fs.length > 1 ? ` (nos ${fs.length} subcircuitos iguais)` : (naFolhaPrincipal() ? "" : ` (só no ${nomeSM(folhaAtual)})`);
@@ -894,7 +894,7 @@ function faixaSM() {                                   // a faixa no alto da fol
   const n = smsIguais().length, sm = nomeSM(folhaAtual);
   fx.style.display = "block";
   fx.innerHTML = n > 1
-    ? `<b>${sm}</b> é igual a outros ${n - 1} subcircuitos. <label><input type="checkbox" id="ck-todos" ${ed.todos ? "checked" : ""}> mudar os ${n} juntos</label>
+    ? `<b>${sm}</b> é igual a outros ${n - 1} subcircuitos. <label><input type="checkbox" id="ck-todos" ${ed.todos ? "checked" : ""}> Mudar os ${n} juntos</label>
        <span class="sub-faixa">${ed.todos ? "no Gecko cada SM é uma cópia; o editor aplica a mesma mudança em todas" : `só o ${sm} muda (deixa de ser igual aos outros)`} · variáveis $ valem para todos que as usam</span>`
     : `<b>${sm}</b> é único (diferente dos outros subcircuitos): as mudanças valem só para ele <span class="sub-faixa">variáveis $ valem para todos que as usam</span>`;
   const b = blocoDaFolha(folhaAtual), juntos = b ? [...new Set(b.terminais.filter((t) => t.junto).map((t) => [t.interno, ...t.junto].sort().join(" e ")))] : [];
@@ -907,12 +907,12 @@ function faixaSM() {                                   // a faixa no alto da fol
 async function perguntaNaoSalvo(e, acao) {
   const c = e.dados && e.dados.conflito ? e.dados : null; if (!c) throw e;
   const nome = escT((c.aberto || "").split("/").pop() || "o circuito novo");
-  const extra = c.mesmo ? [{ rotulo: "manter as mudanças", valor: "manter", classe: "primario" }]
-    : c.salvavel ? [{ rotulo: `salvar ${nome} e ${acao}`, valor: "salvar", classe: "primario" }]
-    : [{ rotulo: `salvar como… e ${acao}`, valor: "salvar_como", classe: "primario" }];
+  const extra = c.mesmo ? [{ rotulo: "Manter as mudanças", valor: "manter", classe: "primario" }]
+    : c.salvavel ? [{ rotulo: `Salvar ${nome} e ${acao}`, valor: "salvar", classe: "primario" }]
+    : [{ rotulo: `Salvar como… e ${acao}`, valor: "salvar_como", classe: "primario" }];
   const r = await modal({ titulo: c.mesmo ? "O Gecko tem mudanças que o editor não viu" : "Há mudanças não salvas",
     texto: `${escT(e.message)}.${c.mesmo ? "<br><b>manter</b>: o editor mostra o que está no Gecko (continua sem salvar) · <b>descartar</b>: volta ao arquivo." : ""}`,
-    ok: c.mesmo ? "descartar" : `descartar e ${acao}`, perigo: true, extra, largo: true, foco: ".m-extra" });
+    ok: c.mesmo ? "Descartar" : `Descartar e ${acao}`, perigo: true, extra, largo: true, foco: ".m-extra" });
   if (!r) return null;
   if (r._botao === "salvar_como") return (await salvarComo()) ? "salvou" : null;
   return r._botao || "descartar";
@@ -925,7 +925,7 @@ async function liga(on) {
   if (ed.fio.modo) modoFio(false);
   seleciona(null); escolhe(null);
   if (!on) {
-    if (ed.novo && !(await confirma("Circuito novo não salvo", `Sair da edição descarta <b>${ed.novo}</b>, que não foi salvo. Para guardar: salvar como (o disquete com lápis).`, "sair sem salvar", true))) {
+    if (ed.novo && !(await confirma("Circuito novo não salvo", `Sair da edição descarta <b>${ed.novo}</b>, que não foi salvo. Para guardar: salvar como (o disquete com lápis).`, "Sair sem salvar", true))) {
       ed.ligado = true; document.body.classList.add("editando"); poeCadeado(true); return; }
     if (ed.novo) { ed.novo = null; await recarregaModelos(); }
     msg(""); if (!$("sel-modelo").value) { desenha(); return; }   // fechado: nada a ler
@@ -1063,7 +1063,7 @@ async function montaProps() {
     const sel = selecaoGrupo();
     P.innerHTML = `<h3>seleção</h3><div class="t">${sel.nomes.length} componente(s) e ${sel.fios.length} conexão(ões)</div>
       ${sel.nomes.length ? `<div class="t"><small>${sel.nomes.map(escT).join(", ")}</small></div>` : ""}
-      <div class="botoes"><button id="p-sel-apaga" class="perigo">apagar</button></div>
+      <div class="botoes"><button id="p-sel-apaga" class="perigo">Apagar</button></div>
       <div class="aviso">arraste um deles para mover todos (as conexões de dentro vão junto) · Delete apaga · Ctrl+C / Ctrl+X copiam ou recortam ·
         Ctrl+V cola onde está o mouse · Shift + clique põe ou tira · Shift + arrastar no vazio acrescenta · Esc tira a seleção</div>${caixaHist()}`;
     P.querySelector("#p-sel-apaga").onclick = apagaGrupo; return;
@@ -1074,7 +1074,7 @@ async function montaProps() {
     P.innerHTML = `<h3>conexão</h3><div class="t">conexão ${NOME_DOM[w.dom] || w.dom} · ${w.pts.length} pontos · (${a}) → (${b})</div>
       <label><span>rótulo do nó</span><input id="f-rot" value="${w.rotulo}" placeholder="(sem rótulo)"></label>
       <div class="aviso">conexões e terminais com o mesmo rótulo ficam no mesmo nó; o voltímetro mede pelos rótulos</div>
-      <div class="botoes"><button id="f-apaga" class="perigo">apagar (Delete)</button></div>${caixaHist()}`;
+      <div class="botoes"><button id="f-apaga" class="perigo">Apagar (Delete)</button></div>${caixaHist()}`;
     P.querySelector("#f-rot").onchange = (ev) => mudaFio(w, { acao: "rotulo", rotulo: ev.target.value.trim() }, `conexão (${a}) → (${b}): rótulo ${ev.target.value.trim() || "(nenhum)"}`);
     P.querySelector("#f-apaga").onclick = () => apagaFio(w);
     return;
@@ -1086,9 +1086,9 @@ async function montaProps() {
   P.innerHTML = `<h3>${e.nome}</h3><div class="t">${ehTag(e) ? "tag (scope e controle)" : e.nome_tipo || DESCR[e.tipo] || e.tipo} · (${e.x}, ${e.y})</div>
     <label><span>nome</span><input id="p-nome" value="${e.nome}"></label>
     <label><span>posição x, y</span><input id="p-pos" value="${e.x}, ${e.y}"></label>
-    <div class="botoes">${podeGirar(e) ? `<button id="p-gira">girar (R)</button>` : naoGira(e) ? `<button id="p-nao-gira" class="nao-gira" title="${NAO_GIRA}">girar</button>` : ""}<button id="p-apaga" class="perigo">apagar</button></div>
-    ${e.tipo !== "TERM" ? `<label class="p-desat" title="fica no circuito, mas o Gecko simula como se não existisse (enabled = 0 no Gecko); o desenho fica cinza${e.tipo === "SUBCIRCUIT" ? "; vale para tudo o que está dentro" : ""}"><input type="checkbox" id="p-desat" ${e.ativo === false ? "checked" : ""}> desativado${e.curto ? " <small>(em curto, no Gecko)</small>" : ""}</label>` : ""}
-    ${e.tipo === "SUBCIRCUIT" ? `<div class="botoes"><button id="p-lib" title="grava este subcircuito (e o que tem dentro) em simu/gecko/subcircuitos/, para usar em outros circuitos">salvar na biblioteca…</button></div>
+    <div class="botoes">${podeGirar(e) ? `<button id="p-gira">Girar (R)</button>` : naoGira(e) ? `<button id="p-nao-gira" class="nao-gira" title="${NAO_GIRA}">Girar</button>` : ""}<button id="p-apaga" class="perigo">Apagar</button></div>
+    ${e.tipo !== "TERM" ? `<label class="p-desat" title="fica no circuito, mas o Gecko simula como se não existisse (enabled = 0 no Gecko); o desenho fica cinza${e.tipo === "SUBCIRCUIT" ? "; vale para tudo o que está dentro" : ""}"><input type="checkbox" id="p-desat" ${e.ativo === false ? "checked" : ""}> Desativado${e.curto ? " <small>(em curto, no Gecko)</small>" : ""}</label>` : ""}
+    ${e.tipo === "SUBCIRCUIT" ? `<div class="botoes"><button id="p-lib" title="grava este subcircuito (e o que tem dentro) em simu/gecko/subcircuitos/, para usar em outros circuitos">Salvar na biblioteca…</button></div>
       <h4>bloco</h4><label><span>largura × altura</span><input id="p-bloco" value="${e.tamanho[0]} × ${e.tamanho[1]}" title="em quadrados da grade (2 a 40): cabe um borne por quadrado em cada lado"></label>
       <div class="aviso">${resumoBornes(e)}</div>
       ${naFolhaPrincipal() ? caixaIguais(e) : ""}
@@ -1116,11 +1116,11 @@ async function montaProps() {
     ${e.tipo === "AMP" ? `<h4>o que ele mede</h4><label><span>corrente de</span><input id="m-comp" value="${e.mede[0] || ""}" placeholder="procurar componente…" autocomplete="off"></label>` : ""}
     ${ehTag(e) ? `<h4>o que ela marca</h4><label><span>entrada (rótulo)</span><input data-in="0" value="${e.entradas[0] || ""}" placeholder="ou ligue por conexão"></label>
       <div class="aviso">o sinal ligado na entrada (por conexão ou pelo rótulo) vai para o /maisim/scope e para o m[…] do controle com o nome abaixo</div>` : ""}
-    ${ehSinal(e, folhaDe(e)) ? `<label class="no-scope" title="desmarcado: o sinal continua no circuito (sai por um terminal, alimenta blocos), mas não vira coluna no /maisim/scope nem m[…] no controle"><input type="checkbox" id="p-noscope" ${foraDoScope(e) ? "" : "checked"}> no scope e no controle</label>` : ""}
+    ${ehSinal(e, folhaDe(e)) ? `<label class="no-scope" title="desmarcado: o sinal continua no circuito (sai por um terminal, alimenta blocos), mas não vira coluna no /maisim/scope nem m[…] no controle"><input type="checkbox" id="p-noscope" ${foraDoScope(e) ? "" : "checked"}> No scope e no controle</label>` : ""}
     ${MEDIDOR.has(e.tipo) || ehTag(e) ? `<h4>nome no scope</h4><label><span>sinal</span><input data-out="0" value="${e.saidas[0] || ""}" placeholder="${canalScope(e)}"></label>
       <div class="cor-canal" data-canal="${escT(canalScope(e))}"><span>cor do canal</span>${(e.tipo === "AMP" ? ["#0ea5e9", "#eab308", "#06b6d4", "#d946ef", "#22c55e", "#f97316"]
         : ["#eab308", "#06b6d4", "#d946ef", "#22c55e", "#0ea5e9", "#f97316"]).map((c) => `<button class="amostra${corCanal(canalScope(e), e.tipo) === c ? " ativo" : ""}" data-cor="${c}" style="--c:${c}" title="${c}"></button>`).join("")}
-        <input type="color" value="${corCanal(canalScope(e), e.tipo)}" title="outra cor"><button class="padrao" title="voltar à cor padrão">padrão</button></div>
+        <input type="color" value="${corCanal(canalScope(e), e.tipo)}" title="outra cor"><button class="padrao" title="voltar à cor padrão">Padrão</button></div>
       ${circuitoDoLayout() ? `<div class="no-painel" data-canal="${escT(canalScope(e))}"><label><span>seção no scope</span><select id="p-secao"></select></label>
         <label><span>painel</span><select id="p-painel"></select></label></div>` : ""}
       <div class="aviso">é com este nome que o sinal aparece no /maisim/scope (todo medidor vai para lá; sem nome, ${canalScope(e)})</div>` : ""}
@@ -1270,8 +1270,8 @@ $("bt-editar").onclick = async () => {
 async function novoCircuito() {
   const usados = new Set([...document.querySelectorAll("#sel-modelo option")].map((o) => o.textContent.replace(/\.ipes$/, "").split("/").pop()));
   let k = 1; while (usados.has(`circuito_${k}`)) k++;
-  const r = await modal({ titulo: "Novo circuito", texto: "Uma folha em branco. O nome vale para salvar depois (salvar como: o disquete com lápis).", ok: "criar",
-    campos: [{ nome: "nome", rotulo: "nome do circuito", valor: `circuito_${k}`, dica: "letras, números, _ e -" }] });
+  const r = await modal({ titulo: "Novo circuito", texto: "Uma folha em branco. O nome vale para salvar depois (salvar como: o disquete com lápis).", ok: "Criar",
+    campos: [{ nome: "nome", rotulo: "Nome do circuito", valor: `circuito_${k}`, dica: "letras, números, _ e -" }] });
   const nome = r && r.nome.trim(); if (!nome) return;
   if (!/^[A-Za-z0-9_\-]{1,60}$/.test(nome)) { msg("nome do circuito: letras, números, _ e -, até 60", "erro"); return; }
   try { let j;
@@ -1348,7 +1348,7 @@ $("busca").oninput = () => ed.catalogo && desenhaPaleta();
 async function salvaNaBiblioteca(e) {
   const r = await modal({ titulo: "Salvar na biblioteca", texto: `O subcircuito <b>${nomeSub(e.nome)}</b> e tudo o que tem dentro vão para
     <b>simu/gecko/subcircuitos/</b>, com as variáveis $. Depois ele aparece na aba “Biblioteca” da paleta, para clicar ou arrastar em qualquer circuito.`,
-    campos: [{ nome: "nome", rotulo: "nome na biblioteca", valor: "", dica: "letras, números, _ e -" }], ok: "salvar" });
+    campos: [{ nome: "nome", rotulo: "Nome na biblioteca", valor: "", dica: "letras, números, _ e -" }], ok: "Salvar" });
   const nome = r && r.nome.trim(); if (!nome) return;
   const corpo = { acao: "salvar", nome: e.nome, folha: folhaAtual, nome_lib: nome };
   msg("salvando na biblioteca…");
@@ -1377,7 +1377,7 @@ async function salvar() {
 async function salvarComo() {
   if (dados && dados.fechado) { msg("nenhum circuito aberto: não há o que salvar", "erro"); return false; }
   const r = await modal({ titulo: "Salvar como", texto: "O circuito é gravado nos seus circuitos (a pasta de dados do MaiSim) e aparece na lista.",
-    campos: [{ nome: "nome", rotulo: "nome do arquivo", valor: ed.novo || ((dados.arq || "circuito").split("/").pop().replace(/\.ipes$/, "").replace(/^\(.*\)$/, "circuito") + "_copia") }], ok: "salvar" });
+    campos: [{ nome: "nome", rotulo: "Nome do arquivo", valor: ed.novo || ((dados.arq || "circuito").split("/").pop().replace(/\.ipes$/, "").replace(/^\(.*\)$/, "circuito") + "_copia") }], ok: "Salvar" });
   const nome = r && r.nome.trim(); if (!nome) return false;
   const layoutAntes = circuitoDoLayout();
   try { let j;
@@ -1525,7 +1525,7 @@ async function mudaFio(w, corpo, ok) {
 }
 async function apagaFio(w) {
   const a = w.pts[0], b = w.pts[w.pts.length - 1];
-  if (await confirma("Apagar conexão", `Apagar a conexão de (${a}) a (${b})${w.rotulo ? ` (nó <b>${w.rotulo}</b>)` : ""}?`, "apagar", true)) {
+  if (await confirma("Apagar conexão", `Apagar a conexão de (${a}) a (${b})${w.rotulo ? ` (nó <b>${w.rotulo}</b>)` : ""}?`, "Apagar", true)) {
     ed.fioSel = null; await mudaFio(w, { acao: "apagar" }, `conexão apagada: (${a}) → (${b})`); }
 }
 function previaFio() {                             // o fio sendo desenhado e o ponto da grade sob o mouse (verde onde liga)
@@ -1624,7 +1624,7 @@ async function moveGrupo(dg) {
 async function apagaGrupo() {
   const sel = selecaoGrupo();
   if (!(await confirma("Apagar a seleção", `Apagar <b>${sel.nomes.length}</b> componente(s) e <b>${sel.fios.length}</b> conexão(ões)?` +
-    (sel.nomes.length ? `<br><small>${sel.nomes.map(escT).join(", ")}</small>` : ""), "apagar", true))) return;
+    (sel.nomes.length ? `<br><small>${sel.nomes.map(escT).join(", ")}</small>` : ""), "Apagar", true))) return;
   msg("apagando…");
   try { const j = await api("editor/grupo", { acao: "apagar", nomes: sel.nomes, fios: sel.fios, folha: folhaAtual, descr: `apagados ${sel.nomes.length} componente(s) e ${sel.fios.length} conexão(ões)` });
     ed.multi.clear(); ed.multiFios.clear(); novoEstado(j); msg(`apagados ${sel.nomes.length} componente(s) e ${sel.fios.length} conexão(ões)`, "ok"); }
@@ -1673,7 +1673,7 @@ async function cola() {
 }
 async function apaga(e) {
   const txt = e.tipo === "TERM" ? `Apagar <b>${e.nome}</b>? O borne dele some do bloco, e a ligação de fora com ele também.` : `Apagar <b>${e.nome}</b>? As ligações por rótulo dele somem junto.`;
-  if (await confirma("Apagar componente", txt, "apagar", true)) pede("DELETE", [qualificado(e)], `apagado ${e.nome}`);
+  if (await confirma("Apagar componente", txt, "Apagar", true)) pede("DELETE", [qualificado(e)], `apagado ${e.nome}`);
 }
 
 // ---------------------------------------------------------------- menus Arquivo e Simulação
@@ -1726,28 +1726,28 @@ try { Object.assign(sim.par, JSON.parse(localStorage.getItem("maisim-simu-sim") 
 // o nome da próxima depois de guardar uma rodada: rodada_teste → rodada_teste_2 → rodada_teste_3
 const proximoNome = (n) => (/_(\d+)$/.test(n) ? n.replace(/_(\d+)$/, (_, k) => `_${+k + 1}`) : `${n}_2`).slice(0, 40);
 async function parametrosSim(aba = "sim", op = {}) {
-  const SIM = [{ nome: "dt", rotulo: "passo de tempo Δt (s)", valor: sim.par.dt }, { nome: "tfim", rotulo: "tempo final (s)", valor: sim.par.tfim },
-               { nome: "nome", rotulo: "nome da rodada", valor: sim.par.nome, dica: "letras, números, _ e -" },
-               { nome: "amostras", rotulo: "amostras guardadas (até)", valor: sim.par.amostras, dica: "o scope recebe uma amostra a cada tfim/amostras" }];
+  const SIM = [{ nome: "dt", rotulo: "Passo de tempo Δt (s)", valor: sim.par.dt }, { nome: "tfim", rotulo: "Tempo final (s)", valor: sim.par.tfim },
+               { nome: "nome", rotulo: "Nome da rodada", valor: sim.par.nome, dica: "letras, números, _ e -" },
+               { nome: "amostras", rotulo: "Amostras guardadas (até)", valor: sim.par.amostras, dica: "o scope recebe uma amostra a cada tfim/amostras" }];
   const comVars = !!(dados && dados.editor);
   // simulando: só para ver (Marcelo, 22/10) — as variáveis mexem no circuito na hora, e a rodada usa o do início; os
   // parâmetros da simulação travam junto (valeriam só para a próxima). Copiar o nome de uma variável continua
   const roda = sim.estado === "rodando" || sim.estado === "pausada";
   let porCima = sim.par.por_cima !== "0";
   if (op.nome) SIM.find((c) => c.nome === "nome").valor = op.nome;   // depois de guardar uma rodada: o nome da próxima
-  const r = await modal({ titulo: "Parâmetros da simulação", foco: op.nome ? 'input[name="nome"]' : null, ok: roda ? "fechar" : "guardar", cancelar: roda ? "" : "Cancelar", largo: comVars,
-    html: `${roda ? `<p class="m-trava">simulação rodando: só para ver — os parâmetros e as variáveis ficam travados até ela parar (a rodada usa o circuito do início)</p>` : ""}${comVars ? `<div class="m-abas" role="tablist"><button type="button" data-aba="sim">simulação</button><button type="button" data-aba="vars">variáveis globais ($)</button></div>` : ""}
+  const r = await modal({ titulo: "Parâmetros da simulação", foco: op.nome ? 'input[name="nome"]' : null, ok: roda ? "Fechar" : "Guardar", cancelar: roda ? "" : "Cancelar", largo: comVars,
+    html: `${roda ? `<p class="m-trava">simulação rodando: só para ver — os parâmetros e as variáveis ficam travados até ela parar (a rodada usa o circuito do início)</p>` : ""}${comVars ? `<div class="m-abas" role="tablist"><button type="button" data-aba="sim">Simulação</button><button type="button" data-aba="vars">Variáveis globais ($)</button></div>` : ""}
       <div class="m-aba" data-aba="sim"><p>Valem para a próxima vez que você iniciar (Ctrl+Enter).</p>
         ${op.aviso ? `<p class="m-guardada">${escT(op.aviso)}</p>` : ""}
         ${SIM.map((c) => `<label><span>${c.rotulo}</span><input name="${c.nome}" value="${escT(c.valor ?? "")}" ${c.dica ? `title="${c.dica}"` : ""}${roda ? " disabled" : ""}></label>`).join("")}
         <label title="substituir: a rodada nova, depois de terminar bem, tira a anterior com o mesmo nome deste circuito (as guardadas ficam) — o disco não enche; criar outra: guarda as duas"><span>a rodada nova</span><select class="m-porcima"${roda ? " disabled" : ""}>
-          <option value="1"${porCima ? " selected" : ""}>substitui a anterior de mesmo nome</option><option value="0"${porCima ? "" : " selected"}>cria outra (guarda as duas)</option></select></label></div>
+          <option value="1"${porCima ? " selected" : ""}>Substitui a anterior de mesmo nome</option><option value="0"${porCima ? "" : " selected"}>Cria outra (guarda as duas)</option></select></label></div>
       ${comVars ? `<div class="m-aba" data-aba="vars"><p>Como no Gecko: num parâmetro de componente, escreva <b>$nome</b> no lugar do número.
         Mudar o valor aqui muda todos os componentes que a usam. Cada mudança vale na hora (Ctrl+Z desfaz).</p><div id="gv"></div></div>` : ""}`,
     monta: (fundo) => {
       const mostra = (a) => { fundo.querySelectorAll(".m-abas button").forEach((b) => b.classList.toggle("ativo", b.dataset.aba === a));
         fundo.querySelectorAll(".m-aba").forEach((d) => d.style.display = d.dataset.aba === a ? "" : "none");
-        fundo.querySelector(".m-ok").textContent = a === "sim" && !roda ? "guardar" : "fechar";
+        fundo.querySelector(".m-ok").textContent = a === "sim" && !roda ? "Guardar" : "Fechar";
         const f = fundo.querySelector(`.m-aba[data-aba="${a}"] input`); if (f) setTimeout(() => f.focus(), 0); };
       fundo.querySelectorAll(".m-abas button").forEach((b) => b.onclick = () => mostra(b.dataset.aba));
       fundo.querySelector(".m-porcima").onchange = (ev) => { porCima = ev.target.value === "1"; };
@@ -1862,8 +1862,8 @@ function listaGlobais(caixa, travada = false) {       // a aba "variáveis globa
         <button type="button" class="gv-apaga" data-apaga="${escT(k)}" data-usos="${u.length}" title="apagar ${escT(k)}${u.length ? ` (os ${u.length} parâmetros que a usam ficam com o valor dela)` : ""}">×</button></div>`; }).join("")
       || `<div class="t">nenhuma variável neste circuito</div>`}</div>
     <div class="gv nova"><input id="gv-nome" placeholder="$nome" data-enter="proprio" autocomplete="off" aria-label="nome da variável nova">
-      <input id="gv-valor" placeholder="valor" data-enter="proprio" aria-label="valor da variável nova"><button type="button" id="gv-cria">criar</button></div>
-    ${sem.length ? `<button type="button" id="gv-limpa" class="gv-limpa" title="${escT(sem.join(", "))}">apagar as ${sem.length} que nenhum componente usa</button>` : ""}`;
+      <input id="gv-valor" placeholder="valor" data-enter="proprio" aria-label="valor da variável nova"><button type="button" id="gv-cria">Criar</button></div>
+    ${sem.length ? `<button type="button" id="gv-limpa" class="gv-limpa" title="${escT(sem.join(", "))}">Apagar as ${sem.length} que nenhum componente usa</button>` : ""}`;
   const relista = () => listaGlobais(caixa, travada);
   if (travada) caixa.querySelectorAll("input, button:not([data-copia])").forEach((x) => { x.disabled = true; });
   caixa.querySelectorAll("input[data-g]").forEach((i) => {
@@ -2031,7 +2031,7 @@ async function abrirModelo() {
     if (ap) {                                          // apagar: confirma num modal por cima e vai para a .lixeira
       e.stopPropagation(); const o = vis[+ap.dataset.k];
       removeEventListener("keydown", tecla, true);
-      const sim = await confirma("Apagar arquivo", `Apagar <b>${escT(o.t)}</b>? Ele vai para a .lixeira da pasta (dá para recuperar).`, "apagar", true);
+      const sim = await confirma("Apagar arquivo", `Apagar <b>${escT(o.t)}</b>? Ele vai para a .lixeira da pasta (dá para recuperar).`, "Apagar", true);
       addEventListener("keydown", tecla, true);
       if (!sim) return;
       try { const j = await api("editor/apagar_arquivo", { arq: o.v }); itens.splice(itens.indexOf(o), 1); desenhaLista();
@@ -2050,7 +2050,7 @@ $("bt-salvar").onclick = () => salvar();
 async function recarregaModelos(valor) { preencheModelos(await api("modelos"), valor); }
 $("sel-modelo").onchange = async (e) => {
   if (e.target.value === NOVO) return;
-  if (ed.novo && !(await confirma("Circuito novo não salvo", `O circuito <b>${ed.novo}</b> não foi salvo. Abrir outro modelo o descarta.`, "descartar", true))) {
+  if (ed.novo && !(await confirma("Circuito novo não salvo", `O circuito <b>${ed.novo}</b> não foi salvo. Abrir outro modelo o descarta.`, "Descartar", true))) {
     e.target.value = NOVO; mostraModelo(); return; }
   ed.novo = null; await recarregaModelos(e.target.value);
   ed.ligado ? liga(true) : carrega(e.target.value);

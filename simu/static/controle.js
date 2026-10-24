@@ -200,7 +200,7 @@ async function novoArquivo() {
   if (travado() || !ctl.carregado) return;
   let k = 1; while (ctl.lista.includes(`modulo${k}.py`)) k++;
   const r = await modal({ titulo: "Novo arquivo do controle", texto: "Um <b>módulo</b>: o controle.py faz <code>import nome</code> e chama na mesma amostra, sem atraso (pll.py, pi_tensao.py…). Para um controlador à parte (outro DSP, que conversa com atraso), use depois “virar controlador” na árvore.",
-    campos: [{ nome: "nome", rotulo: "nome", valor: `modulo${k}.py`, dica: "letras, números e _, terminando em .py" }], ok: "criar" });
+    campos: [{ nome: "nome", rotulo: "Nome", valor: `modulo${k}.py`, dica: "letras, números e _, terminando em .py" }], ok: "Criar" });
   if (!r) return;
   const nome = /\.py$/.test(r.nome.trim()) ? r.nome.trim() : r.nome.trim() + ".py";
   if (!/^[A-Za-z_][A-Za-z0-9_]{0,40}\.py$/.test(nome)) { poeEstado("nome de arquivo: letras, números e _ (sem começar por número), terminando em .py", "erro"); return; }
@@ -222,7 +222,7 @@ function organizaDSP() {
 async function renomeiaArquivo(a) {
   if (travado() || a === "controle.py") return;
   const r = await modal({ titulo: `Renomear ${escT(a)}`, texto: `O controlador muda de nome junto: quem faz <code>envia("${escT(nomeDoArquivo(a))}", …)</code> nos outros arquivos precisa do nome novo.`,
-    campos: [{ nome: "nome", rotulo: "nome", valor: a, dica: "letras, números e _, terminando em .py" }], ok: "renomear" });
+    campos: [{ nome: "nome", rotulo: "Nome", valor: a, dica: "letras, números e _, terminando em .py" }], ok: "Renomear" });
   if (!r) return;
   const nome = /\.py$/.test(r.nome.trim()) ? r.nome.trim() : r.nome.trim() + ".py";
   if (nome === a) return;
@@ -238,7 +238,7 @@ async function apagaArquivo(a) {
   if (travado() || a === "controle.py") return;
   const c = coleta(); if (c.invalido) return;
   const usam = c.controladores.filter((q) => q.arquivo === a).map((q) => q.nome);
-  if (!(await confirma("Apagar arquivo", `Apagar <b>${escT(a)}</b>${usam.length ? ` e o controlador dele (<b>${escT(usam.join(", "))}</b>)` : ""}? O código se perde (desfazer não volta).`, "apagar", true))) return;
+  if (!(await confirma("Apagar arquivo", `Apagar <b>${escT(a)}</b>${usam.length ? ` e o controlador dele (<b>${escT(usam.join(", "))}</b>)` : ""}? O código se perde (desfazer não volta).`, "Apagar", true))) return;
   c.controladores = c.controladores.filter((q) => q.arquivo !== a); enxuga(c);
   tiraArquivo(a); Object.assign(ctl.dados.controle, c, { arquivos: arquivosDoEditor() }); desenhaLigacoes(); desenhaAbas(); guardaControle();
 }
@@ -462,7 +462,7 @@ function desenhaControladores() {
       ${ss.length ? `<details class="grupo" data-g="sub" ${aberto(i, "sub", q.subcircuitos.length > 0)}><summary><b>em subcircuitos</b> ${escT(curto(q.subcircuitos.map(nomeSub)) || "não")}</summary>
         <div class="opcoes">${ss.map((x) => caixa("data-sub", x, q.subcircuitos.includes(x), nomeSub(x))).join("")}</div></details>` : ""}
       ${resumo ? `<div class="inst">${escT(resumo)}</div>` : ""}
-      ${q.arquivo !== "controle.py" ? `<button class="ctl-papel" data-desliga="${escT(q.arquivo)}" title="em vez de rodar à parte, ser chamado por quem o importa, na mesma amostra (sem atraso)">virar módulo</button>` : ""}</div>`;
+      ${q.arquivo !== "controle.py" ? `<button class="ctl-papel" data-desliga="${escT(q.arquivo)}" title="em vez de rodar à parte, ser chamado por quem o importa, na mesma amostra (sem atraso)">Virar módulo</button>` : ""}</div>`;
   };
   const semDSP = !ctl.lista.includes("leitura.py") && !ctl.lista.includes("escrita.py");
   // a árvore pelos imports (Marcelo, 19/10: "a lista já está ficando cheia… busca e hierarquia"): cada controlador na raiz;
@@ -498,7 +498,7 @@ function desenhaControladores() {
     mostrados.add(a);
     const deles = cs.map((q, i) => [q, i]).filter(([q]) => q.arquivo === a);
     const corpo = deles.map(([q, i]) => cartao(q, i)).join("") || (!cs.length && a === "controle.py"
-      ? `<div class="ctl-vazio">lê todas as medidas e escreve as atuações marcadas (o de sempre)${semDSP ? `<br><button data-dsp="1" title="cria o leitura.py (ADC e sensores) e o escrita.py (PWM/DAC) dos modelos, como módulos; o controle.py não muda">organizar como um DSP</button>` : ""}</div>` : "");
+      ? `<div class="ctl-vazio">lê todas as medidas e escreve as atuações marcadas (o de sempre)${semDSP ? `<br><button data-dsp="1" title="cria o leitura.py (ADC e sensores) e o escrita.py (PWM/DAC) dos modelos, como módulos; o controle.py não muda">Organizar como um DSP</button>` : ""}</div>` : "");
     const fs = filhos(a, new Set()), semCartao = ctl.cartoesFechados.has(a);
     // dois controles (Marcelo, 19/10): a seta recolhe os códigos (os módulos embaixo); o +/− mostra ou esconde o cartão
     const bt = corpo ? `<button class="ctl-card-bt" data-card="${escT(a)}" title="${semCartao ? "mostrar o cartão (o que lê, escreve e as mensagens)" : "esconder o cartão (a seta ao lado do arquivo recolhe os códigos)"}" aria-expanded="${!semCartao}">${semCartao ? "+" : "−"}</button>` : "";
@@ -631,7 +631,7 @@ function mensagensDe(cs) {   // {nome: {envia: [{para, chaves, codigo}], recebe:
 function avisoSemEsquema() {
   const l = (ctl.dados && ctl.dados.sem_esquema) || [];
   return l.map((x, i) => `<div class="ctl-sem">⚠ a variável <code>${escT(x.nome)}</code> do código (${x.usos.map((u) => `<a data-vai="${escT(u.arquivo)}:${u.linha}" title="abrir ${escT(u.arquivo)} na linha ${u.linha}">${escT(u.arquivo)}:${u.linha}</a>`).join(", ")})
-    não existe no esquema${x.tipo === "atuação" ? " (como atuação)" : ""} <button data-troca="${i}" title="escolher um nome que existe e trocar no código">trocar por…</button></div>`).join("");
+    não existe no esquema${x.tipo === "atuação" ? " (como atuação)" : ""} <button data-troca="${i}" title="escolher um nome que existe e trocar no código">Trocar por…</button></div>`).join("");
 }
 function semelhanca(a, b) {                            // pares de letras em comum (Dice), sem caixa nem _: vc_smap_1 ~ SM_ap_1_vCSm
   const pares = (x) => { x = x.toLowerCase().replace(/[^a-z0-9]/g, ""); const p = new Set(); for (let i = 0; i < x.length - 1; i++) p.add(x.slice(i, i + 2)); return p; };
@@ -645,7 +645,7 @@ async function trocaVariavel(x) {
     .sort((a, b) => semelhanca(x.nome, b) - semelhanca(x.nome, a) || a.localeCompare(b));
   if (!opcoes.length) { poeEstado(`o esquema não tem ${x.tipo === "atuação" ? "atuação" : "medida"} para pôr no lugar de ${x.nome}`, "erro"); return; }
   let escolha = opcoes[0];
-  const r = await modal({ titulo: `Trocar ${escT(x.nome)}`, largo: true, ok: "trocar no código", foco: ".m-filtro",
+  const r = await modal({ titulo: `Trocar ${escT(x.nome)}`, largo: true, ok: "Trocar no código", foco: ".m-filtro",
     texto: `<code>${escT(x.nome)}</code> não existe no esquema. Trocar no código (o nome entre aspas, em todos os arquivos) por:`,
     html: `<input class="m-filtro" type="search" placeholder="filtrar…" aria-label="filtrar" data-enter="proprio">
       <div class="m-lista">${opcoes.map((n, i) => `<label><input type="radio" name="m-troca" value="${escT(n)}" ${i ? "" : "checked"}><span>${escT(n)}</span></label>`).join("")}</div>`,
@@ -774,7 +774,7 @@ function ligaVistaDiag() {
   $("cd-menos").onclick = () => zoomDiag(0.8);
   $("cd-ajusta").onclick = ajustaDiag;
   const botaoLinhas = () => { const b = $("cd-linhas"), sep = vistaDiag.linhas === "separadas";
-    b.textContent = sep ? "juntar linhas" : "separar linhas"; b.classList.toggle("ativo", sep); b.setAttribute("aria-pressed", sep); };
+    b.textContent = sep ? "Juntar linhas" : "Separar linhas"; b.classList.toggle("ativo", sep); b.setAttribute("aria-pressed", sep); };
   $("cd-linhas").onclick = () => {                     // juntas ↔ separadas (fica guardado neste navegador); o desenho volta a caber
     vistaDiag.linhas = vistaDiag.linhas === "separadas" ? "juntas" : "separadas"; vistaDiag.mexida = false;
     try { localStorage.setItem("maisim-simu-diag-linhas", vistaDiag.linhas); } catch (e) { /* ok */ }
@@ -1066,8 +1066,8 @@ function corpoPicker() {
   const todas = ctl.pick.g === "le" ? card.querySelector("[data-todas]") : null, q = ctl.pick.filtro.toLowerCase();
   const vis = its.filter((i) => !q || i.rot.toLowerCase().includes(q)), corpo = pk.querySelector(".corpo"), lista = corpo.querySelector(".lista"), rol = lista ? lista.scrollTop : 0;
   pk.querySelector(".n").textContent = todas && todas.checked ? "todas" : `${its.filter((i) => i.x.checked).length} de ${its.length}`;
-  corpo.innerHTML = `${todas ? `<label class="todas"><input type="checkbox" data-pk-todas ${todas.checked ? "checked" : ""}> todas as medidas</label>` : ""}
-    <div class="bts"><button data-pk-tudo="1">marcar ${q ? "os filtrados" : "todos"}</button><button data-pk-tudo="0">desmarcar ${q ? "os filtrados" : "todos"}</button></div>
+  corpo.innerHTML = `${todas ? `<label class="todas"><input type="checkbox" data-pk-todas ${todas.checked ? "checked" : ""}> Todas as medidas</label>` : ""}
+    <div class="bts"><button data-pk-tudo="1">Marcar ${q ? "os filtrados" : "todos"}</button><button data-pk-tudo="0">Desmarcar ${q ? "os filtrados" : "todos"}</button></div>
     <div class="lista">${vis.map((i) => `<label class="${i.x.disabled ? "off" : ""}"><input type="checkbox" data-pk="${escT(i.v)}" ${i.x.checked ? "checked" : ""} ${i.x.disabled || travado() ? "disabled" : ""}><span>${escT(i.rot)}</span>${i.codigo ? `<small title="${escT(i.dica)}">(o código ${ctl.pick.g === "le" ? "lê" : "escreve"})</small>` : ""}${i.dono ? `<small title="hoje é de ${escT(i.dono)}: marcar aqui tira de lá (cada atuação tem um dono só)">(de ${escT(i.dono)})</small>` : ""}</label>`).join("")
       || `<i>${its.length ? "nada com esse filtro" : ctl.pick.g === "esc" ? "marque atuações (em variáveis)" : "nada"}</i>`}</div>`;
   corpo.querySelector(".lista").scrollTop = rol;
@@ -1412,8 +1412,8 @@ function tagAtuador(g, x, y, nome, centrada = false) {   // centrada: x é o mei
     const caixa = $("cc-texto"), pedido = "Deu este erro no controle. Explique a causa em uma frase e corrija:\n\n" + textoDoErro();
     caixa.value = caixa.value.trim() ? caixa.value.trimEnd() + "\n\n" + pedido : pedido;
     setTimeout(() => { caixa.focus(); caixa.setSelectionRange(caixa.value.length, caixa.value.length); caixa.scrollTop = 0; }, 80);
-  };   // a saída do testar (e da rodada) fecha; o ▷ testar abre de novo
-  $("ctl-modelo").onclick = async () => { if (await confirma("Voltar ao modelo", `Trocar o código de ${escT(ctl.arq)} pelo modelo vazio (iniciar e passo)? O código atual se perde.`, "trocar", true)) {
+  };   // a saída do testar (e da rodada) fecha; o ▷ Testar abre de novo
+  $("ctl-modelo").onclick = async () => { if (await confirma("Voltar ao modelo", `Trocar o código de ${escT(ctl.arq)} pelo modelo vazio (iniciar e passo)? O código atual se perde.`, "Trocar", true)) {
     const d = ctl.dados || {}, ms = d.modelos || {};
     poeCodigo(ctl.arq === "controle.py" ? (d.modelo || "") : ms[ctl.arq] || (ehModulo(ctl.arq) ? ms.modulo : MODELO_OUTRO), ctl.arq);
     if (ctl.arq === "controle.py") for (const a of ["leitura.py", "escrita.py"]) if (!ctl.lista.includes(a) && ms[a]) criaArquivo(a, ms[a]);   // o modelo importa os dois
