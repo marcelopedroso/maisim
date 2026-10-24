@@ -4142,6 +4142,11 @@ def claude_pede(texto, dt, tfim, modelo="", esforco="", autonomo=0, ia="claude")
         raise
 
 
+def guia_controle():
+    """O guia do controle no idioma do pedido (GUIA_CONTROLE.en.md em inglês)."""
+    return AQUI / ("GUIA_CONTROLE.en.md" if lingua.atual() == "en" else "GUIA_CONTROLE.md")
+
+
 def _claude_comeca(texto, dt, tfim, vez, modelo="", esforco="", ia="claude"):
     c = le_controle()
     chave, conv, pasta = conversa_atual()
@@ -4159,7 +4164,7 @@ def _claude_comeca(texto, dt, tfim, vez, modelo="", esforco="", ia="claude"):
     memoria = le_memoria()
     (pasta / "memoria.md").write_text(memoria)
     (pasta / "CONTEXTO.md").write_text(claude_contexto(c, dt, tfim))
-    shutil.copyfile(AQUI / "GUIA_CONTROLE.md", pasta / "GUIA_CONTROLE.md")
+    shutil.copyfile(guia_controle(), pasta / "GUIA_CONTROLE.md")   # o guia no idioma do pedido, com o nome de sempre
     ult = resumo_rodada.ultima(RODADAS, circuito_aberto())   # os "olhos": o resumo da rodada mais nova deste circuito
     tem_rodada = bool(ult) and resumo_rodada.copia_para(ult, pasta)
     anexos = [a["nome"] for a in lista_anexos(pasta)]
@@ -4779,7 +4784,7 @@ class Manipulador(BaseHTTPRequestHandler):
                 return self._editor(lambda: claude_mudanca(int(q)))
             return self._resposta(200, claude_estado())
         if rota == "/guia":                            # o guia do controle (o "?" do painel o mostra em static/guia.html)
-            return self._resposta(200, (AQUI / "GUIA_CONTROLE.md").read_bytes(), "text/markdown; charset=utf-8")
+            return self._resposta(200, guia_controle().read_bytes(), "text/markdown; charset=utf-8")
         if rota == "/modelos":
             return self._resposta(200, lista_modelos())
         if rota == "/scope/padrao":                    # o layout padrão do scope de um circuito (?modelo= o meta.modelo da rodada)
