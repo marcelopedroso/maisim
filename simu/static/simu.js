@@ -1366,15 +1366,22 @@ async function montaProps() {
   try {
     const lst = await api(`editor/params?nome=${encodeURIComponent(qualificado(e))}&dom=${encodeURIComponent(e.dom)}&typ=${e.typ}`);   // dom/typ: o identificador no arquivo (para o $)
     if (ed.sel !== e.nome) return;
-    const FONTE = [[401, tr("simu.fonte_cc")], [402, tr("simu.fonte_seno")], [400, tr("simu.fonte_sinal")]];
     const ligada = (q) => (q.id && e.par[q.id + "_var"]) || "";          // a variável $ que dá o valor (como no Gecko)
+    // enumerações e caixinhas (Marcelo, 24/10: a forma da portadora aparecia como 404): o tipo do parâmetro vem do Gecko
+    // (parametros_gecko.json); nenhum desses aceita variável $ (pode_var só em Double e Integer)
+    const enumDe = (q) => ENUM_GECKO[q.tipo] || (q.nome === "type" && (e.tipo === "U" || e.tipo === "I") ? ENUM_GECKO.CircuitSourceType : null);
+    const campo = (q) => {
+      const ops = enumDe(q);
+      if (ops) { const atual = ops.find(([c, n]) => c === q.valor || n === q.valor);     // o GETP dá o código antigo (404); o 0–4 também vale
+        return `<select data-p="${q.nome}">${ops.map(([c, , k]) => `<option value="${c}" ${atual && atual[0] === c ? "selected" : ""}>${escT(tr(k))}</option>`).join("")}${atual ? "" : `<option value="${q.valor}" selected>${q.valor}</option>`}</select>`; }
+      if (q.tipo === "Boolean") return `<input type="checkbox" class="p-bool" data-p="${q.nome}" ${q.valor > 0.5 ? "checked" : ""}>`;
+      return ligada(q) ? `<span class="com-var"><input data-p="${q.nome}" value="${escT(ligada(q))}" class="var" autocomplete="off"><small title="${escT(tr("simu.t_valor_var", { v: ligada(q) }))}">= ${si(q.valor, q.unidade)}</small></span>`
+        : `<input data-p="${q.nome}" value="${q.valor}"${q.pode_var ? ' autocomplete="off"' : ""}>`;
+    };
     v("#p-params").innerHTML = lst.map((q) => `<label title="${q.descricao}${q.pode_var ? " · " + escT(tr("simu.t_pode_var")) : ""}"><span>${q.nome}${q.unidade ? ` [${q.unidade}]` : ""}</span>
-      ${q.erro ? `<i>${q.erro}</i>` : (q.nome === "type" && (e.tipo === "U" || e.tipo === "I"))
-        ? `<select data-p="type">${FONTE.map(([c, r]) => `<option value="${c}" ${c === q.valor || (q.valor === 0 && c === 401) || (q.valor === 1 && c === 402) ? "selected" : ""}>${r}</option>`).join("")}</select>`
-        : ligada(q) ? `<span class="com-var"><input data-p="${q.nome}" value="${escT(ligada(q))}" class="var"><small title="${escT(tr("simu.t_valor_var", { v: ligada(q) }))}">= ${si(q.valor, q.unidade)}</small></span>`
-        : `<input data-p="${q.nome}" value="${q.valor}">`}</label>`).join("") || `<i>${escT(tr("simu.sem_params"))}</i>`;
-    P.querySelectorAll("[data-p]").forEach((i) => i.onchange = async () => {
-      const q = lst.find((x) => x.nome === i.dataset.p), txt = i.value.trim(), fs = alvos(), onde = nosSMs(fs);
+      ${q.erro ? `<i>${q.erro}</i>` : campo(q)}</label>`).join("") || `<i>${escT(tr("simu.sem_params"))}</i>`;
+    P.querySelectorAll("#p-params input[data-p]").forEach((i) => { const q = lst.find((x) => x.nome === i.dataset.p); if (q && q.pode_var) comVariaveis(i); });
+    const mudaParam = async (q, i, txt, fs, onde) => {
       if (txt.startsWith("$") && q && q.pode_var) {                    // $nome: liga à variável (a que não existe é criada com o valor de agora)
         if (!NOME_VAR.test(txt)) { msg(tr("simu.nome_var_erro"), "erro"); i.value = ligada(q) || q.valor; return; }
         const nova = !(txt in (dados.globais || {}));
@@ -1392,7 +1399,14 @@ async function montaProps() {
         if (!/^\d+$/.test(txt)) { msg(tr("simu.par_inteiro", { p: i.dataset.p }), "erro"); i.value = q ? q.valor : ""; return; }
         await mudaTamanho(e, [[i.dataset.p, +txt]], `${e.nome}: ${i.dataset.p} = ${+txt}`); return;
       }
-      pede("SETP", [qualificado(e), i.dataset.p, i.value], `${e.nome}: ${i.dataset.p} = ${i.value}`);
+      const rotulo = i.tagName === "SELECT" && i.selectedOptions[0] ? i.selectedOptions[0].textContent : txt;   // a forma pelo nome, no histórico
+      await pede("SETP", [qualificado(e), i.dataset.p, txt], `${e.nome}: ${i.dataset.p} = ${rotulo}`);
+    };
+    P.querySelectorAll("[data-p]").forEach((i) => i.onchange = async () => {
+      const q = lst.find((x) => x.nome === i.dataset.p), txt = i.type === "checkbox" ? (i.checked ? "1" : "0") : i.value.trim(), fs = alvos(), onde = nosSMs(fs);
+      if (i._enviando === txt) return;                                   // o mesmo valor ainda indo (escolher na lista do $ e sair do campo)
+      i._enviando = txt;
+      try { await mudaParam(q, i, txt, fs, onde); } finally { i._enviando = null; }
     });
   } catch (err) { v("#p-params").innerHTML = `<i>${err.message}</i>`; }
 }
@@ -1563,6 +1577,48 @@ function comBusca(inp, opcoes, { limite = 10, tudoAoFocar = false } = {}) {
     else if (ev.key === "Escape") { ev.stopPropagation(); fecha(); }
   });
   caixa.addEventListener("mousedown", (ev) => { const d = ev.target.closest(".sug"); if (d) { ev.preventDefault(); escolhe(lista[+d.dataset.k]); } });
+  inp.addEventListener("blur", () => setTimeout(fecha, 120));
+  fecha();
+}
+// os parâmetros que são uma enumeração no Gecko: [o código que ele grava e o GETP devolve, o código novo que o SETP também
+// aceita, a chave do texto]. ControlSourceType (a forma do SIGNAL, do FILE e do RANDOM): 402–406 (o 0–4 da dica do Gecko
+// é o código novo); CircuitSourceType (o tipo das fontes U, I, MMF, HEAT-SOURCE, DT): as três abas do diálogo do Gecko
+const ENUM_GECKO = {
+  ControlSourceType: [[402, 0, "simu.forma_seno"], [403, 1, "simu.forma_tri"], [404, 2, "simu.forma_ret"], [405, 3, "simu.forma_aleat"], [406, 4, "simu.forma_arq"]],
+  CircuitSourceType: [[401, 0, "simu.fonte_cc"], [402, 1, "simu.fonte_seno"], [400, 2, "simu.fonte_sinal"]],
+};
+// o $ num parâmetro que aceita variável (Marcelo, 24/10): a lista das variáveis globais do circuito ("$Vin = 10") embaixo do
+// campo, filtrada pelo que vem depois do $; ↑/↓ marcam, Enter ou Tab escolhem a marcada, Esc fecha, o clique escolhe;
+// escolher é como digitar o nome (o "change" do campo liga o parâmetro à variável). Sem nenhuma marcada, Enter e Tab valem o
+// que foi digitado (um $nome novo cria a variável, como antes, mesmo com outra parecida na lista)
+function comVariaveis(inp) {
+  const lbl = inp.closest("label") || inp.parentElement;
+  const caixa = document.createElement("div"); caixa.className = "sugestoes sug-vars"; caixa.title = "";   // title vazio: sem a dica do Gecko (a do label) por cima da lista
+  lbl.style.position = "relative"; lbl.appendChild(caixa);
+  let lista = [], i = -1;
+  const aberta = () => caixa.style.display !== "none";
+  const fecha = () => { caixa.style.display = "none"; i = -1; };
+  const mostra = () => {
+    const txt = inp.value.trim();
+    if (!txt.startsWith("$")) { fecha(); return; }
+    const g = Object.entries((dados && dados.globais) || {});
+    lista = g.map(([k, x]) => [pontua(txt.slice(1), k.slice(1)), k, x]).filter(([p]) => p >= 0)
+      .sort((a, b) => b[0] - a[0] || a[1].localeCompare(b[1], undefined, { sensitivity: "base" })).slice(0, 10);
+    caixa.innerHTML = lista.map(([, k, x], n) => `<div class="sug${n === i ? " atual" : ""}" data-k="${n}"><b>${escT(k)}</b><small>= ${escT(x)}</small></div>`).join("")
+      || `<div class="mais">${escT(g.length ? tr("simu.nada_com", { q: txt }) : tr("simu.vars_sug_vazio"))}</div>`;
+    caixa.style.display = "";
+  };
+  const escolhe = (n) => { inp.value = lista[n][1]; fecha(); inp.dispatchEvent(new Event("change")); };
+  inp.addEventListener("input", () => { i = -1; mostra(); });
+  inp.addEventListener("keydown", (ev) => {
+    if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+      if (!inp.value.trim().startsWith("$")) return;
+      ev.preventDefault(); if (!aberta()) mostra(); if (!lista.length) return;
+      i = i < 0 ? (ev.key === "ArrowDown" ? 0 : lista.length - 1) : Math.max(0, Math.min(lista.length - 1, i + (ev.key === "ArrowDown" ? 1 : -1))); mostra();
+    } else if ((ev.key === "Enter" || ev.key === "Tab" && !ev.shiftKey) && aberta() && lista[i]) { ev.preventDefault(); escolhe(i); }
+    else if (ev.key === "Escape" && aberta()) { ev.preventDefault(); ev.stopPropagation(); fecha(); }
+  });
+  caixa.addEventListener("mousedown", (ev) => { ev.preventDefault(); const d = ev.target.closest(".sug"); if (d) escolhe(+d.dataset.k); });   // sem tirar o foco do campo
   inp.addEventListener("blur", () => setTimeout(fecha, 120));
   fecha();
 }

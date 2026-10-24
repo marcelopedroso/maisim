@@ -4989,6 +4989,7 @@ class Manipulador(BaseHTTPRequestHandler):
                     p = parametro_gecko(dom, typ, campos[0]) if dom and typ.lstrip("-").isdigit() else None
                     if p:                                # o identificador no arquivo (o $ligado vem em par[id + "_var"])
                         item["id"], item["pode_var"] = p["id"], p["valor"] in ("Double", "Integer")
+                        item["tipo"] = p["valor"]        # o tipo no Gecko (Boolean, ControlSourceType…): a tela escolhe o campo
                     lst.append(item)
                 return lst
             return self._editor(params)
