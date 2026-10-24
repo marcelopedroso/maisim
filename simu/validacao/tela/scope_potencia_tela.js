@@ -60,27 +60,63 @@ np.savez(${JSON.stringify(arq)}, meta=np.array(json.dumps(meta)), t=t, v_a=100*n
       u.setCursor({ left: u.valToPos(d[0][k], "x"), top: 20 });
       const lin = [...u.root.querySelectorAll(".u-legend .u-series")][i + 1];
       return { y: d[i + 1][k], vi: iv >= 0 && ii >= 0 ? (d[iv + 1][k] / p.series[iv].ganho) * (d[ii + 1][k] / p.series[ii].ganho) : null, t: d[0][k], show: u.series[i + 1].show,
-               rot: p.series[i].rot, html: lin ? lin.querySelector(".u-label").innerHTML : "", leg: lin ? lin.textContent.replace(/\s+/g, " ").trim() : "", cor: p.series[i].cor, ymax: u.scales.y.max };
+               rot: p.series[i].rot, html: lin ? lin.querySelector(".u-label").innerHTML : "", leg: lin ? lin.textContent.replace(/\s+/g, " ").trim() : "", cor: p.series[i].cor, ymax: u.scales.y.max,
+               escala: u.series[i + 1].scale, pmax: u.scales.p ? u.scales.p.max : null, eixoP: u.axes.some((a) => a.scale === "p") };
     }, nome);
     let cv = await curva("p_a");
     const w = 2 * Math.PI * 50, pa = (ms) => 100 * Math.sin(w * ms / 1e3) * 10 * Math.sin(w * ms / 1e3 - Math.PI / 6);
     ok(cv && cv.rot === "p_a" && Math.abs(cv.y - cv.vi) < 1e-9 && Math.abs(cv.y - pa(cv.t)) < 1e-6 && /<sub>a<\/sub>/.test(cv.html) && />p</.test(cv.html) && /^pa:? ?-?[\d.]+/.test(cv.leg),
        `a curva p_a(t): p(${cv && cv.t} ms) = ${cv && cv.y} = v·i (${cv && cv.vi}); legenda "${cv && cv.leg}"`);
+    // o eixo da potência (Marcelo, 24/10: com v ~ 100 V e p ~ 1 kW no mesmo eixo, um dos dois ficava espremido): as curvas p(t)
+    // na escala "p", com o eixo à direita em W, a faixa cobrindo p; o eixo da esquerda (v, i) com a mesma faixa de sem a Potência
+    const eixos = () => ev((p) => { const u = p.u, d = u.data, k = u.axes.findIndex((a) => a.scale === "p"), ax = u.axes[k];
+      const fx = (f) => { let lo = Infinity, hi = -Infinity; p.series.forEach((se, i) => { if (!f(se) || !u.series[i + 1].show) return;
+        for (const v of d[i + 1]) if (v != null && v === v) { if (v < lo) lo = v; if (v > hi) hi = v; } }); return [lo, hi]; };
+      return { y: [u.scales.y.min, u.scales.y.max], p: u.scales.p && u.scales.p.min != null ? [u.scales.p.min, u.scales.p.max] : null,
+               ax: ax ? { side: ax.side, label: ax.label, vals: (ax._values || []).filter(Boolean), cor: ax.stroke && ax.stroke() } : null,
+               pot: fx((se) => se.pot), vi: fx((se) => !se.pot), escalas: p.series.map((se, i) => [se.canal, u.series[i + 1].scale]) }; });
+    const e1 = await eixos();
+    await ev((p) => p.el.querySelector('.m-modo[data-k="pot"]').click()); await pg.waitForTimeout(400);
+    const e0 = await eixos();
+    await ev((p) => p.el.querySelector('.m-modo[data-k="pot"]').click()); await pg.waitForTimeout(400);
+    const cobre = (r, f) => r && r[0] <= f[0] && r[1] >= f[1];
+    ok(e1.ax && e1.ax.side === 1 && e1.ax.label === "potência p(t)" && e1.ax.vals.length >= 2 && e1.ax.vals.every((v) => / k?W$/.test(v))
+       && e1.escalas.every(([c, s]) => s === (/^p_/.test(c) ? "p" : "y")) && cobre(e1.p, e1.pot) && e1.pot[1] > 900 && e1.p[1] < 1.2 * e1.pot[1],
+       `o eixo da potência: à direita (side ${e1.ax && e1.ax.side}), "${e1.ax && e1.ax.label}", marcas ${e1.ax && e1.ax.vals.join(" · ")}; p de ${e1.pot.map((v) => v.toFixed(0)).join(" a ")} W na faixa ${e1.p && e1.p.map((v) => v.toFixed(0)).join(" … ")}`);
+    ok(!e0.ax && !e0.p && cobre(e1.y, e1.vi) && e1.y[1] < 150 && Math.abs(e1.y[0] - e0.y[0]) < 1e-9 && Math.abs(e1.y[1] - e0.y[1]) < 1e-9,
+       `o eixo de v e i: ${e1.y.map((v) => v.toFixed(1)).join(" … ")} com a Potência, ${e0.y.map((v) => v.toFixed(1)).join(" … ")} sem ela (o eixo da potência some: ${!e0.ax})`);
+    // Y fixo: o eixo da potência também (em branco, automático); Automática solta os dois
+    await ev((p) => p.el.querySelector(".b-y").click());
+    const temCampos = await ev((p) => !!p.el.querySelector(".menu-y .p-max"));
+    await ev((p) => { const m = p.el.querySelector(".menu-y"); m.querySelector(".y-min").value = -200; m.querySelector(".y-max").value = 200;
+      m.querySelector(".p-min").value = -500; m.querySelector(".p-max").value = 1500; m.querySelector(".y-ok").click(); });
+    await pg.waitForTimeout(300);
+    const ef = await eixos(), pf = await ev((p) => p.pFixo);
+    await ev((p) => p.el.querySelector(".b-y").click()); await ev((p) => p.el.querySelector(".menu-y .y-auto").click()); await pg.waitForTimeout(300);
+    const ea = await eixos();
+    ok(temCampos && ef.y[0] === -200 && ef.y[1] === 200 && ef.p[0] === -500 && ef.p[1] === 1500 && JSON.stringify(pf) === "[-500,1500]"
+       && Math.abs(ea.y[1] - e1.y[1]) < 1e-9 && Math.abs(ea.p[1] - e1.p[1]) < 1e-9,
+       `Y fixo: v/i ${ef.y.join(" … ")}, p ${ef.p.join(" … ")} W (no layout: ${JSON.stringify(pf)}); Automática: ${ea.y[1].toFixed(1)} e ${ea.p[1].toFixed(0)} W de novo`);
     // o ×2 da tela na v_a não muda nem a curva nem a tabela (valores reais)
     await ev((p) => { p.ganhos = { v_a: 2 }; criaGrafico(p); });
     await pg.waitForTimeout(300);
     const cg = await curva("p_a"); t = await tabela();
     ok(cg && Math.abs(cg.y - pa(cg.t)) < 1e-6 && perto(num(t.find((l) => l[0] === "pa")[1]), 433.0, 0.05), `com v_a ×2 na tela: p_a(t) = ${cg && cg.y} e P = ${t[0][1]} (os reais)`);
     await ev((p) => { p.ganhos = {}; criaGrafico(p); });
-    // escondida na legenda: a escala volta e fica escondida no gráfico refeito (no layout)
-    const y1 = (await curva("p_a")).ymax;
-    await ev((p) => p.u.setSeries(1 + p.series.findIndex((se) => se.pot && se.canal === "p_a"), { show: false }));
-    await pg.waitForTimeout(400);
+    // escondida na legenda: a escala da potência volta (a de v e i não muda) e fica escondida no gráfico refeito (no layout);
+    // escondidas as duas, o eixo da potência sai; uma de volta, ele volta
+    const c1 = await curva("p_a"), esconde = (nome, show) => ev((p, [nome, show]) => p.u.setSeries(1 + p.series.findIndex((se) => se.pot && se.canal === nome), { show }), [nome, show]);
+    await esconde("p_a", false); await pg.waitForTimeout(400);
     await ev((p) => criaGrafico(p)); await pg.waitForTimeout(300);
     const ch = await curva("p_a"), oc = await ev((p) => p.med.oculta["pot:p_a"]);
-    ok(y1 > 900 && ch && !ch.show && oc === true && ch.ymax < 450, `p_a escondida na legenda: a escala de ${y1 && y1.toFixed(0)} para ${ch && ch.ymax.toFixed(0)}; refeito, continua escondida`);
-    await ev((p) => p.u.setSeries(1 + p.series.findIndex((se) => se.pot && se.canal === "p_a"), { show: true }));
-    await pg.waitForTimeout(300);
+    ok(c1.escala === "p" && c1.pmax > 900 && ch && !ch.show && oc === true && ch.pmax < 450 && Math.abs(ch.ymax - c1.ymax) < 1e-9,
+       `p_a escondida na legenda: o eixo da potência de ${c1.pmax && c1.pmax.toFixed(0)} para ${ch && ch.pmax.toFixed(0)} W, o de v e i fica em ${ch && ch.ymax.toFixed(1)}; refeito, continua escondida`);
+    await esconde("p_b", false); await pg.waitForTimeout(400);
+    const semEixo = !(await curva("p_a")).eixoP;
+    await esconde("p_a", true); await pg.waitForTimeout(400);
+    const cv2 = await curva("p_a");
+    await esconde("p_b", true); await pg.waitForTimeout(300);
+    ok(semEixo && cv2.eixoP && cv2.show && cv2.pmax > 900, `as duas escondidas: sem o eixo da potência (${semEixo}); p_a de volta: o eixo volta (${cv2.eixoP}, até ${cv2.pmax && cv2.pmax.toFixed(0)} W)`);
     // trocar a corrente do 1º par (v_a com i_b): o nome vira p_{a,b}, e os números os do par novo (φ₁ = 60°: 125 W, 216,5 VAr)
     await ev((p) => { const s = p.el.querySelector('.pot-par[data-k="0"] .pot-i'); s.value = "i_b"; s.dispatchEvent(new Event("change")); });
     await pg.waitForTimeout(400);
@@ -124,11 +160,14 @@ np.savez(${JSON.stringify(arq)}, meta=np.array(json.dumps(meta)), t=t, v_a=100*n
     // o idioma: os textos da Potência trocam
     await pg.evaluate(() => maisimI18n.muda("en")); await pg.waitForTimeout(500);
     const en = await ev((p) => ({ bt: p.el.querySelector('.m-modo[data-k="pot"]').textContent.trim(), cab: [...p.el.querySelectorAll(".med-pot th")].map((th) => th.textContent.trim()),
-                                  pares: p.el.querySelector(".pot-pares b").textContent, add: p.el.querySelector(".pot-add").textContent }));
+                                  pares: p.el.querySelector(".pot-pares b").textContent, add: p.el.querySelector(".pot-add").textContent,
+                                  eixo: (p.u.axes.find((a) => a.scale === "p") || {}).label }));
     await pg.evaluate(() => maisimI18n.muda("pt")); await pg.waitForTimeout(500);
-    const pt = await ev((p) => ({ bt: p.el.querySelector('.m-modo[data-k="pot"]').textContent.trim(), cab0: p.el.querySelector(".med-pot th").textContent.trim(), add: p.el.querySelector(".pot-add").textContent }));
-    ok(en.bt === "Power" && en.cab[0] === "pair" && /mean of p/.test(en.cab[1]) && en.pares === "v · i pairs" && en.add === "+ pair" && pt.bt === "Potência" && pt.cab0 === "par" && pt.add === "+ par",
-       `em inglês: ${en.bt}, "${en.cab.slice(0, 2).join(" / ")}", "${en.pares}", "${en.add}"; de volta: ${pt.bt}, "${pt.cab0}"`);
+    const pt = await ev((p) => ({ bt: p.el.querySelector('.m-modo[data-k="pot"]').textContent.trim(), cab0: p.el.querySelector(".med-pot th").textContent.trim(), add: p.el.querySelector(".pot-add").textContent,
+                                  eixo: (p.u.axes.find((a) => a.scale === "p") || {}).label }));
+    ok(en.bt === "Power" && en.cab[0] === "pair" && /mean of p/.test(en.cab[1]) && en.pares === "v · i pairs" && en.add === "+ pair" && en.eixo === "power p(t)"
+       && pt.bt === "Potência" && pt.cab0 === "par" && pt.add === "+ par" && pt.eixo === "potência p(t)",
+       `em inglês: ${en.bt}, "${en.cab.slice(0, 2).join(" / ")}", "${en.pares}", "${en.add}", eixo "${en.eixo}"; de volta: ${pt.bt}, "${pt.cab0}", eixo "${pt.eixo}"`);
     // fora do padrão dos nomes (v_o com i_L): a 1ª tensão com a 1ª corrente, a curva p_{o,L}
     await ev((p) => { p.sinais = ["v_o", "i_L"]; criaGrafico(p); mudaMed(p); }); await pg.waitForTimeout(300);
     pr = await pares(); t = await tabela();

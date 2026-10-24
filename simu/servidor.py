@@ -1715,7 +1715,7 @@ def carrega_aparencia_de(arq_ipes):
 # o layout padrão do scope de um circuito (Marcelo, 23/10), ao lado do .ipes (<nome>.scope.json): o scope o guarda
 # ("guardar como padrão deste circuito") e volta a ele; um circuito sem layout no navegador começa por ele; vai junto no
 # "salvar como"; os exemplos vêm com o deles (só leitura). O do dia a dia continua no navegador, livre para mexer
-CHAVES_PAINEL = ("titulo", "sinais", "altura", "largura", "yFixo", "ganhos", "modo", "solto", "recolhido", "med")
+CHAVES_PAINEL = ("titulo", "sinais", "altura", "largura", "yFixo", "pFixo", "ganhos", "modo", "solto", "recolhido", "med")
 
 
 def arquivo_scope(arq_ipes):

@@ -357,6 +357,9 @@ const chaveSe = (se) => `${se.canal}|${se.F === A ? "A" : "B"}`;      // o sinal
 const seriesMed = (p) => (p.series || []).filter((se) => !se.soma && !se.pot);   // as da tabela da medição (sem as curvas Σ e p)
 const assinaturaComb = (ss) => JSON.stringify((ss || []).filter((se) => se.soma || se.pot).map((se) => [se.comb || se.canal, se.F === A, se.soma || se.pot]));
 const ocultaDe = (se) => (se.soma ? se.comb : `pot:${se.canal}`);      // a chave da curva Σ / x̄ / p escondida na legenda (med.oculta)
+// a escala de uma série: as curvas p(t) no eixo da potência ("p", à direita, em W); o resto no da esquerda ("y")
+const escalaDe = (se) => (se && se.pot ? "p" : "y");
+const temPot = (p) => (p.series || []).some((se) => se.pot);
 // x̄: a soma dividida pelo número de parcelas (e a escala do resíduo numérico também)
 const divide = (se, y) => { if (!(se.div > 1)) return y; se.escala /= se.div; for (let k = 0; k < y.length; k++) if (y[k] != null) y[k] /= se.div; return y; };
 // faixa de tempo de um painel: a comum (painel ligado) ou a própria (painel solto); null = tudo
@@ -427,11 +430,14 @@ function dadosPainel(p) {
 }
 
 // ---------------------------------------------------------------- escalas
-function faixaY(dados, x0, x1, vis) {
+// quais(s): as séries que entram (a 1ª é o tempo); sem ele, todas. O eixo da esquerda (v, i, Σ…) e o da potência (à direita)
+// têm cada um a sua faixa
+function faixaY(dados, x0, x1, vis, quais) {
   let lo = Infinity, hi = -Infinity; const x = dados[0];
   let k0 = 0; while (k0 < x.length && x[k0] < x0) k0++;
   for (let s = 1; s < dados.length; s++) {
     if (vis && vis[s] === false) continue;           // escondida na legenda
+    if (quais && !quais(s)) continue;
     const y = dados[s];
     for (let k = k0; k < x.length && x[k] <= x1; k++) { const v = y[k]; if (v < lo) lo = v; if (v > hi) hi = v; }
   }
@@ -446,13 +452,20 @@ function atualiza(p) {
   const x = dados[0]; if (!x.length) return;
   const f = faixaX(p);
   const fx = f ? { min: f[0], max: f[1] } : (fixar && p.u.scales.x.min != null ? { min: p.u.scales.x.min, max: p.u.scales.x.max } : { min: x[0], max: x[x.length - 1] });
-  // vertical: o zoom Y deste painel; senão a escala fixa (Y fixo); senão automática na faixa de tempo visível
+  // vertical: o zoom Y deste painel; senão a escala fixa (Y fixo); senão automática na faixa de tempo visível. As curvas p(t)
+  // da Potência têm o seu eixo (à direita, em W; Marcelo, 24/10: com v ~ 100 V e p ~ 1 kW, uma das duas ficava espremida):
+  // fora da faixa do eixo da esquerda, com o seu zoom, o seu Y fixo e a sua escala automática
+  const vis = p.u.series.map((q) => q.show), eP = (s) => !!(p.series[s - 1] && p.series[s - 1].pot);
   const fy = p.yZoom ? { min: p.yZoom[0], max: p.yZoom[1] } : p.yFixo ? { min: p.yFixo[0], max: p.yFixo[1] }
-    : (fixar && p.u.scales.y.min != null ? { min: p.u.scales.y.min, max: p.u.scales.y.max } : faixaY(dados, fx.min, fx.max, p.u.series.map((q) => q.show)));
+    : (fixar && p.u.scales.y.min != null ? { min: p.u.scales.y.min, max: p.u.scales.y.max } : faixaY(dados, fx.min, fx.max, vis, (s) => !eP(s)));
+  const sp = temPot(p) && p.u.scales.p;
+  const fp = !sp ? null : p.pZoom ? { min: p.pZoom[0], max: p.pZoom[1] } : p.pFixo ? { min: p.pFixo[0], max: p.pFixo[1] }
+    : (fixar && sp.min != null ? { min: sp.min, max: sp.max } : faixaY(dados, fx.min, fx.max, vis, eP));
   sincronizando = true;
   p.u.setData(dados, false);
   p.u.setScale("x", fx);
   if (fy) p.u.setScale("y", fy);
+  if (fp) p.u.setScale("p", fp);
   sincronizando = false;
   if (p.med && p.med.aberto && p.med.fourier) mede(p);   // o Fourier desligado não calcula (ao vivo, seria a cada quadro)
   if (p.med && p.med.aberto && p.med.pot.on) medePot(p);
@@ -470,7 +483,7 @@ function mudaX(p, faixa) {
   if (p.solto) { p.xZoom = faixa; agenda([p]); return; }
   xFaixa = faixa; agenda(paineis().filter((q) => !q.solto));
 }
-function reseta(p) { p.yZoom = null; mudaX(p, null); }      // o enquadrar: vertical automática (ou o Y fixo) e o tempo todo
+function reseta(p) { p.yZoom = null; p.pZoom = null; mudaX(p, null); }      // o enquadrar: vertical automática (ou o Y fixo) e o tempo todo
 
 // ---------------------------------------------------------------- medição num intervalo
 // Mesmo método de smauto.metrics (window, harmonic_phasors, thd), para os números baterem com os scripts e o artigo:
@@ -731,6 +744,12 @@ function fmtSI(v, un) {
   const [f, s] = PRE.find(([f]) => a >= f * 0.99995) || PRE[PRE.length - 1];
   return `${(v / f).toPrecision(4)} ${s}${un}`;
 }
+// as marcas do eixo da potência: todas com o mesmo prefixo (o do maior valor à vista) e o W: 0 W, 500 W, 1 kW, 1.5 kW
+function valoresW(u, vals) {
+  const a = Math.max(0, ...vals.filter((v) => v != null).map(Math.abs));
+  const [f, s] = [[1e9, "G"], [1e6, "M"], [1e3, "k"], [1, ""], [1e-3, "m"], [1e-6, "µ"]].find(([f]) => a >= f) || [1, ""];
+  return vals.map((v) => (v == null ? "" : `${+(v / f).toPrecision(4)} ${s}W`));
+}
 function medePot(p) {
   const M = p.med, box = p.el.querySelector(".medicao"), el = box && box.querySelector(".med-pot");
   if (!el || !M.aberto || !M.pot.on) return;
@@ -983,7 +1002,8 @@ function valorEm(p, k, t) {                             // a série k do painel 
 const fmtT = (ms) => (ms == null || !isFinite(ms) ? "–" : Math.abs(ms) < 1 ? `${+(ms * 1e3).toPrecision(4)} µs` : `${+ms.toPrecision(5)} ms`);
 const fmtF = (hz) => (!isFinite(hz) ? "–" : Math.abs(hz) >= 1e3 ? `${+(hz / 1e3).toPrecision(4)} kHz` : `${+hz.toPrecision(4)} Hz`);
 function cursoresMed(u, p) {                           // gancho draw: as linhas, as etiquetas e as bolinhas nas curvas
-  if (!curLigados(p) && !curYLigados(p)) return;
+  // p.u !== u: o desenho atrasado de um gráfico já refeito (as séries do painel são as do novo)
+  if (p.u !== u || (!curLigados(p) && !curYLigados(p))) return;
   const M = p.med.cur, { left, top, width, height } = u.bbox, g = u.ctx, r = devicePixelRatio || 1, C = cores();
   g.save();
   if (curYLigados(p)) for (const [k, v] of [["C", M.ya], ["D", M.yb]]) {      // as horizontais: o nível na escala do gráfico
@@ -1002,7 +1022,7 @@ function cursoresMed(u, p) {                           // gancho draw: as linhas
     g.fillStyle = C.faixaBorda; g.fillRect(x - 8 * r, top, 16 * r, 14 * r);
     g.fillStyle = "#fff"; g.font = `600 ${10 * r}px system-ui, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(k, x, top + 7 * r);
     p.series.forEach((se, i) => { if (!u.series[i + 1].show) return; const v = valorEm(p, i + 1, t); if (v == null) return;
-      const y = u.valToPos(v * (se.ganho || 1) + (se.desloc || 0), "y", true);
+      const y = u.valToPos(v * (se.ganho || 1) + (se.desloc || 0), escalaDe(se), true);
       g.fillStyle = se.cor; g.beginPath(); g.arc(x, y, 3.5 * r, 0, 2 * Math.PI); g.fill(); });
   }
   g.restore();
@@ -1059,7 +1079,7 @@ function marcaAcionamentos(u) {
 // pausado, também os dados de agora (senão o gráfico novo pegava a escala automática e os dados mais novos)
 function refazGrafico(p) {
   const u = p.u, sc = (k) => (u.scales[k].min != null ? { min: u.scales[k].min, max: u.scales[k].max } : null);
-  criaGrafico(p, u && (fixar || pausado) && sc("x") ? { x: sc("x"), y: sc("y"), dados: pausado ? u.data : null } : null);
+  criaGrafico(p, u && (fixar || pausado) && sc("x") ? { x: sc("x"), y: sc("y"), p: u.scales.p ? sc("p") : null, dados: pausado ? u.data : null } : null);
 }
 function criaGrafico(p, manter) {
   if (p.u) { p.u.destroy(); p.u = null; }
@@ -1073,19 +1093,28 @@ function criaGrafico(p, manter) {
     p.area.innerHTML = `<div class="vazio">${escH(tr("scope.p.nao_existem"))}</div>`; return;
   }
   const fmt = (v) => (v == null || isNaN(v)) ? "–" : (Math.abs(v) >= 1000 ? v.toFixed(1) : +v.toPrecision(5));
+  const mostra = (se) => (se.soma || se.pot ? !(p.med.oculta && p.med.oculta[ocultaDe(se)]) : !p.espFora.has(chaveSe(se)));
+  // as curvas p(t): o eixo da direita, em W, só com alguma delas à vista (escondidas todas, o gráfico volta a um eixo só);
+  // na cor da curva quando é uma só (um par; no Comparar, A e B têm a mesma cor)
+  const potVis = p.series.filter((se) => se.pot && mostra(se)), corP = new Set(potVis.map((se) => se.cor));
+  p.eixoP = potVis.length > 0;
+  const axes = [{ label: "t (ms)", stroke: cores().eixo, grid: { stroke: cores().grade }, ticks: { stroke: cores().grade } },
+    { size: 64, stroke: cores().eixo, grid: { stroke: cores().grade }, ticks: { stroke: cores().grade }, values: (u, vals) => vals.map((v) => v == null ? "" : (Math.abs(v) >= 1000 ? (v / 1000).toFixed(1) + "k" : +v.toFixed(3))) }];
+  if (p.eixoP) axes.push({ scale: "p", side: 1, size: 70, label: tr("scope.med.eixo_pot"), labelSize: 20, stroke: corP.size === 1 ? [...corP][0] : cores().eixo,
+    grid: { show: false }, ticks: { stroke: cores().grade }, values: valoresW });
   const opts = {
     width: Math.max(300, p.el.clientWidth - 14), height: alturaDe(p),
-    scales: { x: { time: false } },
+    scales: Object.assign({ x: { time: false } }, temPot(p) ? { p: { auto: true } } : {}),
     series: [{ label: "t (ms)", value: (u, v) => v == null ? "–" : v.toFixed(4) }].concat(p.series.map((se) => ({
-      label: se.rot, stroke: se.cor, width: se.largura || 1.3, dash: se.dash, points: { show: false }, spanGaps: !!uniao,
+      label: se.rot, stroke: se.cor, width: se.largura || 1.3, dash: se.dash, points: { show: false }, spanGaps: !!uniao, scale: escalaDe(se),
       // um sinal escondido (na legenda ou com um clique no nome na tabela) fica fora do Σ, da x̄, do espectro e da escala:
       // a soma é a do que está à vista (Marcelo, 20/10: escondidos na legenda, o Σ somava os 20 sinais, os 600 V do V_dc junto)
-      show: se.soma || se.pot ? !(p.med.oculta && p.med.oculta[ocultaDe(se)]) : !p.espFora.has(chaveSe(se)),
+      show: mostra(se),
       paths: se.degrau ? uPlot.paths.stepped({ align: 1 }) : undefined,
-      // Σ: o resíduo numérico (va + vb + vc ~ 1e-13) é 0, pela escala das parcelas, como na tabela
-      value: (u, v) => fmt(v == null || isNaN(v) ? v : se.soma && Math.abs(v) <= 1e-9 * (se.escala || 0) ? 0 : (v - se.desloc) / se.ganho) }))),     // valor real (sem ×k nem empilhamento)
-    axes: [{ label: "t (ms)", stroke: cores().eixo, grid: { stroke: cores().grade }, ticks: { stroke: cores().grade } },
-           { size: 64, stroke: cores().eixo, grid: { stroke: cores().grade }, ticks: { stroke: cores().grade }, values: (u, vals) => vals.map((v) => v == null ? "" : (Math.abs(v) >= 1000 ? (v / 1000).toFixed(1) + "k" : +v.toFixed(3))) }],
+      // Σ: o resíduo numérico (va + vb + vc ~ 1e-13) é 0, pela escala das parcelas, como na tabela; p(t) com o W
+      value: (u, v) => { const r = fmt(v == null || isNaN(v) ? v : se.soma && Math.abs(v) <= 1e-9 * (se.escala || 0) ? 0 : (v - se.desloc) / se.ganho);
+        return se.pot && r !== "–" ? `${r} W` : r; } }))),     // valor real (sem ×k nem empilhamento)
+    axes,
     // a sincronização entre painéis leva só o cursor (sem arrasto nem duplo clique): o zoom de cada painel é decidido aqui,
     // e só o eixo do tempo casa entre painéis (sem o eixo vertical, o arrasto vertical num painel não muda os outros)
     cursor: { sync: { key: "mmc", setSeries: false, scales: ["x", null], filters: { pub: (ev) => ev === "mousemove" || ev === "mouseenter" || ev === "mouseleave" } },
@@ -1104,14 +1133,18 @@ function criaGrafico(p, manter) {
         if (!fazX && !fazY) return;
         const xr = fazX ? [u.posToVal(s.left, "x"), u.posToVal(s.left + s.width, "x")] : null;
         const yr = fazY ? [u.posToVal(s.top + s.height, "y"), u.posToVal(s.top, "y")] : null;
+        const pr = fazY && u.scales.p && u.scales.p.min != null ? [u.posToVal(s.top + s.height, "p"), u.posToVal(s.top, "p")] : null;   // o eixo da potência: o mesmo retângulo
         u.setSelect({ left: 0, top: 0, width: 0, height: 0 }, false);
         if (yr) p.yZoom = yr;
+        if (pr) p.pZoom = pr;
         if (xr) mudaX(p, xr); else agenda([p]);
       }],
       draw: [(u) => faixaMed(u, p), (u) => cursoresMed(u, p), marcaAcionamentos],
       setSeries: [(u, i) => {                // clique na legenda: a escala vertical refaz sem a escondida
         const se = i != null && p.series[i - 1];
-        if (se && (se.soma || se.pot)) { (p.med.oculta = p.med.oculta || {})[ocultaDe(se)] = !u.series[i].show; guardaLayout(); }
+        if (se && (se.soma || se.pot)) { (p.med.oculta = p.med.oculta || {})[ocultaDe(se)] = !u.series[i].show; guardaLayout();
+          // a última p(t) escondida (ou a 1ª de volta): o eixo da potência sai (ou volta)
+          if (se.pot && p.eixoP !== p.series.some((q, j) => q.pot && u.series[j + 1].show)) { setTimeout(() => { if (p.u === u) criaGrafico(p); }, 0); return; } }
         else if (se) {                       // um sinal: entra ou sai do Σ, da x̄, da tabela e do espectro
           const ch = chaveSe(se), fora = !u.series[i].show;
           if (fora !== p.espFora.has(ch)) {
@@ -1131,8 +1164,9 @@ function criaGrafico(p, manter) {
     e.preventDefault();
     const f = e.deltaY < 0 ? 0.8 : 1.25;
     if (e.shiftKey) {
-      const yv = p.u.posToVal(e.offsetY, "y"), mn = p.u.scales.y.min, mx = p.u.scales.y.max;
-      p.yZoom = [yv - (yv - mn) * f, yv + (mx - yv) * f]; agenda([p]);
+      const zoom = (k) => { const v = p.u.posToVal(e.offsetY, k), mn = p.u.scales[k].min, mx = p.u.scales[k].max; return [v - (v - mn) * f, v + (mx - v) * f]; };
+      p.yZoom = zoom("y"); if (p.u.scales.p && p.u.scales.p.min != null) p.pZoom = zoom("p");   // os dois eixos, em volta do mesmo ponto
+      agenda([p]);
     } else {
       const xv = p.u.posToVal(e.offsetX, "x"), mn = p.u.scales.x.min, mx = p.u.scales.x.max;
       mudaX(p, [xv - (xv - mn) * f, xv + (mx - xv) * f]);
@@ -1162,7 +1196,7 @@ function criaGrafico(p, manter) {
     }, 0), { once: true });
   }, true);
   if (!manter) { atualiza(p); return; }
-  sincronizando = true; p.u.setScale("x", manter.x); if (manter.y) p.u.setScale("y", manter.y); sincronizando = false;
+  sincronizando = true; p.u.setScale("x", manter.x); if (manter.y) p.u.setScale("y", manter.y); if (manter.p && p.u.scales.p) p.u.setScale("p", manter.p); sincronizando = false;
   if (p.med && p.med.aberto && p.med.fourier) mede(p);
   if (p.med && p.med.aberto && p.med.pot.on) medePot(p);
 }
@@ -1361,20 +1395,31 @@ function adicionaSecao(titulo, posicao, recolhida) {
 function menuY(p) {
   const m = document.createElement("div"); m.className = "menu menu-y";
   const [a, b] = p.yFixo || (p.u && p.u.scales.y.min != null ? [p.u.scales.y.min, p.u.scales.y.max] : [0, 1]);
+  // com as curvas p(t), o eixo da potência (à direita) também: em branco, automático
+  const comP = temPot(p);
   m.innerHTML = `<b>${escH(tr("scope.p.y_titulo"))}</b><label>${escH(tr("scope.p.y_max"))} <input type="number" step="any" class="y-max"></label>
-    <label>${escH(tr("scope.p.y_min"))} <input type="number" step="any" class="y-min"></label>
-    <div><button class="y-ok">${escH(tr("scope.p.y_ok"))}</button> <button class="y-auto">${escH(tr("scope.p.y_auto"))}</button></div>`;
+    <label>${escH(tr("scope.p.y_min"))} <input type="number" step="any" class="y-min"></label>` +
+    (comP ? `<b class="y-pot" title="${escH(tr("scope.p.t_y_pot"))}">${escH(tr("scope.p.y_pot"))}</b><label>${escH(tr("scope.p.y_max"))} <input type="number" step="any" class="p-max" placeholder="${escH(tr("scope.p.y_auto_ph"))}"></label>
+    <label>${escH(tr("scope.p.y_min"))} <input type="number" step="any" class="p-min" placeholder="${escH(tr("scope.p.y_auto_ph"))}"></label>` : "") +
+    `<div><button class="y-ok">${escH(tr("scope.p.y_ok"))}</button> <button class="y-auto">${escH(tr("scope.p.y_auto"))}</button></div>`;
   m.querySelector(".y-max").value = +b.toPrecision(6); m.querySelector(".y-min").value = +a.toPrecision(6);
+  if (comP && p.pFixo) { m.querySelector(".p-max").value = +p.pFixo[1].toPrecision(6); m.querySelector(".p-min").value = +p.pFixo[0].toPrecision(6); }
   m.querySelector(".y-ok").onclick = () => {
     const lo = parseFloat(m.querySelector(".y-min").value), hi = parseFloat(m.querySelector(".y-max").value);
     if (!(hi > lo)) { m.querySelector(".y-max").focus(); return; }
-    p.yFixo = [lo, hi]; p.yZoom = null; marcaY(p); guardaLayout(); atualiza(p); m.remove();
+    let pf = null;
+    if (comP) {                                          // os dois em branco: o eixo da potência fica automático
+      const tx = (k) => m.querySelector(k).value.trim(), plo = parseFloat(tx(".p-min")), phi = parseFloat(tx(".p-max"));
+      if (tx(".p-min") || tx(".p-max")) { if (!(phi > plo)) { m.querySelector(".p-max").focus(); return; } pf = [plo, phi]; }
+    } else pf = p.pFixo || null;                         // sem a Potência agora: o que estava guardado fica
+    p.yFixo = [lo, hi]; p.pFixo = pf; p.yZoom = null; p.pZoom = null; marcaY(p); guardaLayout(); atualiza(p); m.remove();
   };
-  m.querySelector(".y-auto").onclick = () => { p.yFixo = null; p.yZoom = null; marcaY(p); guardaLayout(); atualiza(p); m.remove(); };
+  m.querySelector(".y-auto").onclick = () => { p.yFixo = null; p.pFixo = null; p.yZoom = null; p.pZoom = null; marcaY(p); guardaLayout(); atualiza(p); m.remove(); };
   m.addEventListener("keydown", (e) => { if (e.key === "Enter") m.querySelector(".y-ok").click(); });
   return m;
 }
-function marcaY(p) { const b = p.el.querySelector(".b-y"); b.classList.toggle("ativo", !!p.yFixo); b.title = p.yFixo ? tr("scope.p.t_y_fixo", { min: p.yFixo[0], max: p.yFixo[1] }) : tr("scope.p.t_y"); }
+function marcaY(p) { const b = p.el.querySelector(".b-y"); b.classList.toggle("ativo", !!p.yFixo);
+  b.title = (p.yFixo ? tr("scope.p.t_y_fixo", { min: p.yFixo[0], max: p.yFixo[1] }) : tr("scope.p.t_y")) + (p.pFixo ? " · " + tr("scope.p.t_y_fixo_pot", { min: p.pFixo[0], max: p.pFixo[1] }) : ""); }
 function marcaZoom(p) {
   p.el.querySelectorAll(".b-zm").forEach((b) => b.classList.toggle("ativo", b.dataset.m === p.modo));
   const b = p.el.querySelector(".b-solto");
@@ -1421,8 +1466,8 @@ function menuOpc(p) {
 function adicionaPainel(cfg, posicao) {
   const p = { tipo: "painel", id: ++seq, titulo: cfg.titulo || tr("scope.novo_painel"), sinais: (cfg.sinais || []).slice(), altura: cfg.altura ? alturaOk(cfg.altura) : 220,
               largura: LARGURAS_OK.includes(cfg.largura) ? cfg.largura : larguraPadrao,
-              yFixo: cfg.yFixo || null, ganhos: Object.assign({}, cfg.ganhos || {}),
-              modo: MODOS_ZOOM[cfg.modo] ? cfg.modo : "x", solto: !!cfg.solto, xZoom: null, yZoom: null,
+              yFixo: cfg.yFixo || null, pFixo: Array.isArray(cfg.pFixo) && cfg.pFixo.length === 2 && cfg.pFixo[1] > cfg.pFixo[0] ? cfg.pFixo.slice() : null, ganhos: Object.assign({}, cfg.ganhos || {}),
+              modo: MODOS_ZOOM[cfg.modo] ? cfg.modo : "x", solto: !!cfg.solto, xZoom: null, yZoom: null, pZoom: null,
               med: novaMed(cfg.med), espFora: new Set(), recolhido: !!cfg.recolhido, expandido: false };
   const el = document.createElement("div"); el.className = "cartao";
   // os textos fixos com data-tr* (o aplica() troca ao mudar o idioma); os títulos que mudam (b-rec, b-exp, b-solto, b-y): marca*()
@@ -1487,7 +1532,7 @@ function adicionaPainel(cfg, posicao) {
   return p;
 }
 
-const layoutAtual = () => ({ colunas: larguraPadrao, indice, itens: itens.map((x) => x.tipo === "secao" ? { secao: x.titulo, recolhida: x.recolhida || undefined } : { titulo: x.titulo, sinais: x.sinais, altura: x.altura, largura: x.largura, yFixo: x.yFixo, ganhos: x.ganhos, modo: x.modo, solto: x.solto, med: x.med, recolhido: x.recolhido || undefined }) });
+const layoutAtual = () => ({ colunas: larguraPadrao, indice, itens: itens.map((x) => x.tipo === "secao" ? { secao: x.titulo, recolhida: x.recolhida || undefined } : { titulo: x.titulo, sinais: x.sinais, altura: x.altura, largura: x.largura, yFixo: x.yFixo, pFixo: x.pFixo || undefined, ganhos: x.ganhos, modo: x.modo, solto: x.solto, med: x.med, recolhido: x.recolhido || undefined }) });
 let padraoPendente = "";                                // a chave cujo padrão está vindo (consultaPadrao)
 function guardaLayout() {
   const chave = chaveLayout();                          // sem rodada (sem circuito), nada a guardar
@@ -1750,7 +1795,7 @@ function conectaVivo() {
     }
     A = { meta, dados: {} }; xFaixa = null;
     montaTudo();                             // rodada nova: os painéis deixam de apontar para a anterior
-    for (const p of paineis()) { p.xZoom = null; p.yZoom = null; }
+    for (const p of paineis()) { p.xZoom = null; p.yZoom = null; p.pZoom = null; }
     st("scope.st.vivo_aguardando", { nome: nomePlanta(A.meta) });
   });
   fonteEventos.addEventListener("dados", (ev) => {
