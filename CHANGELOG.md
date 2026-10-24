@@ -8,7 +8,6 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ### Added
 - **Scope: Power in Measure.** A *Power* mode pairs each voltage with its current by name (`v_a` with `i_a`; pick other pairs in the lists), draws p(t) = v(t)·i(t) as a curve with its legend entry, and gives P, V_rms, I_rms, S, λ = P/S and the fundamental P₁ and Q₁ over the Fourier window (#68).
-
 - Simu: put a signal in several scope panels, and delete panels, right from the signal's panel picker (#67).
 
 ### Changed
