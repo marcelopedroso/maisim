@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=1">
 <link rel="manifest" href="/manifest.webmanifest">
-<meta name="theme-color" content="#6d28d9">
+<meta name="theme-color" content="#111418" data-claro="#111418" data-escuro="#111418">   <!-- a página do Gecko é sempre escura -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MaiSim · gecko</title>
+<title>MaiSim</title>
 <script src="/maisim-i18n.js"></script>
 <script data-src="/maisim-i18n.js">/* reserva: sem o maisim-i18n.js (a conexão caiu), o português; tenta de novo e o de verdade assume */window.maisimI18n||(function(){var d={},o=[],h=function(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]})},f=function(k,p){var e=d[k],v=e?e.pt:k;if(v&&typeof v==="object")v=p&&p.n===1?v.one:v.other;return p?String(v).replace(/\{(\w+)\}/g,function(m,x){return x in p?(/_html$/.test(k)?h(p[x]):String(p[x])):m}):v};window.maisimI18n={reserva:true,add:function(x){for(var k in x)d[k]=x[k]},dicionario:function(){return d},tr:f,tem:function(k){return k in d},lingua:function(){return"pt"},local:function(){return"pt-BR"},muda:function(){},aoMudar:function(g){o.push(g)},ouvintes:function(){return o},aplica:function(){},data:function(x,o){return new Date(x).toLocaleString("pt-BR",o)},hora:function(x,o){return new Date(x).toLocaleTimeString("pt-BR",o||{hour:"2-digit",minute:"2-digit"})},num:function(x,o){return Number(x).toLocaleString("pt-BR",o)},escH:function(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]})}};window.tr=f;var s=document.createElement("script");s.src=document.currentScript.getAttribute("data-src");s.async=false;document.head.appendChild(s)})()</script>  <!-- português e inglês (o idioma do trilho), antes de pintar -->
 <script>
@@ -61,7 +61,7 @@ function conecta() {
     mostra("erro");
     setTimeout(conecta, 2500);
   });
-  rfb.addEventListener("desktopname", (e) => { document.title = "MaiSim · gecko"; });
+  rfb.addEventListener("desktopname", (e) => { document.title = "MaiSim"; });
 }
 conecta();
 document.getElementById("cheia").onclick = () => document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();

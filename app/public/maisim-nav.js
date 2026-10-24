@@ -91,8 +91,8 @@
     const t = escolhaTema(), escuro = t === "escuro" || (t === "sistema" && !!(midiaEscura && midiaEscura.matches));
     const antes = document.documentElement.dataset.tema;
     document.documentElement.dataset.tema = escuro ? "escuro" : "claro";
-    const cor = document.querySelector('meta[name="theme-color"]');   // a barra da janela do app acompanha (a cor do cabeçalho)
-    if (cor) cor.setAttribute("content", escuro ? "#171a21" : "#ffffff");
+    const cor = document.querySelector('meta[name="theme-color"]');   // a barra da janela do app acompanha (cada página diz as
+    if (cor && cor.dataset.claro) cor.setAttribute("content", escuro ? cor.dataset.escuro : cor.dataset.claro);   // suas duas cores)
     const b = document.querySelector("#maisim-nav .tema");
     if (b) { b.innerHTML = ICONE_TEMA[t]; b.dataset.rotulo = tr(`nav.tema_${t}`); b.setAttribute("aria-label", tr(`nav.tema_${t}`)); }
     if (antes !== document.documentElement.dataset.tema) window.dispatchEvent(new CustomEvent("maisim-tema", { detail: { tema: document.documentElement.dataset.tema, escolha: t } }));
