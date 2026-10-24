@@ -87,10 +87,9 @@ class LoginPorTerminal:
         with self._trava:
             p = self._login.get("proc")
             em_andamento = p is not None and p.poll() is None
-            if not em_andamento and processos.WIN:
+            if not em_andamento and processos.WIN:     # (a trava sai no fim do with: o estado() a pega de novo)
                 self._entra_windows()
-                return self.estado()
-            if not em_andamento:
+            elif not em_andamento:
                 self._prepara_login()
                 vazio = self.pasta / "maisim" / "login"           # o cwd do login: uma pasta vazia (nada a ler ali)
                 vazio.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -105,7 +104,7 @@ class LoginPorTerminal:
                 self._login.update(proc=proc, fd=mestre, andamento=True, desde=time.time(), url=None, erro=None, mensagem=None,
                                    erro_t=None, mensagem_t=None)
                 lingua.thread(self._le_login, proc, mestre).start()   # as mensagens no idioma de quem pediu o login
-        if not em_andamento:
+        if not em_andamento and not processos.WIN:      # no Windows não há link a esperar: o login é na janela própria
             for _ in range(self.LOGIN_ESPERA_LINK * 10):
                 with self._trava:
                     if self._login.get("url") or not self._login.get("andamento"):
@@ -128,9 +127,15 @@ class LoginPorTerminal:
     def _acompanha_windows(self, proc):
         while proc.poll() is None and not self.logado():
             time.sleep(1)
+        entrou = self.logado()
+        if entrou:
+            try:
+                self.ao_entrar(None)                      # a peça atualiza o que precisar (os modelos); a conta, a ferramenta sabe
+            except Exception:
+                pass
         with self._trava:
             self._login["andamento"] = False
-            if self.logado():
+            if entrou:
                 self._poe("mensagem", "feito")
             else:
                 self._poe("erro", "janela_fechada")
