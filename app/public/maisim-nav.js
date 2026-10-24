@@ -81,7 +81,7 @@
   /* no tema claro, o trilho também (Marcelo, 24/10): a cor do cabeçalho e uma linha fina separando; o Gecko fica escuro */
   #maisim-nav.claro { background:#ffffff; border-right-color:#d9dde3; }
   #maisim-nav.claro .marca { color:#6d28d9; }
-  #maisim-nav.claro .marca svg path:nth-of-type(2) { fill:#ede9fe; }   /* o triângulo da marca na variante clara (marca/maisim-icone.svg) */
+  #maisim-nav.claro .marca svg path:nth-of-type(2) { fill:none; }   /* o triângulo da marca vazado, como no ícone (Marcelo, 24/10) */
   #maisim-nav.claro .item { color:#5b6470; }
   #maisim-nav.claro .item:hover { background:#eef0f3; color:#1b1f24; }
   #maisim-nav.claro .item.ativo { background:#ede9fe; color:#6d28d9; }
