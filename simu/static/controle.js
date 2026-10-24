@@ -2,7 +2,11 @@
 // parâmetros, Ts e o código Python (editor Monaco, o do VS Code; sem internet, uma caixa de texto simples). A configuração
 // é guardada no servidor a cada mudança (POST editor/controle) e vai junto quando o circuito é salvo; a rodada com o
 // controle ligado chama passo() a cada Ts (servidor.py, laco_controle). Usa as funções globais do simu.js.
-const MONACO = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs";
+// o Monaco: o local (simu/vendor.sh baixa a versão fixa, enxuta, em static/vendor/monaco; os pacotes sempre o levam: funciona
+// sem internet) ou, sem ele (a versão de programador antes do vendor.sh), o do CDN, na mesma versão
+const MONACO_CDN = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs";
+const MONACO_LOCAL = new URL("static/vendor/monaco/vs", location.href).href;
+let MONACO = MONACO_CDN;
 const ctl = { dados: null, modelosIdioma: {}, carregado: false, editor: null, texto: null, monaco: null, timer: null, timerLig: null, guardando: null, quebra: quebraGuardada(),
   arq: "controle.py", lista: ["controle.py"], modelos: {}, textos: {}, vistas: {} };   // os arquivos do controle: um modelo do Monaco (ou um texto) por arquivo
 
@@ -21,6 +25,8 @@ function carregaMonaco() {
   return new Promise((ok, falha) => {
     if (window.monaco) return ok(window.monaco);
     const prazo = setTimeout(() => falha(new Error(tr("ctl.monaco_falhou"))), 15000);
+    fetch(`${MONACO_LOCAL}/loader.js`).then((r) => r.ok, () => false).then((local) => { if (local) MONACO = MONACO_LOCAL; carrega(); });
+    function carrega() {
     window.MonacoEnvironment = { getWorkerUrl: () => `data:text/javascript;charset=utf-8,${encodeURIComponent(
       `self.MonacoEnvironment = { baseUrl: "${MONACO}/../" }; importScripts("${MONACO}/base/worker/workerMain.js");`)}` };
     const s = document.createElement("script"); s.src = `${MONACO}/loader.js`;
@@ -28,6 +34,7 @@ function carregaMonaco() {
       window.require(["vs/editor/editor.main"], () => { clearTimeout(prazo); ok(window.monaco); }, (e) => { clearTimeout(prazo); falha(e); }); };
     s.onerror = () => { clearTimeout(prazo); falha(new Error(tr("ctl.monaco_falhou"))); };
     document.head.appendChild(s);
+    }
   });
 }
 

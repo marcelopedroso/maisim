@@ -39,6 +39,9 @@ runs:
     - name: web page (Vite)
       shell: bash
       run: npm ci --prefix app --no-audit --no-fund
+    - name: Monaco offline (simu/vendor.sh, pinned + SHA-256)
+      shell: bash
+      run: bash simu/vendor.sh
     - name: Playwright (Chromium) and Claude Code
       shell: bash
       run: |

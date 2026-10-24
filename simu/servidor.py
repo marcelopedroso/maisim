@@ -5246,6 +5246,12 @@ class Manipulador(BaseHTTPRequestHandler):
             return
         if u.path == PREFIXO + "/":
             return self._resposta(200, (AQUI / "static" / "index.html").read_bytes(), TIPOS[".html"])
+        if rota.startswith("/static/vendor/"):         # o Monaco local (simu/vendor.sh), com as subpastas dele
+            base = (AQUI / "static" / "vendor").resolve()
+            arq = (base / rota[len("/static/vendor/"):]).resolve()
+            if base in arq.parents and arq.is_file():
+                return self._resposta(200, arq.read_bytes(), TIPOS.get(arq.suffix, "application/octet-stream"))
+            return self._resposta(404, {"erro": lingua.tr("servidor.nao_achei")})
         if rota.startswith("/static/"):                # arquivos soltos; e os do KaTeX (as equações do chat), na pasta deles
             arq = AQUI / "static" / ("katex" if rota.startswith("/static/katex/") else "") / Path(rota).name
             if rota == "/static/maisim-i18n.js":       # as traduções: um arquivo só, o da página inicial (app/public)

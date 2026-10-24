@@ -126,6 +126,7 @@ clicam no cadeado para editar, como antes. O `codigo_tela.js` confere o padrão 
 | `ajustes_tela.js` | atalhos mudos no controle.py, dica e iframe, proporção do desenho, plano B do trilho (6; usa a 7200 → 7201) |
 | `cores_tela.js` | marcas de medição e cor do canal (8) |
 | `guia_tela.js` | o "?" abre o guia renderizado, sem rolagem lateral no celular (3) |
+| `offline_tela.js` | sem internet (todo pedido fora do localhost cortado): o editor de código do Controle é o Monaco local (`simu/vendor.sh`), com o Python colorido; o guia formatado pelo marked local; nenhum pedido para fora | 4/4 |
 | `pontas_tela.js` | ponta (+) e garra (−) no componente escolhido, campo com busca; pontas no mesmo nó (o − embaixo de um resistor e o + em cima do seguinte, em pé e deitados) sem uma marca cobrir outra (7) |
 | `tema_tela.js` | tema sistema/claro/escuro pelo trilho; toda variável de cor com valor nos dois temas; faixa do SM, ícones da paleta e etiqueta ⚙ no escuro (11) |
 | `divisor_tela.js` | o divisor entre o código e a conversa do Claude, com o zoom de 110 %: ao lado (largura) e embaixo (altura), o divisor onde o mouse solta, o código com pelo menos 300 px, guardado ao recarregar, duplo clique volta ao padrão (7) |
