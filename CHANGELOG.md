@@ -7,6 +7,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Added
+- `npm run maisim -- -p PORT` serves MaiSim on another port: the page on PORT, the other services right after it (#63).
 - **MaiSim in Portuguese and English** (#42–#56). The first visit follows the browser language, and the PT/EN button on the rail switches every window at once. Pages, server messages, the AI (rules, prompts, the files it reads), the control guide, code templates and examples come in both languages. A strict guard in every PR keeps any new text bilingual.
 - **Signal destinations** (#61). Each signal has two checkboxes: **→ Scope** (recorded in the run) and **→ Control** (`m["…"]` in the code). Signals that only feed the control are no longer recorded, so runs are lighter. Every recorded signal, blocks and sources included, gets its pill on the drawing, with its color and its scope section and panel.
 - **Math notation** for signal names: `v_o` is shown as *v* with a subscript *o*. In the scope (#38) and on the circuit drawing (#59).

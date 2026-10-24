@@ -4,10 +4,34 @@
 # ar é reaproveitado e continua no ar. Ctrl+C derruba o que ESTE comando subiu. O Gecko só cai se não houver circuito sem
 # salvar (o simulador compara o que está no Gecko com o arquivo aberto); se houver, ele fica no ar e o comando diz como derrubar.
 # Variável: MAISIM_SEM_GECKO=1 (não sobe o Gecko).
+# Opção: -p PORTA (npm run maisim -- -p 8100): a página nessa porta e as outras logo em seguida (+1 o simulador, +2 o scope,
+# +3 o Gecko, +4 o motor do editor, +5 a tela do Gecko, +6 o VNC; a tela virtual :PORTA/100); sem -p, as de config/ (7100…).
 set -u
+case "${LC_ALL:-${LANG:-}}" in pt*) PT=1;; *) PT=;; esac          # as mensagens do -p no idioma do terminal
+fala() { if [ -n "$PT" ]; then echo "$1"; else echo "$2"; fi; }
+B=; CACHE_DADO=${MAISIM_CACHE:-}                            # o cache escolhido por você (no ambiente) vale mais que o do -p
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -p|--porta)
+      B=${2:-}
+      if ! [[ "$B" =~ ^[0-9]+$ ]] || [ "$B" -lt 1024 ] || [ "$B" -gt 65000 ]; then
+        fala "maisim: -p pede um número de porta entre 1024 e 65000 (ex.: -p 8100)" \
+             "maisim: -p needs a port number between 1024 and 65000 (e.g. -p 8100)"; exit 2; fi
+      export MAISIM_PORTA_PAGINA=$B MAISIM_PORTA_SIMU=$((B + 1)) MAISIM_PORTA_SCOPE=$((B + 2)) MAISIM_PORTA_GECKO=$((B + 3))
+      export MAISIM_PORTA_MOTOR=$((B + 4)) MAISIM_PORTA_TELA=$((B + 5)) MAISIM_PORTA_VNC=$((B + 6)) MAISIM_TELA_X=":$((B / 100))"
+      shift 2;;
+    -h|--help)
+      fala "uso: npm run maisim [-- -p PORTA]   (sem -p: http://localhost:7100; com -p 8100: http://localhost:8100, e 8101–8106)" \
+           "usage: npm run maisim [-- -p PORT]   (no -p: http://localhost:7100; with -p 8100: http://localhost:8100, and 8101–8106)"; exit 0;;
+    *) fala "maisim: opção desconhecida: $1 (use -p PORTA, ou -h)" "maisim: unknown option: $1 (use -p PORT, or -h)"; exit 2;;
+  esac
+done
 APP="$(cd "$(dirname "$0")/.." && pwd)"                   # app/ (a página)
 SM="$(cd "$APP/.." && pwd)"                               # a raiz do projeto: scope/, simu/, gecko/
 eval "$(python3 "$SM/config/ler_config.py" --shell)"     # as portas e as pastas (config/padrao.env, o .env, o ambiente)
+# com -p, um cache só desta porta (o estado do editor, as conversas, o Gecko e os PIDs dele): duas instâncias lado a lado não
+# se atropelam; os seus dados (circuitos, rodadas) continuam os mesmos
+if [ -n "$B" ] && [ -z "$CACHE_DADO" ]; then export MAISIM_CACHE="$MAISIM_CACHE/porta-$B"; mkdir -p "$MAISIM_CACHE"; fi
 LOG="$MAISIM_CACHE/logs"; mkdir -p "$LOG"
 PORTA=$MAISIM_PORTA_PAGINA; SP=$MAISIM_PORTA_SCOPE; MP=$MAISIM_PORTA_SIMU
 GECKO="$MAISIM_PORTA_TELA $MAISIM_PORTA_GECKO $MAISIM_PORTA_MOTOR"
