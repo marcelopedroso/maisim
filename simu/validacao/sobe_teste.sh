@@ -6,10 +6,9 @@ R="$(cd "$(dirname "$0")/../.." && pwd)"   # a raiz do projeto (validacao → si
 # só o perfil de teste (config/teste.env), nada do ambiente: um MAISIM_* exportado no terminal não vaza para cá
 unset $(compgen -v MAISIM_); eval "$(python3 "$R/config/ler_config.py" --shell teste)"; T=$MAISIM_DADOS; mkdir -p "$T/home"
 for p in $MAISIM_PORTA_GECKO $MAISIM_PORTA_MOTOR $MAISIM_PORTA_SIMU; do ss -ltn | grep -q ":$p " && { echo "porta $p ocupada"; exit 1; }; done
-JAR=${MAISIM_GECKO_JAR:-$R/gecko/build/gecko-lote.jar}; [ -f "$JAR" ] || bash "$R/gecko/construir.sh"   # o Gecko: o original + o patch
-cp "$R/exemplos/exemplo_controle_pwm.ipes" "$T/modelo.ipes"
 nohup Xvfb "$MAISIM_TELA_X" -screen 0 1400x900x24 -nolisten tcp > "$T/xvfb.log" 2>&1 &
 sleep 1
+"$R/simu/validacao/reinicia_gecko_teste.sh"      # o Gecko (com o modelo da partida) e o motor do editor
 (cd "$T" && DISPLAY=$MAISIM_TELA_X nohup java -Duser.home="$T/home" -Dpolyglot.js.nashorn-compat=true -jar "$JAR" "$T/modelo.ipes" -p "$MAISIM_PORTA_GECKO" > "$T/gecko.log" 2>&1 &)
 for _ in $(seq 1 60); do grep -q "GeckoCIRCUITS is ready" "$T/gecko.log" 2>/dev/null && break; sleep 1; done
 M="$R/simu/motor"                                  # o motor do editor: compila se o .java for mais novo

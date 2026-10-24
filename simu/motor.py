@@ -41,8 +41,9 @@ class ErroMotor(Exception):
 
 class Motor:
     def __init__(self, porta):
-        self.porta, self.f, self.trava = porta, None, threading.Lock()
+        self.porta, self.f, self.trava = porta, None, threading.RLock()   # RLock: o ao_conectar manda pedidos de dentro do cmd
         self.vigia, self.janelas, self._desde, self._olho = None, [], None, None
+        self.ao_conectar, self._conferindo = None, False   # chamada a cada conexão nova (um motor novo pode ter um Gecko novo)
 
     def _olha(self):
         """Enquanto um pedido demora (mais de 2 s), a vigia olha a tela do Gecko a cada segundo: uma janela de erro aberta no
@@ -70,6 +71,14 @@ class Motor:
                     if self.f is None:
                         s = socket.create_connection(("127.0.0.1", self.porta), timeout=60)
                         self.f = s.makefile("rw", encoding="utf-8")
+                        if self.ao_conectar and not self._conferindo:   # antes do pedido: o servidor confere o Gecko
+                            self._conferindo = True
+                            try:
+                                self.ao_conectar()
+                            finally:
+                                self._conferindo = False
+                            if self.f is None:                 # a conexão caiu durante a conferência
+                                raise ConnectionError(lingua.tr("motor.fechou_conexao"))
                     self.f.write(linha + "\n")
                     self.f.flush()
                     self._desde = time.monotonic()

@@ -312,11 +312,12 @@ MOTOR.vigia = vigia_gecko
 
 
 def aviso_janelas():
-    """O que a vigia fechou durante o pedido, para a página dizer (e zera)."""
+    """O que a vigia fechou durante o pedido, e o Gecko novo que o servidor refez (confere_gecko), para a página dizer (e zera)."""
     js, MOTOR.janelas = MOTOR.janelas, []
-    if not js:
-        return ""
-    return lingua.tr("editor.janelas_gecko_fechadas", n=len(js), titulos=", ".join(sorted(set(js))))
+    partes = [lingua.tr(k, **a) for k, a in editor.pop("gecko_novo", None) or []]
+    if js:
+        partes.append(lingua.tr("editor.janelas_gecko_fechadas", n=len(js), titulos=", ".join(sorted(set(js)))))
+    return "; ".join(partes)
 
 
 def estado():
@@ -391,6 +392,109 @@ def com_desfazer(f, descr, manter_se_falhar=False):
         apara()
         return r
     return g
+
+
+# ---------------------------------------------------------------- um Gecko novo (24/10: o Gecko foi parado e o MaiSim
+# reiniciado; o servidor voltou com o arquivo do Marcelo no editor, mas o Gecko novo tinha o modelo da partida — o editor
+# mostrava outro circuito com o nome do arquivo, "sem salvar", e Salvar gravaria o modelo da partida por cima dele). O Gecko
+# costuma sobreviver a reiniciar o servidor; quando ele é outro (caiu, para.sh, reboot, atualização), o servidor o põe como
+# o editor o tinha: reabre o arquivo aberto (do disco; nunca grava nele) ou deixa a folha vazia (circuito novo, fechado). O
+# que não estava salvo morreu com o Gecko de antes: a última cópia que o editor viu dele (ESTADO) fica em GECKO_COPIAS, e a
+# página avisa. Quando: a cada conexão nova com o motor (o sobe.sh sobe um motor novo com cada Gecko), antes do pedido que a
+# abriu, e na partida do servidor assim que o motor responder (o maisim.sh sobe o Gecko junto, e ele leva até ~1 min).
+GECKO_VISTO = ESTADO.with_name("gecko_visto.txt")     # o processo do Gecko que o editor conhece (boot, pid e partida)
+GECKO_COPIAS = ESTADO.with_name("gecko_reiniciado")   # a última cópia do que não estava salvo num Gecko que saiu
+
+
+def processo_gecko():
+    """O processo que escuta na porta do Gecko: ("boot pid partida", partida em segundos desde 1970), ou None. A partida
+    (de /proc) distingue um Gecko novo que pegou o mesmo pid; o boot, um reboot."""
+    try:
+        r = subprocess.run(["ss", "-ltnpH", f"sport = :{os.environ['MAISIM_PORTA_GECKO']}"], capture_output=True, text=True, timeout=5)
+        pid = re.search(r"pid=(\d+)", r.stdout).group(1)
+        partida = int(Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[19])   # o 22º campo: tiques desde o boot
+        boot = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+        btime = next(int(l.split()[1]) for l in Path("/proc/stat").read_text().splitlines() if l.startswith("btime "))
+        return f"{boot} {pid} {partida}", btime + partida / os.sysconf("SC_CLK_TCK")
+    except (OSError, KeyError, AttributeError, ValueError, IndexError, StopIteration, subprocess.SubprocessError):
+        return None
+
+
+def confere_gecko():
+    """Chamada pelo motor a cada conexão nova: se o Gecko não é o que o editor conhece, põe nele o que o editor tem."""
+    p = processo_gecko()
+    if p is None:                                    # sem o ss ou sem o /proc: como antes
+        return
+    ident, partida = p
+    try:
+        conhecido = GECKO_VISTO.read_text().strip() or None
+    except OSError:
+        conhecido = None
+    if conhecido == ident:
+        return
+    # sem registro (a 1ª partida com esta conferência): é outro se subiu depois da última vez que o editor o leu (o mesmo Gecko
+    # só é lido segundos depois de subir: o motor sobe depois dele)
+    if conhecido is not None or (ESTADO.is_file() and partida > ESTADO.stat().st_mtime):
+        try:
+            refaz_gecko()
+        except Exception as e:                       # sem conseguir: o editor deixa de dizer que é o arquivo (Salvar pede um nome)
+            print(f"{time.strftime('%H:%M:%S')} Gecko novo: não consegui refazer o editor nele ({e})", flush=True)  # i18n-ok (log)
+            if editor.get("aberto"):
+                marca_aberto(None)
+    try:
+        GECKO_VISTO.write_text(ident)
+    except OSError:
+        pass
+
+
+def refaz_gecko():
+    """O Gecko novo com o que o editor tem: o arquivo aberto, do disco, ou a folha vazia (circuito novo, fechado)."""
+    visto = hash_assinatura(editor["assinatura"]) if editor.get("assinatura") is not None else None
+    if visto is None:
+        try:
+            visto = VISTO.read_text().strip() or None
+        except OSError:
+            pass
+    base = base_conhecida()
+    arq = (RAIZ / editor["aberto"]) if editor.get("aberto") else None
+    if arq is None and base is None and not editor.get("fechado"):
+        return                                       # o editor nunca abriu nem começou um circuito: o Gecko fica com o dele
+    copia = None
+    if visto and base and visto != base and ESTADO.is_file():   # havia o que não estava salvo: a última cópia vista fica
+        GECKO_COPIAS.mkdir(parents=True, exist_ok=True)
+        copia = GECKO_COPIAS / f"{arq.stem if arq else 'novo'}_{time.strftime('%Y%m%d-%H%M%S')}.ipes"
+        shutil.copy2(ESTADO, copia)
+    reaberto = arq is not None and arq.is_file()
+    if reaberto:
+        abre(arq)
+        aviso = [("editor.gecko_novo_reaberto", {"nome": arq.name})]
+    else:
+        MOTOR.cmd("CLEAR")
+        if arq is not None:                          # o arquivo sumiu do disco: fica um circuito novo
+            marca_aberto(None)
+        aviso = [] if editor.get("fechado") else [("editor.gecko_novo_vazio", {})]
+    esquece(tudo=True)                               # os passos do desfazer eram do Gecko de antes
+    estado()
+    marca_base()
+    if copia is not None:
+        aviso.append(("editor.gecko_novo_copia", {"copia": str(copia)}))
+    if aviso:
+        editor["gecko_novo"] = aviso                 # a página diz no próximo pedido do editor (aviso_janelas)
+    print(f"{time.strftime('%H:%M:%S')} Gecko novo: " + (f"reaberto {arq}" if reaberto else "folha vazia")  # i18n-ok (log)
+          + (f", cópia do que não estava salvo em {copia}" if copia else ""), flush=True)  # i18n-ok (log)
+
+
+MOTOR.ao_conectar = confere_gecko
+
+
+def espera_gecko():
+    """Partida do servidor: assim que o motor responder, a conferência do Gecko (na conexão nova), sem esperar um pedido."""
+    for _ in range(200):                             # ~10 min (o Gecko sobe junto com o servidor e leva até ~1 min)
+        try:
+            MOTOR.cmd("PING")
+            return
+        except ErroMotor:
+            time.sleep(3)
 
 
 def _texto(arq):
@@ -5597,6 +5701,7 @@ def main():
     print(f"maisim-simu em http://localhost:{a.porta}{PREFIXO}/", flush=True)
     with lingua.com(lingua.ultima()):                 # na partida não há pedido: a última língua vista
         lingua.thread(recupera_rodada_interrompida).start()
+        lingua.thread(espera_gecko).start()
     srv.serve_forever()
 
 
