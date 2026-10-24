@@ -31,12 +31,16 @@ function carregaMonaco() {
   });
 }
 
-// a coluna da esquerda (variáveis | arquivos) recolhida: o editor fica com a largura toda; a escolha fica no navegador
-function poeLado(recolhido) {
-  $("painel-controle").classList.toggle("sem-lado", recolhido);
+// o botão da coluna (a troca de idioma chama só este: sem regravar a escolha, que vale para as outras janelas)
+function botaoLado(recolhido) {
   const bt = $("ctl-lado-bt"); bt.classList.toggle("ativo", recolhido); bt.setAttribute("aria-pressed", String(recolhido));
   bt.title = recolhido ? tr("ctl.t_lado_mostra") : tr("ctl.t_lado_bt");
   bt.querySelector(".seta").setAttribute("d", recolhido ? "M3.4 6.4 4.8 8 3.4 9.6" : "M4.6 6.4 3.2 8l1.4 1.6");
+}
+// a coluna da esquerda (variáveis | arquivos) recolhida: o editor fica com a largura toda; a escolha fica no navegador
+function poeLado(recolhido) {
+  $("painel-controle").classList.toggle("sem-lado", recolhido);
+  botaoLado(recolhido);
   try { localStorage.setItem("maisim-simu-ctl-sem-lado", recolhido ? "1" : "0"); } catch (e) { /* vale até recarregar */ }
 }
 // os arquivos do controle (abas): o controle.py e os outros .py (outros controladores: aquisição, central, um por
@@ -270,7 +274,8 @@ function marcaErros(erros, conferencia = (ctl.dados && ctl.dados.conferencia) ||
 }
 // a linha de estado do editor: guardado, erro de sintaxe, ou quantos avisos do validador (sublinhados)
 // a linha de estado do editor (texto, cor e a dica com o texto inteiro), num lugar só
-function poeEstado(texto, classe = "", dica = texto) { const el = $("ctl-estado"); el.textContent = texto; el.className = classe; el.title = dica; }
+// ctl.estadoDoCodigo: a linha mostra o que estadoCodigo() escreveu (a troca de idioma refaz só esse; uma mensagem de agora fica)
+function poeEstado(texto, classe = "", dica = texto) { const el = $("ctl-estado"); el.textContent = texto; el.className = classe; el.title = dica; ctl.estadoDoCodigo = false; }
 function estadoCodigo(j) {
   const e = j.erros[0], cf = j.conferencia || [], n = cf.length, varios = ctl.lista.length > 1;
   const onde = (x) => varios ? tr("ctl.onde_arq", { arq: arquivoDe(x), linha: x.linha }) : tr("ctl.onde", { linha: x.linha });
@@ -278,6 +283,7 @@ function estadoCodigo(j) {
   poeEstado(e ? tr("ctl.erro_sintaxe", { onde: onde(e), msg: e.msg })
     : n ? tr("ctl.guardado_avisos", { n, onde: onde(cf[0]), msg: cf[0].msg })
     : j.avisos.length ? tr("ctl.guardado_ver_avisos") : tr("ctl.guardado"), e ? "erro" : n ? "aviso" : "ok", ...(dica ? [dica] : []));
+  ctl.estadoDoCodigo = true;
 }
 
 async function criaEditor(c) {
@@ -324,7 +330,7 @@ async function criaEditor(c) {
     ctl.texto.addEventListener("keydown", (ev) => {
       if (ev.key === "Tab") { ev.preventDefault(); insereNoCodigo("    "); }
       else if (ev.altKey && !ev.ctrlKey && ev.code === "KeyZ") { ev.preventDefault(); poeQuebra(!ctl.quebra); } });
-    saidaControle(tr("ctl.sem_monaco", { msg: e.message }), "aviso");
+    saidaControle(() => tr("ctl.sem_monaco", { msg: e.message }), "aviso");
   }
 }
 
@@ -441,9 +447,9 @@ function desenhaControladores() {
     const grupos = []; for (const e of m.envia) { const k = oQue(e), g = grupos.find((x) => x.k === k); if (g) { g.para.push(e.para); g.codigo.push(...e.codigo); } else grupos.push({ k, para: [e.para], chaves: e.chaves, codigo: [...e.codigo] }); }
     const lidas = (r) => r.chaves.length ? r.chaves.map((k) => m.le.has(k) ? `<code>${escT(k)}</code>` : `<code class="nao-le" title="${escT(tr("ctl.t_chega_nao_le", { nome: q.nome }))}">${escT(k)}</code>`).join(", ") : oQue(r);
     return m.recebe.map((r) => `<div class="grupo ctl-msg" title="${escT(dicaMsg(r.de, [q.nome], r.chaves, r.codigo || []))}">
-        <b>recebe</b> ${lidas(r)} ← ${escT(r.de)}${m.chamaRecebe ? "" : ` <span class="alerta" title="${escT(tr("ctl.t_sem_recebe"))}">${escT(tr("ctl.sem_recebe"))}</span>`}</div>`).join("") +
+        <b>${escT(tr("ctl.g_recebe"))}</b> ${lidas(r)} ← ${escT(r.de)}${m.chamaRecebe ? "" : ` <span class="alerta" title="${escT(tr("ctl.t_sem_recebe"))}">${escT(tr("ctl.sem_recebe"))}</span>`}</div>`).join("") +
       grupos.map((g) => `<div class="grupo ctl-msg" title="${escT(dicaMsg(q.nome, g.para, g.chaves, g.codigo))}">
-        <b>envia</b> ${g.k} → ${g.para.map((p) => msgs[p] ? escT(p) : `<span class="alerta" title="${escT(tr("ctl.t_sem_destino", { nome: p }))}">⚠ ${escT(p)}</span>`).join(", ")} <small>(${quando})</small></div>`).join("");
+        <b>${escT(tr("ctl.g_envia"))}</b> ${g.k} → ${g.para.map((p) => msgs[p] ? escT(p) : `<span class="alerta" title="${escT(tr("ctl.t_sem_destino", { nome: p }))}">⚠ ${escT(p)}</span>`).join(", ")} <small>(${quando})</small></div>`).join("");
   };
   const cartao = (q, i) => {
     const ent = unico([...d.entradas, ...q.medidas]), atus = unico([...c.atuacoes, ...q.atuacoes]), ss = unico([...subs, ...q.subcircuitos]);
@@ -639,8 +645,9 @@ function mensagensDe(cs) {   // {nome: {envia: [{para, chaves, codigo}], recebe:
 function avisoSemEsquema() {
   const l = (ctl.dados && ctl.dados.sem_esquema) || [];
   // os usos (links) entram no lugar de {usos} depois do tr (as chaves _html escapam os parâmetros); x.tipo vem do servidor
+  const USOS = "\u0000usos\u0000";                         // o lugar dos links (o _html escapa os parâmetros; o nome não tem \u0000)
   const chave = (x) => (x.tipo === "atuação" ? "ctl.sem_esquema_atu_html" : "ctl.sem_esquema_html");   // i18n-ok: x.tipo vem do servidor
-  return l.map((x, i) => `<div class="ctl-sem">${tr(chave(x), { nome: x.nome }).replace("{usos}", () =>
+  return l.map((x, i) => `<div class="ctl-sem">${tr(chave(x), { nome: x.nome, usos: USOS }).replace(USOS, () =>
     x.usos.map((u) => `<a data-vai="${escT(u.arquivo)}:${u.linha}" title="${escT(tr("ctl.t_abrir_linha", { arq: u.arquivo, linha: u.linha }))}">${escT(u.arquivo)}:${u.linha}</a>`).join(", "))} <button data-troca="${i}" title="${escT(tr("ctl.t_trocar_por"))}">${escT(tr("ctl.trocar_por"))}</button></div>`).join("");
 }
 function semelhanca(a, b) {                            // pares de letras em comum (Dice), sem caixa nem _: vc_smap_1 ~ SM_ap_1_vCSm
@@ -1228,9 +1235,11 @@ function desenhaInstancias() {                          // só o resumo das inst
     const q = (d.controle.controladores || [])[+r.dataset.i]; const el = r.querySelector(".inst"); if (!q || !el) return;
     const insts = (d.instancias || []).filter((x) => x.controlador === q.nome); el.textContent = insts.length ? `→ ${insts.map((x) => x.nome).join(", ")}` : ""; });
 }
+// txt: o texto, ou uma função que o monta (a troca de idioma monta de novo: o que vem do servidor fica como veio)
 function saidaControle(txt, tipo = "", ctx = null) {   // ctx: {arquivo, linha} do erro (senão, tirados do texto)
+  const monta = typeof txt === "function" ? txt : null; if (monta) txt = monta();
   const s = $("ctl-saida"); s.textContent = txt; s.className = tipo; $("ctl-saida-caixa").style.display = txt ? "" : "none";
-  ctl.saida = { txt, tipo, ctx };
+  ctl.saida = { txt, tipo, ctx, monta };
   $("ctl-saida-claude").style.display = tipo === "erro" ? "" : "none";
 }
 // o erro para colar (ou para o Claude do MaiSim): o texto da saída e o trecho do arquivo em volta da linha, com ▶ na do erro
@@ -1354,7 +1363,7 @@ function tagAtuador(g, x, y, nome, centrada = false) {   // centrada: x é o mei
     const nova = document.querySelector(`#ctl-par .ctl-par[data-i="${c.parametros.length - 1}"]`); if (nova) { nova.scrollIntoView({ block: "nearest" }); nova.querySelector('[data-k="nome"]').select(); } guardaControle(); };
   $("ctl-ac-novo").onclick = () => { if (!ctl.dados) return; const c = coleta(), d = ctl.dados; if (c.invalido) return;
     const alvo = d.atuadores.length ? `CONST:${d.atuadores[0].nome}` : c.parametros.length ? `p:${c.parametros[0].nome}` : "";
-    if (!alvo) { saidaControle(d.circuito ? tr("ctl.ac_sem_alvo") : tr("ctl.ac_sem_alvo_edicao"), "aviso"); return; }
+    if (!alvo) { saidaControle(() => (d.circuito ? tr("ctl.ac_sem_alvo") : tr("ctl.ac_sem_alvo_edicao")), "aviso"); return; }
     c.acionamentos.push({ t: 0, alvo, valor: 0 }); Object.assign(ctl.dados.controle, c); ctl.filtro.ac = ""; $("ct-filtro").value = ""; desenhaLigacoes();
     const nova = document.querySelector(`#ctl-ac .ctl-ac[data-i="${c.acionamentos.length - 1}"]`); if (nova) { nova.scrollIntoView({ block: "nearest" }); nova.querySelector('[data-k="t"]').select(); } guardaControle(); };
   $("ctl-abas").addEventListener("click", (ev) => {
@@ -1449,40 +1458,59 @@ async function atualizaVistas() {                     // o que foi nas mensagens
 }
 async function testaControle() {
   const bt = $("ctl-testar"); if (bt.disabled) return;
-  bt.disabled = true; saidaControle(tr("ctl.testando"));
+  bt.disabled = true; saidaControle(() => tr("ctl.testando"));
   try {
-    if (!(await guardaControle())) { saidaControle(tr("ctl.nao_guardou"), "erro"); return; }
+    if (!(await guardaControle())) { saidaControle(() => tr("ctl.nao_guardou"), "erro"); return; }
     const j = await api("editor/controle/testar", { dt: Number(sim.par.dt) || 1e-6 });
     if (!j.ok) {
       const arq = j.arquivo || "controle.py"; if (ctl.lista.includes(arq)) mostraArquivo(arq);
       marcaErros(j.linha ? [{ linha: j.linha, coluna: 1, msg: j.erro, arquivo: arq }] : [], ctl.dados ? ctl.dados.conferencia : []);
-      saidaControle(`${tr("ctl.teste_erro", { erro: j.erro })}${j.rastro ? `\n${j.rastro}` : ""}${j.saida ? `\n— print —\n${j.saida}` : ""}`, "erro"); return;
+      saidaControle(() => `${tr("ctl.teste_erro", { erro: j.erro })}${j.rastro ? `\n${j.rastro}` : ""}${j.saida ? `\n— print —\n${j.saida}` : ""}`, "erro"); return;
     }
-    const fmt = (o) => Object.keys(o).length ? Object.entries(o).map(([k, v]) => `${k} = ${v === null ? "nan/inf" : +v.toPrecision(6)}`).join(", ") : tr("ctl.nada_paren");
-    const linhas = j.passos.map((q) => (Object.keys(q.s).length ? tr("ctl.teste_passo_scope", { t: si(q.t, "s"), a: fmt(q.a), s: fmt(q.s) }) : tr("ctl.teste_passo", { t: si(q.t, "s"), a: fmt(q.a) })) +
-      (q.fora.length ? tr("ctl.teste_fora", { x: q.fora.join(", ") }) : ""));
-    const fora = j.passos.some((q) => q.fora.length);
-    const ok = { passos: j.passos.length, ts: si(j.Ts, "s"), med: j.medidas.join(", ") || tr("ctl.nenhuma") };
-    saidaControle(((j.controladores || []).length ? tr("ctl.teste_ok_ctls", { ...ok, ctls: j.controladores.join(", ") }) : tr("ctl.teste_ok", ok)) + "\n" +
-      linhas.join("\n") + (j.saida ? `\n— print —\n${j.saida}` : ""), fora ? "aviso" : "ok");
+    const monta = () => {                               // o texto da saída (montado de novo se o idioma mudar)
+      const fmt = (o) => Object.keys(o).length ? Object.entries(o).map(([k, v]) => `${k} = ${v === null ? "nan/inf" : +v.toPrecision(6)}`).join(", ") : tr("ctl.nada_paren");
+      const linhas = j.passos.map((q) => (Object.keys(q.s).length ? tr("ctl.teste_passo_scope", { t: si(q.t, "s"), a: fmt(q.a), s: fmt(q.s) }) : tr("ctl.teste_passo", { t: si(q.t, "s"), a: fmt(q.a) })) +
+        (q.fora.length ? tr("ctl.teste_fora", { x: q.fora.join(", ") }) : ""));
+      const ok = { passos: j.passos.length, ts: si(j.Ts, "s"), med: j.medidas.join(", ") || tr("ctl.nenhuma") };
+      return ((j.controladores || []).length ? tr("ctl.teste_ok_ctls", { ...ok, ctls: j.controladores.join(", ") }) : tr("ctl.teste_ok", ok)) + "\n" +
+        linhas.join("\n") + (j.saida ? `\n— print —\n${j.saida}` : ""); };
+    saidaControle(monta, j.passos.some((q) => q.fora.length) ? "aviso" : "ok");
     marcaErros(ctl.dados ? ctl.dados.erros : []);
     atualizaVistas();
-  } catch (e) { saidaControle(tr("ctl.teste_erro", { erro: e.message }), "erro"); }
+  } catch (e) { saidaControle(() => tr("ctl.teste_erro", { erro: e.message }), "erro"); }
   finally { bt.disabled = document.body.classList.contains("sim-rodando"); }
 }
 
 // trocou o idioma (o botão do trilho, nesta janela ou noutra): redesenha o que este arquivo escreve (o HTML estático, o
 // aplica() do maisim-i18n já trocou); o que foi digitado e não guardado vai junto, como ao ordenar uma tabela
+const CAMPOS_DO_PAINEL = "#ctl-par, #ctl-ac, .ctl-ts, .ctl-ctl input[data-k], #ctl-tabela tbody";   // os campos que o redesenho troca
+function redesenhaIdioma() {
+  if (!ctl.carregado || !ctl.dados) return;
+  const foco = document.activeElement;
+  if (foco && foco.closest && foco.closest(CAMPOS_DO_PAINEL)) {          // digitando: espera sair do campo (não o destrói)
+    // um ouvinte só por campo; se o campo sumiu sem focusout (outro redesenho, já no idioma novo), a próxima troca liga outro
+    if (ctl.esperaIdioma !== foco) { ctl.esperaIdioma = foco;
+      foco.addEventListener("focusout", () => setTimeout(() => { if (ctl.esperaIdioma === foco) ctl.esperaIdioma = null; redesenhaIdioma(); }, 0), { once: true }); }
+    return;
+  }
+  const c = coleta();
+  if (!c.invalido) {
+    Object.assign(ctl.dados.controle, c);
+    desenhaLigacoes();                                  // as tabelas, os cartões, a árvore, o índice e os ⓘ
+  } else {                                              // um valor inválido à vista (e marcado): as tabelas e os cartões
+    desenhaIndice(); infoTs(); infoAtraso(); infoRede();   // ficam; o próximo guardar que der certo os redesenha
+  }
+  $("ctl-abas").dataset.chave = "";                      // as mesmas abas: sem isso, só as classes mudariam
+  desenhaAbas(); aplicaTabela(); marcaOrdem();
+  if (travado()) travaControle(true);                    // os campos redesenhados continuam travados durante a rodada
+  const d = ctl.dados;                                   // a linha de estado: só a que estadoCodigo() escreveu
+  if (ctl.estadoDoCodigo && !ctl.timer && d.erros && d.avisos) estadoCodigo(d);
+  const S = ctl.saida;                                   // a saída do testar (a montada aqui; a do servidor fica)
+  if (S && S.monta && $("ctl-saida").textContent === S.txt) saidaControle(S.monta, S.tipo, S.ctx);
+}
 maisimI18n.aoMudar(() => {
-  poeLado($("painel-controle").classList.contains("sem-lado"));
+  botaoLado($("painel-controle").classList.contains("sem-lado"));
   if (ctl.botaoLinhas) ctl.botaoLinhas();
   fechaPicker();                                         // o título dela é do idioma de antes; abre de novo com um clique
-  if (!ctl.carregado || !ctl.dados) return;
-  const c = coleta(); if (!c.invalido) Object.assign(ctl.dados.controle, c);
-  $("ctl-abas").dataset.chave = "";                      // as mesmas abas: sem isso, só as classes mudariam
-  desenhaLigacoes(); desenhaAbas(); aplicaTabela(); marcaOrdem();
-  if (travado()) travaControle(true);                    // os campos redesenhados continuam travados durante a rodada
-  // a linha de estado, do último guardar (editando, ou um erro que não é o do código: fica como está)
-  const d = ctl.dados, erroOutro = $("ctl-estado").className === "erro" && !(d.erros || []).length;
-  if (!ctl.timer && !erroOutro && d.erros && d.avisos) estadoCodigo(d);
+  redesenhaIdioma();
 });
