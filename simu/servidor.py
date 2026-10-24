@@ -1323,7 +1323,8 @@ def _importavel(nome):
         spec = importlib.util.find_spec(nome)
     except (ImportError, ValueError):
         return False
-    return bool(spec) and not (spec.origin and Path(spec.origin).resolve().parent == AQUI.resolve())
+    # nem o simu/ nem o config/ (o lingua, o ler_config): o processo do controle não os enxerga como módulos do usuário
+    return bool(spec) and not (spec.origin and Path(spec.origin).resolve().parent in (AQUI.resolve(), (RAIZ / "config").resolve()))
 
 
 def ordem_do_fluxo(arqs, mods, ctl, imports):
@@ -3448,7 +3449,9 @@ def ia_logada(a):
 def ia_conta(ia, acao, *args):
     a = ia_com_login(ia)
     if not hasattr(a, acao):
-        raise ErroMotor(lingua.tr("login.acao_indisponivel", ia=a.nome, acao=acao.replace('_', ' ')))
+        acoes = {"entra": "login.acao_entra", "codigo": "login.acao_codigo", "cancela": "login.acao_cancela", "sai": "login.acao_sai"}
+        raise ErroMotor(lingua.tr("login.acao_indisponivel", ia=a.nome,
+                                  acao=lingua.tr(acoes[acao]) if acao in acoes else acao.replace('_', ' ')))
     try:
         return getattr(a, acao)(*args) if acao != "cancela" else (a.cancela(), a.estado())[1]
     except ValueError as e:
@@ -3634,12 +3637,13 @@ def uso_texto(texto):
 def claude_uso(forca=False):
     """O uso da conta, o mesmo do /usage do Claude Code (sessão de 5 h e semana), por `claude -p "/usage"`: não chama o
     modelo (0 turnos, 0 tokens), só consulta o medidor da conta. NÃO é documentado (conferido no CLI 2.1.273): se o texto
-    mudar, volta o texto como veio e a tela diz que não conseguiu ler. Guardado por 60 s."""
+    mudar, volta o texto como veio e a tela diz que não conseguiu ler. Guardado por 60 s — só o que veio (o texto, a saída,
+    o erro): os rótulos e as datas são montados a cada pedido, no idioma dele (uso_montado)."""
     with trava_uso:
         if not forca and uso_cache["v"] is not None and time.time() - uso_cache["t"] < 60:
-            return uso_cache["v"]
+            return uso_montado(uso_cache["v"])
         if pedido_rodando():                             # um pedido rodando: o guardado (sem outro `claude` renovando o login)
-            return uso_cache["v"] or {"itens": [], "texto": "", "quando": time.time()}
+            return uso_montado(uso_cache["v"]) or {"itens": [], "texto": "", "quando": time.time()}
         vazio = CLAUDE_CASA / "uso"
         vazio.mkdir(parents=True, exist_ok=True)
         try:
@@ -3647,13 +3651,24 @@ def claude_uso(forca=False):
                 r = subprocess.run(CLAUDE.comando_uso(), env=ambiente_claude(), cwd=str(vazio), capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
             j = json.loads(r.stdout or "{}")
             texto = str(j.get("result") or "").strip()
-            v = {"itens": uso_texto(texto), "texto": texto[:1000], "quando": time.time()}
-            if j.get("is_error") or not texto:
-                v["erro"] = (texto or r.stderr.strip() or lingua.tr("uso.saida", saida=r.returncode))[:300]
+            v = {"texto": texto, "quando": time.time(), "is_error": bool(j.get("is_error")), "stderr": r.stderr.strip(), "saida": r.returncode}
         except (subprocess.SubprocessError, OSError, ValueError) as e:
-            v = {"itens": [], "texto": "", "quando": time.time(), "erro": lingua.tr("uso.nao_leu", erro=e)}
+            v = {"texto": "", "quando": time.time(), "falha": str(e)}
         uso_cache.update(t=time.time(), v=v)
-        return v
+        return uso_montado(v)
+
+
+def uso_montado(v):
+    """O uso para a tela, no idioma do pedido, do que veio do `claude` (uso_cache guarda só isso)."""
+    if v is None:
+        return None
+    if "falha" in v:
+        return {"itens": [], "texto": "", "quando": v["quando"], "erro": lingua.tr("uso.nao_leu", erro=v["falha"])}
+    texto = v["texto"]
+    out = {"itens": uso_texto(texto), "texto": texto[:1000], "quando": v["quando"]}
+    if v.get("is_error") or not texto:
+        out["erro"] = (texto or v.get("stderr") or lingua.tr("uso.saida", saida=v.get("saida")))[:300]
+    return out
 
 
 def le_memoria():
@@ -4135,7 +4150,7 @@ def claude_pedido_estado():
     out["outro_circuito"] = bool(out.get("circuito") and out["circuito"] != chave)
     if out.get("andamento") and out.get("desde"):        # o tempo do pedido medido aqui: o relógio do WSL e o do navegador (Windows)
         out["decorrido"] = round(time.time() - out["desde"], 1)   # podem diferir de minutos (o contador saía negativo: "-120 s")
-    out["uso"] = uso_cache["v"]
+    out["uso"] = uso_montado(uso_cache["v"])
     return out
 
 

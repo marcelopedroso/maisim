@@ -7,7 +7,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "config"))   # quem importa só o motor (um teste) acha o lingua
 import lingua  # noqa: E402                    o idioma do pedido
-import textos  # noqa: E402,F401               os textos do simu (registra o catálogo: os do motor estão lá)
+AQUI = Path(__file__).resolve().parent
+if Path(getattr(sys.modules.get("textos"), "__file__", "") or "/").resolve().parent != AQUI:   # o catálogo do simu, pelo caminho
+    import importlib.util                                                                      # (nunca um outro "textos")
+    _spec = importlib.util.spec_from_file_location("textos", AQUI / "textos.py")
+    _textos = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_textos)                     # registra o catálogo (lingua.registra)
+    if "textos" not in sys.modules:
+        sys.modules["textos"] = _textos
 
 
 class ErroMotor(Exception):
