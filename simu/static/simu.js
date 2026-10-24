@@ -128,8 +128,11 @@ function desenhaJuncoes(g, f) {
 // dentro de um subcircuito, o nome leva o SM na frente (SM_1_vCSm), como em rodar() no servidor
 // o nome que o servidor dá (dados.canais: com o desempate de dois rótulos que viram o mesmo nome, v-o e v+o → v_o e v_o_);
 // sem ele (um componente fora dos dois destinos), o nome montado aqui, como antes
+// um bloco com várias saídas (abc>>dq, DEMUX, Java…) dá um canal por saída (dados.canais_saidas); o canal dele é o da 1ª
+const canaisDe = (e, fid = folhaAtual) => (fid === "0" && dados && dados.canais_saidas && dados.canais_saidas[e.nome]) || [canalScope(e, fid)];
 const canalScope = (e, fid = folhaAtual) => {
   const el = fid === "0" ? e.nome : `${dados.folhas[fid].nome}#${e.nome}`;
+  if (fid === "0" && dados && dados.canais_saidas && dados.canais_saidas[el]) return dados.canais_saidas[el][0];
   if (dados && dados.canais && dados.canais[el]) return dados.canais[el];
   const c = (e.saidas[0] || e.nome).replace(/[^A-Za-z0-9_]/g, "_");
   return fid === "0" ? c : `${prefixoSub(dados.folhas[fid].nome)}_${c}`; };
@@ -154,7 +157,7 @@ async function lePadraoLayout() {
 function canaisDoCircuito() {                            // os sinais que vão para o scope (medidores, tags, saídas de blocos), na ordem do scope
   const out = [];
   for (const [fid, f] of Object.entries((dados && dados.folhas) || {}))
-    for (const e of f.elementos) if ((MEDIDOR.has(e.tipo) || ehTag(e) || ehSinal(e, fid)) && noScope(e)) out.push(canalScope(e, fid));   // só os gravados (→ Scope)
+    for (const e of f.elementos) if ((MEDIDOR.has(e.tipo) || ehTag(e) || ehSinal(e, fid)) && noScope(e)) out.push(...canaisDe(e, fid));   // só os gravados (→ Scope)
   return [...new Set(out)].sort();
 }
 function leLayoutCircuito() {                          // o guardado (v5; o de antes, v4, pelo nome), o padrão ou o automático
@@ -617,18 +620,19 @@ function desenha() {
       if (atuador) tagAtuador(camRot, e.x, e.y - 1.0, atuador, true);
       // a saída de um bloco da folha principal que vai para o scope ou para o controle (Marcelo, 24/10: "o desenho mostra tudo
       // o que vai para o scope"): a etiqueta no borne da 1ª saída, em cima da conexão (embaixo, se o bloco é um atuador: a
-      // etiqueta dele já está em cima), no lugar do rótulo (é o mesmo nome)
+      // etiqueta dele já está em cima), no lugar do rótulo (é o mesmo nome); com várias saídas, uma em cada borne
       const dest = folhaAtual === "0" && !MEDIDOR.has(e.tipo) && !ehTag(e) && ehSinal(e, "0") ? destinoDe(e) : "fora";
       // (espelhado, a saída fica à esquerda: a etiqueta vai para a esquerda dela, sem cobrir o bloco; até 4,5 quadrados)
-      const saiScope = mostrar.medicoes && dest !== "fora" ? e.terminais.find((t) => t.lado === "s") : null;
-      if (saiScope) { const esq = saiScope.x < e.x;
-        tagScope(camRot, saiScope.x + (esq ? -0.25 : 0.25), saiScope.y + (atuador ? 0.62 : -0.62), canalScope(e, "0"), corSinal(canalScope(e, "0"), e), dest, { larg: 4.5, fim: esq }); }
+      const cs = dest !== "fora" ? canaisDe(e, "0") : [];
+      const saiScope = mostrar.medicoes ? e.terminais.filter((t) => t.lado === "s").slice(0, cs.length) : [];
+      saiScope.forEach((t, i) => { const esq = t.x < e.x;
+        tagScope(camRot, t.x + (esq ? -0.25 : 0.25), t.y + (atuador ? 0.62 : -0.62), cs[i], corSinal(cs[i], e), dest, { larg: 4.5, fim: esq }); });
       for (const t of e.terminais) {
         const borda = t.lado === "e" ? e.x - 1 : e.x + 1;
         if (t.x !== borda) no("line", { x1: t.x * G, y1: t.y * G, x2: borda * G, y2: t.y * G, stroke: COR.ct, "stroke-width": 1.4 }, g);
         if (atuador && t.lado === "s") continue;                                                              // a etiqueta já diz o nome
         if ((MEDIDOR.has(e.tipo) || ehTag(e)) && t.lado === "s") { if (mostrar.medicoes) tagScope(camRot, t.x + 0.35, t.y, canalScope(e), corSinal(canalScope(e), e), destinoDe(e)); }   // regra: medidor (e tag) vai para o /maisim/scope
-        else if (mostrar.rotulos && t.rotulo && t !== saiScope) rotulo(camRot, t.lado === "e" ? t.x - 0.2 : t.x + 0.2, t.y - 0.42, t.rotulo,
+        else if (mostrar.rotulos && t.rotulo && !saiScope.includes(t)) rotulo(camRot, t.lado === "e" ? t.x - 0.2 : t.x + 0.2, t.y - 0.42, t.rotulo,
           { "text-anchor": t.lado === "e" ? "end" : "start", fill: COR.rot, "font-size": 0.5 * G });
       }
     }

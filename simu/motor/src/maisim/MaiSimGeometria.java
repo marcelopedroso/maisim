@@ -8,6 +8,7 @@ import ch.technokrat.gecko.geckocircuits.circuit.SpecialTyp;
 import ch.technokrat.gecko.geckocircuits.circuit.TerminalRelativePosition;
 import ch.technokrat.gecko.geckocircuits.circuit.circuitcomponents.CircuitTyp;
 import ch.technokrat.gecko.geckocircuits.control.ControlTyp;
+import ch.technokrat.gecko.geckocircuits.control.RegelBlock;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -17,7 +18,8 @@ import java.util.List;
  * Geometria dos terminais de cada tipo de componente do Gecko, tirada do próprio Gecko: constrói um bloco de cada tipo
  * (TypeInfo.fabric(), sem a janela) e lê a posição relativa crua (_posX, _posY) de cada entrada (XIN) e saída (YOUT); o
  * ponto na folha é TerminalRelativePosition.getPointFromDirection(orientação, centro, _posX, _posY) (503: x+posX, y−posY).
- * Saída: JSON (uma linha por tipo) em stdout, para o leitor do .ipes (ipes.py) pôr os terminais onde o Gecko põe.
+ * Saída: JSON (uma linha por tipo) em stdout, para o leitor do .ipes (ipes.py) pôr os terminais onde o Gecko põe; num bloco
+ * de controle com mais de uma saída, também os nomes delas (nomes_saida: o que o servidor pede ao Gecko, uma por sinal).
  * uso: java -Djava.awt.headless=true -cp gecko.jar:bin maisim.MaiSimGeometria > geometria.json
  */
 public final class MaiSimGeometria {
@@ -42,6 +44,20 @@ public final class MaiSimGeometria {
         return sb.append("]").toString();
     }
 
+    /** Os nomes das saídas de um bloco de controle com mais de uma (getOutputNames: o que o getOutput(bloco, saída) da
+     *  interface remota aceita), como ,"nomes_saida":[…]; nada para os outros. */
+    private static String nomesSaida(AbstractBlockInterface b) {
+        if (!(b instanceof RegelBlock) || b.YOUT.size() < 2) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder(",\"nomes_saida\":[");
+        String[] nomes = ((RegelBlock) b).getOutputNames();
+        for (int i = 0; i < nomes.length; i++) {
+            sb.append(i > 0 ? "," : "").append("\"").append(nomes[i].replace("\\", "\\\\").replace("\"", "\\\"")).append("\"");
+        }
+        return sb.append("]").toString();
+    }
+
     public static void main(String[] args) throws Exception {
         List<AbstractComponentTyp> tipos = new ArrayList<AbstractComponentTyp>();
         for (ControlTyp t : ControlTyp.values()) {
@@ -60,9 +76,9 @@ public final class MaiSimGeometria {
             try {
                 AbstractTypeInfo info = t.getTypeInfo();
                 AbstractBlockInterface b = info.fabric();
-                linha = String.format("{\"enum\":\"%s\",\"id\":\"%s\",\"classe\":\"%s\",\"entradas\":%s,\"saidas\":%s}",
+                linha = String.format("{\"enum\":\"%s\",\"id\":\"%s\",\"classe\":\"%s\",\"entradas\":%s,\"saidas\":%s%s}",
                         t, info._fixedIDString, b.getClass().getSimpleName(), pontos(new ArrayList<AbstractTerminal>(b.XIN)),
-                        pontos(new ArrayList<AbstractTerminal>(b.YOUT)));
+                        pontos(new ArrayList<AbstractTerminal>(b.YOUT)), nomesSaida(b));
             } catch (Throwable e) {                                  // tipo que não se constrói sem a janela: registra o erro
                 linha = String.format("{\"enum\":\"%s\",\"erro\":\"%s\"}", t, String.valueOf(e).replace("\"", "'").replace("\\", "/"));
             }

@@ -916,16 +916,18 @@
     {
      "enum": "C_SOURCE_IMPORT_DATA",
      "dom": "CONTROL",
-     "typ": 89,
+     "typ": 4,
      "classe": "ReglerImportFromFile",
+     "typ_enum": 89,
      "id": "FILE",
      "nome": "Data from File"
     },
     {
      "enum": "C_SOURCE_RANDOM",
      "dom": "CONTROL",
-     "typ": 90,
+     "typ": 4,
      "classe": "ReglerRandomWalk",
+     "typ_enum": 90,
      "id": "RANDOM",
      "nome": "Random Walk"
     }

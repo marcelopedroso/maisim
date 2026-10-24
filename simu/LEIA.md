@@ -38,7 +38,8 @@ As portas e as pastas ficam em [`config/padrao.env`](../config/padrao.env).
 - **▶** (ou Ctrl+Enter) simula; **⚙** ao lado define Δt, tempo final, nome da rodada e amostras guardadas. Espaço pausa
   e continua. Enquanto roda, o circuito não aceita edição.
 - Os sinais são as saídas dos medidores e dos blocos de controle (nome = rótulo da saída; dentro de um subcircuito, com
-  o nome dele na frente). Eles aparecem ao vivo no scope, que abre ao lado ou embaixo, na mesma janela.
+  o nome dele na frente; um bloco de várias saídas, como abc>>dq, DEMUX ou Java, dá um sinal por saída, sem rótulo
+  `<bloco>_<saída>`, e as caixinhas → Scope/→ Controle valem para o bloco inteiro). Eles aparecem ao vivo no scope, que abre ao lado ou embaixo, na mesma janela.
 - Cada rodada fica em `~/.local/share/maisim/rodadas/<data>_<nome>/`, com o circuito exato, o `.npz` do scope e um
   `resumo.md` (média, pico a pico, eficaz, fasor de cada canal). No scope, o **Comparar** põe duas rodadas lado a lado.
 

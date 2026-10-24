@@ -345,6 +345,7 @@ def estado():
     r["fora"] = ap["fora"]                           # fora do scope e do controle,
     r["fora_scope"], r["fora_controle"] = ap["fora_scope"], ap["fora_controle"]   # fora de um deles
     r["canais"] = dict(sinais_da_rodada(r))          # {componente (ou SM#componente): canal}: o nome que a rodada usa (com o "_" de desempate)
+    r["canais_saidas"] = canais_por_saida(r)         # {bloco: [canal de cada saída]}: os de várias saídas (bloco@saída em canais)
     r["nos_medidos"] = nos_medidos(r)                # {folha: {rótulo: [{nome, x, y}]}}
     return r
 
@@ -1948,16 +1949,52 @@ def eh_tag(e):
 DESTINOS = ("scope", "controle")
 
 
-def sinais_da_rodada(r, destino=None):
+def saidas_gecko(e):
+    """[(saída para o GETM, nome dela no canal)] de um bloco de controle com mais de uma saída, na ordem dos bornes. O Gecko
+    só lê o bloco de uma saída sem dizer qual (getOutput(bloco): "has more than one output"); com várias, cada saída pelo
+    nome que o bloco dá (getOutput(bloco, saída); os nomes, getOutputNames, vêm do próprio Gecko em geometria_gecko.json,
+    nomes_saida). Os que numeram as saídas (Java, C/C++ e DEMUX: "0", "1", …) entram com o número; o DEMUX só nomeia
+    "0", "1", "2" e "etc." (a 4ª): da 5ª em diante o Gecko não a acha, e ela nem vira sinal (nem no painel do controle nem
+    no desenho: seria aceita no código e cairia em toda rodada). Uma saída que ainda falhe na rodada fica de fora com aviso
+    (sinal_ilegivel).
+    No canal, + − * do nome viram p, n e _ref (s1+ e s1− do Sparse não colidem; v_q* → v_q_ref)."""
+    import ipes
+    nomes = (ipes.GEOMETRIA.get(e.get("id_gecko")) or {}).get("nomes_saida") or []
+    numera = not nomes or nomes[0] == "0"
+    out = []
+    for i in range(len(e["saidas"])):
+        if nomes and not all(n.isdigit() for n in nomes) and i >= len(nomes):
+            break                                       # sem nome no Gecko (a 5ª do DEMUX em diante): não se lê
+        g = str(i) if numera and all(n.isdigit() for n in nomes) else nomes[i] if i < len(nomes) else str(i)
+        out.append((g, str(i) if numera else g.replace("+", "p").replace("-", "n").replace("*", "_ref")))
+    return out
+
+
+def elemento_do_sinal(el):
+    """O componente de um sinal da rodada, sem a saída (a de um bloco de várias saídas: "ABCDQ.1@d" → "ABCDQ.1")."""
+    return el.rpartition("@")[0] or el
+
+
+def sinais_da_rodada(r, destino=None, ap=None):
     """(elemento para o GETM, canal no scope): saídas dos blocos de controle da folha principal e medidores dos subcircuitos
     — menos os marcados fora (as duas caixinhas do painel, na aparência). destino "scope": os que viram coluna gravada na
     rodada; "controle": os que ficam no m[...] do controle; None: os dois juntos (o que a rodada lê do Gecko). Os nomes saem
-    sempre da mesma lista (a dos dois juntos), para um sinal ter o mesmo nome no scope e no m[...]."""
+    sempre da mesma lista (a dos dois juntos), para um sinal ter o mesmo nome no scope e no m[...]. Um bloco com várias
+    saídas (abc>>dq, DEMUX, Java…) dá um sinal por saída, "bloco@saída" no GETM (saidas_gecko), com o rótulo da saída ou
+    <bloco>_<saída>; as duas caixinhas valem para o bloco inteiro (são do componente). Bloco sem saída fica de fora.
+    ap: a aparência de outro circuito (a do editor, sem ela)."""
     if destino not in (None,) + DESTINOS:
         raise ValueError(destino)
-    ap = le_aparencia()
+    ap = ap or le_aparencia()
     fs, fc = set(ap["fora_scope"]), set(ap["fora_controle"])
     sinais, uids = [], []
+
+    def poe(el, canal, uid):
+        canal = re.sub(r"[^A-Za-z0-9_]", "_", canal)
+        while canal in [s_[1] for s_ in sinais] or canal == "t":
+            canal += "_"
+        sinais.append((el, canal))
+        uids.append(uid)
     for fid, fl in r["folhas"].items():
         for e in fl["elementos"]:
             if e.get("uid") in fs and e.get("uid") in fc:
@@ -1965,18 +2002,27 @@ def sinais_da_rodada(r, destino=None):
             if fid == "0":
                 if e["dom"] != "CONTROL" or e["tipo"] in ("TERM", "GATE", "SCOPE") or not e["saidas"]:
                     continue
-                el, canal = e["nome"], re.sub(r"[^A-Za-z0-9_]", "_", e["saidas"][0] or e["nome"])
+                if len(e["saidas"]) > 1:
+                    for (g, n), rot in zip(saidas_gecko(e), e["saidas"]):
+                        poe(f"{e['nome']}@{g}", rot or f"{e['nome']}_{n}", e.get("uid"))
+                else:
+                    poe(e["nome"], e["saidas"][0] or e["nome"], e.get("uid"))
             else:                                   # dentro de um subcircuito: os medidores e as tags (regra: medidor vai para o scope)
                 if (e["tipo"] not in ("VOLT", "AMP") and not eh_tag(e)) or not e["saidas"]:
                     continue
-                sm = prefixo_sub(fl["nome"])
-                el, canal = f"{fl['nome']}#{e['nome']}", f"{sm}_" + re.sub(r"[^A-Za-z0-9_]", "_", e["saidas"][0] or e["nome"])
-            while canal in [s_[1] for s_ in sinais] or canal == "t":
-                canal += "_"
-            sinais.append((el, canal))
-            uids.append(e.get("uid"))
+                poe(f"{fl['nome']}#{e['nome']}", f"{prefixo_sub(fl['nome'])}_" + (e["saidas"][0] or e["nome"]), e.get("uid"))
     fora = {"scope": fs, "controle": fc}.get(destino, set())
     return [x for x, u in zip(sinais, uids) if u not in fora]
+
+
+def canais_por_saida(r, ap=None):
+    """{bloco: [canal de cada saída]} dos blocos da folha principal com várias saídas (a página põe a etiqueta de cada uma
+    no borne dela; o canal do bloco, nos outros lugares, é o da 1ª)."""
+    out = {}
+    for el, canal in sinais_da_rodada(r, ap=ap):
+        if "@" in el and "#" not in el:
+            out.setdefault(elemento_do_sinal(el), []).append(canal)
+    return out
 
 
 def em_fonte_de_tensao(r):
@@ -2016,9 +2062,14 @@ def gerador_no_gecko(r):
 
 def canais_por_uid(r, destino=None):
     """{identificador do medidor: canal no scope} (sinais_da_rodada, pelo identificador: sobrevive a renomear o medidor ou
-    o subcircuito)."""
+    o subcircuito; a saída de um bloco de várias, pelo identificador@saída)."""
     uid = {(e["nome"] if fid == "0" else f"{fl['nome']}#{e['nome']}"): e["uid"] for fid, fl in r["folhas"].items() for e in fl["elementos"]}
-    return {uid[el]: canal for el, canal in sinais_da_rodada(r, destino) if el in uid}
+    out = {}
+    for el, canal in sinais_da_rodada(r, destino):            # uma saída de um bloco de várias: "identificador@saída"
+        b = elemento_do_sinal(el)
+        if b in uid:
+            out[uid[b] + el[len(b):]] = canal
+    return out
 
 
 def so_scope_de(r):
@@ -2027,7 +2078,7 @@ def so_scope_de(r):
     if not r:
         return {}
     ctl = {k for _, k in sinais_da_rodada(r, "controle")}
-    return {k: el for el, k in sinais_da_rodada(r) if k not in ctl}
+    return {k: elemento_do_sinal(el) for el, k in sinais_da_rodada(r) if k not in ctl}
 
 
 def nomes_por_uid(r, destino=None):
@@ -3045,7 +3096,27 @@ def _rodar(c, ctl_de_fora=None):
         iniciais = None
         if sinais:
             MOTOR.cmd("STEP 1")
-            iniciais = le_gecko()
+            try:
+                iniciais = le_gecko()
+            except ErroMotor:
+                # um sinal que o Gecko não lê (o Data from File sem os dados: "has no output"; a 5ª saída do DEMUX) derrubava
+                # a rodada inteira: um a um, e os que falham ficam fora dela (scope e m[...]), com aviso
+                ruins = []
+                for s_ in sinais:
+                    try:
+                        MOTOR.cmd("GETM " + s_[0])
+                    except ErroMotor as e_:
+                        ruins.append(s_)
+                        avisos_rodada.append(lingua.tr("rodada.sinal_ilegivel", canal=s_[1], comp=elemento_do_sinal(s_[0]), erro=e_))
+                if not ruins:
+                    raise
+                sem = {k for _, k in ruins}
+                fator[:] = [f for s_, f in zip(sinais, fator) if s_[1] not in sem]
+                sinais[:] = [s_ for s_ in sinais if s_[1] not in sem]
+                canais_scope[:] = [k for k in canais_scope if k not in sem]
+                canais_ctl[:] = [k for k in canais_ctl if k not in sem]
+                meta["sinais"] = [x for x in meta["sinais"] if x["canal"] not in sem]
+                iniciais = le_gecko()
             MOTOR.cmd(f"INIT {dt!r} {tfim!r}")
     except BaseException:
         if trab:
@@ -4146,10 +4217,14 @@ def claude_contexto(c, dt, tfim):
         atu, fontes = atuadores_disponiveis(ult), em_fonte_de_tensao(ult)
         L += [tr("ia_contexto.medidas"), ""]
         for el, canal in [x for x in sinais if x[1] in no_ctl]:
-            fid, _, nome_el = el.rpartition("#") if "#" in el else ("0", "", el)
+            base = elemento_do_sinal(el)                # uma saída de um bloco de várias: bloco@saída
+            fid, _, nome_el = base.rpartition("#") if "#" in base else ("0", "", base)
             fl = next((f for k, f in ult["folhas"].items() if (k == "0" and fid == "0") or f.get("nome") == fid), None)
             e = next((x for x in (fl or {}).get("elementos", []) if x["nome"] == nome_el), None)
-            if e and e["tipo"] == "VOLT":
+            if e and base != el:
+                o = tr("ia_contexto.m_bloco_saida", saida=dict(saidas_gecko(e)).get(el[len(base) + 1:], el[len(base) + 1:]),
+                       nome=e['nome'], tipo=e['nome_tipo'])
+            elif e and e["tipo"] == "VOLT":
                 o = tr("ia_contexto.m_tensao", a=e['mede'][0] or '?', b=e['mede'][1] or '?')
             elif e and e["tipo"] == "AMP":
                 o = tr("ia_contexto.m_corrente_fonte" if el in fontes else "ia_contexto.m_corrente", c=e['mede'][0] or '?')
@@ -4983,6 +5058,7 @@ class Manipulador(BaseHTTPRequestHandler):
             except Exception as e:                   # arquivo que o leitor não entende: dizer, não derrubar
                 return self._resposta(500, {"erro": lingua.tr("modelos.nao_leu", arq=rel, erro=e)})
             r["arq"] = rel
+            r["canais_saidas"] = canais_por_saida(r, aparencia_do_arquivo(arq))   # os blocos de várias saídas: um canal por saída
             return self._resposta(200, r)
         if rota == "/editor/controle":
             return self._resposta(200, painel_controle())

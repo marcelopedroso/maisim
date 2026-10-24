@@ -30,8 +30,9 @@ FAMILIA = {"LK": "C", "THERM": "C", "REL": "C", "RELUCTANCE": "C", "CONTROL": "K
 CATALOGO = {}
 try:
     for _a in json.loads((Path(__file__).parent / "static" / "catalogo.json").read_text())["abas"]:
-        for _i in _a["itens"]:
-            CATALOGO[(FAMILIA.get(_i["dom"], _i["dom"]), _i["typ"])] = (_i["id"], _i["nome"])
+        for _i in _a["itens"]:                    # typ_enum: o que grava o código de outro (Data from File: o do SIGNAL)
+            if "typ_enum" not in _i:
+                CATALOGO[(FAMILIA.get(_i["dom"], _i["dom"]), _i["typ"])] = (_i["id"], _i["nome"])
 except (OSError, ValueError, KeyError):
     pass
 # geometria dos terminais tirada do próprio Gecko (motor/src/maisim/MaiSimGeometria.java → geometria_gecko.json): por id do tipo,

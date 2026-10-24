@@ -10,7 +10,9 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.rmi.registry.LocateRegistry;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Motor do editor do MaiSim: liga a interface web ao GeckoCIRCUITS (o "cérebro") pela interface remota (RMI) do próprio
@@ -93,15 +95,25 @@ public final class MaiSimMotor {
             case "TIME": return Double.toString(g.getSimulationTime());
             case "END": g.endSimulation(); return "";
             case "GET": return Double.toString(g.getOutput(p[1]));
-            case "GETM": {                                                           // GETM nome1 nome2 … → valores
+            case "GETM": {                                                           // GETM nome1 nome2 bloco@saída … → valores
                 String[] nomes = Arrays.copyOfRange(p, 1, p.length);
-                double[] v;
-                try {
-                    v = g.getOutputs(nomes);                                         // uma chamada (jar com a leitura em lote)
-                } catch (Throwable semLote) {                                        // jar antigo: uma por nome
-                    v = new double[nomes.length];
-                    for (int i = 0; i < nomes.length; i++) v[i] = g.getOutput(nomes[i]);
+                double[] v = new double[nomes.length];
+                List<Integer> simples = new ArrayList<>();                           // os de uma saída só: numa chamada
+                for (int i = 0; i < nomes.length; i++) {
+                    int a = nomes[i].lastIndexOf('@');                               // bloco com várias saídas: a saída pelo nome
+                    if (a > 0) v[i] = g.getOutput(nomes[i].substring(0, a), nomes[i].substring(a + 1));
+                    else simples.add(i);
                 }
+                String[] ss = new String[simples.size()];
+                for (int k = 0; k < ss.length; k++) ss[k] = nomes[simples.get(k)];
+                double[] vs;
+                try {
+                    vs = ss.length > 0 ? g.getOutputs(ss) : new double[0];            // uma chamada (jar com a leitura em lote)
+                } catch (Throwable semLote) {                                        // jar antigo: uma por nome
+                    vs = new double[ss.length];
+                    for (int k = 0; k < ss.length; k++) vs[k] = g.getOutput(ss[k]);
+                }
+                for (int k = 0; k < ss.length; k++) v[simples.get(k)] = vs[k];
                 StringBuilder sb = new StringBuilder();
                 for (int i = 0; i < v.length; i++) sb.append(i > 0 ? " " : "").append(v[i]);
                 return sb.toString();
