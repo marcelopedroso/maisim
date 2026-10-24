@@ -1290,7 +1290,7 @@ def completa_controle(salvo):
     como era (sem ganhar o leitura.py e o escrita.py do circuito novo, que o código dele não importa)."""
     if not isinstance(salvo, dict) or "codigo" not in salvo:
         return controle_padrao()
-    return {**controle_padrao(), "arquivos": {}, **{k: v for k, v in salvo.items() if k != "traducoes"}}
+    return {**controle_padrao(), "arquivos": {}, **salvo}
 
 
 def canon_controle(c):
@@ -1299,38 +1299,40 @@ def canon_controle(c):
             "arquivos": {k: canon_codigo(v) for k, v in (c.get("arquivos") or {}).items()}}
 
 
-# os exemplos (exemplos/, do repositório) nos dois idiomas: o <nome>.controle.json e o <nome>.scope.json de um exemplo podem
-# trazer "traducoes": {"en": {"codigo": {"controle.py": "…"}, "titulos": {"título em pt": "em inglês"}}} — o código com os
-# comentários traduzidos (o mesmo código: a trava confere) e os títulos do layout do scope. Vale só ao abrir da pasta dos
-# exemplos, no idioma do pedido; a cópia salva pelo usuário fica no idioma em que ele a abriu (e sem as traduções)
-def traducao_exemplo(d, arq_ipes):
-    """(d sem as traduções, as do idioma do pedido — {} fora dos exemplos ou em português)."""
-    if not isinstance(d, dict):
-        return d, {}
-    tr = d.get("traducoes") if isinstance(d.get("traducoes"), dict) else {}
-    d = {k: v for k, v in d.items() if k != "traducoes"}
+# os exemplos (exemplos/, do repositório) nos dois idiomas: ao lado do <nome>.controle.json e do <nome>.scope.json (que
+# ficam como sempre), o <nome>.controle.en.json ({"codigo": {"controle.py": "…"}}: o código com os comentários traduzidos)
+# e o <nome>.scope.en.json ({"titulos": {"título em pt": "em inglês"}}: os do layout do scope). Valem só ao abrir da pasta
+# dos exemplos, no idioma do pedido; a cópia salva fica no idioma em que o exemplo foi aberto
+def traducao_exemplo(arq, l=None):
+    """A tradução de um arquivo de ao lado (arq: o <nome>.controle.json ou o .scope.json) de um exemplo, no idioma l (o do
+    pedido): {} fora dos exemplos, em português ou sem tradução."""
+    l = l or lingua.atual()
     try:
-        de_exemplo = Path(arq_ipes).resolve().parent == MODELOS.resolve()
-    except OSError:
-        de_exemplo = False
-    t = tr.get(lingua.atual()) if de_exemplo and lingua.atual() != "pt" else None
-    return d, (t if isinstance(t, dict) else {})
+        if l == "pt" or Path(arq).resolve().parent != MODELOS.resolve():
+            return {}
+        t = json.loads(Path(arq).with_suffix(f".{l}.json").read_text())
+    except (OSError, ValueError):
+        return {}
+    return t if isinstance(t, dict) else {}
 
 
 def controle_do_arquivo(arq_ipes):
     """O controle salvo ao lado do .ipes, como a abertura o carrega (completa_controle: um controle de antes dos módulos fica
-    como era; um exemplo, no idioma do pedido); sem arquivo (ou ilegível), o padrão."""
+    como era; um exemplo, no idioma do pedido); sem arquivo (ou ilegível), o padrão. O código traduzido só entra se for o
+    mesmo código do original (só os comentários mudam): uma tradução atrasada em relação ao código não roda — fica o original."""
+    f = arquivo_controle(arq_ipes)
     try:
-        d, t = traducao_exemplo(json.loads(arquivo_controle(arq_ipes).read_text()), arq_ipes)
+        d = json.loads(f.read_text())
     except (OSError, ValueError):
         return controle_padrao()
-    cod = t.get("codigo") if isinstance(t.get("codigo"), dict) else {}
-    if isinstance(d, dict) and cod:
+    cod = traducao_exemplo(f).get("codigo")
+    if isinstance(d, dict) and isinstance(cod, dict) and cod:
+        troca = lambda arq, orig: cod[arq] if isinstance(orig, str) and isinstance(cod.get(arq), str) and lingua.mesmo_codigo(orig, cod[arq]) else orig
         d = dict(d)
-        if isinstance(cod.get("controle.py"), str) and "codigo" in d:
-            d["codigo"] = cod["controle.py"]
+        if "codigo" in d:
+            d["codigo"] = troca("controle.py", d["codigo"])
         if isinstance(d.get("arquivos"), dict):
-            d["arquivos"] = {k: cod[k] if isinstance(cod.get(k), str) else v for k, v in d["arquivos"].items()}
+            d["arquivos"] = {k: troca(k, v) for k, v in d["arquivos"].items()}
     return completa_controle(d)
 
 
@@ -1740,13 +1742,14 @@ def ipes_do_modelo(modelo):
     return arq
 
 
-def layout_do_arquivo(arq_ipes):
-    """O layout padrão ao lado do .ipes, limpo (num exemplo, os títulos no idioma do pedido: traducao_exemplo); sem, None."""
+def layout_do_arquivo(arq_ipes, l=None):
+    """O layout padrão ao lado do .ipes, limpo (num exemplo, os títulos no idioma l, o do pedido: traducao_exemplo); sem, None."""
     f = arquivo_scope(arq_ipes)
     if not f.exists():
         return None
-    d, t = traducao_exemplo(json.loads(f.read_text()), arq_ipes)
-    tit = t.get("titulos") if isinstance(t.get("titulos"), dict) else {}
+    d = json.loads(f.read_text())
+    tit = traducao_exemplo(f, l).get("titulos")
+    tit = tit if isinstance(tit, dict) else {}
     if tit and isinstance(d, dict) and isinstance(d.get("itens"), list):
         d = {**d, "itens": [{**x, **{k: tit[x[k]] for k in ("secao", "titulo") if isinstance(x.get(k), str) and isinstance(tit.get(x[k]), str)}}
                             if isinstance(x, dict) else x for x in d["itens"]]}
@@ -2492,7 +2495,7 @@ def painel_controle(c=None):
     return dict(controle=c, erros=erros, avisos=erros_ctl + avisos + avisos_ctl, erros_controladores=erros_ctl, conferencia=conferencia,
                 compartilhados=com_codigo(avisos + avisos_ctl, "importado_compartilhado"),
                 entradas=entradas, atuadores=atu, modelo=modelo_codigo("controle"), circuito=bool(ult),
-                modelos={**modelos_arquivos(), "modulo": modelo_codigo("modulo"), "outro": modelo_codigo("outro")},
+                modelos={**modelos_arquivos(), "modulo": modelo_codigo("modulo"), "outro": modelo_codigo("outro")}, lingua=lingua.atual(),
                 modulos=sorted(modulos_de(c)), sem_esquema=variaveis_sem_esquema(c, ult), do_codigo=do_codigo, mensagens_vistas=vistas_do_circuito(c),
                 instancias=[{"nome": i["nome"], "arquivo": i["arquivo"], "controlador": (i.get("p") or {}).get("controlador"),
                              "subcircuito": (i.get("p") or {}).get("subcircuito"), "medidas": sorted(i["medidas"]) if i["medidas"] is not None else None,
@@ -5053,6 +5056,7 @@ class Manipulador(BaseHTTPRequestHandler):
                 marca_aberto(relativo(arq))
                 marca_fechado(False)
                 carrega_controle_de(arq)                # o controle salvo junto (<nome>.controle.json), ou o padrão
+                editor["lingua_aberto"] = lingua.atual()   # (um exemplo abre no idioma do pedido: o "salvar como" o segue)
                 carrega_aparencia_de(arq)               # e a aparência (<nome>.aparencia.json)
                 esquece(tudo=True)                      # outro modelo: o desfazer recomeça
                 r = estado()
@@ -5339,12 +5343,13 @@ class Manipulador(BaseHTTPRequestHandler):
                         antes_ipes = ipes_do_modelo(chave_vistas)
                         antes = arquivo_scope(antes_ipes)
                         if antes.exists() and antes != arquivo_scope(dest):
-                            if antes_ipes.parent == MODELOS.resolve():   # de um exemplo: no idioma deste pedido, sem as traduções
-                                arquivo_scope(dest).write_text(json.dumps(layout_do_arquivo(antes_ipes), ensure_ascii=False, indent=1) + "\n")
+                            l_ab = editor.get("lingua_aberto") or lingua.atual()   # o idioma em que o exemplo foi aberto (o do controle)
+                            if traducao_exemplo(antes, l_ab).get("titulos"):        # um exemplo traduzido: os títulos nesse idioma
+                                arquivo_scope(dest).write_text(json.dumps(layout_do_arquivo(antes_ipes, l_ab), ensure_ascii=False, indent=1) + "\n")
                             else:
                                 shutil.copyfile(antes, arquivo_scope(dest))
                     except (ErroMotor, OSError, ValueError):
-                        pass
+                        arquivo_scope(dest).unlink(missing_ok=True)   # não fica o padrão de outro circuito (o destino sobrescrito)
                 if not chave_vistas or not arquivo_scope(ipes_do_modelo(chave_vistas)).exists():
                     arquivo_scope(dest).unlink(missing_ok=True)   # sem padrão na origem: o que estava no destino era de outro circuito
                 marca_aberto(str(relativo(dest)))

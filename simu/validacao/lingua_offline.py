@@ -418,43 +418,40 @@ def itens(md):
 
 
 def sem_comentarios_py(src):
-    """O código sem os comentários (o ast não os guarda) e sem as docstrings: o que tem de ser igual nos dois idiomas."""
-    try:
-        arv = ast.parse(src)
-    except SyntaxError:
-        return None
-    for n in ast.walk(arv):
-        if isinstance(n, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and n.body and \
-                isinstance(n.body[0], ast.Expr) and isinstance(n.body[0].value, ast.Constant) and isinstance(n.body[0].value.value, str):
-            n.body = n.body[1:] or [ast.Pass()]
-    return ast.dump(arv)
+    """O código sem os comentários e sem as docstrings (o mesmo critério do servidor: lingua.codigo_sem_comentarios)."""
+    sys.path.insert(0, str(RAIZ / "config"))
+    import lingua
+    return lingua.codigo_sem_comentarios(src)
+
+
+TRAD_EXEMPLO = {".controle": {"codigo"}, ".scope": {"titulos"}}   # <nome>.controle.en.json e <nome>.scope.en.json
 
 
 def confere_exemplos():
-    """Os exemplos (exemplos/) com "traducoes": o código traduzido é o mesmo (só os comentários mudam) e os títulos
-    traduzidos do layout do scope existem no layout."""
-    for f in sorted((RAIZ / "exemplos").glob("*.json")):
+    """As traduções dos exemplos (exemplos/<nome>.controle.en.json, <nome>.scope.en.json): ao lado de um arquivo que existe,
+    só as chaves conhecidas, o código traduzido é o mesmo do original (só os comentários mudam) e todo título do layout tem
+    a tradução (e só os que existem nele)."""
+    for f in sorted((RAIZ / "exemplos").glob("*.*.*.json")):
+        tipo, l = Path(f.stem).with_suffix("").suffix, Path(f.stem).suffix[1:]
+        orig = f.with_name(f.name[:-len(f".{l}.json")] + ".json")
+        nome, ruins = f.relative_to(RAIZ), []
         try:
-            d = json.loads(f.read_text())
-        except ValueError:
-            ok(False, f"{f.relative_to(RAIZ)}: o JSON não lê"); continue
-        tr = d.get("traducoes") if isinstance(d, dict) else None
-        if not tr:
-            continue
-        ruins = []
-        for l, t in tr.items():
-            if l not in ("en",) or not isinstance(t, dict) or set(t) - {"codigo", "titulos"}:
-                ruins.append(f"{l}: só en, com codigo e titulos"); continue
-            for arq, cod in (t.get("codigo") or {}).items():
-                orig = d.get("codigo") if arq == "controle.py" else (d.get("arquivos") or {}).get(arq)
-                if not isinstance(orig, str) or not isinstance(cod, str) or sem_comentarios_py(orig) is None \
-                        or sem_comentarios_py(orig) != sem_comentarios_py(cod):
-                    ruins.append(f"{l}: o {arq} não é o mesmo código")
-            nomes = {x.get(k) for x in d.get("itens") or [] if isinstance(x, dict) for k in ("secao", "titulo")}
-            for de, para in (t.get("titulos") or {}).items():
-                if de not in nomes or not isinstance(para, str) or not para.strip():
-                    ruins.append(f"{l}: o título \"{de}\" não está no layout (ou a tradução está vazia)")
-        ok(not ruins, f"{f.relative_to(RAIZ)}: as traduções do exemplo (o mesmo código, os títulos do layout)"
+            t, d = json.loads(f.read_text()), json.loads(orig.read_text())
+        except (OSError, ValueError) as e:
+            ok(False, f"{nome}: a tradução ou o original ({orig.name}) não lê ({e.__class__.__name__})"); continue
+        if l not in ("en",) or tipo not in TRAD_EXEMPLO or not isinstance(t, dict) or set(t) - TRAD_EXEMPLO[tipo]:
+            ok(False, f"{nome}: tradução desconhecida (só <nome>.controle.en.json com codigo e <nome>.scope.en.json com titulos)"); continue
+        for arq, cod in (t.get("codigo") or {}).items():
+            o = d.get("codigo") if arq == "controle.py" else (d.get("arquivos") or {}).get(arq)
+            if not isinstance(o, str) or not isinstance(cod, str) or sem_comentarios_py(o) is None or sem_comentarios_py(o) != sem_comentarios_py(cod):
+                ruins.append(f"o {arq} não é o mesmo código de {orig.name} (o servidor fica com o original)")
+        if tipo == ".scope":
+            tit = t.get("titulos") if isinstance(t.get("titulos"), dict) else {}
+            nomes = {x.get(k) for x in d.get("itens") or [] if isinstance(x, dict) for k in ("secao", "titulo")} - {None, ""}
+            ruins += [f"sem tradução: \"{x}\"" for x in sorted(nomes - set(tit))]
+            ruins += [f"\"{x}\" não está no layout" for x in sorted(set(tit) - nomes)]
+            ruins += [f"tradução vazia: \"{x}\"" for x, v in tit.items() if not isinstance(v, str) or not v.strip()]
+        ok(not ruins, f"{nome}: a tradução de {orig.name} (o mesmo código, todos os títulos do layout)"
            + ("" if not ruins else " — " + "; ".join(ruins[:5])))
 
 
@@ -481,6 +478,8 @@ def confere_pares():
         else:
             ok(sem_comentarios_py(ta) is not None and sem_comentarios_py(ta) == sem_comentarios_py(tb),
                f"{b.relative_to(RAIZ)}: o mesmo código de {a.name} (só os comentários e as docstrings mudam)")
+    orfaos = [p.relative_to(RAIZ) for p in sorted((RAIZ / "simu").glob("*.en.py")) if not p.with_name(p.name[:-len(".en.py")] + ".py").exists()]
+    ok(not orfaos, "os .en.py têm o original em português" + (f" — sem: {', '.join(map(str, orfaos))}" if orfaos else ""))
     confere_exemplos()
 
 
