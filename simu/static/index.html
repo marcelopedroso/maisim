@@ -107,7 +107,7 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   .sugestoes.sug-vars b { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-weight:600; color:var(--acento); }   /* a lista do $ no parâmetro */
   #props label input.p-bool { width:auto; justify-self:start; margin:0; }   /* o parâmetro sim/não do Gecko (useExternal, display…) */
   #props label.p-externo span, #props label.p-externo input { color:var(--fraco); } #props label.p-externo input { background:var(--suave); cursor:not-allowed; }
-  #props label .nota-ext { grid-column:2; margin-top:-3px; color:var(--sutil); font-size:11px; font-style:italic; }   /* SIGNAL com useExternal: o valor vem da entrada */
+  #props label .nota-ext { grid-column:2; margin-top:-3px; color:var(--sutil); font-size:11px; font-style:italic; }   /* useExternal (SIGNAL, LIMIT, HYS): o valor vem da entrada */
   #hist { margin-top:18px; border-top:1px solid var(--borda); padding-top:2px; } #hist small { text-transform:none; letter-spacing:0; font-weight:400; }
   #hist ol { list-style:none; margin:0; padding:0; font-size:12px; } #hist li { overflow-wrap:anywhere; padding:3px 0 3px 8px; border-left:3px solid var(--ok-borda); margin:3px 0; line-height:1.35; }
   #hist li.erro { border-left-color:var(--erro-borda); color:var(--erro); } #hist time { color:var(--fraco); font-size:11px; margin-right:6px; font-variant-numeric:tabular-nums; }
