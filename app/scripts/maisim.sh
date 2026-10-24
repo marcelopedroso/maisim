@@ -4,7 +4,23 @@
 # ar é reaproveitado e continua no ar. Ctrl+C derruba o que ESTE comando subiu. O Gecko só cai se não houver circuito sem
 # salvar (o simulador compara o que está no Gecko com o arquivo aberto); se houver, ele fica no ar e o comando diz como derrubar.
 # Variável: MAISIM_SEM_GECKO=1 (não sobe o Gecko).
+# Opção: -p PORTA (npm run maisim -- -p 8100): a página nessa porta e as outras logo em seguida (+1 o simulador, +2 o scope,
+# +3 o Gecko, +4 o motor do editor, +5 a tela do Gecko, +6 o VNC; a tela virtual :PORTA/100); sem -p, as de config/ (7100…).
 set -u
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -p|--porta)
+      B=${2:-}
+      if ! [[ "$B" =~ ^[0-9]+$ ]] || [ "$B" -lt 1024 ] || [ "$B" -gt 65000 ]; then
+        echo "maisim: -p pede um número de porta entre 1024 e 65000 (ex.: -p 8100)"; exit 2; fi
+      export MAISIM_PORTA_PAGINA=$B MAISIM_PORTA_SIMU=$((B + 1)) MAISIM_PORTA_SCOPE=$((B + 2)) MAISIM_PORTA_GECKO=$((B + 3))
+      export MAISIM_PORTA_MOTOR=$((B + 4)) MAISIM_PORTA_TELA=$((B + 5)) MAISIM_PORTA_VNC=$((B + 6)) MAISIM_TELA_X=":$((B / 100))"
+      shift 2;;
+    -h|--help)
+      echo "uso: npm run maisim [-- -p PORTA]   (sem -p: http://localhost:7100; com -p 8100: http://localhost:8100, e 8101–8106)"; exit 0;;
+    *) echo "maisim: opção desconhecida: $1 (use -p PORTA, ou -h)"; exit 2;;
+  esac
+done
 APP="$(cd "$(dirname "$0")/.." && pwd)"                   # app/ (a página)
 SM="$(cd "$APP/.." && pwd)"                               # a raiz do projeto: scope/, simu/, gecko/
 eval "$(python3 "$SM/config/ler_config.py" --shell)"     # as portas e as pastas (config/padrao.env, o .env, o ambiente)

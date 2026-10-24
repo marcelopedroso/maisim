@@ -39,9 +39,9 @@ Linux (tested on Ubuntu 22.04 and WSL2):
 sudo apt install -y python3 python3-numpy openjdk-11-jdk maven git xvfb x11vnc novnc websockify x11-utils libxtst6 openbox
 ```
 
-AI is optional: install [Claude Code](https://claude.com/claude-code) (`claude`) and/or Google Antigravity. You sign in
-from MaiSim's own screen, and the login is kept in a separate folder (`~/.claude-maisim`, `~/.agy-maisim`), so your
-usual login is not touched.
+MaiSim works with the AI installed on your computer (optional): [Claude Code](https://claude.com/claude-code)
+(`claude`) and/or Google Antigravity. You sign in from MaiSim's own screen, and the login is kept in a separate folder
+(`~/.claude-maisim`, `~/.agy-maisim`), so your usual login is not touched.
 
 ## Install and run
 
@@ -52,9 +52,10 @@ npm ci --prefix app           # the web page
 cd app && npm run maisim      # starts everything; Ctrl+C stops what it started
 ```
 
-Open **http://localhost:7100**. Ports (7100–7106, `localhost` only) and folders are set in
-[`config/padrao.env`](config/padrao.env); to change something on your machine, create a `.env` at the repository root
-with only what changes.
+Open **http://localhost:7100**. To use another port, pass it with `-p`: `npm run maisim -- -p 8100` serves the page on
+8100 and the other services on the ports right after it (8101–8106). Ports (7100–7106 by default, `localhost` only) and
+folders are set in [`config/padrao.env`](config/padrao.env); to change something for good on your machine, create a `.env`
+at the repository root with only what changes.
 
 Your data (circuits, subcircuits, runs, AI contexts) lives in `~/.local/share/maisim`; what can be rebuilt (editor
 state, conversations, logs, Gecko), in `~/.cache/maisim`.

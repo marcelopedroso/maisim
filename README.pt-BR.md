@@ -38,9 +38,9 @@ Linux (testado no Ubuntu 22.04 e no WSL2):
 sudo apt install -y python3 python3-numpy openjdk-11-jdk maven git xvfb x11vnc novnc websockify x11-utils libxtst6 openbox
 ```
 
-A IA é opcional: instale o [Claude Code](https://claude.com/claude-code) (`claude`) e/ou o Google Antigravity. O login
-é feito pela própria tela do MaiSim e fica numa pasta separada (`~/.claude-maisim`, `~/.agy-maisim`), sem mexer no seu
-login de sempre.
+O MaiSim trabalha com a IA instalada no seu computador (opcional): o [Claude Code](https://claude.com/claude-code)
+(`claude`) e/ou o Google Antigravity. O login é feito pela própria tela do MaiSim e fica numa pasta separada
+(`~/.claude-maisim`, `~/.agy-maisim`), sem mexer no seu login de sempre.
 
 ## Instalar e rodar
 
@@ -51,9 +51,10 @@ npm ci --prefix app           # a página
 cd app && npm run maisim      # sobe tudo; Ctrl+C derruba o que ele subiu
 ```
 
-Abra **http://localhost:7100**. As portas (7100–7106, só `localhost`) e as pastas ficam em
-[`config/padrao.env`](config/padrao.env); para mudar algo na sua máquina, crie um `.env` na raiz do repositório só com
-o que muda.
+Abra **http://localhost:7100**. Para usar outra porta, passe com `-p`: `npm run maisim -- -p 8100` serve a página na 8100
+e os outros serviços nas portas logo depois (8101–8106). As portas (7100–7106 por padrão, só `localhost`) e as pastas ficam
+em [`config/padrao.env`](config/padrao.env); para mudar de vez na sua máquina, crie um `.env` na raiz do repositório só
+com o que muda.
 
 Os seus dados (circuitos, subcircuitos, rodadas, contextos da IA) ficam em `~/.local/share/maisim`; o que dá para
 refazer (estado do editor, conversas, registros, Gecko), em `~/.cache/maisim`.
