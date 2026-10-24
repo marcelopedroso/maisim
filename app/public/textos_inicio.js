@@ -119,3 +119,4 @@ maisimI18n.add({
   "inicio.sai_npz": { pt: "Sai a gravação (.npz).", en: "The recording (.npz) goes." },
   "inicio.esta_guardada_html": { pt: "<b>Esta rodada está guardada.</b>", en: "<b>This run is kept.</b>" },
 });
+try { sessionStorage.removeItem("maisim-recarga"); } catch (e) { /* ok */ }   // chegou: a próxima falha pode recarregar de novo

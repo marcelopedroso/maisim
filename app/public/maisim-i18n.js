@@ -15,13 +15,14 @@
 (function () {
   "use strict";
   if (window.maisimI18n && !window.maisimI18n.reserva) return;
-  const antes = (window.maisimI18n && window.maisimI18n.dicionario && window.maisimI18n.dicionario()) || {};   // o que a reserva já juntou
+  const reserva = window.maisimI18n || null;      // a reserva da página (a 1ª carga falhou): o que ela já juntou passa para cá
+  const antes = (reserva && reserva.dicionario && reserva.dicionario()) || {};
   const LINGUAS = ["pt", "en"];
   const LOCAL = { pt: "pt-BR", en: "en-US" };
   // a 1ª vez pelo idioma do navegador: ligado só quando tudo estiver traduzido (o último PR); até lá, português
   const DETECTA_NAVEGADOR = false;
   const dic = Object.assign({}, antes);
-  const ouvintes = [];
+  const ouvintes = (reserva && reserva.ouvintes && reserva.ouvintes().slice()) || [];
   const pseudo = /[?&]lingua=xx\b/.test(location.search);       // testes: todo texto traduzido aparece como ⟦…⟧
   const valida = (l) => (LINGUAS.includes(l) ? l : null);
   // o escolhido: o cookie primeiro (o mesmo em todas as portas do localhost, e muda() grava nele: é a escolha mais nova — uma
@@ -94,7 +95,9 @@
     (document.head || document.documentElement).appendChild(espera);
     setTimeout(() => { if (espera) { espera.remove(); espera = null; } }, 1500);
   }
-  const pronto = () => { if (atual !== "pt") aplica(); if (espera) { espera.remove(); espera = null; } };   // em português, o HTML já está
+  // chegando depois da reserva: o que a página montou em português passa ao idioma escolhido, e o trilho mostra o botão
+  const pronto = () => { if (atual !== "pt") { if (reserva) avisa(); else aplica(); } if (espera) { espera.remove(); espera = null; }   // em português, o HTML já está
+    if (reserva) window.dispatchEvent(new CustomEvent("maisim-i18n-pronto", { detail: atual })); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", pronto);
   else pronto();
 })();

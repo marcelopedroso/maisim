@@ -196,14 +196,16 @@ def sem_comentarios_js(src):
 
 
 def sem_dicionarios(src):
-    """Tira os blocos de dicionário (….add({ … })): o português de dentro deles é o lugar certo, não conta como solto."""
+    """Tira os blocos de dicionário (….add({ … }), ou const TXT = { … } passado ao add): o português de dentro deles é o
+    lugar certo, não conta como solto."""
     out, i = [], 0
     while True:
-        k = src.find(".add({", i)
-        if k < 0:
+        m = re.compile(r"\.add\(\{|\bconst TXT = \{").search(src, i)
+        if not m:
             return "".join(out) + src[i:]
+        k = m.start()
         out.append(src[i:k])
-        j, prof, est = k + 5, 0, None
+        j, prof, est = m.end() - 1, 0, None
         while j < len(src):
             c = src[j]
             if est:
@@ -211,6 +213,10 @@ def sem_dicionarios(src):
                     j += 2; continue
                 if c == est:
                     est = None
+            elif src.startswith("//", j):           # comentários: um ' ou ` dentro (// don't) não abre string
+                j = src.find("\n", j); j = len(src) if j < 0 else j; continue
+            elif src.startswith("/*", j):
+                j = src.find("*/", j); j = len(src) if j < 0 else j + 2; continue
             elif c in "\"'`":
                 est = c
             elif c == "{":

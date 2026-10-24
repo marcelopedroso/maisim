@@ -6,8 +6,10 @@
   if (window.maisimNav || window.top !== window.self) return;     // embutido (tela dividida): sem menu
   const L = 56;
   // os textos do trilho, em português e inglês (o idioma: o botão PT/EN aqui no pé, ao lado do tema; maisim-i18n.js)
-  const I = window.maisimI18n;
-  if (I) I.add({
+  // (o motor lido na hora: a reserva da página pode passar o lugar ao de verdade depois; sem nenhum — a página do Gecko —,
+  // o português daqui mesmo)
+  const I = () => window.maisimI18n;
+  const TXT = {
     "nav.inicio": { pt: "Início", en: "Home" },
     "nav.simu": { pt: "Simu · monte e simule", en: "Simu · build and simulate" },
     "nav.codigo": { pt: "Código · o controle em outra janela", en: "Code · the control in its own window" },
@@ -25,8 +27,12 @@
     "nav.tamanho_maior": { pt: "Tamanho do MaiSim: {pct}% (clique: maior)", en: "MaiSim size: {pct}% (click: larger)" },
     "nav.tamanho_menor": { pt: "Tamanho do MaiSim: {pct}% (clique: menor)", en: "MaiSim size: {pct}% (click: smaller)" },
     "nav.lingua": { pt: "Idioma: português (clique: English)", en: "Language: English (click: português)" },
-  });
-  const tr = (k, p) => (I ? I.tr(k, p) : k);
+  };
+  if (I()) I().add(TXT);
+  const tr = (k, p) => { if (I()) return I().tr(k, p);
+    let v = TXT[k] ? TXT[k].pt : k; if (typeof v === "object") v = p && p.n === 1 ? v.one : v.other;
+    return p ? v.replace(/\{(\w+)\}/g, (m, x) => (x in p ? String(p[x]) : m)) : v; };
+  const trocaLingua = () => { const i = I(); return !!(i && i.muda && !i.reserva); };   // o botão só com o motor de verdade
   const svg = (d) => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
   const ITENS = [
     { href: "/", chave: "nav.inicio", ativo: (p) => p === "/",
@@ -70,6 +76,7 @@
   #maisim-nav .escala .item:disabled { opacity:.3; cursor:default; } #maisim-nav .escala .item:disabled:hover { background:transparent; color:#aab2bd; }
   #maisim-nav .escala .pct { color:#8a94a0; font-size:10px; font-variant-numeric:tabular-nums; }
   #maisim-nav .tema { border:0; background:transparent; cursor:pointer; font:inherit; }
+  #maisim-nav .lingua[hidden] { display:none; }
   #maisim-nav .lingua { border:0; background:transparent; cursor:pointer; font:600 12px/1 system-ui, sans-serif; letter-spacing:.04em; }`;
   // tema do MaiSim inteiro: sistema (segue o Windows), claro ou escuro. Guardado no navegador (localStorage "maisim-tema", o mesmo
   // para todas as páginas do MaiSim na porta dele); aplicado em <html data-tema="claro|escuro">; as páginas ouvem "maisim-tema"
@@ -159,9 +166,9 @@
     nav.insertAdjacentHTML("beforeend", `<a class="item ia" href="/maisim/simu/?contas=1" data-rotulo="${tr("nav.ia")}" aria-label="${tr("nav.ia")}">${ICONE_IA}<span class="ponto"></span></a>`
       + (comEscala() ? `<div class="escala"><button class="item mais" type="button" aria-label="${tr("nav.maior")}">+</button>
       <span class="pct"></span><button class="item menos" type="button" aria-label="${tr("nav.menor")}">−</button></div>` : "")
-      + (I && I.muda && !I.reserva ? `<button class="item lingua" type="button"></button>` : "") + `<button class="item tema" type="button"></button>`);
+      + `<button class="item lingua" type="button" hidden></button><button class="item tema" type="button"></button>`);
     const bl = nav.querySelector(".lingua");             // PT/EN: mostra o outro idioma (o do clique); vale para todas as janelas
-    if (bl) bl.addEventListener("click", () => I.muda(I.lingua() === "pt" ? "en" : "pt"));
+    bl.addEventListener("click", () => { if (trocaLingua()) I().muda(I().lingua() === "pt" ? "en" : "pt"); });
     if (comEscala()) { nav.querySelector(".mais").addEventListener("click", () => mudaEscala(1)); nav.querySelector(".menos").addEventListener("click", () => mudaEscala(-1)); }
     nav.querySelector(".item.ia").addEventListener("click", (e) => {   // no simu: a janela das contas na hora
       if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || typeof window.abreJanelaClaude !== "function") return;
@@ -194,7 +201,7 @@
   function rotulaLingua() {
     const nav = document.getElementById("maisim-nav"); if (!nav) return;
     const b = nav.querySelector(".lingua");
-    if (b && I) { b.textContent = I.lingua() === "pt" ? "EN" : "PT"; b.dataset.rotulo = tr("nav.lingua"); b.setAttribute("aria-label", tr("nav.lingua")); }
+    if (b) { b.hidden = !trocaLingua(); if (!b.hidden) { b.textContent = I().lingua() === "pt" ? "EN" : "PT"; b.dataset.rotulo = tr("nav.lingua"); b.setAttribute("aria-label", tr("nav.lingua")); } }
     nav.querySelectorAll("a.item[href]").forEach((a) => { const it = ITENS.find((x) => x.href === a.getAttribute("href"));
       if (it) { a.dataset.rotulo = tr(it.chave); a.setAttribute("aria-label", tr(it.chave)); } });
     const ia = nav.querySelector(".item.ia");
@@ -204,7 +211,9 @@
     if (n) n.setAttribute("aria-label", tr("nav.menor"));
     aplicaTema(); aplicaEscala();
   }
-  if (I && I.aoMudar) I.aoMudar(rotulaLingua);
+  // (pelos eventos da janela, não pelo aoMudar: valem também quando o motor de verdade chega depois da reserva)
+  window.addEventListener("maisim-lingua", rotulaLingua);
+  window.addEventListener("maisim-i18n-pronto", rotulaLingua);
   window.maisimNav = { montar, desmontar, aplicaTema, aplicaEscala, situacaoIA };
   const eu = document.currentScript;
   if (!(eu && eu.dataset.manual)) { if (document.body) montar(); else document.addEventListener("DOMContentLoaded", montar); }

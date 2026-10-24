@@ -62,11 +62,30 @@ async function varre(pg) {
     await inicio.reload(); await inicio.waitForSelector("#maisim-nav .lingua");
     const fica = await inicio.evaluate(() => document.querySelector("#cartao-novo h2").textContent);
     ok(await sj.evaluate(() => maisimI18n.lingua()) === "en" && fica === "+ New circuit", `a janela à parte em inglês; recarregada, a escolha fica ("${fica}")`);
+    // a 1ª carga do maisim-i18n.js falha (a conexão caiu): a reserva segura o português e, quando o de verdade chega, a página
+    // e o trilho passam ao inglês escolhido, com o botão PT/EN
+    let cargas = 0; const I18N = /\/maisim-i18n\.js(\?.*)?$/;
+    await ctx.route(I18N, (r) => (cargas++ ? r.continue() : r.abort()));
+    const rp = await ctx.newPage(); await rp.goto(B + "/");
+    let rr = null;
+    for (let i = 0; i < 25 && !(rr && rr.h2 === "+ New circuit" && rr.bt === "PT" && rr.rot === "Home"); i++) { await rp.waitForTimeout(400);
+      rr = await rp.evaluate(() => ({ h2: document.querySelector("#cartao-novo h2")?.textContent, rot: document.querySelector('#maisim-nav a.item[href="/"]')?.dataset.rotulo,
+        bt: document.querySelector("#maisim-nav .lingua:not([hidden])")?.textContent, reserva: !!window.maisimI18n?.reserva })).catch(() => null); }
+    ok(cargas >= 2 && rr && rr.h2 === "+ New circuit" && rr.rot === "Home" && rr.bt === "PT" && !rr.reserva,
+      `sem o maisim-i18n.js na 1ª carga: a reserva e depois o de verdade, em inglês (${cargas} cargas, ${JSON.stringify(rr)})`);
+    await ctx.unroute(I18N); await rp.close();
+    // uma página só com o trilho, sem o motor (a do Gecko): os rótulos em português, nenhuma chave crua
+    await ctx.route(B + "/teste-sem-i18n", (r) => r.fulfill({ contentType: "text/html", body: '<!doctype html><html><head><meta charset="utf-8"></head><body><script src="/maisim-nav.js"></script></body></html>' }));
+    const sem = await ctx.newPage(); await sem.goto(B + "/teste-sem-i18n"); await sem.waitForSelector("#maisim-nav .tema");
+    const rs = await sem.evaluate(() => [...document.querySelectorAll("#maisim-nav .item")].map((e) => e.dataset.rotulo || e.getAttribute("aria-label") || ""));
+    ok(rs.includes("Início") && !rs.some((x) => /\bnav\./.test(x)) && !(await sem.$("#maisim-nav .lingua:not([hidden])")),
+      `sem o motor, o trilho em português e sem o botão PT/EN (${rs.filter(Boolean).slice(0, 4).join(" | ")}…)`);
+    await sem.close();
     // a varredura (pseudo-idioma) nas páginas prontas e no trilho: nada escapa
     const vp = await ctx.newPage();
     for (const [nome, url] of PRONTAS) {
       await vp.goto(B + url + (url.includes("?") ? "&" : "?") + "lingua=xx"); await vp.waitForTimeout(1500);
-      if (url === "/") { await vp.click("#cartao-exemplos").catch(() => {}); await vp.click("#bt-todas").catch(() => {}); await vp.waitForTimeout(400); }
+      if (url === "/") { await vp.click("#cartao-exemplos", { timeout: 2000 }).catch(() => {}); await vp.click("#bt-todas", { timeout: 2000 }).catch(() => {}); await vp.waitForTimeout(400); }
       const fora = await varre(vp);
       ok(fora.length === 0, `varredura de ${nome} (em inglês, com o pseudo-idioma): ${fora.length} texto(s) fora da tradução${fora.length ? " — " + fora.slice(0, 6).join(" | ") : ""}`);
     }
