@@ -217,6 +217,7 @@
             try { pastas = await (await fetch("/maisim/simu/modelos/pastas")).json(); } catch (e) { /* sem o caminho */ }
             if (!mods.length && !todos.some((m) => m.aberto_em)) return;
             const sec = document.getElementById("circuitos"), lista = document.getElementById("lista-circ"), filtro = document.getElementById("filtro-circ");
+            if (!sec || !lista || !filtro) return;          // a página mudou enquanto a lista vinha (um teste troca o corpo por um iframe)
             const nome = (m) => m.nome.replace(/\.ipes$/, "");
             // a lixeira (Marcelo, 24/10: "deletar por aqui, sem precisar achar a pasta"): só os seus e os da biblioteca, como no
             // Abrir, e não o que está aberto no editor; depois de confirmar, apagado de vez (a .lixeira do Abrir fica numa pasta
