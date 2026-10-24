@@ -1,0 +1,155 @@
+diff --git a/src/main/java/ch/technokrat/gecko/GeckoSim.java b/src/main/java/ch/technokrat/gecko/GeckoSim.java
+index b3098b3c..145952d8 100644
+--- a/src/main/java/ch/technokrat/gecko/GeckoSim.java
++++ b/src/main/java/ch/technokrat/gecko/GeckoSim.java
+@@ -79,6 +79,7 @@ public class GeckoSim extends JApplet {
+     }
+ 
+     public static void main(final String[] args) {
++        MaiSimVigia.inicia();   // MaiSim (patch 0003): before anything else, so a dialog while starting up is caught too
+         if (operatingmode != OperatingMode.REMOTE && operatingmode != OperatingMode.MMF) {
+             setDefaultFonts();
+         }                
+@@ -412,7 +413,8 @@ public class GeckoSim extends JApplet {
+             _win.setAppletFiles(datnamExampleApplet);
+             //win.setVisible(true);  // --> wird erst bei Maus-Klick im Applet-Modus aktiviert! ??
+         } else {
+-            if (_initialShow) {
++            // MaiSim (patch 0003): -Dmaisim.oculto=true keeps the main window hidden (MaiSim drives Gecko remotely)
++            if (_initialShow && !Boolean.getBoolean("maisim.oculto")) {
+                 _win.setVisible(true);
+             }
+         }
+diff --git a/src/main/java/ch/technokrat/gecko/MaiSimVigia.java b/src/main/java/ch/technokrat/gecko/MaiSimVigia.java
+new file mode 100644
+index 00000000..5f298bfe
+--- /dev/null
++++ b/src/main/java/ch/technokrat/gecko/MaiSimVigia.java
+@@ -0,0 +1,127 @@
++package ch.technokrat.gecko;
++
++import java.awt.Component;
++import java.awt.Container;
++import java.awt.Dialog;
++import java.awt.Window;
++import java.io.FileOutputStream;
++import java.io.OutputStreamWriter;
++import java.io.Writer;
++import java.nio.charset.StandardCharsets;
++import java.util.ArrayList;
++import java.util.List;
++import javax.swing.AbstractButton;
++import javax.swing.JButton;
++import javax.swing.JDialog;
++import javax.swing.JLabel;
++import javax.swing.JOptionPane;
++import javax.swing.SwingUtilities;
++import javax.swing.text.JTextComponent;
++
++/**
++ * MaiSim (patch 0003): the Gecko driven by MaiSim has nobody looking at its windows. With -Dmaisim.dialogos=FILE, this
++ * watcher looks every 0.4 s for a modal dialog that Gecko opened (an error, a warning), appends "title TAB text" to FILE
++ * (one line each, UTF-8) and presses its default button (else the first one), so a remote request never waits forever
++ * for an OK nobody sees. Works the same on Windows and Linux (no X11 needed). MaiSim reads FILE and tells the page.
++ * With -Dmaisim.oculto=true (see GeckoSim) the main window is not shown at all.
++ */
++public final class MaiSimVigia {
++    private MaiSimVigia() { }
++
++    public static void inicia() {
++        final String arq = System.getProperty("maisim.dialogos");
++        if (arq == null || arq.isEmpty()) {
++            return;
++        }
++        Thread t = new Thread(() -> {
++            while (true) {
++                try {
++                    Thread.sleep(400);
++                    olha(arq);
++                } catch (InterruptedException e) {
++                    return;
++                } catch (Throwable e) {
++                    // the next round tries again
++                }
++            }
++        }, "maisim-vigia");
++        t.setDaemon(true);
++        t.start();
++    }
++
++    private static void olha(String arq) throws Exception {
++        final List<String> linhas = new ArrayList<>();
++        SwingUtilities.invokeAndWait(() -> {
++            for (Window w : Window.getWindows()) {
++                if (!(w instanceof Dialog) || !w.isShowing() || !((Dialog) w).isModal()) {
++                    continue;
++                }
++                Dialog d = (Dialog) w;
++                StringBuilder sb = new StringBuilder();
++                textos(d, sb);
++                String tit = d.getTitle() == null ? "" : d.getTitle();
++                linhas.add((tit + "\t" + sb.toString().trim()).replaceAll("[\\r\\n]+", " "));
++                fecha(d);
++            }
++        });
++        if (linhas.isEmpty()) {
++            return;
++        }
++        try (Writer f = new OutputStreamWriter(new FileOutputStream(arq, true), StandardCharsets.UTF_8)) {
++            for (String l : linhas) {
++                f.write(l + "\n");
++            }
++        }
++    }
++
++    private static void textos(Component c, StringBuilder sb) {
++        if (c instanceof JOptionPane) {
++            Object m = ((JOptionPane) c).getMessage();
++            if (m instanceof String) {
++                sb.append(m).append(' ');
++                return;
++            }
++        }
++        if (c instanceof JLabel && ((JLabel) c).getText() != null) {
++            sb.append(((JLabel) c).getText()).append(' ');
++        } else if (c instanceof JTextComponent && ((JTextComponent) c).getText() != null) {
++            sb.append(((JTextComponent) c).getText()).append(' ');
++        }
++        if (c instanceof Container) {
++            for (Component f : ((Container) c).getComponents()) {
++                textos(f, sb);
++            }
++        }
++    }
++
++    private static void fecha(Dialog d) {
++        if (d instanceof JDialog) {
++            JButton padrao = ((JDialog) d).getRootPane().getDefaultButton();
++            if (padrao != null) {
++                padrao.doClick();
++                return;
++            }
++        }
++        AbstractButton b = primeiroBotao(d);
++        if (b != null) {
++            b.doClick();
++        } else {
++            d.dispose();
++        }
++    }
++
++    private static AbstractButton primeiroBotao(Component c) {
++        if (c instanceof JButton) {
++            return (AbstractButton) c;
++        }
++        if (c instanceof Container) {
++            for (Component f : ((Container) c).getComponents()) {
++                AbstractButton b = primeiroBotao(f);
++                if (b != null) {
++                    return b;
++                }
++            }
++        }
++        return null;
++    }
++}

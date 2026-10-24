@@ -4,7 +4,11 @@ de verdade, com menus, diálogos e edição do circuito. Crédito: GeckoCIRCUITS
 (github.com/geckocircuits/GeckoCIRCUITS, GPLv3), montado por `construir.sh`: o original num commit fixo mais os patches
 de `patches/`: `0001` a leitura e a escrita em lote pela interface remota; `0002` os nomes das peças escondidas (as duas
 fontes "U" de dentro da relutância não linear, NLRel, ficavam com os nomes U.1 e U.2 para sempre — nem apagar nem um
-circuito novo os soltava, e criar uma fonte U.1 dava "nome em uso"; achado da vistoria dos componentes, 24/10).
+circuito novo os soltava, e criar uma fonte U.1 dava "nome em uso"; achado da vistoria dos componentes, 24/10). `0003`: o
+Gecko sem quem olhe a tela — com `-Dmaisim.oculto=true` a janela principal não aparece (o MaiSim é a tela; o Windows usa,
+sem tela virtual) e, com `-Dmaisim.dialogos=ARQUIVO`, uma vigia dentro do próprio Gecko acha cada diálogo (erro, aviso),
+anota "título TAB texto" no arquivo e aperta o botão padrão: um pedido nunca fica esperando um OK que ninguém vê, no Linux
+e no Windows, sem X11 (o simu lê o arquivo e avisa a página).
 
 **Tudo de uma vez (recomendado):** em `app/`, `npm run maisim` sobe o scope, o simulador, este Gecko e a página, e o
 Ctrl+C derruba o que ele subiu (o Gecko só se não houver circuito sem salvar; ver `app/scripts/maisim.sh`).

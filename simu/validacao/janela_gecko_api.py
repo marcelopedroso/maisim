@@ -9,6 +9,7 @@ Parte B (direto no motor, com o servidor de teste parado uns segundos), a camada
 folha, aberto sem a camada 1 — a vigia do motor acha a janela, guarda a foto, fecha com OK, e o pedido volta.
 No fim, o servidor de teste sobe de novo (reinicia_servidor_teste.sh)."""
 import gzip, json, pathlib, re, subprocess, sys, time, urllib.request
+from pathlib import Path
 AQUI = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(AQUI.parent))
 B = "http://localhost:7201/maisim/simu/"
@@ -72,8 +73,15 @@ except Exception as e:
     erro = str(e)
 dt = time.time() - t0
 fotos = set(pasta.glob("*.png")) - antes if pasta.exists() else set()
-ok(dt < 30 and "Error!" in mo.janelas and fotos and not janelas_gecko.janelas(":72"),
-   f"sem a camada 1, o Gecko abre a janela; a vigia fecha com OK e o pedido volta em {dt:.1f} s (janelas {mo.janelas}, {len(fotos)} foto(s)) {erro}")
+# quem fecha: a vigia do próprio Gecko (patch 0003, -Dmaisim.dialogos: anota o diálogo e aperta OK, sem X11) ou, num Gecko
+# sem ela, a do motor pela tela (X11: a foto fica)
+dlg = CACHE / "cache" / "gecko" / "dialogos.txt"           # o MAISIM_CACHE do config/teste.env
+anotado = dlg.read_text(errors="replace") if dlg.exists() else ""
+pelo_gecko = "Error" in anotado
+ok(dt < 30 and (pelo_gecko or ("Error!" in mo.janelas and fotos)) and not janelas_gecko.janelas(":72"),
+   f"sem a camada 1, o Gecko abre a janela; a vigia {'do Gecko' if pelo_gecko else 'do motor'} fecha com OK e o pedido volta em {dt:.1f} s "
+   f"({anotado.strip()[:90] if pelo_gecko else f'janelas {mo.janelas}, {len(fotos)} foto(s)'}) {erro}")
+dlg.unlink(missing_ok=True)
 try: mo.cmd("QUIT")
 except Exception: pass
 fora.unlink(missing_ok=True)
