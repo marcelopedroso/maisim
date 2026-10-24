@@ -1137,7 +1137,7 @@ function criaGrafico(p, manter) {
         const pr = fazY && u.scales.p && u.scales.p.min != null ? [u.posToVal(s.top + s.height, "p"), u.posToVal(s.top, "p")] : null;   // o eixo da potência: o mesmo retângulo
         u.setSelect({ left: 0, top: 0, width: 0, height: 0 }, false);
         if (yr) p.yZoom = yr;
-        if (pr) p.pZoom = pr;
+        if (pr && p.eixoP) p.pZoom = pr;                      // com o eixo da potência à vista (escondido, o zoom dele não muda)
         if (xr) mudaX(p, xr); else agenda([p]);
       }],
       draw: [(u) => faixaMed(u, p), (u) => cursoresMed(u, p), marcaAcionamentos],
@@ -1166,7 +1166,7 @@ function criaGrafico(p, manter) {
     const f = e.deltaY < 0 ? 0.8 : 1.25;
     if (e.shiftKey) {
       const zoom = (k) => { const v = p.u.posToVal(e.offsetY, k), mn = p.u.scales[k].min, mx = p.u.scales[k].max; return [v - (v - mn) * f, v + (mx - v) * f]; };
-      p.yZoom = zoom("y"); if (p.u.scales.p && p.u.scales.p.min != null) p.pZoom = zoom("p");   // os dois eixos, em volta do mesmo ponto
+      p.yZoom = zoom("y"); if (p.eixoP && p.u.scales.p && p.u.scales.p.min != null) p.pZoom = zoom("p");   // os dois eixos, em volta do mesmo ponto
       agenda([p]);
     } else {
       const xv = p.u.posToVal(e.offsetX, "x"), mn = p.u.scales.x.min, mx = p.u.scales.x.max;
