@@ -592,6 +592,229 @@ T = {
     "ia_login.sem_link": {"pt": "o {nome} ainda não mostrou o link: espere um pouco", "en": "{nome} has not shown the link yet: wait a moment"},
     "ia_login.cancelado": {"pt": "cancelado", "en": "cancelled"},
     # PR 10: fim
+
+    # PR 11: o que a IA lê, no idioma do pedido. As regras (o prompt de sistema) ficam em ia/regras.pt.md e ia/regras.en.md.
+    # O nome no começo das regras (a mesma frase dos dois arquivos: o servidor troca pela da outra IA)
+    "ia.voce_claude": {"pt": "Você é o Claude do MaiSim", "en": "You are the Claude inside MaiSim"},
+    "ia.voce_ia": {"pt": "Você é a IA do MaiSim ({nome})", "en": "You are the AI inside MaiSim ({nome})"},
+    # o Antigravity: só no começo da conversa, depois das regras
+    "ia.regra_agy": {"pt": "No MaiSim você NÃO tem terminal, navegador nem acesso a arquivos fora desta pasta: não tente (o pedido para "
+                           "sem resposta). Leia e edite só os arquivos desta pasta; o MaiSim testa e simula o código.",
+                     "en": "In MaiSim you do NOT have a terminal, a browser or access to files outside this folder: do not try (the request stops "
+                           "with no answer). Read and edit only the files in this folder; MaiSim tests and simulates the code."},
+    # o Gemini: o que ele ouve quando a política nega uma ferramenta (vai entre aspas no TOML: sem aspas nem barra invertida)
+    "ia.gemini_nega": {"pt": "o MaiSim não deixa: só ler, listar e procurar arquivos, e escrever ou editar os do controle (os editáveis e os .py) desta pasta",
+                       "en": "MaiSim does not allow this: only reading, listing and searching files, and writing or editing the control files (the editable ones and the .py files) in this folder"},
+    # o lembrete no fim de cada pedido (o idioma da resposta vai nele: a conversa retomada depois de trocar o idioma segue o novo)
+    "ia.lembrete_formato": {"pt": "Formato: modelagem e teoria em equação LaTeX ($…$ na linha, $$…$$ em destaque), também dentro de tabelas "
+                                  "— ω, ∫, Σ, θ, chapéus e índices em LaTeX (\\omega, \\int, \\sum, \\hat{I}, V_{dc}), nunca entre crases; "
+                                  "crases só para o que existe nos .py (nomes, linhas) e os parâmetros do Gecko. Responda em português.",
+                            "en": "Format: modeling and theory as a LaTeX equation ($…$ inline, $$…$$ displayed), also inside tables "
+                                  "— ω, ∫, Σ, θ, hats and subscripts in LaTeX (\\omega, \\int, \\sum, \\hat{I}, V_{dc}), never between backticks; "
+                                  "backticks only for what exists in the .py files (names, lines) and the Gecko parameters. Answer in English."},
+    # o pedido (a nota do MaiSim antes do lembrete)
+    "ia.pedido_usuario": {"pt": "Pedido do usuário:\n\n{texto}\n\n{nota} {lembrete})", "en": "User request:\n\n{texto}\n\n{nota} {lembrete})"},
+    "ia.nota_inicio": {"pt": "(MaiSim: os arquivos da pasta foram reescritos com o estado atual; leia o CONTEXTO.md antes.",
+                       "en": "(MaiSim: the files in the folder were rewritten with the current state; read CONTEXTO.md first."},
+    "ia.nota_rodada": {"pt": "ULTIMA_RODADA.md: o resumo da rodada mais nova ({rodada}); as séries em ULTIMA_RODADA/<canal>.csv.",
+                       "en": "ULTIMA_RODADA.md: the summary of the newest run ({rodada}); the series in ULTIMA_RODADA/<canal>.csv."},
+    "ia.nota_anexos": {"pt": "Anexos da conversa: {lista}.", "en": "Attachments of the conversation: {lista}."},
+    "ia.nota_anexo_novo": {"pt": "anexos/{nome} (novo)", "en": "anexos/{nome} (new)"},
+    "ia.nota_contextos": {"pt": "Contextos salvos carregados nesta conversa (leia o contexto.md de cada um antes de responder; a conversa daquele "
+                                "momento em conversa.md, o controle de então em controle/ — referência, o controle em uso é o desta pasta): {lista}.",
+                          "en": "Saved contexts loaded in this conversation (read the contexto.md of each one before answering; the conversation of that "
+                                "moment in conversa.md, the control of that time in controle/ — for reference, the control in use is the one in this folder): {lista}."},
+    "ia.nota_conversa": {"pt": "A conversa até aqui (os pedidos e as respostas, também de outra IA) está em CONVERSA.md: leia antes de "
+                               "responder, para continuar de onde ela parou.",
+                         "en": "The conversation so far (the requests and the answers, also from another AI) is in CONVERSA.md: read it before "
+                               "answering, to continue from where it stopped."},
+    "ia.esta_conversa": {"pt": "esta conversa", "en": "this conversation"},
+    # o modo autônomo: a continuação depois do limite de passos e a volta com o resultado da rodada
+    "ia.prompt_continua": {"pt": "(MaiSim, modo autônomo) A chamada anterior chegou ao limite de {n} passos. Os arquivos da pasta estão "
+                                 "como você deixou. Continue de onde parou e termine a versão; quando você terminar, o MaiSim a simula e te devolve o resumo. {lembrete}",
+                           "en": "(MaiSim, autonomous mode) The previous call reached the limit of {n} steps. The files in the folder are "
+                                 "as you left them. Continue from where you stopped and finish the version; when you finish, MaiSim simulates it and gives you back the summary. {lembrete}"},
+    "ia.prompt_rodada": {"pt": "(MaiSim, modo autônomo) A rodada {i} de {n} da sua versão terminou: {estado}. {resumo} "
+                               "Os arquivos da pasta continuam com a sua versão (o controle do usuário não mudou). Confira os critérios com os "
+                               "números (diga de qual canal e janela), corrija e devolva a versão seguinte. Se terminou — os critérios passaram, "
+                               "ou falta uma decisão do usuário —, explique e escreva [PRONTO] numa linha, no fim da resposta. {lembrete}",
+                         "en": "(MaiSim, autonomous mode) Run {i} of {n} of your version finished: {estado}. {resumo} "
+                               "The files in the folder still hold your version (the user's control did not change). Check the criteria with the "
+                               "numbers (say which channel and window), fix and return the next version. If you are done — the criteria passed, "
+                               "or a decision from the user is missing —, explain and write [PRONTO] on a line of its own, at the end of the answer. {lembrete}"},
+    "ia.prompt_rodada_erro": {"pt": "{estado} — erro: {erro}", "en": "{estado} — error: {erro}"},
+    "ia.prompt_rodada_tem_resumo": {"pt": "O resumo está em ULTIMA_RODADA.md e as séries em ULTIMA_RODADA/<canal>.csv.",
+                                    "en": "The summary is in ULTIMA_RODADA.md and the series in ULTIMA_RODADA/<canal>.csv."},
+    "ia.prompt_rodada_sem_resumo": {"pt": "Não há resumo desta rodada.", "en": "There is no summary of this run."},
+    # o resumo pela IA de um contexto salvo (um pedido só, sem sessão)
+    "ia.resumo_pedido": {"pt": "Resuma a conversa do MaiSim guardada nesta pasta, para outra conversa (ou outra IA) continuar daqui. Leia conversa.md "
+                               "(a conversa inteira) e, se ajudar, resumo.md (a nota de quem salvou), controle/ e rodada/resumo.md. Não escreva "
+                               "arquivos. Responda só com o resumo, em markdown, nestas seções: ## Objetivo; ## O que foi feito; ## Resultado (com os "
+                               "números: canal, janela e rodada); ## Decisões (e por quê); ## O que falta. Completo nos números e nas decisões, curto "
+                               "no resto; equações em LaTeX.",
+                         "en": "Summarize the MaiSim conversation kept in this folder, so that another conversation (or another AI) can continue from here. Read conversa.md "
+                               "(the whole conversation) and, if it helps, resumo.md (the note of whoever saved it), controle/ and rodada/resumo.md. Do not write "
+                               "files. Answer only with the summary, in markdown, in English, in these sections: ## Goal; ## What was done; ## Result (with the "
+                               "numbers: channel, window and run); ## Decisions (and why); ## What is left. Complete in the numbers and the decisions, short "
+                               "in the rest; equations in LaTeX."},
+    "ia.resumo_junta": {"pt": "Resuma a conversa do MaiSim guardada nesta pasta, para outra conversa (ou outra IA) continuar daqui. Ela continua "
+                              "de um contexto anterior: leia anterior.md (aquele contexto: a nota e o resumo dele) e conversa.md (as conversas em "
+                              "ordem: a daquele contexto e, depois, a que continuou dele) e, se ajudar, resumo.md (a nota de quem salvou), "
+                              "controle/ e rodada/resumo.md (os de agora). Não escreva arquivos. Escreva UM resumo do todo, não dois: o que vale "
+                              "agora — quando a conversa nova mudou um valor, uma decisão ou o controle, fica o novo, e diga o que ele "
+                              "substituiu. Responda só com o resumo, em markdown, nestas seções: ## Objetivo; ## O que foi feito; ## Resultado "
+                              "(com os números: canal, janela e rodada); ## Decisões (e por quê); ## O que falta. Completo nos números e nas "
+                              "decisões, curto no resto; equações em LaTeX.",
+                        "en": "Summarize the MaiSim conversation kept in this folder, so that another conversation (or another AI) can continue from here. It continues "
+                              "from a previous context: read anterior.md (that context: its note and its summary) and conversa.md (the conversations in "
+                              "order: the one of that context and, after it, the one that continued from it) and, if it helps, resumo.md (the note of whoever saved it), "
+                              "controle/ and rodada/resumo.md (the current ones). Do not write files. Write ONE summary of the whole, not two: what holds "
+                              "now — when the new conversation changed a value, a decision or the control, the new one stays, and say what it "
+                              "replaced. Answer only with the summary, in markdown, in English, in these sections: ## Goal; ## What was done; ## Result "
+                              "(with the numbers: channel, window and run); ## Decisions (and why); ## What is left. Complete in the numbers and the "
+                              "decisions, short in the rest; equations in LaTeX."},
+
+    # o CONTEXTO.md (o estado do circuito e do controle, reescrito a cada pedido; as linhas "tfim = … s" e "- `m[...]`" o
+    # Claude de mentira dos testes lê)
+    "ia_contexto.titulo": {"pt": "# Contexto do MaiSim", "en": "# MaiSim context"},
+    "ia_contexto.gerado": {"pt": "Gerado pelo MaiSim a cada pedido, com o estado atual. Só leitura.",
+                           "en": "Generated by MaiSim on every request, with the current state. Read only."},
+    "ia_contexto.circuito": {"pt": "- Circuito aberto: `{arq}`", "en": "- Open circuit: `{arq}`"},
+    "ia_contexto.sem_arquivo": {"pt": "(sem arquivo)", "en": "(no file)"},
+    "ia_contexto.passo": {"pt": "- Passo do Gecko: Δt = {dt} s; tempo final da simulação: tfim = {tfim} s",
+                          "en": "- Gecko step: Δt = {dt} s; final simulation time: tfim = {tfim} s"},
+    "ia_contexto.ts": {"pt": "- Ts (período de amostragem do controle) = {ts} s → efetivo {ef} s ({nts} × Δt); passo() é chamado ≈ {vezes} vezes",
+                       "en": "- Ts (control sampling period) = {ts} s → effective {ef} s ({nts} × Δt); passo() is called ≈ {vezes} times"},
+    "ia_contexto.atraso": {"pt": "- Atraso da atuação: {modo} → o circuito sente a atuação calculada em t no instante t + {d} × Δt"
+                                 " (logo = t + Δt; amostra = t + Ts, como num DSP; tempo = t + τ)",
+                           "en": "- Actuation delay: {modo} → the circuit feels the actuation computed at t at the instant t + {d} × Δt"
+                                 " (logo = t + Δt; amostra = t + Ts, as in a DSP; tempo = t + τ)"},
+    "ia_contexto.atraso_tempo": {"pt": "- Atraso da atuação: {modo} → o circuito sente a atuação calculada em t no instante t + {d} × Δt"
+                                       " (latência pedida τ = {tau} s, limitada a [Δt, Ts]) (logo = t + Δt; amostra = t + Ts, como num DSP; tempo = t + τ)",
+                                 "en": "- Actuation delay: {modo} → the circuit feels the actuation computed at t at the instant t + {d} × Δt"
+                                       " (requested latency τ = {tau} s, limited to [Δt, Ts]) (logo = t + Δt; amostra = t + Ts, as in a DSP; tempo = t + τ)"},
+    "ia_contexto.ligado_sim": {"pt": "- Controle ligado na simulação: sim", "en": "- Control turned on in the simulation: yes"},
+    "ia_contexto.ligado_nao": {"pt": "- Controle ligado na simulação: não (o MaiSim liga ao aplicar: \"usar este controle ao simular\")",
+                               "en": "- Control turned on in the simulation: no (MaiSim turns it on when applying: \"Use this control when simulating\")"},
+    "ia_contexto.sem_circuito": {"pt": "O circuito não está aberto na edição: as medidas e as atuações não são conhecidas agora.",
+                                 "en": "The circuit is not open in the editor: the measurements and the actuations are not known now."},
+    "ia_contexto.medidas": {"pt": "## Medidas (m[\"nome\"] no código)", "en": "## Measurements (m[\"name\"] in the code)"},
+    "ia_contexto.m_tensao": {"pt": "tensão entre os nós {a} (+) e {b} (−), em V", "en": "voltage between nodes {a} (+) and {b} (−), in V"},
+    "ia_contexto.m_corrente": {"pt": "corrente no componente {c}, em A", "en": "current in component {c}, in A"},
+    "ia_contexto.m_const": {"pt": "a saída do bloco {nome} (o valor atual dessa atuação)", "en": "the output of block {nome} (the current value of this actuation)"},
+    "ia_contexto.m_bloco": {"pt": "a saída do bloco {nome}", "en": "the output of block {nome}"},
+    "ia_contexto.m_bloco_tipo": {"pt": "a saída do bloco {nome} ({tipo})", "en": "the output of block {nome} ({tipo})"},
+    "ia_contexto.medida": {"pt": "- `m[\"{canal}\"]`: {o}", "en": "- `m[\"{canal}\"]`: {o}"},
+    "ia_contexto.medida_dentro": {"pt": "- `m[\"{canal}\"]`: {o} — dentro de {sub}", "en": "- `m[\"{canal}\"]`: {o} — inside {sub}"},
+    "ia_contexto.atuacoes": {"pt": "## Atuações (as chaves do dicionário que passo() devolve)",
+                             "en": "## Actuations (the keys of the dictionary that passo() returns)"},
+    "ia_contexto.d_chave": {"pt": "comanda a chave {nome} (pelo {gate})", "en": "drives the switch {nome} (through {gate})"},
+    "ia_contexto.d_chave_em": {"pt": "comanda a chave {nome} em {folha} (pelo {gate})", "en": "drives the switch {nome} in {folha} (through {gate})"},
+    "ia_contexto.d_fonte": {"pt": "é o sinal da fonte controlada {nome}", "en": "is the signal of the controlled source {nome}"},
+    "ia_contexto.d_fonte_em": {"pt": "é o sinal da fonte controlada {nome} em {folha}", "en": "is the signal of the controlled source {nome} in {folha}"},
+    "ia_contexto.d_sub": {"pt": "sai pelo subcircuito {nome}", "en": "goes out through the subcircuit {nome}"},
+    "ia_contexto.d_nenhum": {"pt": "não chega a uma chave nem a uma fonte", "en": "reaches neither a switch nor a source"},
+    "ia_contexto.compensa": {"pt": "o Gecko leva {lag} Δt a mais até o circuito, e o MaiSim compensa",
+                             "en": "Gecko takes {lag} Δt more to reach the circuit, and MaiSim compensates"},
+    "ia_contexto.compensa_parte": {"pt": "o Gecko leva {lag} Δt a mais e o MaiSim só compensa {d}: o circuito sente {resto} Δt depois do pedido",
+                                   "en": "Gecko takes {lag} Δt more and MaiSim only compensates {d}: the circuit feels it {resto} Δt after the request"},
+    "ia_contexto.atuacao": {"pt": "- `\"{nome}\"` (bloco {bloco}): {dest}; {comp}", "en": "- `\"{nome}\"` (block {bloco}): {dest}; {comp}"},
+    "ia_contexto.atuacao_nao_marcada": {"pt": "- `\"{nome}\"` (bloco {bloco}): {dest}; {comp} — AINDA NÃO MARCADA no painel: escreva-a como chave literal "
+                                              "no dicionário de saída (u = {\"nome\": …} ou return {…}) e o MaiSim marca ao aplicar",
+                                        "en": "- `\"{nome}\"` (block {bloco}): {dest}; {comp} — NOT MARKED YET in the panel: write it as a literal key "
+                                              "in the output dictionary (u = {\"nome\": …} or return {…}) and MaiSim marks it when applying"},
+    "ia_contexto.sem_atuacao": {"pt": "- nenhuma: o circuito não tem bloco CONST (o usuário precisa pôr um, com a saída rotulada, ligado a um GATE ou a uma fonte controlada)",
+                                "en": "- none: the circuit has no CONST block (the user needs to add one, with a labeled output, connected to a GATE or to a controlled source)"},
+    "ia_contexto.circuito_titulo": {"pt": "## Circuito (componentes de potência e os nós de cada terminal)",
+                                    "en": "## Circuit (power components and the nodes of each terminal)"},
+    "ia_contexto.dentro_de": {"pt": "### dentro de {nome}", "en": "### inside {nome}"},
+    "ia_contexto.elemento": {"pt": "- {nome} ({tipo}): nós {nos}", "en": "- {nome} ({tipo}): nodes {nos}"},
+    "ia_contexto.elemento_desativado": {"pt": "- {nome} ({tipo}) [desativado]: nós {nos}", "en": "- {nome} ({tipo}) [disabled]: nodes {nos}"},
+    "ia_contexto.bloco": {"pt": "- bloco {nome} ({tipo})", "en": "- block {nome} ({tipo})"},
+    "ia_contexto.bloco_gate": {"pt": "- bloco {nome} ({tipo}): comanda {alvo}", "en": "- block {nome} ({tipo}): drives {alvo}"},
+    "ia_contexto.parametros": {"pt": "## Parâmetros atuais (parametros.json)", "en": "## Current parameters (parametros.json)"},
+    "ia_contexto.nenhum": {"pt": "- nenhum", "en": "- none"},
+    "ia_contexto.acionamentos": {"pt": "## Acionamentos atuais (acionamentos.json)", "en": "## Current triggers (acionamentos.json)"},
+    "ia_contexto.acusa": {"pt": "## O que o MaiSim acusa no código atual", "en": "## What MaiSim reports in the current code"},
+    "ia_contexto.linha": {"pt": "- linha {linha}: {msg}", "en": "- line {linha}: {msg}"},
+    "ia_contexto.controladores": {"pt": "## Controladores (controladores.json: cada um no seu processo, isolado; calculam juntos a cada amostra; o que cada um lê e escreve você muda lá)",
+                                  "en": "## Controllers (controladores.json: each one in its own isolated process; they compute together at every sample; what each one reads and writes you change there)"},
+    "ia_contexto.controlador": {"pt": "- {nome}: {arq}; lê {le}; escreve {escreve}", "en": "- {nome}: {arq}; reads {le}; writes {escreve}"},
+    "ia_contexto.controlador_subs": {"pt": "- {nome}: {arq}; lê {le}; escreve {escreve}; uma instância em cada subcircuito: {subs}",
+                                     "en": "- {nome}: {arq}; reads {le}; writes {escreve}; one instance in each subcircuit: {subs}"},
+    "ia_contexto.rede": {"pt": "- rede: latência {lat} s; envia(para, dados) e recebe(); a mensagem chega na 1ª amostra "
+                               "depois do envio com t ≥ t_envio + latência (nunca na mesma amostra)",
+                         "en": "- network: latency {lat} s; envia(para, dados) and recebe(); the message arrives at the 1st sample "
+                               "after sending with t ≥ t_envio + latency (never in the same sample)"},
+    "ia_contexto.arquivos": {"pt": "## Os arquivos do controle e o papel de cada um", "en": "## The control files and the role of each one"},
+    "ia_contexto.arq_controle": {"pt": "- controle.py: o controlador (o orquestrador: ler → calcular → escrever)",
+                                 "en": "- controle.py: the controller (the orchestrator: read → compute → write)"},
+    "ia_contexto.arq_controlador": {"pt": "- {arq}: controlador (processo à parte)", "en": "- {arq}: controller (separate process)"},
+    "ia_contexto.arq_modulo": {"pt": "- {arq}: módulo (roda no processo de quem importa, na mesma amostra)",
+                               "en": "- {arq}: module (runs in the process of whoever imports it, in the same sample)"},
+    "ia_contexto.acusa_arquivo": {"pt": "- o MaiSim acusa: {arq} linha {linha}: {msg}", "en": "- MaiSim reports: {arq} line {linha}: {msg}"},
+    "ia_contexto.avisa": {"pt": "- o MaiSim avisa: {aviso}", "en": "- MaiSim warns: {aviso}"},
+    "ia_contexto.leia_arquivos": {"pt": "Os arquivos estão na pasta: leia os que o pedido envolver.",
+                                  "en": "The files are in the folder: read the ones the request involves."},
+    "ia_contexto.codigo": {"pt": "## Código atual (controle.py)", "en": "## Current code (controle.py)"},
+
+    # o resumo.md de cada rodada (o ULTIMA_RODADA.md da IA). A linha "- modelo: …" é do protocolo (o servidor a lê): não muda.
+    # O número de linhas antes da tabela é o mesmo nos dois idiomas (o Claude de mentira lê a 1ª linha da tabela).
+    "resumo.titulo": {"pt": "# Resumo da rodada {rotulo}", "en": "# Run summary {rotulo}"},
+    "resumo.estado": {"pt": "- estado final: {estado}{erro}{relogio}", "en": "- final state: {estado}{erro}{relogio}"},
+    "resumo.erro": {"pt": " — erro: {erro}", "en": " — error: {erro}"},
+    "resumo.relogio": {"pt": " ({s} s de relógio)", "en": " ({s} s wall clock)"},
+    "resumo.tempo": {"pt": "- tempo simulado: {t0} a {t1} s; passo do Gecko {dtg} s; uma amostra do scope a cada {dt} s; Ts do controle {ts} s; {n} canais",
+                     "en": "- simulated time: {t0} to {t1} s; Gecko step {dtg} s; one scope sample every {dt} s; control Ts {ts} s; {n} channels"},
+    "resumo.sem_controle": {"pt": "— (sem controle)", "en": "— (no control)"},
+    "resumo.fasores": {"pt": "- fasores em {f} Hz, por mínimos quadrados num número inteiro de ciclos do fim da janela; fase com referência "
+                             "cosseno (x ≈ X·cos(ωt + φ)); \"eficaz CA\" é o desvio padrão (sem a média)",
+                       "en": "- phasors at {f} Hz, by least squares over a whole number of cycles at the end of the window; phase with cosine "
+                             "reference (x ≈ X·cos(ωt + φ)); \"AC RMS\" is the standard deviation (without the mean)"},
+    "resumo.janelas": {"pt": "- janelas: {lista}", "en": "- windows: {lista}"},
+    "resumo.regime": {"pt": "## Regime (última janela, J5)", "en": "## Steady state (last window, J5)"},
+    "resumo.tabela": {"pt": "| canal | média | mín. | máx. | pico a pico | eficaz CA | fasor de 50 Hz (pico ∠ fase) |",
+                      "en": "| channel | mean | min. | max. | peak to peak | AC RMS | 50 Hz phasor (peak ∠ phase) |"},
+    "resumo.evolucao": {"pt": "## Evolução (média e pico a pico em cada janela, J1 → J5)", "en": "## Evolution (mean and peak to peak in each window, J1 → J5)"},
+    "resumo.evolucao_canal": {"pt": "- {canal}: média {medias}; pico a pico {pps}", "en": "- {canal}: mean {medias}; peak to peak {pps}"},
+    "resumo.saida_controle": {"pt": "## Saída do controle (o fim do controle.log)", "en": "## Control output (the end of controle.log)"},
+    "resumo.series": {"pt": "Séries: serie/<canal>.csv (t, valor; a média de cada bloco de {n} amostras do scope).",
+                      "en": "Series: serie/<canal>.csv (columns t, valor; each row is the mean of a block of {n} scope samples)."},
+
+    # os contextos salvos: o contexto.md (o título e a nota) e a conversa.md ("## N. Pedido" ou "## N. Request": quem conta lê os dois)
+    "contexto_md.circuito": {"pt": "- circuito: {v}", "en": "- circuit: {v}"},
+    "contexto_md.quando": {"pt": "- quando: {v}", "en": "- when: {v}"},
+    "contexto_md.ia": {"pt": "- IA: {v}", "en": "- AI: {v}"},
+    "contexto_md.autor": {"pt": "- autor: {v}", "en": "- author: {v}"},
+    "contexto_md.etiquetas": {"pt": "- etiquetas: {v}", "en": "- tags: {v}"},
+    "contexto_md.continua_de": {"pt": "- continua de: {v}", "en": "- continues from: {v}"},
+    "contexto_md.sem_nota": {"pt": "(sem nota: veja a conversa)", "en": "(no note: see the conversation)"},
+    "contexto_md.resumo_ia": {"pt": "## Resumo pela IA", "en": "## Summary by the AI"},
+    "contexto_md.resumo_ia_modelo": {"pt": "## Resumo pela IA ({modelo})", "en": "## Summary by the AI ({modelo})"},
+    "contexto_md.arquivos": {"pt": "## Arquivos deste contexto", "en": "## Files in this context"},
+    "contexto_md.a_conversa_junta": {"pt": "- conversa.md: as conversas em ordem: a do contexto anterior e a que continuou dele",
+                                     "en": "- conversa.md: the conversations in order: the one of the previous context and the one that continued from it"},
+    "contexto_md.a_conversa": {"pt": "- conversa.md: a conversa inteira (pedido e resposta)", "en": "- conversa.md: the whole conversation (request and answer)"},
+    "contexto_md.a_anterior": {"pt": "- anterior.md: o contexto anterior (a nota e o resumo pela IA dele), de onde esta conversa continuou",
+                               "en": "- anterior.md: the previous context (its note and its summary by the AI), from which this conversation continued"},
+    "contexto_md.a_controle": {"pt": "- controle/: o controle daquele momento (controle.json e os .py) — referência; o controle em uso é o da pasta da conversa",
+                               "en": "- controle/: the control of that moment (controle.json and the .py files) — for reference; the control in use is the one in the conversation folder"},
+    "contexto_md.a_rodada": {"pt": "- rodada/: o resumo (resumo.md) e as séries (serie/<canal>.csv) da rodada mais nova daquele momento",
+                             "en": "- rodada/: the summary (resumo.md) and the series (serie/<canal>.csv) of the newest run of that moment"},
+    "contexto_md.a_anexos": {"pt": "- anexos/: os anexos da conversa", "en": "- anexos/: the attachments of the conversation"},
+    "conversa_md.titulo": {"pt": "# Conversa", "en": "# Conversation"},
+    "conversa_md.titulo_de": {"pt": "# Conversa — {titulo}", "en": "# Conversation — {titulo}"},
+    "conversa_md.pedido": {"pt": "## {k}. Pedido", "en": "## {k}. Request"},
+    "conversa_md.pedido_quando": {"pt": "## {k}. Pedido ({quando})", "en": "## {k}. Request ({quando})"},
+    "conversa_md.anexos": {"pt": "Anexos: {lista}", "en": "Attachments: {lista}"},
+    "conversa_md.resposta": {"pt": "### Resposta", "en": "### Answer"},
+    "conversa_md.resposta_info": {"pt": "### Resposta ({info})", "en": "### Answer ({info})"},
+    "conversa_md.aplicada": {"pt": "aplicada", "en": "applied"},
+    "conversa_md.desfeita": {"pt": "desfeita", "en": "undone"},
+    "conversa_md.sem_resposta": {"pt": "(sem resposta)", "en": "(no answer)"},
+    "conversa_md.erro": {"pt": "Erro: {erro}", "en": "Error: {erro}"},
+    "conversa_md.continua_de": {"pt": "{titulo} (continua de “{de}”)", "en": "{titulo} (continues from “{de}”)"},
+    # PR 11: fim
 }
 
 lingua.registra(T)

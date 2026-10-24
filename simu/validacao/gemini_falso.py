@@ -16,6 +16,13 @@ import sys
 import time
 from pathlib import Path
 
+for _p in (Path(__file__).resolve().parents[2] / "config", Path(__file__).resolve().parents[1]):   # os textos da IA (pt e en)
+    if str(_p) not in sys.path:
+        sys.path.append(str(_p))
+import textos  # noqa: E402                    o pedido vem no idioma de quem pediu: o de mentira reconhece os dois
+from contextos import PEDIDO_MD  # noqa: E402  "## N. Pedido" ou "## N. Request"
+RESUMO = {textos.T[k][l] for k in ("ia.resumo_pedido", "ia.resumo_junta") for l in ("pt", "en")}   # o pedido do resumo de um contexto
+
 args = sys.argv[1:]
 casa = Path(os.environ.get("GEMINI_CLI_HOME", "."))
 g = casa / ".gemini"
@@ -85,14 +92,14 @@ stats = {"total_tokens": 1500, "input_tokens": 1200, "output_tokens": 300, "cach
          "tool_calls": 2, "models": {"gemini-falso-2.5": {"total_tokens": 1500, "input_tokens": 1200, "output_tokens": 300}}}
 
 # ---------------------------------------------------------------- o resumo de um contexto salvo (-o json, uma saída)
-if "Resuma a conversa do MaiSim guardada nesta pasta" in prompt:
+if prompt in RESUMO:
     assert saida == "json" and "argsPattern" not in pol, "resumo: JSON e só leitura"
     if cenario == "resumo_falha":
         print(json.dumps({"session_id": "x", "error": {"type": "TerminalQuotaError", "message": "You have exhausted your daily quota", "code": 1}}, indent=2),
               file=sys.stderr)
         sys.exit(1)
     conv = Path("conversa.md").read_text() if Path("conversa.md").exists() else ""
-    n = len(re.findall(r"(?m)^## \d+\. Pedido", conv))
+    n = len(PEDIDO_MD.findall(conv))
     print(json.dumps({"session_id": "x", "response": f"## Objetivo\nControle (teste).\n\n## O que foi feito\nGemini leu conversa.md: {n} pedido(s).",
                       "stats": {"models": {"gemini-falso-2.5": {"tokens": {"prompt": 10, "candidates": 5}}}}}, indent=2))
     sys.exit(0)
@@ -191,7 +198,7 @@ elif cenario == "recusa":                                # tenta escrever fora d
     resposta = [f"escritas que passaram: {sum(ok)} de {len(ok)}"]
 elif cenario == "le_conversa":
     if "CONVERSA.md" in prompt and Path("CONVERSA.md").exists():
-        n = len(re.findall(r"(?m)^## \d+\. Pedido", le("CONVERSA.md")))
+        n = len(PEDIDO_MD.findall(le("CONVERSA.md")))
         resposta = [f"li a conversa: {n} pedido(s)"]
     else:
         resposta = ["sem CONVERSA.md"]

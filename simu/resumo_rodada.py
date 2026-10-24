@@ -14,9 +14,16 @@ import json
 import math
 import re
 import shutil
+import sys
 from pathlib import Path
 
 import numpy as np
+
+for _p in (Path(__file__).resolve().parents[1] / "config", Path(__file__).resolve().parent):   # lingua e textos (o servidor já os põe)
+    if str(_p) not in sys.path:
+        sys.path.append(str(_p))
+import lingua  # noqa: E402                    o resumo no idioma de quem rodou (a linha "- modelo: …" é do protocolo: não muda)
+import textos  # noqa: E402,F401
 
 JANELAS = 5          # a rodada em 5 janelas iguais: a última é o "regime"
 PONTOS = 500         # pontos de cada série reduzida
@@ -57,17 +64,17 @@ def escreve(npz, destino=None, estado=None, saida_controle=""):
     t0, t1 = (float(t[ok_t][0]), float(t[ok_t][-1])) if ok_t.any() else (0.0, 0.0)
     js = _janelas(t0, t1)
     est = estado or {}
-    L = [f"# Resumo da rodada {meta.get('rotulo', npz.stem)}", "",
-         f"- modelo: {meta.get('modelo', '?')}",
-         f"- estado final: {est.get('estado', '?')}" + (f" — erro: {est['erro']}" if est.get("erro") else "")
-         + (f" ({est['segundos']} s de relógio)" if est.get("segundos") is not None else ""),
-         f"- tempo simulado: {_fmt(t0)} a {_fmt(t1)} s; passo do Gecko {_fmt(meta.get('dt_gecko'))} s; uma amostra do scope a cada "
-         f"{_fmt(meta.get('dt'))} s; Ts do controle {_fmt(ctl.get('Ts')) if ctl else '— (sem controle)'} s; {len(canais)} canais",
-         f"- fasores em {f0:g} Hz, por mínimos quadrados num número inteiro de ciclos do fim da janela; fase com referência "
-         "cosseno (x ≈ X·cos(ωt + φ)); \"eficaz CA\" é o desvio padrão (sem a média)",
-         "- janelas: " + "; ".join(f"J{i + 1} = [{_fmt(a)}, {_fmt(b)}) s" for i, (a, b) in enumerate(js)), "",
-         "## Regime (última janela, J5)", "",
-         "| canal | média | mín. | máx. | pico a pico | eficaz CA | fasor de 50 Hz (pico ∠ fase) |", "|---|---|---|---|---|---|---|"]
+    tr = lingua.tr
+    L = [tr("resumo.titulo", rotulo=meta.get('rotulo', npz.stem)), "",
+         f"- modelo: {meta.get('modelo', '?')}",         # protocolo: do_modelo() e muda_modelo() leem esta linha
+         tr("resumo.estado", estado=est.get('estado', '?'), erro=tr("resumo.erro", erro=est['erro']) if est.get("erro") else "",
+            relogio=tr("resumo.relogio", s=est['segundos']) if est.get("segundos") is not None else ""),
+         tr("resumo.tempo", t0=_fmt(t0), t1=_fmt(t1), dtg=_fmt(meta.get('dt_gecko')), dt=_fmt(meta.get('dt')),
+            ts=_fmt(ctl.get('Ts')) if ctl else tr("resumo.sem_controle"), n=len(canais)),
+         tr("resumo.fasores", f=f"{f0:g}"),
+         tr("resumo.janelas", lista="; ".join(f"J{i + 1} = [{_fmt(a)}, {_fmt(b)}) s" for i, (a, b) in enumerate(js))), "",
+         tr("resumo.regime"), "",
+         tr("resumo.tabela"), "|---|---|---|---|---|---|---|"]
     evol = []
     (destino / "serie").mkdir(parents=True, exist_ok=True)
     for k in canais:
@@ -94,7 +101,7 @@ def escreve(npz, destino=None, estado=None, saida_controle=""):
             J = ok & (t >= a) & (t <= b)
             medias.append(_fmt(x[J].mean()) if J.any() else "—")
             pps.append(_fmt(x[J].max() - x[J].min()) if J.any() else "—")
-        evol.append(f"- {k}: média {' → '.join(medias)}; pico a pico {' → '.join(pps)}")
+        evol.append(tr("resumo.evolucao_canal", canal=k, medias=' → '.join(medias), pps=' → '.join(pps)))
         # a série reduzida: a média de cada bloco (os blocos vazios ficam de fora)
         nome = re.sub(r"[^\w.\-]", "_", k)
         bl = max(1, math.ceil(len(t) / PONTOS))
@@ -104,11 +111,11 @@ def escreve(npz, destino=None, estado=None, saida_controle=""):
             if s.any():
                 linhas.append(f"{t[i:i + bl][s].mean():.6g},{x[i:i + bl][s].mean():.6g}")
         (destino / "serie" / f"{nome}.csv").write_text("\n".join(linhas) + "\n")
-    L += ["", "## Evolução (média e pico a pico em cada janela, J1 → J5)", ""] + evol
+    L += ["", tr("resumo.evolucao"), ""] + evol
     saida = (saida_controle or "").strip()
     if saida:
-        L += ["", "## Saída do controle (o fim do controle.log)", "", "```", saida[-3000:], "```"]
-    L += ["", f"Séries: serie/<canal>.csv (t, valor; a média de cada bloco de {max(1, math.ceil(len(t) / PONTOS))} amostras do scope)."]
+        L += ["", tr("resumo.saida_controle"), "", "```", saida[-3000:], "```"]
+    L += ["", tr("resumo.series", n=max(1, math.ceil(len(t) / PONTOS)))]
     (destino / "resumo.md").write_text("\n".join(L) + "\n")
     return destino / "resumo.md"
 

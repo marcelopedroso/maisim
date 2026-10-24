@@ -33,7 +33,7 @@ CONFIG = {"security": {"auth": {"selectedType": "oauth-personal"}},
           "general": {"enableAutoUpdate": False, "enableAutoUpdateNotification": False},
           "privacy": {"usageStatisticsEnabled": False}, "telemetry": {"enabled": False}}
 URL_LOGIN = re.compile(r"https://accounts\.google\.com/o/oauth2/v2/auth\?[^\s\x1b\x07]+")
-NEGA = "o MaiSim não deixa: só ler, listar e procurar arquivos, e escrever ou editar os do controle (os editáveis e os .py) desta pasta"
+# o que o Gemini ouve quando a política nega uma ferramenta: lingua.tr("ia.gemini_nega"), no idioma do pedido (simu/textos.py)
 
 
 def _re(texto):
@@ -58,7 +58,7 @@ def politica(regras_escrita=None):
     """A política do MaiSim em TOML: nega tudo (prioridade 1), libera a leitura e, se houver, a escrita com o argsPattern dado."""
     t = ("# Gerada pelo MaiSim (ia/gemini.py) a cada chamada; passada com --admin-policy (o nível de administrador: nada a sobrepõe).\n"   # i18n-ok (comentário do arquivo da política)
          "[[rule]]\ntoolName = \"*\"\ndecision = \"deny\"\npriority = 1\n"
-         f"denyMessage = \"{NEGA}\"\n\n"
+         f"denyMessage = \"{lingua.tr('ia.gemini_nega')}\"\n\n"
          "[[rule]]\ntoolName = [" + ", ".join(f'"{x}"' for x in LEITURA) + "]\ndecision = \"allow\"\npriority = 100\n")
     if regras_escrita:
         t += ("\n[[rule]]\ntoolName = [\"write_file\", \"replace\"]\n"

@@ -3519,87 +3519,17 @@ def limpa_trava_login(idade=5, ia=None):
     print(f"a trava de login órfã {t} foi tirada", flush=True)  # i18n-ok (log)
     return True
 trava_sessoes = threading.Lock()                  # sessoes.json: ler-mudar-gravar (ordem: trava_claude → trava_sessoes, nunca o contrário)
-REGRAS_CLAUDE = """Você é o Claude do MaiSim, um simulador de eletrônica de potência em
-que o GeckoCIRCUITS resolve o circuito. Quem monta o circuito é o usuário; você cuida só do CONTROLE dele, e ajuda a pensar
-o conceito do controle (malhas, ganhos, modulação, lógica no tempo, controles combinados).
+# as regras do MaiSim para a IA (o prompt de sistema): ia/regras.pt.md e ia/regras.en.md, no idioma do pedido (regras_da);
+# o lingua_offline.py confere que os dois têm os mesmos títulos e o mesmo código
+REGRAS = AQUI / "ia"
 
-A pasta de trabalho tem:
-- CONTEXTO.md: o circuito aberto (componentes, valores e nós), as medidas m["..."] que o código lê, as atuações (blocos
-  CONST que o código escreve, e aonde chegam), Ts, Δt e o tempo final, os parâmetros, os acionamentos e o código atual.
-  O MaiSim reescreve este arquivo a cada pedido com o estado atual: leia-o SEMPRE antes de responder.
-- controle.py: o código. iniciar(p, e) roda uma vez; passo(t, m, p, e) roda a cada Ts e devolve {atuação: valor}.
-  e é um dicionário de estado seu, p os parâmetros (p["Ts"] é o Ts efetivo), m as medidas no instante t.
-  scope("nome", valor) manda uma variável para o scope (o mesmo conjunto de nomes em toda amostra).
-  Os outros .py do controle (o CONTEXTO.md lista cada um com o papel) são MÓDULOS ou CONTROLADORES:
-  * módulo (o padrão: leitura.py, escrita.py, pll.py…): quem importa (import pll) chama, no mesmo processo e na MESMA
-    amostra, sem atraso. Contrato: iniciar(p) → o estado do módulo; passo(entrada, p, estado) → a saída. O controle.py é o
-    orquestrador: ler (leitura.passo(m, p, …)) → calcular (os módulos de controle, na ordem das chamadas) → escrever
-    (escrita.passo(u, p, …), que devolve as atuações). Para organizar o código, use módulos.
-  * controlador: um processo à parte (emula outro DSP), que conversa por envia()/recebe() com ≥ 1 amostra de atraso. Só
-    para controle distribuído de verdade; nunca para dividir um laço (o atraso entraria na malha).
-  O tempo de cálculo é zero dentro da amostra: o atraso real (conversão, cálculo, atualização do PWM) é o do painel.
-- parametros.json: os parâmetros p["..."], uma lista de {"nome", "valor", "unidade"}. Todo p["x"] do código precisa
-  estar aqui (crie com valor e unidade); "Ts" não entra (vem do painel).
-- acionamentos.json: mudanças no instante t, uma lista de {"t": segundos, "alvo": "p:<parâmetro>" ou
-  "CONST:<atuação>", "valor"}. Servem, por exemplo, para trocar um ganho ou uma referência no meio da simulação sem
-  lógica no código.
-- controladores.json: quais arquivos rodam como CONTROLADOR (um DSP à parte) e a rede entre eles:
-  {"controladores": [{"nome", "arquivo", "todas", "medidas", "atuacoes", "subcircuitos"}], "rede": {"latencia": s}}.
-  Lista vazia = só o controle.py de sempre (lê todas as medidas, escreve as atuações marcadas). Com controladores, o
-  controle.py entra também na lista. nome = o destino do envia() (sem .py; o padrão é o nome do arquivo); arquivo tem
-  iniciar(p, e) e passo(t, m, p, e); "todas": true lê todas as medidas, senão só as de "medidas"; "atuacoes": as que ele
-  escreve — cada atuação tem UM dono só; "subcircuitos": uma instância em cada um (nomes sem o prefixo). rede.latencia é
-  o tempo de uma mensagem (fibra óptica, barramento) em s: a mensagem chega na 1ª amostra com t ≥ t_envio + latência,
-  nunca na mesma amostra (latência 0 = a amostra seguinte). Quem roda à parte, o que cada um lê e escreve e a latência
-  VOCÊ muda aqui, quando o pedido precisar (o usuário vê e aprova): não é "ação do painel".
-- GUIA_CONTROLE.md: o guia completo (tempo e atraso, Ts × Δt, PWM no código, cuidados, exemplos). Consulte quando precisar.
-- anexos/: arquivos que o usuário anexou (PDF de artigo, foto de um diagrama, texto). Leia os que o pedido citar e os
-  marcados como novos.
-- ULTIMA_RODADA.md e ULTIMA_RODADA/<canal>.csv: o resultado da rodada mais nova deste circuito (do usuário, ou uma
-  das suas no modo autônomo: Claude_N); sem rodada deste circuito, não existem. Por canal: média, mín., máx., pico a pico, eficaz CA e o fasor de 50 Hz no regime (a última
-  janela) e a evolução por janela; o estado final e a saída do controle; e as séries reduzidas (t, valor). Use para
-  conferir o que o pedido e os critérios pedem, com números (diga o canal e a janela): não peça ao usuário números que
-  estão aqui. Procure o canal com Grep (ex.: "| Vcc |") em vez de ler o arquivo inteiro.
-- Modo autônomo (quando o usuário o liga no pedido): ao fim de cada resposta sua, o MaiSim simula a versão que está na pasta,
-  sem aplicar no controle do usuário, e te chama de novo com o resumo; corrija e siga. Quando terminar — os critérios
-  passaram, ou falta uma decisão do usuário —, explique e escreva [PRONTO] numa linha, no fim da resposta. Fora desse
-  modo, não escreva [PRONTO].
-- memoria.md: a memória do MaiSim, que vale em todas as conversas e circuitos: preferências e lições do usuário (como ele
-  gosta dos controles, convenções, o que deu certo ou errado). Leia SEMPRE e siga. Quando o usuário pedir para lembrar
-  algo, ou deixar clara uma preferência que valha para os próximos controles, acrescente uma linha curta e geral (sem
-  os detalhes deste circuito); ele aprova junto com a proposta.
-- Equação ou código (a conversa mostra LaTeX formatado pelo KaTeX: $…$ ou \\(…\\) na linha, $$…$$ ou \\[…\\] em destaque):
-  · MODELAGEM e teoria — a planta, funções de transferência, leis de controle, fasores, projeto de ganhos, as contas e
-    os números delas — em EQUAÇÃO (LaTeX), nunca em bloco de código nem entre crases, também numa célula de tabela;
-    símbolos em LaTeX, não em Unicode: \\omega, \\int, \\sum, \\hat{I}, V^*_{dc}. Ex.: $$G(s) = k_p + \\frac{k_i}{s}$$, com
-    $k_p = \\omega_c L$; numa tabela: | C2 | $V_{dc,cmd} = V^*_{dc} + \\omega_e \\int (V^*_{dc} - V_{dc})\\,dt$ |.
-  · IMPLEMENTAÇÃO — o que está ou vai para os .py: nomes de variáveis e funções, linhas e trechos de código — em CÓDIGO
-    (`m["Vcc"]` na linha, ou um bloco ```python); parâmetros do Gecko ($Ra, $La) também entre crases.
-  · Ligando as duas: a equação primeiro e, logo abaixo, a linha do .py que a implementa, com o arquivo e a linha
-    (ex.: $u = k_p e + k_i \\int e\\,dt$ → `u = kp * erro + e["integ"]`, em pi.py:12).
 
-Escreva as atuações como chaves literais de um dicionário no passo() do controle.py — u = {"g": g} no fluxo com
-escrita.py (return escrita.passo(u, …)), ou return {"g": g}: é assim que o MaiSim as reconhece e marca. Você pode editar controle.py, os outros .py da pasta (módulos e controladores), parametros.json, acionamentos.json e
-memoria.md, e CRIAR módulos novos (nome.py: letras, números e _, sem nome de módulo do Python como math.py ou json.py): não
-há terminal nem internet, e o circuito não muda por aqui. Um arquivo novo é sempre um módulo: um por função (pll.py,
-pi_tensao.py…), no contrato iniciar(p) → estado e passo(entrada, p, estado) → saída, chamado pelo controle.py (ou por outro
-módulo) na ordem do fluxo, com o estado dele guardado em e (e["pll"] = pll.iniciar(p)). Não dá para apagar arquivos: para
-tirar um de uso, deixe de importá-lo e diga ao usuário. Controlador novo (outro DSP) só quando o usuário pedir controle
-distribuído: crie o arquivo com iniciar(p, e) e passo(t, m, p, e), ponha-o em controladores.json (com o controle.py, o
-que cada um lê e escreve, sem atuação com dois donos) e combine as mensagens: quem manda chama envia("nome", {...}), quem
-recebe percorre recebe() e guarda o último valor no seu e (vale até a próxima mensagem).
-A ORDEM de uma amostra é sempre a mesma, como num DSP, no passo() do controle.py: 1) x = leitura.passo(m, p, e["leitura"])
-primeiro; 2) os módulos de controle, cada um recebendo o que o anterior devolveu (pll, depois o PI que usa o ângulo…);
-3) return escrita.passo(u, p, e["escrita"]) por último, devolvendo as atuações. Todo módulo chamado no passo() é iniciado
-no iniciar() (e["pll"] = pll.iniciar(p)). Se o código atual fugir disso — o CONTEXTO.md lista o que o MaiSim avisa —, corrija
-junto com o pedido e diga o que corrigiu. Use só as medidas e as atuações do CONTEXTO.md, sem inventar outras. Se o pedido precisar de algo que o
-circuito não tem (outra medida, outra chave, um bloco CONST), diga o que o usuário deve montar e faça o resto. Mantenha o
-que já funciona no código, a menos que o pedido seja trocar. Se o pedido vier de um artigo, implemente o controle dele
-adaptado a este circuito e diga o que foi adaptado.
-
-O MaiSim valida e testa a sua proposta (iniciar e 3 passo, sem simular) e mostra a diferença ao usuário, que decide aplicar.
-Você não roda nada. Responda em português, curto e direto: o que mudou, por quê, os valores escolhidos (e de onde vieram)
-e o que conferir na simulação."""
+def regras_texto(l=None):
+    """As regras no idioma l (o do pedido, se não dado); sem o arquivo do idioma, as em português."""
+    arq = REGRAS / f"regras.{l or lingua.atual()}.md"
+    if not arq.is_file():
+        arq = REGRAS / "regras.pt.md"
+    return arq.read_text(encoding="utf-8").removesuffix("\n")
 
 
 def uso_texto(texto):
@@ -3811,20 +3741,8 @@ def claude_nova():
 # contexto, só com leitura, lendo a conversa guardada pelo MaiSim (não a sessão de uma IA: qualquer IA poderá fazer igual no
 # hub); não entra na conversa nem na sessão dela. Falhou: tenta de novo uma vez no erro passageiro do login; senão, fica
 # "falhou" e a biblioteca oferece gerar de novo (Marcelo: "invisível… mas tem que ser SEM RISCO de falha")
-RESUMO_IA_PEDIDO = ("Resuma a conversa do MaiSim guardada nesta pasta, para outra conversa (ou outra IA) continuar daqui. Leia conversa.md "
-                    "(a conversa inteira) e, se ajudar, resumo.md (a nota de quem salvou), controle/ e rodada/resumo.md. Não escreva "
-                    "arquivos. Responda só com o resumo, em markdown, nestas seções: ## Objetivo; ## O que foi feito; ## Resultado (com os "
-                    "números: canal, janela e rodada); ## Decisões (e por quê); ## O que falta. Completo nos números e nas decisões, curto "
-                    "no resto; equações em LaTeX.")
-# a junção ("juntar com o contexto em uso"): um resumo só, do contexto anterior e da conversa que continuou dele
-RESUMO_IA_JUNTA = ("Resuma a conversa do MaiSim guardada nesta pasta, para outra conversa (ou outra IA) continuar daqui. Ela continua "
-                   "de um contexto anterior: leia anterior.md (aquele contexto: a nota e o resumo dele) e conversa.md (as conversas em "
-                   "ordem: a daquele contexto e, depois, a que continuou dele) e, se ajudar, resumo.md (a nota de quem salvou), "
-                   "controle/ e rodada/resumo.md (os de agora). Não escreva arquivos. Escreva UM resumo do todo, não dois: o que vale "
-                   "agora — quando a conversa nova mudou um valor, uma decisão ou o controle, fica o novo, e diga o que ele "
-                   "substituiu. Responda só com o resumo, em markdown, nestas seções: ## Objetivo; ## O que foi feito; ## Resultado "
-                   "(com os números: canal, janela e rodada); ## Decisões (e por quê); ## O que falta. Completo nos números e nas "
-                   "decisões, curto no resto; equações em LaTeX.")
+# o pedido do resumo: lingua.tr("ia.resumo_pedido"); a junção ("juntar com o contexto em uso"): um resumo só, do contexto
+# anterior e da conversa que continuou dele, lingua.tr("ia.resumo_junta") — no idioma de quem pediu (a thread leva)
 trava_resumo = threading.Lock()                      # um resumo por vez
 
 
@@ -3839,7 +3757,7 @@ def _resumo_ia(cid, modelo, esforco, ia="claude"):
                     return                               # apagado antes de começar
                 erro, texto, usado = None, None, modelo
                 try:
-                    pedido = RESUMO_IA_JUNTA if (CONTEXTOS / cid / "anterior.md").is_file() else RESUMO_IA_PEDIDO
+                    pedido = lingua.tr("ia.resumo_junta" if (CONTEXTOS / cid / "anterior.md").is_file() else "ia.resumo_pedido")
                     cmd = a.comando_resumo(pedido, modelo, esforco, pasta=CONTEXTOS / cid)
                     with trava_cli:
                         limpa_trava_login(ia=a)
@@ -4029,55 +3947,62 @@ def num_txt(x):
 
 
 def claude_contexto(c, dt, tfim):
-    """O CONTEXTO.md: o que o Claude precisa saber do circuito aberto e do controle, gerado do estado do MaiSim."""
+    """O CONTEXTO.md: o que o Claude precisa saber do circuito aberto e do controle, gerado do estado do MaiSim (no idioma do
+    pedido; os nomes de arquivo, de bloco e do código ficam como são)."""
+    tr = lingua.tr
     ult = editor.get("ultimo")
-    L = ["# Contexto do MaiSim", "", "Gerado pelo MaiSim a cada pedido, com o estado atual. Só leitura.", ""]
-    L += [f"- Circuito aberto: `{editor.get('aberto') or '(sem arquivo)'}`",
-          f"- Passo do Gecko: Δt = {num_txt(dt)} s; tempo final da simulação: tfim = {num_txt(tfim)} s"]
+    L = [tr("ia_contexto.titulo"), "", tr("ia_contexto.gerado"), ""]
+    L += [tr("ia_contexto.circuito", arq=editor.get('aberto') or tr("ia_contexto.sem_arquivo")),
+          tr("ia_contexto.passo", dt=num_txt(dt), tfim=num_txt(tfim))]
     nTs = max(1, arred(c["Ts"] / dt)) if dt > 0 else 1
     at = c.get("atraso") or {}
     d_at = passos_de_atraso(at, nTs, dt) if dt > 0 else 1   # o atraso efetivo, em Δt (a latência fica entre Δt e Ts)
-    L += [f"- Ts (período de amostragem do controle) = {num_txt(c['Ts'])} s → efetivo {num_txt(nTs * dt)} s ({nTs} × Δt); "
-          f"passo() é chamado ≈ {int(tfim / (nTs * dt)) if dt > 0 and tfim > 0 else '?'} vezes",
-          f"- Atraso da atuação: {at.get('modo', 'logo')} → o circuito sente a atuação calculada em t no instante t + {d_at} × Δt"
-          + (f" (latência pedida τ = {num_txt(at.get('tempo'))} s, limitada a [Δt, Ts])" if at.get("modo") == "tempo" else "")
-          + " (logo = t + Δt; amostra = t + Ts, como num DSP; tempo = t + τ)",
-          "- Controle ligado na simulação: " + ("sim" if c["ativo"] else 'não (o MaiSim liga ao aplicar: "usar este controle ao simular")'), ""]
+    L += [tr("ia_contexto.ts", ts=num_txt(c['Ts']), ef=num_txt(nTs * dt), nts=nTs,
+             vezes=int(tfim / (nTs * dt)) if dt > 0 and tfim > 0 else '?'),
+          tr("ia_contexto.atraso_tempo", modo=at.get('modo', 'logo'), d=d_at, tau=num_txt(at.get('tempo'))) if at.get("modo") == "tempo"
+          else tr("ia_contexto.atraso", modo=at.get('modo', 'logo'), d=d_at),
+          tr("ia_contexto.ligado_sim" if c["ativo"] else "ia_contexto.ligado_nao"), ""]
     if not ult:
-        L += ["O circuito não está aberto na edição: as medidas e as atuações não são conhecidas agora.", ""]
+        L += [tr("ia_contexto.sem_circuito"), ""]
     else:
         sinais = sinais_da_rodada(ult)
         atu = atuadores_disponiveis(ult)
-        L += ["## Medidas (m[\"nome\"] no código)", ""]
+        L += [tr("ia_contexto.medidas"), ""]
         for el, canal in sinais:
             fid, _, nome_el = el.rpartition("#") if "#" in el else ("0", "", el)
             fl = next((f for k, f in ult["folhas"].items() if (k == "0" and fid == "0") or f.get("nome") == fid), None)
             e = next((x for x in (fl or {}).get("elementos", []) if x["nome"] == nome_el), None)
             if e and e["tipo"] == "VOLT":
-                o = f"tensão entre os nós {e['mede'][0] or '?'} (+) e {e['mede'][1] or '?'} (−), em V"
+                o = tr("ia_contexto.m_tensao", a=e['mede'][0] or '?', b=e['mede'][1] or '?')
             elif e and e["tipo"] == "AMP":
-                o = f"corrente no componente {e['mede'][0] or '?'}, em A"
+                o = tr("ia_contexto.m_corrente", c=e['mede'][0] or '?')
             elif e and e["tipo"] == "CONST":
-                o = f"a saída do bloco {e['nome']} (o valor atual dessa atuação)"
+                o = tr("ia_contexto.m_const", nome=e['nome'])
             else:
-                o = f"a saída do bloco {e['nome'] if e else el}" + (f" ({e['nome_tipo']})" if e else "")
-            L.append(f"- `m[\"{canal}\"]`: {o}" + (f" — dentro de {fid}" if fid != "0" else ""))
-        L += ["", "## Atuações (as chaves do dicionário que passo() devolve)", ""]
+                o = tr("ia_contexto.m_bloco_tipo", nome=e['nome'], tipo=e['nome_tipo']) if e else tr("ia_contexto.m_bloco", nome=el)
+            L.append(tr("ia_contexto.medida_dentro", canal=canal, o=o, sub=fid) if fid != "0" else tr("ia_contexto.medida", canal=canal, o=o))
+        L += ["", tr("ia_contexto.atuacoes"), ""]
         marcadas = set(c["atuacoes"])
+        principal = (ult["folhas"].get("0") or {}).get("nome")
+
+        def destino(q):
+            em = q.get("folha") and q["folha"] != principal
+            if q["tipo"] == "chave":
+                return (tr("ia_contexto.d_chave_em", nome=q['nome'], folha=q['folha'], gate=q.get('gate')) if em
+                        else tr("ia_contexto.d_chave", nome=q['nome'], gate=q.get('gate')))
+            if q["tipo"] == "fonte":
+                return tr("ia_contexto.d_fonte_em", nome=q['nome'], folha=q['folha']) if em else tr("ia_contexto.d_fonte", nome=q['nome'])
+            return tr("ia_contexto.d_sub", nome=q['nome'])
         for a in atu:
-            principal = ult["folhas"]["0"]["nome"]
-            onde = lambda q: f" em {q['folha']}" if q.get("folha") and q["folha"] != principal else ""
-            dest = ", ".join((f"comanda a chave {q['nome']}{onde(q)} (pelo {q.get('gate')})" if q["tipo"] == "chave" else
-                              f"é o sinal da fonte controlada {q['nome']}{onde(q)}" if q["tipo"] == "fonte" else f"sai pelo subcircuito {q['nome']}")
-                             for q in a["destinos"]) or "não chega a uma chave nem a uma fonte"
+            dest = ", ".join(destino(q) for q in a["destinos"]) or tr("ia_contexto.d_nenhum")
             lag = a["atraso_gecko"]
-            comp = (f"o Gecko leva {lag} Δt a mais até o circuito, e o MaiSim compensa" if lag <= d_at else
-                    f"o Gecko leva {lag} Δt a mais e o MaiSim só compensa {d_at}: o circuito sente {lag - d_at} Δt depois do pedido")
-            L.append(f"- `\"{a['nome']}\"` (bloco {a['bloco']}): {dest}; {comp}"
-                     + ("" if a["nome"] in marcadas else " — AINDA NÃO MARCADA no painel: escreva-a como chave literal no dicionário de saída (u = {\"nome\": …} ou return {…}) e o MaiSim marca ao aplicar"))
+            comp = (tr("ia_contexto.compensa", lag=lag) if lag <= d_at else
+                    tr("ia_contexto.compensa_parte", lag=lag, d=d_at, resto=lag - d_at))
+            L.append(tr("ia_contexto.atuacao" if a["nome"] in marcadas else "ia_contexto.atuacao_nao_marcada",
+                        nome=a['nome'], bloco=a['bloco'], dest=dest, comp=comp))
         if not atu:
-            L.append("- nenhuma: o circuito não tem bloco CONST (o usuário precisa pôr um, com a saída rotulada, ligado a um GATE ou a uma fonte controlada)")
-        L += ["", "## Circuito (componentes de potência e os nós de cada terminal)", ""]
+            L.append(tr("ia_contexto.sem_atuacao"))
+        L += ["", tr("ia_contexto.circuito_titulo"), ""]
         for fid, fl in ult["folhas"].items():
             rede, rot, terms = redes_basicas(fl, "LK")
             nomes_rede, k = {}, 0
@@ -4096,42 +4021,45 @@ def claude_contexto(c, dt, tfim):
                     nomes_rede[r_] = f"n{k}"
                 nos[e["nome"]].append(nomes_rede[r_])
             if fid != "0":
-                L.append(f"### dentro de {fl.get('nome')}")
+                L.append(tr("ia_contexto.dentro_de", nome=fl.get('nome')))
             for e in fl["elementos"]:                    # os de potência e os subcircuitos (SMs), com os nós dos terminais
                 if e["tipo"] != "TERM" and e["dom"] != "CONTROL" and (e["dom"] == "LK" or e["nome"] in nos):
                     par = ", ".join(f"{k_} = {num_txt(v)}" for k_, v in (e.get("par") or {}).items())
-                    L.append(f"- {e['nome']} ({e.get('nome_tipo') or e['tipo']}){'' if e.get('ativo', True) else ' [desativado]'}: "
-                             f"nós {', '.join(nos.get(e['nome'], [])) or '?'}" + (f"; {par}" if par else ""))
+                    L.append(tr("ia_contexto.elemento" if e.get('ativo', True) else "ia_contexto.elemento_desativado",
+                                nome=e['nome'], tipo=e.get('nome_tipo') or e['tipo'], nos=', '.join(nos.get(e['nome'], [])) or '?')
+                             + (f"; {par}" if par else ""))
             outros = [e for e in fl["elementos"] if e["dom"] == "CONTROL" and e["tipo"] not in ("VOLT", "AMP", "CONST", "TERM", "SCOPE")]
             for e in outros:
-                L.append(f"- bloco {e['nome']} ({e.get('nome_tipo') or e['tipo']})" + (f": comanda {e['mede'][0]}" if e["tipo"] == "GATE" and e["mede"] and e["mede"][0] else ""))
+                tipo = e.get('nome_tipo') or e['tipo']
+                L.append(tr("ia_contexto.bloco_gate", nome=e['nome'], tipo=tipo, alvo=e['mede'][0])
+                         if e["tipo"] == "GATE" and e["mede"] and e["mede"][0] else tr("ia_contexto.bloco", nome=e['nome'], tipo=tipo))
         L.append("")
-    L += ["## Parâmetros atuais (parametros.json)", ""]
-    L += [f"- `p[\"{q['nome']}\"]` = {num_txt(q['valor'])} {q.get('unidade', '')}".rstrip() for q in c["parametros"]] or ["- nenhum"]
-    L += ["", "## Acionamentos atuais (acionamentos.json)", ""]
-    L += [f"- t = {num_txt(q['t'])} s: {q['alvo']} = {num_txt(q['valor'])}" for q in c.get("acionamentos") or []] or ["- nenhum"]
+    L += [tr("ia_contexto.parametros"), ""]
+    L += [f"- `p[\"{q['nome']}\"]` = {num_txt(q['valor'])} {q.get('unidade', '')}".rstrip() for q in c["parametros"]] or [tr("ia_contexto.nenhum")]
+    L += ["", tr("ia_contexto.acionamentos"), ""]
+    L += [f"- t = {num_txt(q['t'])} s: {q['alvo']} = {num_txt(q['valor'])}" for q in c.get("acionamentos") or []] or [tr("ia_contexto.nenhum")]
     erros, avisos = verifica_codigo(c["codigo"])
     conf = [] if erros or not ult else confere_codigo(c["codigo"], c["parametros"], c["atuacoes"], [k for _, k in sinais_da_rodada(ult)], atuadores_disponiveis(ult))
     if erros or avisos or conf:
-        L += ["", "## O que o MaiSim acusa no código atual", ""]
-        L += [f"- linha {x.get('linha', '?')}: {x['msg']}" for x in list(erros) + list(conf)] + [f"- {a}" for a in avisos]
+        L += ["", tr("ia_contexto.acusa"), ""]
+        L += [tr("ia_contexto.linha", linha=x.get('linha', '?'), msg=x['msg']) for x in list(erros) + list(conf)] + [f"- {a}" for a in avisos]
     if c.get("controladores"):                        # vários controladores: o Claude vê todos e muda pelo controladores.json
-        L += ["", "## Controladores (controladores.json: cada um no seu processo, isolado; calculam juntos a cada amostra; o que cada um lê e escreve você muda lá)", ""]
-        L += [f"- {q['nome']}: {q['arquivo']}; lê {', '.join(q['medidas']) or '—'}; escreve {', '.join(q['atuacoes']) or '—'}"
-              + (f"; uma instância em cada subcircuito: {', '.join(q['subcircuitos'])}" if q["subcircuitos"] else "") for q in c["controladores"]]
-        L += [f"- rede: latência {c.get('rede', {}).get('latencia', 0.0)} s; envia(para, dados) e recebe(); a mensagem chega na 1ª amostra "
-              "depois do envio com t ≥ t_envio + latência (nunca na mesma amostra)"]
+        L += ["", tr("ia_contexto.controladores"), ""]
+        L += [tr("ia_contexto.controlador_subs" if q["subcircuitos"] else "ia_contexto.controlador", nome=q['nome'], arq=q['arquivo'],
+                 le=', '.join(q['medidas']) or '—', escreve=', '.join(q['atuacoes']) or '—', subs=', '.join(q['subcircuitos']))
+              for q in c["controladores"]]
+        L += [tr("ia_contexto.rede", lat=c.get('rede', {}).get('latencia', 0.0))]
     mods = modulos_de(c)
     erros_m, avisos_m = analisa_modulos(c)
     if mods or erros_m or avisos_m:
-        L += ["", "## Os arquivos do controle e o papel de cada um", "",
-              "- controle.py: o controlador (o orquestrador: ler → calcular → escrever)"]
-        L += [f"- {k}: {'controlador (processo à parte)' if k in arquivos_controladores(c) else 'módulo (roda no processo de quem importa, na mesma amostra)'}"
+        L += ["", tr("ia_contexto.arquivos"), "", tr("ia_contexto.arq_controle")]
+        L += [tr("ia_contexto.arq_controlador" if k in arquivos_controladores(c) else "ia_contexto.arq_modulo", arq=k)
               for k in arquivos_de(c) if k != "controle.py"]
-        L += [f"- o MaiSim acusa: {x['arquivo']} linha {x['linha']}: {x['msg']}" for x in erros_m] + [f"- o MaiSim avisa: {a}" for a in avisos_m]
+        L += [tr("ia_contexto.acusa_arquivo", arq=x['arquivo'], linha=x['linha'], msg=x['msg']) for x in erros_m]
+        L += [tr("ia_contexto.avisa", aviso=a) for a in avisos_m]
     if c.get("arquivos"):
-        L += ["", "Os arquivos estão na pasta: leia os que o pedido envolver."]
-    L += ["", "## Código atual (controle.py)", "", "```python", c["codigo"].rstrip(), "```", ""]
+        L += ["", tr("ia_contexto.leia_arquivos")]
+    L += ["", tr("ia_contexto.codigo"), "", "```python", c["codigo"].rstrip(), "```", ""]
     return "\n".join(L)
 
 
@@ -4162,10 +4090,8 @@ MODELOS_CLAUDE, ESFORCOS_CLAUDE = CLAUDE.modelos, CLAUDE.esforcos     # os de ca
 AUTONOMO_MAX = 20                                       # voltas do modo autônomo por pedido
 
 # o lembrete do formato, no fim de cada pedido (Marcelo, 20/10: numa conversa longa o Claude do MaiSim seguia o costume das
-# respostas antigas — as leis do artigo numa tabela, em crases — mesmo com a regra no prompt de sistema)
-LEMBRETE_FORMATO = ("Formato: modelagem e teoria em equação LaTeX ($…$ na linha, $$…$$ em destaque), também dentro de tabelas "
-                    "— ω, ∫, Σ, θ, chapéus e índices em LaTeX (\\omega, \\int, \\sum, \\hat{I}, V_{dc}), nunca entre crases; "
-                    "crases só para o que existe nos .py (nomes, linhas) e os parâmetros do Gecko.")
+# respostas antigas — as leis do artigo numa tabela, em crases — mesmo com a regra no prompt de sistema): lingua.tr("ia.lembrete_formato"),
+# que termina com o idioma da resposta (a conversa retomada depois de trocar o idioma segue o novo)
 
 
 def claude_pede(texto, dt, tfim, modelo="", esforco="", autonomo=0, ia="claude"):
@@ -4235,28 +4161,26 @@ def _claude_comeca(texto, dt, tfim, vez, modelo="", esforco="", ia="claude"):
     tem_rodada = bool(ult) and resumo_rodada.copia_para(ult, pasta)
     anexos = [a["nome"] for a in lista_anexos(pasta)]
     vistos = set(conv.get("anexos_vistos") or [])
-    nota = "(MaiSim: os arquivos da pasta foram reescritos com o estado atual; leia o CONTEXTO.md antes."
+    nota = [lingua.tr("ia.nota_inicio")]
     if tem_rodada:
-        nota += f" ULTIMA_RODADA.md: o resumo da rodada mais nova ({ult.name}); as séries em ULTIMA_RODADA/<canal>.csv."
+        nota.append(lingua.tr("ia.nota_rodada", rodada=ult.name))
     else:
         resumo_rodada.copia_para(Path("/nao/existe"), pasta)   # tira o que houver de uma rodada velha
     if anexos:
-        nota += " Anexos da conversa: " + ", ".join(f"anexos/{a}{' (novo)' if a not in vistos else ''}" for a in anexos) + "."
+        nota.append(lingua.tr("ia.nota_anexos", lista=", ".join(lingua.tr("ia.nota_anexo_novo", nome=a) if a not in vistos else f"anexos/{a}"
+                                                                for a in anexos)))
     usados = contextos.poe_na_conversa(CONTEXTOS, conv.get("contextos") or [], pasta)
     if usados:
-        nota += (" Contextos salvos carregados nesta conversa (leia o contexto.md de cada um antes de responder; a conversa daquele "
-                 "momento em conversa.md, o controle de então em controle/ — referência, o controle em uso é o desta pasta): "
-                 + ", ".join(f"contextos/{u['id']}/contexto.md ({u['titulo']})" for u in usados) + ".")
+        nota.append(lingua.tr("ia.nota_contextos", lista=", ".join(f"contextos/{u['id']}/contexto.md ({u['titulo']})" for u in usados)))
     # a conversa até aqui no registro do MaiSim (de qualquer IA): CONVERSA.md, citado quando esta IA não a viu — trocou de IA
     # no meio da conversa, ou a sessão dela não existe (etapa 2 do hub de IA)
     hist = historico(conv["id"])
     if hist:
-        (pasta / "CONVERSA.md").write_text(contextos.conversa_md(hist, "esta conversa"))
+        (pasta / "CONVERSA.md").write_text(contextos.conversa_md(hist, lingua.tr("ia.esta_conversa")))
         ultima = next((h.get("ia") or "claude" for h in reversed(hist) if h.get("resposta") or h.get("fala")), ia)
         if ultima != ia or not IAS[ia].sessao_existe(sessao_da_ia(chave, conv, ia)):
-            nota += (" A conversa até aqui (os pedidos e as respostas, também de outra IA) está em CONVERSA.md: leia antes de "
-                     "responder, para continuar de onde ela parou.")
-    prompt = f"Pedido do usuário:\n\n{texto}\n\n{nota} {LEMBRETE_FORMATO})"
+            nota.append(lingua.tr("ia.nota_conversa"))
+    prompt = lingua.tr("ia.pedido_usuario", texto=texto, nota=" ".join(nota), lembrete=lingua.tr("ia.lembrete_formato"))
     with trava_claude:
         if claude_pedido.get("auto") is not None:
             claude_pedido["auto"]["conv"] = conv["id"]
@@ -4293,8 +4217,9 @@ def guarda_sessao_da_ia(chave, conv_id, ia, sid):
 
 
 def regras_da(a):
-    """As regras do MaiSim para a IA (as mesmas para todas; só o nome dela no começo)."""
-    return REGRAS_CLAUDE if a.id == "claude" else REGRAS_CLAUDE.replace("Você é o Claude do MaiSim", f"Você é a IA do MaiSim ({a.nome})", 1)
+    """As regras do MaiSim para a IA, no idioma do pedido (as mesmas para todas; só o nome dela no começo)."""
+    r = regras_texto()
+    return r if a.id == "claude" else r.replace(lingua.tr("ia.voce_claude"), lingua.tr("ia.voce_ia", nome=a.nome), 1)
 
 
 def _claude_lanca(prompt, c, dt, vez, chave, conv, pasta, anexos, memoria, modelo="", esforco="", ia="claude"):
@@ -4462,9 +4387,7 @@ def _claude_continua(antes, dt, chave, pasta, memoria, vez):
             return
         auto = dict(claude_pedido.get("auto") or {})
         claude_pedido.update(pedido=lingua.tr("pedido.auto_continua"), fala="", resposta=None)
-    prompt = (f"(MaiSim, modo autônomo) A chamada anterior chegou ao limite de {CLAUDE_PASSOS} passos. Os arquivos da pasta estão "
-              "como você deixou. Continue de onde parou e termine a versão; quando você terminar, o MaiSim a simula e te devolve o resumo. "
-              + LEMBRETE_FORMATO)
+    prompt = lingua.tr("ia.prompt_continua", n=CLAUDE_PASSOS, lembrete=lingua.tr("ia.lembrete_formato"))
     _, conv, _ = conversa_atual()
     try:
         _claude_lanca(prompt, antes, dt, vez, chave, conv, pasta, [], memoria, auto.get("modelo", ""), auto.get("esforco", ""), auto.get("ia", "claude"))
@@ -4521,12 +4444,10 @@ def _claude_volta_autonoma(antes, dt, chave, pasta, memoria, vez):
         claude_pedido["eventos"] = (claude_pedido["eventos"] + [lingua.tr("pedido.ev_rodada", i=i, estado=est)
                                                                  + (f" ({rodada.get('erro')})" if rodada.get("erro") else "")])[-40:]
         claude_pedido.update(pedido=lingua.tr("pedido.auto_resultado", i=i, n=auto['max']), fala="", resposta=None)
-    estado_txt = est + (f" — erro: {rodada.get('erro')}" if rodada.get("erro") else "")
-    prompt = (f"(MaiSim, modo autônomo) A rodada {i} de {auto['max']} da sua versão terminou: {estado_txt}. "
-              + ("O resumo está em ULTIMA_RODADA.md e as séries em ULTIMA_RODADA/<canal>.csv. " if tem else "Não há resumo desta rodada. ")
-              + "Os arquivos da pasta continuam com a sua versão (o controle do usuário não mudou). Confira os critérios com os "
-              "números (diga de qual canal e janela), corrija e devolva a versão seguinte. Se terminou — os critérios passaram, "
-              "ou falta uma decisão do usuário —, explique e escreva [PRONTO] numa linha, no fim da resposta. " + LEMBRETE_FORMATO)
+    estado_txt = lingua.tr("ia.prompt_rodada_erro", estado=est, erro=rodada.get("erro")) if rodada.get("erro") else est
+    prompt = lingua.tr("ia.prompt_rodada", i=i, n=auto["max"], estado=estado_txt,
+                       resumo=lingua.tr("ia.prompt_rodada_tem_resumo" if tem else "ia.prompt_rodada_sem_resumo"),
+                       lembrete=lingua.tr("ia.lembrete_formato"))
     _, conv, _ = conversa_atual()
     try:
         _claude_lanca(prompt, antes, dt, vez, chave, conv, pasta, [], memoria, auto.get("modelo", ""), auto.get("esforco", ""), auto.get("ia", "claude"))
