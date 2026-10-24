@@ -45,7 +45,7 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
     titulo: (document.querySelector("#iac-antigravity .cla-uso-l") || {}).title || document.querySelector("#iac-antigravity .cla-uso-l").dataset.dica || "",
     bt: $("iac-antigravity").querySelector("[data-abre]").textContent, pasta: /login só dele/.test($("iac-antigravity").textContent) && /agy-maisim/.test(($("iac-antigravity").querySelector(".cla-pasta") || {}).title || "") }));
   ok(j1.l.length === 3 && /^Gemini · semana 25% renova/.test(j1.l[0]) && /^Gemini · 5 h 0,8% renova (hoje|amanhã) às/.test(j1.l[1]) && /Gemini Flash/.test(j1.titulo)
-    && /ocultar/.test(j1.bt) && j1.pasta, `"detalhes e limites": os limites do Antigravity (${j1.l[1]}) e a pasta`);
+    && /Ocultar/.test(j1.bt) && j1.pasta, `"detalhes e limites": os limites do Antigravity (${j1.l[1]}) e a pasta`);
   if (FOTOS) await pg.screenshot({ path: path.join(FOTOS, "contas_limites.png") });
   await pg.click("[data-abre=claude]"); await pg.waitForSelector("section.cla-ia:first-of-type .cla-uso-l", { timeout: 15000 });
   ok((await pg.$$("section.cla-ia:first-of-type .cla-uso-l")).length === 3, "os detalhes do Claude: o uso da conta dele");
@@ -54,7 +54,7 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
   await pg.click("#cla-pedir"); await pg.waitForFunction(() => cc.aberto && $("cc-ia").options.length > 1, null, { timeout: 30000 });
   await pg.selectOption("#cc-ia", "antigravity"); await pg.waitForTimeout(300);
   const s = await pg.evaluate(() => ({ mod: [...$("cc-modelo").options].map((o) => o.textContent), esf: getComputedStyle($("cc-esforco")).display, nome: $("cc-ia").selectedOptions[0].textContent }));
-  ok(s.nome === "Google Antigravity" && s.mod.join("|") === "modelo: padrão|Gemini Falso (High)|Claude Falso (Medium)" && s.esf === "none",
+  ok(s.nome === "Google Antigravity" && s.mod.join("|") === "Modelo: padrão|Gemini Falso (High)|Claude Falso (Medium)" && s.esf === "none",
     `na conversa: "${s.nome}", os modelos com o nome (${s.mod.slice(1).join(", ")}), sem o esforço (vem no modelo)`);
   ok(!erros.length, `sem erros de JS nem diálogos ${erros.join(" ; ")}`);
   await api(pg, "claude/ia/sair", { ia: "antigravity" });   // deixa a instância de teste como estava (os outros testes contam com isso)

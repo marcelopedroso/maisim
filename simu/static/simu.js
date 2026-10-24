@@ -1735,7 +1735,7 @@ async function parametrosSim(aba = "sim", op = {}) {
   const roda = sim.estado === "rodando" || sim.estado === "pausada";
   let porCima = sim.par.por_cima !== "0";
   if (op.nome) SIM.find((c) => c.nome === "nome").valor = op.nome;   // depois de guardar uma rodada: o nome da próxima
-  const r = await modal({ titulo: "Parâmetros da simulação", foco: op.nome ? 'input[name="nome"]' : null, ok: roda ? "fechar" : "guardar", cancelar: roda ? "" : "Cancelar", largo: comVars,
+  const r = await modal({ titulo: "Parâmetros da simulação", foco: op.nome ? 'input[name="nome"]' : null, ok: roda ? "Fechar" : "Guardar", cancelar: roda ? "" : "Cancelar", largo: comVars,
     html: `${roda ? `<p class="m-trava">simulação rodando: só para ver — os parâmetros e as variáveis ficam travados até ela parar (a rodada usa o circuito do início)</p>` : ""}${comVars ? `<div class="m-abas" role="tablist"><button type="button" data-aba="sim">Simulação</button><button type="button" data-aba="vars">Variáveis globais ($)</button></div>` : ""}
       <div class="m-aba" data-aba="sim"><p>Valem para a próxima vez que você iniciar (Ctrl+Enter).</p>
         ${op.aviso ? `<p class="m-guardada">${escT(op.aviso)}</p>` : ""}
@@ -1747,7 +1747,7 @@ async function parametrosSim(aba = "sim", op = {}) {
     monta: (fundo) => {
       const mostra = (a) => { fundo.querySelectorAll(".m-abas button").forEach((b) => b.classList.toggle("ativo", b.dataset.aba === a));
         fundo.querySelectorAll(".m-aba").forEach((d) => d.style.display = d.dataset.aba === a ? "" : "none");
-        fundo.querySelector(".m-ok").textContent = a === "sim" && !roda ? "guardar" : "fechar";
+        fundo.querySelector(".m-ok").textContent = a === "sim" && !roda ? "Guardar" : "Fechar";
         const f = fundo.querySelector(`.m-aba[data-aba="${a}"] input`); if (f) setTimeout(() => f.focus(), 0); };
       fundo.querySelectorAll(".m-abas button").forEach((b) => b.onclick = () => mostra(b.dataset.aba));
       fundo.querySelector(".m-porcima").onchange = (ev) => { porCima = ev.target.value === "1"; };
@@ -1863,7 +1863,7 @@ function listaGlobais(caixa, travada = false) {       // a aba "variáveis globa
       || `<div class="t">nenhuma variável neste circuito</div>`}</div>
     <div class="gv nova"><input id="gv-nome" placeholder="$nome" data-enter="proprio" autocomplete="off" aria-label="nome da variável nova">
       <input id="gv-valor" placeholder="valor" data-enter="proprio" aria-label="valor da variável nova"><button type="button" id="gv-cria">Criar</button></div>
-    ${sem.length ? `<button type="button" id="gv-limpa" class="gv-limpa" title="${escT(sem.join(", "))}">apagar as ${sem.length} que nenhum componente usa</button>` : ""}`;
+    ${sem.length ? `<button type="button" id="gv-limpa" class="gv-limpa" title="${escT(sem.join(", "))}">Apagar as ${sem.length} que nenhum componente usa</button>` : ""}`;
   const relista = () => listaGlobais(caixa, travada);
   if (travada) caixa.querySelectorAll("input, button:not([data-copia])").forEach((x) => { x.disabled = true; });
   caixa.querySelectorAll("input[data-g]").forEach((i) => {

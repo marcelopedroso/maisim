@@ -110,7 +110,7 @@ function desenhaJanelaClaude() {
       <p><a class="cla-link" target="_blank" rel="noopener noreferrer" id="cla-auto">Abrir a página de login ↗</a></p>
       <p class="cla-alt">2. Se a página não voltar sozinha (ou mostrar um código), use <a target="_blank" rel="noopener noreferrer" id="cla-manual">este outro link</a>:
       ele mostra um código; cole aqui.</p>
-      <label class="cla-cod"><input id="cla-codigo" placeholder="código (xxxx#yyyy)" autocomplete="off" spellcheck="false"><button id="cla-enviar"${cla.enviando ? " disabled" : ""}>${cla.enviando ? "conferindo…" : "enviar"}</button></label>
+      <label class="cla-cod"><input id="cla-codigo" placeholder="código (xxxx#yyyy)" autocomplete="off" spellcheck="false"><button id="cla-enviar"${cla.enviando ? " disabled" : ""}>${cla.enviando ? "Conferindo…" : "Enviar"}</button></label>
       <p class="cla-espera">esperando a autorização…</p>`,
     deslogado: `<p>O MaiSim usa o Claude Code deste computador, com ${pasta}: o seu outro login do Claude não muda.
       A autenticação é na página da própria Anthropic.</p>${l.erro ? `<p class="cla-erro">Último login: ${escT(l.erro)}</p>` : ""}`,
@@ -160,7 +160,7 @@ function desenhaJanelaClaude() {
   on("cla-uso-atualiza", () => carregaUsoClaude(true));
   if (modo === "logado" && aberta && !cla.uso && !cla.lendoUso) carregaUsoClaude();
 }
-const botaoDetalhes = (id) => `<button class="cla-mini cla-abre" data-abre="${id}" aria-expanded="${!!cla.aberta[id]}">${cla.aberta[id] ? "ocultar detalhes ▴" : "detalhes e limites ▾"}</button>`;
+const botaoDetalhes = (id) => `<button class="cla-mini cla-abre" data-abre="${id}" aria-expanded="${!!cla.aberta[id]}">${cla.aberta[id] ? "Ocultar detalhes ▴" : "Detalhes e limites ▾"}</button>`;
 // os limites de uma outra IA (o Antigravity: o /usage dele, sem gastar o modelo)
 async function carregaUsoIA(id, forca = false) {
   cla.iaUso = { ...cla.iaUso, [id]: cla.iaUso[id] && forca ? { ...cla.iaUso[id], lendo: true } : cla.iaUso[id] };
@@ -211,7 +211,7 @@ function htmlContaIA(a) {
     andamento: `<p>1. ${escT(d.pagina || "Abra a página de login e autorize.")}</p>
       <p><a class="cla-link" target="_blank" rel="noopener noreferrer" id="iac-link-${a.id}">Abrir a página de login ↗</a></p>
       <p class="cla-alt">2. ${escT(d.codigo || "Cole aqui o código que a página mostrar.")}</p>
-      <label class="cla-cod"><input id="iac-codigo-${a.id}" data-ia-codigo="${a.id}" placeholder="código de autorização" autocomplete="off" spellcheck="false"><button data-ia="${a.id}" data-ia-acao="codigo"${env ? " disabled" : ""}>${env ? "conferindo…" : "enviar"}</button></label>
+      <label class="cla-cod"><input id="iac-codigo-${a.id}" data-ia-codigo="${a.id}" placeholder="código de autorização" autocomplete="off" spellcheck="false"><button data-ia="${a.id}" data-ia-acao="codigo"${env ? " disabled" : ""}>${env ? "Conferindo…" : "Enviar"}</button></label>
       <p class="cla-espera">esperando o código… (a página vale por 5 minutos)</p>`,
     deslogado: `<p>${d.conta ? escT(d.conta) + " " : ""}O MaiSim usa o ${ferr} deste computador, com ${pasta}: o seu outro login do ${nome} não muda.
       A autenticação é na página do próprio ${escT(d.empresa || nome)}.</p>
@@ -223,7 +223,7 @@ function htmlContaIA(a) {
     + (av ? `<p class="iac-erro">${escT(av)}</p>` : "");
   const bts = { ausente: "", logado: `${botaoDetalhes(a.id)}<button class="perigo" data-ia="${a.id}" data-ia-acao="sair">Sair</button>`,
     andamento: `<button data-ia="${a.id}" data-ia-acao="cancelar">Cancelar</button>`,
-    deslogado: `<button class="primario" data-ia="${a.id}" data-ia-acao="entrar"${env ? " disabled" : ""}>${env ? "abrindo…" : "entrar"}</button>` }[modo];
+    deslogado: `<button class="primario" data-ia="${a.id}" data-ia-acao="entrar"${env ? " disabled" : ""}>${env ? "Abrindo…" : "Entrar"}</button>` }[modo];
   return `<section class="cla-ia" id="iac-${a.id}"><h4>${nome} <small>${escT(d.empresa || "")} · ${modo === "logado" ? "conectado" : ferr}</small></h4>${corpo}${bts ? `<div class="cla-bts">${bts}</div>` : ""}</section>`;
 }
 async function acaoIA(ia, acao) {

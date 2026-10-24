@@ -37,15 +37,15 @@ async function cxSalvar(sid = null, tituloSugerido = "", exportar = false) {
       <div class="cc-dica-t">um contexto novo que continua daquele: um resumo só, escrito pela IA (o de lá + o desta conversa), as duas conversas em ordem, o controle e a rodada de agora. O contexto em uso fica como está.</div></div>` : ""}
     <label class="cx-l">Título <input class="cx-titulo" maxlength="200"></label>
     <label class="cx-l">Etiquetas <input class="cx-etiquetas" placeholder="separadas por vírgula (ex.: controle, ensaio, artigo)"></label>
-    <div class="cx-inclui">incluir: <label><input type="checkbox" class="cx-i" data-k="conversa" checked> A conversa</label>
-      <label title="${atual ? "o controle em uso agora" : "o controle da última proposta aplicada naquela conversa"}"><input type="checkbox" class="cx-i" data-k="controle" checked> O controle</label>
-      ${atual ? `<label title="o resumo e as séries da rodada mais nova"><input type="checkbox" class="cx-i" data-k="rodada" checked> A rodada</label>` : ""}
+    <div class="cx-inclui">Incluir: <label><input type="checkbox" class="cx-i" data-k="conversa" checked> a conversa</label>
+      <label title="${atual ? "o controle em uso agora" : "o controle da última proposta aplicada naquela conversa"}"><input type="checkbox" class="cx-i" data-k="controle" checked> o controle</label>
+      ${atual ? `<label title="o resumo e as séries da rodada mais nova"><input type="checkbox" class="cx-i" data-k="rodada" checked> a rodada</label>` : ""}
       <label title="${(conv.anexos || []).map((a) => a.nome).join(", ") || "sem anexos"}"><input type="checkbox" class="cx-i" data-k="anexos"${!atual || (conv.anexos || []).length ? "" : " disabled"}> os anexos</label></div>
     <div class="cx-res-cab"><b>nota</b> <span class="cc-dica-t">o que você quer lembrar depois (opcional) — fica no topo do contexto; a conversa inteira vai junto</span>
       <label class="cx-ia" title="depois de salvar, em segundo plano: a IA lê a conversa guardada (só leitura) e escreve um resumo, que entra no contexto. Não aparece na conversa. O salvar não depende dele: se falhar, a biblioteca oferece gerar de novo. Gasta uso (conversa grande, mais)"><input type="checkbox" class="cx-resumo-ia"${(atual ? hist.length : 1) ? "" : " disabled"}> Resumo pela IA, depois de salvar</label></div>
     <textarea class="cx-resumo" spellcheck="false" placeholder="o que é importante lembrar: o resultado, o que funcionou, o que falta…"></textarea>
     <div class="cx-status cc-dica-t"></div>
-    <div class="modal-botoes"><button class="m-fechar">Cancelar</button><button class="m-guardar primario">${exportar ? "salvar e baixar .maisimctx" : "guardar"}</button></div>`);
+    <div class="modal-botoes"><button class="m-fechar">Cancelar</button><button class="m-guardar primario">${exportar ? "Salvar e baixar .maisimctx" : "Guardar"}</button></div>`);
   m.q(".cx-titulo").value = titulo; m.q(".cx-titulo").select(); m.q(".cx-titulo").focus();
   m.q(".m-fechar").onclick = m.fecha;
   const status = (t) => { m.q(".cx-status").textContent = t; };
@@ -71,7 +71,7 @@ async function cxSalvar(sid = null, tituloSugerido = "", exportar = false) {
     if (!exportar) { m.fecha(); avisa(`contexto salvo: ${tit}${junto}${ia ? " — o resumo pela IA vem em segundo plano (veja em contextos)" : ""}`); return; }
     // exportar: com o resumo pela IA, espera ele ficar pronto (o .maisimctx vai com ele) — ou "baixar sem esperar"
     m.fundo.querySelectorAll("input, textarea, select").forEach((x) => { x.disabled = true; });
-    m.q(".m-guardar").disabled = true; m.q(".m-fechar").textContent = "fechar (já está salvo)";
+    m.q(".m-guardar").disabled = true; m.q(".m-fechar").textContent = "Fechar (já está salvo)";
     let estado = "";
     if (ia) {
       let ja = false;
@@ -84,7 +84,7 @@ async function cxSalvar(sid = null, tituloSugerido = "", exportar = false) {
         await new Promise((ok) => setTimeout(ok, 1500));
       }
     }
-    try { await cxBaixa(r.id); } catch (err) { status(`salvo, mas não baixou: ${err.message} (exporte pela biblioteca)`); m.q(".m-fechar").textContent = "fechar"; return; }
+    try { await cxBaixa(r.id); } catch (err) { status(`salvo, mas não baixou: ${err.message} (exporte pela biblioteca)`); m.q(".m-fechar").textContent = "Fechar"; return; }
     m.fecha();
     avisa(`contexto salvo e exportado: ${tit}${junto}${!ia ? "" : estado === "pronto" ? " — com o resumo pela IA" : estado === "falhou" ? " — sem o resumo pela IA (falhou: gere de novo em contextos e exporte de lá)" : " — sem o resumo pela IA (ainda gerando: exporte de novo em contextos)"}`);
   };
@@ -126,7 +126,7 @@ async function cxBiblioteca() {
             c.continua_de ? `continua de “${c.continua_de.titulo}”` : ""].filter(Boolean).join("  ·  "))}
             ${(c.etiquetas || []).map((t) => `<span class="cx-tag">${escT(t)}</span>`).join("")}</div>
           ${cxLinhaIA(c)}
-          <div class="cx-bts"><button data-a="usar" title="${usado ? "parar de usar nesta conversa" : "usar nesta conversa: a IA lê a nota e a conversa em todo pedido"}">${usado ? "em uso ✓" : "usar nesta conversa"}</button>
+          <div class="cx-bts"><button data-a="usar" title="${usado ? "parar de usar nesta conversa" : "usar nesta conversa: a IA lê a nota e a conversa em todo pedido"}">${usado ? "Em uso ✓" : "Usar nesta conversa"}</button>
             <button data-a="abrir">Abrir</button><button data-a="exportar" title="baixar o .maisimctx para mandar a um colega">Exportar</button><button data-a="apagar" class="cx-perigo">Apagar</button></div></div>`;
       }).join("") : `<div class="cc-vazio">${L.contextos.length ? "nada com esse filtro" : "nenhum contexto salvo ainda: “salvar” na conversa guarda o primeiro"}</div>`;
     } else {

@@ -774,7 +774,7 @@ function ligaVistaDiag() {
   $("cd-menos").onclick = () => zoomDiag(0.8);
   $("cd-ajusta").onclick = ajustaDiag;
   const botaoLinhas = () => { const b = $("cd-linhas"), sep = vistaDiag.linhas === "separadas";
-    b.textContent = sep ? "juntar linhas" : "separar linhas"; b.classList.toggle("ativo", sep); b.setAttribute("aria-pressed", sep); };
+    b.textContent = sep ? "Juntar linhas" : "Separar linhas"; b.classList.toggle("ativo", sep); b.setAttribute("aria-pressed", sep); };
   $("cd-linhas").onclick = () => {                     // juntas ↔ separadas (fica guardado neste navegador); o desenho volta a caber
     vistaDiag.linhas = vistaDiag.linhas === "separadas" ? "juntas" : "separadas"; vistaDiag.mexida = false;
     try { localStorage.setItem("maisim-simu-diag-linhas", vistaDiag.linhas); } catch (e) { /* ok */ }
@@ -1067,7 +1067,7 @@ function corpoPicker() {
   const vis = its.filter((i) => !q || i.rot.toLowerCase().includes(q)), corpo = pk.querySelector(".corpo"), lista = corpo.querySelector(".lista"), rol = lista ? lista.scrollTop : 0;
   pk.querySelector(".n").textContent = todas && todas.checked ? "todas" : `${its.filter((i) => i.x.checked).length} de ${its.length}`;
   corpo.innerHTML = `${todas ? `<label class="todas"><input type="checkbox" data-pk-todas ${todas.checked ? "checked" : ""}> Todas as medidas</label>` : ""}
-    <div class="bts"><button data-pk-tudo="1">marcar ${q ? "os filtrados" : "todos"}</button><button data-pk-tudo="0">desmarcar ${q ? "os filtrados" : "todos"}</button></div>
+    <div class="bts"><button data-pk-tudo="1">Marcar ${q ? "os filtrados" : "todos"}</button><button data-pk-tudo="0">Desmarcar ${q ? "os filtrados" : "todos"}</button></div>
     <div class="lista">${vis.map((i) => `<label class="${i.x.disabled ? "off" : ""}"><input type="checkbox" data-pk="${escT(i.v)}" ${i.x.checked ? "checked" : ""} ${i.x.disabled || travado() ? "disabled" : ""}><span>${escT(i.rot)}</span>${i.codigo ? `<small title="${escT(i.dica)}">(o código ${ctl.pick.g === "le" ? "lê" : "escreve"})</small>` : ""}${i.dono ? `<small title="hoje é de ${escT(i.dono)}: marcar aqui tira de lá (cada atuação tem um dono só)">(de ${escT(i.dono)})</small>` : ""}</label>`).join("")
       || `<i>${its.length ? "nada com esse filtro" : ctl.pick.g === "esc" ? "marque atuações (em variáveis)" : "nada"}</i>`}</div>`;
   corpo.querySelector(".lista").scrollTop = rol;
@@ -1412,7 +1412,7 @@ function tagAtuador(g, x, y, nome, centrada = false) {   // centrada: x é o mei
     const caixa = $("cc-texto"), pedido = "Deu este erro no controle. Explique a causa em uma frase e corrija:\n\n" + textoDoErro();
     caixa.value = caixa.value.trim() ? caixa.value.trimEnd() + "\n\n" + pedido : pedido;
     setTimeout(() => { caixa.focus(); caixa.setSelectionRange(caixa.value.length, caixa.value.length); caixa.scrollTop = 0; }, 80);
-  };   // a saída do testar (e da rodada) fecha; o ▷ testar abre de novo
+  };   // a saída do testar (e da rodada) fecha; o ▷ Testar abre de novo
   $("ctl-modelo").onclick = async () => { if (await confirma("Voltar ao modelo", `Trocar o código de ${escT(ctl.arq)} pelo modelo vazio (iniciar e passo)? O código atual se perde.`, "Trocar", true)) {
     const d = ctl.dados || {}, ms = d.modelos || {};
     poeCodigo(ctl.arq === "controle.py" ? (d.modelo || "") : ms[ctl.arq] || (ehModulo(ctl.arq) ? ms.modulo : MODELO_OUTRO), ctl.arq);

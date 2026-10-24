@@ -62,7 +62,7 @@ const foto = (pg, nome) => (FOTOS ? pg.screenshot({ path: path.join(FOTOS, nome)
   await pg.selectOption("#cc-ia", "gemini"); await pg.waitForTimeout(300);
   const s1 = await pg.evaluate(() => ({ mod: [...$("cc-modelo").options].map((o) => o.value + "=" + o.textContent), esf: getComputedStyle($("cc-esforco")).display, uso: $("cc-uso").textContent,
     vazio: !!document.querySelector(".cc-vazio .cc-oi b"), guardado: localStorage.getItem("maisim-simu-cc-ia") }));
-  ok(s1.mod.join("|") === "=modelo: automático|pro=Pro|flash=Flash|flash-lite=Flash-Lite" && s1.esf === "none" && s1.guardado === "gemini",
+  ok(s1.mod.join("|") === "=Modelo: automático|pro=Pro|flash=Flash|flash-lite=Flash-Lite" && s1.esf === "none" && s1.guardado === "gemini",
     `Gemini escolhido: os modelos dele (${s1.mod.map((m) => m.split("=")[1]).join(", ")}), sem o esforço, guardado no navegador`);
   ok(s1.vazio && !/entre com a sua conta/.test(await pg.textContent("#cc-msgs")) && s1.uso === "", "Gemini conectado: a conversa pronta para pedir (sem o uso da conta do Claude)");
   await pg.selectOption("#cc-modelo", "flash");
