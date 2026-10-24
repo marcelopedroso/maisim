@@ -194,54 +194,95 @@ function corNoScope(canal, cor) {
     if (cor) c[canal] = cor; else delete c[canal];
     localStorage.setItem("maisim-scope-cores", JSON.stringify(c)); } catch (e) { /* sem o navegador guardar: só no circuito */ }
 }
+// os painéis do scope de um sinal (Marcelo, 24/10: um sinal em vários painéis): a seção numa lista; os painéis dela, um
+// quadradinho cada (marcar põe o sinal naquele painel, desmarcar tira só dele; nos de outras seções ele fica, e a linha
+// "também em" diz onde); "+ novo painel…" cria um painel na seção já com o sinal, e o ✕ apaga painéis da seção
 function ligaNoPainel(np) {
-  const canal = np.dataset.canal, selS = np.querySelector("#p-secao"), selP = np.querySelector("#p-painel");
+  const canal = np.dataset.canal, selS = np.querySelector("#p-secao"), lista = np.querySelector("#p-paineis");
+  const btNovo = np.querySelector("#p-painel-novo"), btApaga = np.querySelector("#p-painel-apaga"), tambem = np.querySelector("#p-tambem");
+  const tituloDe = (p) => p.titulo || tr("simu.sem_titulo"), tem = (p) => Array.isArray(p.sinais) && p.sinais.includes(canal);
+  // a impressão de um painel: dois sem título (ou de mesmo título) na mesma posição não passam um pelo outro se algo mudou
+  const impressao = (p) => JSON.stringify({ titulo: p.titulo, sinais: p.sinais, largura: p.largura });
+  const kDaSecao = (nome) => gruposDoLayout(leLayoutCircuito()).findIndex((g) => g.secao === nome);
+  // enquanto o padrão do circuito vem, tudo espera (marcar agora gravaria o automático, e o padrão não entraria mais)
+  let esperando = true;
+  // a seção mostrada: a escolhida (a posição dela na lista; -1: nenhuma), ou a 1ª em que o sinal está
   const desenhaOps = (secaoEscolhida) => {
-    if (!np.isConnected) { redesenhaNoPainel = null; return; }   // o painel de propriedades já é outro
-    const L = leLayoutCircuito(), gs = gruposDoLayout(L);
-    const onde = gs.flatMap((g) => g.paineis.map((p) => ({ g, p }))).find((x) => (x.p.sinais || []).includes(canal));
-    const sAtual = secaoEscolhida != null ? secaoEscolhida : onde ? gs.indexOf(onde.g) : -1;
+    if (!np.isConnected) { if (redesenhaNoPainel === redesenha) redesenhaNoPainel = null; return; }   // o painel de propriedades já é outro
+    const gs = gruposDoLayout(leLayoutCircuito());
+    const sAtual = secaoEscolhida === -1 ? -1 : gs[secaoEscolhida] ? secaoEscolhida : gs.findIndex((g) => g.paineis.some(tem));
     // data-secao, data-titulo: o nome de verdade (a conferência abaixo não depende do texto mostrado, que muda com o idioma)
     selS.innerHTML = `<option value="">—</option>` + gs.map((g, k) => `<option value="${k}" data-secao="${escT(g.secao)}"${k === sAtual ? " selected" : ""}>${escT(nomeSecao(g))}</option>`).join("") + `<option value="+">${escT(tr("simu.op_nova_secao"))}</option>`;
-    const g = gs[sAtual];
-    selP.innerHTML = `<option value="">${onde || g ? "—" : escT(tr("simu.op_fora_painel"))}</option>` + (g ? g.paineis.map((p, k) => `<option value="${k}" data-titulo="${escT(p.titulo || "")}"${onde && onde.p === p ? " selected" : ""}>${escT(p.titulo || tr("simu.sem_titulo"))}</option>`).join("") + `<option value="+">${escT(tr("simu.op_novo_painel"))}</option>` : "");
-    selP.disabled = !g || esperando; selS.disabled = esperando;
+    const g = gs[sAtual], trava = esperando ? " disabled" : "";
+    lista.innerHTML = !g ? `<i>${escT(tr(gs.some((x) => x.paineis.some(tem)) ? "simu.escolha_secao" : "simu.op_fora_painel"))}</i>`
+      : !g.paineis.length ? `<i>${escT(tr("simu.sem_paineis"))}</i>`
+      : g.paineis.map((p, k) => `<label><input type="checkbox" data-k="${k}" data-titulo="${escT(p.titulo || "")}" data-impressao="${escT(impressao(p))}"${tem(p) ? " checked" : ""}${trava}><span>${escT(tituloDe(p))}</span></label>`).join("");
+    const fora = gs.flatMap((x, k) => (k === sAtual ? [] : x.paineis.filter(tem).map((p) => `${nomeSecao(x)} › ${tituloDe(p)}`)));
+    tambem.textContent = fora.length ? tr("simu.tambem_em", { onde: fora.join(" · ") }) : ""; tambem.hidden = !fora.length;
+    selS.disabled = esperando; btNovo.disabled = !g || esperando; btApaga.disabled = !g || !g.paineis.length || esperando;
   };
-  const poe = (L, g, painel) => {                       // o sinal só neste painel (sai dos outros)
-    for (const x of L.itens) if (!x.secao && Array.isArray(x.sinais)) x.sinais = x.sinais.filter((c) => c !== canal);
-    if (!painel.sinais.includes(canal)) painel.sinais.push(canal);
-    if (gravaLayoutCircuito(L)) msg(tr("simu.vai_para_painel", { canal, titulo: painel.titulo, secao: nomeSecao(g) }), "ok");
-  };
+  const mudou = () => { msg(tr("simu.layout_mudou"), "erro"); desenhaOps(); };
+  // a seção da lista no layout L, conferida pelo nome: outra janela pode ter mexido no layout (as posições seriam outras)
+  const secaoDaLista = (L) => { const o = selS.selectedOptions[0];
+    const g = o && o.dataset.secao != null ? gruposDoLayout(L)[+selS.value] : null; return g && g.secao === o.dataset.secao ? g : null; };
   selS.onchange = async () => {
     if (selS.value === "+") {
-      const r = await modal({ titulo: escT(tr("simu.m_nova_secao")), campos: [{ nome: "secao", rotulo: escT(tr("simu.m_nome_secao")), valor: "" }, { nome: "painel", rotulo: escT(tr("simu.m_painel")), valor: canal }], ok: escT(tr("simu.criar")) });
+      const r = await modal({ titulo: escT(tr("simu.m_nova_secao")), campos: [{ nome: "secao", rotulo: escT(tr("simu.m_nome_secao")), valor: "" }, { nome: "painel", rotulo: escT(tr("simu.m_painel")), valor: escT(canal) }], ok: escT(tr("simu.criar")) });
       const s = r && r.secao.trim(), t = (r && r.painel.trim()) || canal;
       if (!s) { desenhaOps(); return; }
-      const L = leLayoutCircuito(), painel = { titulo: t, sinais: [], largura: 1 };
-      L.itens.push({ secao: s }, painel); poe(L, { secao: s }, painel); desenhaOps(); return;
+      const L = leLayoutCircuito();
+      L.itens.push({ secao: s }, { titulo: t, sinais: [canal], largura: 1 });
+      if (gravaLayoutCircuito(L)) msg(tr("simu.entra_no_painel", { canal, titulo: t, secao: s }), "ok");
+      desenhaOps(gruposDoLayout(L).length - 1); return;   // a seção nova é a última
     }
     desenhaOps(selS.value === "" ? -1 : +selS.value);
   };
-  const mudou = () => { msg(tr("simu.layout_mudou"), "erro"); desenhaOps(); };
-  selP.onchange = async () => {
-    const L = leLayoutCircuito(), gs = gruposDoLayout(L), g = gs[+selS.value];
-    if (!g || g.secao !== selS.selectedOptions[0].dataset.secao) return mudou();   // outra janela mexeu no layout no meio
-    if (selP.value === "+") {
-      const r = await modal({ titulo: escT(tr("simu.m_novo_painel", { secao: nomeSecao(g) })), campos: [{ nome: "painel", rotulo: escT(tr("simu.m_titulo_painel")), valor: canal }], ok: escT(tr("simu.criar")) });
-      const t = r && r.painel.trim(); if (!t) { desenhaOps(+selS.value); return; }
-      const painel = { titulo: t, sinais: [], largura: 1 };
-      const ultimo = g.paineis.length ? g.paineis[g.paineis.length - 1] : g.item;   // no fim da seção
-      L.itens.splice(ultimo ? L.itens.indexOf(ultimo) + 1 : L.itens.length, 0, painel);
-      poe(L, g, painel); desenhaOps(); return;
-    }
-    if (selP.value === "") return;
-    const painel = g.paineis[+selP.value];
-    if (!painel || (painel.titulo || "") !== selP.selectedOptions[0].dataset.titulo) return mudou();
-    poe(L, g, painel); desenhaOps();
+  lista.onchange = (ev) => {                             // um quadradinho: o sinal entra ou sai SÓ deste painel
+    const cx = ev.target; if (!cx.matches("input[data-k]")) return;
+    const L = leLayoutCircuito(), g = secaoDaLista(L), painel = g && g.paineis[+cx.dataset.k];
+    if (!painel || impressao(painel) !== cx.dataset.impressao) return mudou();
+    const sinais = Array.isArray(painel.sinais) ? painel.sinais.filter((c) => c !== canal) : [];
+    painel.sinais = cx.checked ? [...sinais, canal] : sinais;
+    if (gravaLayoutCircuito(L)) msg(tr(cx.checked ? "simu.entra_no_painel" : "simu.sai_do_painel", { canal, titulo: tituloDe(painel), secao: nomeSecao(g) }), "ok");
+    desenhaOps(+selS.value);
   };
-  redesenhaNoPainel = () => desenhaOps();
-  // enquanto o padrão do circuito vem, as listas esperam (escolher agora gravaria o automático, e o padrão não entraria mais)
-  let esperando = true; desenhaOps();
+  btNovo.onclick = async () => {                         // um painel novo no fim da seção, já com o sinal
+    const g = secaoDaLista(leLayoutCircuito()); if (!g) return mudou();
+    const r = await modal({ titulo: escT(tr("simu.m_novo_painel", { secao: nomeSecao(g) })), campos: [{ nome: "painel", rotulo: escT(tr("simu.m_titulo_painel")), valor: escT(canal) }], ok: escT(tr("simu.criar")) });
+    const t = r && r.painel.trim(); if (!t) return;
+    const L = leLayoutCircuito(), g2 = secaoDaLista(L); if (!g2 || g2.secao !== g.secao) return mudou();
+    const ultimo = g2.paineis.length ? g2.paineis[g2.paineis.length - 1] : g2.item;
+    L.itens.splice(ultimo ? L.itens.indexOf(ultimo) + 1 : L.itens.length, 0, { titulo: t, sinais: [canal], largura: 1 });
+    if (gravaLayoutCircuito(L)) msg(tr("simu.entra_no_painel", { canal, titulo: t, secao: nomeSecao(g2) }), "ok");
+    desenhaOps(+selS.value);
+  };
+  // ✕: apagar painéis da seção (um criado por engano polui a lista; Marcelo, 24/10) — escolhe numa janela, com quantos sinais
+  // cada um tem; os sinais só saem do layout do scope (a gravação não muda), e o scope aberto acompanha
+  btApaga.onclick = async () => {
+    const g = secaoDaLista(leLayoutCircuito());
+    if (!g || !g.paineis.length) return mudou();
+    let caixa = null; const marcas = g.paineis.map(impressao);   // como estavam ao abrir a janela
+    const html = `<div class="apaga-paineis">${g.paineis.map((p, k) => `<label><input type="checkbox" data-k="${k}"> ${escT(tituloDe(p))}
+      <small>${escT(tr("simu.n_sinais_painel", { n: (p.sinais || []).length }))}</small></label>`).join("")}</div>`;
+    const r = await modal({ titulo: escT(tr("simu.m_apagar_paineis", { secao: nomeSecao(g) })), texto: escT(tr("simu.m_apagar_paineis_txt")), html,
+      ok: escT(tr("simu.apagar")), perigo: true, monta: (f) => { caixa = f; } });
+    if (!r || !caixa) return;
+    const ks = [...caixa.querySelectorAll("input[data-k]:checked")].map((i) => +i.dataset.k);
+    if (!ks.length) return;
+    const L = leLayoutCircuito(), g2 = secaoDaLista(L);
+    if (!g2 || g2.secao !== g.secao || ks.some((k) => !g2.paineis[k] || impressao(g2.paineis[k]) !== marcas[k])) return mudou();
+    const tira = new Set(ks.map((k) => g2.paineis[k])), resto = L.itens.filter((x) => !tira.has(x));
+    if (!resto.some((x) => !x.secao)) { msg(tr("simu.nao_apaga_tudo"), "erro"); return; }   // sem nenhum painel (só seções), o scope voltaria ao automático
+    L.itens = resto;
+    if (gravaLayoutCircuito(L)) msg(tr("simu.paineis_apagados", { n: tira.size, secao: nomeSecao(g2) }), "ok");
+    const k = kDaSecao(g2.secao); desenhaOps(k >= 0 ? k : undefined);   // pela seção (o nome; as posições mudaram)
+  };
+  // o layout mudou noutra janela (o scope): refaz, na mesma seção se ela ainda existe (pelo nome); com "—", fica em "—"
+  const redesenha = () => { const o = selS.selectedOptions[0], nome = o && o.dataset.secao;
+    if (nome == null) return desenhaOps(o && o.value === "" ? -1 : undefined);
+    const k = kDaSecao(nome); desenhaOps(k >= 0 ? k : undefined); };
+  redesenhaNoPainel = redesenha;
+  desenhaOps();
   lePadraoLayout().then(() => { esperando = false; desenhaOps(); });
 }
 // a tag (scope e controle): um ganho 1 do Gecko (r0 = 1) chamado TAG.k — repassa o sinal ligado na entrada, e o nome da saída é o
@@ -312,7 +353,9 @@ function caixaScope(e) {
   return `<div class="cor-canal" data-canal="${escT(canal)}"><span>${escT(tr("simu.cor_canal"))}</span>${amostras.map((c) => `<button class="amostra${ativa(c) ? " ativo" : ""}" data-cor="${c}" style="--c:${c}" title="${c}"></button>`).join("")}
       <input type="color" value="${/^#[0-9a-f]{6}$/i.test(cor) ? cor : "#888888"}" title="${escT(tr("simu.t_outra_cor"))}"><button class="padrao" title="${escT(tr("simu.t_cor_padrao"))}">${escT(tr("simu.cor_padrao"))}</button></div>
     ${circuitoDoLayout() ? `<div class="no-painel" data-canal="${escT(canal)}"><label><span>${escT(tr("simu.secao_scope"))}</span><select id="p-secao"></select></label>
-      <label><span>${escT(tr("simu.painel"))}</span><select id="p-painel"></select></label></div>` : ""}`;
+      <div class="np-linha"><span>${escT(tr("simu.paineis_sinal"))}</span><div><div id="p-paineis" title="${escT(tr("simu.t_paineis"))}"></div>
+        <div class="np-acoes"><button type="button" id="p-painel-novo">${escT(tr("simu.op_novo_painel"))}</button><button type="button" id="p-painel-apaga" class="p-painel-apaga" title="${escT(tr("simu.t_apagar_paineis"))}" aria-label="${escT(tr("simu.t_apagar_paineis"))}">✕</button></div>
+        <div id="p-tambem" class="np-tambem" hidden></div></div></div></div>` : ""}`;
 }
 // a etiqueta do scope (ao lado do medidor, ou na saída de um bloco): o nome do sinal no /maisim/scope, com a borda na cor do
 // canal. destino: "ambos" e "scope" — cheia (gravada na rodada); "controle" — tracejada, com "m" no lugar da onda (só no
