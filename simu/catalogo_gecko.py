@@ -48,7 +48,7 @@ for var, titulo in re.findall(r'createJPanelForTypes\((_typ\w+),\s*"([^"]+)"\)',
     for e in listas.get(var, []):
         t = TIPOS.get(e)
         if not t:
-            itens.append(dict(enum=e, erro="tipo não achado")); continue
+            itens.append(dict(enum=e, erro="tipo não achado")); continue   # i18n-ok (script de quem monta o catalogo.json, não da tela)
         ident, chave = info(t["classe"])
         itens.append(dict(t, id=ident, nome=TEXTOS.get(chave, chave or e)))
     abas.append(dict(aba=titulo, itens=itens))

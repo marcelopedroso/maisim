@@ -37,7 +37,7 @@ def ok(c, txt):
 # ---------------------------------------------------------------- os dicionários
 DIC_JS = [RAIZ / "app/public/maisim-nav.js", *sorted((RAIZ / "app/public").glob("textos_*.js")),
           *sorted((RAIZ / "simu/static").glob("textos_*.js")), *sorted((RAIZ / "scope/static").glob("textos_*.js"))]
-DIC_PY = [p for p in (RAIZ / "simu/textos.py", RAIZ / "scope/textos.py") if p.exists()]
+DIC_PY = [p for p in (RAIZ / "simu/textos.py", RAIZ / "scope/textos_scope.py") if p.exists()]
 
 CARREGA_JS = r"""
 const vm = require("vm"), fs = require("fs"), dic = {}, dup = [];
@@ -108,7 +108,7 @@ ARQ_JS = [RAIZ / "app/public/maisim-nav.js", *[p for p in sorted((RAIZ / "simu/s
           *[p for p in sorted((RAIZ / "scope/static").glob("*.js")) if not p.name.startswith(("textos_", "uPlot"))]]
 ARQ_HTML = [RAIZ / "app/index.html", *sorted((RAIZ / "simu/static").glob("*.html")), RAIZ / "scope/static/index.html"]
 ARQ_PY = [p for p in [*sorted((RAIZ / "simu").glob("*.py")), *sorted((RAIZ / "simu/ia").glob("*.py")), *sorted((RAIZ / "scope").glob("*.py"))]
-          if p.name not in ("textos.py",)]
+          if p.name not in ("textos.py", "textos_scope.py")]
 
 ACENTO = re.compile(r"[ãõçáàâêéíóôúÃÕÇÁÀÂÊÉÍÓÔÚ]")
 PALAVRAS = re.compile(r"\b(não|nao|você|voce|clique|salvar|salve|abrir|abra|arquivo|rodada|rodadas|nenhum|nenhuma|circuito|"

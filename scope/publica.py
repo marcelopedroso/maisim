@@ -2,11 +2,17 @@
 ao servidor (POST /publicar), para não atrasar a simulação; ao fim grava tudo em scope_<tag>.npz (modo Comparar).
 Se o servidor não estiver de pé, a simulação segue e só o arquivo é gravado."""
 import json
+import sys
 import threading
 import time
 import urllib.request
+from pathlib import Path
 
 import numpy as np
+
+if str(Path(__file__).resolve().parents[1] / "config") not in sys.path:   # o lingua (o run.py de fora pode não tê-lo no caminho)
+    sys.path.append(str(Path(__file__).resolve().parents[1] / "config"))
+import lingua  # noqa: E402
 
 TWO_PI = 2 * np.pi
 
@@ -41,7 +47,7 @@ class PublicadorScope:
         self.vivo = True
         self.avisou = False
         self._post({"tipo": "inicio", "meta": meta})
-        self.th = threading.Thread(target=self._laco, daemon=True)
+        self.th = lingua.thread(self._laco)
         self.th.start()
 
     def _post(self, obj):
@@ -51,7 +57,7 @@ class PublicadorScope:
             urllib.request.urlopen(req, timeout=5).read()
         except Exception as e:             # o scope é opcional: avisa uma vez e segue
             if not self.avisou:
-                print(f"scope: não consegui publicar em {self.url} ({e}); a rodada segue e o .npz é gravado no fim")
+                print(f"scope: não consegui publicar em {self.url} ({e}); a rodada segue e o .npz é gravado no fim")   # i18n-ok (log)
                 self.avisou = True
 
     def amostra(self, canais):

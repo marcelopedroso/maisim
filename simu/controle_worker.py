@@ -21,6 +21,17 @@ import sys
 import traceback
 import os
 
+# os textos nos dois idiomas (config/lingua.py, simu/textos.py): importados e logo tirados do sys.path e do sys.modules (a pasta
+# do MaiSim não é importável pelo código do usuário: um textos.py dele é o dele). O idioma vem do servidor em MAISIM_LINGUA
+_AQUI = os.path.dirname(os.path.abspath(__file__))
+sys.path[:0] = [os.path.join(os.path.dirname(_AQUI), "config"), _AQUI]
+import lingua  # noqa: E402
+import textos  # noqa: E402,F401
+del sys.path[:2]
+for _m in ("lingua", "textos"):
+    sys.modules.pop(_m, None)
+LINGUA = os.environ.get("MAISIM_LINGUA") or "pt"
+
 
 def Path_ok(d):
     return os.path.abspath(d) == os.path.dirname(os.path.abspath(__file__))
@@ -60,15 +71,15 @@ def _valor_msg(k, v):
         return None
     if isinstance(v, (list, tuple)):
         if len(v) > 64:
-            raise ValueError(f"envia(): {k!r} tem {len(v)} números (até 64 numa lista)")
+            raise ValueError(lingua.tr("worker.envia_lista_longa", k=repr(k), n=len(v)))
         try:
             return [float(x) for x in v]
         except (TypeError, ValueError):
-            raise TypeError(f"envia(): {k!r} = {v!r}: numa lista, só números") from None
+            raise TypeError(lingua.tr("worker.envia_lista_numeros", k=repr(k), v=repr(v))) from None
     try:
         return float(v)
     except (TypeError, ValueError):
-        raise TypeError(f"envia(): {k!r} = {v!r}: cada valor é um número, None ou uma lista de números (ex.: um fasor (re, im))") from None
+        raise TypeError(lingua.tr("worker.envia_valor", k=repr(k), v=repr(v))) from None
 
 
 def envia(para, dados):
@@ -78,9 +89,10 @@ def envia(para, dados):
     destinos = [para] if isinstance(para, str) else list(para)
     for d in destinos:
         if d not in cfg["nomes"] or d == cfg["nome"]:
-            raise NameError(f"envia(): não há o controlador {d!r} (os outros: {', '.join(x for x in cfg['nomes'] if x != cfg['nome']) or 'nenhum'})")
+            raise NameError(lingua.tr("worker.envia_sem_controlador", d=repr(d),
+                                      outros=', '.join(x for x in cfg['nomes'] if x != cfg['nome']) or lingua.tr("worker.nenhum")))
     if not isinstance(dados, dict):
-        raise TypeError("envia(para, dados): dados é um dicionário {nome: valor}")
+        raise TypeError(lingua.tr("worker.envia_dados"))
     msg = {str(k): _valor_msg(k, v) for k, v in dados.items()}
     enviadas.extend({"para": d, "dados": dict(msg)} for d in destinos)
 
@@ -103,8 +115,7 @@ class Modulos(importlib.abc.MetaPathFinder, importlib.abc.Loader):
         if nome in self.fontes:
             return importlib.util.spec_from_loader(nome, self, origin=f"{nome}.py")
         if nome in self.outros:
-            raise ImportError(f"{nome}.py é de outro controlador (roda à parte, com atraso): não dá para importar. "
-                              "Para chamar na mesma amostra, faça dele um módulo (na árvore de arquivos)")
+            raise ImportError(lingua.tr("worker.modulo_de_outro", nome=nome))
         return None
 
     def create_module(self, spec):
@@ -133,68 +144,69 @@ def erro(exc):
     else:
         arq = quadros[-1].filename if quadros else cfg["arquivo"]
         linha = quadros[-1].lineno if quadros else getattr(exc, "lineno", None)
-    texto = "".join(f"  {f.filename} linha {f.lineno}, em {f.name}(): {linhas[f.filename][f.lineno - 1].strip() if 0 < f.lineno <= len(linhas[f.filename]) else ''}\n"
+    texto = "".join(lingua.tr("worker.quadro", arq=f.filename, linha=f.lineno, func=f.name,
+                              codigo=linhas[f.filename][f.lineno - 1].strip() if 0 < f.lineno <= len(linhas[f.filename]) else '')
                     for f in quadros)
     responde({"ok": False, "erro": f"{type(exc).__name__}: {exc}", "arquivo": arq, "linha": linha,
               "instancia": cfg["nome"] if cfg["varios"] else None,
-              "traceback": (f"onde (do mais externo ao mais interno):\n{texto}" if texto else "")[-3000:]})
+              "traceback": (lingua.tr("worker.onde", texto=texto) if texto else "")[-3000:]})
 
 
 class Medidas(dict):
     """O m deste controlador: só as medidas dele; pedir outra diz quais existem (em vez de um KeyError seco)."""
     def __missing__(self, k):
-        raise KeyError(f"{k!r} não é medida deste controlador (medidas dele: {', '.join(sorted(self)) or 'nenhuma'})")
+        raise KeyError(lingua.tr("worker.medida_nao_ha", k=repr(k), medidas=', '.join(sorted(self)) or lingua.tr("worker.nenhuma")))
 
 
-for pedido_txt in sys.stdin:
-    try:
-        pedido = json.loads(pedido_txt)
-        if pedido["op"] == "carrega":
-            cfg.update({k: pedido[k] for k in ("nome", "arquivo", "atuacoes", "nomes", "prefixar", "varios") if k in pedido})
-            log.quem = cfg["nome"] if cfg["varios"] else ""
-            ns = {"__name__": cfg["nome"], "scope": scope, "envia": envia, "recebe": recebe, "math": math}
-            for nome in list(modulos.fontes):            # os módulos de antes saem (cada carrega importa de novo)
-                sys.modules.pop(nome, None)
-            modulos.fontes = {k[:-3]: v for k, v in (pedido.get("modulos") or {}).items()}
-            modulos.outros = {k[:-3] for k in (pedido.get("outros") or [])}
-            linhas = {cfg["arquivo"]: pedido["codigo"].split("\n"), **{k: v.split("\n") for k, v in (pedido.get("modulos") or {}).items()}}
-            exec(compile(pedido["codigo"], cfg["arquivo"], "exec"), ns)
-            if not callable(ns.get("passo")):
-                raise NameError(f"{cfg['arquivo']} precisa definir passo(t, m, p, e)")
-            p, e = dict(pedido["p"]), {}
-            if callable(ns.get("iniciar")):
-                ns["iniciar"](p, e)
-            responde({"ok": True})
-        elif pedido["op"] == "passo":
-            reg.clear(); enviadas.clear()
-            caixa.extend(pedido.get("msgs") or [])
-            a = ns["passo"](pedido["t"], Medidas(pedido["m"]), p, e)
-            if a is None:
-                a = {}
-            if not isinstance(a, dict):
-                raise TypeError(f"passo() deve devolver um dicionário {{atuação: valor}}, devolveu {type(a).__name__}")
-            out, mapa = {}, cfg["atuacoes"]
-            for k, v in a.items():
-                k = str(k)
-                if mapa is not None and k not in mapa:
-                    raise KeyError(f"passo() devolveu {k!r}, que não é atuação deste controlador (atuações dele: "
-                                   f"{', '.join(sorted(mapa)) or 'nenhuma'})")
-                if isinstance(v, (list, tuple)) or getattr(v, "ndim", 0) == 1:
-                    # o padrão dentro da amostra: um valor por Δt do Gecko (o timer de PWM do SM, que compara a portadora
-                    # a cada Δt com m fixo na amostra — Marcelo, 20/10: rodar no MaiSim o controle do artigo)
-                    v = [float(x) for x in v]
-                    if not v or not all(math.isfinite(x) for x in v):
-                        raise ValueError(f"a atuação {k} (padrão dentro da amostra) veio vazia ou com valor não finito")
-                else:
-                    v = float(v)
-                    if not math.isfinite(v):
-                        raise ValueError(f"a atuação {k} ficou {v}")
-                out[mapa[k] if mapa is not None else k] = v
-            responde({"ok": True, "a": out, "s": dict(reg), "env": list(enviadas)})
-        elif pedido["op"] == "parametros":           # acionamento de p[...] durante a rodada
-            p.update(pedido["p"])
-            responde({"ok": True})
-        else:
-            responde({"ok": False, "erro": f"pedido desconhecido: {pedido.get('op')}"})
-    except Exception as exc:                      # erro no código do usuário: arquivo, linha e traceback para a tela
-        erro(exc)
+with lingua.com(LINGUA):                          # os erros no idioma de quem começou a rodada
+    for pedido_txt in sys.stdin:
+        try:
+            pedido = json.loads(pedido_txt)
+            if pedido["op"] == "carrega":
+                cfg.update({k: pedido[k] for k in ("nome", "arquivo", "atuacoes", "nomes", "prefixar", "varios") if k in pedido})
+                log.quem = cfg["nome"] if cfg["varios"] else ""
+                ns = {"__name__": cfg["nome"], "scope": scope, "envia": envia, "recebe": recebe, "math": math}
+                for nome in list(modulos.fontes):            # os módulos de antes saem (cada carrega importa de novo)
+                    sys.modules.pop(nome, None)
+                modulos.fontes = {k[:-3]: v for k, v in (pedido.get("modulos") or {}).items()}
+                modulos.outros = {k[:-3] for k in (pedido.get("outros") or [])}
+                linhas = {cfg["arquivo"]: pedido["codigo"].split("\n"), **{k: v.split("\n") for k, v in (pedido.get("modulos") or {}).items()}}
+                exec(compile(pedido["codigo"], cfg["arquivo"], "exec"), ns)
+                if not callable(ns.get("passo")):
+                    raise NameError(lingua.tr("worker.precisa_passo", arq=cfg['arquivo']))
+                p, e = dict(pedido["p"]), {}
+                if callable(ns.get("iniciar")):
+                    ns["iniciar"](p, e)
+                responde({"ok": True})
+            elif pedido["op"] == "passo":
+                reg.clear(); enviadas.clear()
+                caixa.extend(pedido.get("msgs") or [])
+                a = ns["passo"](pedido["t"], Medidas(pedido["m"]), p, e)
+                if a is None:
+                    a = {}
+                if not isinstance(a, dict):
+                    raise TypeError(lingua.tr("worker.passo_nao_dict", tipo=type(a).__name__))
+                out, mapa = {}, cfg["atuacoes"]
+                for k, v in a.items():
+                    k = str(k)
+                    if mapa is not None and k not in mapa:
+                        raise KeyError(lingua.tr("worker.nao_atuacao", k=repr(k), atuacoes=', '.join(sorted(mapa)) or lingua.tr("worker.nenhuma")))
+                    if isinstance(v, (list, tuple)) or getattr(v, "ndim", 0) == 1:
+                        # o padrão dentro da amostra: um valor por Δt do Gecko (o timer de PWM do SM, que compara a portadora
+                        # a cada Δt com m fixo na amostra — Marcelo, 20/10: rodar no MaiSim o controle do artigo)
+                        v = [float(x) for x in v]
+                        if not v or not all(math.isfinite(x) for x in v):
+                            raise ValueError(lingua.tr("worker.padrao_invalido", k=k))
+                    else:
+                        v = float(v)
+                        if not math.isfinite(v):
+                            raise ValueError(lingua.tr("worker.nao_finito", k=k, v=v))
+                    out[mapa[k] if mapa is not None else k] = v
+                responde({"ok": True, "a": out, "s": dict(reg), "env": list(enviadas)})
+            elif pedido["op"] == "parametros":           # acionamento de p[...] durante a rodada
+                p.update(pedido["p"])
+                responde({"ok": True})
+            else:
+                responde({"ok": False, "erro": lingua.tr("worker.pedido_desconhecido", op=pedido.get('op'))})
+        except Exception as exc:                      # erro no código do usuário: arquivo, linha e traceback para a tela
+            erro(exc)
