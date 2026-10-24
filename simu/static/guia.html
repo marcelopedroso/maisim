@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Guia do Controle</title>
+<title data-tr="guia.titulo">Guia do Controle</title>
 <!-- o guia do controle (GUIA_CONTROLE.md, servido em /maisim/simu/guia), renderizado; sem a biblioteca, o texto puro -->
 <script>
 // o tema do MaiSim (o trilho escolhe; localStorage "maisim-tema"): sistema, claro ou escuro
@@ -13,6 +13,7 @@ catch (e) { /* claro */ }
 </script>
 <script src="maisim-i18n.js"></script>
 <script data-src="maisim-i18n.js">/* reserva: sem o maisim-i18n.js (a conexão caiu), o português; tenta de novo e o de verdade assume */window.maisimI18n||(function(){var d={},o=[],h=function(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]})},f=function(k,p){var e=d[k],v=e?e.pt:k;if(v&&typeof v==="object")v=p&&p.n===1?v.one:v.other;return p?String(v).replace(/\{(\w+)\}/g,function(m,x){return x in p?(/_html$/.test(k)?h(p[x]):String(p[x])):m}):v};window.maisimI18n={reserva:true,add:function(x){for(var k in x)d[k]=x[k]},dicionario:function(){return d},tr:f,tem:function(k){return k in d},lingua:function(){return"pt"},local:function(){return"pt-BR"},muda:function(){},aoMudar:function(g){o.push(g)},ouvintes:function(){return o},aplica:function(){},data:function(x,o){return new Date(x).toLocaleString("pt-BR",o)},hora:function(x,o){return new Date(x).toLocaleTimeString("pt-BR",o||{hour:"2-digit",minute:"2-digit"})},num:function(x,o){return Number(x).toLocaleString("pt-BR",o)},escH:function(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]})}};window.tr=f;var s=document.createElement("script");s.src=document.currentScript.getAttribute("data-src");s.async=false;document.head.appendChild(s)})()</script>  <!-- português e inglês (o idioma do trilho) -->
+<script src="textos_guia.js"></script>  <!-- os textos desta página (pt e en) -->
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
 <style>
   :root { --texto:#1f2328; --sutil:#59636e; --borda:#d1d9e0; --fundo:#ffffff; --codigo:#f6f8fa; --link:#0b5cad; }
@@ -36,8 +37,10 @@ catch (e) { /* claro */ }
 <body>
 <main id="guia">carregando o guia…</main>
 <script>
-(async () => {
-  const el = document.getElementById("guia");
+// o guia vem no idioma do cookie (a rota /guia escolhe o .md); ao trocar o idioma, carrega de novo
+const el = document.getElementById("guia");
+async function carrega() {
+  el.textContent = tr("guia.carregando");
   try {
     const r = await fetch("../guia");
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -48,8 +51,10 @@ catch (e) { /* claro */ }
     } else {
       const pre = document.createElement("pre"); pre.textContent = md; el.replaceChildren(pre);
     }
-  } catch (e) { el.textContent = `não consegui carregar o guia (${e.message})`; }
-})();
+  } catch (e) { el.textContent = tr("guia.erro", { erro: e.message }); }
+}
+carrega();
+maisimI18n.aoMudar(carrega);
 </script>
 </body>
 </html>
