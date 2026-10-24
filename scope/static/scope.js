@@ -343,7 +343,7 @@ function seriesDe(p) {
         out.push({ F, soma: partes, comb: k, div, canal: rot, rot: rot + suf, cor: cores()[k], dash: F === B ? [6, 4] : undefined, largura: 2.4,
                    desloc: 0, ganho: 1, degrau: partes.every((c) => tipo(c) === "f") });
   }
-  // com a Potência ligada, p(t) = v(t)·i(t) de cada par, com os valores reais (sem o ×k), no mesmo eixo, como o Σ; clicar
+  // com a Potência ligada, p(t) = v(t)·i(t) de cada par, com os valores reais (sem o ×k), no eixo dela (à direita, em W); clicar
   // no nome na legenda esconde a curva (e a escala volta)
   if (p.med && p.med.aberto && p.med.pot.on) {
     const pares = paresDe(p), nomes = nomesPot(pares);
@@ -457,7 +457,8 @@ function atualiza(p) {
   // fora da faixa do eixo da esquerda, com o seu zoom, o seu Y fixo e a sua escala automática
   const vis = p.u.series.map((q) => q.show), eP = (s) => !!(p.series[s - 1] && p.series[s - 1].pot);
   const fy = p.yZoom ? { min: p.yZoom[0], max: p.yZoom[1] } : p.yFixo ? { min: p.yFixo[0], max: p.yFixo[1] }
-    : (fixar && p.u.scales.y.min != null ? { min: p.u.scales.y.min, max: p.u.scales.y.max } : faixaY(dados, fx.min, fx.max, vis, (s) => !eP(s)));
+    : (fixar && p.u.scales.y.min != null ? { min: p.u.scales.y.min, max: p.u.scales.y.max }
+      : faixaY(dados, fx.min, fx.max, vis, (s) => !eP(s)) || faixaY(dados, fx.min, fx.max, vis, eP));   // só p(t) à vista: a esquerda segue a p (zoom e cursores têm escala)
   const sp = temPot(p) && p.u.scales.p;
   const fp = !sp ? null : p.pZoom ? { min: p.pZoom[0], max: p.pZoom[1] } : p.pFixo ? { min: p.pFixo[0], max: p.pFixo[1] }
     : (fixar && sp.min != null ? { min: sp.min, max: sp.max } : faixaY(dados, fx.min, fx.max, vis, eP));
@@ -1144,7 +1145,7 @@ function criaGrafico(p, manter) {
         const se = i != null && p.series[i - 1];
         if (se && (se.soma || se.pot)) { (p.med.oculta = p.med.oculta || {})[ocultaDe(se)] = !u.series[i].show; guardaLayout();
           // a última p(t) escondida (ou a 1ª de volta): o eixo da potência sai (ou volta)
-          if (se.pot && p.eixoP !== p.series.some((q, j) => q.pot && u.series[j + 1].show)) { setTimeout(() => { if (p.u === u) criaGrafico(p); }, 0); return; } }
+          if (se.pot && p.eixoP !== p.series.some((q, j) => q.pot && u.series[j + 1].show)) { setTimeout(() => { if (p.u === u) refazGrafico(p); }, 0); return; } }   // refaz: pausado e Fixar eixos continuam valendo
         else if (se) {                       // um sinal: entra ou sai do Σ, da x̄, da tabela e do espectro
           const ch = chaveSe(se), fora = !u.series[i].show;
           if (fora !== p.espFora.has(ch)) {
