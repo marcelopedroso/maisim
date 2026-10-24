@@ -37,6 +37,7 @@ from motor import ErroMotor, Motor
 import contextos
 import ia as ias_maisim
 import janelas_gecko
+import processos  # noqa: E402                as IAs e o login: num grupo próprio (Linux e Windows)
 import resumo_rodada
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "scope"))
@@ -3850,7 +3851,7 @@ def claude_login_inicia():
             CLAUDE_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
             CLAUDE_URL_AUTO.unlink(missing_ok=True)
             proc = subprocess.Popen([CLAUDE_BIN, "auth", "login", "--claudeai"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                    stderr=subprocess.STDOUT, cwd=str(CLAUDE_DIR), start_new_session=True,
+                                    stderr=subprocess.STDOUT, cwd=str(CLAUDE_DIR), **processos.GRUPO,
                                     env=ambiente_claude(BROWSER=str(AQUI / "claude_navegador.sh"), MAISIM_CLAUDE_URL_ARQ=str(CLAUDE_URL_AUTO)))
             claude_login.clear()
             claude_login.update(proc=proc, andamento=True, desde=time.time(), url_auto=None, url_manual=None, erro=None, mensagem=None)
@@ -3896,7 +3897,7 @@ def claude_login_cancela(proc=None, motivo=None):
             return
         claude_login.update(proc=None, andamento=False, erro=motivo)
     try:
-        os.killpg(p.pid, 15)
+        processos.encerra(p.pid)
     except OSError:
         pass
     CLAUDE_URL_AUTO.unlink(missing_ok=True)
@@ -4249,11 +4250,11 @@ def _resumo_ia(cid, modelo, esforco, ia="claude"):
                     with trava_cli:
                         limpa_trava_login(ia=a)
                         proc = subprocess.Popen(cmd, cwd=str(CONTEXTOS / cid), env=a.ambiente(), stdin=subprocess.DEVNULL,
-                                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
+                                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, **processos.GRUPO)
                     try:
                         out, errs = proc.communicate(timeout=CLAUDE_PRAZO)
                     except subprocess.TimeoutExpired:
-                        os.killpg(proc.pid, signal.SIGTERM)
+                        processos.encerra(proc.pid)
                         out, errs = proc.communicate()
                         erro = lingua.tr("pedido.passou_prazo", min=CLAUDE_PRAZO // 60)
                     if not erro:
@@ -4740,7 +4741,7 @@ def _claude_lanca(prompt, c, dt, vez, chave, conv, pasta, anexos, memoria, model
     with trava_cli:                                      # espera um `auth status` ou `/usage` que já esteja rodando
         limpa_trava_login(ia=a)
         proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                                cwd=str(pasta), env=a.ambiente(), start_new_session=True)
+                                cwd=str(pasta), env=a.ambiente(), **processos.GRUPO)
     with trava_claude:
         nosso = claude_pedido.get("vez") == vez and claude_pedido.get("andamento")
         if nosso:
@@ -4748,7 +4749,7 @@ def _claude_lanca(prompt, c, dt, vez, chave, conv, pasta, anexos, memoria, model
                                  lancado=(prompt, c, dt, vez, chave, conv, pasta, anexos, memoria, modelo, esforco, ia))
     if not nosso:                                        # parado enquanto preparava
         try:
-            os.killpg(proc.pid, signal.SIGTERM)
+            processos.encerra(proc.pid)
         except OSError:
             pass
         return claude_pedido_estado()
@@ -4776,7 +4777,7 @@ def _acompanha_claude(proc, antes, dt, chave, pasta, anexos, memoria="", ia="cla
     """Lê a saída da IA (traduzida pela peça dela em eventos comuns: o que ela está fazendo, a resposta, o gasto); no fim,
     monta a proposta."""
     a = IAS.get(ia) or CLAUDE
-    prazo = threading.Timer(CLAUDE_PRAZO, lambda: (os.killpg(proc.pid, signal.SIGTERM) if proc.poll() is None else None))
+    prazo = threading.Timer(CLAUDE_PRAZO, lambda: (processos.encerra(proc.pid) if proc.poll() is None else None))
     prazo.daemon = True
     prazo.start()
     resultado, erro_txt, est = None, "", {}             # est: o estado desta chamada, para a peça da IA (ia/)
@@ -5102,7 +5103,7 @@ def claude_para():
         grava_historico(pasta, h)
     if p is not None and p.poll() is None:
         try:
-            os.killpg(p.pid, signal.SIGTERM)
+            processos.encerra(p.pid)
         except OSError:
             pass
     return None
