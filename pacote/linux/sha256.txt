@@ -1,0 +1,3 @@
+7cc8d9dce9ea23c31267e7f244005c8979da04794b7737a3a30e62b03abeb120 cpython-3.11.17+20261021-x86_64-unknown-linux-gnu-install_only.tar.gz
+5eb6cf7f45c623272c64b8e7b4934a8051abb7ae73bfd28488a9856da3f4848a OpenJDK11U-jre_x64_linux_hotspot_11.0.32.1_1.tar.gz
+ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0 appimagetool-x86_64.AppImage
