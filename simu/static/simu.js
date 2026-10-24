@@ -32,10 +32,8 @@ const EU = Math.random().toString(36).slice(2);
 function avisa(tipo, extra = {}) { if (canal) try { canal.postMessage(Object.assign({ tipo, de: EU, codigo: VISTA_CODIGO }, extra)); } catch (e) { /* ok */ } }
 const nomeSub = (nome) => String(nome).replace(/^SUBCIRCUIT\.(\d+)$/, "Sub.$1");
 const prefixoSub = (nome) => nomeSub(nome).replace(/[^A-Za-z0-9_]/g, "_");
-const DESCR = { R: "resistor", L: "indutor", C: "capacitor", U: "fonte de tensão", I: "fonte de corrente", D: "diodo", IGBT: "IGBT",
-  S: "chave ideal", MOSFET: "MOSFET", THYR: "tiristor", CONST: "constante", SIGNAL: "fonte de sinal", GATE: "comando de gate",
-  GAIN: "ganho", ADD: "soma", SUB: "subtração", NOT: "NÃO lógico", AND: "E lógico", DELAY: "atraso", GE: "comparador (≥)",
-  VOLT: "voltímetro", AMP: "amperímetro", SUBCIRCUIT: "subcircuito", TERM: "terminal do subcircuito" };
+// o nome de cada tipo, no idioma da página (simu.descr.<tipo> no dicionário, lido na hora de mostrar); tipo sem nome: ""
+const descrTipo = (t) => { const k = "simu.descr." + t; return maisimI18n.tem(k) ? tr(k) : ""; };
 const SIMBOLO = { CONST: "C", SIGNAL: "∿", GATE: "G", GAIN: "K", ADD: "+", SUB: "−", NOT: "¬", AND: "&", DELAY: "Δt", GE: "≥", VOLT: "V", AMP: "A" };
 const UNID = { resistance: "Ω", inductance: "H", capacitance: "F", amplitude: "V", dcValue: "V", frequency: "Hz", onResistance: "Ω",
   offResistance: "Ω", frequenz: "Hz", phaseDegrees: "°", phase: "°", initialCurrent: "A" };
@@ -119,7 +117,8 @@ function canaisDoCircuito() {                            // os sinais que vão p
 }
 function leLayoutCircuito() {                          // o guardado (v5; o de antes, v4, pelo nome), o padrão ou o automático
   const c = circuitoDoLayout(); if (!c) return null;
-  const auto = () => ({ colunas: 2, itens: [{ secao: nomeDoLayout() }, { titulo: "Sinais da rodada", sinais: canaisDoCircuito().slice(0, 8), largura: 1 }] });   // o automático do scope
+  // o título fica em português: vai guardado no layout (o mesmo que o scope.js monta e compara); o scope mostra no idioma
+  const auto = () => ({ colunas: 2, itens: [{ secao: nomeDoLayout() }, { titulo: "Sinais da rodada", sinais: canaisDoCircuito().slice(0, 8), largura: 1 }] });   // o automático do scope · i18n-ok: protocolo
   let j = null; try { j = JSON.parse(localStorage.getItem(`maisim-scope-layout-v5:${c}`) || "null"); } catch (e) { /* o próximo */ }
   if (j && Array.isArray(j.itens)) return j.itens.length ? j : auto();   // guardado vazio: o automático (como no scope)
   if (!/^novo[: ]/.test(c)) try { j = JSON.parse(localStorage.getItem(`maisim-scope-layout-v4:${nomeDoLayout()}`) || "null");
@@ -128,7 +127,7 @@ function leLayoutCircuito() {                          // o guardado (v5; o de a
   return auto();
 }
 function gravaLayoutCircuito(L) {
-  try { localStorage.setItem(`maisim-scope-layout-v5:${circuitoDoLayout()}`, JSON.stringify(L)); return true; } catch (e) { msg("o navegador não deixou guardar o layout do scope", "erro"); return false; }
+  try { localStorage.setItem(`maisim-scope-layout-v5:${circuitoDoLayout()}`, JSON.stringify(L)); return true; } catch (e) { msg(tr("simu.layout_nao_guardou"), "erro"); return false; }
 }
 // salvar como: o layout do scope vai junto para o arquivo novo (como o .scope.json no servidor); sem layout, o que estava
 // guardado para aquele caminho (de outro circuito, que estava lá antes) sai
@@ -141,10 +140,11 @@ function levaLayout(de, para) {
 let redesenhaNoPainel = null;
 addEventListener("storage", (e) => { if (redesenhaNoPainel && e.key === `maisim-scope-layout-v5:${circuitoDoLayout()}`) redesenhaNoPainel(); });
 function gruposDoLayout(L) {                             // [{secao, paineis: [item]}]; os painéis antes da 1ª seção ficam em "(sem seção)"
-  const gs = []; let g = null;
-  for (const x of L.itens) { if (x.secao) { g = { secao: x.secao, item: x, paineis: [] }; gs.push(g); } else { if (!g) { g = { secao: "(sem seção)", item: null, paineis: [] }; gs.push(g); } g.paineis.push(x); } }
+  const gs = []; let g = null;                            // (secao "": o nome mostrado é o do idioma, nomeSecao)
+  for (const x of L.itens) { if (x.secao) { g = { secao: x.secao, item: x, paineis: [] }; gs.push(g); } else { if (!g) { g = { secao: "", item: null, paineis: [] }; gs.push(g); } g.paineis.push(x); } }
   return gs;
 }
+const nomeSecao = (g) => g.secao || tr("simu.sem_secao");
 function ligaNoPainel(np) {
   const canal = np.dataset.canal, selS = np.querySelector("#p-secao"), selP = np.querySelector("#p-painel");
   const desenhaOps = (secaoEscolhida) => {
@@ -152,19 +152,20 @@ function ligaNoPainel(np) {
     const L = leLayoutCircuito(), gs = gruposDoLayout(L);
     const onde = gs.flatMap((g) => g.paineis.map((p) => ({ g, p }))).find((x) => (x.p.sinais || []).includes(canal));
     const sAtual = secaoEscolhida != null ? secaoEscolhida : onde ? gs.indexOf(onde.g) : -1;
-    selS.innerHTML = `<option value="">—</option>` + gs.map((g, k) => `<option value="${k}"${k === sAtual ? " selected" : ""}>${escT(g.secao)}</option>`).join("") + `<option value="+">+ nova seção…</option>`;
+    // data-secao, data-titulo: o nome de verdade (a conferência abaixo não depende do texto mostrado, que muda com o idioma)
+    selS.innerHTML = `<option value="">—</option>` + gs.map((g, k) => `<option value="${k}" data-secao="${escT(g.secao)}"${k === sAtual ? " selected" : ""}>${escT(nomeSecao(g))}</option>`).join("") + `<option value="+">${escT(tr("simu.op_nova_secao"))}</option>`;
     const g = gs[sAtual];
-    selP.innerHTML = `<option value="">${onde || g ? "—" : "fora de qualquer painel"}</option>` + (g ? g.paineis.map((p, k) => `<option value="${k}"${onde && onde.p === p ? " selected" : ""}>${escT(p.titulo || "(sem título)")}</option>`).join("") + `<option value="+">+ novo painel…</option>` : "");
+    selP.innerHTML = `<option value="">${onde || g ? "—" : escT(tr("simu.op_fora_painel"))}</option>` + (g ? g.paineis.map((p, k) => `<option value="${k}" data-titulo="${escT(p.titulo || "")}"${onde && onde.p === p ? " selected" : ""}>${escT(p.titulo || tr("simu.sem_titulo"))}</option>`).join("") + `<option value="+">${escT(tr("simu.op_novo_painel"))}</option>` : "");
     selP.disabled = !g || esperando; selS.disabled = esperando;
   };
   const poe = (L, g, painel) => {                       // o sinal só neste painel (sai dos outros)
     for (const x of L.itens) if (!x.secao && Array.isArray(x.sinais)) x.sinais = x.sinais.filter((c) => c !== canal);
     if (!painel.sinais.includes(canal)) painel.sinais.push(canal);
-    if (gravaLayoutCircuito(L)) msg(`${canal} vai para o painel “${painel.titulo}” (seção ${g.secao}) no scope`, "ok");
+    if (gravaLayoutCircuito(L)) msg(tr("simu.vai_para_painel", { canal, titulo: painel.titulo, secao: nomeSecao(g) }), "ok");
   };
   selS.onchange = async () => {
     if (selS.value === "+") {
-      const r = await modal({ titulo: "Nova seção no scope", campos: [{ nome: "secao", rotulo: "Nome da seção", valor: "" }, { nome: "painel", rotulo: "Painel", valor: canal }], ok: "Criar" });
+      const r = await modal({ titulo: tr("simu.m_nova_secao"), campos: [{ nome: "secao", rotulo: tr("simu.m_nome_secao"), valor: "" }, { nome: "painel", rotulo: tr("simu.m_painel"), valor: canal }], ok: tr("simu.criar") });
       const s = r && r.secao.trim(), t = (r && r.painel.trim()) || canal;
       if (!s) { desenhaOps(); return; }
       const L = leLayoutCircuito(), painel = { titulo: t, sinais: [], largura: 1 };
@@ -172,12 +173,12 @@ function ligaNoPainel(np) {
     }
     desenhaOps(selS.value === "" ? -1 : +selS.value);
   };
-  const mudou = () => { msg("o layout do scope mudou: escolha de novo", "erro"); desenhaOps(); };
+  const mudou = () => { msg(tr("simu.layout_mudou"), "erro"); desenhaOps(); };
   selP.onchange = async () => {
     const L = leLayoutCircuito(), gs = gruposDoLayout(L), g = gs[+selS.value];
-    if (!g || g.secao !== selS.selectedOptions[0].textContent) return mudou();   // outra janela mexeu no layout no meio
+    if (!g || g.secao !== selS.selectedOptions[0].dataset.secao) return mudou();   // outra janela mexeu no layout no meio
     if (selP.value === "+") {
-      const r = await modal({ titulo: `Novo painel em ${g.secao}`, campos: [{ nome: "painel", rotulo: "Título do painel", valor: canal }], ok: "Criar" });
+      const r = await modal({ titulo: tr("simu.m_novo_painel", { secao: nomeSecao(g) }), campos: [{ nome: "painel", rotulo: tr("simu.m_titulo_painel"), valor: canal }], ok: tr("simu.criar") });
       const t = r && r.painel.trim(); if (!t) { desenhaOps(+selS.value); return; }
       const painel = { titulo: t, sinais: [], largura: 1 };
       const ultimo = g.paineis.length ? g.paineis[g.paineis.length - 1] : g.item;   // no fim da seção
@@ -186,7 +187,7 @@ function ligaNoPainel(np) {
     }
     if (selP.value === "") return;
     const painel = g.paineis[+selP.value];
-    if (!painel || (painel.titulo || "(sem título)") !== selP.selectedOptions[0].textContent) return mudou();
+    if (!painel || (painel.titulo || "") !== selP.selectedOptions[0].dataset.titulo) return mudou();
     poe(L, g, painel); desenhaOps();
   };
   redesenhaNoPainel = () => desenhaOps();
@@ -204,7 +205,7 @@ const foraDoScope = (e) => !!(dados && dados.fora && e.uid && dados.fora.include
 const ehSinal = (e, fid) => fid === "0" ? e.dom === "CONTROL" && !["TERM", "GATE", "SCOPE"].includes(e.tipo) && e.saidas.length > 0
   : MEDIDOR.has(e.tipo) || ehTag(e);
 const ehTag = (e) => e.tipo === "GAIN" && /^TAG\.\d+$/.test(e.nome);
-const TAG_ITEM = { enum: "MAISIM_TAG", dom: "CONTROL", typ: 7, classe: "ReglerGain", id: "TAG", nome: "Tag (scope e controle)", criar: "GAIN" };
+const TAG_ITEM = { enum: "MAISIM_TAG", dom: "CONTROL", typ: 7, classe: "ReglerGain", id: "TAG", get nome() { return tr("simu.tag_item"); }, criar: "GAIN" };
 function medicoes(f) {                                 // o que está sendo medido nesta folha: corrente de quem, tensão de que nós
   const I = new Map(), V = new Map();
   for (const e of f.elementos) {
@@ -222,15 +223,16 @@ function seletorPonta(e, k) {
   const comps = ((dados.nos_medidos && dados.nos_medidos[folhaAtual]) || {})[no_] || [];
   const atual = ((dados.pontas || {})[canalScope(e)] || {})[k ? "-" : "+"] || "";
   if (!comps.length && !atual) return "";
-  const aviso = atual && !comps.some((c) => c.nome === atual) ? " (não está mais no nó)" : "";
-  return `<label class="ponta-no"><span>${k ? "garra (−) no" : "ponta (+) no"}</span><input data-ponta="${k ? "-" : "+"}" value="${escT(atual || "automático")}"
-    placeholder="procurar componente…" autocomplete="off" title="em que componente do nó ${escT(no_)} fica a ${k ? "garra" : "ponta"}${escT(aviso)}"></label>`;
+  const saiu = atual && !comps.some((c) => c.nome === atual);   // a escolhida não está mais no nó
+  const tit = tr(`simu.t_onde_${k ? "garra" : "ponta"}${saiu ? "_saiu" : ""}`, { no: no_ });
+  return `<label class="ponta-no"><span>${escT(tr(k ? "simu.garra_no" : "simu.ponta_no"))}</span><input data-ponta="${k ? "-" : "+"}" value="${escT(atual || tr("simu.automatico"))}"
+    placeholder="${escT(tr("simu.ph_busca"))}" autocomplete="off" title="${escT(tit)}"></label>`;
 }
 const corCanal = (canal, tipo = "VOLT") => (dados && dados.cores && dados.cores[canal]) || (tipo === "AMP" ? "#0ea5e9" : "#eab308");
 // as marcas levam o nome do medidor (data-medidor): clicar nelas abre o medidor (Marcelo, 22/10: "clicar na bolinha do sensor
 // e ele abrir os dados")
 const marcaDe = (g, medidor, x, y) => no("g", Object.assign({ class: "medido", transform: `translate(${x * G},${y * G})` },
-  medidor ? { "data-medidor": medidor, title: `${medidor} — clique: abre o medidor` } : {}), g);
+  medidor ? { "data-medidor": medidor, title: tr("simu.t_marca", { medidor }) } : {}), g);
 function marcaMedida(g, e, canal, medidor) {           // no componente medido: um "A" (azul Hall) e o nome do sinal no scope
   const [t1, t2] = e.terminais, c = [(t1.x + t2.x) / 2, (t1.y + t2.y) / 2];
   const emCima = txtDe(e).ancora === "middle";                       // deitado com o nome em cima: a marca vai mais à esquerda
@@ -341,7 +343,7 @@ function valorPrincipal(e) {
   if (e.tipo === "R") return v("resistance");
   if (e.tipo === "L") return v("inductance");
   if (e.tipo === "C") return v("capacitance");
-  if ((e.tipo === "U" || e.tipo === "I") && p.sourceType === 400) return `← ${e.mede[0] || "(sem sinal)"}`;
+  if ((e.tipo === "U" || e.tipo === "I") && p.sourceType === 400) return `← ${e.mede[0] || tr("simu.sem_sinal")}`;
   if (e.tipo === "U") return p.sourceType === 402 ? `${v("amplitude")} · ${si(p.frequency, "Hz")}` : si(p.dcValue, "V");
   return "";
 }
@@ -392,7 +394,7 @@ function desenha() {
     if (e.dom === "CONTROL" && e.tipo !== "TERM" && !mostrar.controle) return;
     n++;
     const g = no("g", { class: (e.tipo === "SUBCIRCUIT" ? "el sub" : "el") + (ed.sel === e.nome || ed.multi.has(e.nome) ? " sel" : "") + (e.ativo === false ? " desativado" : ""), "data-i": i }, camEl);
-    if (e.ativo === false) no("title", {}, g).textContent = `${e.nome}: ${e.curto ? "em curto (o Gecko simula um curto-circuito no lugar)" : "desativado (o Gecko simula como se não existisse)"}`;
+    if (e.ativo === false) no("title", {}, g).textContent = tr(e.curto ? "simu.el_curto" : "simu.el_desativado", { nome: e.nome });
     if (e.dom === "LK" && e.tipo !== "TERM" && e.terminais.length === 2) {
       const [a, b] = e.terminais;                                       // área de clique ao longo do elemento
       no("rect", { x: (Math.min(a.x, b.x) - 0.7) * G, y: (Math.min(a.y, b.y) - 0.7) * G, width: (Math.abs(a.x - b.x) + 1.4) * G,
@@ -449,7 +451,7 @@ function desenha() {
       const ne = e.entradas.length, ns = e.saidas.length, h = Math.max(ne, ns, 1);
       no("rect", { class: "corpo", x: (e.x - 1) * G, y: (e.y - 0.5) * G, width: 2 * G, height: h * G, fill: COR.ctFundo, stroke: COR.ct, "stroke-width": 1.4, rx: 2 }, g);
       texto(g, e.x, e.y - 0.5 + h / 2, ehTag(e) ? "tag" : SIMBOLO[e.tipo] || e.tipo, { "text-anchor": "middle", fill: COR.ct, "font-size": (ehTag(e) ? 0.55 : 0.7) * G, "font-weight": 700 });
-      if (e.tipo === "GATE") texto(g, e.x, e.y - 0.5 + h + 0.55, e.mede[0] ? `→ ${e.mede[0]}` : "(sem chave)", { "text-anchor": "middle", fill: e.mede[0] ? COR.ct : COR.erro, "font-size": 0.45 * G });
+      if (e.tipo === "GATE") texto(g, e.x, e.y - 0.5 + h + 0.55, e.mede[0] ? `→ ${e.mede[0]}` : tr("simu.sem_chave"), { "text-anchor": "middle", fill: e.mede[0] ? COR.ct : COR.erro, "font-size": 0.45 * G });
       // escrito pelo controle: a etiqueta vai em cima do bloco, como o nome de um componente (Marcelo, 19/10: na saída ela
       // cobria o que se liga ali, como o borne S do SM encostado no CONST)
       const atuador = typeof atuadorDe === "function" ? atuadorDe(e) : null;
@@ -468,13 +470,13 @@ function desenha() {
       no("circle", { class: "borne", cx: t.x * G, cy: t.y * G, r: (livre ? 0.2 : 0.13) * G, fill: livre ? COR.cartao : cor, stroke: cor, "stroke-width": livre ? 1.4 : 0 }, g);
     }
   });
-  $("info").textContent = (ed.ligado ? "editando · " : "") + `${n} elementos · ${f.fios.length} conexões` +
-    (folhaAtual === "0" ? ` · encaixe das conexões ${dados.encaixe.pontas - dados.encaixe.soltas.length}/${dados.encaixe.pontas}` : "");
+  $("info").textContent = [ed.ligado && tr("simu.info_editando"), tr("simu.info_n", { n, nf: f.fios.length }),
+    folhaAtual === "0" && tr("simu.info_encaixe", { a: dados.encaixe.pontas - dados.encaixe.soltas.length, b: dados.encaixe.pontas })].filter(Boolean).join(" · ");
   ed.fantasma = no("g", { "pointer-events": "none", style: "display:none" }, svg);
   no("rect", { x: -1 * G, y: -1 * G, width: 2 * G, height: 2 * G, fill: "rgba(232,163,61,.15)", stroke: "#e8a33d", "stroke-dasharray": "4 3", rx: 3 }, ed.fantasma);
   no("circle", { cx: 0, cy: 0, r: 0.18 * G, fill: "#e8a33d" }, ed.fantasma);
-  $("trilha").innerHTML = folhaAtual === "0" ? `<span class="topo" title="folha principal (o topo do circuito)">${ICONE_TOPO}</span>`
-    : `<a id="volta" title="voltar para a folha principal (o topo)">${ICONE_TOPO}</a> › ${nomeSub(f.nome)}${nomeSub(f.nome) !== f.nome ? ` (${f.nome})` : ""}`;
+  $("trilha").innerHTML = folhaAtual === "0" ? `<span class="topo" title="${escT(tr("simu.t_topo"))}">${ICONE_TOPO}</span>`
+    : `<a id="volta" title="${escT(tr("simu.t_volta"))}">${ICONE_TOPO}</a> › ${nomeSub(f.nome)}${nomeSub(f.nome) !== f.nome ? ` (${f.nome})` : ""}`;
   if ($("volta")) $("volta").onclick = () => abre("0");
   previaFio(); faixaSM();
   aplicaVer();
@@ -504,11 +506,14 @@ const paineis = { paleta: false, props: false };
 try { Object.assign(paineis, JSON.parse(localStorage.getItem("maisim-simu-paineis") || "{}")); } catch (e) { /* ok */ }
 function aplicaPaineis() {
   document.body.classList.toggle("paleta-fechada", paineis.paleta); document.body.classList.toggle("props-fechado", paineis.props);
-  $("aba-paleta").textContent = paineis.paleta ? "›" : "‹"; $("aba-paleta").title = paineis.paleta ? "mostrar a paleta" : "recolher a paleta";
-  $("aba-props").textContent = paineis.props ? "‹" : "›";
-  $("aba-props").title = paineis.props ? "mostrar o painel da direita (componente e histórico)" : "recolher o painel da direita (componente e histórico)";
+  $("aba-paleta").textContent = paineis.paleta ? "›" : "‹"; $("aba-props").textContent = paineis.props ? "‹" : "›";
+  titulosPaineis();
   try { localStorage.setItem("maisim-simu-paineis", JSON.stringify(paineis)); } catch (e) { /* ok */ }
   requestAnimationFrame(reajustaAspecto);
+}
+function titulosPaineis() {
+  $("aba-paleta").title = tr(paineis.paleta ? "simu.t_paleta_mostra" : "simu.t_paleta_recolhe");
+  $("aba-props").title = tr(paineis.props ? "simu.t_props_mostra" : "simu.t_props_recolhe");
 }
 $("aba-paleta").onclick = () => { paineis.paleta = !paineis.paleta; aplicaPaineis(); };
 $("aba-props").onclick = () => { paineis.props = !paineis.props; aplicaPaineis(); };
@@ -525,16 +530,16 @@ function dica(ev, e) {
   for (const k in p) {
     if (k.endsWith("_var") || k.endsWith("_guardado") || ["terminalLocation", "worksheetSizeX", "worksheetSizeY", "blockSizeX", "blockSizeY", "sourceType", "typQuelle"].includes(k)) continue;
     linhas.push([k + (p[k + "_var"] ? ` (${p[k + "_var"]})` : ""), si(p[k], UNID[k]) +
-      (p[k + "_guardado"] != null ? ` <span class="t">(da variável global; no elemento está ${si(p[k + "_guardado"], UNID[k])}, que o Gecko não usa)</span>` : "")]);
+      (p[k + "_guardado"] != null ? " " + tr("simu.dica_guardado_html", { v: si(p[k + "_guardado"], UNID[k]) }) : "")]);
   }
-  if (e.tipo === "AMP" && e.mede[0]) linhas.unshift(["mede a corrente de", e.mede[0]]);
-  if (e.tipo === "VOLT" && e.mede[0]) linhas.unshift(["mede a tensão", `${e.mede[0]} − ${e.mede[1] || "0"}`]);
-  if (e.tipo === "GATE" && e.mede[0]) linhas.unshift(["comanda", e.mede[0]]);
-  if (e.entradas.filter(Boolean).length) linhas.push([e.dom === "LK" ? "nó do 1º terminal" : "entradas", e.entradas.map((s) => s || "·").join(", ")]);
-  if (e.saidas.filter(Boolean).length) linhas.push([e.dom === "LK" ? "nó do 2º terminal" : "saídas", e.saidas.map((s) => s || "·").join(", ")]);
-  if (e.tipo === "SUBCIRCUIT") linhas.push(["terminais", e.terminais.map((t) => t.interno + (t.rotulo ? ` → ${t.rotulo}` : "")).join(", ")], ["", "clique para abrir a folha de dentro"]);
+  if (e.tipo === "AMP" && e.mede[0]) linhas.unshift([tr("simu.dica_mede_i"), e.mede[0]]);
+  if (e.tipo === "VOLT" && e.mede[0]) linhas.unshift([tr("simu.dica_mede_v"), `${e.mede[0]} − ${e.mede[1] || "0"}`]);
+  if (e.tipo === "GATE" && e.mede[0]) linhas.unshift([tr("simu.dica_comanda"), e.mede[0]]);
+  if (e.entradas.filter(Boolean).length) linhas.push([tr(e.dom === "LK" ? "simu.dica_no1" : "simu.dica_entradas"), e.entradas.map((s) => s || "·").join(", ")]);
+  if (e.saidas.filter(Boolean).length) linhas.push([tr(e.dom === "LK" ? "simu.dica_no2" : "simu.dica_saidas"), e.saidas.map((s) => s || "·").join(", ")]);
+  if (e.tipo === "SUBCIRCUIT") linhas.push([tr("simu.dica_terminais"), e.terminais.map((t) => t.interno + (t.rotulo ? ` → ${t.rotulo}` : "")).join(", ")], ["", tr("simu.dica_abre_sm")]);
   const d = $("dica");
-  d.innerHTML = `<b>${e.nome}</b> <span class="t">· ${DESCR[e.tipo] || e.tipo}</span><table>${linhas.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join("")}</table>`;
+  d.innerHTML = `<b>${e.nome}</b> <span class="t">· ${descrTipo(e.tipo) || e.tipo}</span><table>${linhas.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join("")}</table>`;
   d.style.display = "block";
   const x = Math.min(ev.clientX + 14, innerWidth - d.offsetWidth - 8), y = Math.min(ev.clientY + 14, innerHeight - d.offsetHeight - 8);
   d.style.left = `${x}px`; d.style.top = `${y}px`;
@@ -610,7 +615,7 @@ function dica(ev, e) {
       if (dom && (a.bruto[0] !== a.el.e.x || a.bruto[1] !== a.el.e.y)) { ligaTerminal(a.el.e, a.bruto, dom); return; }
     }
     if (a.el && a.moveu && a.dg && (a.dg[0] || a.dg[1]) && foraDaFolha([a.el.e.x + a.dg[0], a.el.e.y + a.dg[1]])) { desenha(); return; }
-    if (a.el && a.moveu && a.dg && (a.dg[0] || a.dg[1])) { pede("MOVE", [qualificado(a.el.e), a.el.e.x + a.dg[0], a.el.e.y + a.dg[1]], `movido ${a.el.e.nome}`); return; }
+    if (a.el && a.moveu && a.dg && (a.dg[0] || a.dg[1])) { pede("MOVE", [qualificado(a.el.e), a.el.e.x + a.dg[0], a.el.e.y + a.dg[1]], tr("simu.d_movido", { nome: a.el.e.nome })); return; }
     if (a.el && a.moveu) { desenha(); return; }
     if (a.moveu) return;
     if (ed.ligado && ed.fio.modo) { cliqueFio(ev); return; }
@@ -639,7 +644,7 @@ function dica(ev, e) {
         || (ev.ctrlKey || ev.metaKey) && ["x", "X", "v", "V"].includes(ev.key))) { ev.preventDefault(); avisaTrava(); return; }
     if (ed.ligado && !ev.ctrlKey && !ev.metaKey && !ev.altKey && (ev.key === "w" || ev.key === "W")) { ev.preventDefault(); modoFio(!ed.fio.modo); return; }
     if (ed.fio.modo && ed.fio.cantos.length) {
-      if (ev.key === "Escape") { ed.fio.cantos = []; ed.fio.dom = null; previaFio(); msg("conexão desfeita · W sai do modo conexão"); return; }
+      if (ev.key === "Escape") { ed.fio.cantos = []; ed.fio.dom = null; previaFio(); msg(tr("simu.fio_desfeito")); return; }
       if (ev.key === "Enter" && !ev.ctrlKey && !ev.metaKey) { ev.preventDefault(); terminaFio(); return; }
       if (ev.key === "Backspace") { ev.preventDefault(); ed.fio.cantos.pop(); if (!ed.fio.cantos.length) ed.fio.dom = null; previaFio(); return; }
     }
@@ -662,7 +667,7 @@ function dica(ev, e) {
     if (ev.key === "0") ajusta();
     const e = selecionado();
     if (ed.ligado && e && (ev.key === "r" || ev.key === "R") && !ev.ctrlKey && !ev.metaKey) {
-      if (podeGirar(e)) pede("ROTATE", [qualificado(e)], `girado ${e.nome}`); else if (naoGira(e)) msg(NAO_GIRA);
+      if (podeGirar(e)) pede("ROTATE", [qualificado(e)], tr("simu.d_girado", { nome: e.nome })); else if (naoGira(e)) msg(tr("simu.nao_gira"));
     }
     if (ed.ligado && e && (ev.key === "Delete" || ev.key === "Backspace")) apaga(e);
   });
@@ -680,13 +685,14 @@ const HIST_N = 20;
 let historico = [];
 try { historico = JSON.parse(sessionStorage.getItem("maisim-simu-hist") || "[]"); } catch (e) { /* ok */ }
 function anota(t, tipo) {
-  historico.unshift({ t, tipo, h: new Date().toLocaleTimeString("pt-BR") }); historico = historico.slice(0, HIST_N);
+  historico.unshift({ t, tipo, h: new Date().toLocaleTimeString(maisimI18n.local()) }); historico = historico.slice(0, HIST_N);
   try { sessionStorage.setItem("maisim-simu-hist", JSON.stringify(historico)); } catch (e) { /* ok */ }
   const h = document.getElementById("hist"); if (h) h.outerHTML = caixaHist();
 }
 const escT = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const caixaHist = () => `<div id="hist"><h4>histórico <small>(últimas ${HIST_N})</small>${botaoDesfazer()}</h4>${historico.length
-  ? `<ol>${historico.map((x) => `<li class="${x.tipo}"><time>${x.h}</time>${escT(x.t)}</li>`).join("")}</ol>` : `<div class="t">nada ainda nesta sessão</div>`}</div>`;
+// (o que já foi anotado fica no idioma em que aconteceu: o histórico guarda o texto)
+const caixaHist = () => `<div id="hist"><h4>${tr("simu.hist_h_html", { n: HIST_N })}${botaoDesfazer()}</h4>${historico.length
+  ? `<ol>${historico.map((x) => `<li class="${x.tipo}"><time>${x.h}</time>${escT(x.t)}</li>`).join("")}</ol>` : `<div class="t">${escT(tr("simu.hist_vazio"))}</div>`}</div>`;
 const grade = (ev) => { const r = $("svg").getBoundingClientRect();
   return [Math.round((ver.x + (ev.clientX - r.left) / r.width * ver.w) / G), Math.round((ver.y + (ev.clientY - r.top) / r.height * ver.h) / G)]; };
 const naFolhaPrincipal = () => folhaAtual === "0";
@@ -694,7 +700,6 @@ const podeGirar = (e) => e.tipo !== "TERM" && !naoGira(e);   // o terminal do SM
 // o Gecko não gira bloco de controle nem subcircuito: RegelBlock.rotiereSymbol() é vazio ("control components cannot be
 // rotated at the moment!") e os dois forçam a orientação para baixo em setComponentDirection (conferido em 19/10)
 const naoGira = (e) => e.dom === "CONTROL" || e.tipo === "SUBCIRCUIT";
-const NAO_GIRA = "o Gecko não gira bloco de controle nem subcircuito; para ligar sem fio, dê o mesmo rótulo aos dois terminais";
 // terminal de subcircuito (regra do Gecko, TerminalToWrap): levado a (x, y), encosta na borda mais próxima da folha (as
 // diagonais dividem os lados), e essa borda é o lado do borne no bloco. O servidor confere e escolhe um borne livre.
 function bordaGecko(x, y, sx, sy) {
@@ -705,25 +710,22 @@ function bordaGecko(x, y, sx, sy) {
 const blocoDaFolha = (fid) => Object.values(dados.folhas).flatMap((f) => f.elementos).find((x) => x.tipo === "SUBCIRCUIT" && x.uid === fid);
 // nome curto no bloco: o padrão do Gecko CIRCUIT_TERMINAL.k / CONTROL_TERMINAL.k vira Circuit.k / Control.k (como na paleta)
 const nomeTerm = (n) => String(n).replace(/^([A-Z]+)_TERMINAL\.(\d+)$/, (_, a, k) => a[0] + a.slice(1).toLowerCase() + "." + k);
-const LADO_TXT = { e: "à esquerda", d: "à direita", c: "em cima", b: "embaixo" };
+const ladoTxt = (l) => { const k = "simu.lado_" + l; return maisimI18n.tem(k) ? tr(k) : String(l); };   // e, d, c, b
 function resumoBornes(b) {                              // quantos bornes em cada lado (cabe um por quadrado) e os que caíram juntos
   const [bx, by] = b.tamanho, n = (l) => b.terminais.filter((t) => t.lado === l).length;
   const juntos = [...new Set(b.terminais.filter((t) => t.junto).map((t) => [t.interno, ...t.junto].sort().join(" e ")))];
-  return `bornes: ${n("e")} de ${by} à esquerda · ${n("d")} de ${by} à direita · ${n("c")} de ${bx} em cima · ${n("b")} de ${bx} embaixo. `
-    + "Cada terminal de dentro é um borne, e a borda da folha em que ele fica é o lado do borne."
-    + (juntos.length ? ` <b style="color:${COR.erro}">No mesmo borne: ${juntos.map(escT).join("; ")}</b> — entre no subcircuito e arraste um deles para outro ponto da borda.` : "");
+  return tr("simu.bornes_resumo", { e: n("e"), d: n("d"), c: n("c"), b: n("b"), bx, by })
+    + (juntos.length ? " " + tr("simu.bornes_juntos_html", { cor: COR.erro, lista: juntos.join("; ") }) : "");
 }
 function infoTerminal(e) {                              // o borne deste terminal no bloco
   const b = blocoDaFolha(folhaAtual), t = b && b.terminais.find((x) => x.interno === e.nome);
-  if (!t) return "terminal do subcircuito";
-  return `borne <b>${LADO_TXT[t.lado]}</b> do bloco ${escT(nomeSub(b.nome))}${t.rotulo ? `, ligado lá fora a <b>${escT(t.rotulo)}</b>` : ""}. `
-    + "A borda da folha em que o terminal fica é o lado do borne (como no Gecko): arraste até outra borda para mudar de lado; "
-    + "ao longo da borda, o borne acompanha (um por quadrado do bloco). Se o lugar já tem borne, ele vai para o livre mais perto."
-    + (t.junto ? ` <b style="color:${COR.erro}">No mesmo borne que ${t.junto.map(escT).join(", ")}</b>: arraste um deles.` : "");
+  if (!t) return escT(descrTipo("TERM"));
+  return tr(t.rotulo ? "simu.term_info_rot_html" : "simu.term_info_html", { lado: ladoTxt(t.lado), bloco: nomeSub(b.nome), rot: t.rotulo || "" })
+    + (t.junto ? " " + tr("simu.term_junto_html", { cor: COR.erro, lista: t.junto.join(", ") }) : "");
 }
 // depois de pôr ou mover um terminal de SM: onde o borne ficou (o servidor diz)
-const textoTerminal = (t) => ` → borne ${t.lado} do bloco` + (t.deslizou ? " (o ponto pedido já tinha borne: foi para o livre mais perto)"
-  : t.pedido[0] !== t.ponto[0] || t.pedido[1] !== t.ponto[1] ? ` (encostado na borda, em (${t.ponto}), como no Gecko)` : "");
+const textoTerminal = (t) => " → " + tr(t.deslizou ? "simu.term_onde_deslizou"
+  : t.pedido[0] !== t.ponto[0] || t.pedido[1] !== t.ponto[1] ? "simu.term_onde_encostou" : "simu.term_onde", { lado: t.lado, ponto: t.ponto });
 // o nome para o Gecko: dentro de um SM, SUBCIRCUIT.k#nome — pela folha onde o componente ESTÁ (não pela aberta: um painel
 // que ficou de outra folha mandaria SUBCIRCUIT.1#SUBCIRCUIT.1); procura pelo identificador, que sobrevive a um estado novo
 function folhaDe(e) {
@@ -748,12 +750,11 @@ async function api(rota, corpo) {
     catch (e) {
       if (tentativa === 0) { await new Promise((ok) => setTimeout(ok, corpo ? 600 : 400)); continue; }
       avisoRede(true);
-      throw new Error(corpo ? "a conexão com o servidor do simu caiu no caminho (o pedido pode não ter chegado): confira o desenho e tente de novo"
-        : "sem resposta do servidor do simu (a conexão caiu no caminho): tente de novo");
+      throw new Error(tr(corpo ? "simu.rede_caiu_post" : "simu.rede_caiu_get"));
     }
   }
   avisoRede(false);
-  let j; try { j = await r.json(); } catch (e) { throw new Error(`resposta inválida do servidor do simu (${r.status}): tente de novo`); }
+  let j; try { j = await r.json(); } catch (e) { throw new Error(tr("simu.resposta_invalida", { status: r.status })); }
   if (!r.ok) { const er = new Error(j.erro || r.statusText); er.dados = j; throw er; }   // dados: o resto da resposta (ex.: conflito)
   if (j && j.aviso_gecko) setTimeout(() => msg(j.aviso_gecko, "erro"), 80);   // a vigia fechou uma janela de erro do Gecko: depois do "ok"
   return j;
@@ -763,11 +764,11 @@ async function api(rota, corpo) {
 let redeTimer = 0;
 function avisoRede(fora) {
   let f = document.getElementById("rede-aviso");
-  if (!fora) { if (f && f.style.display !== "none") { f.style.display = "none"; clearInterval(redeTimer); redeTimer = 0; msg("conexão com o servidor do simu de volta", "ok"); } return; }
+  if (!fora) { if (f && f.style.display !== "none") { f.style.display = "none"; clearInterval(redeTimer); redeTimer = 0; msg(tr("simu.rede_voltou"), "ok"); } return; }
   if (!f) {
     f = document.createElement("div"); f.id = "rede-aviso"; f.setAttribute("role", "alert");
-    f.innerHTML = `<b>sem conexão com o servidor do MaiSim</b> <span>— a ponte Windows ↔ WSL pode ter derrubado a conexão</span>
-      <button type="button">Testar de novo</button><small></small>`;
+    f.innerHTML = `<b>${escT(tr("simu.rede_sem"))}</b> <span>${escT(tr("simu.rede_ponte"))}</span>
+      <button type="button">${escT(tr("simu.rede_testar"))}</button><small></small>`;
     document.body.appendChild(f);
     f.querySelector("button").onclick = () => testaRede(true);
   }
@@ -777,19 +778,23 @@ function avisoRede(fora) {
 async function testaRede(clicou) {
   const f = document.getElementById("rede-aviso"); if (!f) return;
   try { const r = await fetch("editor/rodada", { cache: "no-store" }); if (!r.ok) throw new Error(r.status); avisoRede(false); }
-  catch (e) { if (clicou) f.querySelector("small").innerHTML = "ainda sem resposta. Se não voltar em alguns segundos: feche e abra o MaiSim; se continuar, " +
-    "no PowerShell do Windows <code>wsl --shutdown</code> e, no WSL, <code>npm run maisim</code> (salve antes, se der)."; }
+  catch (e) { if (clicou) f.querySelector("small").innerHTML = tr("simu.rede_ainda_html"); }
+}
+function textosRede() {                                // o idioma mudou com a faixa aberta (o "ainda sem resposta" sai: vem no próximo clique)
+  const f = document.getElementById("rede-aviso"); if (!f) return;
+  f.querySelector("b").textContent = tr("simu.rede_sem"); f.querySelector("span").textContent = tr("simu.rede_ponte");
+  f.querySelector("button").textContent = tr("simu.rede_testar"); f.querySelector("small").textContent = "";
 }
 // desfazer (Ctrl+Z): o servidor guarda o estado de antes de cada mudança (até 20) e o Gecko reabre o último
 function botaoDesfazer() {
   const d = dados && dados.desfazer, n = d ? d.n : 0;
-  return `<button id="bt-desfazer" ${n ? "" : "disabled"} title="${n ? `desfaz: ${escT(d.ultimo)} (Ctrl+Z) · ${n} passo(s) guardado(s)` : "nada para desfazer"}">↶ desfazer</button>`;
+  return `<button id="bt-desfazer" ${n ? "" : "disabled"} title="${escT(n ? tr("simu.t_desfaz", { ultimo: d.ultimo, n }) : tr("simu.nada_desfazer"))}">${escT(tr("simu.bt_desfazer"))}</button>`;
 }
 async function desfazer() {
-  if (!ed.ligado || !(dados && dados.desfazer && dados.desfazer.n)) { if (ed.ligado) msg("nada para desfazer"); return; }
+  if (!ed.ligado || !(dados && dados.desfazer && dados.desfazer.n)) { if (ed.ligado) msg(tr("simu.nada_desfazer")); return; }
   if (ed.fio.modo && ed.fio.cantos.length) { ed.fio.cantos = []; ed.fio.dom = null; previaFio(); return; }
-  msg("desfazendo…");
-  try { const j = await api("editor/desfazer", {}); ed.sel = null; ed.fioSel = null; novoEstado(j); msg(`desfeito: ${j.desfeito}`, "ok"); }
+  msg(tr("simu.desfazendo"));
+  try { const j = await api("editor/desfazer", {}); ed.sel = null; ed.fioSel = null; novoEstado(j); msg(tr("simu.desfeito", { o: j.desfeito }), "ok"); }
   catch (e) { msg(e.message, "erro"); }
 }
 document.addEventListener("click", (ev) => { if (ev.target.closest && ev.target.closest("#bt-desfazer")) desfazer(); });
@@ -807,23 +812,23 @@ async function perguntaRenomes(ren) {
   try {
     const MAX = 8, onde = (u) => [...new Set(u.map((x) => x.onde))], n = ren.length, nUsos = ren.reduce((s_, r_) => s_ + r_.usos.length, 0);
     const lista = ren.slice(0, MAX).map((r_) => `<li><code>${escT(r_.de)}</code> → <code>${escT(r_.para)}</code> <small>${onde(r_.usos).map(escT).join(", ")}</small></li>`).join("")
-      + (n > MAX ? `<li>… e mais ${n - MAX}</li>` : "");
-    const r = await modal({ titulo: n === 1 ? "O controle usa o nome antigo" : `O controle usa ${n} nomes antigos`,
-      texto: `Mudou o nome de ${n === 1 ? "um sinal" : `${n} sinais`} que o controle usa (${nUsos} ${nUsos === 1 ? "lugar" : "lugares"}):`,
-      html: `<ul class="m-renomes">${lista}</ul><p class="m-dica">Renomear troca o nome entre aspas no código (m["…"], return {"…": …}),
-        nos cartões dos controladores, nas atuações marcadas e nos acionamentos. Comentários ficam como estão.</p>`,
-      ok: "Renomear no controle também", cancelar: "Deixar como está", extra: [{ rotulo: "Desfazer a mudança", valor: "desfazer" }], largo: true });
+      + (n > MAX ? `<li>${escT(tr("simu.ren_mais", { n: n - MAX }))}</li>` : "");
+    const r = await modal({ titulo: escT(tr("simu.ren_titulo", { n })),
+      texto: escT(tr("simu.ren_texto", { n, lugares: tr("simu.ren_lugares", { n: nUsos }) })),
+      html: `<ul class="m-renomes">${lista}</ul><p class="m-dica">${tr("simu.ren_dica_html")}</p>`,
+      ok: escT(tr("simu.ren_ok")), cancelar: escT(tr("simu.ren_deixar")), extra: [{ rotulo: escT(tr("simu.ren_desfazer")), valor: "desfazer" }], largo: true });
     if (r && r._botao === "desfazer") { await desfazer(); return; }
-    if (!r) { msg(`o controle ficou com ${n === 1 ? "o nome antigo" : "os nomes antigos"} (${ren.map((x) => x.de).slice(0, 3).join(", ")}${n > 3 ? "…" : ""}): veja os avisos do controle`, "erro"); return; }
+    if (!r) { msg(tr("simu.ren_ficou", { n, lista: ren.map((x) => x.de).slice(0, 3).join(", ") + (n > 3 ? "…" : "") }), "erro"); return; }
     if (typeof guardaControle === "function" && ctl.carregado) await guardaControle();   // o que está no editor de código vai antes
     const j = await api("editor/controle/renomeia", { pares: ren.map((x) => [x.de, x.para]) });
     if (typeof recarregaControle === "function") await recarregaControle();
-    msg(`renomeado no controle: ${ren.slice(0, 3).map((x) => `${x.de} → ${x.para}`).join(", ")}${n > 3 ? ` e mais ${n - 3}` : ""} (${j.trocas} ${j.trocas === 1 ? "troca" : "trocas"})`, "ok");
+    msg(tr(n > 3 ? "simu.ren_feito_mais" : "simu.ren_feito", { pares: ren.slice(0, 3).map((x) => `${x.de} → ${x.para}`).join(", "), mais: n - 3,
+      trocas: tr("simu.n_trocas", { n: j.trocas }) }), "ok");
   } catch (e) { msg(e.message, "erro"); }
   finally { perguntandoRenomes = false; }
 }
 async function pede(op, args, ok) {
-  msg("aplicando…");
+  msg(tr("simu.aplicando"));
   const fs = op === "SETG" ? [folhaAtual] : alvos();            // dentro de um subcircuito: ele só, ou todos os iguais
   ok += nosSMs(fs);
   try {
@@ -848,7 +853,7 @@ async function pede(op, args, ok) {
 function foraDaFolha(p) {                            // a folha de um SM tem tamanho fixo: fora dela, o Gecko encostaria na borda
   const t = dados.folhas[folhaAtual].tamanho;
   if (!t || (p[0] >= 1 && p[1] >= 1 && p[0] <= t[0] - 1 && p[1] <= t[1] - 1)) return false;   // o Gecko põe em 1 o que vier menor
-  msg(`(${p}) fica fora da folha do ${nomeSM(folhaAtual)} (1…${t[0] - 1} × 1…${t[1] - 1}, a borda tracejada)`, "erro"); return true;
+  msg(tr("simu.fora_folha", { p, sm: nomeSM(folhaAtual), x: t[0] - 1, y: t[1] - 1 }), "erro"); return true;
 }
 function assinaturaFolha(f) {
   return JSON.stringify([f.elementos.map((e) => JSON.stringify([e.nome, e.tipo, e.x, e.y, e.dir])).sort(), f.fios.map((w) => JSON.stringify([w.dom, w.pts])).sort()]);
@@ -865,14 +870,14 @@ const alvos = () => naFolhaPrincipal() || !ed.todos ? [folhaAtual] : smsIguais()
 const TAMANHO = { BlockSizeX: (b) => b.tamanho[0], BlockSizeY: (b) => b.tamanho[1],
   SheetSizeX: (b) => dados.folhas[b.uid].tamanho[0], SheetSizeY: (b) => dados.folhas[b.uid].tamanho[1] };
 const iguaisDoBloco = (e) => e.tipo === "SUBCIRCUIT" && dados.folhas[e.uid] ? iguaisA(e.uid).map(blocoDaFolha).filter(Boolean) : [e];
-const txtTamanho = (b) => `bloco ${b.tamanho[0]} × ${b.tamanho[1]}, folha ${dados.folhas[b.uid].tamanho.join(" × ")}`;
+const txtTamanho = (b) => tr("simu.txt_tamanho", { bx: b.tamanho[0], by: b.tamanho[1], f: dados.folhas[b.uid].tamanho.join(" × ") });
 async function mudaTamanho(e, mudas, descr, todos = ed.todos) {       // mudas: [[parâmetro, valor], …]
   const bs = todos ? iguaisDoBloco(e) : [e];
   const setp = (p) => p.replace(/^Block/, "block");       // blockSizeX: o nome que o servidor confere (bornes) e reabre
   const cmds = bs.flatMap((b) => mudas.filter(([p, v]) => TAMANHO[p](b) !== v).map(([p, v]) => ({ op: "SETP", args: [qualificado(b), setp(p), v] })));
-  if (!cmds.length) { msg(`${descr}: já está assim`, "ok"); mostraProps(); return; }
-  if (bs.length > 1) descr += ` (nos ${bs.length} subcircuitos iguais)`;
-  msg("aplicando…");
+  if (!cmds.length) { msg(tr("simu.ja_esta", { descr }), "ok"); mostraProps(); return; }
+  if (bs.length > 1) descr += " " + tr("simu.nos_iguais", { n: bs.length });
+  msg(tr("simu.aplicando"));
   try { novoEstado(await api(cmds.length > 1 ? "editor/cmds" : "editor/cmd", cmds.length > 1 ? { cmds, descr } : Object.assign({ descr }, cmds[0]))); msg(descr, "ok"); }
   catch (err) { msg(err.message, "erro"); try { novoEstado(await api("editor/estado")); } catch (_) { mostraProps(); } }
 }
@@ -880,17 +885,16 @@ function caixaIguais(e) {                              // no painel do bloco, na
   const bs = iguaisDoBloco(e);
   if (bs.length < 2) return "";
   const dif = bs.slice(1).filter((b) => txtTamanho(b) !== txtTamanho(e));
-  return `<label class="p-juntos" title="o mesmo &quot;mudar os N juntos&quot; de dentro do subcircuito"><input type="checkbox" id="p-juntos" ${ed.todos ? "checked" : ""}> Mudar os ${bs.length} iguais juntos</label>
-    <div class="aviso">${ed.todos ? `o tamanho do bloco e da folha vale para os ${bs.length} subcircuitos iguais (${bs.map((b) => escT(nomeSub(b.nome))).join(", ")})` : `só o ${escT(nomeSub(e.nome))} muda de tamanho`}${dif.length
-      ? `<div class="p-dif">${dif.map((b) => `${escT(nomeSub(b.nome))} está com ${txtTamanho(b)}`).join("; ")} <button id="p-iguala" title="o tamanho deste (${txtTamanho(e)}) nos ${bs.length} iguais">Igualar a este</button></div>` : ""}</div>`;
+  return `<label class="p-juntos" title="${escT(tr("simu.t_juntos_bloco"))}"><input type="checkbox" id="p-juntos" ${ed.todos ? "checked" : ""}> ${escT(tr("simu.mudar_iguais", { n: bs.length }))}</label>
+    <div class="aviso">${escT(ed.todos ? tr("simu.tam_vale", { n: bs.length, lista: bs.map((b) => nomeSub(b.nome)).join(", ") }) : tr("simu.tam_so", { nome: nomeSub(e.nome) }))}${dif.length
+      ? `<div class="p-dif">${dif.map((b) => escT(tr("simu.esta_com", { nome: nomeSub(b.nome), tam: txtTamanho(b) }))).join("; ")} <button id="p-iguala" title="${escT(tr("simu.t_iguala", { tam: txtTamanho(e), n: bs.length }))}">${escT(tr("simu.iguala"))}</button></div>` : ""}</div>`;
 }
 const nomeSM = (k) => nomeSub(dados.folhas[k].nome);
-const nosSMs = (fs) => fs.length > 1 ? ` (nos ${fs.length} subcircuitos iguais)` : (naFolhaPrincipal() ? "" : ` (só no ${nomeSM(folhaAtual)})`);
+const nosSMs = (fs) => fs.length > 1 ? " " + tr("simu.nos_iguais", { n: fs.length }) : (naFolhaPrincipal() ? "" : " " + tr("simu.so_no", { sm: nomeSM(folhaAtual) }));
 function textoAlvos() {
   const n = smsIguais().length, sm = nomeSM(folhaAtual);
-  if (n === 1) return `${sm} é único (diferente dos outros subcircuitos): as mudanças valem só para ele.`;
-  return ed.todos ? `cada mudança vale para os <b>${n} subcircuitos iguais</b> (${sm} e outros ${n - 1}); no Gecko cada subcircuito é uma cópia, e o editor muda todas.`
-                  : `só o <b>${sm}</b> muda; ele deixa de ser igual aos outros ${n - 1}.`;
+  if (n === 1) return tr("simu.alvo_unico", { sm });
+  return tr(ed.todos ? "simu.alvo_todos_html" : "simu.alvo_so_html", { n, sm, m: n - 1 });
 }
 function faixaSM() {                                   // a faixa no alto da folha de um SM, em edição
   const fx = $("faixa-sm");
@@ -898,11 +902,11 @@ function faixaSM() {                                   // a faixa no alto da fol
   const n = smsIguais().length, sm = nomeSM(folhaAtual);
   fx.style.display = "block";
   fx.innerHTML = n > 1
-    ? `<b>${sm}</b> é igual a outros ${n - 1} subcircuitos. <label><input type="checkbox" id="ck-todos" ${ed.todos ? "checked" : ""}> Mudar os ${n} juntos</label>
-       <span class="sub-faixa">${ed.todos ? "no Gecko cada SM é uma cópia; o editor aplica a mesma mudança em todas" : `só o ${sm} muda (deixa de ser igual aos outros)`} · variáveis $ valem para todos que as usam</span>`
-    : `<b>${sm}</b> é único (diferente dos outros subcircuitos): as mudanças valem só para ele <span class="sub-faixa">variáveis $ valem para todos que as usam</span>`;
+    ? `${tr("simu.faixa_igual_html", { sm, m: n - 1 })} <label><input type="checkbox" id="ck-todos" ${ed.todos ? "checked" : ""}> ${escT(tr("simu.mudar_n_juntos", { n }))}</label>
+       <span class="sub-faixa">${escT(ed.todos ? tr("simu.faixa_copia") : tr("simu.faixa_so", { sm }))} · ${escT(tr("simu.faixa_vars"))}</span>`
+    : `${tr("simu.faixa_unico_html", { sm })} <span class="sub-faixa">${escT(tr("simu.faixa_vars"))}</span>`;
   const b = blocoDaFolha(folhaAtual), juntos = b ? [...new Set(b.terminais.filter((t) => t.junto).map((t) => [t.interno, ...t.junto].sort().join(" e ")))] : [];
-  if (juntos.length) fx.innerHTML += `<span class="sub-faixa" style="color:${COR.erro}">no mesmo borne do bloco: ${juntos.map(escT).join("; ")} — arraste um deles para outro ponto da borda</span>`;
+  if (juntos.length) fx.innerHTML += `<span class="sub-faixa" style="color:${COR.erro}">${escT(tr("simu.faixa_juntos", { lista: juntos.join("; ") }))}</span>`;
   const ck = $("ck-todos"); if (ck) ck.onchange = () => { ed.todos = ck.checked; faixaSM(); mostraProps(); };
 }
 // mudanças não salvas (o servidor diz o quê: circuito, controle, cores): pergunta o que fazer. Devolve o modo para repetir o
@@ -910,26 +914,26 @@ function faixaSM() {                                   // a faixa no alto da fol
 // O foco começa na opção que guarda (nunca em descartar): Enter não joga trabalho fora.
 async function perguntaNaoSalvo(e, acao) {
   const c = e.dados && e.dados.conflito ? e.dados : null; if (!c) throw e;
-  const nome = escT((c.aberto || "").split("/").pop() || "o circuito novo");
-  const extra = c.mesmo ? [{ rotulo: "Manter as mudanças", valor: "manter", classe: "primario" }]
-    : c.salvavel ? [{ rotulo: `Salvar ${nome} e ${acao}`, valor: "salvar", classe: "primario" }]
-    : [{ rotulo: `Salvar como… e ${acao}`, valor: "salvar_como", classe: "primario" }];
-  const r = await modal({ titulo: c.mesmo ? "O Gecko tem mudanças que o editor não viu" : "Há mudanças não salvas",
-    texto: `${escT(e.message)}.${c.mesmo ? "<br><b>manter</b>: o editor mostra o que está no Gecko (continua sem salvar) · <b>descartar</b>: volta ao arquivo." : ""}`,
-    ok: c.mesmo ? "Descartar" : `Descartar e ${acao}`, perigo: true, extra, largo: true, foco: ".m-extra" });
+  // acao: "abrir", "criar" ou "fechar" (um texto inteiro por ação: simu.ns_*_abrir…)
+  const nome = (c.aberto || "").split("/").pop() || tr("simu.o_circuito_novo");
+  const extra = c.mesmo ? [{ rotulo: escT(tr("simu.ns_manter")), valor: "manter", classe: "primario" }]
+    : c.salvavel ? [{ rotulo: tr("simu.ns_salvar_" + acao + "_html", { nome }), valor: "salvar", classe: "primario" }]
+    : [{ rotulo: escT(tr("simu.ns_salvar_como_" + acao)), valor: "salvar_como", classe: "primario" }];
+  const r = await modal({ titulo: escT(tr(c.mesmo ? "simu.ns_titulo_mesmo" : "simu.ns_titulo")),
+    texto: `${escT(e.message)}.${c.mesmo ? tr("simu.ns_mesmo_html") : ""}`,
+    ok: escT(tr(c.mesmo ? "simu.descartar" : "simu.ns_descartar_" + acao)), perigo: true, extra, largo: true, foco: ".m-extra" });
   if (!r) return null;
   if (r._botao === "salvar_como") return (await salvarComo()) ? "salvou" : null;
   return r._botao || "descartar";
 }
 // o cadeado (aberto: editando, o padrão; fechado: só ver) — a escolha fica no navegador
-const TITULO_CADEADO = { true: "editando (cadeado aberto): cada mudança é aplicada no circuito · clique para travar (só ver)", false: "travado: só ver · clique para editar" };
-function poeCadeado(on) { $("bt-editar").classList.toggle("ativo", on); $("bt-editar").title = TITULO_CADEADO[!!on]; }
+function poeCadeado(on) { $("bt-editar").classList.toggle("ativo", on); $("bt-editar").title = tr(on ? "simu.t_cadeado_aberto" : "simu.t_cadeado_fechado"); }
 async function liga(on) {
   ed.ligado = on; document.body.classList.toggle("editando", on); poeCadeado(on);
   if (ed.fio.modo) modoFio(false);
   seleciona(null); escolhe(null);
   if (!on) {
-    if (ed.novo && !(await confirma("Circuito novo não salvo", `Sair da edição descarta <b>${ed.novo}</b>, que não foi salvo. Para guardar: salvar como (o disquete com lápis).`, "Sair sem salvar", true))) {
+    if (ed.novo && !(await confirma(escT(tr("simu.novo_nao_salvo")), tr("simu.sair_descarta_html", { nome: ed.novo }), escT(tr("simu.sair_sem_salvar")), true))) {
       ed.ligado = true; document.body.classList.add("editando"); poeCadeado(true); return; }
     if (ed.novo) { ed.novo = null; await recarregaModelos(); }
     msg(""); if (!$("sel-modelo").value) { desenha(); return; }   // fechado: nada a ler
@@ -939,7 +943,7 @@ async function liga(on) {
     const med = ed.catalogo.abas.find((a) => a.aba === "Measure"); if (med) med.itens.unshift(TAG_ITEM);   // a tag do MaiSim, junto dos medidores
     desenhaPaleta(); carregaBiblioteca(); }
   if ($("sel-modelo").value === NOVO || !$("sel-modelo").value) return;   // novo, ou fechado: nada a abrir
-  msg("abrindo…");
+  msg(tr("simu.abrindo"));
   try {
     let j; const alvo = $("sel-modelo").value;
     try { j = await api("editor/abrir", { arq: alvo }); }
@@ -947,8 +951,8 @@ async function liga(on) {
       const modo = await perguntaNaoSalvo(e, "abrir");
       if (!modo) {                                       // cancelou: tudo fica como estava (o Gecko e a lista no modelo aberto)
         if (ed.abertoSel && ed.abertoSel !== alvo) { $("sel-modelo").value = ed.abertoSel; mostraModelo(); }
-        if (ed.abertoSel && dados && dados.editor) { msg("abrir cancelado: continua o que está aberto", ""); return; }
-        throw new Error("abrir cancelado");
+        if (ed.abertoSel && dados && dados.editor) { msg(tr("simu.abrir_cancelado_fica"), ""); return; }
+        throw new Error(tr("simu.abrir_cancelado"));
       }
       if (modo === "salvou") { $("sel-modelo").value = alvo; mostraModelo(); }
       j = await api("editor/abrir", modo === "salvou" ? { arq: alvo } : { arq: alvo, modo });
@@ -956,7 +960,7 @@ async function liga(on) {
     ed.abertoSel = alvo;
     folhaAtual = "0"; dados = j; marcaSujo(!!j.mantido); desenha(); ajusta();
     const sm = usaSimulacaoDoArquivo(j);
-    msg(`aberto: ${j.arq}` + (sm ? ` · ${sm}` : ""), "ok");
+    msg(tr("simu.aberto", { arq: j.arq }) + (sm ? ` · ${sm}` : ""), "ok");
     if (typeof recarregaControle === "function") recarregaControle();
     avisa("circuito", { arq: alvo, outro: true, sujo: ed.sujo });
   }
@@ -971,18 +975,18 @@ function usaSimulacaoDoArquivo(j) {
   if (!s || !(s.dt > 0) || !(s.tfim > 0) || sim.par.modelo === j.arq) return "";
   sim.par.dt = String(s.dt); sim.par.tfim = String(s.tfim); sim.par.modelo = j.arq;
   try { localStorage.setItem("maisim-simu-sim", JSON.stringify(sim.par)); } catch (e) { /* ok */ }
-  return `Δt = ${si(s.dt, "s")}, tempo final ${si(s.tfim, "s")} (do arquivo; mude na ⚙ ao lado do ▶)`;
+  return tr("simu.sim_do_arquivo", { dt: si(s.dt, "s"), tfim: si(s.tfim, "s") });
 }
 function desenhaPaleta() {
-  const c = { abas: ed.catalogo.abas.concat([{ aba: "Biblioteca", itens: ed.lib }]) }, q = $("busca").value.trim().toLowerCase();
+  const c = { abas: ed.catalogo.abas.concat([{ aba: tr("simu.aba_biblioteca"), itens: ed.lib }]) }, q = $("busca").value.trim().toLowerCase();
   $("abas").innerHTML = c.abas.map((a, k) => `<button data-k="${k}" class="${k === ed.aba && !q ? "ativo" : ""}">${a.aba}</button>`).join("");
   $("abas").querySelectorAll("button").forEach((b) => b.onclick = () => { ed.aba = +b.dataset.k; $("busca").value = ""; desenhaPaleta(); });
   const itens = (q ? c.abas.flatMap((a) => a.itens.map((i) => Object.assign({ aba: a.aba }, i))).filter((i) => `${i.nome} ${i.id}`.toLowerCase().includes(q))
                     : c.abas[ed.aba].itens).filter((i) => i.id !== "SCOPE");      // regra do MaiSim: medidor vai para o /maisim/scope
   $("itens").innerHTML = itens.map((i) => `<div class="item${ed.colocar && ed.colocar.id === i.id ? " ativo" : ""}${i.lib ? " lib" : ""}" data-id="${i.id}" draggable="true"
-    title="${i.lib ? `${i.nome} · subcircuito da biblioteca · ${i.info} · clique ou arraste para a folha` : `${i.nome} · tipo ${i.typ} · ${i.dom} · clique ou arraste para a folha`}">
+    title="${i.lib ? tr("simu.t_item_lib", { nome: i.nome, info: i.info }) : tr("simu.t_item", { nome: i.nome, typ: i.typ, dom: i.dom })}">
     ${icone(i)}<span>${i.nome}</span>${i.lib ? `<small>${i.info}</small>` : ""}</div>`).join("") ||
-    (ed.aba === c.abas.length - 1 && !q ? `<div class="dica-paleta">a biblioteca está vazia: selecione um subcircuito e use “salvar na biblioteca…”</div>` : "<i>nada</i>");
+    (ed.aba === c.abas.length - 1 && !q ? `<div class="dica-paleta">${escT(tr("simu.lib_vazia"))}</div>` : `<i>${escT(tr("simu.nada"))}</i>`);
   const acha = (id) => c.abas.flatMap((a) => a.itens).find((i) => i.id === id);
   $("itens").querySelectorAll(".item").forEach((d) => {
     d.onclick = () => { const it = acha(d.dataset.id); escolhe(ed.colocar && ed.colocar.id === it.id ? null : it); };
@@ -1002,7 +1006,7 @@ async function carregaBiblioteca() {
   try {
     const lst = await (await fetch("biblioteca")).json();
     ed.lib = lst.filter((b) => !b.erro).map((b) => ({ id: "LIB:" + b.nome, nome: b.nome, lib: true, arq: b.arq, typ: "subcircuito", dom: "biblioteca",
-      info: `${b.elementos} elem. · ${b.terminais.length} terminais` }));
+      get info() { return tr("simu.lib_info", { e: b.elementos, t: b.terminais.length }); } }));
   } catch (e) { ed.lib = []; }
   if (ed.catalogo) desenhaPaleta();
 }
@@ -1012,17 +1016,17 @@ function escolhe(item) {
   ed.colocar = item; document.body.classList.toggle("colocando", !!item);
   if (ed.fantasma) ed.fantasma.style.display = "none";
   if (ed.catalogo) desenhaPaleta();
-  if (item) msg(`clique na folha para pôr ${item.nome} · Esc cancela`); 
+  if (item) msg(tr("simu.clique_por", { nome: item.nome })); 
 }
 async function coloca(ev) {
   const [x, y] = grade(ev), base = (ed.colocar.id || "X").replace(/[^A-Za-z0-9_]/g, "_");
   if (foraDaFolha([x, y])) return;
   if (ed.colocar.lib) {                                 // subcircuito da biblioteca: o servidor copia para o circuito aberto
-    const it = ed.colocar; escolhe(null); msg(`trazendo ${it.nome} da biblioteca…`);
-    const descr = `${it.nome} (biblioteca) em (${x}, ${y})` + (naFolhaPrincipal() ? "" : ` (só no ${nomeSM(folhaAtual)})`);
+    const it = ed.colocar; escolhe(null); msg(tr("simu.trazendo_lib", { nome: it.nome }));
+    const descr = tr("simu.d_lib", { nome: it.nome, x, y }) + (naFolhaPrincipal() ? "" : " " + tr("simu.so_no", { sm: nomeSM(folhaAtual) }));
     try { const j = await api("editor/biblioteca", { acao: "inserir", nome_lib: it.nome, x, y, folha: folhaAtual, descr });
       ed.sel = j.inserido; novoEstado(j);
-      msg(`${descr}: ${nomeSub(j.inserido)}` + (j.globais_novas.length ? ` · variáveis novas: ${j.globais_novas.join(" ")}` : ""), "ok"); }
+      msg(`${descr}: ${nomeSub(j.inserido)}` + (j.globais_novas.length ? " · " + tr("simu.vars_novas", { lista: j.globais_novas.join(" ") }) : ""), "ok"); }
     catch (e) { msg(e.message, "erro"); }
     return;
   }
@@ -1031,22 +1035,21 @@ async function coloca(ev) {
   const nome = `${base}.${k}`, item = ed.colocar;
   escolhe(null); ed.sel = nome;
   if (item.id === "TAG") {
-    const q = naFolhaPrincipal() ? nome : `${dados.folhas[folhaAtual].nome}#${nome}`, descr = `tag criada: ${nome} em (${x}, ${y}) (scope: tag_${k})`;
+    const q = naFolhaPrincipal() ? nome : `${dados.folhas[folhaAtual].nome}#${nome}`, descr = tr("simu.d_tag", { nome, x, y, tag: `tag_${k}` });
     try { novoEstado(await api("editor/cmds", { cmds: [{ op: "CREATE", args: [q, x, y, "GAIN"] }, { op: "SETP", args: [q, "r0", 1] }, { op: "OUTNODE", args: [q, 0, `tag_${k}`] }], descr }));
-      msg(descr + " · ligue a entrada a um ponto de controle", "ok"); } catch (er) { msg(er.message, "erro"); }
+      msg(descr + " · " + tr("simu.tag_ligue"), "ok"); } catch (er) { msg(er.message, "erro"); }
     return;
   }
-  await pede("CREATE", [naFolhaPrincipal() ? nome : `${dados.folhas[folhaAtual].nome}#${nome}`, x, y, item.id], `${item.nome} criado: ${nome} em (${x}, ${y})`);
+  await pede("CREATE", [naFolhaPrincipal() ? nome : `${dados.folhas[folhaAtual].nome}#${nome}`, x, y, item.id], tr("simu.d_criado", { item: item.nome, nome, x, y }));
 }
 function seleciona(e) { ed.sel = e ? e.nome : null; ed.fioSel = null; ed.multi.clear(); ed.multiFios.clear(); desenha(); mostraProps(); }
 // simulando, o circuito fica só para ver (Marcelo, 22/10: "o bloqueio de edição quando tiver rodando"): o servidor já recusava
 // as mudanças (ocupado()), mas a tela deixava mexer e só depois dava o erro. Agora: clicar seleciona e mostra os dados; arrastar,
 // ligar fio, pôr componente, os atalhos que mudam e o painel do componente ficam travados, com o aviso; o ⚙ só mostra
 const simulando = () => ["preparando", "rodando", "pausada"].includes(sim.estado);
-const AVISO_TRAVA = "simulação rodando: o circuito fica só para ver até ela parar (a rodada usa o circuito do início)";
 function avisaTrava() {                                // fica 4 s (a barra de progresso não o cobre) e não se repete no histórico
   if (sim.avisoAte > Date.now()) return;
-  sim.avisoAte = Date.now() + 4000; msg(AVISO_TRAVA, "erro");
+  sim.avisoAte = Date.now() + 4000; msg(tr("simu.aviso_trava"), "erro");
 }
 function travaCircuito(on) {
   const mudou = document.body.classList.contains("circ-travado") !== on;
@@ -1059,206 +1062,205 @@ async function mostraProps() {
   await montaProps();
   const P = $("props"); if (!ed.ligado || !simulando() || !P.firstChild) return;
   P.querySelectorAll("input, select, textarea, button").forEach((x) => { x.disabled = true; });
-  if (!P.querySelector(".trava-circ")) P.insertAdjacentHTML("afterbegin", `<div class="trava-circ">${AVISO_TRAVA}</div>`);
+  if (!P.querySelector(".trava-circ")) P.insertAdjacentHTML("afterbegin", `<div class="trava-circ">${escT(tr("simu.aviso_trava"))}</div>`);
 }
 async function montaProps() {
   const P = $("props"); if (!ed.ligado) return;
   if (tamanhoSel()) {                                   // vários selecionados: o resumo e o que dá para fazer com eles
     const sel = selecaoGrupo();
-    P.innerHTML = `<h3>seleção</h3><div class="t">${sel.nomes.length} componente(s) e ${sel.fios.length} conexão(ões)</div>
+    P.innerHTML = `<h3>${escT(tr("simu.sel_h"))}</h3><div class="t">${escT(nSel(sel.nomes.length, sel.fios.length))}</div>
       ${sel.nomes.length ? `<div class="t"><small>${sel.nomes.map(escT).join(", ")}</small></div>` : ""}
-      <div class="botoes"><button id="p-sel-apaga" class="perigo">Apagar</button></div>
-      <div class="aviso">arraste um deles para mover todos (as conexões de dentro vão junto) · Delete apaga · Ctrl+C / Ctrl+X copiam ou recortam ·
-        Ctrl+V cola onde está o mouse · Shift + clique põe ou tira · Shift + arrastar no vazio acrescenta · Esc tira a seleção</div>${caixaHist()}`;
+      <div class="botoes"><button id="p-sel-apaga" class="perigo">${escT(tr("simu.apagar"))}</button></div>
+      <div class="aviso">${escT(tr("simu.sel_aviso"))}</div>${caixaHist()}`;
     P.querySelector("#p-sel-apaga").onclick = apagaGrupo; return;
   }
   const w = fioSelecionado();
   if (w) {
     const a = w.pts[0], b = w.pts[w.pts.length - 1];
-    P.innerHTML = `<h3>conexão</h3><div class="t">conexão ${NOME_DOM[w.dom] || w.dom} · ${w.pts.length} pontos · (${a}) → (${b})</div>
-      <label><span>rótulo do nó</span><input id="f-rot" value="${w.rotulo}" placeholder="(sem rótulo)"></label>
-      <div class="aviso">conexões e terminais com o mesmo rótulo ficam no mesmo nó; o voltímetro mede pelos rótulos</div>
-      <div class="botoes"><button id="f-apaga" class="perigo">Apagar (Delete)</button></div>${caixaHist()}`;
-    P.querySelector("#f-rot").onchange = (ev) => mudaFio(w, { acao: "rotulo", rotulo: ev.target.value.trim() }, `conexão (${a}) → (${b}): rótulo ${ev.target.value.trim() || "(nenhum)"}`);
+    P.innerHTML = `<h3>${escT(tr("simu.fio"))}</h3><div class="t">${escT(tr("simu.fio_info", { dom: nomeDom(w.dom) || w.dom, n: w.pts.length, a, b }))}</div>
+      <label><span>${escT(tr("simu.rotulo_no"))}</span><input id="f-rot" value="${w.rotulo}" placeholder="${escT(tr("simu.sem_rotulo_p"))}"></label>
+      <div class="aviso">${escT(tr("simu.fio_aviso"))}</div>
+      <div class="botoes"><button id="f-apaga" class="perigo">${escT(tr("simu.apagar_delete"))}</button></div>${caixaHist()}`;
+    P.querySelector("#f-rot").onchange = (ev) => mudaFio(w, { acao: "rotulo", rotulo: ev.target.value.trim() }, tr("simu.d_fio_rot", { a, b, r: ev.target.value.trim() || tr("simu.nenhum") }));
     P.querySelector("#f-apaga").onclick = () => apagaFio(w);
     return;
   }
   const e = selecionado();
-  if (!e) { P.innerHTML = `<div class="t">Clique num componente para ver e mudar os parâmetros. Arrastar move; R gira; Delete apaga.<br><br>
-    Cada mudança é aplicada na hora, e o desenho mostra o resultado. <b>Salvar como</b> (o disquete com lápis) grava nos seus circuitos.</div>${caixaHist()}`; return; }
+  if (!e) { P.innerHTML = `<div class="t">${tr("simu.props_vazio_html")}</div>${caixaHist()}`; return; }
   const vars = Object.keys(e.par).filter((k) => k.endsWith("_var")).map((k) => e.par[k]);
-  P.innerHTML = `<h3>${e.nome}</h3><div class="t">${ehTag(e) ? "tag (scope e controle)" : e.nome_tipo || DESCR[e.tipo] || e.tipo} · (${e.x}, ${e.y})</div>
-    <label><span>nome</span><input id="p-nome" value="${e.nome}"></label>
-    <label><span>posição x, y</span><input id="p-pos" value="${e.x}, ${e.y}"></label>
-    <div class="botoes">${podeGirar(e) ? `<button id="p-gira">Girar (R)</button>` : naoGira(e) ? `<button id="p-nao-gira" class="nao-gira" title="${NAO_GIRA}">Girar</button>` : ""}<button id="p-apaga" class="perigo">Apagar</button></div>
-    ${e.tipo !== "TERM" ? `<label class="p-desat" title="fica no circuito, mas o Gecko simula como se não existisse (enabled = 0 no Gecko); o desenho fica cinza${e.tipo === "SUBCIRCUIT" ? "; vale para tudo o que está dentro" : ""}"><input type="checkbox" id="p-desat" ${e.ativo === false ? "checked" : ""}> Desativado${e.curto ? " <small>(em curto, no Gecko)</small>" : ""}</label>` : ""}
-    ${e.tipo === "SUBCIRCUIT" ? `<div class="botoes"><button id="p-lib" title="grava este subcircuito (e o que tem dentro) em simu/gecko/subcircuitos/, para usar em outros circuitos">Salvar na biblioteca…</button></div>
-      <h4>bloco</h4><label><span>largura × altura</span><input id="p-bloco" value="${e.tamanho[0]} × ${e.tamanho[1]}" title="em quadrados da grade (2 a 40): cabe um borne por quadrado em cada lado"></label>
+  P.innerHTML = `<h3>${e.nome}</h3><div class="t">${ehTag(e) ? escT(tr("simu.tag_descr")) : e.nome_tipo || descrTipo(e.tipo) || e.tipo} · (${e.x}, ${e.y})</div>
+    <label><span>${escT(tr("simu.p_nome"))}</span><input id="p-nome" value="${e.nome}"></label>
+    <label><span>${escT(tr("simu.p_pos"))}</span><input id="p-pos" value="${e.x}, ${e.y}"></label>
+    <div class="botoes">${podeGirar(e) ? `<button id="p-gira">${escT(tr("simu.girar_r"))}</button>` : naoGira(e) ? `<button id="p-nao-gira" class="nao-gira" title="${escT(tr("simu.nao_gira"))}">${escT(tr("simu.girar"))}</button>` : ""}<button id="p-apaga" class="perigo">${escT(tr("simu.apagar"))}</button></div>
+    ${e.tipo !== "TERM" ? `<label class="p-desat" title="${escT(tr(e.tipo === "SUBCIRCUIT" ? "simu.t_desat_sub" : "simu.t_desat"))}"><input type="checkbox" id="p-desat" ${e.ativo === false ? "checked" : ""}> ${escT(tr("simu.desativado"))}${e.curto ? ` <small>${escT(tr("simu.curto_gecko"))}</small>` : ""}</label>` : ""}
+    ${e.tipo === "SUBCIRCUIT" ? `<div class="botoes"><button id="p-lib" title="${escT(tr("simu.t_p_lib"))}">${escT(tr("simu.p_lib"))}</button></div>
+      <h4>${escT(tr("simu.h_bloco"))}</h4><label><span>${escT(tr("simu.p_larg_alt"))}</span><input id="p-bloco" value="${e.tamanho[0]} × ${e.tamanho[1]}" title="${escT(tr("simu.t_p_bloco"))}"></label>
       <div class="aviso">${resumoBornes(e)}</div>
       ${naFolhaPrincipal() ? caixaIguais(e) : ""}
-      ${naFolhaPrincipal() && e.terminais.length ? `<h4>rótulos dos bornes <small>(o nó de fora)</small></h4>
-      ${e.terminais.map((t) => `<label class="p-borne"><span title="borne ${escT(t.interno || "")}">${escT(nomeTerm(t.interno || ""))}</span><input data-borne="${escT(t.interno || "")}" value="${escT(t.rotulo || "")}" placeholder="sem rótulo" spellcheck="false"></label>`).join("")}
-      <div class="aviso">mesmo rótulo, mesmo nó (como no Gecko): apagar o rótulo solta o borne; escrever um nome liga sem fio. Vale só para este ${escT(nomeSub(e.nome))}</div>` : ""}` : ""}
+      ${naFolhaPrincipal() && e.terminais.length ? `<h4>${tr("simu.h_rot_bornes_html")}</h4>
+      ${e.terminais.map((t) => `<label class="p-borne"><span title="${escT(tr("simu.t_borne", { nome: t.interno || "" }))}">${escT(nomeTerm(t.interno || ""))}</span><input data-borne="${escT(t.interno || "")}" value="${escT(t.rotulo || "")}" placeholder="${escT(tr("simu.sem_rotulo"))}" spellcheck="false"></label>`).join("")}
+      <div class="aviso">${escT(tr("simu.bornes_aviso", { nome: nomeSub(e.nome) }))}</div>` : ""}` : ""}
     ${e.tipo === "TERM" && !naFolhaPrincipal() ? `<div class="aviso">${infoTerminal(e)}</div>` : ""}
     ${naFolhaPrincipal() ? "" : `<div class="aviso">${textoAlvos()}</div>`}
-    <h4>parâmetros</h4><div id="p-params"><i>lendo…</i></div>
-    ${vars.length ? `<h4>variáveis globais que ele usa</h4>${vars.map((v) => `<label><span>${v}</span><input data-g="${v}" value="${dados.globais[v]}"></label>`).join("")}
-      <div class="aviso">mudar uma variável muda todos os componentes que a usam</div>` : ""}
-    ${e.dom === "LK" && e.terminais.length === 2 ? `<h4>ligações (rótulo do nó de cada terminal)</h4>
-      <label><span>terminal 1 ${e.tipo === "U" ? "(+)" : "(início)"}</span><input data-in="0" value="${e.entradas[0] || ""}"></label>
-      <label><span>terminal 2 ${e.tipo === "U" ? "(−)" : "(fim)"}</span><input data-out="0" value="${e.saidas[0] || ""}"></label>
-      <div class="aviso">terminais com o mesmo rótulo ficam no mesmo nó</div>` : ""}
-    ${(e.tipo === "U" || e.tipo === "I") && e.dom === "LK" && e.par.sourceType === 400 ? `<h4>sinal de controle</h4>
-      <label><span>valor vem de</span><input id="p-sinal" value="${e.mede[0] || ""}" placeholder="rótulo do sinal" autocomplete="off"></label>
-      <div class="aviso">a fonte vale ganho × o sinal de controle com este rótulo (ex.: a saída de um CONST que o controle escreve)</div>` : ""}
-    ${e.tipo === "VOLT" ? `<h4>o que ele mede</h4><label><span>tensão do nó</span><input id="m-n1" value="${e.mede[0] || ""}"></label>
+    <h4>${escT(tr("simu.h_params"))}</h4><div id="p-params"><i>${escT(tr("simu.lendo"))}</i></div>
+    ${vars.length ? `<h4>${escT(tr("simu.h_vars_usa"))}</h4>${vars.map((v) => `<label><span>${v}</span><input data-g="${v}" value="${dados.globais[v]}"></label>`).join("")}
+      <div class="aviso">${escT(tr("simu.vars_aviso"))}</div>` : ""}
+    ${e.dom === "LK" && e.terminais.length === 2 ? `<h4>${escT(tr("simu.h_ligacoes"))}</h4>
+      <label><span>${escT(tr(e.tipo === "U" ? "simu.term1_mais" : "simu.term1_inicio"))}</span><input data-in="0" value="${e.entradas[0] || ""}"></label>
+      <label><span>${escT(tr(e.tipo === "U" ? "simu.term2_menos" : "simu.term2_fim"))}</span><input data-out="0" value="${e.saidas[0] || ""}"></label>
+      <div class="aviso">${escT(tr("simu.ligacoes_aviso"))}</div>` : ""}
+    ${(e.tipo === "U" || e.tipo === "I") && e.dom === "LK" && e.par.sourceType === 400 ? `<h4>${escT(tr("simu.h_sinal_ctl"))}</h4>
+      <label><span>${escT(tr("simu.valor_vem_de"))}</span><input id="p-sinal" value="${e.mede[0] || ""}" placeholder="${escT(tr("simu.ph_rotulo_sinal"))}" autocomplete="off"></label>
+      <div class="aviso">${escT(tr("simu.fonte_aviso"))}</div>` : ""}
+    ${e.tipo === "VOLT" ? `<h4>${escT(tr("simu.h_mede"))}</h4><label><span>${escT(tr("simu.tensao_no"))}</span><input id="m-n1" value="${e.mede[0] || ""}"></label>
       ${seletorPonta(e, 0)}
-      <label><span>menos o nó</span><input id="m-n2" value="${e.mede[1] || ""}"></label>
+      <label><span>${escT(tr("simu.menos_no"))}</span><input id="m-n2" value="${e.mede[1] || ""}"></label>
       ${seletorPonta(e, 1)}` : ""}
-    ${e.tipo === "GATE" ? `<h4>chave que ele comanda</h4><label><span>chave</span><input id="m-chave" value="${e.mede[0] || ""}" placeholder="procurar chave…" autocomplete="off"></label>
-      <div class="aviso">entrada &gt; 0,5 liga a chave; ≤ 0,5 desliga (tiristor: &gt; 0,5 dispara, e ele só bloqueia quando a corrente zera). Ex.: um CONST que o controle escreve, 0 ou 1</div>` : ""}
-    ${e.tipo === "AMP" ? `<h4>o que ele mede</h4><label><span>corrente de</span><input id="m-comp" value="${e.mede[0] || ""}" placeholder="procurar componente…" autocomplete="off"></label>` : ""}
-    ${ehTag(e) ? `<h4>o que ela marca</h4><label><span>entrada (rótulo)</span><input data-in="0" value="${e.entradas[0] || ""}" placeholder="ou ligue por conexão"></label>
-      <div class="aviso">o sinal ligado na entrada (por conexão ou pelo rótulo) vai para o /maisim/scope e para o m[…] do controle com o nome abaixo</div>` : ""}
-    ${ehSinal(e, folhaDe(e)) ? `<label class="no-scope" title="desmarcado: o sinal continua no circuito (sai por um terminal, alimenta blocos), mas não vira coluna no /maisim/scope nem m[…] no controle"><input type="checkbox" id="p-noscope" ${foraDoScope(e) ? "" : "checked"}> No scope e no controle</label>` : ""}
-    ${MEDIDOR.has(e.tipo) || ehTag(e) ? `<h4>nome no scope</h4><label><span>sinal</span><input data-out="0" value="${e.saidas[0] || ""}" placeholder="${canalScope(e)}"></label>
-      <div class="cor-canal" data-canal="${escT(canalScope(e))}"><span>cor do canal</span>${(e.tipo === "AMP" ? ["#0ea5e9", "#eab308", "#06b6d4", "#d946ef", "#22c55e", "#f97316"]
+    ${e.tipo === "GATE" ? `<h4>${escT(tr("simu.h_chave"))}</h4><label><span>${escT(tr("simu.chave"))}</span><input id="m-chave" value="${e.mede[0] || ""}" placeholder="${escT(tr("simu.ph_chave"))}" autocomplete="off"></label>
+      <div class="aviso">${tr("simu.gate_aviso_html")}</div>` : ""}
+    ${e.tipo === "AMP" ? `<h4>${escT(tr("simu.h_mede"))}</h4><label><span>${escT(tr("simu.corrente_de"))}</span><input id="m-comp" value="${e.mede[0] || ""}" placeholder="${escT(tr("simu.ph_busca"))}" autocomplete="off"></label>` : ""}
+    ${ehTag(e) ? `<h4>${escT(tr("simu.h_marca"))}</h4><label><span>${escT(tr("simu.entrada_rotulo"))}</span><input data-in="0" value="${e.entradas[0] || ""}" placeholder="${escT(tr("simu.ph_ou_conexao"))}"></label>
+      <div class="aviso">${escT(tr("simu.tag_aviso"))}</div>` : ""}
+    ${ehSinal(e, folhaDe(e)) ? `<label class="no-scope" title="${escT(tr("simu.t_noscope"))}"><input type="checkbox" id="p-noscope" ${foraDoScope(e) ? "" : "checked"}> ${escT(tr("simu.noscope"))}</label>` : ""}
+    ${MEDIDOR.has(e.tipo) || ehTag(e) ? `<h4>${escT(tr("simu.h_nome_scope"))}</h4><label><span>${escT(tr("simu.sinal"))}</span><input data-out="0" value="${e.saidas[0] || ""}" placeholder="${canalScope(e)}"></label>
+      <div class="cor-canal" data-canal="${escT(canalScope(e))}"><span>${escT(tr("simu.cor_canal"))}</span>${(e.tipo === "AMP" ? ["#0ea5e9", "#eab308", "#06b6d4", "#d946ef", "#22c55e", "#f97316"]
         : ["#eab308", "#06b6d4", "#d946ef", "#22c55e", "#0ea5e9", "#f97316"]).map((c) => `<button class="amostra${corCanal(canalScope(e), e.tipo) === c ? " ativo" : ""}" data-cor="${c}" style="--c:${c}" title="${c}"></button>`).join("")}
-        <input type="color" value="${corCanal(canalScope(e), e.tipo)}" title="outra cor"><button class="padrao" title="voltar à cor padrão">Padrão</button></div>
-      ${circuitoDoLayout() ? `<div class="no-painel" data-canal="${escT(canalScope(e))}"><label><span>seção no scope</span><select id="p-secao"></select></label>
-        <label><span>painel</span><select id="p-painel"></select></label></div>` : ""}
-      <div class="aviso">é com este nome que o sinal aparece no /maisim/scope (todo medidor vai para lá; sem nome, ${canalScope(e)})</div>` : ""}
-    ${e.dom === "CONTROL" && e.tipo !== "TERM" && !MEDIDOR.has(e.tipo) && !ehTag(e) ? `<h4>rótulos dos terminais</h4>${e.entradas.map((r, i) => `<label><span>entrada ${i + 1}</span><input data-in="${i}" value="${r}"></label>`).join("")}
-      ${e.saidas.map((r, i) => `<label><span>saída ${i + 1}</span><input data-out="${i}" value="${r}"></label>`).join("")}` : ""}
+        <input type="color" value="${corCanal(canalScope(e), e.tipo)}" title="${escT(tr("simu.t_outra_cor"))}"><button class="padrao" title="${escT(tr("simu.t_cor_padrao"))}">${escT(tr("simu.cor_padrao"))}</button></div>
+      ${circuitoDoLayout() ? `<div class="no-painel" data-canal="${escT(canalScope(e))}"><label><span>${escT(tr("simu.secao_scope"))}</span><select id="p-secao"></select></label>
+        <label><span>${escT(tr("simu.painel"))}</span><select id="p-painel"></select></label></div>` : ""}
+      <div class="aviso">${tr("simu.nome_scope_aviso", { canal: canalScope(e) })}</div>` : ""}
+    ${e.dom === "CONTROL" && e.tipo !== "TERM" && !MEDIDOR.has(e.tipo) && !ehTag(e) ? `<h4>${escT(tr("simu.h_rot_terminais"))}</h4>${e.entradas.map((r, i) => `<label><span>${escT(tr("simu.entrada_n", { n: i + 1 }))}</span><input data-in="${i}" value="${r}"></label>`).join("")}
+      ${e.saidas.map((r, i) => `<label><span>${escT(tr("simu.saida_n", { n: i + 1 }))}</span><input data-out="${i}" value="${r}"></label>`).join("")}` : ""}
     ${caixaHist()}`;
   const v = (id) => P.querySelector(id);
-  if (v("#p-nome")) v("#p-nome").onchange = (ev) => pede("RENAME", [qualificado(e), ev.target.value.trim()], `${e.nome} renomeado para ${ev.target.value.trim()}`);
-  if (v("#p-pos")) v("#p-pos").onchange = (ev) => { const [x, y] = ev.target.value.split(/[ ,;]+/).map(Number); if (isFinite(x) && isFinite(y)) pede("MOVE", [qualificado(e), x, y], `movido ${e.nome}`); };
-  if (v("#p-gira")) v("#p-gira").onclick = () => pede("ROTATE", [qualificado(e)], `girado ${e.nome}`);
-  if (v("#p-nao-gira")) v("#p-nao-gira").onclick = () => msg(NAO_GIRA);
+  if (v("#p-nome")) v("#p-nome").onchange = (ev) => pede("RENAME", [qualificado(e), ev.target.value.trim()], tr("simu.d_renomeado", { nome: e.nome, novo: ev.target.value.trim() }));
+  if (v("#p-pos")) v("#p-pos").onchange = (ev) => { const [x, y] = ev.target.value.split(/[ ,;]+/).map(Number); if (isFinite(x) && isFinite(y)) pede("MOVE", [qualificado(e), x, y], tr("simu.d_movido", { nome: e.nome })); };
+  if (v("#p-gira")) v("#p-gira").onclick = () => pede("ROTATE", [qualificado(e)], tr("simu.d_girado", { nome: e.nome }));
+  if (v("#p-nao-gira")) v("#p-nao-gira").onclick = () => msg(tr("simu.nao_gira"));
   // desativar (Marcelo, 19/10: "um check: preparado no circuito, mas desabilitado, na cor cinza"): o enabled do Gecko
-  if (v("#p-desat")) v("#p-desat").onchange = (ev) => pede("SETP", [qualificado(e), "enabled", ev.target.checked ? 0 : 1], `${e.nome} ${ev.target.checked ? "desativado" : "ativado de novo"}`);
+  if (v("#p-desat")) v("#p-desat").onchange = (ev) => pede("SETP", [qualificado(e), "enabled", ev.target.checked ? 0 : 1], tr(ev.target.checked ? "simu.d_desativado" : "simu.d_ativado", { nome: e.nome }));
   if (v("#p-apaga")) v("#p-apaga").onclick = () => apaga(e);
   if (v("#p-lib")) v("#p-lib").onclick = () => salvaNaBiblioteca(e);
   // o rótulo de fora de cada borne do subcircuito (Marcelo, 19/10: um "+Vcc" ficou preso no borne depois de apagar o fio — era
   // a ligação por rótulo, que a tela não deixava tirar): o Gecko guarda no terminal de dentro (OUTNODE no SM#terminal)
   P.querySelectorAll("[data-borne]").forEach((inp) => inp.onchange = () => {
     const r = inp.value.trim();
-    if (r && !/^[A-Za-z0-9_.+\-]+$/.test(r)) { msg(`rótulo inválido: ${r} (letras, números, _ . + -)`, "erro"); inp.value = ""; return; }
-    pede("OUTNODE", [`${e.nome}#${inp.dataset.borne}`, 0, r], `${e.nome}: borne ${nomeTerm(inp.dataset.borne)} ${r ? `ligado ao nó ${r}` : "solto (sem rótulo)"}`);
+    if (r && !/^[A-Za-z0-9_.+\-]+$/.test(r)) { msg(tr("simu.rotulo_invalido", { r }), "erro"); inp.value = ""; return; }
+    pede("OUTNODE", [`${e.nome}#${inp.dataset.borne}`, 0, r], tr(r ? "simu.d_borne_ligado" : "simu.d_borne_solto", { nome: e.nome, borne: nomeTerm(inp.dataset.borne), r }));
   });
   if (v("#p-noscope")) v("#p-noscope").onchange = async (ev) => {
     const fora = !ev.target.checked;
     try { novoEstado(await api("editor/fora", { uid: e.uid, fora })); if (typeof ligacoesMudaram === "function") ligacoesMudaram();
-      msg(fora ? `${e.nome} fora do scope e do controle (o sinal continua no circuito)` : `${e.nome} de volta ao scope e ao controle`, "ok"); }
+      msg(tr(fora ? "simu.d_fora_scope" : "simu.d_volta_scope", { nome: e.nome }), "ok"); }
     catch (er) { msg(er.message, "erro"); ev.target.checked = !ev.target.checked; }
   };
   if (v("#p-bloco")) v("#p-bloco").onchange = async (ev) => {          // os bornes acompanham (posição proporcional ao tamanho)
     const m = ev.target.value.match(/^\s*(\d+)\s*(?:[x×*,;]|\s)\s*(\d+)\s*$/i);
-    if (!m) { msg("tamanho do bloco: largura × altura, em quadrados (ex.: 8 × 5)", "erro"); return; }
-    await mudaTamanho(e, [["BlockSizeX", +m[1]], ["BlockSizeY", +m[2]]], `bloco ${nomeSub(e.nome)}: ${+m[1]} × ${+m[2]}`);
+    if (!m) { msg(tr("simu.tam_bloco_erro"), "erro"); return; }
+    await mudaTamanho(e, [["BlockSizeX", +m[1]], ["BlockSizeY", +m[2]]], tr("simu.d_bloco", { nome: nomeSub(e.nome), x: +m[1], y: +m[2] }));
   };
   if (v("#p-juntos")) v("#p-juntos").onchange = (ev) => { ed.todos = ev.target.checked; mostraProps(); };
-  if (v("#p-iguala")) v("#p-iguala").onclick = () => mudaTamanho(e, Object.keys(TAMANHO).map((p) => [p, TAMANHO[p](e)]), `tamanho do ${nomeSub(e.nome)} (${txtTamanho(e)})`, true);
+  if (v("#p-iguala")) v("#p-iguala").onclick = () => mudaTamanho(e, Object.keys(TAMANHO).map((p) => [p, TAMANHO[p](e)]), tr("simu.d_tamanho", { nome: nomeSub(e.nome), tam: txtTamanho(e) }), true);
   P.querySelectorAll("[data-g]").forEach((i) => i.onchange = () => pede("SETG", [i.dataset.g, i.value], `${i.dataset.g} = ${i.value}`));
   let ultimoMedido = null;
   const mede = async (corpo, ok, nomeAuto) => {
-    msg("aplicando…");
+    msg(tr("simu.aplicando"));
     const fs = alvos(); ok += nosSMs(fs);                       // dentro de um subcircuito: ele só, ou todos os iguais
     try { novoEstado(await api("editor/mede", Object.assign({ nome: e.nome, descr: ok, folhas: fs }, corpo))); msg(ok, "ok"); }
     catch (err) { msg(err.message, "erro"); return; }
     // nome no scope automático (i_R_1, v_a_gnd) enquanto o nome for vazio ou o automático de antes; um nome seu não muda
     const san = (x) => x.replace(/[^A-Za-z0-9_]/g, "_"), antes = san(e.tipo === "AMP" ? `i_${e.mede[0] || ""}` : `v_${e.mede[0] || ""}${e.mede[1] ? "_" + e.mede[1] : ""}`);
     if (nomeAuto && (!e.saidas[0] || e.saidas[0] === antes) && e.saidas[0] !== san(nomeAuto))
-      await pede("OUTNODE", [qualificado(e), 0, san(nomeAuto)], `${e.nome} no scope como ${san(nomeAuto)}`);
+      await pede("OUTNODE", [qualificado(e), 0, san(nomeAuto)], tr("simu.d_no_scope_como", { nome: e.nome, canal: san(nomeAuto) }));
   };
   if (v("#m-n1")) v("#m-n1").onchange = v("#m-n2").onchange = () => (`${v("#m-n1").value.trim()}|${v("#m-n2").value.trim()}` === ultimoMedido ||
-    `${v("#m-n1").value.trim()}|${v("#m-n2").value.trim()}` === `${e.mede[0] || ""}|${e.mede[1] || ""}`) ? null : (ultimoMedido = `${v("#m-n1").value.trim()}|${v("#m-n2").value.trim()}`, mede({ tipo: "V", no1: v("#m-n1").value.trim(), no2: v("#m-n2").value.trim() }, `${e.nome} mede ${v("#m-n1").value} − ${v("#m-n2").value || "0"}`, `v_${v("#m-n1").value.trim()}${v("#m-n2").value.trim() ? "_" + v("#m-n2").value.trim() : ""}`));
+    `${v("#m-n1").value.trim()}|${v("#m-n2").value.trim()}` === `${e.mede[0] || ""}|${e.mede[1] || ""}`) ? null : (ultimoMedido = `${v("#m-n1").value.trim()}|${v("#m-n2").value.trim()}`, mede({ tipo: "V", no1: v("#m-n1").value.trim(), no2: v("#m-n2").value.trim() }, tr("simu.d_mede_v", { nome: e.nome, a: v("#m-n1").value, b: v("#m-n2").value || "0" }), `v_${v("#m-n1").value.trim()}${v("#m-n2").value.trim() ? "_" + v("#m-n2").value.trim() : ""}`));
   const comps = dados.folhas[folhaAtual].elementos.filter((x) => x.dom === "LK" && x.terminais.length === 2 && x.tipo !== "VOLT" && x.tipo !== "AMP");
   if (v("#m-comp")) {
-    comBusca(v("#m-comp"), comps.map((x) => ({ v: x.nome, d: x.nome_tipo || DESCR[x.tipo] || x.tipo })));
+    comBusca(v("#m-comp"), comps.map((x) => ({ v: x.nome, d: x.nome_tipo || descrTipo(x.tipo) || x.tipo })));
     v("#m-comp").onchange = () => { const c = v("#m-comp").value.trim();
       if (!c || c === (e.mede[0] || "") || c === ultimoMedido) return;   // a busca e o navegador disparam "change": uma vez só
       ultimoMedido = c;
-      if (!comps.some((x) => x.nome === c)) { msg(`não há componente ${c} nesta folha`, "erro"); return; }
-      mede({ tipo: "I", componente: c }, `${e.nome} mede a corrente de ${c}`, `i_${c}`); };
+      if (!comps.some((x) => x.nome === c)) { msg(tr("simu.sem_componente", { c }), "erro"); return; }
+      mede({ tipo: "I", componente: c }, tr("simu.d_mede_i", { nome: e.nome, c }), `i_${c}`); };
   }
   if (v("#m-chave")) {                                   // GATE: a chave que ele comanda (desta folha)
     const chaves = dados.folhas[folhaAtual].elementos.filter((x) => ["S", "IGBT", "MOSFET", "THYR"].includes(x.tipo));
-    comBusca(v("#m-chave"), chaves.map((x) => ({ v: x.nome, d: x.nome_tipo || DESCR[x.tipo] || x.tipo })));
+    comBusca(v("#m-chave"), chaves.map((x) => ({ v: x.nome, d: x.nome_tipo || descrTipo(x.tipo) || x.tipo })));
     v("#m-chave").onchange = () => { const c = v("#m-chave").value.trim();
       if (!c || c === (e.mede[0] || "") || c === ultimoMedido) return;
       ultimoMedido = c;
-      if (!chaves.some((x) => x.nome === c)) { msg(`não há chave ${c} nesta folha`, "erro"); return; }
-      mede({ tipo: "G", componente: c }, `${e.nome} comanda ${c}`); };
+      if (!chaves.some((x) => x.nome === c)) { msg(tr("simu.sem_chave_folha", { c }), "erro"); return; }
+      mede({ tipo: "G", componente: c }, tr("simu.d_comanda", { nome: e.nome, c })); };
   }
   if (v("#p-sinal")) {                                   // rótulos de saída dos blocos de controle desta folha
     const fl = dados.folhas[folhaAtual], sinais = [...new Set(fl.elementos.filter((x) => x.dom === "CONTROL").flatMap((x) => x.saidas).concat(
       fl.fios.filter((w) => w.dom === "CONTROL").map((w) => w.rotulo)).filter(Boolean))].sort();
-    comBusca(v("#p-sinal"), sinais.map((r) => ({ v: r, d: "sinal de controle" })));
+    comBusca(v("#p-sinal"), sinais.map((r) => ({ v: r, d: tr("simu.h_sinal_ctl") })));
     let feito = e.mede[0] || "";
     v("#p-sinal").onchange = async () => { const s = v("#p-sinal").value.trim(); if (!s || s === feito) return; feito = s;
-      const fs = alvos(), ok = `${e.nome} controlada por ${s}` + nosSMs(fs); msg("aplicando…");
+      const fs = alvos(), ok = tr("simu.d_controlada", { nome: e.nome, s }) + nosSMs(fs); msg(tr("simu.aplicando"));
       try { novoEstado(await api("editor/fonte_sinal", { nome: e.nome, sinal: s, folhas: fs, descr: ok })); msg(ok, "ok"); } catch (er) { msg(er.message, "erro"); } };
   }
-  if (v("#m-n1")) { const nos = nosDaFolha(); for (const id of ["#m-n1", "#m-n2"]) comBusca(v(id), nos.map((r) => ({ v: r, d: "nó" }))); }
+  if (v("#m-n1")) { const nos = nosDaFolha(); for (const id of ["#m-n1", "#m-n2"]) comBusca(v(id), nos.map((r) => ({ v: r, d: tr("simu.no") }))); }
   // o histórico diz qual rótulo mudou (Marcelo, 22/10: só "rótulo mudado" não dizia de quem): o bloco, o campo e de quê para quê
   const rotMudou = (i, velho) => { const campo = ((i.closest("label") || {}).querySelector || (() => null)).call(i.closest("label"), "span"), novo = i.value.trim();
-    return `${e.nome}: ${campo ? campo.textContent.trim() : "rótulo"} ${velho ? `“${velho}”` : "(vazio)"} → ${novo ? `“${novo}”` : "(vazio)"}`; };
+    return `${e.nome}: ${campo ? campo.textContent.trim() : tr("simu.rotulo")} ${velho ? `“${velho}”` : tr("simu.vazio_p")} → ${novo ? `“${novo}”` : tr("simu.vazio_p")}`; };
   P.querySelectorAll("[data-in]").forEach((i) => i.onchange = () => pede("INNODE", [qualificado(e), +i.dataset.in, i.value.trim()], rotMudou(i, e.entradas[+i.dataset.in] || "")));
   P.querySelectorAll("[data-out]").forEach((i) => i.onchange = () => pede("OUTNODE", [qualificado(e), +i.dataset.out, i.value.trim()], rotMudou(i, e.saidas[+i.dataset.out] || "")));
   P.querySelectorAll("[data-ponta]").forEach((inp) => {   // onde fica a ponta (+) ou a garra (−): o campo com busca (5 sugestões; digitar filtra)
     const k = inp.dataset.ponta === "-" ? 1 : 0, no_ = e.mede[k], fl = dados.folhas[folhaAtual];
     const comps = (((dados.nos_medidos || {})[folhaAtual] || {})[no_] || []).map((c) => {
-      const el = fl.elementos.find((x) => x.nome === c.nome); return { v: c.nome, d: el ? (el.nome_tipo || DESCR[el.tipo] || el.tipo) : "" }; });
-    comBusca(inp, [{ v: "automático", d: "o primeiro ponto do nó" }, ...comps], { limite: 5, tudoAoFocar: true });
+      const el = fl.elementos.find((x) => x.nome === c.nome); return { v: c.nome, d: el ? (el.nome_tipo || descrTipo(el.tipo) || el.tipo) : "" }; });
+    const AUTO = tr("simu.automatico");                   // o "automático" do campo (no idioma de quando o painel foi montado)
+    comBusca(inp, [{ v: AUTO, d: tr("simu.auto_d") }, ...comps], { limite: 5, tudoAoFocar: true });
     const atual = ((dados.pontas || {})[canalScope(e)] || {})[inp.dataset.ponta] || "";
     inp.onchange = async () => {
-      const v = inp.value.trim(), comp = v === "automático" || v === "" ? "" : v;
+      const v = inp.value.trim(), comp = v === AUTO || v === "" ? "" : v;
       if ((comp || "") === atual) return;
-      if (comp && !comps.some((c) => c.v === comp)) { msg(`${comp} não está no nó ${no_}`, "erro"); inp.value = atual || "automático"; return; }
+      if (comp && !comps.some((c) => c.v === comp)) { msg(tr("simu.nao_esta_no", { comp, no: no_ }), "erro"); inp.value = atual || AUTO; return; }
       try { const j = await api("editor/ponta", { canal: canalScope(e), sinal: inp.dataset.ponta, componente: comp }); novoEstado(j);
-        msg(comp ? `${k ? "garra" : "ponta"} de ${canalScope(e)} em ${comp}` : `${canalScope(e)}: ${k ? "garra" : "ponta"} automática`, "ok"); }
+        msg(tr(comp ? (k ? "simu.d_garra_em" : "simu.d_ponta_em") : (k ? "simu.d_garra_auto" : "simu.d_ponta_auto"), { canal: canalScope(e), comp }), "ok"); }
       catch (er) { msg(er.message, "erro"); } };
   });
   const cc = P.querySelector(".cor-canal");
   if (cc) {                                              // a cor do canal: guardada ao lado do circuito (<nome>.cores.json) e no meta da rodada
     const muda = async (cor) => { try { const j = await api("editor/cor", { canal: cc.dataset.canal, cor }); novoEstado(j);
-      msg(cor ? `cor de ${cc.dataset.canal}: ${cor}` : `${cc.dataset.canal} volta à cor padrão`, "ok"); } catch (er) { msg(er.message, "erro"); } };
+      msg(tr(cor ? "simu.d_cor" : "simu.d_cor_padrao", { canal: cc.dataset.canal, cor }), "ok"); } catch (er) { msg(er.message, "erro"); } };
     cc.querySelectorAll("[data-cor]").forEach((b) => { b.onclick = () => muda(b.dataset.cor); });
     cc.querySelector("input[type=color]").onchange = (ev) => muda(ev.target.value);
     cc.querySelector(".padrao").onclick = () => muda("");
   }
   const np = P.querySelector(".no-painel");
   if (np) ligaNoPainel(np);
-  if (ehTag(e)) { v("#p-params").innerHTML = "<i>repassa o sinal (ganho 1 do Gecko)</i>"; return; }
+  if (ehTag(e)) { v("#p-params").innerHTML = `<i>${escT(tr("simu.tag_params"))}</i>`; return; }
   try {
     const lst = await api(`editor/params?nome=${encodeURIComponent(qualificado(e))}&dom=${encodeURIComponent(e.dom)}&typ=${e.typ}`);   // dom/typ: o identificador no arquivo (para o $)
     if (ed.sel !== e.nome) return;
-    const FONTE = [[401, "CC (constante)"], [402, "senoidal"], [400, "controlada por sinal"]];
+    const FONTE = [[401, tr("simu.fonte_cc")], [402, tr("simu.fonte_seno")], [400, tr("simu.fonte_sinal")]];
     const ligada = (q) => (q.id && e.par[q.id + "_var"]) || "";          // a variável $ que dá o valor (como no Gecko)
-    v("#p-params").innerHTML = lst.map((q) => `<label title="${q.descricao}${q.pode_var ? " · escreva $nome para usar uma variável global" : ""}"><span>${q.nome}${q.unidade ? ` [${q.unidade}]` : ""}</span>
+    v("#p-params").innerHTML = lst.map((q) => `<label title="${q.descricao}${q.pode_var ? " · " + escT(tr("simu.t_pode_var")) : ""}"><span>${q.nome}${q.unidade ? ` [${q.unidade}]` : ""}</span>
       ${q.erro ? `<i>${q.erro}</i>` : (q.nome === "type" && (e.tipo === "U" || e.tipo === "I"))
         ? `<select data-p="type">${FONTE.map(([c, r]) => `<option value="${c}" ${c === q.valor || (q.valor === 0 && c === 401) || (q.valor === 1 && c === 402) ? "selected" : ""}>${r}</option>`).join("")}</select>`
-        : ligada(q) ? `<span class="com-var"><input data-p="${q.nome}" value="${escT(ligada(q))}" class="var"><small title="o valor de ${escT(ligada(q))} (⚙ › variáveis globais); escreva um número para desligar">= ${si(q.valor, q.unidade)}</small></span>`
-        : `<input data-p="${q.nome}" value="${q.valor}">`}</label>`).join("") || "<i>sem parâmetros numéricos</i>";
+        : ligada(q) ? `<span class="com-var"><input data-p="${q.nome}" value="${escT(ligada(q))}" class="var"><small title="${escT(tr("simu.t_valor_var", { v: ligada(q) }))}">= ${si(q.valor, q.unidade)}</small></span>`
+        : `<input data-p="${q.nome}" value="${q.valor}">`}</label>`).join("") || `<i>${escT(tr("simu.sem_params"))}</i>`;
     P.querySelectorAll("[data-p]").forEach((i) => i.onchange = async () => {
       const q = lst.find((x) => x.nome === i.dataset.p), txt = i.value.trim(), fs = alvos(), onde = nosSMs(fs);
       if (txt.startsWith("$") && q && q.pode_var) {                    // $nome: liga à variável (a que não existe é criada com o valor de agora)
-        if (!NOME_VAR.test(txt)) { msg("nome da variável: $ seguido de letras, números ou _ (ex.: $Vp, $f_rede)", "erro"); i.value = ligada(q) || q.valor; return; }
+        if (!NOME_VAR.test(txt)) { msg(tr("simu.nome_var_erro"), "erro"); i.value = ligada(q) || q.valor; return; }
         const nova = !(txt in (dados.globais || {}));
         await mudaGlobal({ acao: "liga", componente: e.nome, parametro: q.nome, nome: txt, valor: q.valor, folhas: fs },
-          `${e.nome}: ${q.nome} ← ${txt}` + (nova ? ` (variável nova, ${si(q.valor, q.unidade)})` : ` = ${si(dados.globais[txt], q.unidade)}`) + onde);
+          (nova ? tr("simu.d_liga_nova", { nome: e.nome, par: q.nome, v: txt, val: si(q.valor, q.unidade) }) : `${e.nome}: ${q.nome} ← ${txt} = ${si(dados.globais[txt], q.unidade)}`) + onde);
         mostraProps(); return;
       }
-      if (txt.startsWith("$")) { msg(`${q ? q.nome : i.dataset.p}: este parâmetro não pode vir de uma variável`, "erro"); i.value = q ? q.valor : ""; return; }
+      if (txt.startsWith("$")) { msg(tr("simu.par_sem_var", { p: q ? q.nome : i.dataset.p }), "erro"); i.value = q ? q.valor : ""; return; }
       if (q && ligada(q)) {                                              // número no lugar da variável: desliga e fica com o número
-        if (txt === "" || !isFinite(Number(txt))) { msg(`${q.nome}: um número, ou $nome para uma variável global`, "erro"); i.value = ligada(q); return; }
-        await mudaGlobal({ acao: "desliga", componente: e.nome, parametro: q.nome, valor: Number(txt), folhas: fs }, `${e.nome}: ${q.nome} = ${txt} (sem ${ligada(q)})` + onde);
+        if (txt === "" || !isFinite(Number(txt))) { msg(tr("simu.par_numero_ou_var", { p: q.nome }), "erro"); i.value = ligada(q); return; }
+        await mudaGlobal({ acao: "desliga", componente: e.nome, parametro: q.nome, valor: Number(txt), folhas: fs }, tr("simu.d_desliga_var", { nome: e.nome, par: q.nome, v: txt, var: ligada(q) }) + onde);
         mostraProps(); return;
       }
       if (e.tipo === "SUBCIRCUIT" && TAMANHO[i.dataset.p]) {            // o tamanho: nos iguais também, com "mudar os N juntos"
-        if (!/^\d+$/.test(txt)) { msg(`${i.dataset.p}: um número inteiro de quadrados`, "erro"); i.value = q ? q.valor : ""; return; }
+        if (!/^\d+$/.test(txt)) { msg(tr("simu.par_inteiro", { p: i.dataset.p }), "erro"); i.value = q ? q.valor : ""; return; }
         await mudaTamanho(e, [[i.dataset.p, +txt]], `${e.nome}: ${i.dataset.p} = ${+txt}`); return;
       }
       pede("SETP", [qualificado(e), i.dataset.p, i.value], `${e.nome}: ${i.dataset.p} = ${i.value}`);
@@ -1274,21 +1276,21 @@ $("bt-editar").onclick = async () => {
 async function novoCircuito() {
   const usados = new Set([...document.querySelectorAll("#sel-modelo option")].map((o) => o.textContent.replace(/\.ipes$/, "").split("/").pop()));
   let k = 1; while (usados.has(`circuito_${k}`)) k++;
-  const r = await modal({ titulo: "Novo circuito", texto: "Uma folha em branco. O nome vale para salvar depois (salvar como: o disquete com lápis).", ok: "Criar",
-    campos: [{ nome: "nome", rotulo: "Nome do circuito", valor: `circuito_${k}`, dica: "letras, números, _ e -" }] });
+  const r = await modal({ titulo: escT(tr("simu.m_novo_circuito")), texto: escT(tr("simu.m_novo_circuito_t")), ok: escT(tr("simu.criar")),
+    campos: [{ nome: "nome", rotulo: escT(tr("simu.m_nome_circuito")), valor: `circuito_${k}`, dica: escT(tr("simu.dica_nome")) }] });   // circuito_k: o nome do arquivo
   const nome = r && r.nome.trim(); if (!nome) return;
-  if (!/^[A-Za-z0-9_\-]{1,60}$/.test(nome)) { msg("nome do circuito: letras, números, _ e -, até 60", "erro"); return; }
+  if (!/^[A-Za-z0-9_\-]{1,60}$/.test(nome)) { msg(tr("simu.nome_circuito_erro"), "erro"); return; }
   try { let j;
     try { j = await api("editor/novo", {}); }
     catch (e) {                                          // mudanças não salvas: salvar e criar, salvar como… e criar, ou descartar e criar
-      const modo = await perguntaNaoSalvo(e, "criar"); if (!modo) { msg("circuito novo cancelado", ""); return; }
+      const modo = await perguntaNaoSalvo(e, "criar"); if (!modo) { msg(tr("simu.novo_cancelado"), ""); return; }
       j = await api("editor/novo", modo === "salvou" ? {} : { modo }); }
     ed.novo = nome; ed.abertoSel = NOVO; dados = Object.assign(j, { arq: nome });
     folhaAtual = "0"; seleciona(null); novoEstado(j); ver = { x: 0, y: 0, w: 70 * G, h: 44 * G }; aplicaVer();
     if (typeof recarregaControle === "function") recarregaControle();
     preencheModelos(null, NOVO);
     const q = new URLSearchParams(location.search); q.delete("modelo"); history.replaceState(null, "", q.toString() ? "?" + q : location.pathname);
-    msg(`${nome}: folha em branco, escolha componentes na paleta`, "ok");
+    msg(tr("simu.novo_feito", { nome }), "ok");
   } catch (e) { msg(e.message, "erro"); }
 };
 // tela dividida: o /maisim/scope ao lado (dividida na vertical) ou embaixo. Abre na última rodada (ao vivo enquanto simula), com
@@ -1301,9 +1303,10 @@ function posicionaScope(lado) {
   tela.lado = lado; guardaTela();
   const b = document.body.classList; b.toggle("scope-lado", lado === "lado"); b.toggle("scope-baixo", lado === "baixo");
   $("bt-lado").classList.toggle("ativo", lado === "lado"); $("bt-baixo").classList.toggle("ativo", lado === "baixo");
-  $("divisoria").title = lado === "lado" ? "arraste para mudar a largura" : "arraste para mudar a altura";
+  tituloDivisoria();
   setTimeout(() => dados && ajusta(), 60);
 }
+function tituloDivisoria() { $("divisoria").title = tr(tela.lado === "lado" ? "simu.t_div_largura" : "simu.t_div_altura"); }
 // a doca (tela dividida) tem duas abas: o scope e o painel Controle (controle.js)
 let abaDoca = "scope";
 function marcaDoca() {
@@ -1350,45 +1353,45 @@ for (const lado of ["lado", "baixo"]) $(`bt-${lado}`).onclick = () => { posicion
 
 $("busca").oninput = () => ed.catalogo && desenhaPaleta();
 async function salvaNaBiblioteca(e) {
-  const r = await modal({ titulo: "Salvar na biblioteca", texto: `O subcircuito <b>${nomeSub(e.nome)}</b> e tudo o que tem dentro vão para
-    <b>simu/gecko/subcircuitos/</b>, com as variáveis $. Depois ele aparece na aba “Biblioteca” da paleta, para clicar ou arrastar em qualquer circuito.`,
-    campos: [{ nome: "nome", rotulo: "Nome na biblioteca", valor: "", dica: "letras, números, _ e -" }], ok: "Salvar" });
+  const r = await modal({ titulo: escT(tr("simu.m_salvar_lib")), texto: tr("simu.m_salvar_lib_t_html", { nome: nomeSub(e.nome) }),
+    campos: [{ nome: "nome", rotulo: escT(tr("simu.m_nome_lib")), valor: "", dica: escT(tr("simu.dica_nome")) }], ok: escT(tr("simu.salvar")) });
   const nome = r && r.nome.trim(); if (!nome) return;
   const corpo = { acao: "salvar", nome: e.nome, folha: folhaAtual, nome_lib: nome };
-  msg("salvando na biblioteca…");
+  msg(tr("simu.salvando_lib"));
   try { let j;
     try { j = await api("editor/biblioteca", corpo); }
-    catch (er) { if (!pedeConfirmar(er) || !(await confirma("Sobrescrever?", perguntaDe(er), "sobrescrever", true))) throw er;
+    catch (er) { if (!pedeConfirmar(er) || !(await confirma(escT(tr("simu.sobrescrever_t")), perguntaDe(er), escT(tr("simu.sobrescrever")), true))) throw er;
       j = await api("editor/biblioteca", Object.assign(corpo, { sobrescrever: true })); }
-    const s = ed.sujo; novoEstado(j); marcaSujo(s); msg(`${nomeSub(e.nome)} salvo na biblioteca: ${j.salvo}`, "ok");
+    const s = ed.sujo; novoEstado(j); marcaSujo(s); msg(tr("simu.salvo_lib", { nome: nomeSub(e.nome), arq: j.salvo }), "ok");
     await carregaBiblioteca(); recarregaModelos($("sel-modelo").value);
   } catch (er) { msg(er.message, "erro"); }
 }
 // Salvar (Ctrl+S, disquete): por cima do arquivo aberto, se ele é seu (os seus circuitos ou a biblioteca); senão, Salvar como
-function marcaSujo(s) { ed.sujo = !!s; $("bt-salvar").classList.toggle("sujo", ed.sujo); $("bt-salvar").title = ed.sujo ? "salvar (Ctrl+S) · há mudanças não salvas" : "salvar (Ctrl+S)"; }
+function marcaSujo(s) { ed.sujo = !!s; $("bt-salvar").classList.toggle("sujo", ed.sujo); $("bt-salvar").title = tr(ed.sujo ? "simu.t_salvar_sujo" : "simu.t_salvar"); }
 async function salvar() {
-  if (dados && dados.fechado) { msg("nenhum circuito aberto: não há o que salvar", "erro"); return; }
+  if (dados && dados.fechado) { msg(tr("simu.nada_salvar"), "erro"); return; }
   if (!(await garanteEdicao())) return;
   // o servidor diz se o arquivo aberto é seu; se ele não souber (reiniciado), vale o da lista que a página mostra
   const it = listaModelos.find((o) => o.arq === $("sel-modelo").value && o.pasta);
   const d = (dados && dados.dono) || (it && { pasta: it.pasta, nome: it.nome.replace(/\.ipes$/, "") }), m = d && [null, d.pasta, d.nome];
   if (ed.novo || !m) return salvarComo();
-  msg("salvando…");
-  try { const j = await api("editor/salvar", { nome: m[2], pasta: m[1], sobrescrever: true }); novoEstado(j); marcaSujo(false); msg(`salvo: ${j.salvo}`, "ok");
+  msg(tr("simu.salvando"));
+  try { const j = await api("editor/salvar", { nome: m[2], pasta: m[1], sobrescrever: true }); novoEstado(j); marcaSujo(false); msg(tr("simu.salvo", { arq: j.salvo }), "ok");
     if (m[1] === "subcircuitos") carregaBiblioteca(); }
   catch (e) { msg(e.message, "erro"); }
 }
 async function salvarComo() {
-  if (dados && dados.fechado) { msg("nenhum circuito aberto: não há o que salvar", "erro"); return false; }
-  const r = await modal({ titulo: "Salvar como", texto: "O circuito é gravado nos seus circuitos (a pasta de dados do MaiSim) e aparece na lista.",
-    campos: [{ nome: "nome", rotulo: "Nome do arquivo", valor: ed.novo || ((dados.arq || "circuito").split("/").pop().replace(/\.ipes$/, "").replace(/^\(.*\)$/, "circuito") + "_copia") }], ok: "Salvar" });
+  if (dados && dados.fechado) { msg(tr("simu.nada_salvar"), "erro"); return false; }
+  // o nome sugerido (circuito, _copia) é nome de arquivo: fica como está
+  const r = await modal({ titulo: escT(tr("simu.m_salvar_como")), texto: escT(tr("simu.m_salvar_como_t")),
+    campos: [{ nome: "nome", rotulo: escT(tr("simu.m_nome_arquivo")), valor: ed.novo || ((dados.arq || "circuito").split("/").pop().replace(/\.ipes$/, "").replace(/^\(.*\)$/, "circuito") + "_copia") }], ok: escT(tr("simu.salvar")) });
   const nome = r && r.nome.trim(); if (!nome) return false;
   const layoutAntes = circuitoDoLayout();
   try { let j;
     try { j = await api("editor/salvar", { nome }); }
-    catch (e) { if (!pedeConfirmar(e) || !(await confirma("Sobrescrever?", perguntaDe(e), "sobrescrever", true))) throw e;
+    catch (e) { if (!pedeConfirmar(e) || !(await confirma(escT(tr("simu.sobrescrever_t")), perguntaDe(e), escT(tr("simu.sobrescrever")), true))) throw e;
       j = await api("editor/salvar", { nome, sobrescrever: true }); }
-    novoEstado(j); marcaSujo(false); msg(`salvo em ${j.salvo}`, "ok"); levaLayout(layoutAntes, circuitoDoLayout());
+    novoEstado(j); marcaSujo(false); msg(tr("simu.salvo_em", { arq: j.salvo }), "ok"); levaLayout(layoutAntes, circuitoDoLayout());
     const lst = await api("modelos");                   // leitura: repete uma vez se a conexão cair
     ed.novo = null; ed.abertoSel = j.salvo; preencheModelos(lst, j.salvo);
     const q = new URLSearchParams(location.search); q.set("modelo", j.salvo); history.replaceState(null, "", "?" + q.toString());
@@ -1418,7 +1421,7 @@ function comBusca(inp, opcoes, { limite = 10, tudoAoFocar = false } = {}) {
     lista = opcoes.map((o) => [pontua(q, o.v), o]).filter(([p]) => p >= 0).sort((a, b) => b[0] - a[0]).slice(0, limite).map(([, o]) => o);
     const total = opcoes.filter((o) => pontua(q, o.v) >= 0).length;
     caixa.innerHTML = lista.map((o, k) => `<div class="sug${k === i ? " atual" : ""}" data-k="${k}"><b>${escT(o.v)}</b><small>${escT(o.d || "")}</small></div>`).join("") +
-      (total > lista.length ? `<div class="mais">+${total - lista.length}: digite mais para filtrar</div>` : "") + (lista.length ? "" : `<div class="mais">nada com “${escT(q)}”</div>`);
+      (total > lista.length ? `<div class="mais">${escT(tr("simu.digite_mais", { n: total - lista.length }))}</div>` : "") + (lista.length ? "" : `<div class="mais">${escT(tr("simu.nada_com", { q }))}</div>`);
     caixa.style.display = "";
   };
   const escolhe = (o) => { inp.value = o.v; fecha(); inp.dispatchEvent(new Event("change")); };
@@ -1445,7 +1448,10 @@ function nosDaFolha() {                              // rótulos de nó da folha
 // num terminal ou noutro fio termina (duplo clique e Enter também); Backspace tira o último canto; Esc desfaz o fio.
 // Quem liga é o Gecko: o servidor escreve o fio no arquivo e ele reabre (ver servidor.py, fio_novo).
 // LK = Leistungskreis (o circuito de potência, no Gecko)
-const NOME_DOM = { LK: "de potência", CONTROL: "de controle", THERM: "térmica" }, LADO_DOM = { LK: "no lado de potência", CONTROL: "no lado de controle", THERM: "no lado térmico" };
+// o domínio no texto (no idioma da página): nomeDom "de potência" (conexão de potência), ladoDom "no lado de potência"; outro: ""
+const nomeDom = (d) => { const k = "simu.dom_" + d; return maisimI18n.tem(k) ? tr(k) : ""; };
+const ladoDom = (d) => { const k = "simu.lado_dom_" + d; return maisimI18n.tem(k) ? tr(k) : ""; };
+const nSel = (n, m) => tr("simu.sel_resumo", { comps: tr("simu.n_comps", { n }), fios: tr("simu.n_fios", { n: m }) });   // "2 componente(s) e 1 conexão(ões)"
 const chaveFio = (w) => JSON.stringify(w.pts);
 const fioSelecionado = () => (dados && ed.fioSel && dados.folhas[folhaAtual].fios.find((w) => chaveFio(w) === ed.fioSel)) || null;
 function selecionaFio(w) { ed.sel = null; ed.fioSel = w ? chaveFio(w) : null; ed.multi.clear(); ed.multiFios.clear(); desenha(); mostraProps(); }
@@ -1472,7 +1478,7 @@ function expandeCantos(c) {
 async function ligaTerminal(e, alvo, domAlvo) {
   const domT = e.dom === "CONTROL" ? "CONTROL" : "LK";
   desenha();                                             // o terminal volta ao lugar dele (a prévia do arrasto sai)
-  if (domAlvo !== domT) { msg(`${e.nome} é ${NOME_DOM[domT]} e o ponto (${alvo}) é ${NOME_DOM[domAlvo]}: não liga`, "erro"); return; }
+  if (domAlvo !== domT) { msg(tr("simu.dom_nao_liga", { nome: e.nome, d1: nomeDom(domT), p: alvo, d2: nomeDom(domAlvo) }), "erro"); return; }
   const P = [e.x, e.y], f = dados.folhas[folhaAtual];
   const pontas = new Set(f.fios.flatMap((w) => [w.pts[0], w.pts[w.pts.length - 1]].map((q) => q.join(","))));
   for (const x of f.elementos) for (const q of x.terminais || []) pontas.add(`${q.x},${q.y}`);
@@ -1480,10 +1486,10 @@ async function ligaTerminal(e, alvo, domAlvo) {
   const caminhos = reto ? [[P, alvo]] : [[P, [alvo[0], P[1]], alvo], [P, [P[0], alvo[1]], alvo]];
   const bloqueio = (c) => expandeCantos(c).slice(1, -1).find((q) => pontas.has(q.join(",")));
   const cantos = caminhos.find((c) => !bloqueio(c));
-  if (!cantos) { msg(`não liguei ${e.nome} até (${alvo}): os caminhos passariam por (${caminhos.map(bloqueio).join(") e (")}), que ligariam junto. Ligue pela conexão (W), com os cantos`, "erro"); return; }
-  const fs = alvos(), descr = `${e.nome} ligado a (${alvo})` + nosSMs(fs);
-  msg("ligando…");
-  try { novoEstado(await api("editor/fio", { cantos, dom: domT, folhas: fs, descr })); msg(`${descr} por uma conexão (o terminal fica na borda, como no Gecko)`, "ok"); }
+  if (!cantos) { msg(tr("simu.nao_liguei", { nome: e.nome, alvo, pontos: caminhos.map(bloqueio).join(tr("simu.sep_e")) }), "erro"); return; }
+  const fs = alvos(), descr = tr("simu.d_ligado_a", { nome: e.nome, alvo }) + nosSMs(fs);
+  msg(tr("simu.ligando"));
+  try { novoEstado(await api("editor/fio", { cantos, dom: domT, folhas: fs, descr })); msg(tr("simu.d_ligado_por_fio", { descr }), "ok"); }
   catch (er) { msg(er.message, "erro"); }
 }
 function modoFio(on) {
@@ -1491,7 +1497,7 @@ function modoFio(on) {
   if (on) { escolhe(null); ed.sel = null; ed.fioSel = null; mostraProps(); }
   Object.assign(ed.fio, { modo: on, cantos: [], dom: null });
   document.body.classList.toggle("modo-fio", on); $("bt-fio").classList.toggle("ativo", on);
-  msg(on ? "modo conexão: clique num terminal para começar · W sai" : "");
+  msg(on ? tr("simu.modo_fio") : "");
   desenha();
 }
 function emL(a, b, ant) {                          // a → b: o canto do L (horizontal primeiro, ou vertical se o trecho anterior era horizontal)
@@ -1502,7 +1508,7 @@ async function cliqueFio(ev) {
   const F = ed.fio, p = grade(ev), d = pontosDeLigacao().get(p.join(","));
   if (!F.cantos.length) {
     F.cantos = [p]; F.dom = d || null; previaFio();
-    msg("conexão: clique para pôr cantos; num terminal ou noutra conexão, termina · Enter termina · Backspace desfaz · Esc desiste"); return;
+    msg(tr("simu.fio_comeca")); return;
   }
   const a = F.cantos[F.cantos.length - 1];
   if (a[0] !== p[0] || a[1] !== p[1]) F.cantos.push(...emL(a, p, F.cantos[F.cantos.length - 2]));
@@ -1513,24 +1519,24 @@ async function terminaFio() {
   const F = ed.fio, c = F.cantos;
   if (c.length < 2) { F.cantos = []; F.dom = null; previaFio(); return; }
   const fim = pontosDeLigacao().get(c[c.length - 1].join(","));
-  if (F.dom && fim && F.dom !== fim) { msg(`uma conexão ${NOME_DOM[F.dom]} não termina ${LADO_DOM[fim]}: Backspace desfaz o último canto`, "erro"); return; }
+  if (F.dom && fim && F.dom !== fim) { msg(tr("simu.fio_nao_termina", { dom: nomeDom(F.dom), lado: ladoDom(fim) }), "erro"); return; }
   const dom = F.dom || fim || "LK";
   F.cantos = []; F.dom = null; previaFio();
-  msg("ligando…");
+  msg(tr("simu.ligando"));
   if (c.some(foraDaFolha)) return;
-  const fs = alvos(), descr = `conexão ${NOME_DOM[dom]}: (${c[0]}) → (${c[c.length - 1]})` + nosSMs(fs);
+  const fs = alvos(), descr = tr("simu.d_fio", { dom: nomeDom(dom), a: c[0], b: c[c.length - 1] }) + nosSMs(fs);
   try { novoEstado(await api("editor/fio", { cantos: c, dom, folhas: fs, descr })); msg(descr, "ok"); }
   catch (e) { msg(e.message, "erro"); }
 }
 async function mudaFio(w, corpo, ok) {
-  msg("aplicando…"); const fs = alvos(); ok += nosSMs(fs);
+  msg(tr("simu.aplicando")); const fs = alvos(); ok += nosSMs(fs);
   try { novoEstado(await api("editor/fio", Object.assign({ cantos: w.pts, folhas: fs, descr: ok }, corpo))); msg(ok, "ok"); }
   catch (e) { msg(e.message, "erro"); }
 }
 async function apagaFio(w) {
   const a = w.pts[0], b = w.pts[w.pts.length - 1];
-  if (await confirma("Apagar conexão", `Apagar a conexão de (${a}) a (${b})${w.rotulo ? ` (nó <b>${w.rotulo}</b>)` : ""}?`, "Apagar", true)) {
-    ed.fioSel = null; await mudaFio(w, { acao: "apagar" }, `conexão apagada: (${a}) → (${b})`); }
+  if (await confirma(escT(tr("simu.m_apagar_fio")), tr(w.rotulo ? "simu.m_apagar_fio_rot_html" : "simu.m_apagar_fio_html", { a, b, rot: w.rotulo || "" }), escT(tr("simu.apagar")), true)) {
+    ed.fioSel = null; await mudaFio(w, { acao: "apagar" }, tr("simu.d_fio_apagado", { a, b })); }
 }
 function previaFio() {                             // o fio sendo desenhado e o ponto da grade sob o mouse (verde onde liga)
   const velho = document.getElementById("previa-fio"); if (velho) velho.remove();
@@ -1551,7 +1557,8 @@ function previaFio() {                             // o fio sendo desenhado e o 
 $("bt-fio").onclick = () => ed.ligado && modoFio(!ed.fio.modo);
 
 // ---------------------------------------------------------------- modal (no lugar dos avisos do navegador)
-function modal({ titulo, texto = "", campos = [], html = "", ok = "OK", cancelar = "Cancelar", perigo = false, largo = false, extra = [], foco = null, monta = null }) {
+// (os textos chegam prontos, em HTML; os botões padrão no idioma de agora: o padrão do parâmetro vale a cada chamada)
+function modal({ titulo, texto = "", campos = [], html = "", ok = escT(tr("simu.ok")), cancelar = escT(tr("simu.cancelar")), perigo = false, largo = false, extra = [], foco = null, monta = null }) {
   return new Promise((res) => {
     const fundo = document.createElement("div"); fundo.className = "modal-fundo";
     fundo.innerHTML = `<div class="modal${largo ? " largo" : ""}" role="dialog" aria-modal="true"><h3>${titulo}</h3>${texto ? `<p>${texto}</p>` : ""}${html}
@@ -1575,7 +1582,7 @@ function modal({ titulo, texto = "", campos = [], html = "", ok = "OK", cancelar
     setTimeout(() => ((foco && fundo.querySelector(foco)) || fundo.querySelector("input") || fundo.querySelector(".m-ok")).focus(), 0);
   });
 }
-const confirma = async (titulo, texto, ok = "OK", perigo = false) => !!(await modal({ titulo, texto, ok, perigo }));
+const confirma = async (titulo, texto, ok = escT(tr("simu.ok")), perigo = false) => !!(await modal({ titulo, texto, ok, perigo }));
 // ---------------------------------------------------------------- seleção de vários (Shift): retângulo, clique, mover, apagar,
 // copiar. As operações vão ao servidor de uma vez (um passo só no desfazer); as conexões de dentro do grupo andam junto
 const tamanhoSel = () => ed.multi.size + ed.multiFios.size;
@@ -1608,7 +1615,7 @@ function alternaSel(e, w) {                            // Shift + clique: põe o
 function abriuEspaco(j) {
   if (!j || !j.deslocado) return "";
   const [sx, sy] = j.deslocado; ver.x += sx * G; ver.y += sy * G; aplicaVer();
-  return ` · a folha do Gecko começa em (1, 1): o circuito andou ${[sx && `${sx} para a direita`, sy && `${sy} para baixo`].filter(Boolean).join(" e ")} para caber`;
+  return " · " + tr(sx && sy ? "simu.andou_db" : sx ? "simu.andou_d" : "simu.andou_b", { x: sx, y: sy });
 }
 async function moveGrupo(dg) {
   const sel = selecaoGrupo(), f = dados.folhas[folhaAtual];
@@ -1616,22 +1623,23 @@ async function moveGrupo(dg) {
   sel.nomes = sel.nomes.filter((n) => !terms.includes(n));
   const pos = f.elementos.filter((e) => sel.nomes.includes(e.nome)).map((e) => [e.x + dg[0], e.y + dg[1]]).concat(sel.fios.flat().map(([x, y]) => [x + dg[0], y + dg[1]]));
   if (pos.some(foraDaFolha)) { desenha(); return; }
-  const descr = `grupo movido (${sel.nomes.length} componente(s), ${sel.fios.length} conexão(ões)) em (${dg})` + nosSMs([folhaAtual]);
-  msg("movendo…");
+  const descr = tr("simu.d_grupo_movido", { comps: tr("simu.n_comps", { n: sel.nomes.length }), fios: tr("simu.n_fios", { n: sel.fios.length }), dg }) + nosSMs([folhaAtual]);
+  msg(tr("simu.movendo"));
   try {
     const j = await api("editor/grupo", { acao: "mover", nomes: sel.nomes, fios: sel.fios, dx: dg[0], dy: dg[1], folha: folhaAtual, descr });
     const [sx, sy] = j.deslocado || [0, 0];
     ed.multiFios = new Set(sel.fios.map((pts) => JSON.stringify(pts.map(([x, y]) => [x + dg[0] + sx, y + dg[1] + sy]))));   // as conexões andaram
-    novoEstado(j); msg(descr + abriuEspaco(j) + (terms.length ? ` · os terminais do subcircuito (${terms.join(", ")}) ficam na borda` : ""), "ok");
+    novoEstado(j); msg(descr + abriuEspaco(j) + (terms.length ? " · " + tr("simu.terms_borda", { lista: terms.join(", ") }) : ""), "ok");
   } catch (er) { msg(er.message, "erro"); desenha(); }
 }
 async function apagaGrupo() {
   const sel = selecaoGrupo();
-  if (!(await confirma("Apagar a seleção", `Apagar <b>${sel.nomes.length}</b> componente(s) e <b>${sel.fios.length}</b> conexão(ões)?` +
-    (sel.nomes.length ? `<br><small>${sel.nomes.map(escT).join(", ")}</small>` : ""), "Apagar", true))) return;
-  msg("apagando…");
-  try { const j = await api("editor/grupo", { acao: "apagar", nomes: sel.nomes, fios: sel.fios, folha: folhaAtual, descr: `apagados ${sel.nomes.length} componente(s) e ${sel.fios.length} conexão(ões)` });
-    ed.multi.clear(); ed.multiFios.clear(); novoEstado(j); msg(`apagados ${sel.nomes.length} componente(s) e ${sel.fios.length} conexão(ões)`, "ok"); }
+  if (!(await confirma(escT(tr("simu.m_apagar_sel")), tr("simu.m_apagar_sel_html", { n: sel.nomes.length, m: sel.fios.length }) +
+    (sel.nomes.length ? `<br><small>${sel.nomes.map(escT).join(", ")}</small>` : ""), escT(tr("simu.apagar")), true))) return;
+  msg(tr("simu.apagando"));
+  const descr = tr("simu.d_apagados", { sel: nSel(sel.nomes.length, sel.fios.length) });
+  try { const j = await api("editor/grupo", { acao: "apagar", nomes: sel.nomes, fios: sel.fios, folha: folhaAtual, descr });
+    ed.multi.clear(); ed.multiFios.clear(); novoEstado(j); msg(descr, "ok"); }
   catch (er) { msg(er.message, "erro"); }
 }
 async function copiaGrupo(recortar) {
@@ -1639,11 +1647,11 @@ async function copiaGrupo(recortar) {
   try {
     const j = await api("editor/grupo", { acao: "copiar", nomes: sel.nomes, fios: sel.fios, folha: folhaAtual });
     const f = dados.folhas[folhaAtual], xs = f.elementos.filter((e) => sel.nomes.includes(e.nome)).map((e) => [e.x, e.y]).concat(sel.fios.flat());
-    ed.copia = { nome: `${sel.nomes.length} componente(s)`, x: Math.min(...xs.map((p) => p[0])), y: Math.min(...xs.map((p) => p[1])), vezes: 0 };
-    const txt = `${sel.nomes.length} componente(s) e ${sel.fios.length} conexão(ões)` + (j.dentro ? ` (com os ${j.dentro} de dentro dos subcircuitos)` : "");
-    if (recortar) { await api("editor/grupo", { acao: "apagar", nomes: sel.nomes, fios: sel.fios, folha: folhaAtual, descr: `recortados ${txt}` }).then((r) => { ed.multi.clear(); ed.multiFios.clear(); novoEstado(r); });
-      msg(`recortados ${txt} · Ctrl+V cola onde está o mouse`, "ok"); }
-    else msg(`copiados ${txt} · Ctrl+V cola onde está o mouse (o canto de cima à esquerda)`, "ok");
+    ed.copia = { nome: tr("simu.n_comps", { n: sel.nomes.length }), x: Math.min(...xs.map((p) => p[0])), y: Math.min(...xs.map((p) => p[1])), vezes: 0 };
+    const txt = nSel(sel.nomes.length, sel.fios.length) + (j.dentro ? " " + tr("simu.com_dentro_grupo", { n: j.dentro }) : "");
+    if (recortar) { await api("editor/grupo", { acao: "apagar", nomes: sel.nomes, fios: sel.fios, folha: folhaAtual, descr: tr("simu.d_recortados", { txt }) }).then((r) => { ed.multi.clear(); ed.multiFios.clear(); novoEstado(r); });
+      msg(tr("simu.d_recortados", { txt }) + " · " + tr("simu.ctrlv_cola"), "ok"); }
+    else msg(tr("simu.d_copiados", { txt }) + " · " + tr("simu.ctrlv_cola_canto"), "ok");
   } catch (er) { msg(er.message, "erro"); }
 }
 // copiar e recortar: o servidor guarda o bloco (de um subcircuito, com o que tem dentro); recortar apaga em seguida (Ctrl+Z
@@ -1652,9 +1660,9 @@ async function copia(e, recortar) {
   try {
     const j = await api("editor/copiar", { nome: e.nome, folha: folhaAtual });
     ed.copia = { nome: e.nome, tipo: e.tipo, x: e.x, y: e.y, vezes: 0 };
-    const dentro = j.dentro ? ` (com os ${j.dentro} componentes de dentro)` : "";
-    if (recortar) await pede("DELETE", [qualificado(e)], `recortado ${e.nome}${dentro} · Ctrl+V cola onde está o mouse`);
-    else msg(`copiado ${e.nome}${dentro} · Ctrl+V cola onde está o mouse`, "ok");
+    const dentro = j.dentro ? " " + tr("simu.com_dentro", { n: j.dentro }) : "";
+    if (recortar) await pede("DELETE", [qualificado(e)], tr("simu.d_recortado", { nome: e.nome }) + dentro + " · " + tr("simu.ctrlv_cola"));
+    else msg(tr("simu.d_copiado", { nome: e.nome }) + dentro + " · " + tr("simu.ctrlv_cola"), "ok");
   } catch (er) { msg(er.message, "erro"); }
 }
 async function cola() {
@@ -1662,22 +1670,23 @@ async function cola() {
   let p = ed.mouse;
   if (!p) { const k = c ? ++c.vezes : 0; p = c ? [c.x + 3 * k, c.y + 3 * k] : [Math.round((ver.x + ver.w / 2) / G), Math.round((ver.y + ver.h / 2) / G)]; }
   if (foraDaFolha(p)) return;
-  msg("colando…");
+  msg(tr("simu.colando"));
   try {
     const fs = alvos();                                   // dentro de um SM com iguais ("mudar os N juntos"): cola em todos
-    const j = await api("editor/colar", { x: p[0], y: p[1], folha: folhaAtual, ...(fs.length > 1 ? { folhas: fs } : {}), descr: `colado em (${p})${nosSMs(fs)}` });
+    const j = await api("editor/colar", { x: p[0], y: p[1], folha: folhaAtual, ...(fs.length > 1 ? { folhas: fs } : {}), descr: tr("simu.d_colado_em", { p }) + nosSMs(fs) });
     const colados = [].concat(j.colado), fios = j.fios_colados || [];
     if (colados.length + fios.length > 1) { ed.sel = null; ed.multi = new Set(colados); ed.multiFios = new Set(fios.map((pts) => JSON.stringify(pts))); }
     else { ed.sel = colados[0]; ed.multi.clear(); ed.multiFios.clear(); }
     novoEstado(j);
-    msg(`colado ${colados.join(", ")}${fios.length ? ` e ${fios.length} conexão(ões)` : ""} em (${p})${nosSMs(fs)}` + (j.globais_novas && j.globais_novas.length ? ` · variáveis novas: ${j.globais_novas.join(" ")}` : ""), "ok");
+    msg(tr(fios.length ? "simu.d_colado_fios" : "simu.d_colado", { lista: colados.join(", "), fios: tr("simu.n_fios", { n: fios.length }), p }) + nosSMs(fs)
+      + (j.globais_novas && j.globais_novas.length ? " · " + tr("simu.vars_novas", { lista: j.globais_novas.join(" ") }) : ""), "ok");
     const novo = colados.length === 1 && !fios.length && dados.folhas[folhaAtual].elementos.find((x) => x.nome === colados[0]);
-    if (novo && novo.tipo === "TERM" && !naFolhaPrincipal()) await pede("MOVE", [qualificado(novo), p[0], p[1]], `colado ${colados[0]}`);   // terminal: na borda, num borne livre
+    if (novo && novo.tipo === "TERM" && !naFolhaPrincipal()) await pede("MOVE", [qualificado(novo), p[0], p[1]], tr("simu.d_colado1", { nome: colados[0] }));   // terminal: na borda, num borne livre
   } catch (er) { msg(er.message, "erro"); }
 }
 async function apaga(e) {
-  const txt = e.tipo === "TERM" ? `Apagar <b>${e.nome}</b>? O borne dele some do bloco, e a ligação de fora com ele também.` : `Apagar <b>${e.nome}</b>? As ligações por rótulo dele somem junto.`;
-  if (await confirma("Apagar componente", txt, "Apagar", true)) pede("DELETE", [qualificado(e)], `apagado ${e.nome}`);
+  const txt = tr(e.tipo === "TERM" ? "simu.m_apagar_term_html" : "simu.m_apagar_comp_html", { nome: e.nome });
+  if (await confirma(escT(tr("simu.m_apagar_comp")), txt, escT(tr("simu.apagar")), true)) pede("DELETE", [qualificado(e)], tr("simu.d_apagado", { nome: e.nome }));
 }
 
 // ---------------------------------------------------------------- menus Arquivo e Simulação
@@ -1690,12 +1699,12 @@ addEventListener("mousedown", (ev) => { if (!ev.target.closest(".menu-sup")) doc
 // fechar o circuito (Marcelo, 22/10: "para não ficar sempre um aberto"): o Gecko vazio, nada selecionado na lista; o
 // arquivo fica como foi salvo (com mudanças não salvas, pergunta como ao abrir outro)
 async function fechaCircuito() {
-  if (simulando()) { msg("simulando: pare a simulação para fechar o circuito", "erro"); return; }
+  if (simulando()) { msg(tr("simu.fechar_simulando"), "erro"); return; }
   try { let j;
     try { j = await api("editor/fechar", {}); }
-    catch (e) { const modo = await perguntaNaoSalvo(e, "fechar"); if (!modo) { msg("fechar cancelado", ""); return; }
+    catch (e) { const modo = await perguntaNaoSalvo(e, "fechar"); if (!modo) { msg(tr("simu.fechar_cancelado"), ""); return; }
       j = await api("editor/fechar", modo === "salvou" ? {} : { modo }); }
-    mostraFechado(j); msg("circuito fechado", "ok");
+    mostraFechado(j); msg(tr("simu.fechado"), "ok");
     avisa("circuito", { arq: null, outro: true, sujo: false });
   } catch (e) { msg(e.message, "erro"); }
 }
@@ -1730,28 +1739,27 @@ try { Object.assign(sim.par, JSON.parse(localStorage.getItem("maisim-simu-sim") 
 // o nome da próxima depois de guardar uma rodada: rodada_teste → rodada_teste_2 → rodada_teste_3
 const proximoNome = (n) => (/_(\d+)$/.test(n) ? n.replace(/_(\d+)$/, (_, k) => `_${+k + 1}`) : `${n}_2`).slice(0, 40);
 async function parametrosSim(aba = "sim", op = {}) {
-  const SIM = [{ nome: "dt", rotulo: "Passo de tempo Δt (s)", valor: sim.par.dt }, { nome: "tfim", rotulo: "Tempo final (s)", valor: sim.par.tfim },
-               { nome: "nome", rotulo: "Nome da rodada", valor: sim.par.nome, dica: "letras, números, _ e -" },
-               { nome: "amostras", rotulo: "Amostras guardadas (até)", valor: sim.par.amostras, dica: "o scope recebe uma amostra a cada tfim/amostras" }];
+  const SIM = [{ nome: "dt", rotulo: escT(tr("simu.m_dt")), valor: sim.par.dt }, { nome: "tfim", rotulo: escT(tr("simu.m_tfim")), valor: sim.par.tfim },
+               { nome: "nome", rotulo: escT(tr("simu.m_nome_rodada")), valor: sim.par.nome, dica: escT(tr("simu.dica_nome")) },
+               { nome: "amostras", rotulo: escT(tr("simu.m_amostras")), valor: sim.par.amostras, dica: escT(tr("simu.dica_amostras")) }];
   const comVars = !!(dados && dados.editor);
   // simulando: só para ver (Marcelo, 22/10) — as variáveis mexem no circuito na hora, e a rodada usa o do início; os
   // parâmetros da simulação travam junto (valeriam só para a próxima). Copiar o nome de uma variável continua
   const roda = sim.estado === "rodando" || sim.estado === "pausada";
   let porCima = sim.par.por_cima !== "0";
   if (op.nome) SIM.find((c) => c.nome === "nome").valor = op.nome;   // depois de guardar uma rodada: o nome da próxima
-  const r = await modal({ titulo: "Parâmetros da simulação", foco: op.nome ? 'input[name="nome"]' : null, ok: roda ? "Fechar" : "Guardar", cancelar: roda ? "" : "Cancelar", largo: comVars,
-    html: `${roda ? `<p class="m-trava">simulação rodando: só para ver — os parâmetros e as variáveis ficam travados até ela parar (a rodada usa o circuito do início)</p>` : ""}${comVars ? `<div class="m-abas" role="tablist"><button type="button" data-aba="sim">Simulação</button><button type="button" data-aba="vars">Variáveis globais ($)</button></div>` : ""}
-      <div class="m-aba" data-aba="sim"><p>Valem para a próxima vez que você iniciar (Ctrl+Enter).</p>
+  const r = await modal({ titulo: escT(tr("simu.m_param")), foco: op.nome ? 'input[name="nome"]' : null, ok: escT(tr(roda ? "simu.fechar" : "simu.guardar")), cancelar: roda ? "" : escT(tr("simu.cancelar")), largo: comVars,
+    html: `${roda ? `<p class="m-trava">${escT(tr("simu.m_trava"))}</p>` : ""}${comVars ? `<div class="m-abas" role="tablist"><button type="button" data-aba="sim">${escT(tr("simu.m_aba_sim"))}</button><button type="button" data-aba="vars">${escT(tr("simu.m_aba_vars"))}</button></div>` : ""}
+      <div class="m-aba" data-aba="sim"><p>${escT(tr("simu.m_valem"))}</p>
         ${op.aviso ? `<p class="m-guardada">${escT(op.aviso)}</p>` : ""}
         ${SIM.map((c) => `<label><span>${c.rotulo}</span><input name="${c.nome}" value="${escT(c.valor ?? "")}" ${c.dica ? `title="${c.dica}"` : ""}${roda ? " disabled" : ""}></label>`).join("")}
-        <label title="substituir: a rodada nova, depois de terminar bem, tira a anterior com o mesmo nome deste circuito (as guardadas ficam) — o disco não enche; criar outra: guarda as duas"><span>a rodada nova</span><select class="m-porcima"${roda ? " disabled" : ""}>
-          <option value="1"${porCima ? " selected" : ""}>Substitui a anterior de mesmo nome</option><option value="0"${porCima ? "" : " selected"}>Cria outra (guarda as duas)</option></select></label></div>
-      ${comVars ? `<div class="m-aba" data-aba="vars"><p>Como no Gecko: num parâmetro de componente, escreva <b>$nome</b> no lugar do número.
-        Mudar o valor aqui muda todos os componentes que a usam. Cada mudança vale na hora (Ctrl+Z desfaz).</p><div id="gv"></div></div>` : ""}`,
+        <label title="${escT(tr("simu.t_porcima"))}"><span>${escT(tr("simu.m_rodada_nova"))}</span><select class="m-porcima"${roda ? " disabled" : ""}>
+          <option value="1"${porCima ? " selected" : ""}>${escT(tr("simu.porcima_sim"))}</option><option value="0"${porCima ? "" : " selected"}>${escT(tr("simu.porcima_nao"))}</option></select></label></div>
+      ${comVars ? `<div class="m-aba" data-aba="vars"><p>${tr("simu.m_vars_html")}</p><div id="gv"></div></div>` : ""}`,
     monta: (fundo) => {
       const mostra = (a) => { fundo.querySelectorAll(".m-abas button").forEach((b) => b.classList.toggle("ativo", b.dataset.aba === a));
         fundo.querySelectorAll(".m-aba").forEach((d) => d.style.display = d.dataset.aba === a ? "" : "none");
-        fundo.querySelector(".m-ok").textContent = a === "sim" && !roda ? "Guardar" : "Fechar";
+        fundo.querySelector(".m-ok").textContent = tr(a === "sim" && !roda ? "simu.guardar" : "simu.fechar");
         const f = fundo.querySelector(`.m-aba[data-aba="${a}"] input`); if (f) setTimeout(() => f.focus(), 0); };
       fundo.querySelectorAll(".m-abas button").forEach((b) => b.onclick = () => mostra(b.dataset.aba));
       fundo.querySelector(".m-porcima").onchange = (ev) => { porCima = ev.target.value === "1"; };
@@ -1764,17 +1772,17 @@ async function parametrosSim(aba = "sim", op = {}) {
   if (["dt", "tfim", "nome", "amostras", "por_cima"].every((k) => r[k] === undefined || String(r[k]) === String(sim.par[k]))) return true;   // fechou sem mudar a simulação
   Object.assign(sim.par, r); try { localStorage.setItem("maisim-simu-sim", JSON.stringify(sim.par)); } catch (e) { /* ok */ }
   if (typeof infoTs === "function" && $("ctl-ts")) { infoTs(); infoAtraso(); }   // Ts = n × Δt no painel do controle
-  msg(`simulação: Δt ${r.dt} s, até ${r.tfim} s`, "ok"); return true;
+  msg(tr("simu.sim_par", { dt: r.dt, tfim: r.tfim }), "ok"); return true;
 }
 async function iniciaSim() {
-  if (VISTA_CODIGO) { msg("o ▶ fica na janela do circuito (é ela que roda e chama os controladores)", "erro"); return; }
+  if (VISTA_CODIGO) { msg(tr("simu.play_no_circuito"), "erro"); return; }
   if (sim.iniciando || sim.estado === "rodando" || sim.estado === "pausada") return;    // um clique só
   sim.iniciando = true; $("bt-play").disabled = true;
   try {
     if (!(await garanteEdicao())) return;
     if (typeof guardaControle === "function" && !(await guardaControle())) {            // o que está no editor é o que roda
-      msg("o controle não foi gravado (veja o painel Controle): a simulação não começou", "erro"); mostraDoca("controle"); return; }
-    msg("iniciando…");
+      msg(tr("simu.controle_nao_gravou"), "erro"); mostraDoca("controle"); return; }
+    msg(tr("simu.iniciando"));
     if (!document.body.classList.contains("com-scope") || /[?&]a=/.test($("if-scope").src)) mostraScope(true, urlScope(null));   // ao vivo
     try { const j = await api("editor/rodar", sim.par); acompanha(j); }
     catch (e) { msg(e.message, "erro"); }
@@ -1788,7 +1796,16 @@ function estadoBotoesSim() {
   $("bt-globais").disabled = roda || pausa;            // as variáveis globais mexem no circuito: não no meio da rodada
   travaCircuito(simulando());
   $("bt-play").classList.toggle("ativo", roda);
-  $("bt-play").title = pausa ? "continuar (Espaço)" : roda ? "simulando…" : "iniciar a simulação (Ctrl+Enter)";
+  sim.botoes = true; tituloPlay();
+}
+function tituloPlay() {                                 // antes do primeiro estado, o título do HTML (que também fala do continuar)
+  const st = sim.estado;
+  $("bt-play").title = tr(st === "pausada" ? "simu.t_play_continuar" : st === "rodando" ? "simu.t_play_simulando" : sim.botoes ? "simu.t_play" : "simu.t_play_ini");
+}
+// "guardar esta rodada": o título diz se a desta rodada já foi guardada
+function tituloGuardar() {
+  const b = $("bt-guardar"), j = sim.guardarJ;
+  b.title = b.classList.contains("ativo") && j ? tr("simu.t_guardada", { nome: j.nome }) : tr("simu.t_guardar");
 }
 $("bt-play").onclick = () => sim.estado === "pausada" ? controlaSim("continuar") : iniciaSim();
 $("bt-pausa").onclick = () => controlaSim("pausar");
@@ -1804,20 +1821,20 @@ function acompanha(j) {
     if (j.avisos.length > ja) { vistos = { [chave]: j.avisos.length }; try { sessionStorage.setItem("maisim-simu-avisos", JSON.stringify(vistos)); } catch (e) { /* ok */ } }
   }
   const vivo = j.estado === "rodando" || j.estado === "pausada" || j.estado === "preparando", estavaViva = sim.vivoAntes; sim.vivoAntes = vivo;
-  if (vivo && !estavaViva) { $("bt-guardar").hidden = true; sim.guardarDe = null; }   // uma rodada nova: o "guardar" é da próxima
+  if (vivo && !estavaViva) { $("bt-guardar").hidden = true; $("bt-guardar").classList.remove("ativo"); sim.guardarDe = null; tituloGuardar(); }   // uma rodada nova: o "guardar" é da próxima (o título volta: não é mais a “x” guardada)
   if (vivo && !sim.avisou) { sim.avisou = true; avisa("rodada"); } else if (!vivo) sim.avisou = false;   // a outra janela acompanha
   pg.classList.toggle("ativo", vivo); pg.classList.toggle("pausada", j.estado === "pausada");
   const dd = pg.querySelector(".sim-diodo");              // o diodo animado (claude.js), o "carregando" do MaiSim
   if (vivo && !dd.firstChild && typeof diodoIA === "function") dd.innerHTML = diodoIA(18);
   if (j.tfim) { pg.querySelector("i").style.width = `${Math.min(100, 100 * (j.t || 0) / j.tfim)}%`;
     pg.querySelector(".sim-t").textContent = `${j.estado === "pausada" ? "⏸" : "▶"} ${si(j.t || 0, "s")} / ${si(j.tfim, "s")}`; }
-  if (vivo) { if (!(sim.avisoAte > Date.now())) msg(j.estado === "pausada" ? "simulação pausada (Espaço continua)" : `simulando ${j.nome}…`); clearTimeout(sim.timer);
+  if (vivo) { if (!(sim.avisoAte > Date.now())) msg(j.estado === "pausada" ? tr("simu.sim_pausada") : tr("simu.simulando", { nome: j.nome })); clearTimeout(sim.timer);
     sim.timer = setTimeout(async () => {
       try { const r = await api("editor/rodada"); sim.falhas = 0; acompanha(r); }
       catch (e) {
         sim.falhas = (sim.falhas || 0) + 1;
-        if (sim.falhas <= 10) { msg(`sem resposta da simulação (${e.message}); tentando de novo…`, "erro"); sim.timer = setTimeout(() => acompanha(j), 500 * sim.falhas); }
-        else { msg("perdi o contato com a simulação: recarregue a página para ver o estado", "erro"); sim.estado = "desconhecido"; estadoBotoesSim();
+        if (sim.falhas <= 10) { msg(tr("simu.sim_sem_resposta", { erro: e.message }), "erro"); sim.timer = setTimeout(() => acompanha(j), 500 * sim.falhas); }
+        else { msg(tr("simu.sim_perdi"), "erro"); sim.estado = "desconhecido"; estadoBotoesSim();
           $("progresso").classList.remove("ativo"); if (typeof travaControle === "function") travaControle(false); }
       }
     }, 400); return; }
@@ -1826,23 +1843,24 @@ function acompanha(j) {
     const subst = (j.substituidas || []).reduce((a, x) => a + x.tamanho, 0);
     // curta: com dezenas de sinais (o MMC), a lista empurrava "abrir em nova aba" e "guardar" para depois do corte (…)
     const sn = j.sinais || [];
-    $("msg").innerHTML = `<span title="${escT(sn.join(", "))}">${j.estado === "fim" ? "rodada" : "rodada parada"} ${escT(j.nome)}: ${j.amostras} amostras de ${sn.length > 3 ? `${sn.length} sinais` : sn.map(escT).join(", ")} em ${j.segundos} s</span>` +
-      ` · <a href="${urlScope(j.arquivo, false)}" target="_blank">abrir em nova aba</a>${(j.substituidas || []).length ? ` · substituiu a anterior (${(subst / 1e6).toFixed(1)} MB)` : ""}`;
+    const p = { nome: j.nome, n: j.amostras, sinais: sn.length > 3 ? tr("simu.n_sinais", { n: sn.length }) : sn.join(", "), s: j.segundos };
+    $("msg").innerHTML = `<span title="${escT(sn.join(", "))}">${escT(tr(j.estado === "fim" ? "simu.fim_rodada" : "simu.fim_parada", p))}</span>` +
+      ` · <a href="${urlScope(j.arquivo, false)}" target="_blank">${escT(tr("simu.nova_aba"))}</a>${(j.substituidas || []).length ? " · " + escT(tr("simu.substituiu", { mb: (subst / 1e6).toFixed(1) })) : ""}`;
     // "guardar esta rodada": um botão do cabeçalho (na mensagem, ele ficava depois do corte "…" quando a linha é curta)
-    if (j.arquivo && sim.guardarDe !== j.arquivo) { sim.guardarDe = j.arquivo; sim.guardarJ = j; $("bt-guardar").hidden = false; $("bt-guardar").classList.remove("ativo"); }
-    $("msg").className = "ok"; anota(`${j.estado === "fim" ? "rodada" : "rodada parada"} ${j.nome}: ${j.amostras} amostras em ${j.segundos} s`, "ok");
+    if (j.arquivo && sim.guardarDe !== j.arquivo) { sim.guardarDe = j.arquivo; sim.guardarJ = j; $("bt-guardar").hidden = false; $("bt-guardar").classList.remove("ativo"); tituloGuardar(); }
+    $("msg").className = "ok"; anota(tr(j.estado === "fim" ? "simu.anota_fim" : "simu.anota_parada", p), "ok");
     if (j.arquivo) { sim.ultimo = j.arquivo; mostraScope(true, urlScope(j.arquivo)); }
-  } else if (j.estado === "erro") { msg(`a simulação não rodou: ${j.erro}`, "erro"); if (j.erro_controle && typeof mostraErroControle === "function") mostraErroControle(j); }
+  } else if (j.estado === "erro") { msg(tr("simu.sim_nao_rodou", { erro: j.erro }), "erro"); if (j.erro_controle && typeof mostraErroControle === "function") mostraErroControle(j); }
   if ((j.estado === "fim" || j.estado === "parada") && j.saida_controle !== undefined && typeof saidaControle === "function") saidaControle(j.saida_controle || "");
 }
 // guardar a rodada (Marcelo, 22/10: "caso queira comparar ou salvar um resultado"): a pasta dela ganha .guardada e a ⚙ abre
 // com o nome da próxima (rodada_teste → rodada_teste_2), para a próxima não cair por cima desta
 async function guardaRodada(j) {
   if (!j) return;
-  try { await api("editor/rodada/guardar", { arq: j.arquivo }); } catch (e) { msg(`não deu para guardar: ${e.message}`, "erro"); return; }
-  $("bt-guardar").classList.add("ativo"); $("bt-guardar").title = `“${j.nome}” guardada`;
-  msg(`rodada ${j.nome} guardada: “por cima” não a substitui (o scope e a página inicial mostram o selo)`, "ok");
-  await parametrosSim("sim", { nome: proximoNome(j.nome), aviso: `“${j.nome}” está guardada. A próxima com outro nome (ou o mesmo: ela continua guardada).` });
+  try { await api("editor/rodada/guardar", { arq: j.arquivo }); } catch (e) { msg(tr("simu.nao_guardou", { erro: e.message }), "erro"); return; }
+  $("bt-guardar").classList.add("ativo"); $("bt-guardar").title = tr("simu.t_guardada", { nome: j.nome });
+  msg(tr("simu.guardada", { nome: j.nome }), "ok");
+  await parametrosSim("sim", { nome: proximoNome(j.nome), aviso: tr("simu.guardada_aviso", { nome: j.nome }) });
 }
 async function variaveisGlobais() { if (await garanteEdicao()) return parametrosSim("vars"); }
 const NOME_VAR = /^\$[A-Za-z_][A-Za-z0-9_]{0,39}$/;
@@ -1853,7 +1871,7 @@ function usosGlobal(v) {                               // "U.1.uMAX" de cada par
   return u;
 }
 async function mudaGlobal(corpo, ok) {                 // nova / apaga / liga / desliga (o servidor escreve no arquivo e o Gecko reabre)
-  msg("aplicando…");
+  msg(tr("simu.aplicando"));
   try { const j = await api("editor/variavel", Object.assign({ descr: ok }, corpo)); novoEstado(j); msg(ok, "ok"); return true; }
   catch (e) { msg(e.message, "erro"); return false; }
 }
@@ -1861,18 +1879,18 @@ function listaGlobais(caixa, travada = false) {       // a aba "variáveis globa
   const g = Object.entries(dados.globais || {}).sort(([a], [b]) => a.localeCompare(b, undefined, { sensitivity: "base" }));
   const sem = g.filter(([k]) => !usosGlobal(k).length).map(([k]) => k);
   caixa.innerHTML = `<div class="gv-lista">${g.map(([k, v]) => { const u = usosGlobal(k);
-      return `<div class="gv"><span class="gv-nome"><code>${escT(k)}</code><button type="button" class="gv-copia" data-copia="${escT(k)}" title="copiar ${escT(k)} (cole no parâmetro de um componente)" aria-label="copiar ${escT(k)}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M3.5 10.5h-1v-8h8v1"/></svg></button></span><input data-g="${escT(k)}" value="${v}" data-enter="proprio" aria-label="valor de ${escT(k)}">
-        <small title="${escT(u.join("\n") || "nenhum componente usa")}">${u.length ? `${u.length} uso${u.length > 1 ? "s" : ""}` : "sem uso"}</small>
-        <button type="button" class="gv-apaga" data-apaga="${escT(k)}" data-usos="${u.length}" title="apagar ${escT(k)}${u.length ? ` (os ${u.length} parâmetros que a usam ficam com o valor dela)` : ""}">×</button></div>`; }).join("")
-      || `<div class="t">nenhuma variável neste circuito</div>`}</div>
-    <div class="gv nova"><input id="gv-nome" placeholder="$nome" data-enter="proprio" autocomplete="off" aria-label="nome da variável nova">
-      <input id="gv-valor" placeholder="valor" data-enter="proprio" aria-label="valor da variável nova"><button type="button" id="gv-cria">Criar</button></div>
-    ${sem.length ? `<button type="button" id="gv-limpa" class="gv-limpa" title="${escT(sem.join(", "))}">Apagar as ${sem.length} que nenhum componente usa</button>` : ""}`;
+      return `<div class="gv"><span class="gv-nome"><code>${escT(k)}</code><button type="button" class="gv-copia" data-copia="${escT(k)}" title="${escT(tr("simu.t_copiar_var", { k }))}" aria-label="${escT(tr("simu.a_copiar_var", { k }))}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M3.5 10.5h-1v-8h8v1"/></svg></button></span><input data-g="${escT(k)}" value="${v}" data-enter="proprio" aria-label="${escT(tr("simu.a_valor_var", { k }))}">
+        <small title="${escT(u.join("\n") || tr("simu.nenhum_usa"))}">${escT(u.length ? tr("simu.n_usos", { n: u.length }) : tr("simu.sem_uso"))}</small>
+        <button type="button" class="gv-apaga" data-apaga="${escT(k)}" data-usos="${u.length}" title="${escT(u.length ? tr("simu.t_apagar_var_usos", { k, n: u.length }) : tr("simu.t_apagar_var", { k }))}">×</button></div>`; }).join("")
+      || `<div class="t">${escT(tr("simu.sem_vars"))}</div>`}</div>
+    <div class="gv nova"><input id="gv-nome" placeholder="${escT(tr("simu.ph_var_nome"))}" data-enter="proprio" autocomplete="off" aria-label="${escT(tr("simu.a_var_nome"))}">
+      <input id="gv-valor" placeholder="${escT(tr("simu.ph_var_valor"))}" data-enter="proprio" aria-label="${escT(tr("simu.a_var_valor"))}"><button type="button" id="gv-cria">${escT(tr("simu.criar"))}</button></div>
+    ${sem.length ? `<button type="button" id="gv-limpa" class="gv-limpa" title="${escT(sem.join(", "))}">${escT(tr("simu.limpa_vars", { n: sem.length }))}</button>` : ""}`;
   const relista = () => listaGlobais(caixa, travada);
   if (travada) caixa.querySelectorAll("input, button:not([data-copia])").forEach((x) => { x.disabled = true; });
   caixa.querySelectorAll("input[data-g]").forEach((i) => {
     const vale = async () => { const k = i.dataset.g, v = i.value.trim(); if (v === "" || Number(v) === dados.globais[k]) return;
-      if (!isFinite(Number(v))) { msg(`${k}: o valor é um número (ex.: 325, 50, 1e-3)`, "erro"); return; }
+      if (!isFinite(Number(v))) { msg(tr("simu.valor_numero", { k }), "erro"); return; }
       await pede("SETG", [k, v], `${k} = ${v}`); };
     i.onchange = vale; i.onkeydown = (ev) => { if (ev.key === "Enter") { ev.preventDefault(); i.blur(); } };
   });
@@ -1884,25 +1902,25 @@ function listaGlobais(caixa, travada = false) {       // a aba "variáveis globa
     catch (e) { const ta = document.createElement("textarea"); ta.value = k; document.body.appendChild(ta); ta.select();
       try { ok = document.execCommand("copy"); } catch (e2) { ok = false; } ta.remove(); }
     b.classList.toggle("copiado", ok); setTimeout(() => b.classList.remove("copiado"), 1200);
-    msg(ok ? `${k} copiado: cole no parâmetro de um componente` : `não deu para copiar ${k}: selecione o nome e copie`, ok ? "ok" : "erro");
+    msg(tr(ok ? "simu.var_copiada" : "simu.var_nao_copiou", { k }), ok ? "ok" : "erro");
   });
   caixa.querySelectorAll("[data-apaga]").forEach((b) => b.onclick = async () => {
     const k = b.dataset.apaga, n = +b.dataset.usos;
-    if (n && !b.classList.contains("confirma")) { b.classList.add("confirma"); b.textContent = "apagar?"; b.title = `os ${n} parâmetros que usam ${k} ficam com o valor dela (${dados.globais[k]})`; return; }
-    if (await mudaGlobal({ acao: "apaga", nome: k }, `variável ${k} apagada` + (n ? ` (os ${n} parâmetros ficam com ${dados.globais[k]})` : ""))) relista();
+    if (n && !b.classList.contains("confirma")) { b.classList.add("confirma"); b.textContent = tr("simu.apagar_q"); b.title = tr("simu.t_apagar_var_conf", { n, k, v: dados.globais[k] }); return; }
+    if (await mudaGlobal({ acao: "apaga", nome: k }, n ? tr("simu.d_var_apagada_usos", { k, n, v: dados.globais[k] }) : tr("simu.d_var_apagada", { k }))) relista();
   });
   const cria = async () => {
     let k = caixa.querySelector("#gv-nome").value.trim(); const v = caixa.querySelector("#gv-valor").value.trim();
     if (k && !k.startsWith("$")) k = "$" + k;
-    if (!NOME_VAR.test(k)) { msg("nome da variável: $ seguido de letras, números ou _ (ex.: $Vp, $f_rede)", "erro"); caixa.querySelector("#gv-nome").focus(); return; }
-    if (v === "" || !isFinite(Number(v))) { msg(`${k}: o valor é um número (ex.: 325, 50, 1e-3)`, "erro"); caixa.querySelector("#gv-valor").focus(); return; }
-    if (await mudaGlobal({ acao: "nova", nome: k, valor: Number(v) }, `variável ${k} = ${v} criada`)) { relista(); caixa.querySelector("#gv-nome").focus(); }
+    if (!NOME_VAR.test(k)) { msg(tr("simu.nome_var_erro"), "erro"); caixa.querySelector("#gv-nome").focus(); return; }
+    if (v === "" || !isFinite(Number(v))) { msg(tr("simu.valor_numero", { k }), "erro"); caixa.querySelector("#gv-valor").focus(); return; }
+    if (await mudaGlobal({ acao: "nova", nome: k, valor: Number(v) }, tr("simu.d_var_criada", { k, v }))) { relista(); caixa.querySelector("#gv-nome").focus(); }
   };
   caixa.querySelector("#gv-cria").onclick = cria;
   caixa.querySelector("#gv-nome").onkeydown = (ev) => { if (ev.key === "Enter") { ev.preventDefault(); caixa.querySelector("#gv-valor").focus(); } };
   caixa.querySelector("#gv-valor").onkeydown = (ev) => { if (ev.key === "Enter") { ev.preventDefault(); cria(); } };
   const lp = caixa.querySelector("#gv-limpa");
-  if (lp) lp.onclick = async () => { if (await mudaGlobal({ acao: "apaga", nomes: sem }, `${sem.length} variáveis sem uso apagadas`)) relista(); };
+  if (lp) lp.onclick = async () => { if (await mudaGlobal({ acao: "apaga", nomes: sem }, tr("simu.d_vars_limpas", { n: sem.length }))) relista(); };
 }
 addEventListener("keydown", (ev) => {      // atalhos que o navegador não usa: Ctrl+Enter inicia; Espaço pausa e continua
   if (document.querySelector(".modal-fundo") || (ev.target.closest && ev.target.closest("input, select, textarea, [contenteditable], #ctl-editor"))) return;
@@ -1954,9 +1972,9 @@ function icone(it) {
 
 // ---------------------------------------------------------------- carregar
 async function carrega(arq) {
-  $("erro").textContent = ""; $("svg").innerHTML = ""; $("info").textContent = "lendo o modelo…";
+  $("erro").textContent = ""; $("svg").innerHTML = ""; $("info").textContent = tr("simu.lendo_modelo");
   let j; try { j = await api("circuito?arq=" + encodeURIComponent(arq)); }   // leitura: repete uma vez se a conexão cair
-  catch (e) { $("erro").textContent = e.message || "erro ao ler o modelo"; $("info").textContent = ""; return; }
+  catch (e) { $("erro").textContent = e.message || tr("simu.erro_ler_modelo"); $("info").textContent = ""; return; }
   dados = j; folhaAtual = "0"; desenha(); ajusta();
   try { localStorage.setItem("maisim-simu-modelo", arq); } catch (e) { /* ok */ }
   const q = new URLSearchParams(location.search); q.set("modelo", arq); history.replaceState(null, "", "?" + q.toString());
@@ -1968,7 +1986,7 @@ function estadoVer() {
   for (const [id, k] of CAMADAS) $(id).classList.toggle("ativo", mostrar[k]);
   const n = CAMADAS.filter(([, k]) => mostrar[k]).length, o = $("bt-tudo");
   o.classList.toggle("ativo", n === CAMADAS.length); o.classList.toggle("fechado", n === 0); o.classList.toggle("misto", n > 0 && n < CAMADAS.length);
-  o.title = n === CAMADAS.length ? "esconder tudo: controle, rótulos, medições e corrente" : "mostrar tudo: controle, rótulos, medições e corrente";
+  o.title = tr(n === CAMADAS.length ? "simu.t_esconder_tudo" : "simu.t_mostrar_tudo");
 }
 for (const [id, k] of CAMADAS) $(id).onclick = () => { mostrar[k] = !mostrar[k]; estadoVer(); desenha(); };
 $("bt-tudo").onclick = () => { const todas = CAMADAS.every(([, k]) => mostrar[k]); for (const [, k] of CAMADAS) mostrar[k] = !todas; estadoVer(); desenha(); };
@@ -1984,7 +2002,7 @@ let listaModelos = [];                           // a última lista do servidor:
 function preencheModelos(lst, valor) {          // grupos: o circuito novo (se houver) e os do servidor, na ordem dele
   if (lst) listaModelos = lst;
   const grupos = [...new Set(listaModelos.map((o) => o.grupo))];
-  $("sel-modelo").innerHTML = (ed.novo ? `<optgroup label="novo"><option value="${NOVO}">✱ ${ed.novo} (novo, não salvo)</option></optgroup>` : "") +
+  $("sel-modelo").innerHTML = (ed.novo ? `<optgroup label="${escT(tr("simu.grupo_novo"))}"><option value="${NOVO}">${tr("simu.op_novo", { nome: ed.novo })}</option></optgroup>` : "") +
     grupos.map((g) => `<optgroup label="${escT(g)}">${listaModelos.filter((o) => o.grupo === g).map((o) => `<option value="${escT(o.arq)}">${escT(o.nome)}</option>`).join("")}</optgroup>`).join("");
   if (valor) $("sel-modelo").value = valor;
   mostraModelo();
@@ -1992,18 +2010,18 @@ function preencheModelos(lst, valor) {          // grupos: o circuito novo (se h
 // o modelo aberto, num botão: clicar abre a lista com busca. O <select> escondido guarda a escolha.
 function mostraModelo() {
   const o = $("sel-modelo").selectedOptions[0];
-  $("bt-modelo").querySelector("span").textContent = o ? o.textContent : "nenhum circuito aberto";
+  $("bt-modelo").querySelector("span").textContent = o ? o.textContent : tr("simu.nenhum_aberto");
 }
 async function abrirModelo() {
-  let lst; try { lst = await api("modelos"); } catch (e) { msg(`não consegui listar os modelos: ${e.message}`, "erro"); return; }
-  const itens = (ed.novo ? [{ v: NOVO, t: `✱ ${ed.novo} (novo, não salvo)`, g: "novo" }] : []).concat(
+  let lst; try { lst = await api("modelos"); } catch (e) { msg(tr("simu.nao_listou", { erro: e.message }), "erro"); return; }
+  const itens = (ed.novo ? [{ v: NOVO, t: tr("simu.op_novo", { nome: ed.novo }), g: tr("simu.grupo_novo") }] : []).concat(
     lst.map((o) => ({ v: o.arq, t: o.nome, apagavel: o.apagavel, g: o.grupo, bib: o.pasta === "subcircuitos" })));
   const atual = $("sel-modelo").value;
   const fundo = document.createElement("div"); fundo.className = "modal-fundo";
-  fundo.innerHTML = `<div class="modal largo abrir" role="dialog" aria-modal="true"><h3>Abrir</h3>
-    <p>Os <b>exemplos</b> vêm com o MaiSim; os <b>seus circuitos</b> (o que você salva) e a <b>biblioteca</b> ficam na pasta de dados; outras pastas entram pela configuração (MAISIM_PASTAS_CIRCUITOS).</p>
-    <input class="busca-abrir" placeholder="procurar circuito…" autocomplete="off"><div class="lista-abrir"></div>
-    <div class="modal-botoes"><button class="m-cancela">Cancelar</button></div></div>`;
+  fundo.innerHTML = `<div class="modal largo abrir" role="dialog" aria-modal="true"><h3>${escT(tr("simu.m_abrir"))}</h3>
+    <p>${tr("simu.m_abrir_t_html")}</p>
+    <input class="busca-abrir" placeholder="${escT(tr("simu.ph_busca_circuito"))}" autocomplete="off"><div class="lista-abrir"></div>
+    <div class="modal-botoes"><button class="m-cancela">${escT(tr("simu.cancelar"))}</button></div></div>`;
   document.body.appendChild(fundo);
   const inp = fundo.querySelector(".busca-abrir"), caixa = fundo.querySelector(".lista-abrir");
   let vis = [], i = 0;
@@ -2013,9 +2031,9 @@ async function abrirModelo() {
     i = Math.max(0, Math.min(i, vis.length - 1));
     let g = null;
     caixa.innerHTML = vis.map((o, k) => (!q && o.g !== g ? `<div class="grupo">${(g = o.g)}</div>` : "") +
-      `<div class="op${k === i ? " atual" : ""}${o.v === atual ? " aberto" : ""}" data-k="${k}">${escT(o.t)}${o.v === atual ? " <small>aberto</small>" : ""}` +
-      (o.apagavel ? `<button class="apaga-arq" data-k="${k}" title="apagar (vai para a .lixeira da pasta)">🗑</button>` : "") + `</div>`).join("") ||
-      `<div class="vazio">nada com “${escT(q)}”</div>`;
+      `<div class="op${k === i ? " atual" : ""}${o.v === atual ? " aberto" : ""}" data-k="${k}">${escT(o.t)}${o.v === atual ? ` <small>${escT(tr("simu.aberto_marca"))}</small>` : ""}` +
+      (o.apagavel ? `<button class="apaga-arq" data-k="${k}" title="${escT(tr("simu.t_apagar_arq"))}">🗑</button>` : "") + `</div>`).join("") ||
+      `<div class="vazio">${escT(tr("simu.nada_com", { q }))}</div>`;
     const a = caixa.querySelector(".op.atual"); if (a) a.scrollIntoView({ block: "nearest" });
   };
   const fecha = (o) => {
@@ -2035,11 +2053,11 @@ async function abrirModelo() {
     if (ap) {                                          // apagar: confirma num modal por cima e vai para a .lixeira
       e.stopPropagation(); const o = vis[+ap.dataset.k];
       removeEventListener("keydown", tecla, true);
-      const sim = await confirma("Apagar arquivo", `Apagar <b>${escT(o.t)}</b>? Ele vai para a .lixeira da pasta (dá para recuperar).`, "Apagar", true);
+      const sim = await confirma(escT(tr("simu.m_apagar_arq")), tr("simu.m_apagar_arq_html", { nome: o.t }), escT(tr("simu.apagar")), true);
       addEventListener("keydown", tecla, true);
       if (!sim) return;
       try { const j = await api("editor/apagar_arquivo", { arq: o.v }); itens.splice(itens.indexOf(o), 1); desenhaLista();
-        msg(`apagado: ${j.apagado} (na lixeira: ${j.lixeira})`, "ok"); if (o.bib) carregaBiblioteca(); recarregaModelos($("sel-modelo").value); }
+        msg(tr("simu.arq_apagado", { arq: j.apagado, lixeira: j.lixeira }), "ok"); if (o.bib) carregaBiblioteca(); recarregaModelos($("sel-modelo").value); }
       catch (er) { msg(er.message, "erro"); }
       return;
     }
@@ -2054,7 +2072,7 @@ $("bt-salvar").onclick = () => salvar();
 async function recarregaModelos(valor) { preencheModelos(await api("modelos"), valor); }
 $("sel-modelo").onchange = async (e) => {
   if (e.target.value === NOVO) return;
-  if (ed.novo && !(await confirma("Circuito novo não salvo", `O circuito <b>${ed.novo}</b> não foi salvo. Abrir outro modelo o descarta.`, "Descartar", true))) {
+  if (ed.novo && !(await confirma(escT(tr("simu.novo_nao_salvo")), tr("simu.abrir_descarta_html", { nome: ed.novo }), escT(tr("simu.descartar")), true))) {
     e.target.value = NOVO; mostraModelo(); return; }
   ed.novo = null; await recarregaModelos(e.target.value);
   ed.ligado ? liga(true) : carrega(e.target.value);
@@ -2096,7 +2114,7 @@ $("sel-modelo").onchange = async (e) => {
     await ACOES.novo();
   }
   if (VISTA_CODIGO) {                                    // a janela do código: o painel do controle e o aviso de que está aberta
-    $("titulo-pagina").textContent = "código"; tituloCodigo();
+    $("titulo-pagina").textContent = tr("simu.titulo_codigo"); tituloCodigo();
     mostraDoca("controle");
     // o nome da janela: o "ir para lá" do simu acha esta (aberta pelo trilho); se ela for a outra página, ele a traz de volta
     let saiu = false;                                    // fechando, o "escondida" (que vem depois) não a traz de volta
@@ -2107,7 +2125,7 @@ $("sel-modelo").onchange = async (e) => {
   }
 })();
 // o título da janela do código: o circuito a que ela está ligada (sem o cabeçalho, é onde aparece)
-function tituloCodigo() { if (VISTA_CODIGO) document.title = `código · ${($("sel-modelo").value || "").split("/").pop() || "sem circuito"}`; }
+function tituloCodigo() { if (VISTA_CODIGO) document.title = tr("simu.titulo_codigo_de", { arq: ($("sel-modelo").value || "").split("/").pop() || tr("simu.sem_circuito") }); }
 // o que vem da outra janela
 // as janelas à parte (o código, o scope) avisam a cada 3 s e, ao fechar, dizem; cada uma conta por si (duas abertas, fechar
 // uma não devolve a coluna). Sem notícia, a janela fechou: 8 s, ou 2,5 min se ela está escondida (o navegador atrasa os avisos
@@ -2125,7 +2143,7 @@ function marcaFora(tipo, de, on, oculto) {
 function irPara(tipo, nome, url, eLa) {
   const w = window.open("", nome); if (!w) return;
   let vazia = true, la = false; try { vazia = w.location.href === "about:blank"; la = !vazia && eLa(w.location); } catch (e) { vazia = false; }
-  if (vazia && fora[tipo].size) { w.close(); msg(`${tipo === "scope" ? "o scope" : "o código"} está aberto em outra aba do navegador: vá até ela`, "ok"); return; }
+  if (vazia && fora[tipo].size) { w.close(); msg(tr(tipo === "scope" ? "simu.scope_outra_aba" : "simu.codigo_outra_aba"), "ok"); return; }
   if (!la) w.location.href = url;
   w.focus();
 }
@@ -2157,3 +2175,23 @@ addEventListener("storage", (ev) => {                   // Δt e tempo final mud
   try { Object.assign(sim.par, JSON.parse(ev.newValue || "{}")); } catch (e) { /* ok */ }
   if (typeof infoTs === "function" && $("ctl-ts")) { infoTs(); infoAtraso(); }
 });
+// o idioma mudou (o PT/EN do trilho, nesta janela ou noutra): o que este arquivo escreve na página volta no idioma novo (o HTML
+// estático o aplica() já trocou). A linha de mensagens e o histórico ficam como foram escritos
+maisimI18n.aoMudar(() => {
+  titulosCabecalho(); titulosPaineis(); tituloDivisoria(); estadoVer(); textosRede();
+  const op = $("sel-modelo").querySelector(`option[value="${NOVO}"]`);   // o circuito novo, na lista escondida e no botão do modelo
+  if (op && ed.novo) { op.textContent = tr("simu.op_novo", { nome: ed.novo }); if (op.parentElement) op.parentElement.label = tr("simu.grupo_novo"); }
+  mostraModelo();
+  if (dados) desenha();                                  // o desenho, a linha de informação, a trilha e a faixa do SM
+  if (ed.catalogo) desenhaPaleta();
+  if (ed.ligado) mostraProps();                         // o painel da direita (e o histórico)
+  if (VISTA_CODIGO) { $("titulo-pagina").textContent = tr("simu.titulo_codigo"); tituloCodigo(); }
+});
+// os títulos do cabeçalho que este arquivo escreve (o cadeado, o salvar, o ▶, o guardar): já na carga, no idioma da página
+// (o HTML traz o português); depois, a cada troca de idioma
+function titulosCabecalho() {
+  $("bt-editar").title = tr($("bt-editar").classList.contains("ativo") ? "simu.t_cadeado_aberto" : "simu.t_cadeado_fechado");
+  $("bt-salvar").title = tr(ed.sujo ? "simu.t_salvar_sujo" : "simu.t_salvar");
+  tituloPlay(); tituloGuardar();
+}
+titulosCabecalho();
