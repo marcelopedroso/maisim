@@ -10,6 +10,9 @@ O MaiSim roda no seu navegador, na sua máquina, com o [GeckoCIRCUITS](https://g
 como motor de simulação. Você monta o circuito, escreve o código de controle em Python, simula e mede, e pode pedir a
 um assistente de IA (Claude Code ou Google Antigravity) que vê o circuito, o código de controle e as rodadas.
 
+> A interface é em português e em inglês: na primeira vez segue o idioma do navegador, e o botão PT/EN no pé do menu
+> lateral troca.
+
 | Módulo | O que faz | Documentação |
 |---|---|---|
 | **simu** (`/maisim/simu`) | o editor de circuitos (paleta, fios, subcircuitos, variáveis globais), o controle em Python amostrado a cada Ts, as rodadas e a conversa com a IA | [`simu/LEIA.md`](simu/LEIA.md), [`simu/GUIA_CONTROLE.md`](simu/GUIA_CONTROLE.md) |

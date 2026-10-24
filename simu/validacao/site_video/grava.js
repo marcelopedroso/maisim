@@ -9,13 +9,16 @@ fs.rmSync(DIR, { recursive: true, force: true }); fs.mkdirSync(DIR, { recursive:
 const LAYOUT = { colunas: 1, indice: { aberto: false, unica: false, secao: -1 }, itens: [
   { secao: "Buck" },
   { titulo: "v_o (V) e i_L (A)", sinais: ["v_o", "i_L"], altura: 330, largura: 1, yFixo: [-2, 40] }] };   // a escala vertical fixa: a curva não "pula"
+// o idioma do vídeo: português (o locale e o maisim-lingua guardado); MAISIM_VIDEO_LINGUA=en grava em inglês
+const LINGUA = process.env.MAISIM_VIDEO_LINGUA === "en" ? "en" : "pt";
 (async () => {
   const b = await chromium.launch();
-  const ctx = await b.newContext({ viewport: { width: 1440, height: 810 }, deviceScaleFactor: 1, colorScheme: "light" });
-  await ctx.addInitScript((lay) => { try {
-    localStorage.setItem("maisim-tema", "claro"); localStorage.setItem("maisim-simu-paineis", JSON.stringify({ paleta: true, props: true }));
+  const ctx = await b.newContext({ viewport: { width: 1440, height: 810 }, deviceScaleFactor: 1, colorScheme: "light",
+    locale: LINGUA === "en" ? "en-US" : "pt-BR" });
+  await ctx.addInitScript(([lay, lingua]) => { try {
+    localStorage.setItem("maisim-lingua", lingua); localStorage.setItem("maisim-tema", "claro"); localStorage.setItem("maisim-simu-paineis", JSON.stringify({ paleta: true, props: true }));
     localStorage.setItem("maisim-scope-layout-v3", JSON.stringify(lay)); localStorage.setItem("maisim-simu-sim", JSON.stringify({ nome: "buck" }));
-    localStorage.setItem("maisim-escala", "1"); } catch (e) {} }, LAYOUT);
+    localStorage.setItem("maisim-escala", "1"); } catch (e) {} }, [LAYOUT, LINGUA]);
   const pg = await ctx.newPage(); pg.on("pageerror", (e) => console.log("erro:", e.message));
   await pg.goto("http://localhost:7200/maisim/simu/?modelo=" + encodeURIComponent("exemplos/exemplo_buck.ipes"));
   for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof dados !== "undefined" && dados && dados.editor)); k++) { if (await pg.$(".modal .m-ok")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }

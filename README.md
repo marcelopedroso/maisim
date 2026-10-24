@@ -10,7 +10,9 @@ MaiSim runs in your browser, on your own machine, with [GeckoCIRCUITS](https://g
 as its simulation engine. You build the circuit, write the control code in Python, run and measure, and you can ask an
 AI assistant (Claude Code or Google Antigravity) that sees the circuit, the control code and the runs.
 
-> The documentation inside the modules (the `LEIA.md` files) and the user interface are in Portuguese for now.
+> The user interface is in English and Brazilian Portuguese: it follows your browser's language the first time, and the
+> PT/EN button at the foot of the side menu switches it. The documentation inside the modules (the `LEIA.md` files) is
+> in Portuguese.
 
 | Module | What it does | Docs |
 |---|---|---|

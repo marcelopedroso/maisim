@@ -167,7 +167,7 @@
       + (comEscala() ? `<div class="escala"><button class="item mais" type="button" aria-label="${tr("nav.maior")}">+</button>
       <span class="pct"></span><button class="item menos" type="button" aria-label="${tr("nav.menor")}">−</button></div>` : "")
       + `<button class="item lingua" type="button" hidden></button><button class="item tema" type="button"></button>`);
-    const bl = nav.querySelector(".lingua");             // PT/EN: mostra o outro idioma (o do clique); vale para todas as janelas
+    const bl = nav.querySelector(".lingua");             // PT/EN: mostra o idioma de agora; o clique troca pelo outro, em todas as janelas
     bl.addEventListener("click", () => { if (trocaLingua()) I().muda(I().lingua() === "pt" ? "en" : "pt"); });
     if (comEscala()) { nav.querySelector(".mais").addEventListener("click", () => mudaEscala(1)); nav.querySelector(".menos").addEventListener("click", () => mudaEscala(-1)); }
     nav.querySelector(".item.ia").addEventListener("click", (e) => {   // no simu: a janela das contas na hora
@@ -197,11 +197,11 @@
     document.documentElement.style.removeProperty("--maisim-nav-w");
     window.dispatchEvent(new Event("resize"));
   }
-  // o idioma: o botão (o outro idioma, para o clique) e os rótulos do trilho, de novo quando muda (aqui ou noutra janela)
+  // o idioma: o botão (o idioma de agora; Marcelo, 24/10: "mostrar a que está e, quando clica, mudar") e os rótulos do trilho, de novo quando muda (aqui ou noutra janela)
   function rotulaLingua() {
     const nav = document.getElementById("maisim-nav"); if (!nav) return;
     const b = nav.querySelector(".lingua");
-    if (b) { b.hidden = !trocaLingua(); if (!b.hidden) { b.textContent = I().lingua() === "pt" ? "EN" : "PT"; b.dataset.rotulo = tr("nav.lingua"); b.setAttribute("aria-label", tr("nav.lingua")); } }
+    if (b) { b.hidden = !trocaLingua(); if (!b.hidden) { b.textContent = I().lingua() === "pt" ? "PT" : "EN"; b.dataset.rotulo = tr("nav.lingua"); b.setAttribute("aria-label", tr("nav.lingua")); } }
     nav.querySelectorAll("a.item[href]").forEach((a) => { const it = ITENS.find((x) => x.href === a.getAttribute("href"));
       if (it) { a.dataset.rotulo = tr(it.chave); a.setAttribute("aria-label", tr(it.chave)); } });
     const ia = nav.querySelector(".item.ia");

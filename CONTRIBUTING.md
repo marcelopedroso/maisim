@@ -56,5 +56,15 @@ languages side by side; long texts (the AI's instructions, the control guide, th
 - values that are protocol (JSON keys, run states, file and folder names, routes, signal names) are never translated.
 
 `simu/validacao/lingua_offline.py` (in every PR) checks that every key has `pt` and `en` with the same `{parameters}`,
-that every key used exists, and counts loose Portuguese strings: the count may only go down (after translating, update
-the baseline with `python3 simu/validacao/lingua_offline.py --atualiza`). A deliberate exception gets `i18n-ok` on its line.
+that every key used exists, and that there is **no** loose Portuguese string in the pages and servers the guard scans
+(`ARQ_JS`, `ARQ_HTML`, `ARQ_PY` in that file: zero in every one of them). A deliberate exception gets `i18n-ok` on its
+line. When the page script writes an element's text or an attribute (with `tr()`), the text or attribute the script
+writes has no `data-tr*` (a language switch would overwrite the script's state); `data-tr-js` on the element exempts it
+from the guard.
+
+The first visit follows the browser language (Portuguese → pt, anything else → en); the PT/EN button on the rail
+switches every MaiSim window at once (windows on other ports follow when focused) and is remembered (localStorage and
+the `maisim-lingua` cookie, which the servers read; a language that only came from the browser is marked as such, so a
+choice remembered on another port wins over it). Screen tests run in Portuguese: run them through
+`simu/validacao/ci.sh <test>` (e.g. `ci.sh lingua_tela`), which pins Portuguese (`tela/_lingua.js`) — a bare
+`node x_tela.js` follows the machine's language. `lingua_tela`, `lingua_api` and `lingua_ia_api` check English.

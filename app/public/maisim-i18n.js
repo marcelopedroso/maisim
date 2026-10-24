@@ -9,9 +9,12 @@
 // (o texto é HTML). No HTML: data-tr (texto), data-tr-html (HTML), data-tr-title, data-tr-ph (placeholder), data-tr-aria,
 // data-tr-msg (o data-msg dos textos de CSS ::after) — o português fica no próprio HTML, e aplica() troca pelo do dicionário.
 //
-// O idioma: o escolhido (localStorage maisim-lingua) ou o do navegador (português → pt, o resto → en). Vai também num cookie
-// (maisim-lingua), para os servidores responderem no mesmo idioma, e no <html lang>. Trocar (o botão do trilho) vale na hora
-// para todas as janelas do MaiSim (o evento storage, como o tema).
+// O idioma, nesta ordem: o cookie maisim-lingua, se foi escolhido (o mesmo em todas as portas do localhost); senão o
+// localStorage maisim-lingua desta porta; senão o do navegador (português → pt, o resto → en). Vai sempre no cookie, para os
+// servidores responderem no mesmo idioma (eles só leem o maisim-lingua), e no <html lang>; o que veio do navegador leva junto
+// a marca maisim-lingua-auto=1 (não foi escolha: a escolha guardada de outra porta vale mais que ele). Trocar (o botão do
+// trilho) vale na hora para todas as janelas do MaiSim desta porta (o evento storage, como o tema) e, nas outras portas, ao
+// voltar à janela (o cookie).
 (function () {
   "use strict";
   if (window.maisimI18n && !window.maisimI18n.reserva) return;
@@ -19,18 +22,23 @@
   const antes = (reserva && reserva.dicionario && reserva.dicionario()) || {};
   const LINGUAS = ["pt", "en"];
   const LOCAL = { pt: "pt-BR", en: "en-US" };
-  // a 1ª vez pelo idioma do navegador: ligado só quando tudo estiver traduzido (o último PR); até lá, português
-  const DETECTA_NAVEGADOR = false;
+  // a 1ª vez (nada escolhido ainda): o idioma do navegador — português (pt-BR, pt-PT…) → pt, qualquer outro → en
+  const DETECTA_NAVEGADOR = true;
   const dic = Object.assign({}, antes);
   const ouvintes = (reserva && reserva.ouvintes && reserva.ouvintes().slice()) || [];
   const pseudo = /[?&]lingua=xx\b/.test(location.search);       // testes: todo texto traduzido aparece como ⟦…⟧
   const valida = (l) => (LINGUAS.includes(l) ? l : null);
   // o escolhido: o cookie primeiro (o mesmo em todas as portas do localhost, e muda() grava nele: é a escolha mais nova — uma
-  // página aberta direto no simu ou no scope segue as outras janelas); senão o localStorage desta porta
+  // página aberta direto no simu ou no scope segue as outras janelas), a não ser que ele seja só a detecção do navegador
+  // (a marca maisim-lingua-auto: a escolha guardada nesta porta vale mais); senão o localStorage desta porta
   const doCookie = () => { const m = /(?:^|;\s*)maisim-lingua=(pt|en)\b/.exec(document.cookie || ""); return m ? m[1] : null; };
-  const salva = () => { let l = null; try { l = valida(localStorage.getItem("maisim-lingua")); } catch (e) { /* ok */ } return doCookie() || l; };
+  const cookieAuto = () => /(?:^|;\s*)maisim-lingua-auto=1\b/.test(document.cookie || "");
+  const salva = () => { let l = null; try { l = valida(localStorage.getItem("maisim-lingua")); } catch (e) { /* ok */ }
+    const c = doCookie(); return c && !cookieAuto() ? c : l; };   // o cookie com a marca é detecção: não conta como escolha
   const doNavegador = () => (DETECTA_NAVEGADOR ? (/^pt\b/i.test(navigator.language || "") ? "pt" : "en") : "pt");
-  let atual = salva() || doNavegador();
+  let atual = salva();
+  let auto = !atual;                                   // veio do navegador (nada escolhido): o cookie leva a marca
+  if (auto) atual = doNavegador();
 
   const escH = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   function tr(chave, p) {
@@ -59,7 +67,9 @@
 
   function poeMarcas() {
     document.documentElement.lang = LOCAL[atual];
-    try { document.cookie = `maisim-lingua=${atual}; path=/; SameSite=Lax; max-age=31536000`; } catch (e) { /* ok */ }
+    const fim = "; path=/; SameSite=Lax; max-age=";
+    try { document.cookie = `maisim-lingua=${atual}${fim}31536000`;
+      document.cookie = auto ? `maisim-lingua-auto=1${fim}31536000` : `maisim-lingua-auto=${fim}0`; } catch (e) { /* ok */ }
   }
   function avisa() {
     poeMarcas(); aplica();
@@ -69,15 +79,21 @@
   function muda(l) {
     l = valida(l); if (!l) return;
     try { localStorage.setItem("maisim-lingua", l); } catch (e) { /* só nesta página */ }
-    if (l === atual) return;
+    auto = false;                                      // agora é escolha: o cookie perde a marca
+    if (l === atual) { poeMarcas(); return; }
     atual = l; avisa();
   }
   // outra janela do MaiSim trocou (o storage chega também ao scope dentro do simu); ao voltar à aba, o cookie é o desta
-  window.addEventListener("storage", (e) => { if (e.key !== "maisim-lingua") return; const l = valida(e.newValue) || doNavegador();
-    if (l !== atual) { atual = l; avisa(); } });
-  // ao voltar à aba: se o idioma mudou noutra porta (o cookie), acompanha; senão o cookie volta a ser o desta
-  document.addEventListener("visibilitychange", () => { if (document.hidden) return; const c = doCookie();
-    if (c && c !== atual) { atual = c; try { localStorage.setItem("maisim-lingua", c); } catch (e) { /* ok */ } avisa(); } else poeMarcas(); });
+  window.addEventListener("storage", (e) => { if (e.key !== "maisim-lingua") return; const v = valida(e.newValue), l = v || doNavegador();
+    auto = !v; if (l !== atual) { atual = l; avisa(); } else poeMarcas(); });
+  // ao voltar à aba: se o idioma foi escolhido noutra porta (o cookie sem a marca), acompanha e guarda; a detecção de outra
+  // porta só vale aqui se aqui também nada foi escolhido. Senão o cookie volta a ser o desta
+  document.addEventListener("visibilitychange", () => { if (document.hidden) return; const c = doCookie(), ca = cookieAuto();
+    if (c && (!ca || auto)) {
+      auto = ca; if (!ca) try { localStorage.setItem("maisim-lingua", c); } catch (e) { /* ok */ }
+      if (c !== atual) { atual = c; avisa(); return; }
+    }
+    poeMarcas(); });
 
   // datas e números no idioma (no lugar do "pt-BR" fixo)
   const data = (d, o) => new Date(d).toLocaleString(LOCAL[atual], o);
