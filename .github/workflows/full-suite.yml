@@ -1,6 +1,7 @@
 # After every merge into main: the full test suite (simu/validacao/ci.sh completo — UI, API, offline and the live scope
 # on the isolated instance). Green → a comment on every PR merged since the last green run ("full suite passed"), and,
-# if VERSION changed, the vX.Y.Z tag and a Release with notes. Red → an issue.
+# if VERSION changed, the vX.Y.Z tag and a Release with notes (a -rc version: pre-release), then packages.yml builds the
+# AppImage and the Windows installer and attaches them. Red → an issue.
 # Started by verify.yml (after merging a PR) or by a push to main (a merge made on the GitHub page).
 name: full suite
 
@@ -47,17 +48,20 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+      actions: write
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: tag and Release, if VERSION changed
+      - name: tag and Release, if VERSION changed (a -rc version is a pre-release); then build the packages
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           v="v$(tr -d ' \n' < VERSION)"
           if git rev-parse -q --verify "refs/tags/$v" > /dev/null; then echo "$v already exists: nothing to do"; exit 0; fi
-          gh release create "$v" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "MaiSim $v" --generate-notes
+          pre=""; case "$v" in *-*) pre="--prerelease";; esac
+          gh release create "$v" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "MaiSim $v" --generate-notes $pre
+          gh workflow run pacotes.yml --repo "$GITHUB_REPOSITORY" --ref main -f tag="$v"   # the AppImage and the installer
 
   covered:
     name: tell the PRs it covered
