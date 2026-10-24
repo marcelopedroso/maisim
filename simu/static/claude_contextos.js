@@ -41,7 +41,7 @@ async function cxSalvar(sid = null, tituloSugerido = "", exportar = false) {
     <div class="cx-inclui">${escT(tr("cx.incluir"))} <label><input type="checkbox" class="cx-i" data-k="conversa" checked> ${escT(tr("cx.i_conversa"))}</label>
       <label title="${escT(atual ? tr("cx.t_i_controle_atual") : tr("cx.t_i_controle_ant"))}"><input type="checkbox" class="cx-i" data-k="controle" checked> ${escT(tr("cx.i_controle"))}</label>
       ${atual ? `<label title="${escT(tr("cx.t_i_rodada"))}"><input type="checkbox" class="cx-i" data-k="rodada" checked> ${escT(tr("cx.i_rodada"))}</label>` : ""}
-      <label title="${(conv.anexos || []).map((a) => a.nome).join(", ") || escT(tr("cx.sem_anexos"))}"><input type="checkbox" class="cx-i" data-k="anexos"${!atual || (conv.anexos || []).length ? "" : " disabled"}> ${escT(tr("cx.i_anexos"))}</label></div>
+      <label title="${escT((conv.anexos || []).map((a) => a.nome).join(", ") || tr("cx.sem_anexos"))}"><input type="checkbox" class="cx-i" data-k="anexos"${!atual || (conv.anexos || []).length ? "" : " disabled"}> ${escT(tr("cx.i_anexos"))}</label></div>
     <div class="cx-res-cab"><b>${escT(tr("cx.nota"))}</b> <span class="cc-dica-t">${escT(tr("cx.dica_nota"))}</span>
       <label class="cx-ia" title="${escT(tr("cx.t_resumo_ia"))}"><input type="checkbox" class="cx-resumo-ia"${(atual ? hist.length : 1) ? "" : " disabled"}> ${escT(tr("cx.resumo_ia_depois"))}</label></div>
     <textarea class="cx-resumo" spellcheck="false" placeholder="${escT(tr("cx.ph_nota"))}"></textarea>

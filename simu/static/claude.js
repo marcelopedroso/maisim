@@ -24,9 +24,17 @@ async function apiClaude(rota, corpo) {                 // o cabeçalho X-MaiSim
   if (!r.ok) throw new Error((j && j.erro) || r.statusText);
   if (j === null) throw new Error(tr("ia.resposta_invalida")); return j;
 }
-// uma chave _html com pedaços que já são HTML (o <span> da pasta, a lista de <code>): tr() escapa os parâmetros, então esses
-// entram depois, crus, no lugar do {nome} que o tr() deixou
-const poeHtml = (s, html) => s.replace(/\{(\w+)\}/g, (m, k) => (k in html ? html[k] : m));
+// tr() de uma chave _html com pedaços que já são HTML (o <span> da pasta, a lista de <code>): tr() escaparia esses, então
+// entram como uma marca única (que o escape não produz nem muda) e a marca vira o HTML depois — o texto que veio de fora
+// (um e-mail, um nome) nunca é procurado por {chaves}
+const MARCA_HTML = `\u0000${Math.random().toString(36).slice(2)}\u0000`;
+function trHtml(chave, p, html) {
+  const ks = Object.keys(html), marcas = {};
+  for (const k of ks) marcas[k] = `${MARCA_HTML}${k}${MARCA_HTML}`;
+  let s = tr(chave, Object.assign({}, p, marcas));
+  for (const k of ks) s = s.split(marcas[k]).join(html[k]);
+  return s;
+}
 const emAndamento = () => !!(cla.estado && cla.estado.login && cla.estado.login.andamento && !cla.estado.logado);
 
 const outrasIAs = () => (cla.ias || []).filter((a) => a.tem_login && a.estado);
@@ -108,13 +116,13 @@ function desenhaJanelaClaude() {
     falha: `<p class="cla-erro">${escT(cla.falha ? tr("ia.sem_servidor_erro", { erro: cla.falha }) : tr("ia.sem_servidor"))}</p>`,
     ausente: `<p>${tr("ia.ausente_html")}</p>`,
     logado: `<p class="cla-ok">${tr(e && e.plano ? "ia.conectado_plano_html" : "ia.conectado_html", { email: (e && e.email) || "?", plano: e && e.plano })}</p>
-      ${aberta ? `<div class="cla-det">${htmlUso(cla.uso)}<p>${poeHtml(tr("ia.usa_pasta_html", { nome: "Claude" }), { pasta })}</p></div>` : ""}`,
+      ${aberta ? `<div class="cla-det">${htmlUso(cla.uso)}<p>${trHtml("ia.usa_pasta_html", { nome: "Claude" }, { pasta })}</p></div>` : ""}`,
     andamento: `<p>${escT(tr("ia.passo1_anthropic"))}</p>
       <p><a class="cla-link" target="_blank" rel="noopener noreferrer" id="cla-auto">${escT(tr("ia.abrir_login"))}</a></p>
       <p class="cla-alt">${tr("ia.passo2_anthropic_html")}</p>
       <label class="cla-cod"><input id="cla-codigo" placeholder="${escT(tr("ia.ph_codigo"))}" autocomplete="off" spellcheck="false"><button id="cla-enviar"${cla.enviando ? " disabled" : ""}>${escT(cla.enviando ? tr("ia.conferindo") : tr("ia.enviar"))}</button></label>
       <p class="cla-espera">${escT(tr("ia.esperando_aut"))}</p>`,
-    deslogado: `<p>${poeHtml(tr("ia.deslogado_html"), { pasta })}</p>${l.erro ? `<p class="cla-erro">${escT(tr("ia.ultimo_login", { erro: l.erro }))}</p>` : ""}`,
+    deslogado: `<p>${trHtml("ia.deslogado_html", {}, { pasta })}</p>${l.erro ? `<p class="cla-erro">${escT(tr("ia.ultimo_login", { erro: l.erro }))}</p>` : ""}`,
   }[modo] + (e && e.erro ? `<p class="cla-erro">${escT(e.erro)}</p>` : "") + (cla.aviso ? `<p class="cla-erro">${escT(cla.aviso)}</p>` : "")
     + (cla.falha && e ? `<p class="cla-erro">${escT(tr("ia.sem_servidor_agora", { erro: cla.falha }))}</p>` : "");
   const botoes = {
@@ -209,13 +217,13 @@ function htmlContaIA(a) {
   const corpo = {
     ausente: `<p>${escT(tr("ia.outra_ausente", { ferr: ferr0 }))}${d.instala ? ` ${tr("ia.instalar_html", { cmd: d.instala })}` : ""}</p>`,
     logado: `<p class="cla-ok">${tr(conectado, { email: e.email, plano: e.plano })}</p>
-      ${cla.aberta[a.id] ? `<div class="cla-det">${htmlUso(cla.iaUso[a.id], a.id)}<p>${poeHtml(tr("ia.usa_pasta_html", { nome: a.nome }), { pasta })}${e.email ? ` ${escT(tr("ia.plano_nao_informa", { ferr: ferr0 }))}` : ""}</p></div>` : ""}`,
+      ${cla.aberta[a.id] ? `<div class="cla-det">${htmlUso(cla.iaUso[a.id], a.id)}<p>${trHtml("ia.usa_pasta_html", { nome: a.nome }, { pasta })}${e.email ? ` ${escT(tr("ia.plano_nao_informa", { ferr: ferr0 }))}` : ""}</p></div>` : ""}`,
     andamento: `<p>1. ${escT(d.pagina || tr("ia.pagina_padrao"))}</p>
       <p><a class="cla-link" target="_blank" rel="noopener noreferrer" id="iac-link-${a.id}">${escT(tr("ia.abrir_login"))}</a></p>
       <p class="cla-alt">2. ${escT(d.codigo || tr("ia.codigo_padrao"))}</p>
       <label class="cla-cod"><input id="iac-codigo-${a.id}" data-ia-codigo="${a.id}" placeholder="${escT(tr("ia.ph_codigo_aut"))}" autocomplete="off" spellcheck="false"><button data-ia="${a.id}" data-ia-acao="codigo"${env ? " disabled" : ""}>${escT(env ? tr("ia.conferindo") : tr("ia.enviar"))}</button></label>
       <p class="cla-espera">${escT(tr("ia.esperando_cod"))}</p>`,
-    deslogado: `<p>${d.conta ? escT(d.conta) + " " : ""}${poeHtml(tr("ia.outra_deslogado_html", { ferr: ferr0, nome: a.nome, empresa: d.empresa || a.nome }), { pasta })}</p>
+    deslogado: `<p>${d.conta ? escT(d.conta) + " " : ""}${trHtml("ia.outra_deslogado_html", { ferr: ferr0, nome: a.nome, empresa: d.empresa || a.nome }, { pasta })}</p>
 
       ${d.termos ? `<p class="cla-alt">${tr("ia.gemini_termos_html", { href: d.termos })}</p>` : ""}
       ${l.erro ? `<p class="iac-erro">${escT(tr("ia.ultimo_login", { erro: l.erro }))}</p>` : ""}`,
@@ -252,8 +260,9 @@ async function enviaCodigoIA(ia) {
 async function entraClaude() {
   const m = cla.janela && cla.janela.querySelector(".modal");
   if (m) m.querySelectorAll("button").forEach((b) => { b.disabled = true; });
-  cla.aviso = "";
+  cla.aviso = ""; cla.entrando = true;                   // entrando: a troca de idioma não redesenha (os botões voltariam a valer)
   try { cla.estado = await apiClaude("login", {}); } catch (err) { cla.aviso = err.message; cla.desenhado = ""; }
+  finally { if (cla.entrando === "idioma") cla.desenhado = ""; cla.entrando = false; }   // o idioma trocou no meio: redesenha agora
   atualizaClaude();
 }
 
@@ -283,5 +292,6 @@ async function abreJanelaClaude() {
   atualizaClaude(); atualizaIAs();
   addEventListener("focus", () => { if (!cla.timer) atualizaClaude(); if (!cla.iaTimer) atualizaIAs(); });   // voltou à aba (login feito noutra janela?)
   // trocou o idioma: o title do botão e a janela das contas (se já desenhada; sem o estado ainda, ela espera o servidor)
-  maisimI18n.aoMudar(() => { botaoClaude(); if (cla.desenhado) { cla.desenhado = ""; desenhaJanelaClaude(); } });
+  maisimI18n.aoMudar(() => { botaoClaude(); if (cla.entrando) { cla.entrando = "idioma"; return; }
+    if (cla.desenhado) { cla.desenhado = ""; desenhaJanelaClaude(); } });
 })();

@@ -327,7 +327,7 @@ function cartaoProposta(e, rodando) {
   for (const x of mudancasParametros(p.parametros_antes, p.parametros)) itens.push(escT(x));
   for (const x of mudancasAcionamentos(p.acionamentos_antes, p.acionamentos)) itens.push(escT(tr("cc.acionamento_x", { x })));
   for (const x of mudancasControladores(p)) itens.push(escT(x));
-  if (p.marcar && p.marcar.length) itens.push(poeHtml(escT(tr("cc.marca_atuacao")), { lista: p.marcar.map((x) => `<code>${escT(x)}</code>`).join(", ") }));
+  if (p.marcar && p.marcar.length) itens.push(trHtml("cc.marca_atuacao_html", {}, { lista: p.marcar.map((x) => `<code>${escT(x)}</code>`).join(", ") }));
   if (p.ligar) itens.push(escT(tr("cc.liga_usar")));
   if (opsMem) itens.push(tr("cc.memoria_linhas_html", { mais: opsMem.filter((o) => o.t === "+").length, menos: opsMem.filter((o) => o.t === "-").length }));
   const conf = [];
@@ -341,7 +341,7 @@ function cartaoProposta(e, rodando) {
     : `<li class="cc-erro">${escT(tr("cc.teste_erro", { erro: p.teste.erro }))}</li>`);
   const aplicada = !!e.aplicada, bloqueio = rodando ? tr("cc.bloqueio") : "";
   const bts = aplicada && cc.voltou ? `<span class="cc-aviso-t">${escT(tr("cc.desfeita_voltou"))}</span>` : aplicada ? `<span class="cc-ok">${escT(tr("cc.aplicada_ponto"))}</span>${cc.antes ? `<button id="cc-voltar" title="${escT(tr("cc.t_voltar"))}">${escT(tr("cc.voltar"))}</button>` : ""}`
-    : `${codigoMudou ? `<button id="cc-ver">${escT(tr("cc.ver_dif"))}</button>` : ""}${!codigoMudou || p.teste || (p.erros || []).length ? "" : `<button id="cc-testar" title="${escT(tr("cc.t_testar"))}">${escT(tr("cc.testar"))}</button>`}<button id="cc-aplicar" class="primario" ${bloqueio ? `disabled title="${escT(bloqueio)}"` : ""}>${escT(tr("cc.aplicar"))}</button><button id="cc-descartar">${escT(tr("cc.descartar"))}</button>`;
+    : `${codigoMudou ? `<button id="cc-ver">${escT(tr("cc.ver_dif"))}</button>` : ""}${!codigoMudou || p.teste || (p.erros || []).length ? "" : `<button id="cc-testar" title="${escT(tr("cc.t_testar"))}"${cc.testando ? " disabled" : ""}>${escT(cc.testando ? tr("cc.testando") : tr("cc.testar"))}</button>`}<button id="cc-aplicar" class="primario" ${bloqueio ? `disabled title="${escT(bloqueio)}"` : ""}>${escT(tr("cc.aplicar"))}</button><button id="cc-descartar">${escT(tr("cc.descartar"))}</button>`;
   const difs = muds.map((f) => `${muds.length > 1 ? `<div class="cc-diff-rot">${escT(f.arq)}${f.novo ? ` (${escT(tr("cc.novo"))})` : ""}</div>` : ""}${htmlDiff(f.ops, muds.length > 1 ? 30 : 60)}`).join("");
   return `<div class="cc-prop"><h5>${escT(tr("cc.proposta"))}</h5><ul>${itens.map((x) => `<li>${x}</li>`).join("")}</ul>${difs}${opsMem ? `<div class="cc-diff-rot">${escT(tr("cc.memoria_maisim"))}</div>${htmlDiff(opsMem, 20)}` : ""}${conf.length ? `<ul>${conf.join("")}</ul>` : ""}<div class="cc-bts">${bts}</div></div>`;
 }
@@ -474,8 +474,11 @@ async function ccMemoria() {
   };
 }
 async function ccTesta() {
+  if (cc.testando) return;
+  cc.testando = true;                                     // no estado (não só na tela): um redesenho no meio (o idioma) mantém o "testando…"
   const b = $("cc-testar"); if (b) { b.disabled = true; b.textContent = tr("cc.testando"); }
-  try { cc.estado = await apiClaude("testar", { dt: Number(sim.par.dt) || 1e-6 }); } catch (e) { cc.aviso = e.message; cc.desenhado = ""; }
+  try { cc.estado = await apiClaude("testar", { dt: Number(sim.par.dt) || 1e-6 }); } catch (e) { cc.aviso = e.message; }
+  finally { cc.testando = false; cc.desenhado = ""; }
   desenhaChat();
 }
 async function ccDescarta() {
@@ -584,6 +587,7 @@ function divisorConversa() {
 (function iniciaChat() {
   const painel = $("ctl-claude"); if (!painel) return;
   divisorConversa();
+  ccModelos();                                             // o "Modelo: padrão" do HTML no idioma de agora, antes de /claude/ias chegar
   for (const id of ["cc-modelo", "cc-esforco"]) {          // o modelo (de cada IA) e o esforço escolhidos ficam no navegador
     const chave = () => (id === "cc-modelo" ? chaveModelo(ccIA()) : `maisim-simu-${id}`);
     try { const v = localStorage.getItem(chave()); if (v !== null && [...$(id).options].some((o) => o.value === v)) $(id).value = v; } catch (e) { /* padrão */ }
