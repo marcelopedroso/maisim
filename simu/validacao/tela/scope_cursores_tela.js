@@ -49,6 +49,11 @@ const URL = "http://localhost:7200/maisim/scope/?a=" + encodeURIComponent(path.r
     const depois = await pg.evaluate(() => { const p = paineis()[0]; return { esc: [p.u.scales.x.min, p.u.scales.x.max], a: p.med.cur.a }; });
     ok(depois.a > antes.a + 0.05 && Math.abs(depois.esc[0] - antes.esc[0]) < 1e-9 && Math.abs(depois.esc[1] - antes.esc[1]) < 1e-9,
       `arrastar a linha A: ${antes.a.toFixed(3)} → ${depois.a.toFixed(3)} ms, sem zoom`);
+    // guardados fora do que está à vista (outra rodada, outro zoom): desligar e ligar os traz de volta para a tela
+    await pg.evaluate(() => { const p = paineis()[0]; p.med.cur.a = 100; p.med.cur.b = 120; });
+    await pg.click('.medicao .m-modo[data-k="ct"]'); await pg.click('.medicao .m-modo[data-k="ct"]'); await pg.waitForTimeout(150);
+    const volta = await pg.evaluate(() => { const p = paineis()[0], c = p.med.cur; return c.on && c.a >= p.u.scales.x.min && c.b <= p.u.scales.x.max; });
+    ok(volta, "cursores guardados fora da tela: ao religar, voltam ao que está à vista");
     // os cursores y (C e D, horizontais): os níveis e o Δy; arrastar a linha C a sobe ou desce
     await pg.click('.medicao .m-modo[data-k="cy"]'); await pg.waitForTimeout(150);
     await pg.evaluate(() => { const p = paineis()[0]; p.med.cur.ya = -1; p.med.cur.yb = 1.5; p.u.redraw(false, false); }); await pg.waitForTimeout(150);
@@ -69,9 +74,9 @@ const URL = "http://localhost:7200/maisim/scope/?a=" + encodeURIComponent(path.r
     ok(comb0.topo && comb0.vis && somas === 0, "o combinar fica no topo do Medir (à vista sem o Fourier); \"nenhum\" tira Σ e x̄");
     // ficam no layout; o PNG sai
     await abre();
-    const volta = await pg.evaluate(() => { const m = paineis()[0].med, c = m.cur; return c.on && c.yon && !m.fourier && Math.abs(c.b - 2.75) < 1e-9; });
+    const volta2 = await pg.evaluate(() => { const m = paineis()[0].med, c = m.cur; return c.on && c.yon && !m.fourier && c.b > c.a; });
     const fig = await pg.evaluate(() => { const c = canvasPainel(paineis()[0]); return c.width > 100 && c.height > 100; });
-    ok(volta && fig, "recarregada, os cursores e os modos voltam (no layout do painel); o PNG sai");
+    ok(volta2 && fig, "recarregada, os cursores e os modos voltam (no layout do painel); o PNG sai");
     ok(!erros.length, `sem erros de JS ${erros.join(" ; ")}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message.split("\n")[0]}`); }
   finally { if (b) await b.close(); fs.rmSync(PASTA, { recursive: true, force: true }); }

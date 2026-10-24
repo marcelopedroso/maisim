@@ -372,7 +372,7 @@ function atualiza(p) {
   p.u.setScale("x", fx);
   if (fy) p.u.setScale("y", fy);
   sincronizando = false;
-  if (p.med && p.med.aberto) mede(p);
+  if (p.med && p.med.aberto && p.med.fourier) mede(p);   // o Fourier desligado não calcula (ao vivo, seria a cada quadro)
 }
 let quadroPendente = false;
 const pendentes = new Set();
@@ -700,7 +700,7 @@ function caixaMed(p) {
   box.innerHTML = `<div class="med-topo"><b title="Shift + arrastar no gráfico escolhe o intervalo: começa onde o arrasto começa, com os períodos inteiros de f₀ que cabem. Valores reais (sem o ×k da tela). Pico e fase do cosseno, fase referida ao início da janela. Mesmo método de smauto.metrics (window, harmonic_phasors, thd).">Medição</b>
     <span class="med-modos" title="o que a medição mostra: um, outro ou os três">
       <button class="m-modo" data-k="fourier" title="média e série de Fourier numa janela de períodos inteiros (Shift + arrastar no gráfico)">Fourier</button><button
-        class="m-modo" data-k="ct" title="duas linhas verticais, A e B, para arrastar: Δt, 1/Δt e, por sinal, Δy e Δy/Δt">Cursores <i>t</i></button><button
+        class="m-modo" data-k="ct" title="duas linhas verticais, A e B, para arrastar: Δt, 1/Δt e, por sinal, Δy e Δy/Δt (os valores do que está desenhado: com zoom bem fechado nos sinais do passo fino, os do passo fino)">Cursores <i>t</i></button><button
         class="m-modo" data-k="cy" title="duas linhas horizontais, C e D, para arrastar: os níveis e o Δy (na escala do gráfico)">Cursores <i>y</i></button></span>
     <label class="m-comb-l" title="os sinais do painel juntos, ponto a ponto, no gráfico (curva e legenda), na tabela do Fourier e nos cursores (não é do Fourier; nenhum: sem Σ nem x̄): a soma Σ, a média instantânea x̄ = Σ/n ou as duas; clique no nome de um sinal para tirá-lo ou pô-lo">combinar <select class="m-comb"><option value="nenhum">nenhum</option><option value="ambos">Σ e x̄</option><option value="soma">Σ soma</option><option value="media">x̄ média (Σ/n)</option></select></label>
     <span class="med-dica">Shift + arrastar: intervalo</span><button class="m-fecha" title="fechar a medição">✕</button></div>
@@ -742,8 +742,11 @@ function caixaMed(p) {
   box.querySelectorAll(".m-modo").forEach((bt) => bt.onclick = () => {
     const k = bt.dataset.k, C = M.cur;
     if (k === "fourier") M.fourier = !M.fourier;
-    if (k === "ct") { C.on = !C.on; if (C.on && (C.a == null || C.b == null)) { const [a, b] = visivel(p); C.a = a + (b - a) / 3; C.b = a + 2 * (b - a) / 3; } }
-    if (k === "cy") { C.yon = !C.yon; if (C.yon && (C.ya == null || C.yb == null) && p.u) { const mn = p.u.scales.y.min, mx = p.u.scales.y.max; C.ya = mn + (mx - mn) / 3; C.yb = mn + 2 * (mx - mn) / 3; } }
+    // ao ligar: se a posição guardada está vazia ou fora do que está à vista (outra rodada, outro zoom), volta ao terço e aos dois terços
+    const fora = (v, a, b) => v == null || !isFinite(v) || v < Math.min(a, b) || v > Math.max(a, b);
+    if (k === "ct") { C.on = !C.on; const [a, b] = visivel(p); if (C.on && (fora(C.a, a, b) || fora(C.b, a, b))) { C.a = a + (b - a) / 3; C.b = a + 2 * (b - a) / 3; } }
+    if (k === "cy") { C.yon = !C.yon; const mn = p.u ? p.u.scales.y.min : null, mx = p.u ? p.u.scales.y.max : null;
+      if (C.yon && mn != null && (fora(C.ya, mn, mx) || fora(C.yb, mn, mx))) { C.ya = mn + (mx - mn) / 3; C.yb = mn + 2 * (mx - mn) / 3; } }
     mudaMed(p); });
   return box;
 }
@@ -770,9 +773,16 @@ function valorEm(p, k, t) {                             // a série k do painel 
   if (!x || !y || !x.length || !se || t < x[0] || t > x[x.length - 1]) return null;
   let lo = 0, hi = x.length - 1;
   while (hi - lo > 1) { const m = (lo + hi) >> 1; if (x[m] <= t) lo = m; else hi = m; }
-  const y0 = y[lo], y1 = y[hi];
-  const v = y0 == null ? y1 : y1 == null || x[hi] === x[lo] ? y0 : y0 + (y1 - y0) * (t - x[lo]) / (x[hi] - x[lo]);
-  return v == null ? null : (v - (se.desloc || 0)) / (se.ganho || 1);
+  // no Comparar com instantes diferentes, a série tem vazios nos instantes da outra: a amostra válida mais próxima de cada lado
+  const ok = (i) => y[i] != null && isFinite(y[i]);
+  while (lo > 0 && !ok(lo)) lo--;
+  while (hi < x.length - 1 && !ok(hi)) hi++;
+  const y0 = ok(lo) ? y[lo] : null, y1 = ok(hi) ? y[hi] : null;
+  let v = y0 == null ? y1 : y1 == null || x[hi] === x[lo] ? y0 : se.degrau ? (t >= x[hi] ? y1 : y0)   // degrau: o valor mantido, como no desenho
+    : y0 + (y1 - y0) * (t - x[lo]) / (x[hi] - x[lo]);
+  if (v == null) return null;
+  v = (v - (se.desloc || 0)) / (se.ganho || 1);
+  return se.soma && Math.abs(v) <= 1e-9 * (se.escala || 0) ? 0 : v;   // Σ: o resíduo numérico vira 0 (como na legenda)
 }
 const fmtT = (ms) => (ms == null || !isFinite(ms) ? "–" : Math.abs(ms) < 1 ? `${+(ms * 1e3).toPrecision(4)} µs` : `${+ms.toPrecision(5)} ms`);
 const fmtF = (hz) => (!isFinite(hz) ? "–" : Math.abs(hz) >= 1e3 ? `${+(hz / 1e3).toPrecision(4)} kHz` : `${+hz.toPrecision(4)} Hz`);
@@ -781,6 +791,7 @@ function cursoresMed(u, p) {                           // gancho draw: as linhas
   const M = p.med.cur, { left, top, width, height } = u.bbox, g = u.ctx, r = devicePixelRatio || 1, C = cores();
   g.save();
   if (curYLigados(p)) for (const [k, v] of [["C", M.ya], ["D", M.yb]]) {      // as horizontais: o nível na escala do gráfico
+    if (v == null || !isFinite(v)) continue;
     const y = u.valToPos(v, "y", true); if (!(y >= top && y <= top + height)) continue;
     g.strokeStyle = C.faixaBorda; g.lineWidth = 1.2 * r; g.setLineDash([5 * r, 3 * r]);
     g.beginPath(); g.moveTo(left, y); g.lineTo(left + width, y); g.stroke(); g.setLineDash([]);
@@ -788,6 +799,7 @@ function cursoresMed(u, p) {                           // gancho draw: as linhas
     g.fillStyle = "#fff"; g.font = `600 ${10 * r}px system-ui, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(k, left + 8 * r, y);
   }
   if (curLigados(p)) for (const [k, t] of [["A", M.a], ["B", M.b]]) {
+    if (t == null || !isFinite(t)) continue;
     const x = u.valToPos(t, "x", true); if (!(x >= left && x <= left + width)) continue;
     g.strokeStyle = C.faixaBorda; g.lineWidth = 1.2 * r; g.setLineDash([5 * r, 3 * r]);
     g.beginPath(); g.moveTo(x, top); g.lineTo(x, top + height); g.stroke(); g.setLineDash([]);
@@ -805,15 +817,16 @@ function leituraCur(p) {                               // embaixo da tabela: t_A
   const M = p.med.cur;
   const yHtml = curYLigados(p) ? `<div class="cur-dt cur-y"><span><b>C</b> ${fmtM(M.ya)}</span><span><b>D</b> ${fmtM(M.yb)}</span>` +
     `<span>Δ<i>y</i> = <b>${fmtM(M.yb - M.ya)}</b> <span class="sutil">(na escala do gráfico)</span></span></div>` : "";
-  if (!curLigados(p)) { el.innerHTML = yHtml; return; }
+  const poe = (h) => { if (el._h !== h) { el._h = h; el.innerHTML = h; } };   // só quando muda (ao vivo, dá para selecionar e copiar)
+  if (!curLigados(p)) { poe(yHtml); return; }
   const dt = M.b - M.a, mat = (s) => htmlMat(s);
   const linhas = p.series.map((se, i) => { if (!p.u.series[i + 1].show) return "";
     const ya = valorEm(p, i + 1, M.a), yb = valorEm(p, i + 1, M.b), dy = ya != null && yb != null ? yb - ya : null;
     return `<tr><td class="nome"><i style="background:${se.cor}"></i>${mat(se.rot)}</td><td>${fmtM(ya)}</td><td>${fmtM(yb)}</td><td><b>${fmtM(dy)}</b></td>` +
       `<td>${dy != null && dt ? fmtM(dy / dt) + " /ms" : "–"}</td></tr>`; }).join("");
-  el.innerHTML = `<div class="cur-dt"><span><b>A</b> ${fmtT(M.a)}</span><span><b>B</b> ${fmtT(M.b)}</span>` +
+  poe(`<div class="cur-dt"><span><b>A</b> ${fmtT(M.a)}</span><span><b>B</b> ${fmtT(M.b)}</span>` +
     `<span>Δ<i>t</i> = <b>${fmtT(dt)}</b></span><span>1/Δ<i>t</i> = <b>${fmtF(dt ? 1e3 / Math.abs(dt) : NaN)}</b></span></div>` +
-    `<table><thead><tr><th>sinal</th><th>y(A)</th><th>y(B)</th><th>Δy</th><th>Δy/Δt</th></tr></thead><tbody>${linhas}</tbody></table>` + yHtml;
+    `<table><thead><tr><th>sinal</th><th>y(A)</th><th>y(B)</th><th>Δy</th><th>Δy/Δt</th></tr></thead><tbody>${linhas}</tbody></table>` + yHtml);
 }
 
 // ---------------------------------------------------------------- painéis e seções
@@ -921,7 +934,7 @@ function criaGrafico(p) {
       mudaX(p, [xv - (xv - mn) * f, xv + (mx - xv) * f]);
     }
   }, { passive: false });
-  p.u.over.addEventListener("dblclick", () => reseta(p));
+  p.u.over.addEventListener("dblclick", (e) => { if (!perto(e)) reseta(p); });   // dois arrastos rápidos numa linha não resetam
   // os cursores: arrastar perto de uma linha (±6 px) a move (no lugar do zoom); perto, o ponteiro vira ↔
   const perto = (e) => { if (e.shiftKey) return null; const M = p.med.cur, ds = [];
     if (curLigados(p)) ds.push(["a", Math.abs(p.u.valToPos(M.a, "x") - e.offsetX)], ["b", Math.abs(p.u.valToPos(M.b, "x") - e.offsetX)]);
@@ -932,7 +945,7 @@ function criaGrafico(p) {
     const k = e.button === 0 && perto(e); if (!k) return;
     e.preventDefault(); e.stopImmediatePropagation(); p.arrastaCur = k;
     const caixa = p.u.over.getBoundingClientRect();
-    const move = (ev) => { p.med.cur[k] = k[0] === "y" ? p.u.posToVal(Math.max(0, Math.min(caixa.height, ev.clientY - caixa.top)), "y")
+    const move = (ev) => { if (!p.u) return; p.med.cur[k] = k[0] === "y" ? p.u.posToVal(Math.max(0, Math.min(caixa.height, ev.clientY - caixa.top)), "y")
       : p.u.posToVal(Math.max(0, Math.min(caixa.width, ev.clientX - caixa.left)), "x"); p.u.redraw(false, false); };
     const solta = () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", solta); p.arrastaCur = null; guardaLayout(); };
     window.addEventListener("mousemove", move); window.addEventListener("mouseup", solta);
@@ -1458,14 +1471,13 @@ function canvasPainel(p) {
   const larg = src.width, porLinha = Math.max(1, Math.floor(larg / (240 * r)));
   const linhas = Math.ceil(p.series.length / porLinha);
   const c = document.createElement("canvas");
-  c.width = larg; c.height = Math.round(30 * r + src.height + linhas * 18 * r + 8 * r);
+  const comCur = curLigados(p);                       // os cursores: uma linha só deles, embaixo (ao lado do título não cabe sempre)
+  c.width = larg; c.height = Math.round(30 * r + src.height + (linhas + (comCur ? 1 : 0)) * 18 * r + 8 * r);
   const g = c.getContext("2d");
   const C = cores();                                  // o PNG sai como está na tela (tema claro: fundo branco)
   g.fillStyle = C.fundo; g.fillRect(0, 0, c.width, c.height);
   g.fillStyle = C.titulo; g.textBaseline = "middle";
   textoMat(g, p.titulo, 8 * r, 15 * r, 14 * r, "600");
-  if (curLigados(p)) { const M = p.med.cur, dt = M.b - M.a; g.font = `${12 * r}px system-ui, sans-serif`; g.textAlign = "right";
-    g.fillText(`A ${fmtT(M.a)} · B ${fmtT(M.b)} · Δt = ${fmtT(dt)} · 1/Δt = ${fmtF(dt ? 1e3 / Math.abs(dt) : NaN)}`, c.width - 8 * r, 15 * r); g.textAlign = "left"; }
   g.drawImage(src, 0, 30 * r);
   p.series.forEach((se, k) => {
     const x = 8 * r + (k % porLinha) * (larg / porLinha), y = 30 * r + src.height + (Math.floor(k / porLinha) + 0.6) * 18 * r;
@@ -1473,6 +1485,8 @@ function canvasPainel(p) {
     g.beginPath(); g.moveTo(x, y); g.lineTo(x + 18 * r, y); g.stroke(); g.setLineDash([]);
     g.fillStyle = C.titulo; textoMat(g, se.rot, x + 24 * r, y, 12 * r);
   });
+  if (comCur) { const M = p.med.cur, dt = M.b - M.a; g.fillStyle = C.titulo; g.font = `${12 * r}px system-ui, sans-serif`;
+    g.fillText(`A ${fmtT(M.a)} · B ${fmtT(M.b)} · Δt = ${fmtT(dt)} · 1/Δt = ${fmtF(dt ? 1e3 / Math.abs(dt) : NaN)}`, 8 * r, 30 * r + src.height + (linhas + 0.6) * 18 * r); }
   return c;
 }
 function salvaTodos() {
