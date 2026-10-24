@@ -119,7 +119,7 @@ clicam no cadeado para editar, como antes. O `codigo_tela.js` confere o padrão 
 | `ajustes_tela.js` | atalhos mudos no controle.py, dica e iframe, proporção do desenho, plano B do trilho (6; usa a 7200 → 7201) |
 | `cores_tela.js` | marcas de medição e cor do canal (8) |
 | `guia_tela.js` | o "?" abre o guia renderizado, sem rolagem lateral no celular (3) |
-| `pontas_tela.js` | ponta (+) e garra (−) no componente escolhido, campo com busca (6) |
+| `pontas_tela.js` | ponta (+) e garra (−) no componente escolhido, campo com busca; pontas no mesmo nó (o − embaixo de um resistor e o + em cima do seguinte, em pé e deitados) sem uma marca cobrir outra (7) |
 | `tema_tela.js` | tema sistema/claro/escuro pelo trilho; toda variável de cor com valor nos dois temas; faixa do SM, ícones da paleta e etiqueta ⚙ no escuro (11) |
 | `divisor_tela.js` | o divisor entre o código e a conversa do Claude, com o zoom de 110 %: ao lado (largura) e embaixo (altura), o divisor onde o mouse solta, o código com pelo menos 300 px, guardado ao recarregar, duplo clique volta ao padrão (7) |
 | `claude_modulos_tela.js` | etapa B, com o Claude de mentira (cenário modulos): a proposta com 3 arquivos (pll.py novo), as opções do CLI (Write só em ./*.py), a diferença com uma aba por arquivo, ▷ testar com os módulos, aplicar (o pll.py como módulo), ver a mudança, voltar (o pll.py sai) (8) |
