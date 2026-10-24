@@ -835,7 +835,7 @@ function leituraCur(p) {                               // embaixo da tabela: t_A
 }
 
 // ---------------------------------------------------------------- painéis e seções
-const MODOS_ZOOM = { x: true, y: true, xy: true };   // os modos (guardados no layout); os rótulos: scope.zm.x, .y, .xy
+const MODOS_ZOOM = { xy: true, x: true, y: true };   // os modos (guardados no layout), na ordem da barra (Área, X, Y); os rótulos: scope.zm.xy, .x, .y
 // ícones de corrente (ligado) e corrente partida (solto), desenhados para não depender de fonte de emoji
 const svg = (d) => `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px">${d}</svg>`;
 const ICONE_LIGADO = svg(`<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>`);
@@ -1234,11 +1234,10 @@ function adicionaPainel(cfg, posicao) {
   const el = document.createElement("div"); el.className = "cartao";
   // os textos fixos com data-tr* (o aplica() troca ao mudar o idioma); os títulos que mudam (b-rec, b-exp, b-solto, b-y): marca*()
   el.innerHTML = `<div class="cab"><span class="b-arrasta" draggable="true" title="${escH(tr("scope.p.t_arrasta"))}" data-tr-title="scope.p.t_arrasta">⠿</span><button class="b-rec">${ICONE_SETA}</button>
-    <input class="titulo" type="text"><span class="titulo-mat" title="${escH(tr("scope.p.t_titulo"))}" data-tr-title="scope.p.t_titulo"></span><div class="ferr"><button class="b-sinais" data-tr="scope.p.sinais">${escH(tr("scope.p.sinais"))}</button>
+    <input class="titulo" type="text"><span class="titulo-mat" title="${escH(tr("scope.p.t_titulo"))}" data-tr-title="scope.p.t_titulo"></span><div class="ferr"><button class="b-sinais" data-tr="scope.p.sinais">${escH(tr("scope.p.sinais"))}</button><button class="b-y" data-tr="scope.p.y_fixo">${escH(tr("scope.p.y_fixo"))}</button>
     <span class="zoom" title="${escH(tr("scope.p.t_zoom"))}" data-tr-title="scope.p.t_zoom"><span class="rot">Zoom</span>${Object.keys(MODOS_ZOOM).map((m) =>
-      `<button class="b-zm" data-m="${m}" title="${escH(tr(`scope.zm.t_${m}`))}" data-tr-title="scope.zm.t_${m}" data-tr="scope.zm.${m}">${escH(tr(`scope.zm.${m}`))}</button>`).join("")}<button
-      class="b-reset" title="${escH(tr("scope.p.t_reset"))}" data-tr-title="scope.p.t_reset">${ICONE_TUDO}</button></span>
-    <button class="b-solto"></button><button class="b-med" title="${escH(tr("scope.p.t_med"))}" data-tr-title="scope.p.t_med" data-tr="scope.p.medir">${escH(tr("scope.p.medir"))}</button><button class="b-y" data-tr="scope.p.y_fixo">${escH(tr("scope.p.y_fixo"))}</button>
+      `<button class="b-zm" data-m="${m}" title="${escH(tr(`scope.zm.t_${m}`))}" data-tr-title="scope.zm.t_${m}" data-tr="scope.zm.${m}">${escH(tr(`scope.zm.${m}`))}</button>`).join("")}</span>
+    <button class="b-reset" title="${escH(tr("scope.p.t_reset"))}" data-tr-title="scope.p.t_reset">${ICONE_TUDO}</button><button class="b-solto"></button><button class="b-med" title="${escH(tr("scope.p.t_med"))}" data-tr-title="scope.p.t_med" data-tr="scope.p.medir">${escH(tr("scope.p.medir"))}</button>
     <button class="b-opc" title="${escH(tr("scope.p.t_opc"))}" data-tr-title="scope.p.t_opc">⋯</button></div><button class="b-exp"></button><button class="b-rem" title="${escH(tr("scope.p.t_rem"))}" data-tr-title="scope.p.t_rem">✕</button></div><div class="area"></div>
     <span class="b-alca" title="${escH(tr("scope.p.t_alca"))}" data-tr-title="scope.p.t_alca"></span>`;
   p.el = el; p.area = el.querySelector(".area");
