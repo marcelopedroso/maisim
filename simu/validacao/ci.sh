@@ -18,7 +18,7 @@ TELA="largura_tela scope_menu_tela agy_tela gemini_tela contextos_tela erro_copi
   diagrama_zoom_tela envia_for_tela sem_esquema_tela renomear_tela sub_iguais_tela desativar_tela diagrama_tela escolha_tela mensagens_tela
   claude_controladores_tela arvore_tela tabelas_tela saida_tela giro_tela claude_modulos_tela modulos_tela divisor_tela beira_tela
   scope_cursores_tela variaveis_tela selecao_tela fechar_tela trilho_ia_tela scope_fora_tela scope_no_painel_tela scope_padrao_tela copia_tela tag_tela rede_tela app_tela inicio_tela codigo_tela controladores_tela dica_tela sub_terminais_tela
-  sub_novo_tela claude_chat_tela escala_tela quebra_tela pontas_tela tema_tela cores_tela cabecalho_tela validador_tela ajustes_tela
+  lingua_tela sub_novo_tela claude_chat_tela escala_tela quebra_tela pontas_tela tema_tela cores_tela cabecalho_tela validador_tela ajustes_tela
   claude_tela pwm_tela controle_tela passo2_tela revisao_tela guia_tela scope_notacao_tela"
 API="lingua_api rodadas_api exemplos_api amostra_t0_api agy_api gemini_api ia_troca_api claude_renova_api contextos_api padrao_janela_api claude_autonomo_api segue_codigo_api
   renomear_api janela_gecko_api colar_sms_api desativar_api claude_controladores_api atuacoes_modulos_api biblioteca_rotulos_api modulos_api
@@ -26,7 +26,7 @@ API="lingua_api rodadas_api exemplos_api amostra_t0_api agy_api gemini_api ia_tr
   sub_terminais_api claude_pedido_api nao_salvo_api assinatura_api"
 ISOLADOS="fila_tema_tela scope_painel_tela comparar_tela scope_cores_tela scope_recolher_tela scope_apagar_tela"   # na instância isolada (sobe_fila.sh): o scope ao vivo
 RAPIDO="$OFFLINE amostra_t0_api assinatura_api nao_salvo_api controladores_api teste_controle atraso_caminhos atraso_sub
-  biblioteca_rotulos_api ia_troca_api contextos_api largura_tela inicio_tela app_tela scope_visoes_tela cabecalho_tela validador_tela
+  biblioteca_rotulos_api ia_troca_api contextos_api largura_tela lingua_tela inicio_tela app_tela scope_visoes_tela cabecalho_tela validador_tela
   controle_tela lingua_api"
 SO_NA_MAQUINA="claude_tela"                          # o link do login de verdade do Claude (às vezes atrasa)
 
