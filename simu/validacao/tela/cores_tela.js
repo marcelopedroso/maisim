@@ -43,6 +43,11 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   const semScope = await pg.evaluate(() => JSON.parse(localStorage.getItem("maisim-scope-cores") || "{}").v_sw);
   await pg.click('.cor-canal [data-cor="#d946ef"]'); await pg.waitForFunction(() => dados.cores.v_sw === "#d946ef", null, { timeout: 10000 });
   ok(noScope === "#d946ef" && semScope === undefined, `a cor vale no scope também (${noScope}); "Padrão" a tira de lá (${semScope})`);
+  // ao abrir o circuito (as cores escolhidas dele), elas vão para o scope sem precisar escolher de novo
+  await pg.evaluate(() => localStorage.removeItem("maisim-scope-cores"));
+  await pg.evaluate(() => { coresSincronizadas = null; desenha(); });   // o mesmo caminho de quando o circuito é aberto (o desenho novo)
+  const aoAbrir = await pg.evaluate(() => JSON.parse(localStorage.getItem("maisim-scope-cores") || "{}").v_sw);
+  ok(aoAbrir === "#d946ef", `ao abrir o circuito, a cor escolhida nele vai para o scope (${aoAbrir})`);
   await pg.screenshot({ path: "cores.png" });
   const j = await pg.evaluate(() => api("editor/rodar", { dt: "1e-6", tfim: "0.0002", nome: "cores", amostras: "100" }));
   await pg.waitForFunction(() => api("editor/rodada").then((r) => r.estado === "fim"), null, { timeout: 60000, polling: 500 }).catch(() => {});
