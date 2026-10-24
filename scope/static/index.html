@@ -16,6 +16,8 @@ try { const t = localStorage.getItem("maisim-tema") || "sistema";
   document.documentElement.dataset.tema = t === "escuro" || (t === "sistema" && matchMedia("(prefers-color-scheme: dark)").matches) ? "escuro" : "claro"; }
 catch (e) { document.documentElement.dataset.tema = "claro"; }
 </script>
+<script src="static/maisim-i18n.js"></script>
+<script data-src="static/maisim-i18n.js">/* reserva: sem o maisim-i18n.js (a conexão caiu), o português; tenta de novo e o de verdade assume */window.maisimI18n||(function(){var d={},f=function(k,p){var e=d[k],v=e?e.pt:k;if(v&&typeof v==="object")v=p&&p.n===1?v.one:v.other;return p?String(v).replace(/\{(\w+)\}/g,function(m,x){return x in p?String(p[x]):m}):v};window.maisimI18n={reserva:true,add:function(x){for(var k in x)d[k]=x[k]},dicionario:function(){return d},tr:f,tem:function(k){return k in d},lingua:function(){return"pt"},local:function(){return"pt-BR"},muda:function(){},aoMudar:function(){},aplica:function(){},data:function(x,o){return new Date(x).toLocaleString("pt-BR",o)},hora:function(x,o){return new Date(x).toLocaleTimeString("pt-BR",o||{hour:"2-digit",minute:"2-digit"})},num:function(x,o){return Number(x).toLocaleString("pt-BR",o)},escH:function(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]})}};window.tr=f;var s=document.createElement("script");s.src=document.currentScript.getAttribute("data-src");s.async=false;document.head.appendChild(s)})()</script>  <!-- português e inglês (o idioma do trilho), antes de pintar -->
 <link rel="stylesheet" href="static/uPlot.min.css">
 <style>
   /* tema (claro e escuro, como no simu); as cores dos eixos, da grade e das marcas no canvas ficam no scope.js (COR_TEMA) */

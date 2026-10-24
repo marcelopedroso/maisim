@@ -13,7 +13,7 @@ unset $(compgen -v MAISIM_); eval "$(python3 "$V/../../config/ler_config.py" --s
 L="$MAISIM_DADOS/bateria"; mkdir -p "$L"; : > "$L/resumo.txt"
 export NODE_PATH=${NODE_PATH:-$HOME/ns-test/node_modules}
 
-OFFLINE="validador_offline casos_tracado claude_offline"
+OFFLINE="validador_offline casos_tracado claude_offline lingua_offline"
 TELA="largura_tela scope_menu_tela agy_tela gemini_tela contextos_tela erro_copia_tela claude_tex_tela scope_soma_tela scope_tema_tela scope_visoes_tela
   diagrama_zoom_tela envia_for_tela sem_esquema_tela renomear_tela sub_iguais_tela desativar_tela diagrama_tela escolha_tela mensagens_tela
   claude_controladores_tela arvore_tela tabelas_tela saida_tela giro_tela claude_modulos_tela modulos_tela divisor_tela beira_tela
@@ -36,7 +36,7 @@ roda() {                                              # um teste: o tipo vem do 
   if [ "${CI:-}" = true ] && [[ " $SO_NA_MAQUINA " == *" $t "* ]]; then
     printf "%-28s pulado (só na máquina: depende do login de verdade do Claude)\n" "$t" | tee -a "$L/resumo.txt"; return; fi
   ini=$(date +%s)
-  if [[ $t == *_tela ]]; then (cd "$V/tela" && timeout 600 node "$t.js") > "$log" 2>&1
+  if [[ $t == *_tela ]]; then (cd "$V/tela" && NODE_OPTIONS="--require \"$V/tela/_lingua.js\"${NODE_OPTIONS:+ $NODE_OPTIONS}" timeout 600 node "$t.js") > "$log" 2>&1
   else (cd "$V" && timeout 900 python3 "$t.py") > "$log" 2>&1; fi
   cod=$?
   ok=$(grep -cE '^OK|· OK' "$log"); fa=$(grep -cE '^FALHA|· FALHA|Traceback' "$log")

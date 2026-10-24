@@ -32,6 +32,7 @@ Rode um ensaio por vez, porque o Gecko de teste é um só. Os ensaios Python usa
 |---|---|---|
 | `casos_tracado.py` | offline (sem servidor): o traçado dos destinos nos modelos reais e nos casos da revisão do passo 2b — GATE sem chave, elemento desativado, terminal de SM só por rótulo, terminal global, fonte do outro lado do terminal, motivos dos avisos | 12 verificações |
 | `claude_offline.py` | offline: o filtro das rotas do Claude (`pedido_local`: 13 combinações de Host, Origin, Sec-Fetch-Site e X-MaiSim) e a leitura da saída do `claude auth login` (sucesso e falha, com um processo que imita o CLI) | 15 verificações |
+| `lingua_offline.py` | offline: a trava do idioma (português e inglês, 24/10) — os dicionários com `pt` e `en` (os mesmos `{parâmetros}`, plural e tags), as chaves usadas existem, a catraca do português solto (`lingua_pendentes.json`: só desce; `--atualiza` depois de traduzir; `i18n-ok` na linha para exceção), os pares traduzidos (guia, regras da IA, modelos) e os dois motores (`maisim-i18n.js`, `config/lingua.py`) | 6 verificações |
 | `nao_salvo_api.py` | mudanças não salvas (circuito, controle, cores) ao abrir, no novo, no pendente e depois de reiniciar o servidor | 15/15 |
 | `assinatura_api.py` | a comparação Gecko × arquivo: sem falso alarme ao abrir e depois de rodar; pega o que a versão anterior não via | 8/8 |
 | `sub_terminais_api.py` | terminal de subcircuito: encosta na borda, borne livre, lado cheio, passo dx = dy, renomear, apagar, tamanho do bloco, arquivo antigo com bornes juntos, fios até os bornes desenhados e 10 A | 23/23 |
@@ -97,6 +98,8 @@ para conferir as opções.
 | `claude_pedido_api.py` | uso; opções restritas; contexto; proposta sem executar e teste a pedido (prova pela marca que o código deixaria); retomada (inclusive com a sessão apagada); erros; parar sem órfão (e o pedido seguinte retoma); anexos; salvar como e folha nova; nova conversa; proteção das rotas e de todo POST (49) |
 
 ## Ensaios de tela (`tela/`, Playwright)
+
+Os testes de tela rodam em português: o `ci.sh` carrega `tela/_lingua.js` antes de cada um (`NODE_OPTIONS=--require`), que dá a todo navegador aberto o locale pt-BR e o `maisim-lingua` = pt (a máquina do GitHub se apresenta em inglês). Rodando um teste à mão (de dentro de `tela/`, como o `ci.sh`), faça o mesmo: `NODE_PATH=~/ns-test/node_modules NODE_OPTIONS="--require $PWD/_lingua.js" node x_tela.js`; com `MAISIM_TESTE_LINGUA=en`, em inglês.
 
 O simu abre editando (cadeado aberto); os ensaios antigos começam travados (`maisim-simu-travado` = 1 num `addInitScript`) e
 clicam no cadeado para editar, como antes. O `codigo_tela.js` confere o padrão (aberto).
