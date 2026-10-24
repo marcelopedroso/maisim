@@ -5345,11 +5345,13 @@ class Manipulador(BaseHTTPRequestHandler):
                         if antes.exists() and antes != arquivo_scope(dest):
                             l_ab = editor.get("lingua_aberto") or lingua.atual()   # o idioma em que o exemplo foi aberto (o do controle)
                             if traducao_exemplo(antes, l_ab).get("titulos"):        # um exemplo traduzido: os títulos nesse idioma
-                                arquivo_scope(dest).write_text(json.dumps(layout_do_arquivo(antes_ipes, l_ab), ensure_ascii=False, indent=1) + "\n")
+                                tmp = arquivo_scope(dest).with_name(arquivo_scope(dest).name + ".tmp")   # inteiro ou nada
+                                tmp.write_text(json.dumps(layout_do_arquivo(antes_ipes, l_ab), ensure_ascii=False, indent=1) + "\n")
+                                os.replace(tmp, arquivo_scope(dest))
                             else:
                                 shutil.copyfile(antes, arquivo_scope(dest))
                     except (ErroMotor, OSError, ValueError):
-                        arquivo_scope(dest).unlink(missing_ok=True)   # não fica o padrão de outro circuito (o destino sobrescrito)
+                        pass                                  # como antes: uma falha ao copiar não apaga o padrão que o destino tinha
                 if not chave_vistas or not arquivo_scope(ipes_do_modelo(chave_vistas)).exists():
                     arquivo_scope(dest).unlink(missing_ok=True)   # sem padrão na origem: o que estava no destino era de outro circuito
                 marca_aberto(str(relativo(dest)))
