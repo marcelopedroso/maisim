@@ -10,6 +10,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 - Simu properties panel: Gecko parameters that are a choice show as one. The signal source shape (SIGNAL, FILE, RANDOM) is a list (Sine, Triangle, Rectangle, Random, Import; Gecko stores 402–406), every source type (U, I, MMF, HEAT-SOURCE, DT) too, and Gecko's yes/no parameters (useExternal, display…) are checkboxes. Typing `$` in a parameter that takes a global variable lists the circuit's variables with their values, filtered as you type (↑/↓, Enter or Tab, Esc, click) (#70).
 - **Scope: Power in Measure.** A *Power* mode pairs each voltage with its current by name (`v_a` with `i_a`; pick other pairs in the lists), draws p(t) = v(t)·i(t) as a curve with its legend entry, and gives P, V_rms, I_rms, S, λ = P/S and the fundamental P₁ and Q₁ over the Fourier window (#68).
 - Simu: put a signal in several scope panels, and delete panels, right from the signal's panel picker (#67).
+- Simu tests: `simu/validacao/vistoria_componentes.py`, an on-demand survey of the 121 palette components on the test instance (each one alone on a new sheet: inserted as the palette does, its parameters read, a short run), written to `simu/validacao/tmp_vistoria/` as JSON and a Markdown table.
 
 ### Changed
 - Simu: the signal's panel list shows the panel names in math notation (`i_L` → *i* with L as a subscript), like the drawing and the scope (#74).
