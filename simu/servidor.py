@@ -345,7 +345,7 @@ def estado():
     r["fora"] = ap["fora"]                           # fora do scope e do controle,
     r["fora_scope"], r["fora_controle"] = ap["fora_scope"], ap["fora_controle"]   # fora de um deles
     r["canais"] = dict(sinais_da_rodada(r))          # {componente (ou SM#componente): canal}: o nome que a rodada usa (com o "_" de desempate)
-    r["canais_saidas"] = canais_por_saida(r)         # {bloco: [canal de cada saída]}: os de várias saídas (bloco@saída em canais)
+    r["canais_saidas"] = canais_por_saida(r, ap)     # {bloco: [canal de cada saída]}: os de várias saídas (bloco@saída em canais)
     r["nos_medidos"] = nos_medidos(r)                # {folha: {rótulo: [{nome, x, y}]}}
     return r
 
@@ -1953,10 +1953,12 @@ def saidas_gecko(e):
     """[(saída para o GETM, nome dela no canal)] de um bloco de controle com mais de uma saída, na ordem dos bornes. O Gecko
     só lê o bloco de uma saída sem dizer qual (getOutput(bloco): "has more than one output"); com várias, cada saída pelo
     nome que o bloco dá (getOutput(bloco, saída); os nomes, getOutputNames, vêm do próprio Gecko em geometria_gecko.json,
-    nomes_saida). Os que numeram as saídas (Java, C/C++ e DEMUX: "0", "1", …) entram com o número; o DEMUX só nomeia
-    "0", "1", "2" e "etc." (a 4ª): da 5ª em diante o Gecko não a acha, e ela nem vira sinal (nem no painel do controle nem
-    no desenho: seria aceita no código e cairia em toda rodada). Uma saída que ainda falhe na rodada fica de fora com aviso
-    (sinal_ilegivel).
+    nomes_saida; também dos que o de fábrica tem uma saída só e o arquivo pode dar mais: o Sliding DFT, uma por frequência,
+    e o From EXTERNAL). Os que numeram as saídas (Java, C/C++: "0", "1", …, tantos quantas forem) entram com o número; o
+    DEMUX e o From EXTERNAL só nomeiam "0", "1", "2" e "etc." (a 4ª), e o Sliding DFT só "DFT" (a 1ª, qualquer que seja a
+    frequência): as outras o Gecko não acha (getOutput: "does not exist"), e elas nem viram sinal (nem no painel do
+    controle nem no desenho: seriam aceitas no código e cairiam em toda rodada). Uma saída que ainda falhe na rodada fica
+    de fora com aviso (sinal_ilegivel).
     No canal, + − * do nome viram p, n e _ref (s1+ e s1− do Sparse não colidem; v_q* → v_q_ref)."""
     import ipes
     nomes = (ipes.GEOMETRIA.get(e.get("id_gecko")) or {}).get("nomes_saida") or []
@@ -2017,11 +2019,25 @@ def sinais_da_rodada(r, destino=None, ap=None):
 
 def canais_por_saida(r, ap=None):
     """{bloco: [canal de cada saída]} dos blocos da folha principal com várias saídas (a página põe a etiqueta de cada uma
-    no borne dela; o canal do bloco, nos outros lugares, é o da 1ª)."""
-    out = {}
+    no borne dela, e o painel escolhe a cor e o painel do scope de cada uma; o canal do bloco, nos outros lugares, é o da
+    1ª). Também os de um bloco fora do scope e do controle (que a rodada nem lê): o nome que ele teria com todos dentro, sem
+    pegar o de um sinal da rodada — sem isso a página montava um nome só do bloco (ABCDQ_1 em vez de ABCDQ_1_d), e uma cor
+    escolhida ali ficava num nome que o bloco não usa; assim o nome não muda com as caixinhas."""
+    ap = ap or le_aparencia()
+    out, usados = {}, set()
     for el, canal in sinais_da_rodada(r, ap=ap):
+        usados.add(canal)
         if "@" in el and "#" not in el:
             out.setdefault(elemento_do_sinal(el), []).append(canal)
+    fora = {}
+    for el, canal in sinais_da_rodada(r, ap=dict(ap, fora_scope=[], fora_controle=[])):   # todos dentro
+        b = elemento_do_sinal(el)
+        if "@" in el and "#" not in el and b not in out:
+            while canal in usados:
+                canal += "_"
+            usados.add(canal)
+            fora.setdefault(b, []).append(canal)
+    out.update(fora)
     return out
 
 

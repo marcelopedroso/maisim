@@ -318,6 +318,8 @@ maisimI18n.add({
   "simu.t_tag_fora": { pt: "{canal}: fora do scope e do controle (o sinal continua no circuito)", en: "{canal}: out of the scope and the control (the signal stays in the circuit)" },
   "simu.h_nome_scope": { pt: "nome no scope", en: "name in the scope" },
   "simu.sinal": { pt: "sinal", en: "signal" },
+  "simu.saida_canal": { pt: "saída do bloco", en: "block output" },
+  "simu.t_saida_canal": { pt: "saída {n}: o sinal {canal} (a cor, a seção e os painéis abaixo são dele)", en: "output {n}: signal {canal} (the color, section and panels below are its own)" },
   "simu.cor_canal": { pt: "cor do canal", en: "channel color" },
   "simu.t_outra_cor": { pt: "outra cor", en: "another color" },
   "simu.t_cor_padrao": { pt: "voltar à cor padrão", en: "back to the default color" },

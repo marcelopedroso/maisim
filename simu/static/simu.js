@@ -371,17 +371,42 @@ function marcaNo(g, x, y, [canal, sinal, medidor]) {   // num nó medido pelo vo
 // a cor da etiqueta de um sinal: a do canal (a escolhida, ou a padrão dos medidores); um bloco ou uma tag sem cor escolhida
 // fica com a cor do controle (o scope dá a da paleta dele)
 const corSinal = (canal, e) => MEDIDOR.has(e.tipo) ? corCanal(canal, e.tipo) : (dados && dados.cores && dados.cores[canal]) || COR.ct;
-// no painel: a cor do canal e a seção e o painel do scope de um sinal que vai para o scope (medidor, tag ou saída de bloco)
+// no painel: a cor do canal e a seção e o painel do scope de um sinal que vai para o scope (medidor, tag ou saída de bloco).
+// Um bloco com várias saídas (abc>>dq, DEMUX, PMSM…) tem um canal por saída: em cima, uma escolha de qual (pelo nome do
+// canal, em notação), e a cor, a seção e os painéis valem para a escolhida — que fica ao refazer o painel (saidaNoPainel)
+let saidaNoPainel = { nome: null, k: 0 };
+const saidaEscolhida = (e, cs) => (saidaNoPainel.nome === e.nome && saidaNoPainel.k < cs.length ? saidaNoPainel.k : 0);
 function caixaScope(e) {
-  const canal = canalScope(e), cor = corSinal(canal, e), escolhida = !!(dados.cores_escolhidas && dados.cores_escolhidas[canal]);
+  const cs = canaisDe(e), k = saidaEscolhida(e, cs);
+  const canal = cs[k], cor = corSinal(canal, e), escolhida = !!(dados.cores_escolhidas && dados.cores_escolhidas[canal]);
   const amostras = e.tipo === "AMP" ? ["#0ea5e9", "#eab308", "#06b6d4", "#d946ef", "#22c55e", "#f97316"] : ["#eab308", "#06b6d4", "#d946ef", "#22c55e", "#0ea5e9", "#f97316"];
   const ativa = (c) => cor === c && (MEDIDOR.has(e.tipo) || escolhida);   // um bloco sem cor escolhida: nenhuma (a do scope)
-  return `<div class="cor-canal" data-canal="${escT(canal)}"><span>${escT(tr("simu.cor_canal"))}</span>${amostras.map((c) => `<button class="amostra${ativa(c) ? " ativo" : ""}" data-cor="${c}" style="--c:${c}" title="${c}"></button>`).join("")}
+  const saidas = cs.length > 1 ? `<div class="saida-canal" role="group" aria-label="${escT(tr("simu.saida_canal"))}"><span>${escT(tr("simu.saida_canal"))}</span>${cs.map((c, i) =>
+    `<button type="button" data-k="${i}" data-canal="${escT(c)}" class="${i === k ? "ativo" : ""}" aria-pressed="${i === k}" title="${escT(tr("simu.t_saida_canal", { canal: c, n: i + 1 }))}"><i style="--c:${escT(corSinal(c, e))}"></i>${htmlMat(c)}</button>`).join("")}</div>` : "";
+  return `<div class="caixa-scope">${saidas}<div class="cor-canal" data-canal="${escT(canal)}"><span>${escT(tr("simu.cor_canal"))}</span>${amostras.map((c) => `<button class="amostra${ativa(c) ? " ativo" : ""}" data-cor="${c}" style="--c:${c}" title="${c}"></button>`).join("")}
       <input type="color" value="${/^#[0-9a-f]{6}$/i.test(cor) ? cor : "#888888"}" title="${escT(tr("simu.t_outra_cor"))}"><button class="padrao" title="${escT(tr("simu.t_cor_padrao"))}">${escT(tr("simu.cor_padrao"))}</button></div>
     ${circuitoDoLayout() ? `<div class="no-painel" data-canal="${escT(canal)}"><label><span>${escT(tr("simu.secao_scope"))}</span><select id="p-secao"></select></label>
       <div class="np-linha"><span>${escT(tr("simu.paineis_sinal"))}</span><div><div id="p-paineis" title="${escT(tr("simu.t_paineis"))}"></div>
         <div class="np-acoes"><button type="button" id="p-painel-novo">${escT(tr("simu.op_novo_painel"))}</button><button type="button" id="p-painel-apaga" class="p-painel-apaga" title="${escT(tr("simu.t_apagar_paineis"))}" aria-label="${escT(tr("simu.t_apagar_paineis"))}">✕</button></div>
-        <div id="p-tambem" class="np-tambem" hidden></div></div></div></div>` : ""}`;
+        <div id="p-tambem" class="np-tambem" hidden></div></div></div></div>` : ""}</div>`;
+}
+// liga a caixa do scope no painel (a cor do canal, a seção e os painéis; num bloco de várias saídas, a escolha da saída)
+function ligaCaixaScope(P, e) {
+  const caixa = P.querySelector(".caixa-scope"); if (!caixa) return;
+  caixa.querySelectorAll(".saida-canal [data-k]").forEach((b) => { b.onclick = () => {   // outra saída: a caixa se refaz para ela
+    saidaNoPainel = { nome: e.nome, k: +b.dataset.k };                     // (simulando, o painel inteiro fica travado: nem chega aqui)
+    caixa.outerHTML = caixaScope(e); ligaCaixaScope(P, e);
+  }; });
+  const cc = caixa.querySelector(".cor-canal");
+  if (cc) {                                              // a cor do canal: guardada ao lado do circuito (<nome>.cores.json) e no meta da rodada
+    const muda = async (cor) => { try { const j = await api("editor/cor", { canal: cc.dataset.canal, cor }); novoEstado(j); corNoScope(cc.dataset.canal, cor);
+      msg(tr(cor ? "simu.d_cor" : "simu.d_cor_padrao", { canal: cc.dataset.canal, cor }), "ok"); } catch (er) { msg(er.message, "erro"); } };
+    cc.querySelectorAll("[data-cor]").forEach((b) => { b.onclick = () => muda(b.dataset.cor); });
+    cc.querySelector("input[type=color]").onchange = (ev) => muda(ev.target.value);
+    cc.querySelector(".padrao").onclick = () => muda("");
+  }
+  const np = caixa.querySelector(".no-painel");
+  if (np) ligaNoPainel(np);
 }
 // a etiqueta do scope (ao lado do medidor, ou na saída de um bloco): o nome do sinal no /maisim/scope, com a borda na cor do
 // canal. destino: "ambos" e "scope" — cheia (gravada na rodada); "controle" — tracejada, com "m" no lugar da onda (só no
@@ -1414,16 +1439,7 @@ async function montaProps() {
         msg(tr(comp ? (k ? "simu.d_garra_em" : "simu.d_ponta_em") : (k ? "simu.d_garra_auto" : "simu.d_ponta_auto"), { canal: canalScope(e), comp }), "ok"); }
       catch (er) { msg(er.message, "erro"); } };
   });
-  const cc = P.querySelector(".cor-canal");
-  if (cc) {                                              // a cor do canal: guardada ao lado do circuito (<nome>.cores.json) e no meta da rodada
-    const muda = async (cor) => { try { const j = await api("editor/cor", { canal: cc.dataset.canal, cor }); novoEstado(j); corNoScope(cc.dataset.canal, cor);
-      msg(tr(cor ? "simu.d_cor" : "simu.d_cor_padrao", { canal: cc.dataset.canal, cor }), "ok"); } catch (er) { msg(er.message, "erro"); } };
-    cc.querySelectorAll("[data-cor]").forEach((b) => { b.onclick = () => muda(b.dataset.cor); });
-    cc.querySelector("input[type=color]").onchange = (ev) => muda(ev.target.value);
-    cc.querySelector(".padrao").onclick = () => muda("");
-  }
-  const np = P.querySelector(".no-painel");
-  if (np) ligaNoPainel(np);
+  ligaCaixaScope(P, e);
   if (ehTag(e)) { v("#p-params").innerHTML = `<i>${escT(tr("simu.tag_params"))}</i>`; return; }
   try {
     const lst = await api(`editor/params?nome=${encodeURIComponent(qualificado(e))}&dom=${encodeURIComponent(e.dom)}&typ=${e.typ}`);   // dom/typ: o identificador no arquivo (para o $)
