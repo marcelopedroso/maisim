@@ -32,7 +32,7 @@ Linux (testado no Ubuntu 22.04 e no WSL2):
 
 - **Python 3** com **numpy**;
 - **Java 11 (JDK)**, **Maven** e **git**, para construir o GeckoCIRCUITS;
-- **Node.js 22**, para a página;
+- **Node.js 22** só para rodar os testes de tela (a página é servida pelo Python, `app/pagina.py`);
 - a tela virtual e o noVNC: `xvfb x11vnc novnc websockify x11-utils libxtst6` (mais o `openbox`, opcional, para as
   janelas do Gecko terem borda e abrirem maximizadas).
 
@@ -50,8 +50,7 @@ O MaiSim trabalha com a IA instalada no seu computador (opcional): o [Claude Cod
 git clone https://github.com/marcelopedroso/maisim.git && cd maisim
 simu/vendor.sh                # o editor de código (Monaco) aqui, para o MaiSim funcionar sem internet
 gecko/construir.sh            # o GeckoCIRCUITS original num commit fixo + o patch do MaiSim → gecko/build/gecko-lote.jar
-npm ci --prefix app           # a página
-cd app && npm run maisim      # sobe tudo; Ctrl+C derruba o que ele subiu
+app/scripts/maisim.sh         # sobe tudo (ou: cd app && npm run maisim); Ctrl+C derruba o que ele subiu
 ```
 
 Abra **http://localhost:7100**. Para usar outra porta, passe com `-p`: `npm run maisim -- -p 8100` serve a página na 8100

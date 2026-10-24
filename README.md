@@ -33,7 +33,7 @@ Linux (tested on Ubuntu 22.04 and WSL2):
 
 - **Python 3** with **numpy**;
 - **Java 11 (JDK)**, **Maven** and **git**, to build GeckoCIRCUITS;
-- **Node.js 22**, for the web page;
+- **Node.js 22** only to run the screen tests (the page itself is served by Python, `app/pagina.py`);
 - the virtual display and noVNC: `xvfb x11vnc novnc websockify x11-utils libxtst6` (plus `openbox`, optional, so the
   Gecko windows get borders and open maximized).
 
@@ -51,8 +51,7 @@ MaiSim works with the AI installed on your computer (optional): [Claude Code](ht
 git clone https://github.com/marcelopedroso/maisim.git && cd maisim
 simu/vendor.sh                # the code editor (Monaco) here, so MaiSim works offline
 gecko/construir.sh            # upstream GeckoCIRCUITS at a pinned commit + MaiSim's patch → gecko/build/gecko-lote.jar
-npm ci --prefix app           # the web page
-cd app && npm run maisim      # starts everything; Ctrl+C stops what it started
+app/scripts/maisim.sh         # starts everything (or: cd app && npm run maisim); Ctrl+C stops what it started
 ```
 
 Open **http://localhost:7100**. To use another port, pass it with `-p`: `npm run maisim -- -p 8100` serves the page on
