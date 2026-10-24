@@ -139,7 +139,23 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
   .med-modos { display:inline-flex; } .med-modos button { padding:1px 9px; font-size:12px; border-radius:0; margin-left:-1px; }
   .med-modos button:first-child { border-radius:6px 0 0 6px; margin-left:0; } .med-modos button:last-child { border-radius:0 6px 6px 0; }
   .med-modos button.ativo { background:var(--acento); color:#fff; border-color:var(--acento); }
-  .medicao.sem-fourier .med-cab, .medicao.sem-fourier .med-tab, .medicao.sem-fourier .esp, .medicao.sem-fourier .med-dica { display:none !important; }
+  .medicao.sem-fourier .med-tab, .medicao.sem-fourier .esp, .medicao.sem-fourier .so-fourier { display:none !important; }
+  .medicao.sem-fourier:not(.com-pot) .med-cab, .medicao.sem-fourier:not(.com-pot) .med-dica { display:none !important; }   /* a Potência usa t₀, n e f₀ */
+  .medicao:not(.com-pot) .med-pot { display:none; }
+  .med-pot { margin-top:6px; overflow-x:auto; }
+  .pot-pares { display:flex; flex-wrap:wrap; gap:4px 12px; align-items:center; }
+  .pot-pares .pot-par { display:inline-flex; align-items:center; gap:3px; white-space:nowrap; }
+  .pot-pares .pot-par > i:first-child, .pot-tab td.nome-pot i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:3px; }
+  .pot-pares .pot-par > i:not(:first-child) { font-family:KaTeX_Math, "Times New Roman", serif; }
+  .pot-pares select { font-size:12px; padding:0 2px; max-width:160px; }
+  .pot-pares button { padding:0 6px; font-size:12px; }
+  .med-pot > i { color:var(--sutil); display:block; margin-top:4px; }
+  .pot-tab table { border-collapse:collapse; font-variant-numeric:tabular-nums; white-space:nowrap; margin-top:4px; }
+  .pot-tab th, .pot-tab td { padding:2px 6px; text-align:right; border-bottom:1px solid var(--suave2); vertical-align:top; }
+  .pot-tab th { font-weight:600; color:var(--sutil); font-size:11px; }
+  .pot-tab th span, .pot-tab td span { font-weight:400; color:var(--sutil); font-size:10px; }
+  .pot-tab td.nome-pot, .pot-tab th:first-child { text-align:left; } .pot-tab td.nome-pot { cursor:help; }
+  .pot-tab td.erro { text-align:left; color:var(--erro); }
   .med-cur .sutil { color:var(--sutil); font-weight:400; } .med-cur .cur-y { margin-top:4px; }
   .med-cab { display:flex; flex-wrap:wrap; gap:4px 10px; align-items:center; }
   .med-cab input { width:84px; padding:1px 4px; font-size:12px; }
