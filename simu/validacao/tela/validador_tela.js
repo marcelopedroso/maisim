@@ -61,7 +61,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   await pg.click("#bt-editar"); await pg.waitForSelector(".modal .m-extra", { timeout: 30000 }); await pg.waitForTimeout(200);
   const bts = await pg.$$eval(".modal .modal-botoes button", (l) => l.map((x) => x.textContent));
   const foco = await pg.evaluate(() => document.activeElement && document.activeElement.textContent);
-  ok(bts.join("|") === "Cancelar|manter as mudanças|descartar" && foco === "manter as mudanças", `não vista: botões ${bts.join(" · ")}; foco em "${foco}"`);
+  ok(bts.join("|") === "Cancelar|Manter as mudanças|Descartar" && foco === "Manter as mudanças", `não vista: botões ${bts.join(" · ")}; foco em "${foco}"`);
   await pg.screenshot({ path: "conflito.png" });
   await pg.keyboard.press("Enter"); await pg.waitForFunction(() => dados && dados.editor && !document.querySelector(".modal-fundo"), null, { timeout: 30000 });
   const m2 = await pg.evaluate(() => ({ x: dados.folhas["0"].elementos.find((e) => e.nome === "R.1").x, sujo: ed.sujo }));
@@ -70,7 +70,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   await pg.evaluate(() => { $("sel-modelo").value = "exemplos/exemplo_controle_pi.ipes"; $("sel-modelo").dispatchEvent(new Event("change")); });
   await pg.waitForSelector(".modal .m-extra", { timeout: 30000 });
   const bt2 = await pg.$$eval(".modal .modal-botoes button", (l) => l.map((x) => x.textContent));
-  ok(/salvar valida_tela\.ipes e abrir/.test(bt2.join("|")) && /descartar e abrir/.test(bt2.join("|")), `outro modelo: ${bt2.join(" · ")}`);
+  ok(/Salvar valida_tela\.ipes e abrir/.test(bt2.join("|")) && /Descartar e abrir/.test(bt2.join("|")), `outro modelo: ${bt2.join(" · ")}`);
   await pg.keyboard.press("Escape"); await pg.waitForTimeout(800);
   const c3 = await pg.evaluate(() => ({ sel: $("sel-modelo").value, ed: ed.ligado, x: dados.folhas["0"].elementos.find((e) => e.nome === "R.1").x }));
   ok(/valida_tela\.ipes$/.test(c3.sel) && c3.ed && c3.x === 22, `cancelar: a lista volta (${c3.sel.split("/").pop()}), segue editando, a mudança fica`);
@@ -78,7 +78,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   await pg.click("#bt-novo"); await pg.waitForSelector(".modal .m-ok"); await pg.click(".modal .m-ok");
   await pg.waitForSelector(".modal .m-extra", { timeout: 30000 });
   const bt3 = await pg.$$eval(".modal .modal-botoes button", (l) => l.map((x) => x.textContent));
-  ok(/salvar valida_tela\.ipes e criar/.test(bt3.join("|")) && /descartar e criar/.test(bt3.join("|")), `novo: ${bt3.join(" · ")}`);
+  ok(/Salvar valida_tela\.ipes e criar/.test(bt3.join("|")) && /Descartar e criar/.test(bt3.join("|")), `novo: ${bt3.join(" · ")}`);
   await pg.keyboard.press("Escape"); await pg.waitForTimeout(600);
   ok(await pg.evaluate(() => dados.folhas["0"].elementos.some((e) => e.nome === "R.1")), "Esc no novo: o circuito continua");
   await pg.evaluate((a) => api("editor/abrir", { arq: a, modo: "descartar" }), require("os").homedir() + "/.cache/maisim_teste/circuitos/valida_tela.ipes");

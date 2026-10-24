@@ -123,13 +123,13 @@
             <div class="ex-grade"></div>
         </section>
         <section id="recentes" hidden>
-            <div class="cab"><h2>Últimas simulações</h2><button id="bt-todas" type="button">todas as simulações…</button></div>
+            <div class="cab"><h2>Últimas simulações</h2><button id="bt-todas" type="button">Todas as simulações…</button></div>
             <p class="sub-ult">a mais recente de cada circuito</p>
             <div class="rodadas" id="ultimas"></div>
             <div id="todas" hidden><input type="search" id="filtro-todas" placeholder="filtrar: circuito, nome da rodada, data (ex.: 22/10), guardada…" aria-label="filtrar as simulações">
                 <span id="so-circ" hidden><span></span><button type="button" title="todas as simulações de novo" aria-label="tirar o filtro do circuito">×</button></span>
                 <div class="rodadas" id="lista-todas"></div>
-                <div class="rodape"><span id="soma-todas"></span><button id="bt-apagar-lista" type="button">apagar as da lista…</button></div></div>
+                <div class="rodape"><span id="soma-todas"></span><button id="bt-apagar-lista" type="button">Apagar as da lista…</button></div></div>
         </section>
         <footer>
             <a href="#creditos" id="bt-creditos" aria-expanded="false" aria-controls="creditos">Sobre e créditos</a>
@@ -194,7 +194,7 @@
             const pergunta = ({ titulo, texto, ok, aviso }) => new Promise((resolve) => {     // a nossa janela (não o confirm() do navegador)
                 const f = document.createElement("div"); f.className = "modal-fundo";
                 f.innerHTML = `<div class="modal" role="dialog" aria-modal="true"><h3>${esc(titulo)}</h3>${texto.map((t) => `<p>${t}</p>`).join("")}` +
-                    `<div class="botoes">${aviso ? "" : '<button type="button" class="m-nao">cancelar</button>'}<button type="button" class="m-ok${aviso ? "" : " perigo"}">${esc(ok)}</button></div></div>`;
+                    `<div class="botoes">${aviso ? "" : '<button type="button" class="m-nao">Cancelar</button>'}<button type="button" class="m-ok${aviso ? "" : " perigo"}">${esc(ok)}</button></div></div>`;
                 const fim = (v) => { f.remove(); document.removeEventListener("keydown", tecla); resolve(v); };
                 const tecla = (ev) => { if (ev.key === "Escape") fim(false); };
                 f.onclick = (ev) => { if (ev.target === f || ev.target.closest(".m-nao")) fim(false); else if (ev.target.closest(".m-ok")) fim(true); };
@@ -219,9 +219,9 @@
                     return `<div class="rodada" data-arq="${esc(r.arq)}"><div class="info"><b>${esc(r.nome)}${r.guardada ? '<span class="selo" title="guardada: “por cima” não a substitui">guardada</span>' : ""}</b>` +
                         `<div class="det">${esc([nomeC(r), quando(r.mtime)].filter(Boolean).join(" · "))}</div></div>` +
                         (n > 1 ? `<button class="n-rodadas" type="button" data-circ="${esc(r.modelo)}" title="todas as rodadas deste circuito">${n} rodadas</button>` : "") +
-                        (r.pasta ? `<button class="guardar" type="button" data-guardar="${r.guardada ? 0 : 1}" title="${r.guardada ? "deixar de guardar: a próxima rodada com o mesmo nome (por cima) pode substituí-la" : "guardar: a próxima rodada com o mesmo nome não a substitui"}">${r.guardada ? "desguardar" : "guardar"}</button>` : "") +
-                        `<a href="/maisim/scope/?a=${encodeURIComponent(r.arq)}">ver no scope</a>` +
-                        (c ? `<a href="/maisim/simu/?modelo=${encodeURIComponent(c.arq)}">abrir o circuito</a>` : "") +
+                        (r.pasta ? `<button class="guardar" type="button" data-guardar="${r.guardada ? 0 : 1}" title="${r.guardada ? "deixar de guardar: a próxima rodada com o mesmo nome (por cima) pode substituí-la" : "guardar: a próxima rodada com o mesmo nome não a substitui"}">${r.guardada ? "Desguardar" : "Guardar"}</button>` : "") +
+                        `<a href="/maisim/scope/?a=${encodeURIComponent(r.arq)}">Ver no scope</a>` +
+                        (c ? `<a href="/maisim/simu/?modelo=${encodeURIComponent(c.arq)}">Abrir o circuito</a>` : "") +
                         `<button class="apagar" type="button" title="apagar esta rodada${r.pasta ? " (a pasta dela: os dados e a cópia do circuito desta rodada; o circuito fica)" : " (a gravação)"}" aria-label="apagar ${esc(r.nome)}">${LIXO}</button></div>`; };
                 let listaVis = [], apagando = false, soCirc = "";   // soCirc: o caminho do circuito do "N rodadas" ("" = todos)
                 const apaga = async (rs, guardadas) => {           // pelo scope: a pasta da rodada inteira; a que está rodando é recusada
@@ -237,7 +237,7 @@
                     for (let k = todas.length - 1; k >= 0; k--) if (foram.has(todas[k].arq)) todas.splice(k, 1);
                     desenha();
                     if (j.recusados && j.recusados.length) { const m = {}; for (const x of j.recusados) m[x.por] = (m[x.por] || 0) + 1;   // por motivo, sem a lista
-                        await pergunta({ titulo: `${j.recusados.length} ${j.recusados.length > 1 ? "ficaram" : "ficou"}`, ok: "ok", aviso: true,
+                        await pergunta({ titulo: `${j.recusados.length} ${j.recusados.length > 1 ? "ficaram" : "ficou"}`, ok: "OK", aviso: true,
                             texto: Object.entries(m).map(([por, n]) => `${n}: ${esc(por)}`) }); }
                 };
                 const desenha = () => {
@@ -258,8 +258,8 @@
                     const sol = vis.filter((r) => !r.guardada), tam = sol.reduce((a, r) => a + (r.pasta_tam || r.tamanho || 0), 0);
                     document.getElementById("soma-todas").textContent = vis.length ? `${vis.length} na lista · ${mb(vis.reduce((a, r) => a + (r.pasta_tam || r.tamanho || 0), 0))}` : "";
                     const bl = document.getElementById("bt-apagar-lista"); bl.hidden = !sol.length;
-                    bl.textContent = sol.length === todas.length ? `apagar todas (${sol.length}, ${mb(tam)})…` : `apagar ${sol.length === 1 ? "1" : "as " + sol.length} da lista (${mb(tam)})…`;
-                    document.getElementById("bt-todas").textContent = document.getElementById("todas").hidden ? `todas as simulações (${todas.length})…` : "só as últimas";
+                    bl.textContent = sol.length === todas.length ? `Apagar todas (${sol.length}, ${mb(tam)})…` : `Apagar ${sol.length === 1 ? "1" : "as " + sol.length} da lista (${mb(tam)})…`;
+                    document.getElementById("bt-todas").textContent = document.getElementById("todas").hidden ? `Todas as simulações (${todas.length})…` : "Só as últimas";
                 };
                 document.getElementById("bt-todas").onclick = () => { const t = document.getElementById("todas"); t.hidden = !t.hidden; if (t.hidden) soCirc = "";
                     document.getElementById("ultimas").hidden = !t.hidden; document.querySelector(".sub-ult").hidden = !t.hidden; desenha(); if (!t.hidden) document.getElementById("filtro-todas").focus(); };
@@ -268,7 +268,7 @@
                 document.getElementById("bt-apagar-lista").onclick = async () => {    // as da lista (o filtro), menos as guardadas
                     const rs = listaVis.filter((r) => !r.guardada), g = listaVis.length - rs.length;
                     const q = [soCirc && `circuito ${nomeM(soCirc)}`, document.getElementById("filtro-todas").value.trim()].filter(Boolean).join(", ");
-                    const sim = await pergunta({ titulo: `Apagar ${rs.length} rodada${rs.length > 1 ? "s" : ""}?`, ok: `apagar ${rs.length}`,
+                    const sim = await pergunta({ titulo: `Apagar ${rs.length} rodada${rs.length > 1 ? "s" : ""}?`, ok: `Apagar ${rs.length}`,
                         texto: [q ? `As da lista com o filtro “${esc(q)}”, ${mb(rs.reduce((a, r) => a + (r.pasta_tam || r.tamanho || 0), 0))}.` : `Todas as simulações, ${mb(rs.reduce((a, r) => a + (r.pasta_tam || r.tamanho || 0), 0))}.`,
                             "Sai a pasta de cada rodada (os dados e a cópia do circuito daquela rodada). Os circuitos em “meus circuitos” ficam.",
                             ...(g ? [`${g} guardada${g > 1 ? "s ficam" : " fica"} (desguarde para apagar).`] : [])] });
@@ -280,7 +280,7 @@
                     const ap = ev.target.closest("button.apagar");                                      // a lixeira: só esta rodada
                     if (ap) { const r = todas.find((x) => x.arq === ap.closest(".rodada").dataset.arq); if (!r) return;
                         const tam = r.pasta_tam || r.tamanho || 0;
-                        const sim = await pergunta({ titulo: `Apagar a rodada ${r.nome}?`, ok: "apagar",
+                        const sim = await pergunta({ titulo: `Apagar a rodada ${r.nome}?`, ok: "Apagar",
                             texto: [`${esc(nomeC(r) || r.rotulo || "")} · ${esc(quando(r.mtime))} · ${mb(tam)}`,
                                 r.pasta ? "Sai a pasta da rodada: os dados e a cópia do circuito desta rodada. O circuito em “meus circuitos” fica." : "Sai a gravação (.npz).",
                                 ...(r.guardada ? ["<b>Esta rodada está guardada.</b>"] : [])] });

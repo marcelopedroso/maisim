@@ -32,8 +32,8 @@ const espera = (ms) => new Promise((r) => setTimeout(r, ms));
     const r0 = lin[0] || { links: [] };
     ok(lin.length >= 1 && lin.length <= 6 && r0.nome === "inicio_teste" && /^exemplo_controle_pi( \(exemplos\))? · hoje, /.test(r0.det),
       `a mais nova primeiro: ${r0.nome} (${r0.det}); ${lin.length} na lista (até 6)`);
-    ok(r0.links.length === 2 && r0.links[0][0] === "ver no scope" && /^\/maisim\/scope\/\?a=.+scope_inicio_teste\.npz$/.test(r0.links[0][1])
-      && r0.links[1][0] === "abrir o circuito" && r0.links[1][1] === "/maisim/simu/?modelo=" + encodeURIComponent(PI), `atalhos: ${JSON.stringify(r0.links)}`);
+    ok(r0.links.length === 2 && r0.links[0][0] === "Ver no scope" && /^\/maisim\/scope\/\?a=.+scope_inicio_teste\.npz$/.test(r0.links[0][1])
+      && r0.links[1][0] === "Abrir o circuito" && r0.links[1][1] === "/maisim/simu/?modelo=" + encodeURIComponent(PI), `atalhos: ${JSON.stringify(r0.links)}`);
     // os modelos de exemplo (Marcelo, 22/10): o cartão "Exemplos" ao lado do Scope abre a lista (um cartão por exemplo, que abre no simu)
     const fechada = await pg.evaluate(() => document.getElementById("exemplos").hidden && !document.getElementById("cartao-exemplos").hidden);
     await pg.click("#cartao-exemplos"); await pg.waitForTimeout(150);
@@ -64,7 +64,7 @@ const espera = (ms) => new Promise((r) => setTimeout(r, ms));
     const desmarcada = !fs.existsSync(path.join(dir0, ".guardada"));
     await pg.click("#bt-todas"); await pg.waitForTimeout(200);
     const t3 = await pg.evaluate(() => ({ todas: document.getElementById("todas").hidden, ult: !document.getElementById("ultimas").hidden }));
-    ok(t1.n === total && t1.nr === 0 && t1.ult && t1.bt === "só as últimas" && t2.length >= 1 && t2.every((x) => x.startsWith("inicio_teste")) && g1.selo && g1.bt === "desguardar" && marcada && desmarcada && t3.todas && t3.ult,
+    ok(t1.n === total && t1.nr === 0 && t1.ult && t1.bt === "Só as últimas" && t2.length >= 1 && t2.every((x) => x.startsWith("inicio_teste")) && g1.selo && g1.bt === "Desguardar" && marcada && desmarcada && t3.todas && t3.ult,
       `todas as simulações: ${t1.n} de ${total} (sem "N rodadas" na lista: cada linha é uma rodada); o filtro "inicio_teste" deixa ${t2.length}; guardar marca a pasta e mostra o selo, desguardar tira; "só as últimas" volta`);
     // as últimas: uma por circuito, com "N rodadas" (abre a lista filtrada pelo circuito) — Marcelo, 22/10
     const ult = await pg.evaluate(() => { const ls = [...document.querySelectorAll("#ultimas .rodada .det")].map((d) => d.textContent.split(" · ")[0]); return { ls, unicos: new Set(ls).size }; });
@@ -112,7 +112,7 @@ const espera = (ms) => new Promise((r) => setTimeout(r, ms));
     await pg.click("#bt-apagar-lista"); await pg.waitForSelector(".modal"); const txtL = await pg.textContent(".modal");
     await pg.click(".modal .m-ok"); await pg.waitForTimeout(800);
     const n3 = await nAp(), ap3 = pastasAp(), guardadaFica = ap3.length === 1 && fs.existsSync(path.join(require("os").homedir(), ".cache/maisim_teste/rodadas", ap3[0], ".guardada"));
-    ok(/apagar 1 da lista/.test(btL) && /1 guardada fica/.test(txtL) && /“inicio_apaga”/.test(txtL) && n3 === 1 && guardadaFica,
+    ok(/Apagar 1 da lista/.test(btL) && /1 guardada fica/.test(txtL) && /“inicio_apaga”/.test(txtL) && n3 === 1 && guardadaFica,
       `"apagar as da lista": só as filtradas e não guardadas ("${btL}"; "${txtL.slice(0, 60)}…"); a guardada fica (${ap3.length} pasta)`);
     for (const d of pastasAp()) fs.rmSync(path.join(require("os").homedir(), ".cache/maisim_teste/rodadas", d), { recursive: true, force: true });
     // "+ Novo circuito" (no lugar do cartão do Simu): o simu abre e já pergunta o nome da folha em branco

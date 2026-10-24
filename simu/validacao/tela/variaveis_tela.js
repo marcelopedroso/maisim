@@ -35,7 +35,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     await pg.click("#bt-param"); await pg.waitForSelector(".modal .m-abas");
     let m = await pg.evaluate(() => ({ abas: [...document.querySelectorAll(".m-abas button")].map((x) => x.textContent), ativa: document.querySelector(".m-abas .ativo").textContent,
       dt: !!document.querySelector('.modal input[name="dt"]') && getComputedStyle(document.querySelector('.m-aba[data-aba="sim"]')).display !== "none" }));
-    ok(m.abas.join("|") === "simulação|variáveis globais ($)" && m.ativa === "simulação" && m.dt, `⚙: abas ${m.abas.join(" · ")}, abre em "${m.ativa}" (Δt à vista)`);
+    ok(m.abas.join("|") === "Simulação|Variáveis globais ($)" && m.ativa === "Simulação" && m.dt, `⚙: abas ${m.abas.join(" · ")}, abre em "${m.ativa}" (Δt à vista)`);
     await pg.click('.m-abas button[data-aba="vars"]'); await pg.waitForTimeout(200);
     const linha = () => pg.evaluate(() => { const i = document.querySelector('.gv input[data-g="$Vdc_t"]'); return i && { v: i.value, usos: i.parentElement.querySelector("small").textContent, ok: document.querySelector(".modal .m-ok").textContent }; });
     let l = await linha();

@@ -117,10 +117,10 @@ function desenhaJanelaClaude() {
   }[modo] + (e && e.erro ? `<p class="cla-erro">${escT(e.erro)}</p>` : "") + (cla.aviso ? `<p class="cla-erro">${escT(cla.aviso)}</p>` : "")
     + (cla.falha && e ? `<p class="cla-erro">Sem resposta do servidor agora (${escT(cla.falha)}); tentando de novo.</p>` : "");
   const botoes = {
-    falha: `<button id="cla-tentar">tentar de novo</button>`, ausente: "",
-    logado: `${botaoDetalhes("claude")}<button id="cla-sair" class="perigo">sair</button>`,
-    andamento: `<button id="cla-cancelar">cancelar</button>`,
-    deslogado: `<button id="cla-entrar" class="primario">entrar</button>`,
+    falha: `<button id="cla-tentar">Tentar de novo</button>`, ausente: "",
+    logado: `${botaoDetalhes("claude")}<button id="cla-sair" class="perigo">Sair</button>`,
+    andamento: `<button id="cla-cancelar">Cancelar</button>`,
+    deslogado: `<button id="cla-entrar" class="primario">Entrar</button>`,
   }[modo];
   const algumaLogada = (e && e.logado) || outrasIAs().some((a) => a.estado.logado);
   // o aviso geral (Marcelo, 23/10): a IA é a da pessoa, no computador dela, e segue os termos de cada empresa
@@ -129,7 +129,7 @@ function desenhaJanelaClaude() {
     <a target="_blank" rel="noopener noreferrer" href="https://antigravity.google/terms">Google Antigravity</a>). O login fica só neste computador (quem o grava é o programa da empresa; o MaiSim nunca o lê). O MaiSim não fornece IA e não é afiliado a essas empresas.</p>
     <section class="cla-ia"><h4>Claude <small>Anthropic · ${modo === "logado" ? "conectado" : "Claude Code"}</small></h4>${corpo}
     ${botoes ? `<div class="cla-bts">${botoes}</div>` : ""}</section>${outrasIAs().map(htmlContaIA).join("")}
-    <div class="modal-botoes"><button class="m-ok${algumaLogada ? "" : " primario"}">fechar</button>${algumaLogada ? `<button id="cla-pedir" class="primario">pedir à IA</button>` : ""}</div>`;
+    <div class="modal-botoes"><button class="m-ok${algumaLogada ? "" : " primario"}">Fechar</button>${algumaLogada ? `<button id="cla-pedir" class="primario">Pedir à IA</button>` : ""}</div>`;
   // os links vêm do CLI; entram pela propriedade href (nada de HTML), e só https
   for (const [id, u] of [["cla-auto", l.url_auto || l.url_manual], ["cla-manual", l.url_manual]]) {
     const a = m.querySelector(`#${id}`); if (a && u && /^https:\/\//.test(u)) a.href = u; else if (a) a.removeAttribute("href");
@@ -153,7 +153,7 @@ function desenhaJanelaClaude() {
   on("cla-entrar", entraClaude);
   on("cla-tentar", atualizaClaude);
   on("cla-cancelar", async () => { cla.aviso = ""; try { cla.estado = await apiClaude("cancelar", {}); } catch (err) { cla.aviso = err.message; } atualizaClaude(); });
-  on("cla-sair", async () => { if (!(await confirma("Sair da conta do Claude", "Desconectar a conta do Claude da IA do MaiSim? (o seu outro login do Claude não muda)", "sair", true))) return;
+  on("cla-sair", async () => { if (!(await confirma("Sair da conta do Claude", "Desconectar a conta do Claude da IA do MaiSim? (o seu outro login do Claude não muda)", "Sair", true))) return;
     cla.aviso = ""; try { cla.estado = await apiClaude("sair", {}); } catch (err) { cla.aviso = err.message; } atualizaClaude(); });
   on("cla-enviar", enviaCodigoClaude);
   on("cla-pedir", () => { fechaJanelaClaude(); mostraDoca("controle"); ccAbre(true); });
@@ -185,7 +185,7 @@ function htmlUso(u, ia = "claude") {
   return `<div class="cla-uso" title="${de}">${u.itens.map((i) => `<div class="cla-uso-l"${i.grupo ? ` title="${escT(i.grupo)}"` : ""}><span>${escT(i.rotulo)}</span>
     <span class="barra"><i class="${nivel(i.pct)}" style="width:${Math.max(0, Math.min(100, i.pct))}%"></i></span><b>${pct(i.pct)}%</b>
     ${i.renova ? `<small>renova ${escT(i.renova)}</small>` : ""}</div>`).join("")}</div>
-    <p class="cla-espera">${claude ? "uso da conta (o mesmo do /usage)" : "usado de cada limite (o mesmo do Antigravity)"} · <button ${claude ? 'id="cla-uso-atualiza"' : `data-uso="${escT(ia)}"`} class="cla-mini">atualizar</button></p>`;
+    <p class="cla-espera">${claude ? "uso da conta (o mesmo do /usage)" : "usado de cada limite (o mesmo do Antigravity)"} · <button ${claude ? 'id="cla-uso-atualiza"' : `data-uso="${escT(ia)}"`} class="cla-mini">Atualizar</button></p>`;
 }
 
 // as contas das outras IAs (o Google Antigravity; o Gemini só em teste): uma seção cada, com o login delas pelo MaiSim
@@ -221,15 +221,15 @@ function htmlContaIA(a) {
   }[modo] + (d.atencao && (modo === "ausente" || modo === "deslogado")   // antes de instalar e antes de conectar
     ? `<p class="iac-atencao">${escT(d.atencao.texto)} <a target="_blank" rel="noopener noreferrer" href="${d.atencao.href}">Os termos ↗</a></p>` : "")
     + (av ? `<p class="iac-erro">${escT(av)}</p>` : "");
-  const bts = { ausente: "", logado: `${botaoDetalhes(a.id)}<button class="perigo" data-ia="${a.id}" data-ia-acao="sair">sair</button>`,
-    andamento: `<button data-ia="${a.id}" data-ia-acao="cancelar">cancelar</button>`,
+  const bts = { ausente: "", logado: `${botaoDetalhes(a.id)}<button class="perigo" data-ia="${a.id}" data-ia-acao="sair">Sair</button>`,
+    andamento: `<button data-ia="${a.id}" data-ia-acao="cancelar">Cancelar</button>`,
     deslogado: `<button class="primario" data-ia="${a.id}" data-ia-acao="entrar"${env ? " disabled" : ""}>${env ? "abrindo…" : "entrar"}</button>` }[modo];
   return `<section class="cla-ia" id="iac-${a.id}"><h4>${nome} <small>${escT(d.empresa || "")} · ${modo === "logado" ? "conectado" : ferr}</small></h4>${corpo}${bts ? `<div class="cla-bts">${bts}</div>` : ""}</section>`;
 }
 async function acaoIA(ia, acao) {
   const a = (cla.ias || []).find((x) => x.id === ia); if (!a) return;
   if (acao === "codigo") return enviaCodigoIA(ia);
-  if (acao === "sair" && !(await confirma(`Sair da conta do ${a.nome}`, `Desconectar a conta do ${a.nome} da IA do MaiSim? (o seu outro login do ${a.nome} não muda)`, "sair", true))) return;
+  if (acao === "sair" && !(await confirma(`Sair da conta do ${a.nome}`, `Desconectar a conta do ${a.nome} da IA do MaiSim? (o seu outro login do ${a.nome} não muda)`, "Sair", true))) return;
   cla.iaAviso = { ...cla.iaAviso, [ia]: "" };
   if (acao === "entrar") { cla.iaEnviando = { ...cla.iaEnviando, [ia]: true }; desenhaJanelaClaude(); }   // o CLI leva uns segundos para dar o link
   try { a.estado = await apiClaude(`ia/${acao}`, { ia }); } catch (err) { cla.iaAviso = { ...cla.iaAviso, [ia]: err.message }; }
