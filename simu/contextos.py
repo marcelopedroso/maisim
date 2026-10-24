@@ -20,10 +20,17 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import time
 import uuid
 import zipfile
 from pathlib import Path
+
+for _p in (Path(__file__).resolve().parents[1] / "config", Path(__file__).resolve().parent):   # lingua e textos (o servidor já os põe)
+    if str(_p) not in sys.path:
+        sys.path.append(str(_p))
+import lingua  # noqa: E402                    as mensagens no idioma do pedido
+import textos  # noqa: E402,F401
 
 VERSAO = 1
 ID = re.compile(r"[\w][\w.\-]{0,95}")
@@ -54,7 +61,7 @@ def autor():
 
 def _confere_id(cid):
     if not ID.fullmatch(str(cid or "")) or ".." in str(cid):
-        raise ValueError(f"contexto inválido: {cid!r}")
+        raise ValueError(lingua.tr("contextos.invalido", cid=repr(cid)))
     return str(cid)
 
 
@@ -105,7 +112,7 @@ def le(base, cid):
     d = base / _confere_id(cid)
     m = _le_meta(d)
     if m is None:
-        raise FileNotFoundError(f"não há o contexto {cid}")
+        raise FileNotFoundError(lingua.tr("contextos.nao_ha", cid=cid))
     txt = lambda n: (d / n).read_text(errors="replace") if (d / n).is_file() else ""
     return dict(meta=dict(m, id=cid), contexto=txt("contexto.md"), conversa=txt("conversa.md"), resumo=txt("resumo.md"), resumo_ia=txt("resumo_ia.md"),
                 arquivos=[{"nome": str(f.relative_to(d)), "tamanho": f.stat().st_size} for f in sorted(d.rglob("*")) if f.is_file()])
@@ -169,7 +176,7 @@ def conversa_junta(base, anterior, hist, titulo=""):
     d = base / _confere_id(anterior)
     m = _le_meta(d)
     if m is None:
-        raise FileNotFoundError(f"não há o contexto {anterior}")
+        raise FileNotFoundError(lingua.tr("contextos.nao_ha", cid=anterior))
     antes = (d / "conversa.md").read_text(errors="replace").rstrip() + "\n\n" if (d / "conversa.md").is_file() else ""
     return antes + conversa_md(hist, f"{titulo} (continua de “{m.get('titulo', anterior)}”)", de=len(PEDIDO_MD.findall(antes)) + 1)
 
@@ -195,7 +202,7 @@ def salva(base, titulo, resumo, etiquetas=(), conversa=None, controle=None, roda
         da = base / _confere_id(anterior)
         ma = _le_meta(da)
         if ma is None:
-            raise FileNotFoundError(f"não há o contexto {anterior}")
+            raise FileNotFoundError(lingua.tr("contextos.nao_ha", cid=anterior))
         ant = {"id": anterior, "titulo": ma.get("titulo", anterior)}
     base.mkdir(parents=True, exist_ok=True)
     tmp = base / f".tmp_{uuid.uuid4().hex}"
@@ -252,7 +259,7 @@ def poe_resumo_ia(base, cid, estado, texto=None, erro=None, modelo=None):
     d = base / _confere_id(cid)
     m = _le_meta(d)
     if m is None:
-        raise FileNotFoundError(f"não há o contexto {cid}")
+        raise FileNotFoundError(lingua.tr("contextos.nao_ha", cid=cid))
     m["resumo_ia"] = {k: v for k, v in dict(estado=estado, quando=time.strftime("%Y-%m-%d %H:%M"), erro=erro, modelo=modelo).items() if v}
     if texto is not None:
         (d / "resumo_ia.md").write_text(texto)
@@ -267,7 +274,7 @@ def muda(base, cid, titulo=None, etiquetas=None, resumo=None):
     d = base / _confere_id(cid)
     m = _le_meta(d)
     if m is None:
-        raise FileNotFoundError(f"não há o contexto {cid}")
+        raise FileNotFoundError(lingua.tr("contextos.nao_ha", cid=cid))
     if titulo is not None:
         m["titulo"] = str(titulo).strip()[:200] or m["titulo"]
     if etiquetas is not None:
@@ -284,7 +291,7 @@ def muda(base, cid, titulo=None, etiquetas=None, resumo=None):
 def apaga(base, cid):
     d = base / _confere_id(cid)
     if not (d / "meta.json").is_file():
-        raise FileNotFoundError(f"não há o contexto {cid}")
+        raise FileNotFoundError(lingua.tr("contextos.nao_ha", cid=cid))
     shutil.rmtree(d)
 
 
@@ -292,7 +299,7 @@ def exporta(base, cid, anexos=True):
     """O .maisimctx: o zip da pasta do contexto (sem os anexos, se pedido)."""
     d = base / _confere_id(cid)
     if not (d / "meta.json").is_file():
-        raise FileNotFoundError(f"não há o contexto {cid}")
+        raise FileNotFoundError(lingua.tr("contextos.nao_ha", cid=cid))
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         for f in sorted(d.rglob("*")):
@@ -308,29 +315,29 @@ def importa(base, dados, nome=""):
     try:
         z = zipfile.ZipFile(io.BytesIO(dados))
     except zipfile.BadZipFile:
-        raise ValueError("não é um .maisimctx (zip) válido")
+        raise ValueError(lingua.tr("contextos.zip_invalido"))
     infos = [i for i in z.infolist() if not i.is_dir()]
     if not infos or len(infos) > MAX_ARQS:
-        raise ValueError(f"o .maisimctx tem {len(infos)} arquivos (até {MAX_ARQS})")
+        raise ValueError(lingua.tr("contextos.muitos_arquivos", n=len(infos), max=MAX_ARQS))
     if sum(i.file_size for i in infos) > MAX_BYTES:
-        raise ValueError(f"o .maisimctx passa de {MAX_BYTES // 2**20} MB descompactado")
+        raise ValueError(lingua.tr("contextos.grande", mb=MAX_BYTES // 2**20))
     topos = set()
     for i in infos:
         p = Path(i.filename)
         if p.is_absolute() or ".." in p.parts or not p.parts or "\\" in i.filename:
-            raise ValueError(f"caminho inválido no .maisimctx: {i.filename}")
+            raise ValueError(lingua.tr("contextos.caminho_invalido", arq=i.filename))
         topos.add(p.parts[0])
     if len(topos) != 1:
-        raise ValueError("o .maisimctx deve ter uma pasta só (um contexto)")
+        raise ValueError(lingua.tr("contextos.uma_pasta"))
     topo = topos.pop()
     nomes = {Path(i.filename).relative_to(topo).as_posix(): i for i in infos if len(Path(i.filename).parts) > 1}
     if "meta.json" not in nomes or "contexto.md" not in nomes:
-        raise ValueError("o .maisimctx não tem meta.json e contexto.md")
+        raise ValueError(lingua.tr("contextos.sem_meta"))
     try:
         meta = json.loads(z.read(nomes["meta.json"]))
         assert isinstance(meta, dict) and isinstance(meta.get("titulo"), str)
     except (ValueError, AssertionError):
-        raise ValueError("meta.json inválido no .maisimctx")
+        raise ValueError(lingua.tr("contextos.meta_invalido"))
     base.mkdir(parents=True, exist_ok=True)
     tmp = base / f".tmp_{uuid.uuid4().hex}"
     try:

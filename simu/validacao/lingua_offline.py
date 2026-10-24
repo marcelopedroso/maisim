@@ -8,7 +8,8 @@
    Python e do HTML) são contados; a contagem não pode subir (texto novo vai para o dicionário) e, quando cai, a base é
    atualizada no mesmo PR (python3 lingua_offline.py --atualiza), para ela só descer. Exceção pontual: i18n-ok na linha;
 4. os pares de arquivos traduzidos (o guia, as regras da IA, os modelos de código): mesmos títulos e o mesmo código;
-5. as threads do servidor levam o idioma (lingua.thread): o threading.Thread solto também entra na catraca.
+5. as threads do servidor levam o idioma (lingua.thread): o threading.Thread solto também entra na catraca (exceção pontual:
+   i18n-ok na linha, como o publica.py, que o run.py de fora importa sem o config/).
 
     python3 lingua_offline.py              confere (OK / FALHA por linha, como os outros testes)
     python3 lingua_offline.py --atualiza   grava a base da catraca (lingua_pendentes.json) com as contagens de agora (só desce;
@@ -37,7 +38,7 @@ def ok(c, txt):
 # ---------------------------------------------------------------- os dicionários
 DIC_JS = [RAIZ / "app/public/maisim-nav.js", *sorted((RAIZ / "app/public").glob("textos_*.js")),
           *sorted((RAIZ / "simu/static").glob("textos_*.js")), *sorted((RAIZ / "scope/static").glob("textos_*.js"))]
-DIC_PY = [p for p in (RAIZ / "simu/textos.py", RAIZ / "scope/textos.py") if p.exists()]
+DIC_PY = [p for p in (RAIZ / "simu/textos.py", RAIZ / "scope/textos_scope.py") if p.exists()]
 
 CARREGA_JS = r"""
 const vm = require("vm"), fs = require("fs"), dic = {}, dup = [];
@@ -108,7 +109,7 @@ ARQ_JS = [RAIZ / "app/public/maisim-nav.js", *[p for p in sorted((RAIZ / "simu/s
           *[p for p in sorted((RAIZ / "scope/static").glob("*.js")) if not p.name.startswith(("textos_", "uPlot"))]]
 ARQ_HTML = [RAIZ / "app/index.html", *sorted((RAIZ / "simu/static").glob("*.html")), RAIZ / "scope/static/index.html"]
 ARQ_PY = [p for p in [*sorted((RAIZ / "simu").glob("*.py")), *sorted((RAIZ / "simu/ia").glob("*.py")), *sorted((RAIZ / "scope").glob("*.py"))]
-          if p.name not in ("textos.py",)]
+          if p.name not in ("textos.py", "textos_scope.py")]
 
 ACENTO = re.compile(r"[ãõçáàâêéíóôúÃÕÇÁÀÂÊÉÍÓÔÚ]")
 PALAVRAS = re.compile(r"\b(não|nao|você|voce|clique|salvar|salve|abrir|abra|arquivo|rodada|rodadas|nenhum|nenhuma|circuito|"
@@ -272,7 +273,7 @@ def textos_py(src):
 
 
 def threads_soltas(src):
-    return len(re.findall(r"\bthreading\.Thread\(", src))
+    return sum(len(re.findall(r"\bthreading\.Thread\(", l)) for l in src.split("\n") if "i18n-ok" not in l)   # a linha marcada não conta
 
 
 def contagens():

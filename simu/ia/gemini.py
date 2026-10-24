@@ -22,6 +22,7 @@ from pathlib import Path
 
 from .base import IA
 from .login_pty import LoginPorTerminal
+import lingua  # noqa: E402                    as mensagens no idioma do pedido (o config/ entra no sys.path pelo base)
 
 # os nomes das ferramentas do Gemini → os do MaiSim (a linha "lendo controle.py" da tela)
 FERRAMENTAS = {"read_file": "Read", "read_many_files": "Read", "list_directory": "Glob", "glob": "Glob", "grep_search": "Grep",
@@ -55,7 +56,7 @@ def _grava(arq, texto):
 
 def politica(regras_escrita=None):
     """A política do MaiSim em TOML: nega tudo (prioridade 1), libera a leitura e, se houver, a escrita com o argsPattern dado."""
-    t = ("# Gerada pelo MaiSim (ia/gemini.py) a cada chamada; passada com --admin-policy (o nível de administrador: nada a sobrepõe).\n"
+    t = ("# Gerada pelo MaiSim (ia/gemini.py) a cada chamada; passada com --admin-policy (o nível de administrador: nada a sobrepõe).\n"   # i18n-ok (comentário do arquivo da política)
          "[[rule]]\ntoolName = \"*\"\ndecision = \"deny\"\npriority = 1\n"
          f"denyMessage = \"{NEGA}\"\n\n"
          "[[rule]]\ntoolName = [" + ", ".join(f'"{x}"' for x in LEITURA) + "]\ndecision = \"allow\"\npriority = 100\n")
@@ -71,7 +72,7 @@ def padrao_escrita(pasta, editaveis):
     aninhado (o CLI recusa a expressão)."""
     base = str(Path(pasta).resolve())
     if re.search(r"['\"\\\x00-\x1f]", base):
-        raise ValueError(f"a pasta da conversa tem um caractere inesperado: {base!r}")
+        raise ValueError(lingua.tr("ia_conta.gemini_pasta_char", pasta=repr(base)))
     nomes = [_re(n) for n in editaveis if re.fullmatch(r"[A-Za-z0-9_.\-]+", n)] + [r"[A-Za-z_][A-Za-z0-9_]*\.py"]
     return '\\x00"file_path":"(?:' + _re(base) + '/|\\./|)(?:' + "|".join(nomes) + ')"\\x00'
 
@@ -122,7 +123,7 @@ class Gemini(LoginPorTerminal, IA):
     # ---- o pedido e o resumo
     def comando(self, prompt, sessao, retoma, regras, modelo="", esforco="", passos=100, editaveis=(), pasta=None):
         if pasta is None:
-            raise ValueError("Gemini: sem a pasta da conversa não há como restringir a escrita")
+            raise ValueError(lingua.tr("ia_conta.gemini_sem_pasta"))
         self._prepara(passos)
         pol = self.pasta / "maisim" / "politica_pedido.toml"
         _grava(pol, politica(padrao_escrita(pasta, editaveis)))
@@ -173,7 +174,7 @@ class Gemini(LoginPorTerminal, IA):
             st["depois_ferramenta"] = True
             if ev.get("status") == "error":
                 err = ev.get("error") or {}
-                out.append({"tipo": "recusa", "msg": str(err.get("message") or ev.get("output") or "erro na ferramenta").strip()})
+                out.append({"tipo": "recusa", "msg": str(err.get("message") or ev.get("output") or lingua.tr("ia_conta.erro_ferramenta")).strip()})
                 if err.get("type") == "policy_violation":
                     nome, ent = st.get("usos", {}).get(ev.get("tool_id"), ("?", {}))
                     st.setdefault("negados", []).append({"nome": nome, "entrada": ent})
@@ -211,9 +212,7 @@ class Gemini(LoginPorTerminal, IA):
         if re.search(r"IneligibleTierError|no longer supported for Gemini Code Assist for individuals", texto or ""):
             # a resposta do Google em 21/10 (conta pessoal do Marcelo, com Google AI Ultra): o Gemini CLI não atende mais
             # contas pessoais; elas vão pelo Antigravity
-            return ("o Google não atende esta conta pelo Gemini CLI: \"This client is no longer supported for Gemini Code Assist "
-                    "for individuals… migrate to the Antigravity suite\". Contas Google pessoais (grátis, Pro e Ultra) agora vão "
-                    "pelo Antigravity; pelo Gemini CLI, só conta de organização (Code Assist Standard ou Enterprise) ou chave de API.")
+            return lingua.tr("ia_conta.gemini_nao_atende")
         return None
 
     # ---- o login (conta Google)
@@ -230,7 +229,7 @@ class Gemini(LoginPorTerminal, IA):
             except (OSError, ValueError, AttributeError):
                 pass
         return {"id": self.id, "nome": self.nome, "instalado": self.instalado(), "logado": logado, "email": email,
-                "metodo": "conta Google", "pasta": str(self.pasta).replace(str(Path.home()), "~", 1), "login": self.login_estado()}
+                "metodo": lingua.tr("ia_conta.metodo_google"), "pasta": str(self.pasta).replace(str(Path.home()), "~", 1), "login": self.login_estado()}
 
     # o login pelo terminal (login_pty): o gemini interativo com NO_BROWSER mostra o link e espera o código
     LOGIN_URL = URL_LOGIN
@@ -266,5 +265,5 @@ class Gemini(LoginPorTerminal, IA):
             self._login.clear()
         out = self.estado()
         if out["logado"]:
-            raise ValueError("o logout do Gemini não saiu")
+            raise ValueError(lingua.tr("ia_conta.gemini_logout"))
         return out

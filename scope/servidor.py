@@ -29,6 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "config"))
 import ler_config  # noqa: E402
 ler_config.aplica()                          # as portas e as pastas (config/padrao.env, o perfil, o .env)
 import lingua  # noqa: E402                    o idioma de cada pedido (português e inglês)
+import textos_scope  # noqa: E402,F401         os textos do scope nos dois idiomas (registra o catálogo)
 
 AQUI = Path(__file__).parent
 RAIZ = AQUI.parent                          # a raiz do projeto
@@ -162,7 +163,7 @@ def pastas_orfas():
 def rotulo_rodada(f, meta=None):
     """Nome legível de uma rodada gravada: planta · pasta · data e hora."""
     meta = le_meta(f) if meta is None else meta
-    planta = "MaiSim / simu" if meta.get("planta") in DO_SIMU else {"gecko": "Gecko", "python": "planta Python"}.get(meta.get("planta", ""), meta.get("planta", "?"))
+    planta = "MaiSim / simu" if meta.get("planta") in DO_SIMU else {"gecko": "Gecko", "python": lingua.tr("scope_srv.planta_python")}.get(meta.get("planta", ""), meta.get("planta", "?"))
     pasta = f.parent.name.replace("2026-10-17_", "").replace("_", " ")
     circuito = ""
     if meta.get("planta") in DO_SIMU:
@@ -170,7 +171,9 @@ def rotulo_rodada(f, meta=None):
         circuito = Path(str(meta.get("modelo") or "")).stem      # o circuito (Marcelo, 19/10: as rodadas se chamavam todas Teste2)
     intervalo = meta.get("Ts") or meta.get("dt")              # o intervalo entre as amostras guardadas (comparar: ver se casam)
     intv = (f"{intervalo * 1e3:.4g} ms" if intervalo >= 1e-3 else f"{intervalo * 1e6:.4g} µs") if isinstance(intervalo, (int, float)) and intervalo > 0 else ""
-    return " · ".join(x for x in (planta, circuito, pasta, time.strftime('%d/%m %H:%M', time.localtime(f.stat().st_mtime)), intv) if x)
+    lt = time.localtime(f.stat().st_mtime)
+    quando = lingua.tr("scope_srv.quando", dia=f"{lt.tm_mday:02d}", mes=f"{lt.tm_mon:02d}", hora=f"{lt.tm_hour:02d}", min=f"{lt.tm_min:02d}")
+    return " · ".join(x for x in (planta, circuito, pasta, quando, intv) if x)
 
 
 def le_npz(caminho):
@@ -254,7 +257,7 @@ class Manipulador(BaseHTTPRequestHandler):
                 arq = RAIZ / "app" / "public" / "maisim-i18n.js"
             if arq.is_file():
                 return self._resposta(200, arq.read_bytes(), TIPOS.get(arq.suffix, "application/octet-stream"))
-            return self._resposta(404, {"erro": "não achei"})
+            return self._resposta(404, {"erro": lingua.tr("scope_srv.nao_achei")})
         if rota == "/rodadas":
             lst = []
             for base in BUSCA:
@@ -272,7 +275,7 @@ class Manipulador(BaseHTTPRequestHandler):
             rel = parse_qs(u.query).get("arq", [""])[0]
             arq = caminho(rel)
             if not permitido(arq) or not arq.name.startswith("scope_") or not arq.is_file():
-                return self._resposta(400, {"erro": "arquivo inválido"})
+                return self._resposta(400, {"erro": lingua.tr("scope_srv.arquivo_invalido")})
             if rota == "/rodada":                    # JSON (o de antes; a página usa o binário e cai neste se faltar)
                 return self._resposta(200, le_npz(arq))
             inicio, canais, vetores, tam = le_npz_bin(arq)
@@ -325,7 +328,7 @@ class Manipulador(BaseHTTPRequestHandler):
                     if q in clientes:
                         clientes.remove(q)
             return
-        return self._resposta(404, {"erro": "rota desconhecida"})
+        return self._resposta(404, {"erro": lingua.tr("scope_srv.rota_desconhecida")})
 
     def do_POST(self):
         lingua.do_pedido(self.headers)
@@ -333,7 +336,7 @@ class Manipulador(BaseHTTPRequestHandler):
         if rota == "/apagar":
             return self._apagar()
         if rota != "/publicar":
-            return self._resposta(404, {"erro": "rota desconhecida"})
+            return self._resposta(404, {"erro": lingua.tr("scope_srv.rota_desconhecida")})
         corpo = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
         tipo = corpo.get("tipo")
         if tipo == "inicio":
@@ -371,14 +374,14 @@ class Manipulador(BaseHTTPRequestHandler):
                 ja.append(rel)                          # já tinha saído (outro pedido, outra aba): não é erro
                 continue
             if not (permitido(arq) and arq.name.startswith("scope_") and arq.suffix == ".npz" and arq.is_file()):
-                recusados.append({"arq": rel, "por": "não é uma gravação do scope"})
+                recusados.append({"arq": rel, "por": lingua.tr("scope_srv.nao_gravacao"), "codigo": "nao_gravacao"})
                 continue
             d = pasta_da_rodada(arq, le_meta(arq))
             if d and viva not in (None, "?") and d.resolve() == viva.resolve():
-                recusados.append({"arq": rel, "por": "está rodando"})
+                recusados.append({"arq": rel, "por": lingua.tr("scope_srv.rodando"), "codigo": "rodando"})
                 continue
             if d and (d / GUARDADA).exists() and not corpo.get("guardadas"):
-                recusados.append({"arq": rel, "por": "guardada"})
+                recusados.append({"arq": rel, "por": lingua.tr("scope_srv.guardada"), "codigo": "guardada"})
                 continue
             tam = tamanho_pasta(d) if d else arq.stat().st_size
             if d:
@@ -392,7 +395,7 @@ class Manipulador(BaseHTTPRequestHandler):
                 tam = tamanho_pasta(d)
                 shutil.rmtree(d, onerror=_some_ja_saiu)
                 orfas.append({"pasta": d.name, "tamanho": tam})
-        print(f"apagadas pela tela: {len(apagados)} ({sum(a['tamanho'] for a in apagados) / 1e6:.1f} MB) + {len(orfas)} pastas sem gravação;"
+        print(f"apagadas pela tela: {len(apagados)} ({sum(a['tamanho'] for a in apagados) / 1e6:.1f} MB) + {len(orfas)} pastas sem gravação;"   # i18n-ok (log)
               f" já tinham saído: {len(ja)}; recusadas: {recusados}", flush=True)
         return {"apagados": apagados, "recusados": recusados, "ja": ja, "orfas": orfas}
 
@@ -414,7 +417,7 @@ def main():
                 d = pasta_da_rodada(f, le_meta(f))
                 if d:
                     tamanho_pasta(d)
-    threading.Thread(target=aquece, daemon=True).start()
+    lingua.thread(aquece).start()
     srv.daemon_threads = True
     print(f"maisim-scope em http://localhost:{a.porta}{PREFIXO}/", flush=True)
     srv.serve_forever()

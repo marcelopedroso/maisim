@@ -19,6 +19,7 @@ from pathlib import Path
 
 from .base import IA
 from .login_pty import LoginPorTerminal
+import lingua  # noqa: E402                    as mensagens no idioma do pedido (o config/ entra no sys.path pelo base)
 
 ESTADO_AGY = (".gemini", "antigravity-cli")
 NEGA = ["command(*)", "unsandboxed(*)", "read_url(*)", "execute_url(*)", "mcp(*)"]
@@ -28,17 +29,17 @@ REGRA_AGY = ("\n\nNo MaiSim você NÃO tem terminal, navegador nem acesso a arqu
 
 
 def _quando(iso):
-    """2026-10-28T14:25:45Z → "hoje às 11h25", "amanhã às …" ou "28/10 às 11h25" (a hora daqui)."""
+    """2026-10-28T14:25:45Z → "hoje às 11h25", "amanhã às …" ou "28/10 às 11h25" (a hora daqui; em inglês, "today at 11:25"…)."""
     try:
         t = time.localtime(calendar.timegm(time.strptime(str(iso)[:19], "%Y-%m-%dT%H:%M:%S")))
     except (ValueError, OverflowError):
         return ""
-    hora, hoje, amanha = f"{t.tm_hour:02d}h{t.tm_min:02d}", time.localtime(), time.localtime(time.time() + 86400)
+    hm, hoje, amanha = dict(h=f"{t.tm_hour:02d}", m=f"{t.tm_min:02d}"), time.localtime(), time.localtime(time.time() + 86400)
     if (t.tm_mon, t.tm_mday) == (hoje.tm_mon, hoje.tm_mday):
-        return f"hoje às {hora}"
+        return lingua.tr("ia_conta.renova_hoje", **hm)
     if (t.tm_mon, t.tm_mday) == (amanha.tm_mon, amanha.tm_mday):
-        return f"amanhã às {hora}"
-    return f"{t.tm_mday:02d}/{t.tm_mon:02d} às {hora}"
+        return lingua.tr("ia_conta.renova_amanha", **hm)
+    return lingua.tr("ia_conta.renova_dia", dia=f"{t.tm_mday:02d}", mes=f"{t.tm_mon:02d}", **hm)
 
 
 def _sem_links_locais(texto):
@@ -50,14 +51,14 @@ def _ferramenta(nome):
     """O nome de uma ferramenta do agy → o do MaiSim (a linha "lendo controle.py" da tela)."""
     n = str(nome or "").lower()
     if n in ("run_command", "send_command_input"):
-        return "terminal (negado)"
+        return lingua.tr("ia_conta.ferramenta_terminal")
     if n in ("search_web", "read_url_content", "open_browser_url"):
         return "web"
     for chave, nosso in (("grep", "Grep"), ("list_dir", "Glob"), ("find_by_name", "Glob"), ("glob", "Glob"), ("sed_file", "Edit"),
                        ("replace", "Edit"), ("edit", "Edit"), ("write", "Write"), ("create", "Write"), ("view", "Read"), ("read", "Read")):
         if chave in n:
             return nosso
-    return nome or "ferramenta"
+    return nome or lingua.tr("ia_conta.ferramenta")
 
 
 class Antigravity(LoginPorTerminal, IA):
@@ -75,7 +76,7 @@ class Antigravity(LoginPorTerminal, IA):
     def __init__(self, binario, pasta):
         super().__init__(binario, pasta)
         self._login_init()
-        self._uso, self._trava_uso = None, threading.Lock()
+        self._uso, self._trava_uso = None, threading.Lock()   # _uso: o /usage cru (uso() monta no idioma do pedido)
 
     def _conta(self):
         return self.pasta / "maisim" / "conta.json"
@@ -131,33 +132,56 @@ class Antigravity(LoginPorTerminal, IA):
 
     # ---- os limites da conta: `agy -p "/usage"` (0 tokens: o comando do agy, sem o modelo), os grupos de modelos com o
     # limite semanal e o de 5 h, e quando renovam (o mesmo da tela do Antigravity). Guardado por 60 s
-    GRUPOS = {"Gemini Models": "Gemini", "Claude and GPT models": "Claude e GPT"}
-    JANELAS = {"weekly": "semana", "5h": "5 h"}
+    # os nomes na tela: os nomes próprios ficam; os outros são chaves do textos.py (no idioma do pedido)
+    GRUPOS_NOME = {"Gemini Models": "Gemini"}
+    GRUPOS_CHAVE = {"Claude and GPT models": "ia_conta.grupo_claude_gpt"}
+    JANELAS_NOME = {"5h": "5 h"}
+    JANELAS_CHAVE = {"weekly": "ia_conta.janela_semana"}
+
+    @staticmethod
+    def _nome(cru, nomes, chaves, vazio):
+        if cru in chaves:
+            return lingua.tr(chaves[cru])
+        return nomes.get(cru, cru or vazio)
 
     def uso(self, forca=False):
+        """Lê o /usage do agy no máximo a cada 60 s (o guardado é o que ele respondeu, cru) e monta os rótulos, o "renova" e
+        o erro a cada pedido, no idioma dele (trocar de idioma não chama o agy de novo)."""
         with self._trava_uso:
-            if not forca and self._uso and time.time() - self._uso["quando"] < 60:
-                return self._uso
-            vazio = self.pasta / "maisim" / "uso"
-            vazio.mkdir(mode=0o700, parents=True, exist_ok=True)
-            try:
-                r = subprocess.run([self.bin, "-p", "/usage", "--output-format", "json"], env=self.ambiente(), cwd=str(vazio),
-                                   capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
-                grupos = ((json.loads(r.stdout or "{}").get("command") or {}).get("data") or {}).get("groups") or []
-                itens = []
-                for g in grupos:
-                    nome = self.GRUPOS.get(g.get("name"), g.get("name") or "?")
-                    for b in g.get("buckets") or []:
-                        janela = self.JANELAS.get(b.get("window"), b.get("window") or "")
-                        itens.append({"rotulo": f"{nome} · {janela}", "pct": round((1 - float(b.get("remaining_fraction") or 0)) * 100, 1),
-                                      "renova": _quando(b.get("reset_time")), "grupo": g.get("description") or ""})
-                v = {"itens": itens, "quando": time.time()}
-                if not itens:
-                    v["erro"] = (r.stderr.strip().splitlines() or [f"saída {r.returncode}"])[-1][:200]
-            except (subprocess.SubprocessError, OSError, ValueError, TypeError) as e:
-                v = {"itens": [], "quando": time.time(), "erro": f"não consegui ler os limites: {e}"}
-            self._uso = v
+            if forca or not self._uso or time.time() - self._uso["quando"] >= 60:
+                self._uso = self._le_uso()
+            return self._monta_uso(self._uso)
+
+    def _le_uso(self):
+        vazio = self.pasta / "maisim" / "uso"
+        vazio.mkdir(mode=0o700, parents=True, exist_ok=True)
+        try:
+            r = subprocess.run([self.bin, "-p", "/usage", "--output-format", "json"], env=self.ambiente(), cwd=str(vazio),
+                               capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
+            grupos = ((json.loads(r.stdout or "{}").get("command") or {}).get("data") or {}).get("groups") or []
+            return {"quando": time.time(), "grupos": grupos, "stderr": r.stderr, "saida": r.returncode}
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError) as e:
+            return {"quando": time.time(), "falha": str(e)}
+
+    def _monta_uso(self, cru):
+        try:
+            if "falha" in cru:
+                raise ValueError(cru["falha"])
+            itens = []
+            for g in cru["grupos"]:
+                nome = self._nome(g.get("name"), self.GRUPOS_NOME, self.GRUPOS_CHAVE, "?")
+                for b in g.get("buckets") or []:
+                    janela = self._nome(b.get("window"), self.JANELAS_NOME, self.JANELAS_CHAVE, "")
+                    # janela: o código da janela do agy ("weekly", "5h"), ao lado do rótulo traduzido
+                    itens.append({"rotulo": f"{nome} · {janela}", "pct": round((1 - float(b.get("remaining_fraction") or 0)) * 100, 1),
+                                  "renova": _quando(b.get("reset_time")), "grupo": g.get("description") or "",
+                                  "janela": b.get("window") or ""})
+            v = {"itens": itens, "quando": cru["quando"]}
+            if not itens:
+                v["erro"] = (cru["stderr"].strip().splitlines() or [lingua.tr("ia_conta.saida", codigo=cru["saida"])])[-1][:200]
             return v
+        except (ValueError, TypeError) as e:
+            return {"itens": [], "quando": cru["quando"], "erro": lingua.tr("ia_conta.limites_erro", erro=e)}
 
     def ao_iniciar(self):
         if self.logado() and not self._modelos_arq().exists():
@@ -230,7 +254,7 @@ class Antigravity(LoginPorTerminal, IA):
                 pass
             email = self.email_do_log() or email
         return {"id": self.id, "nome": self.nome, "instalado": self.instalado(), "logado": logado, "email": email,
-                "metodo": "conta Google, pelo Antigravity", "pasta": str(self.pasta).replace(str(Path.home()), "~", 1),
+                "metodo": lingua.tr("ia_conta.metodo_agy"), "pasta": str(self.pasta).replace(str(Path.home()), "~", 1),
                 "login": self.login_estado()}
 
     def sai(self):
@@ -244,14 +268,14 @@ class Antigravity(LoginPorTerminal, IA):
     def erro_conhecido(self, texto):
         m = PARADA.search(texto or "")
         if m:
-            o_que = {"command": "o terminal", "read_file": "ler um arquivo fora da pasta", "write_file": "escrever fora da pasta",
-                     "read_url": "abrir uma página da web", "execute_url": "o navegador", "mcp": "uma ferramenta externa"}.get(m.group(1), m.group(1))
-            return (f"o {self.nome} tentou {o_que}, que o MaiSim não deixa, e parou sem responder. Peça de novo; se precisar, diga "
-                    "para ele usar só os arquivos desta pasta.")
+            perm = m.group(1)                          # a permissão que o agy pediu: uma frase inteira para cada uma conhecida
+            if perm in ("command", "read_file", "write_file", "read_url", "execute_url", "mcp"):
+                return lingua.tr(f"ia_conta.agy_parou_{perm}", nome=self.nome)
+            return lingua.tr("ia_conta.agy_parou", nome=self.nome, o_que=perm)
         if re.search(r"not logged in|no stored credentials|Authentication required|authentication failed or timed out", texto or "", re.I):
             self._conta().unlink(missing_ok=True)       # o agy não aceitou o login guardado: a tela pede para entrar de novo
             self._token().unlink(missing_ok=True)
-            return f"o {self.nome} não está com o login (o agy pediu para entrar de novo): entre de novo pelo balão da IA"
+            return lingua.tr("ia_conta.agy_sem_login", nome=self.nome)
         return None
 
     # ---- o pedido e o resumo

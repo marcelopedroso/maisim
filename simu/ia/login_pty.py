@@ -11,11 +11,19 @@ import select
 import signal
 import struct
 import subprocess
+import sys
 import threading
 import time
+from pathlib import Path
 
 import fcntl
 import termios
+
+for _p in (Path(__file__).resolve().parents[2] / "config", Path(__file__).resolve().parents[1]):   # lingua e textos (o servidor já os põe)
+    if str(_p) not in sys.path:
+        sys.path.append(str(_p))
+import lingua  # noqa: E402                    as mensagens no idioma do pedido
+import textos  # noqa: E402,F401
 
 ANSI = re.compile(r"\x1b\[[0-9;?<>=]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[=>()][0-9A-Za-z]?")
 
@@ -47,12 +55,31 @@ class LoginPorTerminal:
 
     # ---- o estado do login em andamento
     def login_estado(self):
+        """O estado do login; o erro e a mensagem do MaiSim no idioma DESTE pedido (guardados como código + parâmetros: quem
+        pergunta depois, noutro idioma, vê o seu), com o código ao lado (erro_codigo, mensagem_codigo); o erro que a
+        ferramenta escreveu vem como veio."""
         with self._trava:
-            return {k: self._login.get(k) for k in ("andamento", "url", "erro", "mensagem", "desde")} if self._login else None
+            if not self._login:
+                return None
+            out = {k: self._login.get(k) for k in ("andamento", "url", "erro", "mensagem", "desde")}
+            for campo in ("erro", "mensagem"):
+                cod = self._login.get(campo + "_t")
+                if cod:
+                    out[campo] = lingua.tr(f"ia_login.{cod[0]}", **cod[1])[:300]
+                    out[campo + "_codigo"] = cod[0]
+            return out
+
+    def _poe(self, campo, chave=None, texto=None, **p):
+        """Guarda o erro ou a mensagem do login (com a trava): o código do texto (ia_login.<chave>) e os parâmetros, ou o
+        texto cru da ferramenta."""
+        self._login[campo + "_t"] = (chave, p) if chave else None
+        self._login[campo] = lingua.tr(f"ia_login.{chave}", **p) if chave else texto
+        if self._login[campo]:
+            self._login[campo] = self._login[campo][:300]
 
     def entra(self):
         if not self.instalado():
-            raise ValueError(f"{self.nome}: a ferramenta não está instalada neste computador")
+            raise ValueError(lingua.tr("ia_login.nao_instalada", nome=self.nome))
         if self.logado():
             return self.estado()
         with self._trava:
@@ -70,8 +97,9 @@ class LoginPorTerminal:
                 finally:
                     os.close(escravo)
                 self._login.clear()
-                self._login.update(proc=proc, fd=mestre, andamento=True, desde=time.time(), url=None, erro=None, mensagem=None)
-                threading.Thread(target=self._le_login, args=(proc, mestre), daemon=True).start()
+                self._login.update(proc=proc, fd=mestre, andamento=True, desde=time.time(), url=None, erro=None, mensagem=None,
+                                   erro_t=None, mensagem_t=None)
+                lingua.thread(self._le_login, proc, mestre).start()   # as mensagens no idioma de quem pediu o login
         if not em_andamento:
             for _ in range(self.LOGIN_ESPERA_LINK * 10):
                 with self._trava:
@@ -116,11 +144,12 @@ class LoginPorTerminal:
                     self._login["url"] = m.group(0)
                 if erro and not fim:
                     txt = erro.group(1).strip() if erro.groups() else erro.group(0).strip()
-                    if re.search(r"failed, reason:\s*$", txt):         # o Node não disse o motivo: foi a rede
-                        txt += " (sem resposta do Google: a rede deste computador não chegou lá)"
                     if "invalid_grant" in txt:                          # o código não valeu (errado, incompleto ou velho)
-                        txt = "o Google recusou o código (invalid_grant): clique em entrar de novo e cole o código novo, inteiro"
-                    self._login["erro"] = txt[:300]
+                        self._poe("erro", "invalid_grant")
+                    elif re.search(r"failed, reason:\s*$", txt):       # o Node não disse o motivo: foi a rede
+                        self._poe("erro", "sem_rede", txt=txt)
+                    else:
+                        self._poe("erro", texto=txt)
             if fim or erro:
                 break
         try:
@@ -146,20 +175,21 @@ class LoginPorTerminal:
                 return
             self._login.update(andamento=False, proc=None, fd=None)
             if ok:
-                self._login.update(mensagem="login feito", erro=None)
+                self._poe("mensagem", "feito")
+                self._poe("erro")
             elif not self._login.get("erro"):
-                self._login["erro"] = f"o login terminou sem entrar (saída {proc.returncode})"
+                self._poe("erro", "sem_entrar", codigo=proc.returncode)
 
     def codigo(self, codigo):
         codigo = re.sub(r"\s+", "", str(codigo or ""))
         if not self.LOGIN_CODIGO.fullmatch(codigo):
-            raise ValueError("cole o código inteiro que a página do Google mostrou (letras, números, / - _)")
+            raise ValueError(lingua.tr("ia_login.cole_codigo"))
         with self._trava:
             p, fd = self._login.get("proc"), self._login.get("fd")
             if p is None or p.poll() is not None or fd is None:
-                raise ValueError(f"não há login do {self.nome} em andamento: clique em entrar de novo")
+                raise ValueError(lingua.tr("ia_login.sem_andamento", nome=self.nome))
             if not self._login.get("url"):
-                raise ValueError(f"o {self.nome} ainda não mostrou o link: espere um pouco")
+                raise ValueError(lingua.tr("ia_login.sem_link", nome=self.nome))
             os.write(fd, codigo.encode() + b"\r")
         for _ in range(450):                                 # a troca do código leva uns segundos
             with self._trava:
@@ -168,12 +198,17 @@ class LoginPorTerminal:
             time.sleep(0.1)
         return self.estado()
 
-    def cancela(self, motivo="cancelado"):
+    def cancela(self, motivo=None):
+        """motivo: um texto cru; sem ele, "cancelado" (no idioma de quem perguntar)."""
         with self._trava:
             p = self._login.get("proc")
             if p is None:
                 return
-            self._login.update(proc=None, andamento=False, erro=motivo)
+            self._login.update(proc=None, andamento=False)
+            if motivo is None:
+                self._poe("erro", "cancelado")
+            else:
+                self._poe("erro", texto=motivo)
         try:
             os.killpg(p.pid, signal.SIGTERM)
         except OSError:

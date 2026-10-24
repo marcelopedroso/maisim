@@ -41,7 +41,7 @@ class PublicadorScope:
         self.vivo = True
         self.avisou = False
         self._post({"tipo": "inicio", "meta": meta})
-        self.th = threading.Thread(target=self._laco, daemon=True)
+        self.th = threading.Thread(target=self._laco, daemon=True)   # i18n-ok (sem texto; o run.py de fora importa este arquivo sem o config/)
         self.th.start()
 
     def _post(self, obj):
@@ -51,7 +51,7 @@ class PublicadorScope:
             urllib.request.urlopen(req, timeout=5).read()
         except Exception as e:             # o scope é opcional: avisa uma vez e segue
             if not self.avisou:
-                print(f"scope: não consegui publicar em {self.url} ({e}); a rodada segue e o .npz é gravado no fim")
+                print(f"scope: não consegui publicar em {self.url} ({e}); a rodada segue e o .npz é gravado no fim")   # i18n-ok (log)
                 self.avisou = True
 
     def amostra(self, canais):

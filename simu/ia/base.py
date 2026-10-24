@@ -17,7 +17,14 @@ Eventos comuns (traduz devolve uma lista):
    "modelo": str | None}
 """
 import os
+import sys
 from pathlib import Path
+
+for _p in (Path(__file__).resolve().parents[2] / "config", Path(__file__).resolve().parents[1]):   # lingua e textos (o servidor já os põe)
+    if str(_p) not in sys.path:
+        sys.path.append(str(_p))
+import lingua  # noqa: E402                    as mensagens no idioma do pedido
+import textos  # noqa: E402,F401
 
 ENV_BRANCA = ("PATH", "HOME", "USER", "LOGNAME", "LANG", "LC_ALL", "LC_CTYPE", "TZ", "TMPDIR")
 
@@ -95,13 +102,13 @@ class IA:
         return {"instalado": self.instalado(), "logado": False}
 
     def entra(self):
-        raise ValueError(f"{self.nome}: o login pelo MaiSim ainda não existe")
+        raise ValueError(lingua.tr("ia_conta.login_nao_existe", nome=self.nome))
 
     def codigo(self, codigo):
-        raise ValueError(f"{self.nome}: não há login em andamento")
+        raise ValueError(lingua.tr("ia_conta.sem_login_andamento", nome=self.nome))
 
     def cancela(self):
         pass
 
     def sai(self):
-        raise ValueError(f"{self.nome}: o login pelo MaiSim ainda não existe")
+        raise ValueError(lingua.tr("ia_conta.login_nao_existe", nome=self.nome))
