@@ -14,6 +14,8 @@ import sys
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[1]
+PORTAS = (("MAISIM_PORTA_PAGINA", 0), ("MAISIM_PORTA_SIMU", 1), ("MAISIM_PORTA_SCOPE", 2), ("MAISIM_PORTA_GECKO", 3),
+          ("MAISIM_PORTA_MOTOR", 4), ("MAISIM_PORTA_TELA", 5), ("MAISIM_PORTA_VNC", 6))   # a partir de MAISIM_PORTA
 
 
 def _le(arq):
@@ -48,10 +50,25 @@ def carrega(perfil=None):
     arqs = [RAIZ / "config" / "padrao.env"] + ([RAIZ / "config" / f"{perfil}.env"] if perfil else [RAIZ / ".env"])
     if perfil and not arqs[1].is_file():
         raise FileNotFoundError(f"perfil {perfil!r}: falta {arqs[1]}")
-    v = {}
-    for a in arqs:
-        v.update({k: _expande(x) for k, x in _le(a).items()})
-    v.update({k: x for k, x in os.environ.items() if k.startswith("MAISIM_")})
+    v, proprios = {}, {}
+    for k, a in enumerate(arqs):
+        lido = {n: _expande(x) for n, x in _le(a).items()}
+        v.update(lido)
+        if k:                                        # o .env (ou o perfil): o que a pessoa escreveu, não o padrão
+            proprios.update(lido)
+    amb = {k: x for k, x in os.environ.items() if k.startswith("MAISIM_")}
+    proprios.update(amb)
+    # MAISIM_PORTA=8100 (no .env ou no ambiente): uma linha só muda as sete portas, como o -p do npm run maisim (8100 a
+    # página, 8101 o simu… 8106 o VNC; a tela virtual :81); uma porta escrita à parte vale mais
+    base = proprios.get("MAISIM_PORTA", "").strip()
+    if base:
+        if not base.isdigit() or not 1024 <= int(base) <= 65000:
+            raise ValueError(f"MAISIM_PORTA={base!r}: esperava um número de porta entre 1024 e 65000")
+        b = int(base)
+        for nome, d in PORTAS:
+            v[nome] = proprios.get(nome) or str(b + d)
+        v["MAISIM_TELA_X"] = proprios.get("MAISIM_TELA_X") or f":{b // 100}"
+    v.update(amb)
     if perfil:
         v["MAISIM_PERFIL"] = perfil
     return v

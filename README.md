@@ -53,7 +53,8 @@ cd app && npm run maisim      # starts everything; Ctrl+C stops what it started
 ```
 
 Open **http://localhost:7100**. To use another port, pass it with `-p`: `npm run maisim -- -p 8100` serves the page on
-8100 and the other services on the ports right after it (8101–8106). Ports (7100–7106 by default, `localhost` only) and
+8100 and the other services on the ports right after it (8101–8106). To keep another port for good, put one line in a
+`.env` at the root: `MAISIM_PORTA=8100` (handy when 7100 is already taken on your machine). Ports (7100–7106 by default, `localhost` only) and
 folders are set in [`config/padrao.env`](config/padrao.env); to change something for good on your machine, create a `.env`
 at the repository root with only what changes.
 
