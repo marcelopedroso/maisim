@@ -218,8 +218,14 @@
             if (!mods.length && !todos.some((m) => m.aberto_em)) return;
             const sec = document.getElementById("circuitos"), lista = document.getElementById("lista-circ"), filtro = document.getElementById("filtro-circ");
             const nome = (m) => m.nome.replace(/\.ipes$/, "");
+            // a lixeira (Marcelo, 24/10: "deletar por aqui, sem precisar achar a pasta"): só os seus e os da biblioteca, como no
+            // Abrir, e não o que está aberto no editor; depois de confirmar, apagado de vez (a .lixeira do Abrir fica numa pasta
+            // que a pessoa nem acha: WSL, Linux, Windows)
+            let aberto = null; try { aberto = (await (await fetch("/maisim/simu/editor/aberto")).json()).aberto; } catch (e) { /* sem saber: todos com lixeira */ }
+            const LIXO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>';
             const linha = (m, det) => `<div class="rodada"><div class="info"><b title="${esc(m.arq)}">${esc(nome(m))}</b><div class="det">${esc(det)}</div></div>` +
-                `<a href="/maisim/simu/?modelo=${encodeURIComponent(m.arq)}">${esc(tr("inicio.circ_abrir"))}</a></div>`;
+                `<a href="/maisim/simu/?modelo=${encodeURIComponent(m.arq)}">${esc(tr("inicio.circ_abrir"))}</a>` +
+                (m.apagavel && m.arq !== aberto ? `<button class="apagar" type="button" data-arq="${esc(m.arq)}" title="${esc(tr("inicio.circ_apagar_title"))}" aria-label="${esc(tr("inicio.circ_apagar_aria", { nome: nome(m) }))}">${LIXO}</button>` : "") + `</div>`;
             let aba = "recentes";
             const desenha = () => {
                 if (aba === "recentes") {
@@ -238,6 +244,23 @@
                 aba = b.dataset.aba; document.querySelectorAll(".abas-circ button").forEach((x) => x.setAttribute("aria-selected", String(x === b)));
                 filtro.hidden = aba !== "todos"; desenha(); if (aba === "todos") filtro.focus(); });
             filtro.oninput = desenha;
+            lista.onclick = async (ev) => {
+                const bt = ev.target.closest("button.apagar"); if (!bt) return;
+                const m = mods.find((x) => x.arq === bt.dataset.arq); if (!m) return;
+                const f = document.createElement("div"); f.className = "modal-fundo";
+                f.innerHTML = `<div class="modal" role="dialog" aria-modal="true"><h3>${esc(tr("inicio.circ_apagar_q", { nome: nome(m) }))}</h3><p>${esc(tr("inicio.circ_apagar_txt"))}</p>` +
+                    `<div class="botoes"><button type="button" class="m-nao">${esc(tr("inicio.cancelar"))}</button><button type="button" class="m-ok perigo">${esc(tr("inicio.apagar"))}</button></div></div>`;
+                const sim = await new Promise((res) => { const fim = (v) => { f.remove(); document.removeEventListener("keydown", k); res(v); };
+                    const k = (e) => { if (e.key === "Escape") fim(false); };
+                    f.onclick = (e) => { if (e.target === f || e.target.closest(".m-nao")) fim(false); else if (e.target.closest(".m-ok")) fim(true); };
+                    document.addEventListener("keydown", k); document.body.appendChild(f); f.querySelector(".m-nao").focus(); });
+                if (!sim) return;
+                try {
+                    const r = await fetch("/maisim/simu/editor/apagar_arquivo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ arq: m.arq, de_vez: true }) });
+                    const j = await r.json(); if (!r.ok || j.erro) throw new Error(j.erro || r.status);
+                    mods.splice(mods.indexOf(m), 1); const k = todos.indexOf(m); if (k >= 0) todos.splice(k, 1); desenha();
+                } catch (e) { alert(tr("inicio.circ_apagar_erro", { erro: e.message })); }   // i18n-ok (o texto vem do dicionário)
+            };
             if (pastas.meus) document.getElementById("pasta-circ").textContent = tr("inicio.circ_pasta", { pasta: pastas.meus });
             desenha(); sec.hidden = false;
         })();

@@ -1355,20 +1355,35 @@ def apaga_grupo(nomes, fios, folha):
     return estado()
 
 
-def apaga_arquivo(rel):
-    """Circuito salvo pelo MaiSim ou subcircuito da biblioteca: vai para a .lixeira da pasta dele (não some)."""
+def apaga_arquivo(rel, de_vez=False):
+    """Circuito salvo pelo MaiSim ou subcircuito da biblioteca: vai para a .lixeira da pasta dele (não some); de_vez (a tela
+    inicial, depois de confirmar; Marcelo, 24/10: a .lixeira fica numa pasta que a pessoa nem acha): apagado de verdade,
+    com os arquivos de ao lado."""
     arq = (RAIZ / str(rel)).resolve()
     pastas = [SALVOS.resolve(), LIB.resolve()]
     if arq.suffix != ".ipes" or not arq.is_file() or arq.parent not in pastas:
         raise ErroMotor(lingua.tr("modelos.so_apaga_do_maisim"))
+    if de_vez and editor.get("aberto") and (RAIZ / str(editor["aberto"])).resolve() == arq:
+        raise ErroMotor(lingua.tr("modelos.apagar_aberto"))   # o aberto no editor não se apaga de vez (outra aba pode tê-lo aberto)
+    ao_lado = [f for f in (arquivo_controle(arq), arquivo_aparencia(arq), arquivo_cores(arq), arquivo_scope(arq)) if f.exists()]
+    if de_vez:
+        for f in [arq, *ao_lado]:
+            f.unlink()
+        dest = None
     lixo = arq.parent / ".lixeira"
-    lixo.mkdir(exist_ok=True)
-    dest = lixo / f"{arq.stem}_{time.strftime('%Y%m%d-%H%M%S')}.ipes"
-    arq.rename(dest)
-    for f in (arquivo_controle(arq), arquivo_aparencia(arq), arquivo_cores(arq), arquivo_scope(arq)):   # os de ao lado vão
-        if f.exists():                                   # junto (senão um circuito novo com o mesmo nome os herdaria)
-            f.rename(dest.with_name(dest.stem + f.name[len(arq.stem):]))
-    return dict(apagado=relativo(arq), lixeira=relativo(dest), biblioteca=lista_biblioteca())
+    if not de_vez:
+        lixo.mkdir(exist_ok=True)
+        dest = lixo / f"{arq.stem}_{time.strftime('%Y%m%d-%H%M%S')}.ipes"
+        arq.rename(dest)
+        for f in ao_lado:                                # os de ao lado vão junto (senão um circuito novo com o mesmo nome
+            f.rename(dest.with_name(dest.stem + f.name[len(arq.stem):]))   # os herdaria)
+    try:                                                 # e sai dos Recentes da tela inicial
+        r = json.loads(RECENTES.read_text()) if RECENTES.is_file() else {}
+        if r.pop(relativo(arq), None) is not None:
+            RECENTES.write_text(json.dumps(r))
+    except (OSError, ValueError):
+        pass
+    return dict(apagado=relativo(arq), lixeira=relativo(dest) if dest else None, biblioteca=lista_biblioteca())
 
 
 def pastas_extras():
@@ -5619,7 +5634,7 @@ class Manipulador(BaseHTTPRequestHandler):
                 return fonte_sinal(nome, str(corpo.get("sinal", "")).strip(), corpo.get("folhas"))
             return self._editor(com_desfazer(fonte, corpo.get("descr") or lingua.tr("editor.desfazer_fonte_sinal"), manter_se_falhar=True))
         if rota == "/editor/apagar_arquivo":
-            return self._editor(lambda: apaga_arquivo(corpo.get("arq", "")))
+            return self._editor(lambda: apaga_arquivo(corpo.get("arq", ""), de_vez=corpo.get("de_vez") is True))
         if rota == "/editor/desfazer":
             def desfazer():
                 if not pilha:
