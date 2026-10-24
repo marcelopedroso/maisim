@@ -114,7 +114,7 @@ ACENTO = re.compile(r"[ãõçáàâêéíóôúÃÕÇÁÀÂÊÉÍÓÔÚ]")
 PALAVRAS = re.compile(r"\b(não|nao|você|voce|clique|salvar|salve|abrir|abra|arquivo|rodada|rodadas|nenhum|nenhuma|circuito|"
                       r"circuitos|sinal|sinais|painel|seção|apagar|escolha|mudar|aqui|também|está|então|para|com|sem|uma|os|as|"
                       r"do|da|dos|das|no|na|ou|que|de)\b", re.I)
-USO_TR_JS = re.compile(r"\btr\(\s*[\"'`]([\w.]+)[\"'`]")
+USO_TR_JS = re.compile(r"\btr\(\s*[\"'`]([\w.]+)[\"'`](?!\s*\+)")   # tr("a." + x): montada na hora, não conta
 USO_DATA = re.compile(r"data-tr(?:-html|-title|-ph|-aria|-msg)?=\\?\"([\w.]+)\\?\"")
 USO_HTML = re.compile(r"data-tr-html=\\?\"([\w.]+)\\?\"")
 USO_TR_PY = re.compile(r"\b(?:lingua\.)?t(?:r)?\(\s*[\"']([\w.]+)[\"']")
@@ -129,9 +129,10 @@ def portugues(s):
     return len(PALAVRAS.findall(s)) >= 2 and " " in s   # duas palavras portuguesas comuns numa frase
 
 
-def lexa_js(src):
+def lexa_js(src, guarda=False):
     """Lê o JS: devolve (o código sem comentários, os textos dos literais). Acompanha strings, templates com ${…} aninhados
-    (o código dentro e os templates dentro dele) e regex (/'/ não abre string) — o suficiente para contar os textos."""
+    (o código dentro e os templates dentro dele) e regex (/'/ não abre string) — o suficiente para contar os textos. guarda:
+    as strings comuns ficam no código (para achar as chaves de tr("…"))."""
     out, textos, i, n = [], [], 0, len(src)
     pilha = []                                            # "`": dentro de um template; "{": dentro de um ${…} (a profundidade)
     buf = []
@@ -160,7 +161,7 @@ def lexa_js(src):
                 if src[j] == "\\":
                     b.append(src[j:j + 2]); j += 2; continue
                 b.append(src[j]); j += 1
-            textos.append("".join(b)); out.append(c + " " * max(0, j - i - 1) + c); i = j + 1; continue
+            textos.append("".join(b)); out.append(src[i:j + 1] if guarda else c + " " * max(0, j - i - 1) + c); i = j + 1; continue
         if c == "`":
             pilha.append("`"); out.append(c); i += 1; continue
         if src.startswith("//", i):
@@ -192,7 +193,7 @@ def lexa_js(src):
 
 
 def sem_comentarios_js(src):
-    return lexa_js(src)[0]
+    return lexa_js(src, guarda=True)[0]
 
 
 def sem_dicionarios(src):
