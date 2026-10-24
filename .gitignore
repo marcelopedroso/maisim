@@ -27,3 +27,6 @@ dist/
 build/
 !gecko/patches/
 simu/static/vendor/
+pacote/.cache/
+pacote/.build/
+pacote/dist/

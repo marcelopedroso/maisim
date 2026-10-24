@@ -1,0 +1,13 @@
+MaiSim — circuit and digital control simulation, with AI built in.
+Free software (GNU GPL v3), by Marcelo Pedroso. https://maisim.org
+
+Built on:
+- GeckoCIRCUITS (GPL v3): the circuit simulator behind MaiSim, with MaiSim's changes (the source and the patches come
+  with MaiSim, in gecko/patches).
+- Python and NumPy (BSD); Eclipse Temurin (Java, GPL v2 with the Classpath Exception).
+- uPlot (MIT): the scope charts. Monaco Editor (MIT): the code editor. KaTeX (MIT): the equations. marked (MIT).
+- AI: MaiSim does not include AI. On your computer it calls the official programs Claude Code (Anthropic) and Google
+  Antigravity, which you install and use with your own account; each follows its own terms of use. MaiSim is not
+  affiliated with either company.
+
+Open it with the "MaiSim" shortcut (Start menu or desktop). To stop it: "Stop MaiSim" in the Start menu.
