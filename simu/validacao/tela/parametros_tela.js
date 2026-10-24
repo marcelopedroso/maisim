@@ -1,0 +1,115 @@
+// os campos dos parâmetros no painel da direita (instância de teste 7200 → 7201), pedido de Marcelo em 24/10: a forma da
+// fonte de sinal (SIGNAL, a portadora do PWM) aparecia como o número que o Gecko grava (404); agora é uma lista com os nomes
+// (o Gecko grava 402–406: Senoidal, Triangular, Retangular, Aleatória, Importada), e escolher grava o código certo (Ctrl+Z
+// volta); os sim/não do Gecko (useExternal, display) são caixinhas; num parâmetro que aceita variável, o $ abre a lista das
+// variáveis globais do circuito ("$Vin = 10"), filtrada pelo que vem depois do $ (↑/↓ e Enter, Tab, Esc, clique).
+// O circuito: exemplos/exemplo_buck.ipes (o SIGNAL.1 é a portadora triangular, typQuelle 403).
+const { chromium } = require("playwright");
+let falhas = 0;
+const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
+const ARQ = "exemplos/exemplo_buck.ipes";
+const abre = () => fetch("http://localhost:7201/maisim/simu/editor/abrir", { method: "POST", headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ arq: ARQ, modo: "descartar" }) }).then((r) => r.text());
+(async () => {
+  let b, pg, g0 = null;
+  try {
+    await abre();
+    b = await chromium.launch(); pg = await (await b.newContext({ viewport: { width: 1600, height: 950 } })).newPage();
+    const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
+    await pg.goto("http://localhost:7200/maisim/simu/?modelo=" + encodeURIComponent(ARQ));
+    for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof dados !== "undefined" && dados && dados.editor && ed.ligado)); k++) {
+      if (await pg.$(".modal .m-ok")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }
+    g0 = await pg.evaluate(() => Object.keys(dados.globais || {}));
+    const espera = async (f, arg, ms = 30000) => { for (const t0 = Date.now(); Date.now() - t0 < ms;) { if (await pg.evaluate(f, arg)) return true; await pg.waitForTimeout(300); } return false; };
+    const escolhe = async (n) => { await pg.evaluate((n) => seleciona(dados.folhas["0"].elementos.find((x) => x.nome === n)), n);
+      await pg.waitForSelector('#p-params [data-p="type"]', { timeout: 30000 }); };
+    const params = () => pg.evaluate(async () => api("editor/params?nome=SIGNAL.1&dom=CONTROL&typ=4"));
+    const valor = async (p) => ((await params()).find((q) => q.nome === p) || {}).valor;
+    const lista = () => pg.evaluate(() => { const s = document.querySelector('#p-params select[data-p="type"]');
+      return s && { v: s.value, txt: s.selectedOptions[0].textContent, ops: [...s.options].map((o) => `${o.value}:${o.textContent}`) }; });
+
+    // 1. a forma do SIGNAL: uma lista, na opção do valor guardado (403 = Triangular); o Gecko diz o tipo e que não aceita $
+    await escolhe("SIGNAL.1");
+    const lst = await params(), tq = lst.find((q) => q.nome === "type");
+    let s = await lista();
+    ok(tq && tq.valor === 403 && tq.tipo === "ControlSourceType" && !tq.pode_var, `SIGNAL.1 type: o Gecko guarda ${tq && tq.valor} (${tq && tq.tipo}, variável $: ${tq && tq.pode_var})`);
+    ok(s && s.v === "403" && s.txt === "Triangular" && s.ops.join("|") === "402:Senoidal|403:Triangular|404:Retangular|405:Aleatória (ruído)|406:Importada (arquivo)",
+      `a lista mostra "${s && s.txt}" (${s && s.ops.join(" · ")})`);
+    const caixas = await pg.evaluate(() => ["useExternal", "display"].map((p) => { const i = document.querySelector(`#p-params input[data-p="${p}"]`); return i && `${p}:${i.type}:${i.checked}`; }));
+    ok(caixas.join() === "useExternal:checkbox:false,display:checkbox:false", `os sim/não do Gecko são caixinhas: ${caixas.join(", ")}`);
+    // 2. escolher Retangular grava 404 (o código que o Gecko guarda); Ctrl+Z volta a 403
+    await pg.selectOption('#p-params select[data-p="type"]', "404");
+    ok(await espera(async () => ((await api("editor/params?nome=SIGNAL.1&dom=CONTROL&typ=4")).find((q) => q.nome === "type") || {}).valor === 404),
+      `Retangular: o Gecko guarda ${await valor("type")}`);
+    await pg.waitForFunction(() => { const s = document.querySelector('#p-params select[data-p="type"]'); return s && s.value === "404"; }, null, { timeout: 20000 }).catch(() => {});
+    s = await lista();
+    const h = await pg.evaluate(() => historico.map((x) => x.t).find((t) => /SIGNAL\.1: type =/.test(t)) || "");
+    ok(s && s.txt === "Retangular" && /SIGNAL\.1: type = Retangular/.test(h), `o painel refeito mostra "${s && s.txt}"; no histórico: "${h}"`);
+    await pg.evaluate(() => desfazer());
+    ok(await espera(async () => ((await api("editor/params?nome=SIGNAL.1&dom=CONTROL&typ=4")).find((q) => q.nome === "type") || {}).valor === 403, null, 60000),
+      `Ctrl+Z: volta a ${await valor("type")} (Triangular)`);
+    await escolhe("SIGNAL.1"); s = await lista();
+    ok(s && s.txt === "Triangular", `e a lista mostra "${s && s.txt}" de novo`);
+    // a caixinha grava 1 e 0
+    await pg.check('#p-params input[data-p="display"]');
+    ok(await espera(async () => ((await api("editor/params?nome=SIGNAL.1&dom=CONTROL&typ=4")).find((q) => q.nome === "display") || {}).valor === 1),
+      `marcar display: o Gecko fica com ${await valor("display")}`);
+    await pg.waitForSelector('#p-params input[data-p="display"]:checked', { timeout: 20000 }).catch(() => {});
+    await pg.uncheck('#p-params input[data-p="display"]');
+    ok(await espera(async () => ((await api("editor/params?nome=SIGNAL.1&dom=CONTROL&typ=4")).find((q) => q.nome === "display") || {}).valor === 0),
+      `desmarcar: ${await valor("display")}`);
+
+    // 3. o $ num parâmetro que aceita variável (f, a frequência): sem variáveis, a dica de criar no $x
+    await escolhe("SIGNAL.1");
+    const F = '#p-params input[data-p="f"]', A = '#p-params input[data-p="amplMAX"]', CX = (sel) => pg.evaluate((sel) => {
+      const c = document.querySelector(sel).closest("label").querySelector(".sug-vars");
+      return c && { aberta: c.style.display !== "none", itens: [...c.querySelectorAll(".sug")].map((d) => d.textContent), atual: (c.querySelector(".sug.atual") || {}).textContent || "", dica: (c.querySelector(".mais") || {}).textContent || "" }; }, sel);
+    const f0 = await pg.inputValue(F);
+    if (!g0.length) {
+      await pg.click(F); await pg.keyboard.press("Control+a"); await pg.keyboard.type("$");
+      const c = await CX(F);
+      ok(c && c.aberta && !c.itens.length && c.dica === "nenhuma variável global ainda — crie no $x", `sem variáveis, o $ mostra: "${c && c.dica}"`);
+      await pg.keyboard.press("Escape"); await pg.fill(F, f0);
+    } else ok(true, `(o circuito já tem variáveis: ${g0.join(", ")}; a dica de "nenhuma" fica para outra vez)`);
+    // duas variáveis, pela API de sempre (o $x)
+    await pg.evaluate(async () => { for (const [nome, valor] of [["$Vtela_a", 12], ["$Vtela_b", 3]]) novoEstado(await api("editor/variavel", { acao: "nova", nome, valor, descr: nome })); });
+    await escolhe("SIGNAL.1");
+    await pg.click(F); await pg.keyboard.press("Control+a"); await pg.keyboard.type("$");
+    let c = await CX(F);
+    ok(c && c.aberta && c.itens.includes("$Vtela_a= 12") && c.itens.includes("$Vtela_b= 3"), `"$": a lista abre com as variáveis e o valor (${c && c.itens.join(" · ")})`);
+    await pg.keyboard.press("Escape"); c = await CX(F);
+    ok(c && !c.aberta && (await pg.inputValue(F)) === "$", "Esc fecha a lista (o campo fica com o $)");
+    await pg.keyboard.type("Vtela_b"); c = await CX(F);
+    ok(c && c.aberta && c.itens.join() === "$Vtela_b= 3", `"$Vtela_b": filtra (${c && c.itens.join(" · ")})`);
+    await pg.keyboard.press("Backspace"); await pg.keyboard.press("ArrowDown"); await pg.keyboard.press("ArrowDown"); c = await CX(F);
+    ok(c && c.itens.length === 2 && c.atual === "$Vtela_b= 3", `"$Vtela_": as duas; ↓↓ marca "${c && c.atual}"`);
+    await pg.keyboard.press("Enter");
+    await pg.waitForSelector('#p-params .com-var input.var[data-p="f"]', { timeout: 30000 }).catch(() => {});
+    let e = await pg.evaluate(() => { const x = dados.folhas["0"].elementos.find((y) => y.nome === "SIGNAL.1"), i = document.querySelector('#p-params input[data-p="f"]');
+      return { var: x.par.frequenz_var, campo: i && i.value, mostra: (i && i.parentElement.querySelector("small") || {}).textContent || "" }; });
+    ok(e.var === "$Vtela_b" && e.campo === "$Vtela_b" && /^= 3/.test(e.mostra), `Enter: f ← $Vtela_b (o campo "${e.campo}", ${e.mostra})`);
+    // o clique escolhe (amplMAX ← $Vtela_a)
+    await pg.click(A); await pg.keyboard.press("Control+a"); await pg.keyboard.type("$Vt");
+    c = await CX(A);
+    ok(c && c.aberta && c.itens.length === 2, `"$Vt" no amplMAX: ${c && c.itens.join(" · ")}`);
+    await pg.locator(A).locator("xpath=ancestor::label").locator(".sug-vars .sug", { hasText: "$Vtela_a" }).click();
+    await pg.waitForSelector('#p-params .com-var input.var[data-p="amplMAX"]', { timeout: 30000 }).catch(() => {});
+    e = await pg.evaluate(() => dados.folhas["0"].elementos.find((y) => y.nome === "SIGNAL.1").par.amplitudeAC_var);
+    ok(e === "$Vtela_a", `clique na lista: amplMAX ← ${e}`);
+    // a lista não aparece onde não cabe variável (a forma é uma lista; a caixinha não tem $)
+    ok(await pg.evaluate(() => !document.querySelector('#p-params [data-p="type"]').closest("label").querySelector(".sug-vars")
+      && !document.querySelector('#p-params [data-p="display"]').closest("label").querySelector(".sug-vars")), "type e display: sem a lista do $");
+    ok(!erros.length, `sem erros de JS nem diálogos ${erros.join(" ; ")}`);
+  } catch (e) { ok(false, `o teste caiu: ${e.message.split("\n")[0]}`); }
+  finally {
+    // limpa: o exemplo como estava (sem salvar) e as variáveis que o teste criou
+    try {
+      await abre();
+      if (pg && g0) { const gs = await pg.evaluate(async () => Object.keys((await api("editor/estado")).globais || {}));
+        for (const k of gs.filter((k) => !g0.includes(k))) await pg.evaluate(async (k) => api("editor/variavel", { acao: "apaga", nome: k }), k); }
+      await abre();
+    } catch (e) { console.log("(limpeza: " + e.message + ")"); }
+    if (b) await b.close();
+  }
+  process.exit(falhas ? 1 : 0);
+})();
