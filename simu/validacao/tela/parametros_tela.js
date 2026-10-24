@@ -3,6 +3,8 @@
 // (o Gecko grava 402–406: Senoidal, Triangular, Retangular, Aleatória, Importada), e escolher grava o código certo (Ctrl+Z
 // volta); os sim/não do Gecko (useExternal, display) são caixinhas; num parâmetro que aceita variável, o $ abre a lista das
 // variáveis globais do circuito ("$Vin = 10"), filtrada pelo que vem depois do $ (↑/↓ e Enter, Tab, Esc, clique).
+// useExternal (24/10): amplitude, f, offset, fase e d vêm das 5 entradas (a ordem do Gecko): os campos ficam cinza, com a
+// nota da entrada; o bloco desenha as entradas onde o Gecko as põe, o ∿ à vista e a etiqueta da saída fora da caixa.
 // O circuito: exemplos/exemplo_buck.ipes (o SIGNAL.1 é a portadora triangular, typQuelle 403).
 const { chromium } = require("playwright");
 let falhas = 0;
@@ -58,6 +60,55 @@ const abre = () => fetch("http://localhost:7201/maisim/simu/editor/abrir", { met
     await pg.uncheck('#p-params input[data-p="display"]');
     ok(await espera(async () => ((await api("editor/params?nome=SIGNAL.1&dom=CONTROL&typ=4")).find((q) => q.nome === "display") || {}).valor === 0),
       `desmarcar: ${await valor("display")}`);
+
+    // 2b. useExternal (Marcelo, 24/10): o Gecko tira amplitude, f, offset, fase e d das 5 entradas (nessa ordem) e ignora os
+    // parâmetros: os campos ficam cinza, com a nota da entrada; o bloco ganha as entradas (Gecko: x − 1, y + 2 … y + 6), o ∿
+    // continua à vista e a etiqueta da saída fica fora da caixa; nos rótulos dos terminais, "entrada 1 · amplitude"…
+    const EXT = ["amplMAX", "f", "offset", "phase", "d"];
+    const painelExt = () => pg.evaluate((EXT) => EXT.map((p) => { const i = document.querySelector(`#p-params [data-p="${p}"]`), l = i && i.closest("label");
+      return i ? `${p}:${i.disabled ? "cinza" : "livre"}:${((l.querySelector(".nota-ext") || {}).textContent || "")}` : `${p}:?`; }), EXT);
+    const desenhoExt = () => pg.evaluate(() => {
+      const f = dados.folhas["0"], i = f.elementos.findIndex((x) => x.nome === "SIGNAL.1"), e = f.elementos[i], g = document.querySelector(`#svg g.el[data-i="${i}"]`);
+      if (!g) return null;
+      const bb = (n) => n.getBoundingClientRect(), cruza = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+      const caixa = bb(g.querySelector(".corpo")), simb = g.querySelector(".simbolo"), sb = simb && bb(simb), nome = e.saidas[0];
+      // a etiqueta da saída: o rótulo e a etiqueta do scope com o nome do sinal (fora da caixa)
+      const etq = [...document.querySelectorAll("#svg text, #svg .tag-scope")].filter((n) => !n.closest(".tag-scope") || n.matches(".tag-scope"))
+        .filter((n) => (n.textContent || "").trim().endsWith(nome));
+      return { entradas: e.entradas.length, bornes: e.terminais.filter((t) => t.lado === "e").map((t) => `${t.x - e.x},${t.y - e.y}`).join(" "),
+        simb: simb ? simb.textContent : "", simbDentro: !!sb && sb.left >= caixa.left && sb.right <= caixa.right && sb.top >= caixa.top && sb.bottom <= caixa.bottom,
+        simbLivre: !!sb && ![...g.querySelectorAll(".borne, .pino-ext")].some((n) => cruza(bb(n), sb)),
+        pinos: [...g.querySelectorAll(".pino-ext")].map((n) => n.textContent).join(" "),
+        saida: etq.length, saidaFora: etq.length > 0 && etq.every((n) => !cruza(bb(n), caixa)),
+        rotulos: [...document.querySelectorAll("#props [data-in]")].map((n) => n.closest("label").querySelector("span").textContent) };
+    });
+    await escolhe("SIGNAL.1");
+    let ex = await painelExt();
+    ok(ex.join() === "amplMAX:livre:,f:livre:,offset:livre:,phase:livre:,d:livre:", `sem useExternal: os cinco campos livres (${ex.join(" ")})`);
+    await pg.check('#p-params input[data-p="useExternal"]');
+    ok(await espera(async () => ((await api("editor/params?nome=SIGNAL.1&dom=CONTROL&typ=4")).find((q) => q.nome === "useExternal") || {}).valor === 1),
+      `marcar useExternal: o Gecko fica com ${await valor("useExternal")}`);
+    await espera(() => { const e = dados.folhas["0"].elementos.find((x) => x.nome === "SIGNAL.1"); return e && e.entradas.length === 5
+      && document.querySelector('#p-params input[data-p="useExternal"]:checked') && document.querySelectorAll("#p-params .nota-ext").length === 5; });
+    ex = await painelExt();
+    ok(ex.join() === "amplMAX:cinza:vem da entrada externa 1,f:cinza:vem da entrada externa 2,offset:cinza:vem da entrada externa 3,phase:cinza:vem da entrada externa 4,d:cinza:vem da entrada externa 5",
+      `com useExternal: cinza, com a entrada (${ex.join(" · ")})`);
+    let dx = await desenhoExt();
+    ok(dx && dx.entradas === 5 && dx.bornes === "-1,2 -1,3 -1,4 -1,5 -1,6", `o bloco ganha as 5 entradas onde o Gecko as põe (${dx && dx.bornes})`);
+    ok(dx && dx.simb === "∿" && dx.simbDentro && dx.simbLivre, `o ∿ continua na caixa, sem borne nem nome por cima (${dx && JSON.stringify([dx.simb, dx.simbDentro, dx.simbLivre])})`);
+    ok(dx && dx.pinos === "Â f off φ d", `os nomes das entradas junto dos bornes: ${dx && dx.pinos}`);
+    ok(dx && dx.saida > 0 && dx.saidaFora, `a etiqueta da saída fica fora da caixa (${dx && dx.saida} etiqueta(s))`);
+    ok(dx && dx.rotulos.join("|") === "entrada 1 · amplitude|entrada 2 · frequência|entrada 3 · offset|entrada 4 · fase (°)|entrada 5 · razão cíclica",
+      `rótulos dos terminais: ${dx && dx.rotulos.join(" · ")}`);
+    // desmarcar volta tudo (e deixa o exemplo como estava)
+    await pg.uncheck('#p-params input[data-p="useExternal"]');
+    ok(await espera(async () => ((await api("editor/params?nome=SIGNAL.1&dom=CONTROL&typ=4")).find((q) => q.nome === "useExternal") || {}).valor === 0),
+      `desmarcar useExternal: o Gecko fica com ${await valor("useExternal")}`);
+    await espera(() => { const e = dados.folhas["0"].elementos.find((x) => x.nome === "SIGNAL.1"); return e && !e.entradas.length
+      && document.querySelector('#p-params input[data-p="useExternal"]:not(:checked)') && !document.querySelector("#p-params .nota-ext"); });
+    ex = await painelExt(); dx = await desenhoExt();
+    ok(ex.join() === "amplMAX:livre:,f:livre:,offset:livre:,phase:livre:,d:livre:" && dx && dx.entradas === 0 && dx.simbDentro && dx.saidaFora && !dx.pinos,
+      `sem useExternal de novo: campos livres, sem entradas (${ex.join(" ")}; ${dx && dx.entradas} entradas)`);
 
     // 3. o $ num parâmetro que aceita variável (f, a frequência): sem variáveis, a dica de criar no $x
     await escolhe("SIGNAL.1");

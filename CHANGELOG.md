@@ -16,6 +16,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 - Sources follow the generator convention: the current arrow of a voltage source leaves its + terminal, and its measured current (scope, Measure, the control's `m[...]`) is positive when it delivers power. Gecko measures every current from terminal 1 to terminal 2, so MaiSim flips the sign it reads for a voltage source; the Gecko file is unchanged. The current source shows its arrow (terminal 1 → 2) instead of a "+" (#71).
 
 ### Fixed
+- Simu: the signal source with **useExternal** (SIGNAL). Amplitude, f, offset, phase and d come from its five inputs (in that order, as in Gecko), so their fields are greyed out with the input that feeds each one, and the terminal labels name them (input 1 · amplitude…). The block draws the inputs where Gecko puts them, with short labels (Â, f, off, φ, d), keeps the ∿ in view and the output label outside the box. The external inputs of LIMIT (min, max) and HYS (h) are also placed where Gecko puts them, and a control box now spans its pins (the Java and C/C++ function boxes sat one row off) (#72).
 - Scope: the "Per row" button is translated even when there is no run yet (#69).
 
 ## [0.2.0] - 2026-10-24

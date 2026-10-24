@@ -43,6 +43,13 @@ except (OSError, ValueError, KeyError):
     pass
 
 
+# as entradas que o bloco ganha com useExternal (setExpanded do Gecko; a tabela acima é a do bloco recém-criado, sem elas):
+# SIGNAL (ReglerSignalSource): TerminalControlInput(this, -1, -XIN.size() - 2) → as 5 em (x − 1, y + 2 … y + 6), na ordem do
+# SignalCalculatorExternalWrapper (amplitude, f, offset, fase, d); LIMIT: (-1, -XIN.size() - 1) → min e max em y + 2, y + 3;
+# HYS: (-1, -2) → h em y + 2
+EXTERNAS = {"SIGNAL": [(-1, -2), (-1, -3), (-1, -4), (-1, -5), (-1, -6)], "LIMIT": [(-2, 0), (-1, -2), (-1, -3)], "HYS": [(-2, 0), (-1, -2)]}
+
+
 def ponto_gecko(e, px, py):
     """Ponto na folha de um terminal com posição relativa (px, py), na orientação do elemento (como o Gecko calcula)."""
     x, y, d = e["x"], e["y"], e["dir"]
@@ -182,9 +189,11 @@ def monta(caminho):
             term = [dict(x=e["x"], y=e["y"], rotulo="")]
         elif e["dom"] == "CONTROL" and e.get("id_gecko") in GEOMETRIA and e["tipo"] != "TERM":   # onde o Gecko põe
             geo, ne, ns = GEOMETRIA[e["id_gecko"]], len(e["entradas"]), len(e["saidas"])
-            term = [dict(zip(("x", "y"), ponto_gecko(e, *pr)), rotulo=r, lado="e") for pr, r in zip(_relativos(geo["entradas"], ne), e["entradas"])] + \
+            ext = EXTERNAS.get(e["id_gecko"])
+            rel_e = ext if ext and ne == len(ext) and ne > len(geo["entradas"]) else _relativos(geo["entradas"], ne)
+            term = [dict(zip(("x", "y"), ponto_gecko(e, *pr)), rotulo=r, lado="e") for pr, r in zip(rel_e, e["entradas"])] + \
                    [dict(zip(("x", "y"), ponto_gecko(e, *pr)), rotulo=r, lado="s") for pr, r in zip(_relativos(geo["saidas"], ns), e["saidas"])]
-            e["d_entrada"] = abs(_relativos(geo["entradas"], 1)[0][0]) if ne else None
+            e["d_entrada"] = abs(rel_e[0][0]) if ne else None
             e["d_saida"] = abs(_relativos(geo["saidas"], 1)[0][0]) if ns else None
             e["geometria"] = "gecko"
         elif e["dom"] == "CONTROL":                          # sem geometria na tabela: o palpite pelas pontas das conexões

@@ -34,6 +34,11 @@ const nomeSub = (nome) => String(nome).replace(/^SUBCIRCUIT\.(\d+)$/, "Sub.$1");
 const prefixoSub = (nome) => nomeSub(nome).replace(/[^A-Za-z0-9_]/g, "_");
 // o nome de cada tipo, no idioma da página (simu.descr.<tipo> no dicionário, lido na hora de mostrar); tipo sem nome: ""
 const descrTipo = (t) => { const k = "simu.descr." + t; return maisimI18n.tem(k) ? tr(k) : ""; };
+// a fonte de sinal com useExternal (SIGNAL, a portadora do PWM): o Gecko tira amplitude, f, offset, fase e d das 5 entradas,
+// nesta ordem (SignalCalculatorExternalWrapper: AMPLITUDE_INDEX 0 … DUTY_INDEX 4), e ignora os parâmetros (Marcelo, 24/10)
+const EXTERNA_SIGNAL = [{ par: "amplMAX", simb: "Â", k: "simu.ext_amplitude" }, { par: "f", simb: "f", k: "simu.ext_freq" },   // i18n-ok (símbolo)
+  { par: "offset", simb: "off", k: "simu.ext_offset" }, { par: "phase", simb: "φ", k: "simu.ext_fase" }, { par: "d", simb: "d", k: "simu.ext_duty" }];
+const sinalExterno = (e) => { const t = e.tipo === "SIGNAL" && e.terminais.filter((u) => u.lado === "e"); return t && t.length === EXTERNA_SIGNAL.length ? t : null; };
 const SIMBOLO = { CONST: "C", SIGNAL: "∿", GATE: "G", GAIN: "K", ADD: "+", SUB: "−", NOT: "¬", AND: "&", DELAY: "Δt", GE: "≥", VOLT: "V", AMP: "A" };
 const UNID = { resistance: "Ω", inductance: "H", capacitance: "F", amplitude: "V", dcValue: "V", frequency: "Hz", onResistance: "Ω",
   offResistance: "Ω", frequenz: "Hz", phaseDegrees: "°", phase: "°", initialCurrent: "A" };
@@ -573,10 +578,19 @@ function desenha() {
       texto(g, e.x, e.y, e.id_gecko || e.tipo, { "text-anchor": "middle", fill: COR.lk, "font-size": 0.45 * G });
       texto(g, e.x - 1, e.y - 1.5, e.nome, { fill: COR.nome, "font-size": 0.55 * G });
     } else {                                                            // bloco de controle
-      const ne = e.entradas.length, ns = e.saidas.length, h = Math.max(ne, ns, 1);
-      no("rect", { class: "corpo", x: (e.x - 1) * G, y: (e.y - 0.5) * G, width: 2 * G, height: h * G, fill: COR.ctFundo, stroke: COR.ct, "stroke-width": 1.4, rx: 2 }, g);
-      texto(g, e.x, e.y - 0.5 + h / 2, ehTag(e) ? "tag" : SIMBOLO[e.tipo] || e.tipo, { "text-anchor": "middle", fill: COR.ct, "font-size": (ehTag(e) ? 0.55 : 0.7) * G, "font-weight": 700 });
-      if (e.tipo === "GATE") texto(g, e.x, e.y - 0.5 + h + 0.55, e.mede[0] ? `→ ${e.mede[0]}` : tr("simu.sem_chave"), { "text-anchor": "middle", fill: e.mede[0] ? COR.ct : COR.erro, "font-size": 0.45 * G });
+      // a caixa cobre as linhas dos bornes, onde o Gecko os põe (Marcelo, 24/10: o SIGNAL com useExternal ganha 5 entradas em
+      // y + 2 … y + 6, abaixo da saída — ver EXTERNAS no ipes.py); sem bornes, uma linha
+      const ys = [e.y, ...e.terminais.map((t) => t.y)], topo = Math.min(...ys) - 0.5, h = Math.max(...ys) - Math.min(...ys) + 1;
+      const ext = sinalExterno(e);
+      no("rect", { class: "corpo", x: (e.x - 1) * G, y: topo * G, width: 2 * G, height: h * G, fill: COR.ctFundo, stroke: COR.ct, "stroke-width": 1.4, rx: 2 }, g);
+      // o símbolo no meio; no SIGNAL externo, no meio da faixa de cima (a da saída, livre dos nomes das entradas)
+      const ySimb = ext ? (topo + Math.min(...ext.map((t) => t.y)) - 0.5) / 2 : topo + h / 2;
+      texto(g, e.x, ySimb, ehTag(e) ? "tag" : SIMBOLO[e.tipo] || e.tipo, { class: "simbolo", "text-anchor": "middle", fill: COR.ct, "font-size": (ehTag(e) ? 0.55 : 0.7) * G, "font-weight": 700 });
+      // e o que cada entrada externa dá, junto do borne, por dentro (símbolos: não se traduzem)
+      if (ext) ext.forEach((t, k) => { const esq = t.x < e.x;
+        texto(g, t.x + (esq ? 0.32 : -0.32), t.y, EXTERNA_SIGNAL[k].simb, { class: "pino-ext", "text-anchor": esq ? "start" : "end", fill: COR.ct,
+          "font-size": 0.42 * G, "font-family": MAT, "font-style": EXTERNA_SIGNAL[k].simb.length === 1 ? "italic" : "normal" }); });
+      if (e.tipo === "GATE") texto(g, e.x, topo + h + 0.55, e.mede[0] ? `→ ${e.mede[0]}` : tr("simu.sem_chave"), { "text-anchor": "middle", fill: e.mede[0] ? COR.ct : COR.erro, "font-size": 0.45 * G });
       // escrito pelo controle: a etiqueta vai em cima do bloco, como o nome de um componente (Marcelo, 19/10: na saída ela
       // cobria o que se liga ali, como o borne S do SM encostado no CONST)
       const atuador = typeof atuadorDe === "function" ? atuadorDe(e) : null;
@@ -1201,6 +1215,9 @@ async function mostraProps() {
   P.querySelectorAll("input, select, textarea, button").forEach((x) => { x.disabled = true; });
   if (!P.querySelector(".trava-circ")) P.insertAdjacentHTML("afterbegin", `<div class="trava-circ">${escT(tr("simu.aviso_trava"))}</div>`);
 }
+// o nome da linha da entrada em "rótulos dos terminais": no SIGNAL externo, o que ela dá ("entrada 1 · amplitude")
+const nomeEntrada = (e, i) => e.tipo === "SIGNAL" && e.entradas.length === EXTERNA_SIGNAL.length
+  ? tr("simu.entrada_ext_n", { n: i + 1, o: tr(EXTERNA_SIGNAL[i].k) }) : tr("simu.entrada_n", { n: i + 1 });
 async function montaProps() {
   const P = $("props"); if (!ed.ligado) return;
   if (tamanhoSel()) {                                   // vários selecionados: o resumo e o que dá para fazer com eles
@@ -1264,7 +1281,7 @@ async function montaProps() {
       ${noScope(e) || !ehSinal(e, folhaDe(e)) ? caixaScope(e) : ""}
       <div class="aviso">${tr("simu.nome_scope_aviso_html", { canal: canalScope(e) })}</div>`
       : ehSinal(e, folhaDe(e)) && noScope(e) ? `<h4>${escT(tr("simu.h_no_scope"))}</h4>${caixaScope(e)}` : ""}
-    ${e.dom === "CONTROL" && e.tipo !== "TERM" && !MEDIDOR.has(e.tipo) && !ehTag(e) ? `<h4>${escT(tr("simu.h_rot_terminais"))}</h4>${e.entradas.map((r, i) => `<label><span>${escT(tr("simu.entrada_n", { n: i + 1 }))}</span><input data-in="${i}" value="${r}"></label>`).join("")}
+    ${e.dom === "CONTROL" && e.tipo !== "TERM" && !MEDIDOR.has(e.tipo) && !ehTag(e) ? `<h4>${escT(tr("simu.h_rot_terminais"))}</h4>${e.entradas.map((r, i) => `<label><span>${escT(nomeEntrada(e, i))}</span><input data-in="${i}" value="${r}"></label>`).join("")}
       ${e.saidas.map((r, i) => `<label><span>${escT(tr("simu.saida_n", { n: i + 1 }))}</span><input data-out="${i}" value="${r}"></label>`).join("")}` : ""}
     ${caixaHist()}`;
   const v = (id) => P.querySelector(id);
@@ -1389,6 +1406,20 @@ async function montaProps() {
     v("#p-params").innerHTML = lst.map((q) => `<label title="${q.descricao}${q.pode_var ? " · " + escT(tr("simu.t_pode_var")) : ""}"><span>${q.nome}${q.unidade ? ` [${q.unidade}]` : ""}</span>
       ${q.erro ? `<i>${q.erro}</i>` : campo(q)}</label>`).join("") || `<i>${escT(tr("simu.sem_params"))}</i>`;
     P.querySelectorAll("#p-params input[data-p]").forEach((i) => { const q = lst.find((x) => x.nome === i.dataset.p); if (q && q.pode_var) comVariaveis(i); });
+    // SIGNAL com useExternal: amplitude, f, offset, fase e d vêm das entradas e o Gecko ignora o que está aqui; os campos ficam
+    // cinza, com a entrada que dá cada um (Marcelo, 24/10: pareciam editáveis); a caixinha muda na hora, antes do Gecko
+    const marcaExterna = (sim) => { if (e.tipo !== "SIGNAL") return;
+      EXTERNA_SIGNAL.forEach(({ par }, k) => {
+        const i = P.querySelector(`#p-params [data-p="${par}"]`), l = i && i.closest("label"); if (!l) return;
+        if (sim) { i.disabled = true; i.dataset.externo = "1"; } else if (i.dataset.externo) { i.disabled = false; delete i.dataset.externo; }
+        l.classList.toggle("p-externo", sim);
+        const n = l.querySelector(".nota-ext");
+        if (sim && !n) l.insertAdjacentHTML("beforeend", `<small class="nota-ext">${escT(tr("simu.vem_entrada_ext", { k: k + 1 }))}</small>`);
+        if (!sim && n) n.remove();
+      });
+    };
+    const cxExt = P.querySelector('#p-params input[data-p="useExternal"]');
+    if (cxExt) { marcaExterna(cxExt.checked); cxExt.addEventListener("change", () => marcaExterna(cxExt.checked)); }
     const mudaParam = async (q, i, txt, fs, onde) => {
       if (txt.startsWith("$") && q && q.pode_var) {                    // $nome: liga à variável (a que não existe é criada com o valor de agora)
         if (!NOME_VAR.test(txt)) { msg(tr("simu.nome_var_erro"), "erro"); i.value = ligada(q) || q.valor; return; }
