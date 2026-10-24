@@ -52,7 +52,8 @@ cd app && npm run maisim      # sobe tudo; Ctrl+C derruba o que ele subiu
 ```
 
 Abra **http://localhost:7100**. Para usar outra porta, passe com `-p`: `npm run maisim -- -p 8100` serve a página na 8100
-e os outros serviços nas portas logo depois (8101–8106). As portas (7100–7106 por padrão, só `localhost`) e as pastas ficam
+e os outros serviços nas portas logo depois (8101–8106). Para ficar de vez com outra porta, uma linha num `.env` na raiz:
+`MAISIM_PORTA=8100` (útil quando a 7100 já está em uso na sua máquina). As portas (7100–7106 por padrão, só `localhost`) e as pastas ficam
 em [`config/padrao.env`](config/padrao.env); para mudar de vez na sua máquina, crie um `.env` na raiz do repositório só
 com o que muda.
 
