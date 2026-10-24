@@ -1847,6 +1847,10 @@ function acompanhaTema() {
 }
 let temaDesenhado = temaAtual();
 window.addEventListener("storage", (e) => { if (e.key === "maisim-tema") acompanhaTema(); });
+// a cor de um sinal mudou noutra janela (o simu grava a cor escolhida no circuito aqui também): redesenha, sem perder o zoom
+window.addEventListener("storage", (e) => { if (e.key !== "maisim-scope-cores") return;
+  try { coresSinal = JSON.parse(e.newValue || "{}") || {}; } catch (er) { coresSinal = {}; }
+  for (const p of paineis()) if (p.u) refazGrafico(p); });
 window.addEventListener("maisim-tema", acompanhaTema);
 try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", acompanhaTema); } catch (e) { /* ok */ }
 // o idioma mudou (o trilho, nesta janela ou noutra; dentro do simu também): o aplica() do maisim-i18n já trocou o HTML fixo e

@@ -37,6 +37,12 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   await pg.click('.cor-canal [data-cor="#d946ef"]'); await pg.waitForFunction(() => dados.cores.v_sw === "#d946ef", null, { timeout: 10000 });
   const t = await pg.evaluate(() => [...document.querySelectorAll("#svg g.tag-scope rect")].map((r) => r.getAttribute("stroke")));
   ok(t.includes("#d946ef"), `seletor: v_sw magenta (bordas das etiquetas ${t.join(" ")})`);
+  // a cor escolhida no circuito vai também para o scope (a cor do sinal lá, no navegador); "Padrão" tira
+  const noScope = await pg.evaluate(() => JSON.parse(localStorage.getItem("maisim-scope-cores") || "{}").v_sw);
+  await pg.click(".cor-canal .padrao"); await pg.waitForFunction(() => !(dados.cores_escolhidas || {}).v_sw, null, { timeout: 10000 }).catch(() => {});
+  const semScope = await pg.evaluate(() => JSON.parse(localStorage.getItem("maisim-scope-cores") || "{}").v_sw);
+  await pg.click('.cor-canal [data-cor="#d946ef"]'); await pg.waitForFunction(() => dados.cores.v_sw === "#d946ef", null, { timeout: 10000 });
+  ok(noScope === "#d946ef" && semScope === undefined, `a cor vale no scope também (${noScope}); "Padrão" a tira de lá (${semScope})`);
   await pg.screenshot({ path: "cores.png" });
   const j = await pg.evaluate(() => api("editor/rodar", { dt: "1e-6", tfim: "0.0002", nome: "cores", amostras: "100" }));
   await pg.waitForFunction(() => api("editor/rodada").then((r) => r.estado === "fim"), null, { timeout: 60000, polling: 500 }).catch(() => {});
