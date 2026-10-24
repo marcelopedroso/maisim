@@ -14,6 +14,7 @@
 set -euo pipefail
 AQUI="$(cd "$(dirname "$0")" && pwd)"          # a pasta deste script (o resto do script muda de pasta)
 eval "$(python3 "$AQUI/../config/ler_config.py" --shell)"   # as portas e as pastas (config/)
+. "$AQUI/../config/fala.sh"                     # fala pt en: as mensagens no idioma do terminal
 C="$MAISIM_CACHE/gecko"
 mkdir -p "$C"
 if [ $# -ge 1 ]; then MODELO=$(realpath "$1"); else
@@ -26,7 +27,7 @@ VNC=$MAISIM_PORTA_VNC; WEB=$MAISIM_PORTA_TELA
 JAR=${MAISIM_GECKO_JAR:-$AQUI/build/gecko-lote.jar}
 [ -f "$JAR" ] || bash "$AQUI/construir.sh"           # a 1ª vez: monta o Gecko (o original + o patch)
 for p in $VNC $WEB $PG $PM; do
-  if ss -ltn | grep -q ":$p "; then echo "porta $p ocupada (já está no ar? para.sh derruba)"; exit 1; fi
+  if ss -ltn | grep -q ":$p "; then fala "porta $p ocupada (já está no ar? para.sh derruba)" "port $p is busy (already running? para.sh stops it)"; exit 1; fi
 done
 nohup Xvfb "$TELA" -screen 0 1600x1000x24 -nolisten tcp > "$C/xvfb.log" 2>&1 & echo $! > "$C/xvfb.pid"
 sleep 1
@@ -46,18 +47,25 @@ cd "$C"
 mkdir -p "$C/home"
 AB="$C/home/.GeckoCIRCUITS/autoBackup.ipes"       # autoBackup de uma sessão anterior: guardado com data, sem o diálogo
 if [ -f "$AB" ]; then mkdir -p "$C/backups"; mv "$AB" "$C/backups/autoBackup_$(date +%Y%m%d-%H%M%S).ipes"
-  echo "autoBackup anterior guardado em $C/backups/ (abrir pelo File > Open do Gecko, se precisar)"; fi
+  fala "autoBackup anterior guardado em $C/backups/ (abrir pelo File > Open do Gecko, se precisar)" \
+       "previous autoBackup kept in $C/backups/ (open it with Gecko's File > Open, if needed)"; fi
 DISPLAY=$TELA nohup java -Duser.home="$C/home" -Dpolyglot.js.nashorn-compat=true -jar "$JAR" "$MODELO" -p "$PG" > "$C/gecko.log" 2>&1 &
 echo $! > "$C/gecko.pid"
-echo "tela $TELA, VNC $VNC, noVNC $WEB; Gecko $(basename "$JAR") na porta $PG com $MODELO"
+fala "tela $TELA, VNC $VNC, noVNC $WEB; Gecko $(basename "$JAR") na porta $PG com $MODELO" \
+     "display $TELA, VNC $VNC, noVNC $WEB; Gecko $(basename "$JAR") on port $PG with $MODELO"
 for _ in $(seq 1 60); do grep -q "GeckoCIRCUITS is ready" "$C/gecko.log" 2>/dev/null && break; sleep 1; done
-if grep -q "GeckoCIRCUITS is ready" "$C/gecko.log"; then echo "Gecko pronto (avisos de carga: $(grep -c WARNING "$C/gecko.log" || true))"
+if grep -q "GeckoCIRCUITS is ready" "$C/gecko.log"; then
+  AV=$(grep -c WARNING "$C/gecko.log" || true)
+  fala "Gecko pronto (avisos de carga: $AV)" "Gecko ready (load warnings: $AV)"
   M="$(cd "$AQUI/../simu/motor" && pwd)"         # motor do editor: compila se o .java for mais novo
   if [ ! -f "$M/bin/maisim/MaiSimMotor.class" ] || [ "$M/src/maisim/MaiSimMotor.java" -nt "$M/bin/maisim/MaiSimMotor.class" ]; then
-    javac -nowarn -cp "$JAR" -d "$M/bin" "$M/src/maisim/MaiSimMotor.java" 2> "$C/motor_javac.log" || echo "o motor não compilou (veja $C/motor_javac.log)"
+    javac -nowarn -encoding UTF-8 -cp "$JAR" -d "$M/bin" "$M/src/maisim/MaiSimMotor.java" 2> "$C/motor_javac.log" || \
+      fala "o motor não compilou (veja $C/motor_javac.log)" "the engine did not compile (see $C/motor_javac.log)"
   fi
   nohup java -cp "$JAR:$M/bin" maisim.MaiSimMotor --gecko-port "$PG" --porta "$PM" > "$C/motor.log" 2>&1 & echo $! > "$C/motor.pid"
   for _ in $(seq 1 15); do grep -q "ouvindo" "$C/motor.log" 2>/dev/null && break; sleep 1; done
-  grep -q "ouvindo" "$C/motor.log" && echo "motor do editor em 127.0.0.1:$PM" || echo "o motor não subiu (veja $C/motor.log)"
+  if grep -q "ouvindo" "$C/motor.log"; then fala "motor do editor em 127.0.0.1:$PM" "editor engine at 127.0.0.1:$PM"   # "ouvindo": o que o motor escreve ao subir
+  else fala "o motor não subiu (veja $C/motor.log)" "the engine did not start (see $C/motor.log)"; fi
 else
-  echo "Gecko ainda não disse que está pronto: pode haver um diálogo na tela (ex.: carregar o autoBackup); abra o /maisim/gecko"; fi
+  fala "Gecko ainda não disse que está pronto: pode haver um diálogo na tela (ex.: carregar o autoBackup); abra o /maisim/gecko" \
+       "Gecko has not said it is ready yet: there may be a dialog on its screen (e.g. loading the autoBackup); open /maisim/gecko"; fi

@@ -19,7 +19,9 @@ import java.util.List;
  * Gecko, para criar, apagar, mover, girar, parametrizar, rotular e salvar componentes; quem grava o .ipes é o Gecko.
  * CREATE nome x y tipo (tipo no fim, pode ter espaço); PARAMS devolve as entradas separadas por "||".
  * Protocolo de linhas (igual em espírito à gecko-bridge da co-simulação, mas separado dela): um pedido por linha,
- * resposta "OK …" ou "ERR …". Escuta só em 127.0.0.1.
+ * resposta "OK …" ou "ERR …". Escuta só em 127.0.0.1. Os textos dos erros (ERR) são em inglês, como os do próprio Gecko
+ * e do Java, que chegam pelo mesmo caminho: o servidor os mostra como vieram, em qualquer idioma da página. A linha
+ * "… ouvindo em …" do início é o sinal de pronto que o gecko/sobe.sh e o simu/validacao/sobe_teste.sh procuram no registro.
  *
  * uso: java -cp gecko.jar:bin maisim.MaiSimMotor [--gecko-port 7103] [--porta 7104]   (as portas de config/padrao.env)
  */
@@ -124,7 +126,7 @@ public final class MaiSimMotor {
                 double[] v = new double[n];
                 for (int i = 0; i < n; i++) {
                     String[] q = p[i + 1].split(":");
-                    if (q.length != 3) throw new IllegalArgumentException("SETM espera nome:parâmetro:valor, veio " + p[i + 1]);
+                    if (q.length != 3) throw new IllegalArgumentException("SETM expects name:parameter:value, got " + p[i + 1]);
                     nomes[i] = q[0]; pars[i] = q[1]; v[i] = Double.parseDouble(q[2]);
                 }
                 try {
@@ -134,7 +136,7 @@ public final class MaiSimMotor {
                 }
                 return "";
             }
-            default: throw new IllegalArgumentException("comando desconhecido: " + p[0] + " (comandos: " + Arrays.toString(
+            default: throw new IllegalArgumentException("unknown command: " + p[0] + " (commands: " + Arrays.toString(
                     new String[]{"PING", "OPEN", "SAVEAS", "CREATE", "DELETE", "MOVE", "POS", "ROTATE", "ORIENT", "RENAME", "PARAMS",
                             "ACCPARAMS", "GETP", "SETP", "GETG", "SETG", "INNODE", "OUTNODE", "GETIN", "GETOUT", "LIST", "SHEET", "CLEAR", "INIT", "STEP", "TIME", "END", "GET", "GETM", "SETM", "QUIT"}) + ")");
         }

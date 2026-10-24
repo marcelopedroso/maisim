@@ -14,7 +14,7 @@ sleep 1
 for _ in $(seq 1 60); do grep -q "GeckoCIRCUITS is ready" "$T/gecko.log" 2>/dev/null && break; sleep 1; done
 M="$R/simu/motor"                                  # o motor do editor: compila se o .java for mais novo
 if [ ! -f "$M/bin/maisim/MaiSimMotor.class" ] || [ "$M/src/maisim/MaiSimMotor.java" -nt "$M/bin/maisim/MaiSimMotor.class" ]; then
-  javac -nowarn -cp "$JAR" -d "$M/bin" "$M/src/maisim/MaiSimMotor.java"
+  javac -nowarn -encoding UTF-8 -cp "$JAR" -d "$M/bin" "$M/src/maisim/MaiSimMotor.java"
 fi
 nohup java -cp "$JAR:$M/bin" maisim.MaiSimMotor --gecko-port "$MAISIM_PORTA_GECKO" --porta "$MAISIM_PORTA_MOTOR" > "$T/motor.log" 2>&1 &
 for _ in $(seq 1 15); do grep -q "ouvindo" "$T/motor.log" 2>/dev/null && break; sleep 1; done
