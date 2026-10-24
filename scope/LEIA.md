@@ -50,7 +50,9 @@ continuam (quem publica rodadas de fora usa `/publicar`).
   valores reais sem o ×k; clicar na legenda esconde) e uma linha na tabela, na janela do Fourier (t₀, n períodos de f₀,
   à vista mesmo com o Fourier desligado): P = média de v·i, V_rms, I_rms, S = V_rms·I_rms, λ = P/S e, dos fasores de pico
   da fundamental (φ₁ = ∠V₁ − ∠I₁), P₁ = (V₁·I₁/2)·cos φ₁ e Q₁ = (V₁·I₁/2)·sin φ₁ (positiva com a corrente atrasada). Em CC,
-  P₁ = Q₁ = 0. Com os cursores t, p em A e em B na leitura. Teste: `scope_potencia_tela`.
+  P₁ = Q₁ = 0. Com um canal do passo fino no par, a tabela mede os dois no passo fino e a curva, sem o zoom fino, é a média
+  do produto v·i em cada janela de controle (não o produto das médias: a ondulação de chaveamento correlacionada conta).
+  Com os cursores t, p em A e em B na leitura. Teste: `scope_potencia_tela`.
 - **Espectro** (na medição): barras de CC e h = 1 … h máx (pico) de cada sinal da tabela, escala log (décadas abaixo
   do maior: padrão 4; marcas em 1, 2 e 5 de cada década, para ler um fator 2 no eixo) ou linear; passar o mouse mostra pico ∠ fase e % de h1; clicar no nome de um sinal na tabela tira-o ou põe-o no
   espectro. Com N = n·P amostras (P inteiro por período), os n períodos são somados num só antes da DFT, o que é exato

@@ -147,6 +147,27 @@ np.savez(${JSON.stringify(arq)}, meta=np.array(json.dumps(meta)), t=t, v_a=100*n
     const tr = await ev((p) => p.series.filter((se) => se.pot).map((se) => [se.rot, !!se.dash]));
     ok(ca && cb && perto(num(ca[1]), 433.0, 0.05) && perto(num(cb[1]), 866.0, 0.05) && JSON.stringify(tr) === JSON.stringify([["p_a · A", false], ["p_a · B", true]]),
        `Comparar: ${ca && ca.slice(0, 2).join(" ")} e ${cb && cb.slice(0, 2).join(" ")}; curvas ${JSON.stringify(tr)}`);
+    // canais do passo fino com ondulação correlacionada (o Codex, no #68): v = 10 ± 2 e i = 1 ± 0,5 em fase, trocando a cada
+    // passo fino (50 kHz, acima da janela de controle de 100 µs): P = média de v·i = 10 + 2·0,5 = 11 W, não 10 · 1 = 10. A tabela
+    // mede no passo fino; a curva, sem o zoom fino, é a média do produto em cada janela (11), e com o zoom fino o produto (18 e 4)
+    const rf = path.join(PASTA, "scope_pot_F.npz");
+    execFileSync("python3", ["-c", `import numpy as np, json
+t = np.arange(0, 0.04, 1e-4); w = 2 * np.pi * 50; q = (-1.0) ** np.arange(len(t) * 10)
+meta = {"planta": "gecko-maisim", "rotulo": "pot_F", "dt": 1e-5, "Ts": 1e-4, "n_fino": 10, "dt_gecko": 1e-6, "tfim": 0.04, "sinais": [], "acionamentos": []}
+np.savez(${JSON.stringify(rf)}, meta=np.array(json.dumps(meta)), t=t, v_a=100*np.sin(w*t), i_a=10*np.sin(w*t - np.pi/6), fino_VDC=10 + 2*q, fino_IA=1 + 0.5*q)`]);
+    await abre(`${B}/maisim/scope/?a=${encodeURIComponent(path.relative(SM, rf))}`, ["fino_VDC", "fino_IA"]);
+    pr = await pares(); t = await tabela();
+    const lf = t[0];
+    const media = (x0, x1) => ev((p, [x0, x1]) => { const i = p.series.findIndex((se) => se.pot), d = p.u.data; let s = 0, c = 0;
+      for (let k = 0; k < d[0].length; k++) if (d[0][k] >= x0 - 1e-9 && d[0][k] < x1 - 1e-9 && d[i + 1][k] === d[i + 1][k]) { s += d[i + 1][k]; c++; }
+      return { m: s / c, c, fino: modoFino(p), max: Math.max(...Array.from(d[i + 1]).filter((v) => v === v)) }; }, [x0, x1]);
+    const mg = await media(0, 20);
+    ok(JSON.stringify(pr) === JSON.stringify([["fino_VDC", "fino_IA"]]) && lf && perto(num(lf[1]), 11, 0.005) && perto(num(lf[2]), Math.sqrt(104), 0.005) && perto(num(lf[3]), Math.sqrt(1.25), 0.0005)
+       && /^2000/.test(lf[9]) && !mg.fino && mg.c === 200 && perto(mg.m, 11, 1e-9) && perto(mg.max, 11, 1e-9),
+       `passo fino, ondulação em fase: tabela ${lf && lf.slice(0, 4).join(" | ")} (11 W, 10,20 V, 1,118 A, N ${lf && lf[9]}); curva sem zoom: média ${mg.m} em ${mg.c} janelas (11, não 10)`);
+    await ev((p) => mudaX(p, [0, 5])); await pg.waitForTimeout(500);
+    const mf = await media(0, 5);
+    ok(mf.fino && perto(mf.m, 11, 1e-9) && perto(mf.max, 18, 1e-9), `com o zoom fino (0 … 5 ms): o produto no passo fino (máx ${mf.max} = 12 · 1,5), média ${mf.m} em ${mf.c} pontos = P`);
     ok(!erros.length, `sem erros de JS ${erros.join(" ; ")}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message}`); }
   finally { if (b) await b.close(); fs.rmSync(PASTA, { recursive: true, force: true }); }

@@ -267,7 +267,7 @@ function tituloMat(p) { const t = p.el && p.el.querySelector(".titulo-mat"); if 
 // v_o ↔ i_o, Va ↔ ia); nenhum casado, mas há tensão e corrente: a 1ª de cada. Os escolhidos à mão ficam no med do layout
 // (pot.pares; null = os automáticos)
 const RE_V = /^[vVu]_?([A-Za-z0-9].*)$/, RE_I = /^[iI]_?([A-Za-z0-9].*)$/;
-const sufixo = (c, re) => { const m = String(c).match(re); return m ? m[1] : null; };
+const sufixo = (c, re) => { const m = String(c).replace(/^fino_/, "").match(re); return m ? m[1] : null; };   // fino_VDC: V, "DC"
 const normSuf = (s) => String(s).toLowerCase().replace(/_/g, "");
 function paresAuto(sinais) {
   const vs = sinais.filter((c) => sufixo(c, RE_V) != null), is = sinais.filter((c) => sufixo(c, RE_I) != null), usados = new Set(), out = [];
@@ -297,6 +297,27 @@ function nomesPot(pares) {
   });
 }
 const corPot = (k) => { const l = cores().pot; return l[k % l.length]; };
+// p = v·i por janela de controle (o desenho sem o zoom fino, o Comparar com instantes diferentes): com um canal do passo
+// fino, a média na janela do PRODUTO no passo fino, como o grossa() faz com cada canal — não o produto das médias, que
+// perde a ondulação de chaveamento correlacionada de v e i (o Codex, no #68: a curva discordava do P da tabela e mudava
+// com o zoom). Por blocos de 1024 janelas, sem guardar o passo fino da gravação inteira
+function grossaPot(F, cv, ci) {
+  const gv = grossa(F, cv), gi = grossa(F, ci); if (!gv || !gi) return null;
+  const ch = `pot|${cv}|${ci}`; if (ch in F.cache) return F.cache[ch];
+  const W = Math.min(gv.length, gi.length), r = new Float64Array(W);
+  if (tipo(cv) !== "f" && tipo(ci) !== "f") for (let w = 0; w < W; w++) { const a = gv[w], b = gi[w]; r[w] = a == null || b == null ? NaN : a * b; }
+  else {
+    const nf = nFino();
+    for (let w0 = 0; w0 < W; w0 += 1024) {
+      const w1 = Math.min(W, w0 + 1024) - 1, fv = fina(F, cv, w0, w1, true), fi = fina(F, ci, w0, w1, true);
+      for (let w = w0, k = 0; w <= w1; w++) { let sm = 0, c = 0;
+        for (let j = 0; j < nf; j++, k++) { const x = fv[k] * fi[k]; if (x === x) { sm += x; c++; } }
+        r[w] = c ? sm / c : NaN; }
+    }
+  }
+  F.cache[ch] = r;
+  return r;
+}
 
 // ---------------------------------------------------------------- dados de um painel
 function seriesDe(p) {
@@ -354,10 +375,9 @@ function dadosPainel(p) {
           for (const g of gs) { const q = g && w < g.length ? g[w] : null; if (q == null || q !== q) { v = null; break; } v += q; } y[k] = v; }
         return divide(se, y);
       }
-      if (se.pot) {                                     // p = v·i: só onde as duas têm valor
-        const [gv, gi] = se.pot.map((c) => grossa(se.F, c));
-        for (let k = 0; k < n; k++) { const w = idx[k]; if (w < 0 || !gv || !gi || w >= gv.length || w >= gi.length) continue;
-          const a = gv[w], b = gi[w]; if (a != null && b != null && a === a && b === b) y[k] = a * b; }
+      if (se.pot) {                                     // p = v·i (a média do produto na janela): só onde há valor
+        const g = grossaPot(se.F, se.pot[0], se.pot[1]);
+        if (g) for (let k = 0; k < n; k++) { const w = idx[k]; if (w >= 0 && w < g.length && g[w] === g[w]) y[k] = g[w]; }
         return y;
       }
       const g = grossa(se.F, se.canal);
@@ -378,8 +398,8 @@ function dadosPainel(p) {
         return divide(se, y);
       }
       if (se.pot) {
-        const [gv, gi] = se.pot.map((c) => grossa(se.F, c)), y = new Float64Array(W).fill(NaN);
-        if (gv && gi) for (let w = 0, m = Math.min(W, gv.length, gi.length); w < m; w++) { const a = gv[w], b = gi[w]; y[w] = a == null || b == null ? NaN : a * b; }
+        const g = grossaPot(se.F, se.pot[0], se.pot[1]), y = new Float64Array(W).fill(NaN);
+        if (g) y.set(g.subarray(0, Math.min(W, g.length)));
         return y;
       }
       const g = grossa(se.F, se.canal); const y = new Float64Array(W).fill(NaN);
@@ -478,10 +498,10 @@ function hsDe(M) {
   const hs = [...s].sort((a, b) => a - b).slice(0, 100);
   return hs.length ? hs : [1];
 }
-function amostras(F, canal, t0, t1) {               // t0, t1 em s
+function amostras(F, canal, t0, t1, fino) {         // t0, t1 em s; fino: no passo fino mesmo um canal por janela (o valor mantido)
   const t = F.dados.t; if (!t || !t.length) return null;
   const a = t0 - 1e-9, b = t1 - 1e-9, xs = []; let faltam = 0, dt;
-  if (tipo(canal) === "f") {
+  if (fino || tipo(canal) === "f") {
     const nf = nFino(); dt = dtFino();
     let w0 = 0; while (w0 < t.length && t[w0] + (nf - 1) * dt < a) w0++;
     if (w0 >= t.length) return { x: new Float64Array(0), dt, faltam };
@@ -531,9 +551,9 @@ function leHs(txt) {                                 // "1, 2, 3" ou "1-7" ou "1
   return hs.length && hs.length <= 60 ? hs : null;
 }
 // as amostras de um canal na janela de medição (t₀, n períodos de f₀), ou o erro (sem dados, janela incompleta, faltam amostras)
-function janelaMed(F, canal, M) {
+function janelaMed(F, canal, M, fino) {
   const T = M.n / M.f0, t0 = M.t0 / 1e3;
-  const am = amostras(F, canal, t0, t0 + T);
+  const am = amostras(F, canal, t0, t0 + T, fino);
   if (!am) return { erro: tr("scope.med.e_sem_dados") };
   const N = am.x.length, Nexato = T / am.dt, Nesp = Math.round(Nexato);
   if (!N) return { erro: tr("scope.med.e_sem_amostras") };
@@ -679,9 +699,12 @@ function poeJanela(p) {                               // o "= t₀ … t₁ ms" 
 // ---- potência de cada par v/i na janela da medição (a mesma do Fourier: t₀, n períodos de f₀), com os valores reais:
 // P = média de p = v·i; V_rms, I_rms; S = V_rms·I_rms; λ = P/S; na fundamental (os fasores de pico do Fourier, φ₁ = ∠V₁ − ∠I₁):
 // P₁ = (V₁·I₁/2)·cos φ₁, Q₁ = (V₁·I₁/2)·sin φ₁ (positiva com a corrente atrasada). Em CC, P = média de v·i e P₁ = Q₁ = 0
+// com um canal do passo fino no par, os dois no passo fino (como o Fourier mede um canal fino; o outro, o valor mantido em
+// cada janela, como no desenho): P, V_rms e I_rms com a ondulação de chaveamento
 function medePot1(F, par, M) {
-  const jv = janelaMed(F, par.v, M); if (jv.erro) return jv;
-  const ji = janelaMed(F, par.i, M); if (ji.erro) return ji;
+  const fino = tipo(par.v) === "f" || tipo(par.i) === "f";
+  const jv = janelaMed(F, par.v, M, fino); if (jv.erro) return jv;
+  const ji = janelaMed(F, par.i, M, fino); if (ji.erro) return ji;
   if (jv.N !== ji.N || Math.abs(jv.dt - ji.dt) > 1e-12 * jv.dt)
     return { erro: tr("scope.med.e_pot_passos", { dtv: fmtDt(jv.dt), dti: fmtDt(ji.dt) }), N: jv.N, dt: jv.dt };
   const v = jv.x, i = ji.x, N = jv.N;
