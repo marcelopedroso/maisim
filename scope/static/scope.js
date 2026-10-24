@@ -234,9 +234,9 @@ function seriesDe(p) {
     const ganho = (p.ganhos && p.ganhos[canal]) || 1;            // só no desenho; o cursor mostra o valor real
     const rot = rotulo(canal) + (ganho !== 1 ? ` ×${ganho}` : "") + (desloc ? ` (+${desloc.toFixed(1)})` : "");
     const cor = corDoSinal(canal, idx), w = espessuraDoSinal(canal);
-    const traco = TRACOS[tracoDoSinal(canal)];             // B (Comparar) sempre tracejada; com a A tracejada, B pontilhada
+    const traco = TRACOS[tracoDoSinal(canal)];             // B (Comparar) tracejada; só com a A tracejada, B pontilhada
     if (grossa(A, canal)) out.push({ F: A, canal, rot: B ? `${rot} · A` : rot, cor, largura: w, dash: traco || undefined, desloc, ganho, degrau: tipo(canal) === "f" });
-    if (B && grossa(B, canal)) out.push({ F: B, canal, rot: `${rot} · B`, cor: corClara(cor), dash: traco ? TRACOS.pontilhada : [6, 4], largura: w * 0.92, desloc, ganho, degrau: tipo(canal) === "f" });
+    if (B && grossa(B, canal)) out.push({ F: B, canal, rot: `${rot} · B`, cor: corClara(cor), dash: tracoDoSinal(canal) === "tracejada" ? TRACOS.pontilhada : [6, 4], largura: w * 0.92, desloc, ganho, degrau: tipo(canal) === "f" });
   });
   // com o Medir aberto, a curva Σ(t): a soma ponto a ponto dos sinais que estão no Σ da tabela (os mesmos: um clique no
   // nome tira/põe), com os valores reais; o valor no cursor vai para a legenda (Marcelo, 20/10: "a soma tem que ser dos
