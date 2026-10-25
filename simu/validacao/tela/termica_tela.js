@@ -91,7 +91,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
       return { ids: a ? a.itens.map((i) => i.id) : [], modul: ed.catalogo.abas.some((x) => x.itens.some((i) => i.enum === "TH_MODUL")) }; });
     ok(pal.ids.includes("Pv") && pal.ids.includes("Rth") && !pal.ids.includes("MOD") && !pal.modul,
       `a aba Térmica: ${pal.ids.join(", ")} (sem o MOD)`);
-    if (process.env.FOTO_TERMICA) await pg.screenshot({ path: process.env.FOTO_TERMICA });   // a foto só quando pedida (não no diretório atual)
+    await pg.screenshot({ path: path.join(__dirname, "termica_tela.png") });   // ao lado do teste (o .gitignore cobre), de qualquer pasta
     ok(!erros.length, `sem erros na página (${erros.join(" | ")})`);
   } finally {
     await pg.evaluate(() => api("editor/abrir", { arq: "exemplos/exemplo_buck_termico.ipes", modo: "descartar" })).catch(() => {});
