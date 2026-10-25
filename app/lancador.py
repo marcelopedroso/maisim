@@ -28,6 +28,8 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[1]
 WIN = os.name == "nt"
 sys.path.insert(0, str(RAIZ / "config"))
+sys.path.insert(1, str(RAIZ / "simu"))
+import processos  # noqa: E402,F401   no Windows: o tasklist/taskkill e o javac sem janela de prompt piscando
 # no Windows, o padrão dos arquivos e do texto é o cp1252 (um "≈" no resumo da rodada derrubava a gravação): os servidores
 # Python em UTF-8 (PYTHONUTF8) e os Java também (-Dfile.encoding), como no Linux
 UTF8_JAVA = ["-Dfile.encoding=UTF-8"] if WIN else []

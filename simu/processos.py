@@ -10,6 +10,26 @@ WIN = os.name == "nt"
 GRUPO = ({"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW} if WIN else {"start_new_session": True})
 
 
+def sem_janelas():
+    """No Windows, os servidores rodam sem console (pythonw): cada programa de console que eles abrem (o claude auth
+    status a cada poucos segundos, o netstat, o git…) ganharia uma janela de prompt piscando. Daqui em diante, todo
+    subprocess abre com CREATE_NO_WINDOW — menos quem pede um console de propósito (CREATE_NEW_CONSOLE: o login)."""
+    if not WIN or getattr(subprocess.Popen, "_maisim_sem_janela", False):
+        return
+    original = subprocess.Popen.__init__
+
+    def init(self, *args, **kw):
+        flags = kw.get("creationflags", 0)
+        if not flags & subprocess.CREATE_NEW_CONSOLE:
+            kw["creationflags"] = flags | subprocess.CREATE_NO_WINDOW
+        original(self, *args, **kw)
+    subprocess.Popen.__init__ = init
+    subprocess.Popen._maisim_sem_janela = True
+
+
+sem_janelas()                                            # quem importa este módulo (o simu) já fica assim
+
+
 def encerra(pid, forte=False):
     """Encerra o grupo de pid (ele e o que ele abriu); forte: sem esperar (SIGKILL / taskkill /F). Já encerrado: nada."""
     try:
