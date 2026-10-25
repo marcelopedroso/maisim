@@ -1,7 +1,7 @@
 // a instalação do Claude Code pela janela das contas (as respostas do servidor simuladas: a instância de teste é Linux e tem o
 // claude de mentira): no Windows, o botão Instalar → a saída do instalador enquanto anda → no fim, instalado e o "Entrar"; a
 // falha mostra o erro e a saída, e "tentar de novo"; no Linux, o comando oficial do terminal e "Procurar de novo" (sem botão de
-// instalar); e o Antigravity no Windows com o instalador do PowerShell, não o curl … | bash
+// instalar)
 const { chromium } = require("playwright");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
@@ -15,8 +15,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     ...(sv.inst ? { instalacao: sv.inst } : {}) });
   const json = (r, o, status = 200) => r.fulfill({ status, contentType: "application/json", body: JSON.stringify(o) });
   await pg.route("**/claude/estado", (r) => json(r, estado()));
-  await pg.route("**/claude/ias", (r) => json(r, [{ id: "claude", nome: "Claude", instalado: sv.instalado, modelos: [""], esforcos: [""], tem_login: false, rotulos: {} },
-    { id: "antigravity", nome: "Google Antigravity", instalado: false, modelos: [""], esforcos: [""], tem_login: true, rotulos: {}, estado: { instalado: false, logado: false, pasta: "~/.agy-maisim" } }]));
+  await pg.route("**/claude/ias", (r) => json(r, [{ id: "claude", nome: "Claude", instalado: sv.instalado, modelos: [""], esforcos: [""], tem_login: false, rotulos: {} }]));
   await pg.route("**/claude/instalar", (r) => { sv.posts++; sv.polls = 0; sv.inst = { pode: true, andamento: true, ok: null, erro: null, saida: "", desde: Date.now() / 1000 }; return json(r, sv.inst); });
   await pg.route("**/claude/instalacao", (r) => {
     sv.polls++;
@@ -34,7 +33,6 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   let t = await pg.textContent(".modal.cla");
   ok(/instalador oficial da Anthropic/.test(t) && /sem pedir administrador/.test(t) && await pg.$("#cla-procura") && !/curl/.test(t),
     "Windows: o botão Instalar, o \"Procurar de novo\" e nenhum comando de bash");
-  ok(/irm https:\/\/antigravity\.google\/cli\/install\.ps1 \| iex/.test(t) && /PowerShell/.test(t) && !/install\.sh/.test(t), "Windows: o Antigravity com o instalador do PowerShell, sem o curl … | bash");
   sv.fim = "erro"; await pg.click("#cla-instalar");
   await pg.waitForSelector(".modal.cla .cla-saida", { timeout: 10000 });
   t = await pg.textContent(".modal.cla");
@@ -54,8 +52,8 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   Object.assign(sv, { sistema: "linux", pode: false, instalado: false, inst: null });
   await pg.click("#bt-claude"); await pg.waitForSelector(".modal.cla #cla-procura");
   t = await pg.textContent(".modal.cla");
-  ok(/curl -fsSL https:\/\/claude\.ai\/install\.sh \| bash/.test(t) && !(await pg.$("#cla-instalar")) && /antigravity\.google\/cli\/install\.sh/.test(t) && !/install\.ps1/.test(t),
-    "Linux: o comando oficial (curl … install.sh | bash), sem o botão Instalar; o Antigravity com o dele");
+  ok(/curl -fsSL https:\/\/claude\.ai\/install\.sh \| bash/.test(t) && !(await pg.$("#cla-instalar")),
+    "Linux: o comando oficial (curl … install.sh | bash), sem o botão Instalar");
   await pg.click("#cla-procura"); await pg.waitForFunction(() => /Ainda não encontrei/.test(document.querySelector(".modal.cla").textContent));
   ok(true, "procurar de novo, ainda ausente: avisa");
   sv.instalado = true; await pg.click("#cla-procura"); await pg.waitForSelector("#cla-entrar", { timeout: 10000 });

@@ -52,7 +52,7 @@ for d in (CONF, ECO):
     (d / "falso_chamadas.jsonl").unlink(missing_ok=True)
 try:
     ias = api("claude/ias")
-    ok([a["id"] for a in ias] == ["claude", "antigravity", "gemini", "eco"] and all(a["instalado"] for a in ias if a["id"] != "antigravity"),
+    ok([a["id"] for a in ias] == ["claude", "eco"] and all(a["instalado"] for a in ias),
        f"/claude/ias: {[(a['id'], a['nome'], a['instalado']) for a in ias]}")
     api("editor/abrir", {"arq": str(SALVOS / "exemplo_controle_pwm.ipes"), "modo": "descartar"})
     api("claude/nova", {})

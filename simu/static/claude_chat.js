@@ -13,7 +13,6 @@ const cc = { voltou: false, aberto: false, estado: null, timer: null, antes: nul
 // (uma função: o "Modelo: padrão" no idioma de agora; os nomes dos modelos ficam como são)
 const modelosIA = () => ({
   claude: [["", tr("cc.modelo_padrao")], ["fable", "Fable"], ["opus", "Opus"], ["sonnet", "Sonnet"], ["haiku", "Haiku"]],
-  gemini: [["", tr("cc.modelo_auto")], ["pro", "Pro"], ["flash", "Flash"], ["flash-lite", "Flash-Lite"]],
 });
 const ccIA = () => ($("cc-ia") && $("cc-ia").value) || "claude";
 const chaveModelo = (ia) => (ia === "claude" ? "maisim-simu-cc-modelo" : `maisim-simu-cc-modelo-${ia}`);   // o do Claude: a chave de sempre
@@ -23,7 +22,7 @@ function iaLogada(ia = ccIA()) {
   return a ? (a.tem_login ? !!(a.estado && a.estado.logado) : !!(cla.estado && cla.estado.logado)) : false;   // o Eco (teste) usa o login do Claude
 }
 const nomeIA = (ia = ccIA()) => ((cc.ias || []).find((x) => x.id === ia) || {}).nome || (ia === "claude" ? "Claude" : ia);
-// monta o seletor de IA (as instaladas) e os modelos da escolhida; a escolha fica no navegador
+// monta o seletor de IA (as instaladas; com uma só, ele não aparece) e os modelos da escolhida; a escolha fica no navegador
 function ccMontaIA() {
   const s = $("cc-ia"); if (!s) return;
   let quer = s.value; try { quer = localStorage.getItem("maisim-simu-cc-ia") || quer; } catch (e) { /* padrão */ }
@@ -45,7 +44,7 @@ function ccModelos() {
     const v0 = sm.dataset.ia === ia ? sm.value : null;
     sm.innerHTML = html; sm.dataset.ia = ia; sm.dataset.html = html;
     if (v0 !== null && [...sm.options].some((o) => o.value === v0)) sm.value = v0;
-  }   // a lista pode chegar depois (o Antigravity)   // sem dica: IA, modelo e esforço são óbvios (Marcelo, 21/10)
+  }   // a lista pode chegar depois   // sem dica: IA, modelo e esforço são óbvios (Marcelo, 21/10)
   try { const v = localStorage.getItem(chaveModelo(ia)); if (v !== null && [...sm.options].some((o) => o.value === v)) sm.value = v; } catch (e) { /* padrão */ }
   const esforcos = a ? a.esforcos : ["", "low"];
   if (se) { se.style.display = esforcos.length > 1 ? "" : "none"; if (esforcos.length <= 1) se.value = ""; }

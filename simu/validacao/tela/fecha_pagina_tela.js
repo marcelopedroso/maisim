@@ -23,7 +23,7 @@ const ate = async (cond, s) => { const fim = Date.now() + s * 1000; while (Date.
 const T = fs.mkdtempSync(path.join(os.tmpdir(), "maisim-fecha-"));
 const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("MAISIM_")));   // sem o perfil de teste do ci.sh
 Object.assign(env, { MAISIM_PORTA: String(B), MAISIM_TELA_X: ":73", MAISIM_DADOS: `${T}/d`, MAISIM_CACHE: `${T}/c`, MAISIM_NAVEGADOR: "nenhum",
-  MAISIM_CLAUDE_DIR: `${T}/claude`, MAISIM_GEMINI_DIR: `${T}/gemini`, MAISIM_AGY_DIR: `${T}/agy`, MAISIM_EXEMPLOS_GECKO: "0" });
+  MAISIM_CLAUDE_DIR: `${T}/claude`, MAISIM_EXEMPLOS_GECKO: "0" });
 ["PAGINA", "SIMU", "SCOPE", "GECKO", "MOTOR", "TELA", "VNC"].forEach((k, i) => { env[`MAISIM_PORTA_${k}`] = String(B + i); });   // nem um .env da raiz muda
 const lanca = () => { const p = spawn("python3", ["app/lancador.py", "--abrir"], { cwd: RAIZ, env, stdio: ["ignore", "pipe", "pipe"] });
   p.saida = ""; p.fim = null; p.stdout.on("data", (d) => { p.saida += d; }); p.stderr.on("data", (d) => { p.saida += d; });

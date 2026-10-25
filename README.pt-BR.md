@@ -10,7 +10,7 @@
 
 O MaiSim roda no seu navegador, na sua máquina, com o [GeckoCIRCUITS](https://github.com/geckocircuits/GeckoCIRCUITS)
 como motor de simulação. Você monta o circuito, escreve o código de controle em Python, simula e mede, e pode pedir a
-um assistente de IA (Claude Code ou Google Antigravity) que vê o circuito, o código de controle e as rodadas.
+um assistente de IA (Claude Code) que vê o circuito, o código de controle e as rodadas.
 
 > A interface é em português e em inglês: na primeira vez segue o idioma do navegador, e o botão PT/EN no pé do menu
 > lateral troca.
@@ -41,8 +41,8 @@ sudo apt install -y python3 python3-numpy openjdk-11-jdk maven git xvfb x11vnc n
 ```
 
 O MaiSim trabalha com a IA instalada no seu computador (opcional): o [Claude Code](https://claude.com/claude-code)
-(`claude`) e/ou o Google Antigravity. O login é feito pela própria tela do MaiSim e fica numa pasta separada
-(`~/.claude-maisim`, `~/.agy-maisim`), sem mexer no seu login de sempre.
+(`claude`). O login é feito pela própria tela do MaiSim e fica numa pasta separada (`~/.claude-maisim`), sem mexer no
+seu login de sempre. Outras IAs (por exemplo, um modelo local) podem vir depois.
 
 ## Instalar e rodar
 
@@ -90,7 +90,6 @@ Playwright, numa instância de teste isolada). O fluxo, as versões e como rodar
 - **[noVNC](https://novnc.com)** (MPL 2.0) e **websockify** (LGPLv3), do sistema: a tela do Gecko no navegador.
 - **[Vite](https://vite.dev)** (MIT): o servidor da página. **[Playwright](https://playwright.dev)** (Apache 2.0): os
   testes de tela.
-- **IA:** o MaiSim chama os programas oficiais [Claude Code](https://claude.com/claude-code) (Anthropic) e Google
-  Antigravity, sem modificação; cada um segue os próprios termos de uso. O MaiSim não tem vínculo com nenhuma dessas
-  empresas.
+- **IA:** o MaiSim chama o programa oficial [Claude Code](https://claude.com/claude-code) (Anthropic), sem modificação;
+  ele segue os próprios termos de uso. O MaiSim não tem vínculo com a Anthropic.
 - **Logo:** conceito e direção de Marcelo Pedroso, desenhado com o Claude ([`app/public/marca/`](app/public/marca/)).

@@ -6,8 +6,7 @@ Built on:
   with MaiSim, in gecko/patches).
 - Python and NumPy (BSD); Eclipse Temurin (Java, GPL v2 with the Classpath Exception).
 - uPlot (MIT): the scope charts. Monaco Editor (MIT): the code editor. KaTeX (MIT): the equations. marked (MIT).
-- AI: MaiSim does not include AI. On your computer it calls the official programs Claude Code (Anthropic) and Google
-  Antigravity, which you install and use with your own account; each follows its own terms of use. MaiSim is not
-  affiliated with either company.
+- AI: MaiSim does not include AI. On your computer it calls the official program Claude Code (Anthropic), which you
+  install and use with your own account; it follows its own terms of use. MaiSim is not affiliated with Anthropic.
 
 Open it with the "MaiSim" shortcut (Start menu or desktop). To stop it: "Stop MaiSim" in the Start menu.

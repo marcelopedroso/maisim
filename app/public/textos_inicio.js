@@ -81,7 +81,7 @@ maisimI18n.add({
                     <li><a href="https://www.python.org" target="_blank" rel="noopener">Python</a> e <a href="https://numpy.org" target="_blank" rel="noopener">NumPy</a>: o controle digital e as gravações.</li>
                     <li><a href="https://github.com/leeoniya/uPlot" target="_blank" rel="noopener">uPlot</a> (MIT): os gráficos do scope. <a href="https://microsoft.github.io/monaco-editor/" target="_blank" rel="noopener">Monaco Editor</a> (MIT): o editor de código. <a href="https://katex.org" target="_blank" rel="noopener">KaTeX</a> (MIT): as equações nas respostas da IA.</li>
                     <li><a href="https://novnc.com" target="_blank" rel="noopener">noVNC</a> (MPL 2.0) e websockify (LGPL v3): a tela do GeckoCIRCUITS no navegador. <a href="https://vite.dev" target="_blank" rel="noopener">Vite</a> (MIT): o servidor da página.</li>
-                    <li>IA: o MaiSim chama os programas oficiais Claude Code (Anthropic) e Google Antigravity, sem modificação; cada um segue os próprios termos de uso. O MaiSim não é afiliado a nenhuma dessas empresas.</li>
+                    <li>IA: o MaiSim chama o programa oficial Claude Code (Anthropic), sem modificação; ele segue os próprios termos de uso. O MaiSim não é afiliado à Anthropic.</li>
                 </ul>
             `,
     en: `
@@ -91,7 +91,7 @@ maisimI18n.add({
                     <li><a href="https://www.python.org" target="_blank" rel="noopener">Python</a> and <a href="https://numpy.org" target="_blank" rel="noopener">NumPy</a>: the digital control and the recordings.</li>
                     <li><a href="https://github.com/leeoniya/uPlot" target="_blank" rel="noopener">uPlot</a> (MIT): the scope charts. <a href="https://microsoft.github.io/monaco-editor/" target="_blank" rel="noopener">Monaco Editor</a> (MIT): the code editor. <a href="https://katex.org" target="_blank" rel="noopener">KaTeX</a> (MIT): the equations in the AI's answers.</li>
                     <li><a href="https://novnc.com" target="_blank" rel="noopener">noVNC</a> (MPL 2.0) and websockify (LGPL v3): the GeckoCIRCUITS screen in the browser. <a href="https://vite.dev" target="_blank" rel="noopener">Vite</a> (MIT): the page server.</li>
-                    <li>AI: MaiSim calls the official programs Claude Code (Anthropic) and Google Antigravity, unmodified; each one follows its own terms of use. MaiSim is not affiliated with any of these companies.</li>
+                    <li>AI: MaiSim calls the official program Claude Code (Anthropic), unmodified; it follows its own terms of use. MaiSim is not affiliated with Anthropic.</li>
                 </ul>
             ` },
   // os exemplos: o título e uma linha do que cada um é (a ordem da grade: CC-CC, pontes e inversores, retificadores, controle)

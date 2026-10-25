@@ -123,7 +123,7 @@ clicam no cadeado para editar, como antes. O `codigo_tela.js` confere o padrão 
 | `revisao_tela.js` | as correções da revisão do passo 2 (7) |
 | `pwm_tela.js` | passo 2b: Δt do arquivo ao abrir, destino da atuação, Ts × Δt, GATE, rodada do buck (9) |
 | `claude_tela.js` | passo 3a: o botão ✦ e a janela de login (links, Enter, foco e aviso durante o acompanhamento, cancelar, conectado simulado, Esc na confirmação, falha de rede, cabeçalho estreito). Suba a instância de teste com `MAISIM_CLAUDE_DIR` numa pasta descartável | 17 verificações |
-| `claude_instala_tela.js` | a janela das contas sem o Claude Code (respostas simuladas): no Windows, Instalar → a saída → instalado e o "Entrar" (e a falha, com "tentar de novo"), o Antigravity com o instalador do PowerShell; no Linux, o comando oficial e "Procurar de novo" | 10 verificações |
+| `claude_instala_tela.js` | a janela das contas sem o Claude Code (respostas simuladas): no Windows, Instalar → a saída → instalado e o "Entrar" (e a falha, com "tentar de novo"); no Linux, o comando oficial e "Procurar de novo" | 9 verificações |
 | `cabecalho_tela.js` | cabeçalho só de ícones, olho, quebra em linhas, dicas (17) |
 | `validador_tela.js` | validador, ▷ testar e as perguntas de mudanças não salvas (Enter mantém, cancelar volta) (13) |
 | `ajustes_tela.js` | atalhos mudos no controle.py, dica e iframe, proporção do desenho, plano B do trilho (6; usa a 7200 → 7201) |
