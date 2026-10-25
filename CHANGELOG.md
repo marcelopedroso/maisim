@@ -23,6 +23,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 - Simu tests: `simu/validacao/vistoria_componentes.py`, an on-demand survey of the 121 palette components on the test instance (each one alone on a new sheet: inserted as the palette does, its parameters read, a short run), written to `simu/validacao/tmp_vistoria/` as JSON and a Markdown table (#77).
 
 ### Changed
+- AI chat with no AI account signed in: only the button that opens the accounts — no message box, send button or model/effort/AI selectors (#PR).
 - CI spends far fewer Actions minutes: the full suite runs once a day (only if main changed since the last green run), when VERSION changes, or by hand — no longer after every merge; verify skips the tests when a PR only changes text (CHANGELOG, READMEs, LEIA) (#101).
 - The AI processes (the CLIs, their sign-in, their stop) go through one module, `simu/processos.py`: a process group via a new session and `killpg` on Linux, `CREATE_NEW_PROCESS_GROUP` and `taskkill /T` on Windows. The terminal-based sign-in (Gemini, Antigravity) no longer imports Linux-only modules on Windows: there the tool opens in its own terminal window and MaiSim follows until the account appears. Linux behaviour is unchanged (#95).
 - MaiSim works without internet: the control guide uses a bundled `marked`, and `simu/vendor.sh` puts a pinned, SHA-checked, trimmed Monaco (editor + Python, ~4 MB) in `simu/static/vendor/` (outside git; the packages always include it). Without it, the code editor still falls back to the CDN as before (#91).

@@ -161,6 +161,8 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
   await pg.click("#bt-ctl"); await pg.waitForFunction(() => ctl.carregado, null, { timeout: 30000 }); await pg.click("#ctl-claude-bt");
   const entrar = await pg.waitForSelector("#cc-entrar", { timeout: 20000 }).then(() => true).catch(() => false);   // o auth status de verdade leva uns segundos
   ok(entrar, "sem login: a conversa pede para entrar no Claude do MaiSim");
+  const semIA = await pg.evaluate(() => ["cc-texto", "cc-enviar", "cc-modelo", "cc-ia"].map((id) => getComputedStyle($(id)).display === "none"));
+  ok(semIA.every(Boolean), `nenhuma IA logada: sem a caixa de mensagem, o Enviar e os seletores — só o "Entrar" (escondidos: ${semIA})`);
   ok(!erros.length, `sem erros de JS nem diálogos ${erros.join(" ; ")}`);
   await api(pg, "claude/nova", {}); await api(pg, "editor/abrir", { arq: path.join(ENV.MAISIM_SALVOS, "exemplo_controle_pwm.ipes"), modo: "descartar" });
  } catch (e) { ok(false, `o teste caiu: ${e.message}`); }

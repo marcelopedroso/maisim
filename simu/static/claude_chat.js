@@ -259,6 +259,9 @@ function desenhaUsoChat() {
 function desenhaChat() {
   desenhaUsoChat();
   const e = cc.estado, logado = iaLogada(), anda = !!(e && e.andamento);
+  // nenhuma IA logada: a conversa não tem como andar — só o botão que abre as contas (a caixa e as ferramentas somem)
+  const alguma = ["claude", ...(cc.ias || []).map((a) => a.id)].some((ia) => iaLogada(ia));
+  $("ctl-claude").classList.toggle("cc-sem-ia", !alguma);
   const rodando = document.body.classList.contains("sim-rodando");
   $("cc-enviar").disabled = anda || cc.enviando; $("cc-enviar").textContent = cc.enviando ? tr("cc.enviando") : anda ? tr("cc.respondendo") : tr("cc.enviar");
   $("cc-texto").placeholder = anda ? tr("cc.ph_andamento") : tr("cc.ph_texto");

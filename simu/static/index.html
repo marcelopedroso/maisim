@@ -214,6 +214,8 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   #ctl-claude { display:none; min-width:0; min-height:0; flex-direction:column; border-left:1px solid var(--borda); background:var(--cartao); position:relative; }
   #painel-controle.com-claude { grid-template-columns:var(--lado, 240px) minmax(0, 1fr) minmax(260px, var(--cc-w, 36%)); }
   #painel-controle.com-claude #ctl-claude { display:flex; }
+  #ctl-claude.cc-sem-ia :is(#cc-uso, #cc-salvar, #cc-exportar, #cc-contextos, #cc-memoria, #cc-nova, #cc-nota, #cc-anexos, #cc-lembrete,
+    #cc-texto, #cc-anexar, #cc-aviso, #cc-ia, #cc-modelo, #cc-esforco, #cc-auto, #cc-parar, #cc-enviar) { display:none !important; }
   #painel-controle.com-claude.cc-embaixo { grid-template-columns:var(--lado, 240px) minmax(0, 1fr); grid-template-rows:minmax(0, 1fr) minmax(160px, var(--cc-h, 46%)); }
   /* o divisor entre o código e a conversa: arrastar muda a largura (ao lado) ou a altura (embaixo); duplo clique volta ao padrão */
   #cc-divisor { position:absolute; left:-4px; top:0; bottom:0; width:8px; cursor:col-resize; z-index:3; }
