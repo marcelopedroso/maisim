@@ -246,8 +246,11 @@
   window.addEventListener("pageshow", (e) => { if (e.persisted) { VIVA = novaVida(); vivo(); } });   // de volta do cache do navegador (o "voltar")
   // as trocas de página dentro do MaiSim (um link do trilho, da página inicial): não é fechar — o aviso de "sem salvar" do
   // simu (beforeunload) fica só para fechar a janela (o circuito sem salvar está no Gecko: a página seguinte o retoma)
+  // (na volta do clique, não na ida: um link que o MaiSim intercepta e abre noutra janela — o Código, o Scope — já chega
+  // aqui com o preventDefault e não conta; nem o Ctrl/Shift+clique, que abre outra aba)
   document.addEventListener("click", (e) => { const a = e.target.closest && e.target.closest("a[href]");
-    if (a && a.origin === location.origin && (!a.target || a.target === "_self")) window.maisimNavegando = Date.now(); }, true);
+    if (a && !e.defaultPrevented && e.button === 0 && !(e.ctrlKey || e.metaKey || e.shiftKey || e.altKey)
+        && a.origin === location.origin && (!a.target || a.target === "_self")) window.maisimNavegando = Date.now(); });
   window.maisimNav = { montar, desmontar, aplicaTema, aplicaEscala, situacaoIA };
   const eu = document.currentScript;
   if (!(eu && eu.dataset.manual)) { if (document.body) montar(); else document.addEventListener("DOMContentLoaded", montar); }
