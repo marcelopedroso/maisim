@@ -7,6 +7,8 @@
 maisimI18n.add({
   // ---- o cabeçalho (index.html)
   "scope.h.vivo": { pt: "Ao vivo", en: "Live" },
+  "scope.media_intervalo": { pt: "(média do intervalo)", en: "(interval average)" },
+  "scope.t_media_intervalo": { pt: "perda gravada como a média de todos os passos do intervalo entre amostras, não o valor de um passo (a de chaveamento dura um passo só e quase nunca cairia na amostra)", en: "loss recorded as the average of every step in the interval between samples, not the value of one step (the switching loss lasts a single step and would almost never land on the sample)" },
   "scope.h.comparar": { pt: "Comparar", en: "Compare" },
   "scope.h.carregar": { pt: "Carregar", en: "Load" },
   "scope.h.indice": { pt: "☰ Índice", en: "☰ Index" },

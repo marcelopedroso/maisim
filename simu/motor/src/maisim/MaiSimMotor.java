@@ -81,6 +81,33 @@ public final class MaiSimMotor {
         return s;
     }
 
+    /** STEP n lendo os nomes depois de CADA passo: "t m1 m2 …", as médias dos n passos (a perda de chaveamento E/Δt dura um
+     *  passo só: a leitura de um ponto por bloco quase nunca a pega). No Gecko (patch 0005, simulateStepsAveraged: o laço
+     *  dentro dele, sem uma ida e volta por passo); pela reflexão, para o motor compilar também com um jar sem o patch — e
+     *  aí, o mesmo laço daqui (um STEP 1 + GETM por passo: certo, só mais lento). */
+    private String stepMedia(int n, String[] nomes) throws Exception {
+        double[] r;
+        java.lang.reflect.Method mm = null;
+        try { mm = GeckoRemoteInterface.class.getMethod("simulateStepsAveraged", int.class, String[].class); }
+        catch (NoSuchMethodException semPatch) { }
+        if (mm != null) {
+            try { r = (double[]) mm.invoke(g, n, (Object) nomes); }
+            catch (java.lang.reflect.InvocationTargetException e) { throw e.getCause() instanceof Exception ? (Exception) e.getCause() : e; }
+        } else {
+            r = new double[nomes.length + 1];
+            for (int k = 0; k < n; k++) {
+                g.simulateSteps(1);
+                String[] v = trata("GETM " + String.join(" ", nomes)).split(" ");
+                for (int i = 0; i < nomes.length; i++) r[i] += Double.parseDouble(v[i]);
+            }
+            for (int i = 0; i < nomes.length; i++) r[i] = n > 0 ? r[i] / n : 0.0;
+            r[nomes.length] = g.getSimulationTime();
+        }
+        StringBuilder sb = new StringBuilder(Double.toString(r[nomes.length]));
+        for (int i = 0; i < nomes.length; i++) sb.append(' ').append(r[i]);
+        return sb.toString();
+    }
+
     private String trata(String linha) throws Exception {
         String[] p = linha.split("\\s+");
         switch (p[0]) {
@@ -110,6 +137,7 @@ public final class MaiSimMotor {
             case "CLEAR": g.deleteAllComponents(null); return "";                    // folha em branco (como arquivo novo)
             case "INIT": g.initSimulation(Double.parseDouble(p[1]), Double.parseDouble(p[2])); return "";   // INIT dt tfim
             case "STEP": g.simulateSteps(Integer.parseInt(p[1])); return Double.toString(g.getSimulationTime());
+            case "STEPA": return stepMedia(Integer.parseInt(p[1]), Arrays.copyOfRange(p, 2, p.length));   // STEPA n nome… → t médias
             case "TIME": return Double.toString(g.getSimulationTime());
             case "END": g.endSimulation(); return "";
             case "GET": return Double.toString(g.getOutput(p[1]));
@@ -154,7 +182,7 @@ public final class MaiSimMotor {
             }
             default: throw new IllegalArgumentException("unknown command: " + p[0] + " (commands: " + Arrays.toString(
                     new String[]{"PING", "OPEN", "SAVEAS", "CREATE", "DELETE", "MOVE", "POS", "ROTATE", "ORIENT", "RENAME", "PARAMS",
-                            "ACCPARAMS", "GETP", "SETP", "GETG", "SETG", "INNODE", "OUTNODE", "GETIN", "GETOUT", "LIST", "SHEET", "CLEAR", "INIT", "STEP", "TIME", "END", "GET", "GETM", "SETM", "QUIT"}) + ")");
+                            "ACCPARAMS", "GETP", "SETP", "GETG", "SETG", "INNODE", "OUTNODE", "GETIN", "GETOUT", "LIST", "SHEET", "CLEAR", "INIT", "STEP", "STEPA", "TIME", "END", "GET", "GETM", "SETM", "QUIT"}) + ")");
         }
     }
 }

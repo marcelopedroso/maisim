@@ -11,7 +11,7 @@ fs.mkdirSync(PASTA, { recursive: true });
 const NPZ = path.join(PASTA, "scope_notacao.npz");
 require("child_process").execFileSync("python3", ["-c", `import numpy as np, json
 t = np.arange(0, 0.01, 1e-4)
-meta = {"planta": "gecko-maisim", "rotulo": "notacao", "modelo": "x/circuito_notacao.ipes", "dt": 1e-4, "Ts": 1e-4, "tfim": 0.01, "sinais": [], "acionamentos": []}
+meta = {"planta": "gecko-maisim", "rotulo": "notacao", "modelo": "x/circuito_notacao.ipes", "dt": 1e-4, "Ts": 1e-4, "tfim": 0.01, "sinais": [], "acionamentos": [], "media_intervalo": ["i_Lf_a"]}
 np.savez(${JSON.stringify(NPZ)}, meta=np.array(json.dumps(meta)), t=t, v_o=np.sin(t), i_Lf_a=np.cos(t), portadora=t)`]);
 const URL = "http://localhost:7200/maisim/scope/?a=" + encodeURIComponent(path.relative(RAIZ, NPZ));
 (async () => {
@@ -30,6 +30,11 @@ const URL = "http://localhost:7200/maisim/scope/?a=" + encodeURIComponent(path.r
     const l1 = await leg(), t1 = await tit();
     ok(/^<span class="mat"><span class="mb">v<\/span><sub>o<\/sub><\/span>$/.test(l1[0]) && /<span class="mb">i<\/span><sub>Lf,a<\/sub>/.test(l1[1]) && l1[2] === "portadora",
       `sempre em notação, a legenda: v_o → v com "o" subscrito, i_Lf_a → i com "Lf,a"; portadora fica (${l1.join(" | ")})`);
+    // um sinal da meta.media_intervalo (as perdas do FLOW, do /maisim/simu): a nota na legenda, com a dica; os outros sem
+    const dicas = await pg.evaluate(() => [...paineis()[0].u.root.querySelectorAll(".u-legend .u-series .u-label")].slice(1).map((l) => l.title || ""));
+    const [nota, dica] = await pg.evaluate(() => [tr("scope.media_intervalo"), tr("scope.t_media_intervalo")]);   // no idioma da página
+    ok(l1[1].endsWith(`<span class="nota-media">${nota}</span>`) && /^\(.+\)$/.test(nota) && !/nota-media/.test(l1[0] + l1[2]) && dicas[1] === dica && dica.length > 40 && !dicas[0],
+      `o i_Lf_a da meta.media_intervalo: "(média do intervalo)" na legenda e a dica; v_o e portadora sem (${l1[1].replace(/<[^>]+>/g, "")} · ${dicas[1].slice(0, 40)}…)`);
     ok(t1.input === "none" && t1.mat !== "none" && /<sub>o<\/sub>/.test(t1.html) && /<sub>Lf,a<\/sub>/.test(t1.html) && /saida_x/.test(t1.html) && !(await pg.$("#ck-mat")),
       `o título em notação ("saida_x", palavra longa, fica), sem caixa para desligar: ${t1.html.replace(/<[^>]+>/g, "")}`);
     await pg.click(".cartao .titulo-mat"); await pg.waitForTimeout(150);

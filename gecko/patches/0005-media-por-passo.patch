@@ -1,0 +1,96 @@
+diff --git a/src/main/java/ch/technokrat/gecko/GeckoRemoteInterface.java b/src/main/java/ch/technokrat/gecko/GeckoRemoteInterface.java
+index 90ca1cfb..a465d433 100644
+--- a/src/main/java/ch/technokrat/gecko/GeckoRemoteInterface.java
++++ b/src/main/java/ch/technokrat/gecko/GeckoRemoteInterface.java
+@@ -194,6 +194,17 @@ public interface GeckoRemoteInterface extends Remote {
+     @Declaration("void simulateSteps(int steps)")
+     void simulateSteps(int steps) throws RemoteException;
+ 
++    /**
++     * simulateSteps(steps) that also reads the output of each of elementNames after EVERY step and returns the mean over
++     * the steps (an output that lasts one step, as the switching loss E/dt of a FLOW measurement, is seen by the mean even
++     * when the caller reads only once per block). "block@output" reads that named output. Result: the means, in order,
++     * and, last, the simulation time at the end (elementNames.length + 1 values).
++     */
++    @Category(MethodCategory.SIMULATION_START)
++    @Documentation(I18nKeys.SIMULATE_STEPS_DOCUMENTATION)
++    @Declaration("double[] simulateStepsAveraged(int steps, String[] elementNames)")
++    double[] simulateStepsAveraged(int steps, String[] elementNames) throws RemoteException;
++
+     @Category(MethodCategory.SIMULATION_START)
+     @Documentation(I18nKeys.SIMULATE_TIME_DOCUMENTATION)
+     @Declaration("void simulateTime(double time)")
+diff --git a/src/main/java/ch/technokrat/gecko/GeckoRemoteTestingDummy.java b/src/main/java/ch/technokrat/gecko/GeckoRemoteTestingDummy.java
+index 460f1c2e..93d2f6c3 100644
+--- a/src/main/java/ch/technokrat/gecko/GeckoRemoteTestingDummy.java
++++ b/src/main/java/ch/technokrat/gecko/GeckoRemoteTestingDummy.java
+@@ -150,6 +150,11 @@ public class GeckoRemoteTestingDummy implements GeckoRemoteInterface {
+         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+     }
+ 
++    @Override
++    public double[] simulateStepsAveraged(int steps, String[] elementNames) throws RemoteException {
++        return new double[elementNames.length + 1];
++    }
++
+     @Override
+     public double[] getOutputs(String[] elementNames) throws RemoteException {
+         return new double[elementNames.length];
+diff --git a/src/main/java/ch/technokrat/gecko/geckoscript/AbstractGeckoCustom.java b/src/main/java/ch/technokrat/gecko/geckoscript/AbstractGeckoCustom.java
+index b980e562..70bac47d 100644
+--- a/src/main/java/ch/technokrat/gecko/geckoscript/AbstractGeckoCustom.java
++++ b/src/main/java/ch/technokrat/gecko/geckoscript/AbstractGeckoCustom.java
+@@ -130,6 +130,53 @@ public abstract class AbstractGeckoCustom implements GeckoRemoteInterface {
+         }
+     }
+ 
++    /**
++     * simulateSteps(steps) reading the outputs of elementNames after every step: their means over the steps and, last,
++     * the simulation time at the end (see GeckoRemoteInterface.simulateStepsAveraged)
++     */
++    @Override
++    public final double[] simulateStepsAveraged(final int steps, final String[] elementNames) {
++        if (!_simInited) {
++            initSimulation();
++            writeOutputLn("Warning: Simulation was not initialized prior to calling simulateStepsAveraged(). "
++                    + "Simulation has been initialized to values specified in GeckoCIRCUITS.");
++        }
++        final int n = elementNames.length;
++        final RegelBlock[] blocks = new RegelBlock[n];
++        final String[] outputs = new String[n];
++        for (int i = 0; i < n; i++) {             // resolved once, before any step: a bad name fails without simulating
++            final int at = elementNames[i].lastIndexOf('@');
++            final String name = at > 0 ? elementNames[i].substring(0, at) : elementNames[i];
++            outputs[i] = at > 0 ? elementNames[i].substring(at + 1) : null;
++            final AbstractBlockInterface block = IDStringDialog.getComponentByName(name);
++            if (!(block instanceof RegelBlock)) {
++                writerOutputErrorLn("Error, selected component is not a control block!");
++                throw new RuntimeException("Error, selected component is not a control block: " + name);
++            }
++            blocks[i] = (RegelBlock) block;
++        }
++        final double[] result = new double[n + 1];
++        int done = 0;
++        try {
++            for (; done < steps; done++) {
++                _circuit.simulateOneStep();
++                for (int i = 0; i < n; i++) {
++                    result[i] += outputs[i] == null ? blocks[i].getOutput() : blocks[i].getOutput(outputs[i]);
++                }
++            }
++        } catch (IllegalAccessException e) {
++            writerOutputErrorLn(e.getMessage());
++            throw new RuntimeException(e);
++        } catch (Exception ex) {
++            writerOutputErrorLn("simulateStepsAveraged(): " + ex.getMessage());
++        }
++        for (int i = 0; i < n; i++) {
++            result[i] = done > 0 ? result[i] / done : 0.0;
++        }
++        result[n] = getSimulationTime();
++        return result;
++    }
++
+     @Override
+     public final void simulateTime(final double time) {
+         if (!_simInited) {

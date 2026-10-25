@@ -2288,6 +2288,19 @@ def elemento_do_sinal(el):
     return el.rpartition("@")[0] or el
 
 
+MEDIA_INTERVALO = ("FLOW",)                  # os gravados pela média do intervalo (o FLOW: a perda do Pv, total/condução/chaveamento)
+
+
+def sinais_de_media(r, sinais):
+    """Os elementos do GETM (de sinais, na ordem) que a rodada grava como a média do intervalo entre amostras, não o ponto:
+    pelo tipo do componente (MEDIA_INTERVALO), não pelo nome. A perda de chaveamento do Gecko é E/Δt só no passo da
+    comutação: uma leitura a cada N passos quase nunca a pega (o Psw de média 0 e o Pv = Pcond); a média de todos os passos
+    do intervalo (STEPA no motor) dá a potência certa. O resto (PWM, tensões…) segue em ponto."""
+    tipos = {(e["nome"] if fid == "0" else f"{fl['nome']}#{e['nome']}"): e["tipo"]
+             for fid, fl in r["folhas"].items() for e in fl["elementos"]}
+    return [el for el, _ in sinais if tipos.get(elemento_do_sinal(el)) in MEDIA_INTERVALO]
+
+
 def sinais_da_rodada(r, destino=None, ap=None):
     """(elemento para o GETM, canal no scope): saídas dos blocos de controle da folha principal e medidores dos subcircuitos
     — menos os marcados fora (as duas caixinhas do painel, na aparência). destino "scope": os que viram coluna gravada na
@@ -3465,6 +3478,31 @@ def _rodar(c, ctl_de_fora=None):
             log.close()
         DEVOLVER.unlink(missing_ok=True)
         raise
+    # as perdas (sinais_de_media): cada amostra gravada é a média dos passos desde a anterior (somas em anda, por STEPA);
+    # o m[...] do controle segue com o ponto (o valor do passo, como antes)
+    els_media = sinais_de_media(r, sinais)
+    canal_media = [(k, f) for (el, k), f in zip(sinais, fator) if el in els_media]     # (canal, fator), na ordem de els_media
+    meta["media_intervalo"] = [k for k, _ in canal_media if k in canais_scope]
+    soma_media = dict(n=0, s=[0.0] * len(els_media))
+
+    def media():
+        """{canal: média do intervalo} das perdas desde a última amostra gravada (e zera); nada se nenhum passo andou."""
+        q = soma_media["n"]
+        if not q:
+            return {}
+        out = {k: f * v / q for (k, f), v in zip(canal_media, soma_media["s"])}
+        soma_media.update(n=0, s=[0.0] * len(els_media))
+        return out
+
+    def passos(q):
+        """STEP q (com as perdas: STEPA, que soma a média dos q passos em soma_media) → o tempo no fim."""
+        if not els_media:
+            return float(MOTOR.cmd(f"STEP {q}"))
+        v = MOTOR.cmd(f"STEPA {q} " + " ".join(els_media)).split()
+        soma_media["s"] = [a + q * float(b) for a, b in zip(soma_media["s"], v[1:])]
+        soma_media["n"] += q
+        return float(v[0])
+
     controle_rodada["pausa"].clear(); controle_rodada["parar"].clear()
     arq = pasta / f"scope_{nome}.npz"
     rodada.clear()
@@ -3476,10 +3514,10 @@ def _rodar(c, ctl_de_fora=None):
         feito, tt = 0, None
         for o in sorted(x for x in escritas if 0 <= x < npassos):
             if o > feito:
-                tt = float(MOTOR.cmd(f"STEP {o - feito}")); feito = o
+                tt = passos(o - feito); feito = o
             MOTOR.cmd("SETM " + " ".join(escritas[o]))
         if npassos > feito:
-            tt = float(MOTOR.cmd(f"STEP {npassos - feito}"))
+            tt = passos(npassos - feito)
         return tt
 
     agenda = {}                                     # escritas do controle por passo absoluto (a de uma amostra pode cair no trecho seguinte)
@@ -3541,11 +3579,11 @@ def _rodar(c, ctl_de_fora=None):
                 avisos_rodada.append(lingua.tr("rodada.scope_nome_invalido", x=x) if not IDENT.match(x) else
                                      lingua.tr("rodada.scope_nome_tarde", x=x, t=f"{tt:g}"))
             if j % cada == 0:
-                pub.amostra(dict(t=tt, **ao_scope(vals), **{col: sreg.get(x, float("nan")) for x, col in regs.items()}))
+                pub.amostra(dict(t=tt, **ao_scope(dict(vals, **media())), **{col: sreg.get(x, float("nan")) for x, col in regs.items()}))
             tt = anda(k, passo, escritas_do_trecho(k, passo)); k += passo; j += 1
             vals = le_gecko()
             rodada.update(t=tt, amostras=rodada["amostras"] + (1 if j % cada == 0 else 0))
-        pub.amostra(dict(t=tt, **ao_scope(vals), **{col: float("nan") for col in (regs or {}).values()}))
+        pub.amostra(dict(t=tt, **ao_scope(dict(vals, **media())), **{col: float("nan") for col in (regs or {}).values()}))
         return k
 
     def laco_simples(pub):
@@ -3558,7 +3596,7 @@ def _rodar(c, ctl_de_fora=None):
             rodada["estado"] = "rodando"
             passo = min(m, n - k)
             tt = anda(k, passo, escritas_do_trecho(k, passo)); k += passo
-            pub.amostra(dict(t=tt, **le_gecko()))
+            pub.amostra(dict(dict(t=tt, **le_gecko()), **media()))
             rodada.update(t=tt, amostras=rodada["amostras"] + 1)
         return k
 

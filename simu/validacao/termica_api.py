@@ -10,7 +10,11 @@ para 0,2 mJ/K: τ = 5 K/W · 0,2 mJ/K = 1 ms):
   dividida pelo tempo = a média do Psw_IGBT1; e o fsw·(k_on·i_on + k_off·i_off)·|V|/uK da conta de papel, perto;
 - o diodo: o mesmo, com a tensão dele (−v_sw);
 - Tj: a rede RC (C·dT/dt = P − (T − 25)/ΣRth) alimentada pelo Pv_IGBT1 medido dá o Tj_IGBT1 medido; o τ que melhor encaixa é
-  Rth·Cth; em regime, Tj = 25 + ⟨P⟩·ΣRth; Tj_D1 = 25 + Pv_D1·4 (sem Cth)."""
+  Rth·Cth; em regime, Tj = 25 + ⟨P⟩·ΣRth; Tj_D1 = 25 + Pv_D1·4 (sem Cth).
+E a amostragem das perdas (o FLOW: média do intervalo, não o ponto; 25/10): com uma amostra a cada 50 passos (sem controle)
+e a cada 100 (com um controle que não atua, Ts = 5Δt), cada amostra do Pv/Pcond/Psw é a média dos passos do intervalo da
+rodada com todas (o Psw de antes, em ponto, dava média 0); o ⟨Psw⟩ do regime é o da soma passo a passo (±5%); Pv = Pcond
++ Psw; o Tj, o PWM (g) e as tensões seguem em ponto, iguais aos da rodada com todas; a meta diz quais são média."""
 import gzip, json, os, re, shutil, time, urllib.request
 from pathlib import Path
 import numpy as np
@@ -149,6 +153,35 @@ try:
         dif = float(np.max(np.abs(25 + z["Pv_D1"][1:-1] * 4.0 - z["Tj_D1"][2:])))     # sem Cth: a perda do passo anterior
         sobe = float(z["Tj_D1"][m].mean()) - 25
         ok(dif <= 0.01 * sobe, f"Tj_D1 = 25 + Pv_D1·4 K/W em cada amostra (sem Cth; a perda do passo anterior): diferença máxima {dif:.3f} K (sobe {sobe:.1f} K)")
+        # ------------------------------------------------ as perdas pela média do intervalo (com e sem o controle)
+        FLOW = ["Pv_IGBT1", "Pcond_IGBT1", "Psw_IGBT1", "Pv_D1"]
+        ref_sw = float(z["Psw_IGBT1"][m].mean())                # a soma passo a passo ÷ passos (a rodada com todas)
+        for rotulo, cada, ctl in (("sem controle", 50, None), ("com controle (Ts = 5Δt)", 100, 5 * dt)):
+            if ctl:
+                rc_ = api("editor/controle", {"controle": {"ativo": True, "Ts": ctl, "atuacoes": [], "parametros": [], "acionamentos": [],
+                          "atraso": {"modo": "logo", "tempo": 0}, "codigo": "def iniciar(p, e):\n    pass\n\n\ndef passo(t, m, p, e):\n    return {}\n"}})
+                ok("ERRO" not in rc_, f"o controle que não atua ({rc_.get('erro')})")
+            r2, z2 = roda(dt, tfim, int(round(tfim / dt)) // cada, nome="termica_media")
+            feitas.append(r2.get("arquivo"))
+            if z2 is None:
+                ok(False, f"{rotulo}: a rodada não terminou ({r2.get('estado')}: {r2.get('erro')})"); continue
+            meta = json.loads(str(z2["meta"]))
+            ok(sorted(meta.get("media_intervalo", [])) == sorted(FLOW), f"{rotulo}: a meta diz os de média: {meta.get('media_intervalo')}")
+            t2 = z2["t"]; k = np.rint(t2 / dt).astype(int)       # o passo de cada amostra na rodada com todas
+            ok(len(t2) == len(t) // cada + 1 and np.all(np.diff(k)[:-1] == cada), f"{rotulo}: uma amostra a cada {cada} passos ({len(t2)})")
+            difs = {c: float(np.max(np.abs([z2[c][q] - z[c][k[q - 1] + 1:k[q] + 1].mean() for q in range(1, len(k))]))) for c in FLOW}
+            ok(max(difs.values()) <= 1e-9 * max(1.0, float(np.max(np.abs(z["Pv_IGBT1"])))),
+               f"{rotulo}: cada amostra das perdas = a média dos {cada} passos do intervalo (diferença máxima {max(difs.values()):.2e})")
+            m2 = t2 >= 0.005
+            sw2 = float(z2["Psw_IGBT1"][m2].mean())
+            ponto = float(z["Psw_IGBT1"][k][m2].mean())
+            ok(abs(sw2 - ref_sw) <= 0.05 * ref_sw and np.count_nonzero(z2["Psw_IGBT1"][m2]) > 0.5 * m2.sum(),
+               f"{rotulo}: ⟨Psw_IGBT1⟩ do regime = {sw2:.3f} W; a soma passo a passo = {ref_sw:.3f} W (em ponto seria {ponto:.3f} W)")
+            ok(np.allclose(z2["Pv_IGBT1"], z2["Pcond_IGBT1"] + z2["Psw_IGBT1"], atol=1e-9), f"{rotulo}: Pv_IGBT1 = Pcond_IGBT1 + Psw_IGBT1 em cada amostra")
+            ok(all(np.array_equal(z2[c], z[c][k]) for c in ("Tj_IGBT1", "Tj_D1", "g", "v_sw", "i_T")),
+               f"{rotulo}: Tj, o PWM (g), v_sw e i_T seguem em ponto, iguais aos da rodada com todas")
+        api("editor/controle", {"controle": {"ativo": False, "Ts": 5 * dt, "atuacoes": [], "parametros": [], "acionamentos": [],
+            "atraso": {"modo": "logo", "tempo": 0}, "codigo": "def iniciar(p, e):\n    pass\n\n\ndef passo(t, m, p, e):\n    return {}\n"}})
 finally:
     for a in feitas:
         if a:

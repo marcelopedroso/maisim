@@ -8,7 +8,9 @@ circuito novo os soltava, e criar uma fonte U.1 dava "nome em uso"; achado da vi
 Gecko sem quem olhe a tela — com `-Dmaisim.oculto=true` a janela principal não aparece (o MaiSim é a tela; o Windows usa,
 sem tela virtual) e, com `-Dmaisim.dialogos=ARQUIVO`, uma vigia dentro do próprio Gecko acha cada diálogo (erro, aviso),
 anota "título TAB texto" no arquivo e aperta o botão padrão: um pedido nunca fica esperando um OK que ninguém vê, no Linux
-e no Windows, sem X11 (o simu lê o arquivo e avisa a página).
+e no Windows, sem X11 (o simu lê o arquivo e avisa a página). `0005`: `simulateStepsAveraged`, os passos com a média de
+saídas escolhidas lidas depois de cada um (o STEPA do motor: as perdas do FLOW, cuja de chaveamento dura um passo só, vão
+ao scope como a média do intervalo entre amostras).
 
 **Tudo de uma vez (recomendado):** em `app/`, `npm run maisim` sobe o scope, o simulador, este Gecko e a página, e o
 Ctrl+C derruba o que ele subiu (o Gecko só se não houver circuito sem salvar; ver `app/scripts/maisim.sh`).
