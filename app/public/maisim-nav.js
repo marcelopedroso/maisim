@@ -33,6 +33,34 @@
     "nav.tamanho_maior": { pt: "Tamanho do MaiSim: {pct}% (clique: maior)", en: "MaiSim size: {pct}% (click: larger)" },
     "nav.tamanho_menor": { pt: "Tamanho do MaiSim: {pct}% (clique: menor)", en: "MaiSim size: {pct}% (click: smaller)" },
     "nav.lingua": { pt: "Idioma: português (clique: English)", en: "Language: English (click: português)" },
+    // a versão sob a marca e a atualização automática (simu/atualizacao.py)
+    "nav.versao_curta": { pt: "v{versao}", en: "v{versao}" },
+    "nav.versao_dica": { pt: "MaiSim {versao} · {tipo}", en: "MaiSim {versao} · {tipo}" },
+    "nav.versao_nova": { pt: "MaiSim {versao} · {tipo}\nHá a {nova} (clique)", en: "MaiSim {versao} · {tipo}\n{nova} is available (click)" },
+    "nav.tipo_windows": { pt: "Windows (instalado)", en: "Windows (installed)" },
+    "nav.tipo_appimage": { pt: "Linux (AppImage)", en: "Linux (AppImage)" },
+    "nav.tipo_fonte": { pt: "código-fonte", en: "source code" },
+    "atu.titulo": { pt: "MaiSim {versao} disponível", en: "MaiSim {versao} available" },
+    "atu.titulo_em_dia": { pt: "Atualizações do MaiSim", en: "MaiSim updates" },
+    "atu.de": { pt: "Você está na {versao} ({tipo}).", en: "You have {versao} ({tipo})." },
+    "atu.em_dia": { pt: "O MaiSim {versao} é a versão mais recente neste canal.", en: "MaiSim {versao} is the latest version on this channel." },
+    "atu.sem_rede": { pt: "Sem conexão com o GitHub: não deu para procurar atualizações agora.", en: "No connection to GitHub: could not look for updates now." },
+    "atu.nunca": { pt: "Procurando atualizações…", en: "Looking for updates…" },
+    "atu.atualizar": { pt: "Atualizar", en: "Update" },
+    "atu.depois": { pt: "Depois", en: "Later" },
+    "atu.fechar": { pt: "Fechar", en: "Close" },
+    "atu.procurar": { pt: "Procurar agora", en: "Check now" },
+    "atu.canal": { pt: "Canal:", en: "Channel:" },
+    "atu.canal_estavel": { pt: "estável", en: "stable" },
+    "atu.canal_teste": { pt: "teste (com as versões -rc)", en: "testing (with the -rc versions)" },
+    "atu.fonte": { pt: "Na versão de programador, atualize pelo git:", en: "In the developer version, update with git:" },
+    "atu.aviso": { pt: "O MaiSim fecha para atualizar e abre de novo sozinho (salve antes). O arquivo é conferido pelo SHA-256.",
+      en: "MaiSim closes to update and opens again by itself (save first). The file is checked against its SHA-256." },
+    "atu.baixando": { pt: "Baixando a {versao}… {pct}", en: "Downloading {versao}… {pct}" },
+    "atu.instalando": { pt: "Instalando a {versao}: o MaiSim fecha e abre de novo sozinho.", en: "Installing {versao}: MaiSim closes and opens again by itself." },
+    "atu.reiniciando": { pt: "A {versao} está no lugar: o MaiSim fecha e abre de novo sozinho.", en: "{versao} is in place: MaiSim closes and opens again by itself." },
+    "atu.erro": { pt: "Não deu para atualizar: {erro}", en: "Could not update: {erro}" },
+    "atu.github": { pt: "ver no GitHub", en: "see on GitHub" },
   };
   if (I()) I().add(TXT);
   const tr = (k, p) => { if (I()) return I().tr(k, p);
@@ -65,6 +93,28 @@
   #maisim-nav .marca { color:#c4b5fd; font-weight:800; font-size:9.5px; letter-spacing:.1em; margin:2px 0 8px; text-decoration:none;
              display:flex; flex-direction:column; align-items:center; gap:2px; }
   #maisim-nav .marca svg { display:block; }
+  #maisim-nav .versao { position:relative; margin:-8px 0 6px; padding:1px 4px; border:0; border-radius:5px; background:transparent; color:#8a94a0;
+             font:500 9.5px/1.3 system-ui, sans-serif; font-variant-numeric:tabular-nums; cursor:pointer; }
+  #maisim-nav .versao:hover { color:#fff; background:#232831; } #maisim-nav .versao[hidden] { display:none; }
+  #maisim-nav .versao .ponto { position:absolute; right:-3px; top:-1px; width:6px; height:6px; border-radius:50%; background:#f59e0b; display:none; }
+  #maisim-nav .versao.novidade .ponto { display:block; } #maisim-nav .versao.novidade { color:#fbbf24; }
+  #maisim-nav.claro .versao { color:#5b6470; } #maisim-nav.claro .versao:hover { color:#1b1f24; background:#eef0f3; } #maisim-nav.claro .versao.novidade { color:#b45309; }
+  #maisim-atu { position:fixed; inset:0; z-index:2147483100; background:rgba(15,23,42,.45); display:flex; align-items:center; justify-content:center;
+             font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  #maisim-atu .caixa { width:min(560px, calc(100vw - 32px)); max-height:min(640px, calc(100vh - 32px)); display:flex; flex-direction:column; gap:10px;
+             background:#fff; color:#1b1f24; border:1px solid #d9dde3; border-radius:12px; padding:18px 20px; box-shadow:0 18px 50px rgba(0,0,0,.3); box-sizing:border-box; }
+  html[data-tema="escuro"] #maisim-atu .caixa { background:#1b1f26; color:#e6e9ee; border-color:#2a2f37; }
+  #maisim-atu h2 { margin:0; font-size:17px; } #maisim-atu .sub { margin:0; color:#5b6470; font-size:13px; }
+  html[data-tema="escuro"] #maisim-atu .sub { color:#9aa3ae; }
+  #maisim-atu .notas { overflow:auto; min-height:0; flex:1 1 auto; border-top:1px solid rgba(127,127,127,.25); border-bottom:1px solid rgba(127,127,127,.25); padding:4px 2px; font-size:13px; }
+  #maisim-atu .notas:empty { display:none; } #maisim-atu .notas h1, #maisim-atu .notas h2, #maisim-atu .notas h3 { font-size:14px; margin:10px 0 4px; }
+  #maisim-atu .notas ul { padding-left:20px; margin:4px 0; } #maisim-atu .notas code, #maisim-atu code { font:12px ui-monospace,monospace; background:rgba(127,127,127,.15); padding:1px 4px; border-radius:4px; }
+  #maisim-atu a { color:#7c3aed; } #maisim-atu .msg { margin:0; font-size:13px; } #maisim-atu .msg.falha { color:#dc2626; } #maisim-atu .msg:empty { display:none; }
+  #maisim-atu .pe { display:flex; align-items:center; gap:8px; flex-wrap:wrap; } #maisim-atu .pe .procurar { margin-left:auto; }
+  #maisim-atu .pe label { font-size:13px; display:flex; align-items:center; gap:6px; }
+  #maisim-atu select { width:auto !important; min-width:0; flex:0 1 auto; font:inherit; font-size:13px; padding:3px 6px; border:1px solid rgba(127,127,127,.4); border-radius:7px; background:transparent; color:inherit; }
+  #maisim-atu button { font:inherit; font-size:13px; padding:6px 14px; border-radius:8px; border:1px solid rgba(127,127,127,.4); background:transparent; color:inherit; cursor:pointer; }
+  #maisim-atu button.prim { background:#7c3aed; border-color:#7c3aed; color:#fff; } #maisim-atu button:disabled { opacity:.5; cursor:default; }
   #maisim-nav .item { position:relative; width:42px; height:42px; display:flex; align-items:center; justify-content:center;
              color:#aab2bd; border-radius:10px; text-decoration:none; }
   #maisim-nav .item:hover { background:#232831; color:#fff; }
@@ -175,7 +225,7 @@
     if (!document.getElementById("maisim-nav-css")) { const s = document.createElement("style"); s.id = "maisim-nav-css"; s.textContent = css; document.head.appendChild(s); }
     const p = location.pathname, nav = document.createElement("nav");
     nav.id = "maisim-nav";
-    nav.innerHTML = `<a class="marca" href="/" title="MaiSim: MaiSim"><svg viewBox="0 0 24 22" width="30" height="27.5" fill="none" aria-hidden="true">${MARCA}</svg>MaiSim</a>` + ITENS.map((it) =>
+    nav.innerHTML = `<a class="marca" href="/" title="MaiSim: MaiSim"><svg viewBox="0 0 24 22" width="30" height="27.5" fill="none" aria-hidden="true">${MARCA}</svg>MaiSim</a><button class="versao" type="button" hidden><span class="txt"></span><span class="ponto"></span></button>` + ITENS.map((it) =>
       `<a class="item${it.ativo(p, location.search) ? " ativo" : ""}${it.pronto === false ? " fora" : ""}" href="${it.pronto === false ? "#" : it.href}" data-rotulo="${tr(it.chave)}"
           aria-label="${tr(it.chave)}"${it.janela ? ` data-janela="${it.janela}"` : ""}>${it.icone}</a>`).join("");
     nav.querySelectorAll("a.fora").forEach((a) => a.addEventListener("click", (e) => e.preventDefault()));
@@ -194,6 +244,7 @@
     nav.querySelector(".item.ia").addEventListener("click", (e) => {   // no simu: a janela das contas na hora
       if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || typeof window.abreJanelaClaude !== "function") return;
       e.preventDefault(); window.abreJanelaClaude(); });
+    nav.querySelector(".versao").addEventListener("click", abreAtualizacao);
     nav.querySelector(".tema").addEventListener("click", () => {
       const prox = TEMAS[(TEMAS.indexOf(escolhaTema()) + 1) % TEMAS.length];
       try { localStorage.setItem("maisim-tema", prox); } catch (e) { /* ok */ }
@@ -206,7 +257,7 @@
     if (soJanela()) nav.style.display = "none";
     aplicaTema(); aplicaEscala();
     if (soJanela()) return;
-    situacaoIA();
+    situacaoIA(); situacaoVersao();
     document.body.classList.add("com-maisim-nav");
     document.documentElement.style.setProperty("--maisim-nav-w", `${L}px`);
     window.dispatchEvent(new Event("resize"));            // páginas com gráficos se reajustam à largura nova
@@ -227,10 +278,95 @@
       if (it) { a.dataset.rotulo = tr(it.chave); a.setAttribute("aria-label", tr(it.chave)); } });
     const ia = nav.querySelector(".item.ia");
     if (ia) { const r = ultimasIAs ? rotuloIA(ultimasIAs) : tr("nav.ia"); ia.dataset.rotulo = r; ia.setAttribute("aria-label", r); }
+    rotulaVersao();
     const m = nav.querySelector(".mais"), n = nav.querySelector(".menos");
     if (m) m.setAttribute("aria-label", tr("nav.maior"));
     if (n) n.setAttribute("aria-label", tr("nav.menor"));
     aplicaTema(); aplicaEscala();
+  }
+  // a versão sob a marca (o VERSION, pelo simu: /atualizacao) e, com uma release nova no canal escolhido, o ponto nela; o
+  // clique abre a janela da atualização (as notas da release, Atualizar / Depois, o canal). A situação: ao montar e a cada
+  // 10 min (o simu procura no GitHub na partida e a cada 6 h; aqui só pergunta a ele)
+  let ATU = null;
+  const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const postAtu = (rota, corpo) => fetch(`/maisim/simu/atualizacao/${rota}`, { method: "POST", headers: { "Content-Type": "application/json", "X-MaiSim": "1" },
+    body: JSON.stringify(corpo || {}) }).then((r) => r.json());
+  const tipoAtu = (e) => tr(`nav.tipo_${e && ["windows", "appimage", "fonte"].includes(e.tipo) ? e.tipo : "fonte"}`);
+  function rotulaVersao() {
+    const b = document.querySelector("#maisim-nav .versao"); if (!b || !ATU) return;
+    b.hidden = false; b.querySelector(".txt").textContent = tr("nav.versao_curta", { versao: ATU.versao });
+    b.classList.toggle("novidade", !!ATU.nova);
+    const r = ATU.nova ? tr("nav.versao_nova", { versao: ATU.versao, tipo: tipoAtu(ATU), nova: ATU.nova.versao }) : tr("nav.versao_dica", { versao: ATU.versao, tipo: tipoAtu(ATU) });
+    b.title = r; b.setAttribute("aria-label", r);
+    if (document.getElementById("maisim-atu")) pintaAtualizacao();
+  }
+  async function situacaoVersao() {
+    try { ATU = await fetch("/maisim/simu/atualizacao", { cache: "no-store" }).then((r) => r.json()); rotulaVersao(); } catch (e) { /* sem o simu: sem a versão */ }
+  }
+  setInterval(() => { if (!document.hidden && !soJanela()) situacaoVersao(); }, 600000);
+  // as notas da release (markdown) pelo marked do simu; o HTML de dentro vai escapado e só ficam os links http(s), numa aba nova
+  let marked = null;
+  const carregaMarked = () => marked || (marked = new Promise((ok) => { if (window.marked) return ok(window.marked);
+    const s = document.createElement("script"); s.src = "/maisim/simu/static/marked.min.js"; s.onload = () => ok(window.marked); s.onerror = () => ok(null); document.head.appendChild(s); }));
+  async function notasHTML(md, alvo) {
+    const m = await carregaMarked(), seguro = String(md || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    alvo.innerHTML = m ? m.parse(seguro) : `<pre>${esc(md || "")}</pre>`;
+    alvo.querySelectorAll("a").forEach((a) => { if (!/^https?:\/\//i.test(a.getAttribute("href") || "")) a.removeAttribute("href"); else { a.target = "_blank"; a.rel = "noopener"; } });
+    alvo.querySelectorAll("img,iframe,script,style,object,embed").forEach((x) => x.remove());
+  }
+  let notasDe = null, acompanha = null;
+  function pintaAtualizacao() {
+    const j = document.getElementById("maisim-atu"); if (!j || !ATU) return;
+    const n = ATU.nova, ap = ATU.aplicando, fonte = ATU.tipo === "fonte";
+    j.querySelector("h2").textContent = n ? tr("atu.titulo", { versao: n.versao }) : tr("atu.titulo_em_dia");
+    j.querySelector(".sub").textContent = tr("atu.de", { versao: ATU.versao, tipo: tipoAtu(ATU) });
+    const notas = j.querySelector(".notas");
+    if (!n) { notas.innerHTML = ""; notasDe = null; } else if (notasDe !== n.versao) { notasDe = n.versao; notasHTML(n.notas, notas); }
+    let msg = "", erro = false;
+    if (ap && ap.fase === "erro") { msg = tr("atu.erro", { erro: ap.erro || "" }); erro = true; }
+    else if (ap && ap.fase === "baixando") msg = tr("atu.baixando", { versao: ap.versao, pct: ap.total ? `${Math.min(100, Math.round(100 * ap.feito / ap.total))}%` : "" });
+    else if (ap) msg = tr(ap.fase === "instalando" ? "atu.instalando" : "atu.reiniciando", { versao: ap.versao });
+    else if (!n) msg = ATU.sem_rede ? tr("atu.sem_rede") : ATU.verificado ? tr("atu.em_dia", { versao: ATU.versao }) : tr("atu.nunca");
+    const m = j.querySelector(".msg"); m.textContent = msg; m.classList.toggle("falha", erro);
+    const f = j.querySelector(".fonte");
+    f.hidden = !(n && fonte); f.innerHTML = n && fonte ? `${esc(tr("atu.fonte"))} <code>git pull</code> (${esc(n.versao)})` : "";
+    j.querySelector(".aviso").hidden = !(n && !fonte && !ap);
+    const g = j.querySelector(".github"); g.hidden = !(n && n.pagina && /^https?:\/\//.test(n.pagina)); if (!g.hidden) g.href = n.pagina;
+    const em = ap && ap.fase !== "erro";
+    j.querySelector(".atualizar").hidden = !n || fonte; j.querySelector(".atualizar").disabled = !!em;
+    j.querySelector(".depois").textContent = tr(n ? "atu.depois" : "atu.fechar");
+    j.querySelector(".procurar").hidden = !!n; j.querySelector(".depois").style.marginLeft = n ? "auto" : ""; j.querySelector("select").value = ATU.canal; j.querySelector("select").disabled = !!em;
+  }
+  function fechaAtualizacao() { const j = document.getElementById("maisim-atu"); if (j) j.remove(); clearInterval(acompanha); acompanha = null; notasDe = null; }
+  // durante o atualizar: a situação a cada segundo; o MaiSim cai e volta (outro processo, a versão nova): a página recarrega
+  function acompanhaAtualizacao() {
+    if (acompanha) return; const de = ATU && ATU.versao;
+    acompanha = setInterval(async () => {
+      try { const e = await fetch("/maisim/simu/atualizacao", { cache: "no-store" }).then((r) => r.json());
+        if (e.versao !== de) { location.reload(); return; }
+        ATU = e; rotulaVersao(); if (!e.aplicando || e.aplicando.fase === "erro") { clearInterval(acompanha); acompanha = null; }
+      } catch (err) { /* desligado para atualizar: espera voltar */ }
+    }, 1000);
+  }
+  async function abreAtualizacao() {
+    if (document.getElementById("maisim-atu")) return;
+    const j = document.createElement("div"); j.id = "maisim-atu";
+    j.innerHTML = `<div class="caixa" role="dialog" aria-modal="true" aria-labelledby="maisim-atu-t"><h2 id="maisim-atu-t"></h2><p class="sub"></p>
+      <div class="notas"></div><p class="fonte msg" hidden></p><p class="aviso msg" hidden>${esc(tr("atu.aviso"))}</p><p class="msg"></p>
+      <div class="pe"><label>${esc(tr("atu.canal"))} <select><option value="estavel">${esc(tr("atu.canal_estavel"))}</option><option value="teste">${esc(tr("atu.canal_teste"))}</option></select></label>
+      <a class="github" target="_blank" rel="noopener" hidden>${esc(tr("atu.github"))}</a>
+      <button type="button" class="procurar">${esc(tr("atu.procurar"))}</button><button type="button" class="depois"></button><button type="button" class="atualizar prim">${esc(tr("atu.atualizar"))}</button></div></div>`;
+    document.body.appendChild(j);
+    j.addEventListener("click", (e) => { if (e.target === j) fechaAtualizacao(); });
+    j.addEventListener("keydown", (e) => { if (e.key === "Escape") fechaAtualizacao(); });
+    j.querySelector(".depois").addEventListener("click", fechaAtualizacao);
+    const com = async (p) => { try { const r = await p; if (r && r.versao) ATU = r; if (r && r.erro) { ATU = { ...ATU, aplicando: { fase: "erro", erro: r.erro } }; } } catch (e) { /* fica */ } rotulaVersao(); };
+    j.querySelector("select").addEventListener("change", (e) => com(postAtu("canal", { canal: e.target.value })));
+    j.querySelector(".procurar").addEventListener("click", async (e) => { e.target.disabled = true; await com(postAtu("verificar")); e.target.disabled = false; });
+    j.querySelector(".atualizar").addEventListener("click", async () => { await com(postAtu("aplicar")); if (ATU.aplicando && ATU.aplicando.fase !== "erro") acompanhaAtualizacao(); });
+    pintaAtualizacao(); j.querySelector(".depois").focus();
+    await situacaoVersao();
+    if (ATU && ATU.aplicando && ATU.aplicando.fase !== "erro") acompanhaAtualizacao();
   }
   // (pelos eventos da janela, não pelo aoMudar: valem também quando o motor de verdade chega depois da reserva)
   window.addEventListener("maisim-lingua", rotulaLingua);
@@ -257,7 +393,7 @@
   document.addEventListener("click", (e) => { const a = e.target.closest && e.target.closest("a[href]");
     if (a && !e.defaultPrevented && e.button === 0 && !(e.ctrlKey || e.metaKey || e.shiftKey || e.altKey)
         && a.origin === location.origin && (!a.target || a.target === "_self")) window.maisimNavegando = Date.now(); });
-  window.maisimNav = { montar, desmontar, aplicaTema, aplicaEscala, situacaoIA };
+  window.maisimNav = { montar, desmontar, aplicaTema, aplicaEscala, situacaoIA, situacaoVersao, abreAtualizacao };
   const eu = document.currentScript;
   if (!(eu && eu.dataset.manual)) { if (document.body) montar(); else document.addEventListener("DOMContentLoaded", montar); }
 })();

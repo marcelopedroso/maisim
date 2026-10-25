@@ -120,6 +120,7 @@
         /* sobre e créditos: no rodapé (Marcelo, 22/10: as ferramentas saem dos cartões e ficam aqui) */
         footer { margin-top:36px; padding-top:14px; border-top:1px solid var(--borda); font-size:13px; color:var(--sutil); }
         footer a { color:var(--acento); text-decoration:none; } footer a:hover { text-decoration:underline; }
+        #sobre-versao { margin:8px 0 0; font-size:13px; opacity:.85; } #sobre-versao[hidden] { display:none; }
         #creditos { margin-top:12px; line-height:1.55; } #creditos[hidden] { display:none; } #creditos ul { margin:6px 0 10px; padding-left:18px; }
         @media (max-width:560px) { .rodada { flex-wrap:wrap; } .rodada .info { flex-basis:100%; } }
     </style>
@@ -185,6 +186,7 @@
                     <li>IA: o MaiSim chama o programa oficial Claude Code (Anthropic), sem modificação; ele segue os próprios termos de uso. O MaiSim não é afiliado à Anthropic.</li>
                 </ul>
             </section>
+            <p id="sobre-versao" hidden></p>  <!-- i18n-ok: o script escreve (inicio.versao) -->
         </footer>
     </main>
     <script>
@@ -192,7 +194,14 @@
         maisimI18n.aoMudar(() => location.reload());
         // sobre e créditos: abre e fecha no rodapé
         document.getElementById("bt-creditos").onclick = (ev) => { ev.preventDefault(); const c = document.getElementById("creditos");
-            c.hidden = !c.hidden; ev.currentTarget.setAttribute("aria-expanded", String(!c.hidden)); if (!c.hidden) c.scrollIntoView({ block: "nearest" }); };
+            c.hidden = !c.hidden; ev.currentTarget.setAttribute("aria-expanded", String(!c.hidden)); if (!c.hidden) c.scrollIntoView({ block: "nearest" });
+            // a versão e o jeito de instalação (o simu: /atualizacao; os nomes dos jeitos vêm do trilho, nav.tipo_*); o clique abre a atualização
+            const v = document.getElementById("sobre-versao"); v.hidden = c.hidden;
+            if (!c.hidden) fetch("/maisim/simu/atualizacao", { cache: "no-store" }).then((r) => r.json()).then((e) => {
+                v.innerHTML = ""; v.append(tr("inicio.versao", { versao: e.versao, tipo: tr(`nav.tipo_${e.tipo}`) }));
+                const a = document.createElement("a"); a.href = "#"; a.textContent = e.nova ? tr("inicio.versao_nova", { versao: e.nova.versao }) : tr("inicio.versao_procurar");
+                a.onclick = (x) => { x.preventDefault(); if (window.maisimNav && window.maisimNav.abreAtualizacao) window.maisimNav.abreAtualizacao(); };
+                v.append(" · ", a); }).catch(() => { v.hidden = true; }); };
     </script>
     <script src="/maisim-nav.js"></script>
     <script>

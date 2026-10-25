@@ -6,6 +6,9 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Added
+- Version and automatic updates: a discreet `v0.3.0` under the logo in the side rail (also in the home page's *About and credits*), whose tooltip says how MaiSim is installed (Windows installed, Linux AppImage or source code). The simu checks the GitHub Releases at startup and every 6 h (short timeout; silent when offline) and a dot on the version shows when a newer one exists on your channel (*stable*: releases only; *testing*: with the `-rc` pre-releases; semver order, so 0.3.0-rc13 < 0.3.0 < 0.3.1). Clicking opens a dialog with the release notes, **Update** / **Later** and the channel. **Update** refuses while a run is going or a circuit is unsaved; on Windows it downloads `MaiSim-Setup-<v>.exe`, checks it against its `.sha256` (refuses on mismatch), runs it silently and reopens MaiSim; with the AppImage it downloads the new one, checks the SHA-256, swaps it in place atomically and restarts; in a source checkout it only says `git pull`. Routes are local-only (`X-MaiSim` on the POSTs) (#PR).
+
 ## [0.3.0] - 2026-10-25
 
 ### Added

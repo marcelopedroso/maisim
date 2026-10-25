@@ -39,6 +39,7 @@ from motor import ErroMotor, Motor
 import contextos
 import ia as ias_maisim
 import janelas_gecko
+import atualizacao
 import msd
 import processos  # noqa: E402                as IAs e o login: num grupo próprio (Linux e Windows)
 import resumo_rodada
@@ -5515,6 +5516,21 @@ def msd_importa(corpo):
     return {"arq": rel, "nome": r["nome"], "rodadas": r["rodadas"]}
 
 
+def atualizacao_ocupada():
+    """Um motivo para não atualizar agora (o MaiSim fecha para atualizar): uma rodada em andamento, um circuito sem salvar."""
+    if rodada.get("estado") in RODANDO:
+        return lingua.tr("atualiza.rodando")
+    try:
+        sit = situacao_gecko()
+    except Exception:                                 # sem o Gecko no ar: nada a perder
+        return None
+    return lingua.tr("atualiza.sem_salvar", itens=lista_itens(sit["itens"])) if sit["pendente"] else None
+
+
+# a versão e a atualização automática (atualizacao.py): a verificação começa no main()
+ATUALIZA = atualizacao.Atualizacao(DADOS, os.environ["MAISIM_CACHE"], atualizacao_ocupada)
+
+
 PORTAS_PAGINA = {int(os.environ["MAISIM_PORTA_PAGINA"])}  # a página do MaiSim (Vite) e, no main(), a porta deste servidor
 
 
@@ -5587,6 +5603,10 @@ class Manipulador(BaseHTTPRequestHandler):
             if arq.is_file():
                 return self._resposta(200, arq.read_bytes(), TIPOS.get(arq.suffix, "application/octet-stream"))
             return self._resposta(404, {"erro": lingua.tr("servidor.nao_achei")})
+        if rota == "/atualizacao":                    # a versão, o jeito de instalação, o canal e a release nova (o trilho)
+            if not pedido_local(self, False):
+                return self._resposta(403, {"erro": lingua.tr("servidor.so_local")})
+            return self._resposta(200, ATUALIZA.estado())
         if rota in ("/claude/estado", "/claude/uso", "/claude/pedido", "/claude/memoria", "/claude/mudanca", "/claude/contextos",
                     "/claude/contexto", "/claude/contexto/exportar", "/claude/ias", "/claude/ia/uso", "/claude/instalacao"):
             if not pedido_local(self, False):
@@ -5796,6 +5816,17 @@ class Manipulador(BaseHTTPRequestHandler):
             corpo = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
         except ValueError:
             return self._resposta(400, {"erro": lingua.tr("servidor.json_invalido")})
+        if rota.startswith("/atualizacao/"):           # verificar agora, o canal, atualizar: só a página do MaiSim (X-MaiSim)
+            if not pedido_local(self, True):
+                return self._resposta(403, {"erro": lingua.tr("servidor.so_pagina_local")})
+            acoes = {"/atualizacao/verificar": ATUALIZA.verifica, "/atualizacao/canal": lambda: ATUALIZA.muda_canal(corpo.get("canal")),
+                     "/atualizacao/aplicar": ATUALIZA.aplica}
+            if rota not in acoes:
+                return self._resposta(404, {"erro": lingua.tr("servidor.nao_achei")})
+            try:
+                return self._resposta(200, acoes[rota]())
+            except (ValueError, OSError) as e:
+                return self._resposta(400, {"erro": str(e), **ATUALIZA.estado()})
         if rota == "/msd/importar":                    # {token, nome, rodadas: [pastas], substituir}: grava o que a prévia mostrou
             return self._editor(lambda: msd_importa(corpo))
         if rota.startswith("/claude/"):                # o login do Claude do MaiSim
@@ -6230,6 +6261,7 @@ def main():
     print(f"maisim-simu em http://localhost:{a.porta}{PREFIXO}/", flush=True)
     with lingua.com(lingua.ultima()):                 # na partida não há pedido: a última língua vista
         lingua.thread(espera_gecko).start()        # o Gecko conferido e, depois, os CONST de uma rodada interrompida
+        ATUALIZA.start()                              # a release nova: na partida e a cada 6 h (sem rede: quieta)
     srv.serve_forever()
 
 

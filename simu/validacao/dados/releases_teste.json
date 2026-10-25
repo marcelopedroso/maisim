@@ -1,0 +1,126 @@
+[
+ {
+  "tag_name": "v10.0.0",
+  "name": "MaiSim 10.0.0",
+  "prerelease": false,
+  "draft": true,
+  "published_at": "2026-10-25T12:00:00Z",
+  "html_url": "https://github.com/marcelopedroso/maisim/releases/tag/v10.0.0",
+  "body": "rascunho",
+  "assets": [
+   {
+    "name": "MaiSim-Setup-10.0.0.exe",
+    "size": 1000,
+    "browser_download_url": "https://github.com/marcelopedroso/maisim/releases/download/v10.0.0/MaiSim-Setup-10.0.0.exe"
+   },
+   {
+    "name": "MaiSim-Setup-10.0.0.exe.sha256",
+    "size": 90,
+    "browser_download_url": "https://github.com/marcelopedroso/maisim/releases/download/v10.0.0/MaiSim-Setup-10.0.0.exe.sha256"
+   },
+   {
+    "name": "MaiSim-10.0.0-x86_64.AppImage",
+    "size": 1000,
+    "browser_download_url": "https://github.com/marcelopedroso/maisim/releases/download/v10.0.0/MaiSim-10.0.0-x86_64.AppImage"
+   },
+   {
+    "name": "MaiSim-10.0.0-x86_64.AppImage.sha256",
+    "size": 90,
+    "browser_download_url": "https://github.com/marcelopedroso/maisim/releases/download/v10.0.0/MaiSim-10.0.0-x86_64.AppImage.sha256"
+   }
+  ]
+ },
+ {
+  "tag_name": "v9.9.1-rc1",
+  "name": "MaiSim 9.9.1-rc1",
+  "prerelease": true,
+  "draft": false,
+  "published_at": "2026-10-25T12:00:00Z",
+  "html_url": "https://github.com/marcelopedroso/maisim/releases/tag/v9.9.1-rc1",
+  "body": "## Teste\n\n- a prévia de **9.9.1**",
+  "assets": [
+   {
+    "name": "MaiSim-Setup-9.9.1-rc1.exe",
+    "size": 1000,
+    "browser_download_url": "https://github.com/marcelopedroso/maisim/releases/download/v9.9.1-rc1/MaiSim-Setup-9.9.1-rc1.exe"
+   },
+   {
+    "name": "MaiSim-Setup-9.9.1-rc1.exe.sha256",
+    "size": 90,
+    "browser_download_url": "https://github.com/marcelopedroso/maisim/releases/download/v9.9.1-rc1/MaiSim-Setup-9.9.1-rc1.exe.sha256"
+   },
+   {
+    "name": "MaiSim-9.9.1-rc1-x86_64.AppImage",
+    "size": 1000,
+    "browser_download_url": "https://github.com/marcelopedroso/maisim/releases/download/v9.9.1-rc1/MaiSim-9.9.1-rc1-x86_64.AppImage"
+   },
+   {
+    "name": "MaiSim-9.9.1-rc1-x86_64.AppImage.sha256",
+    "size": 90,
+    "browser_download_url": "https://github.com/marcelopedroso/maisim/releases/download/v9.9.1-rc1/MaiSim-9.9.1-rc1-x86_64.AppImage.sha256"
+   }
+  ]
+ },
+ {
+  "tag_name": "v9.9.0",
+  "name": "MaiSim 9.9.0",
+  "prerelease": false,
+  "draft": false,
+  "published_at": "2026-10-25T12:00:00Z",
+  "html_url": "https://github.com/marcelopedroso/maisim/releases/tag/v9.9.0",
+  "body": "## Novidades\n\n- uma coisa **nova**\n- [as notas](https://github.com/marcelopedroso/maisim)\n- [link ruim](javascript:alert(1))\n\n<img src=x onerror=alert(1)>",
+  "assets": [
+   {
+    "name": "MaiSim-Setup-9.9.0.exe",
+    "size": 1000,
+    "browser_download_url": "https://github.com/marcelopedroso/maisim/releases/download/v9.9.0/MaiSim-Setup-9.9.0.exe"
+   },
+   {
+    "name": "MaiSim-Setup-9.9.0.exe.sha256",
+    "size": 90,
+    "browser_download_url": "https://github.com/marcelopedroso/maisim/releases/download/v9.9.0/MaiSim-Setup-9.9.0.exe.sha256"
+   },
+   {
+    "name": "MaiSim-9.9.0-x86_64.AppImage",
+    "size": 1000,
+    "browser_download_url": "https://github.com/marcelopedroso/maisim/releases/download/v9.9.0/MaiSim-9.9.0-x86_64.AppImage"
+   },
+   {
+    "name": "MaiSim-9.9.0-x86_64.AppImage.sha256",
+    "size": 90,
+    "browser_download_url": "https://github.com/marcelopedroso/maisim/releases/download/v9.9.0/MaiSim-9.9.0-x86_64.AppImage.sha256"
+   }
+  ]
+ },
+ {
+  "tag_name": "v0.0.1",
+  "name": "MaiSim 0.0.1",
+  "prerelease": false,
+  "draft": false,
+  "published_at": "2026-10-25T12:00:00Z",
+  "html_url": "https://github.com/marcelopedroso/maisim/releases/tag/v0.0.1",
+  "body": "antiga",
+  "assets": [
+   {
+    "name": "MaiSim-Setup-0.0.1.exe",
+    "size": 1000,
+    "browser_download_url": "https://github.com/marcelopedroso/maisim/releases/download/v0.0.1/MaiSim-Setup-0.0.1.exe"
+   },
+   {
+    "name": "MaiSim-Setup-0.0.1.exe.sha256",
+    "size": 90,
+    "browser_download_url": "https://github.com/marcelopedroso/maisim/releases/download/v0.0.1/MaiSim-Setup-0.0.1.exe.sha256"
+   },
+   {
+    "name": "MaiSim-0.0.1-x86_64.AppImage",
+    "size": 1000,
+    "browser_download_url": "https://github.com/marcelopedroso/maisim/releases/download/v0.0.1/MaiSim-0.0.1-x86_64.AppImage"
+   },
+   {
+    "name": "MaiSim-0.0.1-x86_64.AppImage.sha256",
+    "size": 90,
+    "browser_download_url": "https://github.com/marcelopedroso/maisim/releases/download/v0.0.1/MaiSim-0.0.1-x86_64.AppImage.sha256"
+   }
+  ]
+ }
+]

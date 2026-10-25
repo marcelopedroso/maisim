@@ -856,6 +856,23 @@ T = {
     "rodada_estado.fim": {"pt": "fim", "en": "finished"},
     "rodada_estado.erro": {"pt": "erro", "en": "error"},
     # PR 11: fim
+    # a atualização automática (atualizacao.py)
+    "atualiza.origem": {"pt": "o MaiSim só baixa atualizações das Releases do GitHub dele (não de {url})",
+                        "en": "MaiSim only downloads updates from its GitHub Releases (not from {url})"},
+    "atualiza.sem_sha": {"pt": "a release não traz o SHA-256 do arquivo: a atualização não foi feita",
+                         "en": "the release has no SHA-256 for the file: the update was not done"},
+    "atualiza.grande": {"pt": "o arquivo da atualização é grande demais: a atualização não foi feita",
+                        "en": "the update file is too large: the update was not done"},
+    "atualiza.sha_nao_bate": {"pt": "o SHA-256 de {arq} não confere (arquivo corrompido ou trocado): a atualização não foi feita",
+                              "en": "the SHA-256 of {arq} does not match (file corrupted or replaced): the update was not done"},
+    "atualiza.canal_invalido": {"pt": "canal de atualização desconhecido: {canal}", "en": "unknown update channel: {canal}"},
+    "atualiza.fonte": {"pt": "na versão de programador, atualize pelo git: git pull (a {versao})",
+                       "en": "in the developer version, update with git: git pull ({versao})"},
+    "atualiza.nada": {"pt": "não há atualização para baixar", "en": "there is no update to download"},
+    "atualiza.em_andamento": {"pt": "a atualização já está em andamento", "en": "the update is already in progress"},
+    "atualiza.sem_salvar": {"pt": "salve antes de atualizar: {itens} sem salvar (o MaiSim fecha para atualizar)",
+                            "en": "save before updating: {itens} not saved (MaiSim closes to update)"},
+    "atualiza.rodando": {"pt": "espere a rodada acabar (ou pare) antes de atualizar", "en": "wait for the run to finish (or stop it) before updating"},
 }
 
 lingua.registra(T)
