@@ -101,6 +101,12 @@ const COD = 'import leitura\nimport escrita\n\n\ndef iniciar(p, e):\n    e["leit
     await pg.fill("#ct-filtro", "il"); await pg.waitForTimeout(200); const fMed2 = await nota("#ctl-ent tr");
     await pg.fill("#ct-filtro", ""); await pg.waitForTimeout(200);
     await pg.evaluate(() => mostraTabela("par")); await pg.waitForTimeout(300); const nPar = await nota("#ctl-par .ctl-par");
+    // renomear um parâmetro: a notação ao lado acompanha a digitação (sem esperar o redesenho)
+    const campo = '#ctl-par .ctl-par[data-i="0"] [data-k="nome"]', antes = await pg.inputValue(campo);
+    await pg.fill(campo, "K_zz");
+    const vivo = await pg.evaluate(() => { const m = document.querySelector('#ctl-par .ctl-par[data-i="0"] .ct-mat'); return m ? m.textContent : ""; });
+    ok(/K/.test(vivo) && /zz/.test(vivo) && !vivo.includes(antes), `renomear: a notação acompanha a digitação ("${antes}" → "${vivo}")`);
+    await pg.fill(campo, antes); await pg.press(campo, "Tab"); await pg.waitForTimeout(800);
     await pg.evaluate(() => mostraTabela("atu")); await pg.waitForTimeout(300); const nAtu = await nota("#ctl-atu .ctl-item");
     await pg.evaluate(() => mostraTabela("diag")); await pg.waitForTimeout(500);
     const dAtu = await pg.evaluate(() => [...document.querySelectorAll("#ctl-diag-svg .atu text:not(.dest)")].map((t) => `${t.dataset.txt}:${[...t.querySelectorAll("tspan")].map((x) => x.textContent).join("|")}`));

@@ -1371,6 +1371,9 @@ function tagAtuador(g, x, y, nome, centrada = false) {   // centrada: x é o mei
   lado.addEventListener("click", (ev) => { const vi = ev.target.closest("#ctl-var-lista [data-tabela]"); if (vi) alterna(vi.dataset.tabela); });
   lado.addEventListener("keydown", (ev) => { const vi = ev.target.closest("#ctl-var-lista [data-tabela]"); if (vi && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); alterna(vi.dataset.tabela); } });
   $("ct-fecha").onclick = fechaTabela;
+  // a notação ao lado do nome do parâmetro acompanha o que se digita (o redesenho espera o campo perder o foco)
+  $("ctl-par").addEventListener("input", (e) => { const i = e.target;
+    if (i.dataset && i.dataset.k === "nome") { const s = i.closest(".ct-par-nome") && i.closest(".ct-par-nome").querySelector(".ct-mat"); if (s) s.innerHTML = htmlMat(i.value.trim()); } });
   $("ctl-par-novo").onclick = () => { if (!ctl.dados) return; const c = coleta(); let k = 1; while (c.parametros.some((q) => q.nome === `k${k}`)) k++;
     if (c.invalido) return; c.parametros.push({ nome: `k${k}`, valor: 0, unidade: "" }); Object.assign(ctl.dados.controle, c); ctl.filtro.par = ""; $("ct-filtro").value = ""; desenhaLigacoes();
     const nova = document.querySelector(`#ctl-par .ctl-par[data-i="${c.parametros.length - 1}"]`); if (nova) { nova.scrollIntoView({ block: "nearest" }); nova.querySelector('[data-k="nome"]').select(); } guardaControle(); };
