@@ -34,7 +34,7 @@ ler_config.aplica()                          # as portas e as pastas (config/pad
 import lingua  # noqa: E402                    o idioma de cada pedido (português e inglês)
 import textos  # noqa: E402,F401               os textos do simu nos dois idiomas (registra o catálogo)
 
-from ipes import monta, SOLVERS, solver_do_texto, troca_solver
+from ipes import monta, SOLVERS, solver_do_texto, solver_valido, troca_solver
 from motor import ErroMotor, Motor
 import contextos
 import ia as ias_maisim
@@ -123,7 +123,8 @@ def assinatura(r):
                   tuple(e["mede"]), tuple(sorted((k, v) for k, v in e["par"].items() if isinstance(v, float) and not k.endswith("_guardado")))))
                  for fid, fl in r["folhas"].items() for e in fl["elementos"])
     fios = sorted((f["folha"], f["dom"], f["rotulo"], tuple(map(tuple, f["pts"]))) for fl in r["folhas"].values() for f in fl["fios"])
-    return els, fios, sorted(r.get("globais", {}).items())
+    solver = (r.get("simulacao") or {}).get("solver") or 0   # o método de integração (⚙) também é do circuito: trocar é mudança
+    return (els, fios, sorted(r.get("globais", {}).items())) + ((solver,) if solver else ())   # o padrão (0) não muda a assinatura de antes
 
 
 VISTO = ESTADO.with_name("visto.txt")
@@ -155,12 +156,21 @@ def hash_assinatura(a):
     return hashlib.sha1(repr(a).encode()).hexdigest()
 
 
+def bate_com(agora, h, solver_arquivo=None):
+    """A assinatura agora tem o hash h? Também no formato de antes do método de integração (três partes): um BASE ou VISTO
+    gravado por uma versão anterior, com um circuito salvo em trapézio ou Gear e o Gecko ainda aberto na atualização. O de
+    antes vale só se o método do Gecko for o do arquivo (solver_arquivo; None: não conferir) — senão a troca é mudança."""
+    if hash_assinatura(agora) == h:
+        return True
+    return len(agora) == 4 and hash_assinatura(agora[:3]) == h and solver_arquivo in (None, agora[3])
+
+
 def ja_visto(agora):
     """O editor já viu este estado do Gecko? (na memória; depois de reiniciar o servidor, pelo arquivo VISTO)"""
     if editor.get("assinatura") is not None:
         return editor["assinatura"] == agora
     try:
-        return VISTO.read_text().strip() == hash_assinatura(agora)
+        return bate_com(agora, VISTO.read_text().strip())
     except OSError:
         return False
 
@@ -217,7 +227,7 @@ def situacao_gecko():
     arq = (RAIZ / editor["aberto"]) if editor.get("aberto") else None
     if arq is not None and arq.is_file():
         base = base_conhecida()
-        circuito = (hash_assinatura(agora) != base) if base else (agora != assinatura(monta(arq)))
+        circuito = (not bate_com(agora, base, solver_do_texto(_texto(arq)[0]) or 0)) if base else (agora != assinatura(monta(arq)))
         # o mesmo que a abertura carrega, em qualquer idioma (aberto em pt e conferido em en, ou o contrário, não é mudança)
         atual = canon_controle(le_controle())
         controle = True
@@ -3295,11 +3305,8 @@ def _rodar(c, ctl_de_fora=None):
         raise ErroMotor(lingua.tr("rodada.passos_demais", n=n))
     solver = c.get("solver")                        # o método de integração do ⚙ (solverType); sem ele, o que o Gecko já tem
     if solver not in (None, ""):
-        try:
-            solver = int(solver)
-        except (TypeError, ValueError):
-            solver = -1
-        if solver not in SOLVERS:
+        solver = solver_valido(solver)
+        if solver is None:
             raise ErroMotor(lingua.tr("rodada.solver_invalido", v=c.get("solver")))
     else:
         solver = None
@@ -3658,8 +3665,8 @@ GUARDADA = ".guardada"
 def aplica_solver(arq, solver):
     """O método de integração (solverType) que vale na rodada, a partir do arquivo que o Gecko acabou de gravar (arq, a cópia
     da rodada): se o ⚙ pede outro, a linha é reescrita e o Gecko reabre o arquivo — ele só lê o solverType ao abrir (não há
-    chamada remota para trocar, e cada componente guarda o seu ao nascer). Como o Δt e o tempo final, que vão no INIT de cada
-    rodada, o do ⚙ vale ao iniciar; depois o Gecko fica com ele, e o Salvar o grava no modelo. Devolve o que vale (0, 1, 2)."""
+    chamada remota para trocar, e cada componente guarda o seu ao nascer). A página já o aplica ao trocar no ⚙ (muda_solver);
+    aqui fica o pedido pela API (e o Gecko fica com ele: o Salvar o grava no modelo). Devolve o que vale (0, 1, 2)."""
     b = Path(arq).read_bytes()
     gz = b[:2] == b"\x1f\x8b"
     t = (gzip.decompress(b) if gz else b).decode("latin-1")   # latin-1: ida e volta byte a byte (o resto do arquivo intocado)
@@ -3670,6 +3677,14 @@ def aplica_solver(arq, solver):
     Path(arq).write_bytes(gzip.compress(t) if gz else t)
     abre(arq)
     return solver
+
+
+def muda_solver(solver):
+    """O ⚙ trocou o método de integração: vale já no circuito de trabalho (o Gecko salva, a linha muda e ele reabre), como uma
+    variável global — o Salvar grava o que o ⚙ mostra, trocar marca "não salvo" (assinatura) e o Ctrl+Z desfaz."""
+    arq = ESTADO.with_name("solver.ipes")
+    MOTOR.cmd(f"SAVEAS {arq}")
+    aplica_solver(arq, solver)
 
 
 def circuito_aberto():
@@ -5908,7 +5923,8 @@ class Manipulador(BaseHTTPRequestHandler):
         # simulando, nada muda o circuito nem o que vai para o scope (22/10: a ponta, o "fora", a cor e apagar arquivo escapavam)
         if rota in ("/editor/abrir", "/editor/cmd", "/editor/cmds", "/editor/novo", "/editor/mede", "/editor/salvar", "/editor/fio", "/editor/desfazer",
                     "/editor/biblioteca", "/editor/fonte_sinal", "/editor/copiar", "/editor/colar", "/editor/grupo", "/editor/variavel",
-                    "/editor/ponta", "/editor/fora", "/editor/destino", "/editor/cor", "/editor/apagar_arquivo", "/editor/fechar"):
+                    "/editor/ponta", "/editor/fora", "/editor/destino", "/editor/cor", "/editor/apagar_arquivo", "/editor/fechar",
+                    "/editor/solver"):
             try:
                 ocupado()
             except ErroMotor as e:
@@ -6148,6 +6164,7 @@ class Manipulador(BaseHTTPRequestHandler):
                                            conflito=True, mesmo=False, novo=True, aberto=editor.get("aberto"), salvavel=aberto_salvavel(),
                                            itens=sit["itens"])
                 MOTOR.cmd("CLEAR")
+                muda_solver(0)                       # o CLEAR deixa o método de integração do circuito de antes: o novo nasce no padrão
                 marca_aberto(None)
                 editor["novo_desde"] = time.time()   # as rodadas deste circuito novo (vão junto quando ele ganhar nome)
                 marca_fechado(fechar)
@@ -6225,6 +6242,14 @@ class Manipulador(BaseHTTPRequestHandler):
                     return acopla(nome, [f"{maq}.{q}", maq, q], ref=maq, folhas=corpo.get("folhas"))
                 raise ErroMotor(lingua.tr("editor.mede_tipo"))
             return self._editor(com_desfazer(mede, corpo.get("descr") or lingua.tr("editor.desfazer_medidor"), manter_se_falhar=True))
+        if rota == "/editor/solver":                   # {solver: 0 | 1 | 2}: o método de integração do ⚙, já no circuito
+            def solver():
+                s = solver_valido(corpo.get("solver"))
+                if s is None:
+                    raise ErroMotor(lingua.tr("rodada.solver_invalido", v=corpo.get("solver")))
+                muda_solver(s)
+                return estado()
+            return self._editor(com_desfazer(solver, corpo.get("descr") or lingua.tr("editor.desfazer_solver")))
         if rota == "/editor/variavel":                 # acao: nova | apaga | liga | desliga (ver variavel())
             return self._editor(com_desfazer(lambda: variavel(corpo), corpo.get("descr") or lingua.tr("editor.desfazer_variavel"), manter_se_falhar=True))
         if rota == "/editor/fio":                      # acao: novo (cantos, dom, rotulo) | apagar (cantos) | rotulo (cantos, rotulo)

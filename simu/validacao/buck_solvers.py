@@ -2,7 +2,9 @@
 de teste (7201). O buck do buck_monta.py (Vdc 100 V → S.1 → L.1 1 mH → R.1 2 Ω, D.1 de roda livre), a chave fechada em t = 0
 e aberta em 0,2 ms (acionamento do CONST g): a corrente sobe, cai pelo diodo, chega a zero (~2,2 ms) e o diodo bloqueia.
   - chave fechada (topologia fixa, um RL): cada método bate com a sua própria recorrência (a referência no mesmo método,
-    como o buck_ref.py faz para o Euler implícito), a partir do estado do 1º passo do Gecko;
+    como o buck_ref.py faz para o Euler implícito) e não com a dos outros dois (≥ 50× mais longe). O Euler parte do zero
+    (i_L(0) = 0, sem nada do Gecko); o trapézio e o Gear partem do 1º passo do Gecko (o Gear também do 2º), porque o 1º passo
+    deles sai do estado inicial interno do Gecko — esse passo é conferido à parte (entre 0 e o do Euler);
   - o erro de cada um contra a solução exata do RL (do mesmo ponto de partida): Euler de 1ª ordem, trapézio e Gear de 2ª;
   - depois do bloqueio do diodo, o trapézio oscila de um passo para o outro (a corrente de L cortada por um resistor de
     10 MΩ: o fator de amplificação do trapézio fica em ≈ −1), e o Euler e o Gear amortecem.
@@ -55,8 +57,10 @@ def referencia(solver, i):
     prova, igual à 1). As fórmulas são as do InductorCalculator do Gecko (BE, TRZ, GS)."""
     k_on = round(T_ABRE / DT)
     r = np.array(i[:k_on + 1], dtype=float)
+    if solver == 0:
+        r[0] = 0.0                                   # o Euler: do zero, independente do Gecko
     a = DT * RT / (2 * L)
-    for n in range(2 if solver == 2 else 1, k_on):
+    for n in range({0: 0, 1: 1, 2: 2}[solver], k_on):
         if solver == 0:
             r[n + 1] = (r[n] + DT * V / L) / (1 + DT * RT / L)
         elif solver == 1:
@@ -95,7 +99,14 @@ for s in (0, 1, 2):
     alterna = bool(J.any() and np.mean(np.sign(v[J][1:]) == -np.sign(v[J][:-1])) > 0.9)
     res[s].update(e_ref=e_ref, e_ex=e_ex, t_blq=t_blq, osc=osc, alterna=alterna)
     ok(e_ref < 1e-6, f"{NOMES[s]}: chave fechada, Gecko × a recorrência do mesmo método: max |Δi_L| = {e_ref:.2e} A (em {k_on} passos)")
+    outros = {o: float(np.abs(i[1:k_on + 1] - referencia(o, i)[1:k_on + 1]).max()) for o in (0, 1, 2) if o != s}
+    ok(min(outros.values()) > 50 * max(e_ref, 1e-12),
+       f"{NOMES[s]}: e não com a dos outros métodos: " + ", ".join(f"{NOMES[o]} {e:.1e} A" for o, e in outros.items()))
     linhas.append(f"| {NOMES[s]} | {i[1]:.5f} | {e_ref:.1e} | {e_ex:.1e} | {t_blq * 1e3:.3f} | {osc:.3g} |")
+i1_be = DT * V / L / (1 + DT * RT / L)                 # o 1º passo do Euler a partir do zero
+ok(all(0 < res[s]["i"][1] <= i1_be * (1 + 1e-9) for s in (1, 2)),
+   f"o 1º passo do trapézio e do Gear (do estado inicial do Gecko) fica entre 0 e o do Euler ({i1_be:.5f} A): "
+   + ", ".join(f"{NOMES[s]} {res[s]['i'][1]:.5f} A" for s in (1, 2)))
 ok(res[0]["e_ex"] > 5 * max(res[1]["e_ex"], res[2]["e_ex"]),
    f"contra o RL exato: Euler {res[0]['e_ex']:.1e} A (1ª ordem), trapézio {res[1]['e_ex']:.1e} A e Gear {res[2]['e_ex']:.1e} A (2ª ordem)")
 ok(res[1]["osc"] > 0.05 and res[1]["alterna"],

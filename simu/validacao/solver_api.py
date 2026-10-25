@@ -3,7 +3,10 @@
   - a rodada com "solver" aplica o método (o servidor reescreve a linha na cópia da rodada e o Gecko a reabre): o meta,
     o .ipes da rodada e o resumo.md dizem qual; e vale de fato (o trapézio oscila depois que o diodo bloqueia, o Euler não);
   - sem "solver" (a API, o modo autônomo), fica o que o Gecko já tem; um valor fora de 0, 1, 2 é recusado (pt e en);
-  - Salvar grava o solverType no modelo, e reabrir o lê de volta.
+  - Salvar grava o solverType no modelo, e reabrir o lê de volta;
+  - o ⚙ (POST editor/solver) troca no circuito na hora, sem rodar: Salvar grava, trocar marca "não salvo", Ctrl+Z desfaz;
+  - Novo circuito volta ao Euler implícito (o CLEAR do Gecko não mexia no solverType);
+  - só os inteiros 0, 1, 2 valem (true, 1.9, "1.5" recusados), na rodada e no editor/solver.
 Termina com o Gecko de teste no Euler implícito (o padrão) e apaga o que criou."""
 import gzip, json, subprocess, sys, time, urllib.request
 from pathlib import Path
@@ -74,7 +77,8 @@ ok(b["meta"].get("solver") == "trapezoidal" and "\nsolverType 1\n" in b["ipes"],
    "sem \"solver\" no pedido, fica o que o Gecko tem (trapezoidal)")
 ok("- integration (Gecko solverType): trapezoidal (trapezoidal)" in b["resumo"], "o resumo.md em inglês diz a integração")
 
-for v, lg, frase in (("7", None, "método de integração desconhecido"), ("x", "en", "unknown integration method")):
+for v, lg, frase in (("7", None, "método de integração desconhecido"), ("x", "en", "unknown integration method"),
+                     (True, None, "desconhecido"), (1.9, None, "desconhecido"), ("1.5", None, "desconhecido")):
     r = api("editor/rodar", {"dt": "1e-06", "tfim": "0.001", "nome": "solver_api_ruim", "solver": v}, lg)
     ok(r.get("ERRO") and frase in str(r.get("erro", "")), f"solver {v!r} é recusado ({lg or 'pt'}): {r.get('erro')}")
 
@@ -88,6 +92,41 @@ ok(r.get("simulacao", {}).get("solver") == 1, f"reabrir lê o solverType de volt
 c = roda("solver_api_be", "0")
 ok(c["meta"].get("solver") == "backward-euler" and "\nsolverType 0\n" in c["ipes"] and oscila(c) < 1e-3,
    f"solver 0 volta ao Euler implícito: sem a oscilação (|v_sw| ≤ {oscila(c):.1e} V)")
+
+# o ⚙ troca no circuito na hora (sem rodar): o estado diz, o circuito fica "não salvo", Salvar grava, Ctrl+Z desfaz
+r = api("editor/abrir", {"arq": str(dest), "modo": "descartar"}); assert "ERRO" not in r, r
+ok(api("editor/pendente").get("pendente") is False, "reaberto: nada pendente")
+r = api("editor/solver", {"solver": 2})
+ok(r.get("simulacao", {}).get("solver") == 2, f"editor/solver 2: o estado diz Gear ({r.get('simulacao')})")
+p = api("editor/pendente")
+ok(p.get("pendente") is True and p.get("itens") == ["o circuito"], f"trocar o método marca o circuito como não salvo: {p.get('itens')}")
+r = api("editor/desfazer", {}); ok(r.get("simulacao", {}).get("solver") == 1, f"Ctrl+Z volta ao de antes (o trapézio salvo): {r.get('simulacao')}")
+ok(api("editor/pendente").get("pendente") is False, "desfeito: nada pendente")
+api("editor/solver", {"solver": 2})
+r = api("editor/salvar", {"nome": "solver_api", "pasta": "circuitos", "sobrescrever": True}); assert "ERRO" not in r, r
+ok("\nsolverType 2\n" in texto(dest), "Salvar sem rodar grava o que o ⚙ escolheu (solverType 2)")
+ok(api("editor/pendente").get("pendente") is False, "salvo: nada pendente")
+# a atualização com o circuito em Gear aberto (Codex, #132): o BASE gravado por uma versão anterior tem a assinatura sem o
+# método; reiniciado o servidor (o Gecko continua aberto), o circuito intocado não pode aparecer como "não salvo"
+import os; os.environ.setdefault("MAISIM_PERFIL", "teste")   # (o import lê a configuração: a de teste, não a de uso)
+sys.path.insert(0, str(AQUI.parent)); import servidor as srv, ipes as ip   # noqa: E402 (só as funções puras)
+antiga = srv.hash_assinatura(srv.assinatura(ip.monta(T / "estado.ipes"))[:3])
+(T / "base.txt").write_text(antiga); (T / "visto.txt").write_text(antiga)
+subprocess.run([str(AQUI / "reinicia_servidor_teste.sh")], check=True, capture_output=True)
+p = api("editor/pendente")
+ok(p.get("pendente") is False, f"BASE da versão anterior (sem o método), servidor reiniciado, Gear no arquivo e no Gecko: nada pendente ({p.get('itens')})")
+r = api("editor/solver", {"solver": 1})
+p = api("editor/pendente")
+ok(p.get("pendente") is True and p.get("itens") == ["o circuito"], f"e trocar de Gear para trapézio ainda é mudança: {p.get('itens')}")
+api("editor/solver", {"solver": 2})
+for v in ("x", True, 1.9, 3):
+    r = api("editor/solver", {"solver": v})
+    ok(r.get("ERRO") and "desconhecido" in str(r.get("erro", "")), f"editor/solver {v!r} é recusado: {r.get('erro')}")
+ok(api("editor/estado").get("simulacao", {}).get("solver") == 2, "os recusados não mexem no circuito (continua Gear)")
+# Novo: volta ao Euler implícito, e o circuito novo salvo nasce com 0
+r = api("editor/novo", {"descartar": True})
+ok(r.get("simulacao", {}).get("solver") == 0, f"Novo circuito: Euler implícito, não o Gear de antes ({r.get('simulacao')})")
+ok(api("editor/pendente").get("pendente") is False, "o circuito novo (vazio) não fica pendente por causa do método")
 
 # limpeza: o modelo salvo e as rodadas deste teste (o Gecko de teste já voltou ao Euler implícito)
 api("editor/novo", {"descartar": True})
