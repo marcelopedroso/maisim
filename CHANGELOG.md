@@ -39,6 +39,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 - The Google Antigravity and Gemini CLI integrations: signing in with a Google account through a third-party program risks the account being suspended. Claude (Claude Code) is the only AI; other AIs (e.g. a local model) are on the roadmap (#111).
 
 ### Fixed
+- README (en/pt): a Download section in sync with maisim.org — Windows installer and Linux AppImage (latest), earlier versions, requirements, where the data goes; the git clone setup becomes "Run from source" (#122).
 - Windows installer build in CI: the Inno Setup container (another user than the runner) could not write the output ("Access denied"); monta.sh opens the folders it uses (#117).
 - CI packages workflow: no Maven cache in setup-java (Gecko's pom.xml only exists after gecko/construir.sh, so the step failed at once) (#115).
 - The page server (app/pagina.py) tells the browser `Connection: close` on every proxied module response — it closes the connection after each one, and without the header the browser could try to reuse a dead connection; the error-to-AI UI test signs in the fake Claude now that the chat box needs a signed-in AI (#105) (#114).

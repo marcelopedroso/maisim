@@ -20,13 +20,38 @@ um assistente de IA (Claude Code) que vê o circuito, o código de controle e as
 | **simu** (`/maisim/simu`) | o editor de circuitos (paleta, fios, subcircuitos, variáveis globais), o controle em Python amostrado a cada Ts, as rodadas e a conversa com a IA | [`simu/LEIA.md`](simu/LEIA.md), [`simu/GUIA_CONTROLE.md`](simu/GUIA_CONTROLE.md) |
 | **scope** (`/maisim/scope`) | os gráficos das rodadas: ao vivo, comparar duas rodadas, seções e painéis, vistas exportáveis | [`scope/LEIA.md`](scope/LEIA.md) |
 | **gecko** (`/maisim/gecko`) | a janela do GeckoCIRCUITS de verdade, numa tela virtual, aberta no navegador (noVNC) | [`gecko/LEIA.md`](gecko/LEIA.md) |
-| **app** | a página inicial e o menu lateral (Vite), que levam aos outros módulos; instalável como aplicativo (PWA) | [`app/public/marca/LEIA.md`](app/public/marca/LEIA.md) |
+| **app** | a página inicial e o menu lateral (servidos pelo Python, `app/pagina.py`), que levam aos outros módulos; instalável como aplicativo (PWA) | [`app/public/marca/LEIA.md`](app/public/marca/LEIA.md) |
 
 Exemplos prontos ficam em [`exemplos/`](exemplos/): buck, boost, buck-boost, ponte H CC, inversores em meia ponte, em
 ponte completa e trifásico, retificadores monofásico, trifásico e trifásico controlado (em malha aberta, com os medidores
 prontos), e o controle digital (PI de corrente; buck com o PWM e o PI no código).
 
-## Requisitos
+## Baixar
+
+| | |
+|---|---|
+| **Windows** (instalador) | [**MaiSim-Setup.exe**](https://github.com/marcelopedroso/maisim/releases/latest/download/MaiSim-Setup.exe) |
+| **Linux** (AppImage, sem instalar) | [**MaiSim-x86_64.AppImage**](https://github.com/marcelopedroso/maisim/releases/latest/download/MaiSim-x86_64.AppImage) |
+| Versões anteriores e de teste (`-rc`) | [Releases](https://github.com/marcelopedroso/maisim/releases) |
+
+Cada arquivo tem o seu `.sha256` ao lado, na página de Releases. Vai tudo dentro (Python, Java, GeckoCIRCUITS): depois de
+baixar, não precisa de internet nem de instalar mais nada.
+
+- **Windows 10 (1809+) ou 11, 64 bits**, cerca de 250 MB, Edge ou Chrome; instala só para o seu usuário, **sem
+  administrador**. Instalar uma versão nova por cima da antiga atualiza e mantém os seus circuitos e configurações. O
+  instalador ainda não tem assinatura de código: se o SmartScreen avisar, escolha **Mais informações → Executar assim
+  mesmo**.
+- **Linux x86_64** (glibc 2.17+) com o Xvfb (`sudo apt install xvfb`): `chmod +x MaiSim-x86_64.AppImage` e execute.
+- **IA (opcional):** uma conta Claude. No Windows, o MaiSim instala o Claude Code para você, pela janela de contas da IA.
+
+Os seus circuitos e rodadas ficam numa pasta à vista: `Documentos\MaiSim` no Windows (dá para escolher outra ao
+instalar), `~/MaiSim` no Linux.
+
+Para mexer no código, rode a partir do código-fonte (abaixo).
+
+## Rodar a partir do código-fonte (para programadores)
+
+### Requisitos
 
 Linux (testado no Ubuntu 22.04 e no WSL2):
 
@@ -44,7 +69,7 @@ O MaiSim trabalha com a IA instalada no seu computador (opcional): o [Claude Cod
 (`claude`). O login é feito pela própria tela do MaiSim e fica numa pasta separada (`~/.claude-maisim`), sem mexer no
 seu login de sempre. Outras IAs (por exemplo, um modelo local) podem vir depois.
 
-## Instalar e rodar
+### Instalar e rodar
 
 ```bash
 git clone https://github.com/marcelopedroso/maisim.git && cd maisim
@@ -62,7 +87,7 @@ com o que muda.
 Os seus dados (circuitos, subcircuitos, rodadas, contextos da IA) ficam em `~/.local/share/maisim`; o que dá para
 refazer (estado do editor, conversas, registros, Gecko), em `~/.cache/maisim`.
 
-### Levar um circuito para outra máquina
+## Levar um circuito para outra máquina
 
 Na página inicial, **Exportar**, na linha de um circuito, grava um arquivo `<nome>.msd`: o circuito (com os subcircuitos),
 o controle, a aparência e o layout padrão do scope, e as rodadas que você marcar (nenhuma por padrão; o tamanho estimado
@@ -88,7 +113,7 @@ Playwright, numa instância de teste isolada). O fluxo, as versões e como rodar
 - **[KaTeX](https://katex.org)** (MIT): as equações nas respostas da IA, em [`simu/static/katex/`](simu/static/katex/)
   com a licença dele.
 - **[noVNC](https://novnc.com)** (MPL 2.0) e **websockify** (LGPLv3), do sistema: a tela do Gecko no navegador.
-- **[Vite](https://vite.dev)** (MIT): o servidor da página. **[Playwright](https://playwright.dev)** (Apache 2.0): os
+- **[Vite](https://vite.dev)** (MIT): o servidor da página na versão de programador (`npm run maisim`). **[Playwright](https://playwright.dev)** (Apache 2.0): os
   testes de tela.
 - **IA:** o MaiSim chama o programa oficial [Claude Code](https://claude.com/claude-code) (Anthropic), sem modificação;
   ele segue os próprios termos de uso. O MaiSim não tem vínculo com a Anthropic.
