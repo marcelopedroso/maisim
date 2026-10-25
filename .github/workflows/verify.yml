@@ -1,5 +1,6 @@
-# Every PR: the quick test set (simu/validacao/ci.sh rapido) on the test instance. Green → Actions itself merges the PR
-# into main (squash, branch deleted) and starts the full suite (full-suite.yml) — only for PRs by the repository owner,
+# Every PR: the quick test set (simu/validacao/ci.sh rapido) on the test instance — skipped when the PR only changes text
+# (CHANGELOG, READMEs, LEIA, CONTRIBUTING). Green → Actions itself merges the PR into main (squash, branch deleted); the
+# full suite runs once a day (full-suite.yml) — only for PRs by the repository owner,
 # from a branch of this repository, not drafts and without the "do-not-merge" label (or the old "nao-juntar"); anyone else's PR waits for review.
 # The merge only applies to the commit that was tested (--match-head-commit: a new commit in between is refused), and it
 # also runs when a draft becomes ready (ready_for_review). Before merging, it waits for the Codex review to finish and
@@ -27,10 +28,28 @@ jobs:
     name: tests (quick)
     runs-on: ubuntu-22.04
     timeout-minutes: 60
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
+      - name: only text changed?
+        id: texto
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          # fails closed: if the file list cannot be read, the step fails (never "only text" by accident)
+          arquivos=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate -q '.[].filename')
+          [ -n "$arquivos" ] || { echo "could not read the PR's files"; exit 1; }
+          outros=$(printf '%s\n' "$arquivos" | grep -vE '^(CHANGELOG\.md|README[^/]*\.md|CONTRIBUTING\.md|pacote/LEIA\.md)$' || true)
+          if [ -z "$outros" ]; then echo "only text: no tests"; echo "so_texto=true" >> "$GITHUB_OUTPUT"; fi
       - uses: actions/checkout@v7
+        if: steps.texto.outputs.so_texto != 'true'
       - uses: ./.github/actions/prepare
+        if: steps.texto.outputs.so_texto != 'true'
       - name: run the tests
+        if: steps.texto.outputs.so_texto != 'true'
         run: bash simu/validacao/ci.sh rapido
       - name: summary
         if: always()
@@ -74,7 +93,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
         run: python3 .github/scripts/wait_for_codex.py
-      - name: squash into main and start the full suite
+      - name: squash into main
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
@@ -87,4 +106,8 @@ jobs:
                        -q '.closingIssuesReferences[] | select(.url | startswith("https://github.com/" + env.GITHUB_REPOSITORY + "/issues/")) | .number'); do
             gh issue close "$n" --repo "$GITHUB_REPOSITORY" --comment "Closed by #$PR (merged by verify)." || true
           done
-          gh workflow run full-suite.yml --repo "$GITHUB_REPOSITORY" --ref main
+          # a new version (VERSION changed): the full suite now — tag, Release and packages (a merge made with the Actions
+          # token does not trigger full-suite.yml's push)
+          if gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json files -q '.files[].path' | grep -qx VERSION; then
+            gh workflow run full-suite.yml --repo "$GITHUB_REPOSITORY" --ref main
+          fi
