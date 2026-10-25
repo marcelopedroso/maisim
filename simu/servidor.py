@@ -621,6 +621,8 @@ def refaz_gecko():
     esquece(tudo=True)                               # os passos do desfazer eram do Gecko de antes
     estado()
     marca_base()
+    if aviso and gecko.get("partida") and copia is None:
+        aviso = []                                   # a abertura do MaiSim: o Gecko é sempre novo e nada se perdeu — só no log
     if aviso:
         if copia is not None:
             aviso.append(("editor.gecko_novo_copia", {"copia": str(copia)}))
@@ -639,14 +641,18 @@ def espera_gecko():
     """Partida do servidor: assim que o motor responder, a conferência do Gecko (sem esperar um pedido) e, depois dela, os CONST
     de uma rodada interrompida (antes, os dois corriam juntos: os CONST de antes caíam no arquivo recém-reaberto)."""
     pedido_leitura.sim = True
-    for _ in range(200):                             # ~10 min (o Gecko sobe junto com o servidor e leva até ~1 min)
-        try:
-            MOTOR.cmd("PING")
-            break
-        except ErroMotor:
-            time.sleep(3)
-    else:
-        return
+    gecko["partida"] = True                          # a 1ª conferência é a da abertura (o refaz_gecko não avisa se nada se perdeu)
+    try:
+        for _ in range(200):                         # ~10 min (o Gecko sobe junto com o servidor e leva até ~1 min)
+            try:
+                MOTOR.cmd("PING")
+                break
+            except ErroMotor:
+                time.sleep(3)
+        else:
+            return
+    finally:
+        gecko["partida"] = False
     pedido_leitura.sim = False
     recupera_rodada_interrompida()
 

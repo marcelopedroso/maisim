@@ -39,6 +39,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 - The Google Antigravity and Gemini CLI integrations: signing in with a Google account through a third-party program risks the account being suspended. Claude (Claude Code) is the only AI; other AIs (e.g. a local model) are on the roadmap (#111).
 
 ### Fixed
+- Opening MaiSim no longer shows the red "Gecko was restarted" notice: at startup Gecko is always new, so when nothing was unsaved the circuit is reopened quietly (log only); the notice stays when unsaved work was set aside, and when Gecko restarts while MaiSim is running (#123).
 - README (en/pt): a Download section in sync with maisim.org — Windows installer and Linux AppImage (latest), earlier versions, requirements, where the data goes; the git clone setup becomes "Run from source" (#122).
 - Windows installer build in CI: the Inno Setup container (another user than the runner) could not write the output ("Access denied"); monta.sh opens the folders it uses (#117).
 - CI packages workflow: no Maven cache in setup-java (Gecko's pom.xml only exists after gecko/construir.sh, so the step failed at once) (#115).
