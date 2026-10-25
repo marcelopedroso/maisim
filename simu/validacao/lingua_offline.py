@@ -109,7 +109,7 @@ def confere_dicionario(d, dup):
 
 
 # ---------------------------------------------------------------- o uso das chaves e a trava do português solto
-ARQ_JS = [RAIZ / "app/public/maisim-nav.js", *[p for p in sorted((RAIZ / "simu/static").glob("*.js")) if not p.name.startswith("textos_")],
+ARQ_JS = [RAIZ / "app/public/maisim-nav.js", RAIZ / "app/public/maisim-dica.js", *[p for p in sorted((RAIZ / "simu/static").glob("*.js")) if not p.name.startswith("textos_")],
           *[p for p in sorted((RAIZ / "scope/static").glob("*.js")) if not p.name.startswith(("textos_", "uPlot"))]]
 ARQ_HTML = [RAIZ / "app/index.html", *sorted((RAIZ / "simu/static").glob("*.html")), RAIZ / "scope/static/index.html",
             RAIZ / "gecko/index.html"]

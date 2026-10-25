@@ -531,12 +531,6 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   .grupo-bt { display:flex; } .grupo-bt button { border-radius:0; margin-left:-1px; } .grupo-bt button:first-child { border-radius:6px 0 0 6px; margin-left:0; }
   #g-sim #bt-globais { font:600 13px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing:-.3px; } #g-sim #bt-globais i { font-style:italic; }
   #g-sim #bt-play { border-left-width:2px; }   /* separa os ajustes (⚙, $x) dos comandos da rodada */
-  #dica-ui { position:fixed; z-index:2147483600; max-width:320px; max-height:60vh; overflow:hidden; padding:6px 9px; border-radius:7px; background:#1e293b; color:#f8fafc;
-    font:500 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; box-shadow:0 8px 24px rgba(15,23,42,.28); pointer-events:none;
-    white-space:pre-line; opacity:0; transform:translateY(-2px); transition:opacity .12s, transform .12s; left:-9999px; top:0; }
-  #dica-ui.vis { opacity:1; transform:none; }
-  #dica-ui kbd { display:inline-block; margin:0 1px; padding:0 5px; border-radius:4px; background:rgba(248,250,252,.14); border:1px solid rgba(248,250,252,.22);
-    font:600 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color:#f8fafc; }
   .grupo-bt button:last-child { border-radius:0 6px 6px 0; }
   #props label.ponta-no span { padding-left:10px; }
   .no-painel label { margin-top:4px; } .no-painel select { width:100%; }
@@ -818,7 +812,7 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
 </svg>
 <div id="dica"></div>
 <div id="erro"></div>
-<script src="static/dica.js"></script>
+<script src="static/maisim-dica.js"></script>   <!-- as dicas do MaiSim (app/public: a mesma em todas as páginas) -->
 <script src="static/simu.js"></script>
 <script src="static/controle.js"></script>
 <script src="static/claude.js"></script>

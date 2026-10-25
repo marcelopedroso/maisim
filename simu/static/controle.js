@@ -961,7 +961,7 @@ function desenhaDiagrama() {
   // o desenho
   svg.innerHTML = ""; svg.setAttribute("width", W + 12); svg.setAttribute("height", H + 30 + topo + fundo);
   svg.setAttribute("viewBox", `-8 ${-12 - topo} ${W + 12} ${H + 30 + topo + fundo}`);
-  // as dicas no padrão do MaiSim (dica.js, pelo atributo title), não a caixinha do navegador que o <title> do SVG mostra
+  // as dicas no padrão do MaiSim (maisim-dica.js, pelo atributo title), não a caixinha do navegador que o <title> do SVG mostra
   const dica = (g, t) => g.setAttribute("title", t);
   const el = (tag, at, pai = svg, txt) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(at)) e.setAttribute(k, v); if (txt != null) e.textContent = txt; pai.appendChild(e); return e; };
   const defs = el("defs", {}), mk = el("marker", { id: "cd-seta", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 10, markerHeight: 10, markerUnits: "userSpaceOnUse", orient: "auto-start-reverse" }, defs);   // a ponta não cresce com o destaque
