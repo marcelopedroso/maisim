@@ -6,6 +6,9 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Changed
+- CONTRIBUTING: a pre-PR checklist of the four kinds of issue the tests miss and Codex keeps finding (a forgotten case, stale state, check-then-act, close/upgrade/size), with the PRs where each happened.
+
 ### Fixed
 - Dropdowns: every select in MaiSim (simu ⚙, control, component panel, AI chat, scope header A/B, the update dialog) now opens a MaiSim-styled list instead of the browser's native one (rounded, page colors and dark theme, ✓ on the chosen option, scrolling, keyboard: arrows/Home/End/PageUp/PageDown, Enter/Space, Esc, type-ahead; follows MaiSim's zoom). It is a light layer in `maisim-dica.js` over the real `<select>`, which keeps its value and fires `input`/`change` as before; `multiple`/`size` lists, disabled selects, touch input and `data-nativo` keep the native list. The old `appearance: base-select` rule never applied, since the global `appearance: none !important` overrode it. `exemplo_buck_termico`: the diode now has a junction heat capacity (`Cth.2`, 1 mJ/K, τ = 4 ms), so `Tj_D1` rises smoothly to ≈ 47 °C instead of following every loss pulse (spikes of ~350 °C) (#131).
 - Integration method (⚙): it is now part of the circuit, like a global variable. Choosing it in ⚙ applies it to the circuit right away (new `POST editor/solver`), so Save writes what ⚙ shows even without a run, the change marks the circuit as unsaved and Ctrl+Z undoes it; before, the choice lived in the browser and reached Gecko only when a run started. **New** circuit goes back to backward Euler (Gecko's CLEAR kept the previous model's method, and the page reported it as "from the file"). Comparar says "may differ" when one MaiSim run predates the field. Only the integers 0, 1, 2 are accepted (`true` and `1.9` were taken as 1).

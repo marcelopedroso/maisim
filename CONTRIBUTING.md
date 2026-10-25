@@ -26,6 +26,28 @@
 5. **Changelog:** every PR adds one line to [`CHANGELOG.md`](CHANGELOG.md) under **Unreleased** (Added, Changed or Fixed,
    with the PR number). The PR that bumps `VERSION` moves those lines under the new version, with the date.
 
+## Before opening a PR: what the tests don't catch
+
+The tests prove the main path works. The Codex findings fall almost always into four kinds that live at the edges, so
+review your own diff for them before opening the PR (and ask the reviewing agent to, when there is one):
+
+1. **A list or condition that forgets a case.** Every new set, `if` on a type or domain, or whitelist: does it cover all
+   the cases (electric / control / thermal / reluctance domain, every component type, the main sheet *and* inside a
+   subcircuit)? Search for the other places that decide the same thing and change them together. *Examples: the thermal
+   subcircuit terminal left out of the terminal list (#119); dragging that terminal still treated it as electric (#134).*
+2. **State that goes stale after a change.** When something is renamed, re-coupled, moved or undone, does whatever
+   depends on it follow? *Examples: the notation preview after renaming a parameter (#129); the machine's load-torque
+   label after renaming the signal (#133); a FLOW's automatic name after its Pv heats another part (#134).*
+3. **Checked, then acted on, but the world changed in between.** A check before an asynchronous step (a download, a
+   run, another request) must be repeated right before the action. *Example: the editor state checked before the
+   update download, not before installing it (#126).*
+4. **Closing, restarting, upgrading, huge inputs.** What happens if MaiSim is closed or restarted in the middle, if an
+   older version left files or settings in the old format, or if the input is at the size limit? *Examples: the
+   installer kept running after MaiSim closed (#108); the Windows cache moved without the old one (#100); a baseline
+   saved before the solver was part of the signature (#132); a 1 GB export read into memory (#102).*
+
+For each item that applies, write a test that fails without the fix (run it once without the fix to see it fail).
+
 ## Running the tests on your machine
 
 ```bash
