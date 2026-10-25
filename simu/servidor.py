@@ -3930,6 +3930,17 @@ def talvez_terminal(op, a):
     return not tipos or "TERM" in tipos
 
 
+# Os padrões de um bloco de controle criado agora (v0.3.1): os do Gecko dão um PI de ganho negativo (r0 = a1 = −1), uma
+# histerese de largura negativa (h = −1), um integrador preso em ±1, PT1 e PT2 de 1 s e uma Sliding DFT de 10 µs a 500 Hz.
+# Valem para todo CREATE (a paleta, os scripts e a API, no mesmo passo do desfazer); um circuito aberto, uma cópia colada e
+# um subcircuito da biblioteca ficam com os valores que têm. O LIMIT fica em ±1, o do Gecko.
+PADROES_CONTROLE = {"PI": (("r0", 1.0), ("a1", 100.0)),          # Kp = 1, Ki = 100 1/s
+                    "HYS": (("h", 0.5),),                         # meia largura 0,5 (a saída é ±1)
+                    "INT": (("min", -1e9), ("max", 1e9)),         # praticamente sem limite
+                    "PT1": (("T", 1e-3),), "PT2": (("T", 1e-3),),
+                    "SDFT": (("T", 0.02), ("F1", 50.0))}          # janela de 20 ms (um ciclo de 50 Hz), em 50 Hz
+
+
 def executa(op, a, r=None):
     """Um pedido de edição no motor, com as regras do terminal de subcircuito e do tamanho do bloco. Devolve o plano do
     terminal (ou None). r: o estado de agora (para o plano; lido do Gecko se não vier)."""
@@ -3946,6 +3957,9 @@ def executa(op, a, r=None):
         linha = comando(op, [a[0], plano["ponto"][0], plano["ponto"][1], a[3]])
     if not (plano and op == "MOVE"):
         MOTOR.cmd(linha)
+    if op == "CREATE":                               # o bloco de controle novo nasce com valores que funcionam
+        for p, v in PADROES_CONTROLE.get(str(a[3]), ()):
+            MOTOR.cmd(comando("SETP", [a[0], p, v]))
     if plano:
         try:                                         # depois de mexer, não levanta erro: o desfazer fica com o passo
             poe_terminal(plano)
