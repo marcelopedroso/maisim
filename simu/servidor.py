@@ -61,7 +61,7 @@ TELA = os.environ["MAISIM_TELA_X"]
 editor = {"aberto": None}                    # o modelo que o editor abriu no Gecko do MaiSim (guardado em ABERTO: sobrevive a reiniciar)
 ABERTO = ESTADO.with_name("aberto.txt")
 try:
-    editor["aberto"] = ABERTO.read_text().strip() or None
+    editor["aberto"] = ABERTO.read_text().strip().replace("\\", "/") or None   # uma versão de antes gravava com "\\" no Windows
 except OSError:
     pass
 
@@ -486,7 +486,8 @@ def processo_gecko_windows():
         import ctypes
         from ctypes import wintypes
         porta = os.environ["MAISIM_PORTA_GECKO"]
-        r = subprocess.run(["netstat", "-ano", "-p", "TCP"], capture_output=True, text=True, timeout=10)
+        r = subprocess.run(["netstat", "-ano", "-p", "TCP"], capture_output=True, text=True, timeout=10,
+                           encoding="oem", errors="replace")   # o netstat em português ("Conexões") vem no código do console
         pid = next(int(c[-1]) for c in (l.split() for l in r.stdout.splitlines())
                    if len(c) >= 5 and c[-2].upper() == "LISTENING" and c[1].endswith(f":{porta}"))
         h = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)            # PROCESS_QUERY_LIMITED_INFORMATION
@@ -1462,6 +1463,7 @@ def lista_modelos():
     itens, vistos = [], set()
     try:
         recentes = json.loads(RECENTES.read_text()) if RECENTES.is_file() else {}
+        recentes = {k.replace("\\", "/"): x for k, x in recentes.items()}   # idem
     except (OSError, ValueError):
         recentes = {}
     def poe(grupo, pasta, arqs, gravacao=None, id_grupo="extra"):   # id_grupo: o que a página confere (o grupo é texto)
@@ -1473,7 +1475,7 @@ def lista_modelos():
                 alterado = f.stat().st_mtime
             except OSError:
                 alterado = None
-            itens.append(dict(arq=relativo(f), nome=str(f.relative_to(pasta)), grupo=grupo, id_grupo=id_grupo, apagavel=bool(gravacao), pasta=gravacao,
+            itens.append(dict(arq=relativo(f), nome=f.relative_to(pasta).as_posix(), grupo=grupo, id_grupo=id_grupo, apagavel=bool(gravacao), pasta=gravacao,
                               alterado=alterado, aberto_em=recentes.get(relativo(f))))
     poe(lingua.tr("modelos.grupo_exemplos"), MODELOS, MODELOS.glob("*.ipes"), id_grupo="exemplos")
     poe(lingua.tr("modelos.grupo_meus"), SALVOS, SALVOS.glob("*.ipes"), "circuitos", "circuitos")
@@ -1489,11 +1491,12 @@ def modelo_ok(arq):
 
 
 def relativo(arq):
-    """Caminho relativo à raiz do projeto (os exemplos); fora dela (as pastas de dados), o absoluto."""
+    """Caminho relativo à raiz do projeto (os exemplos); fora dela (as pastas de dados), o absoluto. Sempre com "/" (no
+    Windows também: a página corta o nome pela "/", e o Windows aceita C:/…)."""
     try:
-        return str(Path(arq).relative_to(RAIZ))
+        return Path(arq).relative_to(RAIZ).as_posix()
     except ValueError:
-        return str(arq)
+        return Path(arq).as_posix()
 
 
 def fonte_sinal(nome, sinal, folhas=None):

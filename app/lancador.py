@@ -23,6 +23,11 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[1]
 WIN = os.name == "nt"
 sys.path.insert(0, str(RAIZ / "config"))
+# no Windows, o padrão dos arquivos e do texto é o cp1252 (um "≈" no resumo da rodada derrubava a gravação): os servidores
+# Python em UTF-8 (PYTHONUTF8) e os Java também (-Dfile.encoding), como no Linux
+UTF8_JAVA = ["-Dfile.encoding=UTF-8"] if WIN else []
+if WIN:
+    os.environ.setdefault("PYTHONUTF8", "1")
 
 
 def portugues():
@@ -45,6 +50,33 @@ def t(pt, en):
 
 def fala(pt, en):
     print(f"maisim: {pt if PT else en}", flush=True)
+
+
+def avisa(pt, en):
+    """Um erro que quem abriu pelo atalho precisa ver: no terminal e, no Windows (o pythonw não tem terminal), numa janela."""
+    fala(pt, en)
+    if WIN:
+        import ctypes
+        ctypes.windll.user32.MessageBoxW(None, pt if PT else en, "MaiSim", 0x10)
+
+
+def migra_cache_antigo():
+    """No Windows, até a 0.3.0-rc2 o cache ficava solto em %LOCALAPPDATA%\\MaiSim (junto do que mais houver lá); agora é
+    %LOCALAPPDATA%\\MaiSim\\Cache. Na primeira vez, traz para lá só o que é do MaiSim (a recuperação do editor, as conversas,
+    o lancador.json do que estiver no ar): o resto da pasta não é nosso e fica. O que estiver em uso fica onde está."""
+    if not WIN or os.environ.get("MAISIM_PERFIL") != "produto":
+        return
+    import ler_config
+    novo = ler_config.pasta_cache()
+    if Path(os.environ.get("MAISIM_CACHE", "")) != novo or novo.exists():
+        return
+    novo.mkdir(parents=True, exist_ok=True)
+    for nome in ("simu", "gecko", "logs", "lancador.json"):
+        try:
+            if (novo.parent / nome).exists():
+                shutil.move(str(novo.parent / nome), str(novo / nome))
+        except OSError:
+            pass
 
 
 def no_ar(porta):
@@ -165,7 +197,7 @@ class Lancador:
         # a vigia do próprio Gecko (patch 0003) fecha os diálogos e anota em gecko/dialogos.txt (o simu lê); no Windows, sem
         # a tela virtual, a janela principal fica escondida (o MaiSim é a tela)
         extra = [f"-Dmaisim.dialogos={c / 'dialogos.txt'}"] + (["-Dmaisim.oculto=true"] if WIN else [])
-        self.sobe("gecko", [self.java, f"-Duser.home={c / 'home'}", "-Dpolyglot.js.nashorn-compat=true", *extra, "-jar", str(self.jar), str(modelo), "-p", str(pg)],
+        self.sobe("gecko", [self.java, *UTF8_JAVA, f"-Duser.home={c / 'home'}", "-Dpolyglot.js.nashorn-compat=true", *extra, "-jar", str(self.jar), str(modelo), "-p", str(pg)],
                   "gecko.log", env)
         fala("subindo o Gecko (até ~1 min)…", "starting Gecko (up to ~1 min)…")
         if not espera(lambda: no_log(log, "GeckoCIRCUITS is ready"), 120):
@@ -179,7 +211,7 @@ class Lancador:
                            stdout=subprocess.DEVNULL, stderr=open(self.logs / "motor_javac.log", "w"))
         mlog = self.logs / "motor.log"
         mlog.write_text("")
-        self.sobe("motor", [self.java, "-cp", os.pathsep.join([str(self.jar), str(m / "bin")]), "maisim.MaiSimMotor",
+        self.sobe("motor", [self.java, *UTF8_JAVA, "-cp", os.pathsep.join([str(self.jar), str(m / "bin")]), "maisim.MaiSimMotor",
                             "--gecko-port", str(pg), "--porta", str(pm)], "motor.log")
         if not espera(lambda: no_log(mlog, "ouvindo"), 30):     # "ouvindo": o que o motor escreve ao subir
             fala(f"o motor do editor não subiu (veja {mlog})", f"the editor engine did not start (see {mlog})")
@@ -253,7 +285,7 @@ def vivo(pid):
     if not pid:
         return False
     if WIN:
-        r = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], capture_output=True, text=True)
+        r = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], capture_output=True, text=True, encoding="oem", errors="replace")
         return str(pid) in r.stdout
     try:
         os.kill(pid, 0)
@@ -291,9 +323,16 @@ def main():
     a = ap.parse_args()
     if a.produto:
         os.environ["MAISIM_PERFIL"] = "produto"
-    if a.parar:
-        import ler_config
+    import ler_config
+    try:
         ler_config.aplica()
+    except (ValueError, FileNotFoundError) as e:     # a porta da config pessoal que não serve, um perfil que falta
+        arq = os.environ.get("MAISIM_CONFIG_PESSOAL") or (ler_config.arquivo_pessoal() if a.produto else ler_config.RAIZ / ".env")
+        avisa(f"O MaiSim não abriu: {e}.\nAcerte em {arq} (MAISIM_PORTA=8100, por exemplo) e abra de novo.",
+              f"MaiSim did not start: {e}.\nFix it in {arq} (MAISIM_PORTA=8100, for instance) and open it again.")
+        return 1
+    migra_cache_antigo()
+    if a.parar:
         est = Path(os.environ["MAISIM_CACHE"]) / "lancador.json"
         try:
             e = json.loads(est.read_text())
