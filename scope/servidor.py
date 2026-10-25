@@ -262,6 +262,8 @@ class Manipulador(BaseHTTPRequestHandler):
             lst = []
             for base in BUSCA:
                 for f in (base.rglob("scope_*.npz") if base.is_dir() else []):
+                    if any(x.startswith(".") for x in f.relative_to(base).parts):   # uma importação (.msd_*) pela metade
+                        continue
                     meta, st = le_meta(f), f.stat()
                     d = pasta_da_rodada(f, meta)              # pasta: apagar leva a pasta inteira (e o tamanho é o dela)
                     lst.append({"arq": nome(f), "mtime": st.st_mtime, "tamanho": st.st_size, "rotulo": rotulo_rodada(f, meta),
