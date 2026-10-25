@@ -17,6 +17,8 @@ Regras do Gecko (código em MDPGeckoCIRCUITS, ch.technokrat.gecko.geckocircuits.
 import gzip
 import json
 import re
+import time
+import zlib
 from collections import Counter
 from pathlib import Path
 
@@ -84,9 +86,24 @@ def _rotulos(v):
     return [] if not v else ["" if r == "NIX_NIX_NIX" else r for r in v.split("/")[1:]]
 
 
+def _texto(caminho):
+    """O texto do .ipes (gzip ou não). Um gzip cortado é o Gecko ainda gravando (no Windows, o arquivo às vezes é lido
+    logo antes de ele terminar): espera um pouco e lê de novo, por até ~3 s."""
+    for k in range(30):
+        with open(caminho, "rb") as f:
+            b = f.read()
+        if b[:2] != b"\x1f\x8b":
+            return b.decode("utf-8", errors="replace")
+        try:
+            return gzip.decompress(b).decode("utf-8", errors="replace")
+        except (EOFError, gzip.BadGzipFile, zlib.error):
+            if k == 29:
+                raise
+            time.sleep(0.1)
+
+
 def le(caminho):
-    t = gzip.open(caminho, "rt", errors="replace").read() if open(caminho, "rb").read(2) == b"\x1f\x8b" \
-        else open(caminho, errors="replace").read()
+    t = _texto(caminho)
     t = t.replace("\r", "")
     elementos, fios = [], []
     nomes = re.search(r"\noptimizerName\[\] ([^\n]*)", t)
