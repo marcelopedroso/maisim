@@ -47,5 +47,22 @@ pessoal = Path(v["MAISIM_CONFIG_PESSOAL"]); pessoal.parent.mkdir(parents=True); 
 v = ler_config.carrega("produto")
 ok(v["MAISIM_PORTA_PAGINA"] == "8100" and v["MAISIM_TELA_X"] == ":81" and v["MAISIM_DADOS"] == f"{h}/Outra",
    "produto: a config pessoal (a porta e a pasta que o instalador pergunta) vale por cima")
-print(f"\n{10 - falhas}/10")
+pessoal.unlink()
+ok(ler_config.carrega("produto")["MAISIM_CLAUDE_DIR"] == f"{h}/.claude-maisim", "produto no Linux: o login do Claude em ~/.claude-maisim (o de antes)")
+# o produto no Windows (um os com name = "nt" só para o ler_config): o login do Claude ao lado da config, em %APPDATA%\\MaiSim\\claude
+import types
+os_win = types.ModuleType("os"); os_win.__dict__.update(os.__dict__); os_win.name = "nt"
+os.environ["APPDATA"], os.environ["LOCALAPPDATA"] = f"{h}/Roaming", f"{h}/Local"
+ler_config.os = os_win
+try:
+    v = ler_config.carrega("produto")
+    ok(v["MAISIM_CLAUDE_DIR"] == f"{h}/Roaming/MaiSim/claude" and v["MAISIM_CONFIG_PESSOAL"] == f"{h}/Roaming/MaiSim/maisim.env",
+       f"produto no Windows: o login do Claude em %APPDATA%\\MaiSim\\claude ({v['MAISIM_CLAUDE_DIR']})")
+    ok(ler_config.carrega("teste")["MAISIM_CLAUDE_DIR"].endswith("maisim_teste/claude-maisim"), "no Windows, o perfil de teste continua com o dele")
+    os.environ["MAISIM_CLAUDE_DIR"] = f"{h}/Outra"
+    ok(ler_config.carrega("produto")["MAISIM_CLAUDE_DIR"] == f"{h}/Outra", "produto no Windows: MAISIM_CLAUDE_DIR escrita vale mais")
+finally:
+    ler_config.os = os
+    del os.environ["MAISIM_CLAUDE_DIR"]
+print(f"\n{14 - falhas}/14")
 raise SystemExit(1 if falhas else 0)

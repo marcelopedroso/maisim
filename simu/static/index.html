@@ -356,6 +356,8 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   .cla-uso-l small { grid-column:2 / span 2; color:var(--sutil); font-size:11px; margin-top:-3px; }
   .modal.cla .cla-mini { font-size:11px; padding:0 6px; border-radius:5px; }
   .modal.cla .cla-ok { color:var(--ok); } .modal.cla .cla-erro { color:var(--erro); } .modal.cla .cla-espera { font-size:12px; color:var(--sutil); }
+  /* a instalação do Claude Code (o botão Instalar, no Windows): o fim da saída do instalador */
+  .modal.cla .cla-saida { max-height:150px; overflow:auto; margin:6px 0; padding:6px 8px; border-radius:6px; background:var(--suave); font:11px/1.4 ui-monospace, monospace; white-space:pre-wrap; word-break:break-all; }
   /* variáveis: o índice na coluna e as tabelas na área do código (Marcelo, 19/10: "mesma dinâmica dos arquivos") */
   .ctl-vi { display:flex; align-items:center; gap:6px; padding:5px 6px; margin-top:3px; border-radius:6px; cursor:pointer; font-size:12.5px; color:var(--texto); }
   .ctl-vi:hover { background:var(--acento-suave); } .ctl-vi.ativo { background:var(--acento-suave); color:var(--acento); font-weight:600; }

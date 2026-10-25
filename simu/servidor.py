@@ -15,6 +15,7 @@ import time
 import os
 import uuid
 import random
+import shlex
 import shutil
 import signal
 import re
@@ -3843,7 +3844,8 @@ CLAUDE = IAS["claude"]
 for _a in IAS.values():                                      # a lista de modelos do Antigravity etc. (em segundo plano)
     with lingua.com(lingua.ultima()):                 # na partida não há pedido: a última língua vista
         lingua.thread(_a.ao_iniciar).start()
-CLAUDE_DIR, CLAUDE_BIN = CLAUDE.pasta, CLAUDE.bin           # MAISIM_CLAUDE_DIR / MAISIM_CLAUDE_BIN: testes
+CLAUDE_DIR = CLAUDE.pasta                                   # MAISIM_CLAUDE_DIR / MAISIM_CLAUDE_BIN: testes; o caminho do `claude` é
+                                                            # CLAUDE.bin (procurado de novo enquanto não existe: instalado depois)
 CLAUDE_URL_AUTO = ESTADO.with_name("claude_url_auto.txt")   # o claude_navegador.sh grava aqui a URL de retorno automático
 claude_login = {}                                            # o login em andamento (um por vez): proc, andamento, urls, erro…
 trava_claude = threading.Lock()
@@ -3857,7 +3859,8 @@ def ambiente_claude(**extra):
 
 def claude_estado():
     """O login do Claude do MaiSim (`claude auth status --json` na pasta do MaiSim) e o login em andamento, se houver."""
-    out = {"pasta": str(CLAUDE_DIR).replace(str(Path.home()), "~", 1), "instalado": Path(CLAUDE_BIN).exists(), "logado": False}
+    out = {"pasta": str(CLAUDE_DIR).replace(str(Path.home()), "~", 1), "instalado": CLAUDE.instalado(), "logado": False,
+           "sistema": SISTEMA, "pode_instalar": comando_instala_claude() is not None}
     if out["instalado"] and pedido_rodando() and estado_cache["v"]:    # um pedido rodando: o estado guardado (sem outro `claude`)
         out.update(estado_cache["v"])
     elif out["instalado"]:
@@ -3873,6 +3876,8 @@ def claude_estado():
     with trava_claude:
         if claude_login:
             out["login"] = {k: claude_login.get(k) for k in ("andamento", "url_auto", "url_manual", "erro", "mensagem", "desde")}
+    if claude_instala:                                   # a instalação pelo botão (a janela reaberta no meio dela a mostra)
+        out["instalacao"] = claude_instala_estado()
     return out
 
 
@@ -3911,13 +3916,16 @@ def claude_login_inicia():
             em_andamento = True
         else:
             em_andamento = False
-            if not Path(CLAUDE_BIN).exists():
+            if not CLAUDE.instalado():
                 raise ErroMotor(lingua.tr("login.claude_nao_instalado"))
             CLAUDE_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
             CLAUDE_URL_AUTO.unlink(missing_ok=True)
-            proc = subprocess.Popen([CLAUDE_BIN, "auth", "login", "--claudeai"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                    stderr=subprocess.STDOUT, cwd=str(CLAUDE_DIR), **processos.GRUPO,
-                                    env=ambiente_claude(BROWSER=str(AQUI / "claude_navegador.sh"), MAISIM_CLAUDE_URL_ARQ=str(CLAUDE_URL_AUTO)))
+            # no Linux (e no WSL) o "navegador" é o claude_navegador.sh, que só guarda a URL para a tela; no Windows o
+            # navegador é o da própria pessoa, neste computador: o claude o abre sozinho e o retorno em localhost chega (um
+            # .sh nem rodaria lá) — a tela fica com o link manual
+            nav = {} if processos.WIN else dict(BROWSER=str(AQUI / "claude_navegador.sh"), MAISIM_CLAUDE_URL_ARQ=str(CLAUDE_URL_AUTO))
+            proc = subprocess.Popen([CLAUDE.bin, "auth", "login", "--claudeai"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT, cwd=str(CLAUDE_DIR), **processos.GRUPO, env=ambiente_claude(**nav))
             claude_login.clear()
             claude_login.update(proc=proc, andamento=True, desde=time.time(), url_auto=None, url_manual=None, erro=None, mensagem=None)
             lingua.thread(_le_login, proc).start()
@@ -3925,7 +3933,7 @@ def claude_login_inicia():
     if not em_andamento:
         for _ in range(200):                             # até 20 s pelos dois links (o automático vem logo depois do manual)
             with trava_claude:
-                if claude_login.get("url_manual") and CLAUDE_URL_AUTO.exists() or not claude_login.get("andamento"):
+                if claude_login.get("url_manual") and (CLAUDE_URL_AUTO.exists() or processos.WIN) or not claude_login.get("andamento"):
                     break
             time.sleep(0.1)
     with trava_claude:
@@ -3971,7 +3979,7 @@ def claude_login_cancela(proc=None, motivo=None):
 def claude_sai():
     claude_login_cancela()
     try:
-        r = subprocess.run([CLAUDE_BIN, "auth", "logout"], env=ambiente_claude(), capture_output=True, text=True, timeout=30,
+        r = subprocess.run([CLAUDE.bin, "auth", "logout"], env=ambiente_claude(), capture_output=True, text=True, timeout=30,
                            stdin=subprocess.DEVNULL)
     except (subprocess.SubprocessError, OSError) as e:
         raise ErroMotor(f"claude auth logout: {e}")
@@ -3981,6 +3989,94 @@ def claude_sai():
     if out["logado"]:
         raise ErroMotor(lingua.tr("login.logout_falhou", saida=(r.stdout + r.stderr).strip()[-200:]))
     return out
+
+
+# ---------------------------------------------------------------- instalar o Claude Code pela janela das contas (Windows)
+# No Windows, quem baixa o MaiSim em geral não tem o Claude Code: o botão Instalar roda o instalador oficial da Anthropic
+# (PowerShell: `irm https://claude.ai/install.ps1 | iex`; sem administrador: o claude.exe vai para %USERPROFILE%\.local\bin,
+# que ia/__init__.py procura pelo caminho — o PATH do MaiSim aberto não o tem), em segundo plano, sem janela, a saída num
+# registro no cache (a tela mostra o fim dele). Um por vez, com prazo; no fim, procura o claude de novo (sem reiniciar) e a
+# janela oferece o "Entrar". Fora do Windows não há botão (a tela mostra o comando do Linux/macOS), a não ser nos testes:
+# MAISIM_INSTALA_CLAUDE_CMD troca o instalador por outro comando (um de mentira), em qualquer sistema.
+SISTEMA = "windows" if processos.WIN else "mac" if sys.platform == "darwin" else "linux"
+CLAUDE_INSTALA_LOG = ESTADO.with_name("claude_instala.log")
+CLAUDE_INSTALA_PRAZO = 15 * 60                    # s: baixar ~100 MB numa rede lenta cabe; travado, para
+claude_instala = {}                               # a instalação em andamento ou a última: proc, andamento, desde, fim, codigo, ok, erro_t
+trava_instala = threading.Lock()
+
+
+def comando_instala_claude():
+    """O comando do instalador do Claude Code, ou None (fora do Windows, sem o de teste)."""
+    teste = os.environ.get("MAISIM_INSTALA_CLAUDE_CMD")
+    if teste:
+        return shlex.split(teste)
+    if not processos.WIN:
+        return None
+    ps = Path(os.environ.get("SYSTEMROOT") or r"C:\Windows") / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+    return [str(ps) if ps.exists() else "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+            "$ProgressPreference='SilentlyContinue'; irm https://claude.ai/install.ps1 | iex"]
+
+
+def claude_instala_estado():
+    """{pode, andamento, ok, erro, saida (o fim do registro), desde, fim}: o erro no idioma deste pedido."""
+    with trava_instala:
+        st = {k: claude_instala.get(k) for k in ("andamento", "ok", "desde", "fim", "codigo")}
+        cod = claude_instala.get("erro_t")
+    st["pode"] = comando_instala_claude() is not None
+    st["erro"] = lingua.tr(f"instala.{cod[0]}", **cod[1]) if cod else None
+    try:                                              # a saída: o PowerShell escreve na página de código do console
+        b = CLAUDE_INSTALA_LOG.read_bytes()[-6000:] if claude_instala else b""
+        try:
+            txt = b.decode("utf-8")
+        except UnicodeDecodeError:
+            txt = b.decode("cp850" if processos.WIN else "latin-1", errors="replace")
+        st["saida"] = "\n".join(x.rstrip() for x in ESC.sub("", txt).replace("\r\n", "\n").split("\n")[-40:]).strip()
+    except OSError:
+        st["saida"] = ""
+    return st
+
+
+def _acompanha_instala(proc):
+    try:
+        proc.wait(timeout=CLAUDE_INSTALA_PRAZO)
+        erro = None if proc.returncode == 0 else ("falhou", {"codigo": proc.returncode})
+    except subprocess.TimeoutExpired:
+        processos.encerra(proc.pid, forte=True)
+        try:
+            proc.wait(timeout=15)
+        except subprocess.TimeoutExpired:
+            pass
+        erro = ("prazo", {"min": max(1, CLAUDE_INSTALA_PRAZO // 60)})
+    achou = CLAUDE.instalado()                        # procura de novo: o claude.exe novo, fora do PATH deste processo
+    if erro is None and not achou:
+        erro = ("nao_achou", {"pasta": str(Path(CLAUDE.bin).parent)})
+    with trava_instala:
+        if claude_instala.get("proc") is proc:
+            claude_instala.update(proc=None, andamento=False, fim=time.time(), codigo=proc.returncode, ok=erro is None, erro_t=erro)
+    print(f"instalação do Claude Code: saída {proc.returncode}, {'achado em ' + CLAUDE.bin if achou else 'não achado'}", flush=True)  # i18n-ok (log)
+
+
+def claude_instala_inicia():
+    """Começa o instalador (um por vez; já instalado, nada a fazer) e devolve o estado da instalação."""
+    with trava_instala:
+        p = claude_instala.get("proc")
+        if p is None or p.poll() is not None:
+            cmd = comando_instala_claude()
+            if not cmd:
+                raise ErroMotor(lingua.tr("instala.so_windows"))
+            if CLAUDE.instalado():
+                raise ErroMotor(lingua.tr("instala.ja_instalado", caminho=CLAUDE.bin))
+            CLAUDE_INSTALA_LOG.parent.mkdir(parents=True, exist_ok=True)
+            with open(CLAUDE_INSTALA_LOG, "wb") as log:  # o filho fica com a sua cópia do arquivo
+                try:
+                    proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
+                                            cwd=str(Path.home()), **processos.GRUPO)
+                except OSError as e:
+                    raise ErroMotor(lingua.tr("instala.nao_abriu", erro=str(e)))
+            claude_instala.clear()
+            claude_instala.update(proc=proc, andamento=True, desde=time.time(), fim=None, codigo=None, ok=None, erro_t=None)
+            lingua.thread(_acompanha_instala, proc).start()
+    return claude_instala_estado()
 
 
 # ---------------------------------------------------------------- as contas das outras IAs (etapa 3 do hub de IA)
@@ -5429,13 +5525,15 @@ class Manipulador(BaseHTTPRequestHandler):
                 return self._resposta(200, arq.read_bytes(), TIPOS.get(arq.suffix, "application/octet-stream"))
             return self._resposta(404, {"erro": lingua.tr("servidor.nao_achei")})
         if rota in ("/claude/estado", "/claude/uso", "/claude/pedido", "/claude/memoria", "/claude/mudanca", "/claude/contextos",
-                    "/claude/contexto", "/claude/contexto/exportar", "/claude/ias", "/claude/ia/uso"):
+                    "/claude/contexto", "/claude/contexto/exportar", "/claude/ias", "/claude/ia/uso", "/claude/instalacao"):
             if not pedido_local(self, False):
                 return self._resposta(403, {"erro": lingua.tr("servidor.so_local")})
             if rota == "/claude/ias":                  # as IAs do MaiSim (ia/): o seletor da conversa e as contas (o estado do
                 return self._resposta(200, [{"id": a.id, "nome": a.nome, "instalado": a.instalado(), "modelos": list(a.modelos),   # login
                                              "esforcos": list(a.esforcos), "tem_login": a.tem_login, "rotulos": a.rotulos(),   # das outras IAs:
                                              **({"estado": a.estado()} if a.tem_login else {})} for a in IAS.values()])  # arquivos, rápido
+            if rota == "/claude/instalacao":           # a instalação do Claude Code (o botão Instalar): a tela acompanha
+                return self._resposta(200, claude_instala_estado())
             q = {k: v[0] for k, v in parse_qs(u.query).items()}
             if rota == "/claude/ia/uso":               # os limites da conta de uma outra IA (o Antigravity: o /usage dele)
                 return self._editor(lambda: ia_com_login(q.get("ia")).uso("forca" in q) or {"itens": [], "erro": lingua.tr("uso.ia_sem_limites")})
@@ -5640,7 +5738,7 @@ class Manipulador(BaseHTTPRequestHandler):
         if rota.startswith("/claude/"):                # o login do Claude do MaiSim
             if not pedido_local(self, True):
                 return self._resposta(403, {"erro": lingua.tr("servidor.so_pagina_local")})
-            acoes = {"/claude/login": claude_login_inicia, "/claude/codigo": lambda: claude_login_codigo(corpo.get("codigo", "")),
+            acoes = {"/claude/login": claude_login_inicia, "/claude/instalar": claude_instala_inicia, "/claude/codigo": lambda: claude_login_codigo(corpo.get("codigo", "")),
                      "/claude/cancelar": lambda: (claude_login_cancela(), claude_estado())[1], "/claude/sair": claude_sai,
                      # as contas das outras IAs (o Gemini): {"ia": id}
                      "/claude/ia/entrar": lambda: ia_conta(corpo.get("ia"), "entra"),
