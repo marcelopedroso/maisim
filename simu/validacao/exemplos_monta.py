@@ -323,8 +323,9 @@ def buck_termico():
     """Buck com perdas e térmica (C1, 25/10): 48 V → 24 V, 20 kHz, L 1 mH, C 100 µF, R 2 Ω (i_L ≈ 12 A), com um IGBT e um
     diodo no modo simples de perdas do Gecko (uF 0,6 V, rON 10 mΩ, k_on/k_off e uK 400 V, os de fábrica). Cada um tem um Pv
     (a perda vira calor no nó térmico dele); o IGBT: Rth_jc 2 K/W, Rth_ca 3 K/W até o ambiente (DT, 25 °C sobre o TREF) e
-    Cth 2 mJ/K na junção: Tj em regime = 25 + P·5 K/W, constante de tempo 5 K/W · 2 mJ/K = 10 ms; o diodo: Rth 4 K/W, sem
-    Cth. Os medidores: Tj_IGBT1 e Tj_D1 (TEMP), Pv_IGBT1, Pcond_IGBT1, Psw_IGBT1 e Pv_D1 (FLOW), e a corrente e a tensão de
+    Cth 2 mJ/K na junção: Tj em regime = 25 + P·5 K/W, constante de tempo 5 K/W · 2 mJ/K = 10 ms; o diodo: Rth 4 K/W e
+    Cth 1 mJ/K na junção (τ = 4 ms; sem a Cth, a Tj do diodo seguia cada pulso de perda: picos de ~350 °C, Marcelo, 25/10).
+    Os medidores: Tj_IGBT1 e Tj_D1 (TEMP), Pv_IGBT1, Pcond_IGBT1, Psw_IGBT1 e Pv_D1 (FLOW), e a corrente e a tensão de
     cada um (para a conta à mão de exemplos_api.py e termica_api.py)."""
     poe("U.1", 4, 10, "U", 503, type=401, uDC=48.0)
     poe("IGBT.1", 8, 6, "IGBT", 502); poe("D.1", 12, 10, "D", 501); poe("L.1", 16, 6, "L", 502, L=1e-3)
@@ -334,7 +335,8 @@ def buck_termico():
     fio("gnd", (4, 12), (4, 14), (24, 14), (24, 12)); fio("", (12, 12), (12, 14)); fio("", (20, 12), (20, 14))
     pwm(4, 20, 0.5, 20e3); gate("GATE.1", 20, 22, "g", "IGBT.1")
     # a rede térmica (embaixo): Pv.1 → Tj → Rth.1 (jc) → Tc → Rth.2 (ca) → Tamb = DT.1 (25 °C) sobre a referência (TREF.1);
-    # Cth.1 da junção à referência, começando no ambiente (Temp(0) = 25: sem isso a junção parte de 0 °C); Pv.2 → Tjd → Rth.3 → Tamb
+    # Cth.1 da junção à referência, começando no ambiente (Temp(0) = 25: sem isso a junção parte de 0 °C); Pv.2 → Tjd → Rth.3 → Tamb,
+    # com a Cth.2 do Tjd à referência (o mesmo Temp(0))
     acopla("Pv.1", 4, 34, "Pv", componente="IGBT.1")
     poe("Rth.1", 10, 34, "Rth", 502, Rth=2.0); poe("Rth.2", 16, 34, "Rth", 502, Rth=3.0)
     poe("Cth.1", 8, 38, "Cth", 503, Cth=2e-3, **{"Temp(0)": 25.0}); poe("DT.1", 20, 38, "DT", 503, T_DC=25.0)
@@ -344,7 +346,8 @@ def buck_termico():
     fio_t("ref", (8, 40), (8, 42), (14, 42)); fio_t("", (14, 42), (20, 42), (20, 40))
     acopla("Pv.2", 4, 48, "Pv", componente="D.1")
     poe("Rth.3", 10, 48, "Rth", 502, Rth=4.0)
-    fio_t("Tjd", (6, 48), (8, 48)); fio_t("Tamb", (12, 48), (14, 48))
+    poe("Cth.2", 8, 52, "Cth", 503, Cth=1e-3, **{"Temp(0)": 25.0})
+    fio_t("Tjd", (6, 48), (8, 48)); fio_t("", (8, 48), (8, 50)); fio_t("Tamb", (12, 48), (14, 48)); fio_t("ref", (8, 54), (8, 56))
     acopla("TEMP.1", 30, 30, "TEMP", "Tj_IGBT1", no1="Tj", no2="ref")
     acopla("TEMP.2", 30, 32, "TEMP", "Tj_D1", no1="Tjd", no2="ref")
     acopla("FLOW.1", 30, 36, "FLOW", "Pv_IGBT1", componente="Pv.1", losscomp="total")
