@@ -259,6 +259,9 @@ function desenhaUsoChat() {
 function desenhaChat() {
   desenhaUsoChat();
   const e = cc.estado, logado = iaLogada(), anda = !!(e && e.andamento);
+  // nenhuma IA logada: a conversa não tem como andar — só o botão que abre as contas (a caixa e as ferramentas somem)
+  const alguma = ["claude", ...(cc.ias || []).map((a) => a.id)].some((ia) => iaLogada(ia));
+  $("ctl-claude").classList.toggle("cc-sem-ia", !alguma);
   const rodando = document.body.classList.contains("sim-rodando");
   $("cc-enviar").disabled = anda || cc.enviando; $("cc-enviar").textContent = cc.enviando ? tr("cc.enviando") : anda ? tr("cc.respondendo") : tr("cc.enviar");
   $("cc-texto").placeholder = anda ? tr("cc.ph_andamento") : tr("cc.ph_texto");
@@ -275,6 +278,7 @@ function desenhaChat() {
   const box = $("cc-msgs"), noFim = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
   let h = "";
   if (!cla.estado) h = `<div class="cc-vazio">${escT(tr("cc.consultando"))}</div>`;
+  else if (!alguma) h = `<div class="cc-vazio"><div class="cc-oi"><svg class="mascote" width="40" height="40" aria-hidden="true"><use href="#maisim-claude"/></svg><p>${escT(tr("cc.sem_conta"))}</p></div><button id="cc-entrar" class="primario">${escT(tr("cc.abrir_contas"))}</button></div>`;
   else if (!logado) h = `<div class="cc-vazio"><div class="cc-oi"><svg class="mascote" width="40" height="40" aria-hidden="true"><use href="#maisim-claude"/></svg><p>${escT(tr((cc.ias || []).filter((a) => a.instalado).length > 1 ? "cc.entre_conta_outra" : "cc.entre_conta", { ia: nomeIA() }))}</p></div><button id="cc-entrar" class="primario">${escT(tr("cc.entrar_com", { ia: nomeIA() }))}</button></div>`;
   else {
     const hist = (e && e.conversa && e.conversa.historico) || [];
