@@ -101,8 +101,10 @@ Type: filesandordirs; Name: "{app}\jre"
 Type: filesandordirs; Name: "{app}\maisim"
 
 [Icons]
-Name: "{autodesktop}\{#Nome}"; Filename: "{#Pythonw}"; Parameters: """{#Lancador}"" --produto --abrir"; WorkingDir: "{app}"; IconFilename: "{app}\maisim.ico"
-Name: "{group}\{#Nome}"; Filename: "{#Pythonw}"; Parameters: """{#Lancador}"" --produto --abrir"; WorkingDir: "{app}"; IconFilename: "{app}\maisim.ico"
+; o AppUserModelID é o mesmo que o lançador põe na janela do navegador (marca_janela): fixar o atalho ou a janela na
+; barra de tarefas dá um botão só, com o maisim.ico nítido
+Name: "{autodesktop}\{#Nome}"; Filename: "{#Pythonw}"; Parameters: """{#Lancador}"" --produto --abrir"; WorkingDir: "{app}"; IconFilename: "{app}\maisim.ico"; AppUserModelID: "MaiSim.MaiSim"
+Name: "{group}\{#Nome}"; Filename: "{#Pythonw}"; Parameters: """{#Lancador}"" --produto --abrir"; WorkingDir: "{app}"; IconFilename: "{app}\maisim.ico"; AppUserModelID: "MaiSim.MaiSim"
 Name: "{group}\{cm:Desligar}"; Filename: "{#Pythonw}"; Parameters: """{#Lancador}"" --produto --parar"; WorkingDir: "{app}"; IconFilename: "{app}\maisim.ico"
 Name: "{group}\{cm:PastaCircuitos}"; Filename: "{code:PastaDados}"
 

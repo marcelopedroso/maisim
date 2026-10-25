@@ -20,6 +20,7 @@ import signal
 import socket
 import subprocess
 import sys
+import threading
 import time
 import urllib.request
 from pathlib import Path
@@ -62,6 +63,88 @@ def avisa(pt, en):
     if WIN:
         import ctypes
         ctypes.windll.user32.MessageBoxW(None, pt if PT else en, "MaiSim", 0x10)
+
+
+# a janela do navegador como app no Windows: o Edge/Chrome dá a ela um AppUserModelID dele ("MSEdge.localhost_/.UserData.Profile1",
+# do endereço e do perfil) e, sem um app instalado, a barra de tarefas usa o favicon de 16 px esticado (borrado). Com o nosso
+# ID e o ícone de relançamento (o maisim.ico, com 16 a 256 px) na janela, a barra mostra o ícone nítido e o nome MaiSim, e fixar
+# a janela na barra abre o MaiSim pelo lançador. Os atalhos do instalador têm o mesmo ID (MaiSim.iss): janela e atalho são um só.
+AUMID = "MaiSim.MaiSim"
+
+
+def _propriedades_janela(hwnd, novos=None):
+    """Lê o AppUserModelID da janela (de qualquer processo) e, com novos ({pid da PKEY_AppUserModel_*: texto}), grava-os."""
+    import ctypes
+    import uuid
+    from ctypes import wintypes
+
+    class Chave(ctypes.Structure):
+        _fields_ = [("fmtid", ctypes.c_ubyte * 16), ("pid", wintypes.DWORD)]
+
+    class Valor(ctypes.Structure):           # PROPVARIANT: vt, três reservados e a união (24 bytes no Windows de 64 bits)
+        _fields_ = [("vt", ctypes.c_ushort), ("r1", ctypes.c_ushort), ("r2", ctypes.c_ushort), ("r3", ctypes.c_ushort),
+                    ("p", ctypes.c_void_p), ("p2", ctypes.c_void_p)]
+
+    def chave(pid):                          # PKEY_AppUserModel_*: 2 comando, 3 ícone, 4 nome, 5 o ID
+        return Chave((ctypes.c_ubyte * 16).from_buffer_copy(uuid.UUID("9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3").bytes_le), pid)
+
+    iid = (ctypes.c_ubyte * 16).from_buffer_copy(uuid.UUID("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99").bytes_le)  # IPropertyStore
+    ps = ctypes.c_void_p()
+    if ctypes.windll.shell32.SHGetPropertyStoreForWindow(wintypes.HWND(hwnd), ctypes.byref(iid), ctypes.byref(ps)) != 0 or not ps:
+        return None
+    tabela = ctypes.cast(ps, ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))).contents
+
+    def metodo(i, *args):
+        return ctypes.WINFUNCTYPE(ctypes.HRESULT, ctypes.c_void_p, *args)(tabela[i])
+    try:
+        v = Valor()
+        k = chave(5)
+        metodo(5, ctypes.POINTER(Chave), ctypes.POINTER(Valor))(ps, ctypes.byref(k), ctypes.byref(v))   # GetValue
+        atual = ctypes.wstring_at(v.p) if v.vt == 31 and v.p else ""                                      # VT_LPWSTR
+        ctypes.windll.ole32.PropVariantClear(ctypes.byref(v))
+        if novos:
+            textos = []
+            for pid, texto in novos.items():
+                textos.append(ctypes.create_unicode_buffer(texto))       # o SetValue copia; o texto vive até lá
+                k, v = chave(pid), Valor(vt=31, p=ctypes.addressof(textos[-1]))
+                metodo(6, ctypes.POINTER(Chave), ctypes.POINTER(Valor))(ps, ctypes.byref(k), ctypes.byref(v))  # SetValue
+            metodo(7)(ps)                                                                                  # Commit
+        return atual
+    finally:
+        ctypes.WINFUNCTYPE(ctypes.c_ulong, ctypes.c_void_p)(tabela[2])(ps)                                # Release
+
+
+def marca_janela(icone, comando, segundos=60):
+    """Espera a janela do MaiSim no navegador (a que o Edge/Chrome abriu com --app=http://localhost:…, cujo ID tem
+    ".localhost_") e põe nela o nosso AppUserModelID, o ícone, o comando e o nome de relançamento. Numa linha à parte: a
+    janela leva alguns segundos para aparecer e o lançador segue subindo o Gecko."""
+    import ctypes
+    from ctypes import wintypes
+    user32 = ctypes.windll.user32
+    ctypes.windll.ole32.CoInitialize(None)
+    novos = {5: AUMID, 3: f"{icone},0", 2: comando, 4: "MaiSim"}
+    fim = time.time() + segundos
+    while time.time() < fim:
+        achadas = []
+
+        def cada(hwnd, _):
+            nome = ctypes.create_unicode_buffer(64)
+            user32.GetClassNameW(wintypes.HWND(hwnd), nome, 64)
+            if nome.value == "Chrome_WidgetWin_1" and user32.IsWindowVisible(wintypes.HWND(hwnd)):
+                achadas.append(hwnd)
+            return True
+        user32.EnumWindows(ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)(cada), 0)
+        marcou = False
+        for hwnd in achadas:
+            try:
+                if ".localhost_" in (_propriedades_janela(hwnd) or ""):
+                    _propriedades_janela(hwnd, novos)
+                    marcou = True
+            except OSError:
+                pass
+        if marcou:
+            return
+        time.sleep(0.5)
 
 
 def migra_cache_antigo():
@@ -311,6 +394,12 @@ class Lancador:
             import webbrowser
             webbrowser.open(url)
         fala(f"aberto: {url}", f"opened: {url}")
+        icone = RAIZ.parent / "maisim.ico"           # o do instalador ({app}\maisim.ico); sem ele (em desenvolvimento), nada muda
+        if WIN and nav and icone.is_file():
+            exe = Path(sys.executable).with_name("pythonw.exe")
+            perfil = " --produto" if os.environ.get("MAISIM_PERFIL") == "produto" else ""
+            comando = f'"{exe if exe.is_file() else sys.executable}" "{Path(__file__).resolve()}"{perfil} --abrir'
+            threading.Thread(target=marca_janela, args=(icone, comando), daemon=True).start()
 
     def para(self, motivo=""):
         """Derruba o que este lançador subiu; o Gecko (e a tela dele) só sem circuito por salvar."""
