@@ -20,7 +20,7 @@ const B = "http://localhost:7200/maisim/simu/";
     const tela = (x, y) => pg.evaluate(([gx, gy]) => { const s = $("svg"), m = s.getScreenCTM(), pt = s.createSVGPoint();
       pt.x = gx * G; pt.y = gy * G; const q = pt.matrixTransform(m); return [q.x, q.y]; }, [x, y]);
     const clicaGrade = async (x, y) => { const p = await tela(x, y); await pg.mouse.click(p[0], p[1]); await pg.waitForTimeout(900); };
-    const poe = async (aba, id, x, y) => { await pg.click(`#abas button:text-is("${aba}")`); await pg.waitForTimeout(150); await pg.click(`#itens .item[data-id="${id}"]`); await clicaGrade(x, y); };
+    const poe = async (aba, id, x, y) => { await pg.click(`#abas button[data-aba="${aba}"]`); await pg.waitForTimeout(150); await pg.click(`#itens .item[data-id="${id}"]`); await clicaGrade(x, y); };
     const bloco = () => pg.evaluate(() => { const s = Object.values(dados.folhas).flatMap((f) => f.elementos).find((x) => x.tipo === "SUBCIRCUIT");
       return { uid: s.uid, tam: s.tamanho, bornes: Object.fromEntries(s.terminais.map((t) => [t.interno, [t.x - s.x, t.y - s.y, t.lado]])) }; });
     const dentro = (n) => pg.evaluate((n) => { const e = dados.folhas[folhaAtual].elementos.find((x) => x.nome === n); return e && [e.x, e.y]; }, n);

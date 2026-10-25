@@ -31,7 +31,7 @@ const FICA = ["ABCDQ", "DQABC", "TIME", "TEXT", "THYRISTOR_CONTROL", "RANDOM", "
     ok(abas.length >= 10 && !abas.includes("Reluctance") && !fora.length, `${abas.length} abas, sem a Reluctance (${abas.join(", ")}); ${ids.size} itens: nenhum dos de fora (${fora.join(", ") || "nenhum à vista"})`);
     ok(!falta.length, `os que ficam estão lá (${FICA.join(", ")}): ${falta.length ? "faltam " + falta.join(", ") : "todos"}`);
     const busca = {};
-    await pg.click(`#abas button:text-is("Measure")`); await pg.waitForTimeout(100);
+    await pg.click(`#abas button[data-aba="Measure"]`); await pg.waitForTimeout(100);
     const vm = await pg.$eval('#itens .item[data-id="VIEWMOT"] span', (e) => e.textContent).catch(() => "");
     ok(vm === VM, `o VIEWMOT na aba Measure com o nome do MaiSim: "${vm}"`);
     for (const q of ["Simulink", "Java", "PMSM", "Data", "Reluct", "SM-", "LISN", "Space", QVM]) {

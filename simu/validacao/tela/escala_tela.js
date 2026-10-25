@@ -36,7 +36,7 @@ const URL = "http://localhost:7200/maisim/simu/?modelo=" + encodeURIComponent(re
     // o desenho acerta o clique com o zoom
     await pg.click("#bt-editar"); await pg.waitForTimeout(600); while (await pg.$(".modal-fundo")) { await pg.click(".modal .m-extra, .modal .m-ok"); await pg.waitForTimeout(800); }
     await pg.waitForFunction(() => dados && dados.editor, null, { timeout: 30000 });
-    await pg.click('#abas button:text-is("Circuit")');
+    await pg.click('#abas button[data-aba="Circuit"]');
     const alvo = await pg.evaluate(() => { const gx = Math.round((ver.x + ver.w * 0.5) / G), gy = Math.round((ver.y + ver.h * 0.85) / G);
       const s = $("svg"), c = document.createElementNS("http://www.w3.org/2000/svg", "circle"); c.setAttribute("cx", gx * G); c.setAttribute("cy", gy * G); c.setAttribute("r", 1); s.appendChild(c);
       const r = c.getBoundingClientRect(); c.remove(); return { gx, gy, x: r.left + r.width / 2, y: r.top + r.height / 2 }; });

@@ -32,8 +32,13 @@ const EU = Math.random().toString(36).slice(2);
 function avisa(tipo, extra = {}) { if (canal) try { canal.postMessage(Object.assign({ tipo, de: EU, codigo: VISTA_CODIGO }, extra)); } catch (e) { /* ok */ } }
 const nomeSub = (nome) => String(nome).replace(/^SUBCIRCUIT\.(\d+)$/, "Sub.$1");
 const prefixoSub = (nome) => nomeSub(nome).replace(/[^A-Za-z0-9_]/g, "_");
-// o nome de cada tipo, no idioma da página (simu.descr.<tipo> no dicionário, lido na hora de mostrar); tipo sem nome: ""
+// o nome de cada tipo, no idioma da página (simu.descr.<tipo> no dicionário, lido na hora de mostrar); tipo sem nome: "". Nos
+// blocos de controle, simu.descr.<tipo> é a explicação (a conta, as entradas e as saídas: ajudaTipo) e o nome vem do
+// simu.cmp_<nome curto> (o mesmo da paleta, catalogo_gecko.py, ROTULOS): nomeTipo, para todos
 const descrTipo = (t) => { const k = "simu.descr." + t; return maisimI18n.tem(k) ? tr(k) : ""; };
+const nomeTipo = (e) => { const k = "simu.cmp_" + String(e.id_gecko || e.tipo).toLowerCase();
+  return maisimI18n.tem(k) ? tr(k) : e.dom === "CONTROL" ? e.nome_tipo || e.tipo : e.nome_tipo || descrTipo(e.tipo) || e.tipo; };
+const ajudaTipo = (t) => (["VOLT", "AMP", "TERM"].includes(t) ? "" : descrTipo(t));
 // os blocos com useExternal (Marcelo, 24/10): com a caixinha marcada, o Gecko tira estes parâmetros das entradas, a partir da
 // entrada de índice `de`, nesta ordem, e ignora o que está no painel. cx: o nome da caixinha no Gecko (no HYS, "external");
 // par: o nome curto do parâmetro; simb: o nome junto do borne (não se traduz; o LIMIT e o HYS como o Gecko os escreve)
@@ -51,7 +56,35 @@ const externaDe = (e) => { const x = EXTERNA[e.tipo]; return x && e.entradas.len
 // os bornes das entradas externas, na ordem de pars (os de antes, como o sinal do LIMIT, ficam de fora); sem elas, null
 const bornesExternos = (e) => { const x = EXTERNA[e.tipo], t = x && e.terminais.filter((u) => u.lado === "e");
   return t && t.length === x.de + x.pars.length ? t.slice(x.de) : null; };
-const SIMBOLO = { VIEWMOT: "M", LIMIT: "LIM", CONST: "C", SIGNAL: "∿", GATE: "G", GAIN: "K", ADD: "+", SUB: "−", NOT: "¬", AND: "&", DELAY: "Δt", GE: "≥", VOLT: "V", AMP: "A" };
+// o símbolo de cada bloco de controle, o mesmo na folha e na paleta (pelo nome curto do Gecko: SHLD, SGN, GATE…); sem símbolo,
+// o nome curto. Na folha, a fonte diminui até caber na caixa (ajustaSimbolo)
+const SIMBOLO = { VIEWMOT: "M", LIMIT: "LIM", CONST: "C", SIGNAL: "∿", GATE: "G", GAIN: "K", ADD: "+", SUB: "−", NOT: "¬", AND: "&",   // i18n-ok (símbolos)
+  DELAY: "Δt", GE: "≥", VOLT: "V", AMP: "A", PT1: "PT1", PT2: "PT2", INT: "∫", PI: "PI", PD: "d/dt", HYS: "HYS", MUL: "×", DIV: "÷",
+  MIN: "min", MAX: "max", SGN: "sgn", TF: "H(s)", OR: "≥1", XOR: "=1", SHLD: "S-H", COUNTER: "CNT", GT: ">", EQ: "=", NE: "≠",
+  ABS: "|x|", ROUND: "rnd", SQR: "x²", SQRT: "√x", POW: "xʸ", EXP: "eˣ", LN: "ln", SIN: "sin", COS: "cos", TAN: "tan",
+  ASIN: "sin⁻¹", ACOS: "cos⁻¹", ATAN: "tan⁻¹", SDFT: "DFT", ABCDQ: "abc→dq", DQABC: "dq→abc", TIME: "t", THYRISTOR_CONTROL: "THY",
+  TEXT: "T" };
+// os nomes das entradas (e) e das saídas (s) junto do borne, por dentro da caixa (símbolos: não se traduzem); no painel, o
+// nome longo (simu.pino.<tipo>.e<k>, senão este). LIMIT, HYS e SIGNAL com as entradas externas: EXTERNA, acima
+const PINOS = { INT: { e: ["x", "R"] }, SHLD: { e: ["x", "z"] }, COUNTER: { e: ["↑", "R"] }, DIV: { e: ["a", "b"] }, POW: { e: ["x", "y"] },
+  GE: { e: ["a", "b"] }, GT: { e: ["a", "b"] }, EQ: { e: ["a", "b"] }, NE: { e: ["a", "b"] },
+  ABCDQ: { e: ["a", "b", "c", "θ"], s: ["d", "q"] }, DQABC: { e: ["d", "q", "θ"], s: ["a", "b", "c"] },
+  THYRISTOR_CONTROL: { e: ["α", "sync"], s: ["1", "2", "3", "4", "5", "6"] } };
+// os parâmetros dos blocos de controle: o nome no .ipes (o par do ipes.py, NOMES_CONTROLE) → [o nome curto do Gecko, o do
+// painel e da chave simu.par.<tipo>.<curto>; a unidade]. O resto do painel vem do Gecko (editor/params)
+const PAR_CTL = { GAIN: { k: ["r0"] }, PT1: { T: ["T", "s"], a1: ["a1"] }, PT2: { T: ["T", "s"], a1: ["a1"] },
+  INT: { a1: ["a1", "1/s"], y0: ["y0"], min: ["min"], max: ["max"] }, PI: { r0: ["r0"], a1: ["a1", "1/s"], T_Value: ["T", "s"] },
+  PD: { a1: ["a1", "s"] }, HYS: { h: ["h"] }, LIMIT: { minLimit: ["min"], maxLimit: ["max"] }, DELAY: { tDelay: ["T", "s"] },
+  SDFT: { windowSpan: ["T", "s"], freq_1: ["F1", "Hz"] }, CONST: { constantValue: ["const"] }, TF: { constant: ["gain"] },
+  SIGNAL: { amplitudeAC: ["amplMAX"], frequenz: ["f", "Hz"], anteilDC: ["offset"], phase: ["phase", "°"], tastverhaeltnis: ["d"] },
+  THYRISTOR_CONTROL: { onTime: ["ontime", "s"], initFreq: ["initf", "Hz"], phaseShift: ["phase", "°"] } };
+const unidCtl = (tipo, curto) => { const x = Object.values(PAR_CTL[tipo] || {}).find(([c]) => c === curto); return x ? x[1] || "" : null; };
+// o rótulo e a ajuda de um parâmetro no idioma da página (simu.par.<tipo>.<curto>; o número de entradas é o mesmo em todos);
+// sem tradução, o nome do Gecko
+const rotuloPar = (tipo, curto) => { const k = `simu.par.${tipo}.${curto}`;
+  return maisimI18n.tem(k) ? tr(k) : curto === "numberInputTerminals" ? tr("simu.par.n_entradas") : curto; };
+const ajudaPar = (tipo, curto) => { const k = `simu.par.${tipo}.${curto}.d`;
+  return maisimI18n.tem(k) ? tr(k) : curto === "numberInputTerminals" ? tr("simu.par.n_entradas.d") : ""; };
 const UNID = { resistance: "Ω", inductance: "H", capacitance: "F", amplitude: "V", dcValue: "V", frequency: "Hz", onResistance: "Ω",
   offResistance: "Ω", frequenz: "Hz", phaseDegrees: "°", phase: "°", initialCurrent: "A" };
 // a rede térmica (aba Térmica): Rth, Cth, DT e HEAT-SOURCE com dois terminais, desenhados como R, C, fonte de tensão e de
@@ -594,8 +627,65 @@ function valorPrincipal(e) {
   if (e.tipo === "C") return v("capacitance");
   if ((e.tipo === "U" || e.tipo === "I") && p.sourceType === 400) return `← ${e.mede[0] || tr("simu.sem_sinal")}`;
   if (e.tipo === "U") return p.sourceType === 402 ? `${v("amplitude")} · ${si(p.frequency, "Hz")}` : si(p.dcValue, "V");
+  if (e.dom === "CONTROL") return valorControle(e);
   return "";
 }
+// um número curto, sem unidade (o ganho, os limites): 4 algarismos; muito grande ou muito pequeno, em notação científica
+const numCurto = (v) => { if (v == null || !isFinite(v)) return "–"; const a = Math.abs(v);
+  return a && (a >= 1e5 || a < 1e-3) ? v.toExponential(2).replace(/\.?0+e/, "e").replace("e+", "e") : String(+v.toPrecision(4)); };
+// o valor principal de um bloco de controle, embaixo dele (Marcelo, 25/10: "usual, sem Python"; como o R, o L e o C): com uma
+// variável global, o nome dela ($Kp); com as entradas externas, nada (o valor vem de fora). A TF fica com a frente dela
+function valorControle(e) {
+  if (ehTag(e) || MEDIDOR.has(e.tipo)) return "";
+  const p = e.par, tem = (...ks) => ks.every((k) => p[k] != null), n = (k) => p[k + "_var"] || numCurto(p[k]), u = (k, un) => p[k + "_var"] || si(p[k], un);
+  const ext = !!bornesExternos(e);
+  switch (e.tipo) {
+    case "GAIN": return tem("k") ? `k=${n("k")}` : "";
+    case "PI": return tem("r0", "a1") ? `Kp=${n("r0")} · Ki=${n("a1")}` : "";
+    case "PT1": case "PT2": return tem("T") ? `T=${u("T", "s")}` + (tem("a1") && (p.a1 !== 1 || p.a1_var) ? ` · K=${n("a1")}` : "") : "";
+    case "INT": return tem("a1") ? `k=${n("a1")}` + (tem("min", "max") && Math.max(Math.abs(p.min), Math.abs(p.max)) < 1e6 ? ` · ${n("min")}…${n("max")}` : "") : "";
+    case "PD": return tem("a1") ? `k=${n("a1")}` : "";
+    case "HYS": return tem("h") && !ext ? `h=${n("h")}` : "";
+    case "LIMIT": return tem("minLimit", "maxLimit") && !ext ? `${n("minLimit")}…${n("maxLimit")}` : "";
+    case "DELAY": return tem("tDelay") ? `Δt=${u("tDelay", "s")}` : "";
+    case "SDFT": return tem("freq_1", "windowSpan") ? `${u("freq_1", "Hz")} · T=${u("windowSpan", "s")}` : "";
+    case "CONST": return tem("constantValue") ? n("constantValue") : "";
+    case "SIGNAL": return tem("amplitudeAC", "frequenz") && !ext && p.typQuelle !== 405 ? `Â=${n("amplitudeAC")} · ${u("frequenz", "Hz")}` : "";   // i18n-ok (símbolo)
+    case "THYRISTOR_CONTROL": return tem("phaseShift") ? `α=${n("phaseShift")}°` : "";
+    default: return "";
+  }
+}
+// o símbolo cabe na caixa (Marcelo, 25/10: o COUNTER e o THYRISTOR_CONTROL vazavam): sem encostar nos nomes dos bornes da mesma
+// faixa, centrado no espaço livre entre eles, com a fonte diminuindo até caber. Se não cabe inteiro no meio, tenta entre duas
+// linhas de bornes (o dq→abc, com nomes dos dois lados) e fica onde a fonte sai maior (no mínimo 0,28 do quadrado; ainda
+// grande, cortado com …). A faixa do símbolo é 70 % da altura da caixa do texto (a tinta; cheia: a caixa inteira, como nas
+// entradas externas do LIMIT, HYS e SIGNAL). Medidas do desenho (getBBox): só com a folha na página
+function ajustaSimbolo(t, e, topo, h, pinos, cheia) {
+  if (!t.isConnected) return;
+  // a largura pela caixa do texto (o ⁻¹ passa do avanço medido), com 5 % de folga (a fonte não encolhe em proporção exata)
+  const b0 = t.getBBox(), fs0 = +t.getAttribute("font-size"), w0 = (b0.width || 1) / 0.95, a0 = b0.height || fs0, rs = pinos.map((q) => q.getBBox())
+    .concat(e.terminais.map((u) => ({ x: (u.x - 0.22) * G, y: (u.y - 0.22) * G, width: 0.44 * G, height: 0.44 * G })));   // e os bornes na borda (a saída em x + 1)
+  const cima = (topo + 0.06) * G, baixo = (topo + h - 0.06) * G, dy = b0.y + b0.height / 2 - +t.getAttribute("y");   // o meio da tinta fica um pouco acima do y
+  const livre = (yc, fs) => {                          // o espaço livre (x0, x1) na faixa do símbolo em yc com a fonte fs
+    const meia = a0 * (cheia ? 0.5 : 0.35) * fs / fs0, ym = yc + dy * fs / fs0; let x0 = (e.x - 1 + 0.12) * G, x1 = (e.x + 1 - 0.12) * G;
+    for (const r of rs) if (r.y < ym + meia && r.y + r.height > ym - meia) {
+      if (r.x + r.width / 2 < e.x * G) x0 = Math.max(x0, r.x + r.width + 0.08 * G); else x1 = Math.min(x1, r.x - 0.08 * G); }
+    return [x0, x1, meia, ym];
+  };
+  const cabe = (yc, fs) => { const [x0, x1, meia, ym] = livre(yc, fs); return w0 * fs / fs0 <= x1 - x0 && ym - meia >= cima && ym + meia <= baixo; };
+  const tenta = (yc) => {                               // a maior fonte que cabe em yc (quanto menor a fonte, menor a faixa: busca binária)
+    let a = 0, b = fs0;
+    if (cabe(yc, fs0)) a = fs0; else for (let k = 0; k < 14; k++) { const c = (a + b) / 2; if (cabe(yc, c)) a = c; else b = c; }
+    const [x0, x1] = livre(yc, a || 0.28 * G); return { yc, fs: a, x0, x1 };
+  };
+  let m = tenta(+t.getAttribute("y"));
+  if (m.fs < fs0 * 0.99) for (let y = topo + 1; y < topo + h - 0.5; y += 1) { const c = tenta(y * G); if (c.fs > m.fs + 0.02 * G) m = c; }
+  t.setAttribute("font-size", Math.max(0.28 * G, m.fs)); t.setAttribute("x", (m.x0 + m.x1) / 2); t.setAttribute("y", m.yc);
+  if (t.getBBox().width > m.x1 - m.x0 + 0.02 * G) cortaAte(t, (m.x1 - m.x0) / G);
+}
+// as fontes da página chegam depois do 1º desenho (a do LaTeX, nos nomes dos bornes): as medidas do ajustaSimbolo mudam, então
+// redesenha quando elas terminam de carregar
+if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener("loadingdone", () => { if (dados && !VISTA_CODIGO) desenha(); });
 
 // ---------------------------------------------------------------- folha
 function desenha() {
@@ -741,14 +831,28 @@ function desenha() {
       // y + 2 … y + 6, abaixo da saída, o LIMIT 2 em y + 2, y + 3 e o HYS 1 em y + 2 — ver EXTERNAS no ipes.py); sem bornes, uma linha
       const ys = [e.y, ...e.terminais.map((t) => t.y)], topo = Math.min(...ys) - 0.5, h = Math.max(...ys) - Math.min(...ys) + 1;
       const ext = bornesExternos(e), pars = ext && EXTERNA[e.tipo].pars;
-      no("rect", { class: "corpo", x: (e.x - 1) * G, y: topo * G, width: 2 * G, height: h * G, fill: COR.ctFundo, stroke: COR.ct, "stroke-width": 1.4, rx: 2 }, g);
+      const caixa = no("rect", { class: "corpo", x: (e.x - 1) * G, y: topo * G, width: 2 * G, height: h * G, fill: COR.ctFundo, stroke: COR.ct, "stroke-width": 1.4, rx: 2 }, g);
       // o símbolo no meio; com as entradas externas, no meio da faixa de cima (a da saída, livre dos nomes das entradas)
       const ySimb = ext ? (topo + Math.min(...ext.map((t) => t.y)) - 0.5) / 2 : topo + h / 2;
-      texto(g, e.x, ySimb, ehTag(e) ? "tag" : SIMBOLO[e.tipo] || e.tipo, { class: "simbolo", "text-anchor": "middle", fill: COR.ct, "font-size": (ehTag(e) ? 0.55 : 0.7) * G, "font-weight": 700 });
+      const simb = texto(g, e.x, ySimb, ehTag(e) ? "tag" : e.tipo === "TEXT" ? e.titulo || SIMBOLO.TEXT : SIMBOLO[e.tipo] || e.tipo,
+        { class: "simbolo", "text-anchor": "middle", fill: COR.ct, "font-size": (ehTag(e) ? 0.55 : 0.7) * G, "font-weight": 700 });
       // e o que cada entrada externa dá, junto do borne, por dentro (símbolos: não se traduzem)
       if (ext) ext.forEach((t, k) => { const esq = t.x < e.x;
         texto(g, t.x + (esq ? 0.32 : -0.32), t.y, pars[k].simb, { class: "pino-ext", "text-anchor": esq ? "start" : "end", fill: COR.ct,
           "font-size": 0.42 * G, "font-family": MAT, "font-style": pars[k].simb.length === 1 ? "italic" : "normal" }); });
+      // os nomes das entradas e saídas dos blocos de várias (PINOS: x e R do integrador, a e b do comparador, θ do abc→dq…),
+      // junto da borda da caixa, por dentro
+      const pn = !ext && PINOS[e.tipo];
+      if (pn) for (const lado of ["e", "s"]) { const ts = e.terminais.filter((t) => t.lado === lado);
+        (pn[lado] || []).forEach((nm, k) => { const t = ts[k]; if (!t) return; const esq = t.x < e.x;
+          texto(g, esq ? Math.max(t.x, e.x - 1) + 0.22 : Math.min(t.x, e.x + 1) - 0.34, t.y, nm, { class: "pino", "text-anchor": esq ? "start" : "end", fill: COR.ct,
+            "font-size": 0.42 * G, "font-family": MAT, "font-style": nm.length === 1 && /\p{L}/u.test(nm) ? "italic" : "normal" }); }); }
+      if (e.tipo === "TEXT") {                          // a caixa de texto (sem bornes): alarga até o título caber (até 12 quadrados)
+        const w = Math.min(12, Math.max(2, simb.isConnected ? simb.getComputedTextLength() / G + 0.6 : 2));
+        caixa.setAttribute("width", w * G); simb.setAttribute("x", (e.x - 1 + w / 2) * G); if (w === 12) cortaAte(simb, 11.4);
+      } else ajustaSimbolo(simb, e, topo, h, [...g.querySelectorAll(".pino-ext, .pino")], !!ext);
+      const valCtl = valorPrincipal(e);
+      if (valCtl) texto(g, e.x, topo + h + 0.5, valCtl, { class: "valor-bloco", "text-anchor": "middle", fill: COR.par, "font-size": 0.45 * G });
       if (e.tipo === "VIEWMOT") texto(g, e.x, topo + h + 0.55, e.mede[1] && e.grandeza ? `${e.mede[1]} · ${e.grandeza}` : tr("simu.sem_maquina"),
         { class: "vm-alvo", "text-anchor": "middle", fill: e.mede[1] ? COR.ct : COR.erro, "font-size": 0.45 * G });
       if (e.tipo === "TF" && e.tf) cortaAte(texto(g, e.x, topo + h + 0.55, rotuloTF(e), { class: "tf-h", "text-anchor": "middle", fill: COR.ct, "font-size": 0.45 * G }), 9);
@@ -797,6 +901,10 @@ function ajusta() {
   let [x0, y0, x1, y1] = f.limites;
   if (f.tamanho) { x0 = Math.min(x0, 0); y0 = Math.min(y0, 0); x1 = Math.max(x1, f.tamanho[0]); y1 = Math.max(y1, f.tamanho[1]); }   // SM: a folha inteira (tamanho fixo)
   x1 += f.elementos.some((e) => MEDIDOR.has(e.tipo)) ? 5 : 0;   // o nome no scope, à direita dos medidores
+  // a caixa de texto alarga para a direita até o título caber (até 12 quadrados a partir de x − 1): o ajuste conta a caixa
+  // inteira, pela largura desenhada (ou, antes do desenho, pelo máximo)
+  f.elementos.forEach((e, i) => { if (e.tipo !== "TEXT") return; const c = $("svg").querySelector(`g.el[data-i="${i}"] rect.corpo`);
+    x1 = Math.max(x1, e.x - 1 + (c ? +c.getAttribute("width") / G : 12) - m + 0.5); });
   // nunca menor que 30 × 20 quadrados: uma folha vazia ou de uma peça só não vira um zoom absurdo
   if (x1 - x0 < 30) { const c = (x0 + x1) / 2; x0 = c - 15; x1 = c + 15; }
   if (y1 - y0 < 20) { const c = (y0 + y1) / 2; y0 = c - 10; y1 = c + 10; }
@@ -839,7 +947,9 @@ function dica(ev, e) {
   const p = e.par;
   for (const k in p) {
     if (k.endsWith("_var") || k.endsWith("_guardado") || ["terminalLocation", "worksheetSizeX", "worksheetSizeY", "blockSizeX", "blockSizeY", "sourceType", "typQuelle"].includes(k)) continue;
-    linhas.push([k + (p[k + "_var"] ? ` (${p[k + "_var"]})` : ""), si(p[k], UNID[k]) +
+    const pc = e.dom === "CONTROL" && (PAR_CTL[e.tipo] || {})[k];   // bloco de controle: o nome do painel e a unidade dele
+    if (e.dom === "CONTROL" && k === "T_Value") continue;            // o T do PI: só exibição no Gecko (o painel mostra Kp/Ki)
+    linhas.push([(pc ? escT(rotuloPar(e.tipo, pc[0])) : k) + (p[k + "_var"] ? ` (${p[k + "_var"]})` : ""), si(p[k], pc ? pc[1] : UNID[k]) +
       (p[k + "_guardado"] != null ? " " + tr("simu.dica_guardado_html", { v: si(p[k + "_guardado"], UNID[k]) }) : "")]);
   }
   if (e.tipo === "AMP" && e.mede[0]) {
@@ -856,7 +966,7 @@ function dica(ev, e) {
   if (e.saidas.filter(Boolean).length) linhas.push([tr(e.dom === "LK" ? "simu.dica_no2" : "simu.dica_saidas"), e.saidas.map((s) => s || "·").join(", ")]);
   if (e.tipo === "SUBCIRCUIT") linhas.push([tr("simu.dica_terminais"), e.terminais.map((t) => t.interno + (t.rotulo ? ` → ${t.rotulo}` : "")).join(", ")], ["", tr("simu.dica_abre_sm")]);
   const d = $("dica");
-  d.innerHTML = `<b>${e.nome}</b> <span class="t">· ${descrTipo(e.tipo) || e.tipo}</span><table>${linhas.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join("")}</table>`;
+  d.innerHTML = `<b>${e.nome}</b> <span class="t">· ${escT(nomeTipo(e))}</span><table>${linhas.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join("")}</table>`;
   d.style.display = "block";
   const x = Math.min(ev.clientX + 14, innerWidth - d.offsetWidth - 8), y = Math.min(ev.clientY + 14, innerHeight - d.offsetHeight - 8);
   d.style.left = `${x}px`; d.style.top = `${y}px`;
@@ -1262,7 +1372,7 @@ async function liga(on) {
   if (!ed.catalogo) { ed.catalogo = await (await fetch("static/catalogo.json")).json();
     const med = ed.catalogo.abas.find((a) => a.aba === "Measure"); if (med) med.itens.unshift(TAG_ITEM);   // a tag do MaiSim, junto dos medidores
     // "rotulo" (catalogo_gecko.py, ROTULOS): o nome do MaiSim nos dois idiomas no lugar do do Gecko, como o da tag
-    ed.catalogo.abas.forEach((a) => a.itens.forEach((i) => { if (i.rotulo) Object.defineProperty(i, "nome", { get: () => tr(i.rotulo) }); }));
+    ed.catalogo.abas.forEach((a) => a.itens.forEach((i) => { if (i.rotulo) { i.gecko = i.nome; Object.defineProperty(i, "nome", { get: () => tr(i.rotulo) }); } }));   // gecko: na busca e na dica
     desenhaPaleta(); carregaBiblioteca(); }
   if ($("sel-modelo").value === NOVO || !$("sel-modelo").value) return;   // novo, ou fechado: nada a abrir
   msg(tr("simu.abrindo"));
@@ -1305,18 +1415,23 @@ function usaSimulacaoDoArquivo(j) {
   return [comDt ? tr("simu.sim_do_arquivo", { dt: si(s.dt, "s"), tfim: si(s.tfim, "s") }) : "",
           comSolver && String(s.solver) !== "0" ? tr("simu.solver_do_arquivo", { nome: tr(`simu.solver_${s.solver}`) }) : ""].filter(Boolean).join(" · ");
 }
+// o nome da aba da paleta no idioma da página (o do catálogo do Gecko, sem tradução: como vem)
+const nomeAba = (a) => { const k = "simu.aba." + a; return maisimI18n.tem(k) ? tr(k) : a; };
+// a dica de um item: o nome (com o do Gecko entre parênteses, quando é outro), o tipo e, nos blocos de controle, o que ele faz
+const tituloItem = (i) => tr("simu.t_item", { nome: i.gecko && i.gecko !== i.nome ? `${i.nome} (${i.gecko})` : i.nome, typ: i.typ, dom: i.dom })
+  + (i.dom === "CONTROL" && ajudaTipo(i.id) ? "\n" + ajudaTipo(i.id) : "");
 function desenhaPaleta() {
   const c = { abas: ed.catalogo.abas.concat([{ aba: tr("simu.aba_biblioteca"), itens: ed.lib }]) }, q = $("busca").value.trim().toLowerCase();
   // a aba com tudo "oculto" (a Reluctance) não aparece; o índice das outras fica o mesmo (ed.aba)
   const vazia = (a) => a.itens.length && a.itens.every((i) => i.oculto);
   if (vazia(c.abas[ed.aba] || { itens: [] })) ed.aba = 0;
-  $("abas").innerHTML = c.abas.map((a, k) => vazia(a) ? "" : `<button data-k="${k}" class="${k === ed.aba && !q ? "ativo" : ""}">${a.aba}</button>`).join("");
+  $("abas").innerHTML = c.abas.map((a, k) => vazia(a) ? "" : `<button data-k="${k}" data-aba="${escT(a.aba)}" class="${k === ed.aba && !q ? "ativo" : ""}">${escT(nomeAba(a.aba))}</button>`).join("");
   $("abas").querySelectorAll("button").forEach((b) => b.onclick = () => { ed.aba = +b.dataset.k; $("busca").value = ""; desenhaPaleta(); });
-  const itens = (q ? c.abas.flatMap((a) => a.itens.map((i) => Object.assign({ aba: a.aba }, i))).filter((i) => `${i.nome} ${i.id}`.toLowerCase().includes(q))
+  const itens = (q ? c.abas.flatMap((a) => a.itens.map((i) => Object.assign({ aba: a.aba }, i))).filter((i) => `${i.nome} ${i.gecko || ""} ${i.id}`.toLowerCase().includes(q))
                     : c.abas[ed.aba].itens).filter((i) => i.id !== "SCOPE" && !i.oculto);   // regra do MaiSim: medidor vai para o
   // /maisim/scope; "oculto": o que o MaiSim não oferece (catalogo_gecko.py, ESCONDIDOS) — um circuito que já o tem abre e roda
   $("itens").innerHTML = itens.map((i) => `<div class="item${ed.colocar && ed.colocar.id === i.id ? " ativo" : ""}${i.lib ? " lib" : ""}" data-id="${i.id}" draggable="true"
-    title="${i.lib ? tr("simu.t_item_lib", { nome: i.nome, info: i.info }) : tr("simu.t_item", { nome: i.nome, typ: i.typ, dom: i.dom })}">
+    title="${escT(i.lib ? tr("simu.t_item_lib", { nome: i.nome, info: i.info }) : tituloItem(i))}">
     ${icone(i)}<span>${i.nome}</span>${i.lib ? `<small>${i.info}</small>` : ""}</div>`).join("") ||
     (ed.aba === c.abas.length - 1 && !q ? `<div class="dica-paleta">${escT(tr("simu.lib_vazia"))}</div>` : `<i>${escT(tr("simu.nada"))}</i>`);
   const acha = (id) => c.abas.flatMap((a) => a.itens).find((i) => i.id === id);
@@ -1432,8 +1547,12 @@ function nomeBorneMaq(e, lado, k) {
   if (e.id_gecko === "M-DC" || e.id_gecko === "PM-DC") return tr(`simu.borne_${k ? "campo" : "armadura"}_${lado === "e" ? "mais" : "menos"}`);
   return lado === "e" ? tr("simu.borne_fase", { f: "abc"[k] || k + 1 }) : tr("simu.borne_n", { n: k + 1 });
 }
-const nomeEntrada = (e, i) => { const x = externaDe(e), p = x && x.pars[i - x.de];
-  return p ? tr("simu.entrada_ext_n", { n: i + 1, o: tr(p.k) }) : tr("simu.entrada_n", { n: i + 1 }); };
+// o nome de uma entrada ou saída no painel: o que ela dá (a entrada externa, ou PINOS com o nome longo simu.pino.<tipo>.e<k>)
+const nomePino = (e, lado, i) => { const k = `simu.pino.${e.tipo}.${lado}${i}`, c = ((PINOS[e.tipo] || {})[lado] || [])[i];
+  return maisimI18n.tem(k) ? tr(k) : e.tipo === "THYRISTOR_CONTROL" && lado === "s" ? tr("simu.pino.THYRISTOR_CONTROL.s", { n: i + 1 }) : c || ""; };
+const nomeEntrada = (e, i) => { const x = externaDe(e), p = x && x.pars[i - x.de], o = p ? tr(p.k) : x ? "" : nomePino(e, "e", i);
+  return o ? tr("simu.entrada_ext_n", { n: i + 1, o }) : tr("simu.entrada_n", { n: i + 1 }); };
+const nomeSaida = (e, i) => { const o = nomePino(e, "s", i); return o ? tr("simu.saida_ext_n", { n: i + 1, o }) : tr("simu.saida_n", { n: i + 1 }); };
 async function montaProps() {
   const P = $("props"); if (!ed.ligado) return;
   if (tamanhoSel()) {                                   // vários selecionados: o resumo e o que dá para fazer com eles
@@ -1458,7 +1577,7 @@ async function montaProps() {
   const e = selecionado();
   if (!e) { P.innerHTML = `<div class="t">${tr("simu.props_vazio_html")}</div>${caixaHist()}`; return; }
   const vars = Object.keys(e.par).filter((k) => k.endsWith("_var")).map((k) => e.par[k]);
-  P.innerHTML = `<h3>${e.nome}</h3><div class="t">${ehTag(e) ? escT(tr("simu.tag_descr")) : e.nome_tipo || descrTipo(e.tipo) || e.tipo} · (${e.x}, ${e.y})</div>
+  P.innerHTML = `<h3>${e.nome}</h3><div class="t">${ehTag(e) ? escT(tr("simu.tag_descr")) : escT(nomeTipo(e))} · (${e.x}, ${e.y})</div>
     <label><span>${escT(tr("simu.p_nome"))}</span><input id="p-nome" value="${e.nome}"></label>
     <label><span>${escT(tr("simu.p_pos"))}</span><input id="p-pos" value="${e.x}, ${e.y}"></label>
     <div class="botoes">${podeGirar(e) ? `<button id="p-gira">${escT(tr("simu.girar_r"))}</button>` : naoGira(e) ? `<button id="p-nao-gira" class="nao-gira" title="${escT(tr("simu.nao_gira"))}">${escT(tr("simu.girar"))}</button>` : ""}<button id="p-apaga" class="perigo">${escT(tr("simu.apagar"))}</button></div>
@@ -1530,7 +1649,7 @@ async function montaProps() {
       <div class="aviso">${tr("simu.nome_scope_aviso_html", { canal: canalScope(e) })}</div>`
       : ehSinal(e, folhaDe(e)) && noScope(e) ? `<h4>${escT(tr("simu.h_no_scope"))}</h4>${caixaScope(e)}` : ""}
     ${e.dom === "CONTROL" && e.tipo !== "TERM" && !MEDIDOR.has(e.tipo) && !ehTag(e) ? `<h4>${escT(tr("simu.h_rot_terminais"))}</h4>${e.entradas.map((r, i) => `<label><span>${escT(nomeEntrada(e, i))}</span><input data-in="${i}" value="${r}"></label>`).join("")}
-      ${e.saidas.map((r, i) => `<label><span>${escT(tr("simu.saida_n", { n: i + 1 }))}</span><input data-out="${i}" value="${r}"></label>`).join("")}` : ""}
+      ${e.saidas.map((r, i) => `<label><span>${escT(nomeSaida(e, i))}</span><input data-out="${i}" value="${r}"></label>`).join("")}` : ""}
     ${caixaHist()}`;
   const v = (id) => P.querySelector(id);
   if (v("#p-nome")) v("#p-nome").onchange = (ev) => pede("RENAME", [qualificado(e), ev.target.value.trim()], tr("simu.d_renomeado", { nome: e.nome, novo: ev.target.value.trim() }));
@@ -1712,28 +1831,43 @@ async function montaProps() {
   ligaCaixaScope(P, e);
   if (ehTag(e)) { v("#p-params").innerHTML = `<i>${escT(tr("simu.tag_params"))}</i>`; return; }
   try {
-    const lst = (await api(`editor/params?nome=${encodeURIComponent(qualificado(e))}&dom=${encodeURIComponent(e.dom)}&typ=${e.typ}`))   // dom/typ: o identificador no arquivo (para o $)
+    let lst = (await api(`editor/params?nome=${encodeURIComponent(qualificado(e))}&dom=${encodeURIComponent(e.dom)}&typ=${e.typ}`))   // dom/typ: o identificador no arquivo (para o $)
       .filter((q) => !(e.tipo === "TF" && TF_SO_GECKO.includes(q.id)));
     if (ed.sel !== e.nome) return;
+    // a caixa de texto: o título, o texto e as cores são texto no Gecko, e a interface remota só escreve números (ficam a altura e a largura)
+    if (e.tipo === "TEXT") lst = lst.filter((q) => ["height", "width"].includes(q.nome));
+    const ctl = e.dom === "CONTROL", ajuda = ctl ? ajudaTipo(e.tipo) : "";
     const ligada = (q) => (q.id && e.par[q.id + "_var"]) || "";          // a variável $ que dá o valor (como no Gecko)
     // enumerações e caixinhas (Marcelo, 24/10: a forma da portadora aparecia como 404): o tipo do parâmetro vem do Gecko
     // (parametros_gecko.json); nenhum desses aceita variável $ (pode_var só em Double e Integer)
     const enumDe = (q) => ENUM_GECKO[q.tipo] || (q.nome === "type" && (e.tipo === "U" || e.tipo === "I") ? ENUM_GECKO.CircuitSourceType : null);
+    // o T do PI (Marcelo, 25/10): o Gecko só o mostra (escrever nele não muda nada) — aqui, T = Kp/Ki, calculado e só de leitura
+    const kpki = e.tipo === "PI" && [lst.find((q) => q.nome === "r0"), lst.find((q) => q.nome === "a1")];
     const campo = (q) => {
+      if (kpki && q.nome === "T") { const [kp, ki] = kpki, t = kp && ki && ki.valor ? kp.valor / ki.valor : NaN;
+        return `<input data-derivado="T" value="${escT(isFinite(t) ? si(t, "s") : "–")}" disabled title="${escT(ajudaPar("PI", "T"))}">`; }
       const ops = enumDe(q);
       if (ops) { const atual = ops.find(([c, n]) => c === q.valor || n === q.valor);     // o GETP dá o código antigo (404); o 0–4 também vale
-        return `<select data-p="${q.nome}">${ops.map(([c, , k]) => `<option value="${c}" ${atual && atual[0] === c ? "selected" : ""}>${escT(tr(k))}</option>`).join("")}${atual ? "" : `<option value="${q.valor}" selected>${q.valor}</option>`}</select>`; }
+        // a forma "Importada (arquivo)" do SIGNAL só aparece se o bloco já está nela: o FILE (os dados de um arquivo) está fora da paleta
+        const vis = ops.filter(([c, , , oculta]) => !oculta || (atual && atual[0] === c));
+        return `<select data-p="${q.nome}">${vis.map(([c, , k]) => `<option value="${c}" ${atual && atual[0] === c ? "selected" : ""}>${escT(tr(k))}</option>`).join("")}${atual ? "" : `<option value="${q.valor}" selected>${q.valor}</option>`}</select>`; }
       if (q.tipo === "Boolean") return `<input type="checkbox" class="p-bool" data-p="${q.nome}" ${q.valor > 0.5 ? "checked" : ""}>`;
       return ligada(q) ? `<span class="com-var"><input data-p="${q.nome}" value="${escT(ligada(q))}" class="var" autocomplete="off"><small title="${escT(tr("simu.t_valor_var", { v: ligada(q) }))}">= ${si(q.valor, q.unidade)}</small></span>`
         : `<input data-p="${q.nome}" value="${q.valor}"${q.pode_var ? ' autocomplete="off"' : ""}>`;
     };
-    const linhaPar = (q) => `<label title="${q.descricao}${q.pode_var ? " · " + escT(tr("simu.t_pode_var")) : ""}"><span>${q.nome}${q.unidade ? ` [${q.unidade}]` : ""}</span>
-      ${q.erro ? `<i>${q.erro}</i>` : campo(q)}</label>`;
+    // nos blocos de controle, o nome legível e a unidade (simu.par.<tipo>.<nome>, PAR_CTL); o do Gecko fica na dica, entre parênteses
+    const linhaPar = (q) => { const aj = ctl ? ajudaPar(e.tipo, q.nome) : "", uc = ctl ? unidCtl(e.tipo, q.nome) : null, un = uc != null ? uc : q.unidade;
+      const dica = aj ? `${aj} (${q.nome}${q.descricao && q.descricao !== q.nome ? ": " + q.descricao : ""})` : q.descricao;
+      return `<label title="${escT(dica)}${q.pode_var && !(kpki && q.nome === "T") ? " · " + escT(tr("simu.t_pode_var")) : ""}"><span>${escT(ctl ? rotuloPar(e.tipo, q.nome) : q.nome)}${un ? ` [${escT(un)}]` : ""}</span>
+      ${q.erro ? `<i>${q.erro}</i>` : campo(q)}</label>`; };
     // num semicondutor, a seção "Perdas": os campos do modo simples do Gecko juntos (uF e rON também valem no circuito: são a
     // queda e a resistência em condução), a conta que ele faz e se há um Pv que use a perda (sem Pv, ela não é calculada)
     const semi = e.dom === "LK" && COM_PERDA.includes(e.tipo), perdas = semi ? lst.filter((q) => CAMPOS_PERDA.includes(q.nome)) : [];
     const pvs = semi ? pvsDe(dados.folhas[folhaAtual], e.nome) : [];
-    v("#p-params").innerHTML = (lst.filter((q) => !perdas.includes(q)).map(linhaPar).join("") || (perdas.length ? "" : `<i>${escT(tr("simu.sem_params"))}</i>`)) +
+    // o que o bloco de controle faz (simu.descr.<tipo>: a conta, as entradas e as saídas) em cima dos campos; sem campo nenhum,
+    // é ela que fica no lugar do "sem parâmetros"
+    v("#p-params").innerHTML = (ajuda ? `<div class="aviso descr-bloco">${escT(ajuda)}</div>` : "") +
+      (lst.filter((q) => !perdas.includes(q)).map(linhaPar).join("") || (perdas.length || ajuda ? "" : `<i>${escT(tr("simu.sem_params"))}</i>`)) +
       (perdas.length ? `<div class="sec-perdas"><h4>${escT(tr("simu.h_perdas"))}</h4><div class="aviso">${escT(tr("simu.perdas_modelo"))}</div>
         ${e.perda_modo === 2 ? `<div class="aviso perda-detalhada" style="color:${COR.erro}">${escT(tr("simu.perda_detalhada"))}</div>` : ""}${perdas.map(linhaPar).join("")}
         <div class="aviso ${pvs.length ? "com-pv" : "sem-pv"}"${pvs.length ? "" : ` style="color:${COR.erro}"`}>${escT(pvs.length ? tr("simu.aquecido_por", { pv: pvs.map((x) => x.nome).join(", ") }) : tr("simu.sem_pv"))}</div></div>` : "");
@@ -1964,7 +2098,7 @@ function comBusca(inp, opcoes, { limite = 10, tudoAoFocar = false } = {}) {
 // aceita, a chave do texto]. ControlSourceType (a forma do SIGNAL, do FILE e do RANDOM): 402–406 (o 0–4 da dica do Gecko
 // é o código novo); CircuitSourceType (o tipo das fontes U, I, MMF, HEAT-SOURCE, DT): as três abas do diálogo do Gecko
 const ENUM_GECKO = {
-  ControlSourceType: [[402, 0, "simu.forma_seno"], [403, 1, "simu.forma_tri"], [404, 2, "simu.forma_ret"], [405, 3, "simu.forma_aleat"], [406, 4, "simu.forma_arq"]],
+  ControlSourceType: [[402, 0, "simu.forma_seno"], [403, 1, "simu.forma_tri"], [404, 2, "simu.forma_ret"], [405, 3, "simu.forma_aleat"], [406, 4, "simu.forma_arq", true]],   // true: fora da lista (o FILE está oculto)
   CircuitSourceType: [[401, 0, "simu.fonte_cc"], [402, 1, "simu.fonte_seno"], [400, 2, "simu.fonte_sinal"]],
 };
 // o $ num parâmetro que aceita variável (Marcelo, 24/10): a lista das variáveis globais do circuito ("$Vin = 10") embaixo do
@@ -2540,19 +2674,15 @@ const IC = {
   SUBCIRCUIT: '<rect x="6" y="3" width="18" height="12" rx="2"/><path d="M2 7h4M2 11h4M24 7h4M24 11h4"/>',
   SIGNAL: '<rect x="4" y="3" width="22" height="12" rx="2"/><path d="M7 9q2-5 4 0t4 0t4 0t4 0"/>',
 };
-const SIGLA = { GAIN: "K", PT1: "PT1", PT2: "PT2", INT: "∫", PI: "PI", PD: "PD", HYS: "⊐", LIMIT: "⊓", ADD: "+", SUB: "−", MUL: "×", DIV: "÷",
-  MIN: "min", MAX: "max", SIGN: "sgn", TF: "H(s)", NOT: "¬", AND: "&", OR: "≥1", XOR: "=1", DELAY: "Δt", "S-H": "S/H", COUNTER: "#", GE: "≥", GT: ">",
-  EQ: "=", NE: "≠", ABS: "|x|", ROUND: "rnd", SQR: "x²", SQRT: "√", POW: "xʸ", EXP: "eˣ", LN: "ln", SIN: "sin", COS: "cos", TAN: "tan",
-  ASIN: "asin", ACOS: "acos", ATAN: "atan", SDFT: "DFT", CONST: "k", GATE: "G", SWITCH: "⇄", ABCDQ: "dq", DQABC: "abc", TIME: "t" };
 function icone(it) {
   // a cor própria (SM roxo, controle verde) vai em --ic e o desenho usa currentColor: segue o tema e fica branca no item selecionado
   if (it.lib) return `<svg viewBox="0 0 30 18" fill="none" stroke="currentColor" style="--ic:${COR.sub}" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">${IC.SUBCIRCUIT}<circle cx="15" cy="9" r="1.6" fill="currentColor"/></svg>`;
   if (it.id === "TAG") return `<svg viewBox="0 0 30 18" fill="none" stroke="currentColor" style="--ic:${COR.ct}" stroke-width="1.4" stroke-linejoin="round"><path d="M1 9h4"/><path d="M5 3.5h15.5L27 9l-6.5 5.5H5z"/><circle cx="20.5" cy="9" r="1.5" fill="currentColor"/></svg>`;
   if (IC[it.id]) return `<svg viewBox="0 0 30 18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">${IC[it.id]}</svg>`;
-  const s = SIGLA[it.id] || (it.id || "?").replace(/[^A-Za-z0-9]/g, "").slice(0, 4);
+  const s = SIMBOLO[it.id] || (it.id || "?").replace(/[^A-Za-z0-9]/g, "").slice(0, 4);   // o mesmo símbolo da folha
   const ic = it.dom === "CONTROL" ? ` style="--ic:${COR.ct}"` : "";
   return `<svg viewBox="0 0 30 18" fill="none" stroke="currentColor"${ic} stroke-width="1.3"><rect x="3" y="2" width="24" height="14" rx="3"/>` +
-    `<text x="15" y="12.5" text-anchor="middle" font-size="${s.length > 3 ? 6.5 : 8.5}" fill="currentColor" stroke="none" font-weight="700">${s}</text></svg>`;
+    `<text x="15" y="12.5" text-anchor="middle" font-size="${s.length > 5 ? 5.2 : s.length > 3 ? 6.5 : 8.5}" fill="currentColor" stroke="none" font-weight="700">${s}</text></svg>`;
 }
 
 // ---------------------------------------------------------------- carregar

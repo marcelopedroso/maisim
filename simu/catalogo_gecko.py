@@ -87,6 +87,13 @@ ESCONDIDOS = {
 # o nome na paleta que não é o do Gecko (I18nKeys, só em inglês): "rotulo" é a chave do textos_simu.js (pt e en), e o
 # simu.js a mostra no lugar do "nome" (que fica o do Gecko, para a busca e o arquivo)
 ROTULOS = {"C_VIEWMOT": "simu.cmp_viewmot"}   # "Machine-Internal": a grandeza de dentro de uma máquina (ω, n, Tel, ia…)
+# os blocos de controle à vista (abas Control, Digital, Math, Source/Sink e Special; v0.3.1, Marcelo 25/10: "sanetizar e
+# arrumar todos"): o nome do MaiSim em pt e en, na chave simu.cmp_<nome curto em minúsculas> (o simu.js acha o nome do
+# bloco na folha pela mesma regra, sem o catálogo)
+for _e in ("C_GAIN C_PT1 C_PT2 C_INT C_PI C_PD C_HYS C_LIMIT C_ADD C_SUB C_MUL C_DIV C_MIN C_MAX C_SIGN C_TF C_NOT C_AND C_OR C_XOR "
+           "C_DELAY C_SAMPLEHOLD C_COUNTER C_GE C_GT C_EQ C_NE C_ABS C_ROUND C_SQR C_SQRT C_POW C_EXP C_LN C_SIN C_COS C_TAN C_ASIN "
+           "C_ACOS C_ATAN C_SDFT C_SIGNALSOURCE C_CONST C_SWITCH C_SOURCE_RANDOM C_ABCDQ C_DQABC C_TIME C_THYR_CTRL TEXTFIELD").split():
+    ROTULOS.setdefault(_e, "")                    # "": a chave sai do nome curto (abaixo)
 for var, titulo in re.findall(r'createJPanelForTypes\((_typ\w+),\s*"([^"]+)"\)', fonte):
     itens = []
     for e in listas.get(var, []):
@@ -95,7 +102,7 @@ for var, titulo in re.findall(r'createJPanelForTypes\((_typ\w+),\s*"([^"]+)"\)',
             itens.append(dict(enum=e, erro="tipo não achado")); continue   # i18n-ok (script de quem monta o catalogo.json, não da tela)
         ident, chave = info(t["classe"])
         itens.append(dict(t, id=ident, nome=TEXTOS.get(chave, chave or e), **({"oculto": True} if e in ESCONDIDOS else {}),
-                          **({"rotulo": ROTULOS[e]} if e in ROTULOS else {})))
+                          **({"rotulo": ROTULOS[e] or f"simu.cmp_{ident.lower()}"} if e in ROTULOS and (ROTULOS[e] or ident) else {})))
     abas.append(dict(aba=titulo, itens=itens))
 saida = Path(__file__).parent / "static" / "catalogo.json"
 saida.write_text(json.dumps(dict(fonte="MDPGeckoCIRCUITS, SchematischeEingabeAuswahl2 + CircuitTyp/ControlTyp/SpecialTyp + I18nKeys",
