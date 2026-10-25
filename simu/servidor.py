@@ -621,8 +621,9 @@ def refaz_gecko():
     esquece(tudo=True)                               # os passos do desfazer eram do Gecko de antes
     estado()
     marca_base()
-    if aviso and gecko.get("partida") and copia is None:
+    if gecko.get("partida") and copia is None and all(k in ("editor.gecko_novo_reaberto", "editor.gecko_novo_vazio") for k, _ in aviso):
         aviso = []                                   # a abertura do MaiSim: o Gecko é sempre novo e nada se perdeu — só no log
+                                                     # (o arquivo que sumiu do disco continua avisado)
     if aviso:
         if copia is not None:
             aviso.append(("editor.gecko_novo_copia", {"copia": str(copia)}))
