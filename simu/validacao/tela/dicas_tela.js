@@ -65,6 +65,10 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   await pg.close();
   pg = await abre("http://localhost:7200/maisim/scope/", "#bt-indice");
   await confere(pg, "#bt-indice", "scope", "dicas_scope.png");
+  // os seletores no padrão do MaiSim (a seta própria, cantos redondos), na largura de antes (a da página)
+  const sel = await pg.evaluate(() => { const s = document.getElementById("sel-a"), c = getComputedStyle(s);
+    return { ap: c.appearance, seta: c.backgroundImage.includes("svg"), raio: c.borderTopLeftRadius, larg: Math.round(s.getBoundingClientRect().width) }; });
+  ok(sel.ap === "none" && sel.seta && sel.raio === "7px" && sel.larg > 300, `scope: o seletor A no padrão do MaiSim (${JSON.stringify(sel)})`);
   await pg.close();
   ok(!erros.length, `sem erros de JS ${erros.join(" ; ")}`);
   await b.close(); process.exit(falhas ? 1 : 0);

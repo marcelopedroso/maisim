@@ -4,9 +4,15 @@
 // Vale para todo elemento com title: ao passar o mouse (ou chegar pelo Tab), o title vai para data-dica (o navegador não mostra a
 // dele) e volta ao sair — o código que lê ou troca .title continua funcionando; se o title mudar com o mouse em cima, a dica acompanha.
 // Atalhos entre parênteses viram teclas: "pausar (Espaço)" → pausar [Espaço]. No toque (celular, tablet): nada (o title fica).
+// E os seletores (select) de todas as páginas no padrão do MaiSim (o CSS logo abaixo).
 (function () {
   if (window.maisimDica) return;                       // já carregada (pela página e pelo trilho)
   window.maisimDica = true;
+  // os seletores (select) de todas as páginas no padrão do MaiSim (o da conversa com a IA, simu): cantos redondos, a seta
+  // própria, o acento da página ao passar e no foco. A lista aberta fica a do sistema: com o appearance: base-select (o da
+  // conversa) a largura passa a ser a da opção escolhida, e os seletores mudariam de tamanho (o A e o B do scope: de 360 para 88
+  // px). Largura, fonte e o resto ficam com cada página; a seta e o espaço dela à direita, com !important (as páginas põem
+  // background e padding nos seus selects). Fora: listas (multiple, size) e o editor (Monaco)
   const CSS = `
   #dica-ui { position:fixed; z-index:2147483600; max-width:320px; max-height:60vh; overflow:hidden; padding:6px 9px; border-radius:7px; background:#1e293b; color:#f8fafc;
     font:500 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; box-shadow:0 8px 24px rgba(15,23,42,.28); pointer-events:none; box-sizing:border-box;
@@ -14,7 +20,16 @@
   html[data-tema="escuro"] #dica-ui { border:1px solid #334155; box-shadow:0 8px 24px rgba(0,0,0,.5); }
   #dica-ui.vis { opacity:1; transform:none; }
   #dica-ui kbd { display:inline-block; margin:0 1px; padding:0 5px; border-radius:4px; background:rgba(248,250,252,.14); border:1px solid rgba(248,250,252,.22);
-    font:600 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color:#f8fafc; }`;
+    font:600 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color:#f8fafc; }
+  select:not([multiple]):not([size]):not(.monaco-editor select) { appearance:none !important; -webkit-appearance:none !important; border-radius:7px; cursor:pointer;
+    text-overflow:ellipsis; padding-right:22px !important; transition:border-color .12s, box-shadow .12s, background-color .12s;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5l3 3 3-3' fill='none' stroke='%238a939d' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+    background-repeat:no-repeat !important; background-position:right 6px center !important; background-size:11px !important; }
+  select:not([multiple]):not([size]):not(.monaco-editor select):not(:disabled):hover { border-color:var(--acento-borda, color-mix(in srgb, var(--acento, #6d28d9) 35%, transparent)) !important;
+    background-color:var(--acento-suave, color-mix(in srgb, var(--acento, #6d28d9) 9%, var(--campo, var(--cartao, #fff)))) !important; }
+  select:not([multiple]):not([size]):not(.monaco-editor select):focus-visible { outline:none; border-color:var(--acento, #6d28d9) !important;
+    box-shadow:0 0 0 3px var(--acento-suave, color-mix(in srgb, var(--acento, #6d28d9) 18%, transparent)); }
+  select:not([multiple]):not([size]):disabled { cursor:default; }`;
   const caixa = document.createElement("div");
   caixa.id = "dica-ui"; caixa.setAttribute("role", "tooltip");
   function monta() {
