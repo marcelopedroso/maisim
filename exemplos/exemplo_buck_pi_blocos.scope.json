@@ -1,0 +1,10 @@
+{
+ "colunas": 1,
+ "itens": [
+  {"secao": "Buck — PI em blocos"},
+  {"titulo": "Tensão de saída v_o e referência v_ref (V)", "sinais": ["v_o", "v_ref"], "largura": 1},
+  {"titulo": "Corrente no indutor i_L (A)", "sinais": ["i_L"], "largura": 1},
+  {"titulo": "Razão cíclica d", "sinais": ["d"], "largura": 1},
+  {"titulo": "Erro v_ref − v_o (V)", "sinais": ["erro"], "largura": 1}
+ ]
+}
