@@ -1,8 +1,8 @@
 // a térmica e as perdas pela tela (instância de teste; C1, 25/10): o buck térmico de exemplo desenha a rede térmica (os
 // terminais, as conexões em laranja, o Pv com "♨ IGBT.1"); o painel do Pv (a peça que ele aquece, com busca), do TEMP (dois
 // rótulos térmicos) e do FLOW (o Pv e a perda: mudar a perda grava o losscomp e o nome automático acompanha, Pcond_D1); a seção
-// Perdas do semicondutor (uF, rON, k_on, k_off, uK juntos) com o Pv que usa a perda ou o aviso "sem Pv"; a aba Térmica da
-// paleta sem o TH_MODUL. O exemplo volta como estava (abrir de novo descarta).
+// Perdas do semicondutor (uF, rON, k_on, k_off, uK juntos) com o Pv que usa a perda ou o aviso "sem Pv", e o aviso do modo
+// detalhado; o Pv trocando de peça leva os nomes do FLOW e do TEMP dele; o FLOW num Rth; a aba Térmica sem o TH_MODUL. O exemplo volta como estava (abrir de novo descarta).
 const { chromium } = require("playwright");
 const fs = require("fs"), path = require("path");
 const RAIZ = path.resolve(__dirname, "../../..");
@@ -58,12 +58,40 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     const semPv = await pg.evaluate(() => (document.querySelector(".sec-perdas .sem-pv") || {}).textContent || "");
     ok(/sem Pv|without a Pv/.test(semPv), `o D.1 sem Pv: "${semPv}"`);
     await pg.evaluate(() => api("editor/mede", { nome: "Pv.2", tipo: "P", componente: "D.1" }).then((j) => novoEstado(j)));
+    // o Pv passa a aquecer outra peça (o resistor também vale, como no Gecko): o FLOW e o TEMP dele com o nome automático
+    // acompanham (Pv_D1 → Pv_R1, Tj_D1 → Tj_R1), e voltam
+    const muda = async (id, v) => { await pg.fill(id, v); await pg.evaluate((id) => document.querySelector(id).dispatchEvent(new Event("change")), id); };
+    const saida = (n) => pg.evaluate((n) => dados.folhas["0"].elementos.find((x) => x.nome === n).saidas[0], n);
+    const espera = (fn, arg) => pg.waitForFunction(fn, arg, { timeout: 20000 }).catch(() => {});
+    await sel("Pv.2"); await pg.waitForSelector("#m-pv"); await muda("#m-pv", "R.1");
+    await espera(() => dados.folhas["0"].elementos.find((x) => x.nome === "FLOW.4").saidas[0] === "Pv_R1" && dados.folhas["0"].elementos.find((x) => x.nome === "TEMP.2").saidas[0] === "Tj_R1");
+    ok(await saida("FLOW.4") === "Pv_R1" && await saida("TEMP.2") === "Tj_R1", `o Pv.2 aquece o R.1: FLOW.4 = ${await saida("FLOW.4")}, TEMP.2 = ${await saida("TEMP.2")}`);
+    await sel("Pv.2"); await pg.waitForSelector("#m-pv"); await muda("#m-pv", "D.1");
+    await espera(() => dados.folhas["0"].elementos.find((x) => x.nome === "FLOW.4").saidas[0] === "Pv_D1" && dados.folhas["0"].elementos.find((x) => x.nome === "TEMP.2").saidas[0] === "Tj_D1");
+    ok(await saida("FLOW.4") === "Pv_D1" && await saida("TEMP.2") === "Tj_D1", `e de volta ao D.1: ${await saida("FLOW.4")}, ${await saida("TEMP.2")}`);
+    // o FLOW num Rth: o fluxo de calor (P_Rth1), e o "qual perda" fica desligado (só vale no Pv)
+    await sel("FLOW.4"); await pg.waitForSelector("#m-flow"); await muda("#m-flow", "Rth.1");
+    await espera(() => dados.folhas["0"].elementos.find((x) => x.nome === "FLOW.4").saidas[0] === "P_Rth1");
+    await sel("FLOW.4"); await pg.waitForSelector("#m-losscomp");
+    ok(await saida("FLOW.4") === "P_Rth1" && await pg.evaluate(() => document.querySelector("#m-losscomp").disabled),
+      `o FLOW.4 no Rth.1: ${await saida("FLOW.4")}, o "qual perda" desligado`);
+    await muda("#m-flow", "Pv.2");
+    await espera(() => dados.folhas["0"].elementos.find((x) => x.nome === "FLOW.4").saidas[0] === "Pv_D1");
+    ok(await saida("FLOW.4") === "Pv_D1", `e de volta ao Pv.2 (${await saida("FLOW.4")})`);
+    // uma peça no modo detalhado do Gecko (verlustTyp 2, curvas do .scl): a seção Perdas avisa que os campos simples não valem
+    await pg.evaluate(() => { dados.folhas["0"].elementos.find((x) => x.nome === "IGBT.1").perda_modo = 2; });
+    await sel("IGBT.1"); await pg.waitForSelector(".sec-perdas", { timeout: 20000 });
+    const det = await pg.evaluate(() => (document.querySelector(".sec-perdas .perda-detalhada") || {}).textContent || "");
+    ok(/detalhado|detailed/.test(det), `o modo detalhado: "${det.slice(0, 70)}…"`);
+    await pg.evaluate(() => { delete dados.folhas["0"].elementos.find((x) => x.nome === "IGBT.1").perda_modo; });
+    await sel("D.1"); await pg.waitForSelector(".sec-perdas", { timeout: 20000 });
+    ok(!(await pg.$(".sec-perdas .perda-detalhada")), "no modo simples, sem o aviso");
     // a paleta: a aba Térmica, sem o TH_MODUL (lança UnsupportedOperationException no Gecko)
     const pal = await pg.evaluate(() => { const a = ed.catalogo.abas.find((x) => /Thermal/.test(x.aba));
       return { ids: a ? a.itens.map((i) => i.id) : [], modul: ed.catalogo.abas.some((x) => x.itens.some((i) => i.enum === "TH_MODUL")) }; });
     ok(pal.ids.includes("Pv") && pal.ids.includes("Rth") && !pal.ids.includes("MOD") && !pal.modul,
       `a aba Térmica: ${pal.ids.join(", ")} (sem o MOD)`);
-    await pg.screenshot({ path: "termica_tela.png" });
+    if (process.env.FOTO_TERMICA) await pg.screenshot({ path: process.env.FOTO_TERMICA });   // a foto só quando pedida (não no diretório atual)
     ok(!erros.length, `sem erros na página (${erros.join(" | ")})`);
   } finally {
     await pg.evaluate(() => api("editor/abrir", { arq: "exemplos/exemplo_buck_termico.ipes", modo: "descartar" })).catch(() => {});

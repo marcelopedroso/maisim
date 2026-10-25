@@ -272,6 +272,10 @@ out for switched quantities: sampling the inductor current always at the start o
 valley of the ripple, not the average. The buck example takes the period average in the code itself. Another option is
 to sample in the middle of the on-time.
 
+**Losses** (the FLOW meters of a Pv: `Pv_…`, `Pcond_…`, `Psw_…`) are the exception: `m` gets the **average over the last
+Ts**, not the instant value. Gecko's switching loss is E/Δt on a single step (the commutation one), so the instant value
+would be zero almost always and a spike now and then. Temperature (`Tj_…`) comes at the instant, like the rest.
+
 ## 5. How not to go wrong (checklist)
 
 1. **Δt resolves the circuit**: much smaller than the time constants and than the switching period. Gecko uses implicit

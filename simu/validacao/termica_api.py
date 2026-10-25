@@ -99,10 +99,18 @@ try:
     # as rotas: o losscomp muda e volta; os errados recusados
     r = api("editor/mede", {"nome": "FLOW.2", "tipo": "F", "componente": "Pv.1", "losscomp": "switching"})
     ok("ERRO" not in r and els(r)["FLOW.2"].get("losscomp") == "switching", f"FLOW.2 → chaveamento ({r.get('erro')})")
-    r1 = api("editor/mede", {"nome": "Pv.1", "tipo": "P", "componente": "R.1"})
+    r1 = api("editor/mede", {"nome": "Pv.1", "tipo": "P", "componente": "U.1"})
     r2 = api("editor/mede", {"nome": "FLOW.1", "tipo": "F", "componente": "IGBT.1"})
     r3 = api("editor/mede", {"nome": "FLOW.1", "tipo": "F", "componente": "Pv.1", "losscomp": "tudo"})
-    ok(all(x.get("ERRO") for x in (r1, r2, r3)), f"recusados: Pv num resistor, FLOW sem Pv, losscomp inválido ({r1.get('erro')} | {r2.get('erro')} | {r3.get('erro')})")
+    r4 = api("editor/mede", {"nome": "TEMP.2", "tipo": "T", "no1": "o", "no2": "ref"})
+    ok(all(x.get("ERRO") for x in (r1, r2, r3, r4)) and "não é um" in str(r4.get("erro")),
+       f"recusados: Pv numa fonte, FLOW num IGBT, losscomp inválido, TEMP num rótulo elétrico ({r1.get('erro')} | {r2.get('erro')} | {r3.get('erro')} | {r4.get('erro')})")
+    r = api("editor/mede", {"nome": "Pv.1", "tipo": "P", "componente": "R.1"})
+    ok("ERRO" not in r and els(r)["Pv.1"]["mede"][0] == "R.1", f"o Pv aquece o resistor do circuito (i²R, como no Gecko): {r.get('erro')}")
+    r = api("editor/mede", {"nome": "FLOW.4", "tipo": "F", "componente": "Rth.1", "losscomp": "switching"})
+    ok("ERRO" not in r and els(r)["FLOW.4"]["mede"][0] == "Rth.1" and els(r)["FLOW.4"].get("losscomp") in (None, "total"),
+       f"o FLOW mede o fluxo de calor de um Rth (o losscomp não vale: fica total): {r.get('erro')} {els(r).get('FLOW.4', {}).get('losscomp')}")
+    api("editor/mede", {"nome": "FLOW.4", "tipo": "F", "componente": "Pv.2", "losscomp": "total"})
     r = api("editor/mede", {"nome": "Pv.1", "tipo": "P", "componente": "D.1"})
     r = api("editor/mede", {"nome": "Pv.1", "tipo": "P", "componente": "IGBT.1"}) if "ERRO" not in r else r
     ok("ERRO" not in r and els(r)["Pv.1"]["mede"][0] == "IGBT.1", "o Pv troca de peça e volta (o acoplamento do GATE, no domínio térmico)")
@@ -187,6 +195,24 @@ try:
             ok(np.allclose(z2["Pv_IGBT1"], z2["Pcond_IGBT1"] + z2["Psw_IGBT1"], atol=1e-9), f"{rotulo}: Pv_IGBT1 = Pcond_IGBT1 + Psw_IGBT1 em cada amostra")
             ok(all(np.array_equal(z2[c], z[c][k]) for c in ("Tj_IGBT1", "Tj_D1", "g", "v_sw", "i_T")),
                f"{rotulo}: Tj, o PWM (g), v_sw e i_T seguem em ponto, iguais aos da rodada com todas")
+        # o m[...] do controle: a perda é a média do último Ts (não o valor do passo), a Tj é o ponto
+        cod = "def iniciar(p, e):\n    pass\n\n\ndef passo(t, m, p, e):\n    scope(\"m_psw\", m[\"Psw_IGBT1\"])\n    scope(\"m_tj\", m[\"Tj_IGBT1\"])\n    return {}\n"
+        rc_ = api("editor/controle", {"controle": {"ativo": True, "Ts": 5 * dt, "atuacoes": [], "parametros": [], "acionamentos": [],
+                  "atraso": {"modo": "logo", "tempo": 0}, "codigo": cod}})
+        r3, z3 = roda(dt, tfim, int(round(tfim / dt)) // 5, nome="termica_m")
+        feitas.append(r3.get("arquivo"))
+        if z3 is None:
+            ok(False, f"o controle que lê as perdas: a rodada não terminou ({r3.get('estado')}: {r3.get('erro')})")
+        else:
+            k3 = np.rint(z3["t"] / dt).astype(int)          # a amostra q mostra o m de passo() em t_q: a média de (t_q − Ts, t_q]
+            d_m = max(abs(z3["m_psw"][q] - z["Psw_IGBT1"][k3[q] - 4:k3[q] + 1].mean()) for q in range(1, len(k3) - 1))
+            reg3 = (z3["t"] >= 0.005)[1:-1]
+            m_med, ponto3 = float(z3["m_psw"][1:-1][reg3].mean()), float(z["Psw_IGBT1"][k3[1:-1]][reg3].mean())
+            ok(d_m <= 1e-9 * max(1.0, float(np.max(np.abs(z["Psw_IGBT1"])))) and abs(m_med - ref_sw) <= 0.05 * ref_sw,
+               f"o m[\"Psw_IGBT1\"] do controle = a média dos 5 passos do último Ts (diferença máxima {d_m:.2e} W); no regime ⟨m⟩ = "
+               f"{m_med:.3f} W = a potência ({ref_sw:.3f} W; o valor do passo daria {ponto3:.3f} W)")
+            d_tj = float(np.max(np.abs(z3["m_tj"][1:-1] - z["Tj_IGBT1"][k3[1:-1]])))
+            ok(d_tj <= 1e-9 * 100, f"o m[\"Tj_IGBT1\"] é o ponto (diferença máxima {d_tj:.2e} K)")
         api("editor/controle", {"controle": {"ativo": False, "Ts": 5 * dt, "atuacoes": [], "parametros": [], "acionamentos": [],
             "atraso": {"modo": "logo", "tempo": 0}, "codigo": "def iniciar(p, e):\n    pass\n\n\ndef passo(t, m, p, e):\n    return {}\n"}})
 finally:

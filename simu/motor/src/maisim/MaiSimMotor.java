@@ -38,6 +38,7 @@ public final class MaiSimMotor {
             GeckoRemoteInterface n = (GeckoRemoteInterface) LocateRegistry.getRegistry("localhost", portaGecko).lookup("GeckoRemoteInterface");
             n.connect();
             g = n;
+            geckoSemMedia = false;                                   // um Gecko novo: talvez já com o jar do patch 0005
         } catch (Exception e) { System.out.println("reconectar ao Gecko: " + e); }
     }
 
@@ -84,16 +85,33 @@ public final class MaiSimMotor {
     /** STEP n lendo os nomes depois de CADA passo: "t m1 m2 …", as médias dos n passos (a perda de chaveamento E/Δt dura um
      *  passo só: a leitura de um ponto por bloco quase nunca a pega). No Gecko (patch 0005, simulateStepsAveraged: o laço
      *  dentro dele, sem uma ida e volta por passo); pela reflexão, para o motor compilar também com um jar sem o patch — e
-     *  aí, o mesmo laço daqui (um STEP 1 + GETM por passo: certo, só mais lento). */
+     *  aí, o mesmo laço daqui (um STEP 1 + GETM por passo: certo, só mais lento). O Gecko é outro processo: com o jar novo e um
+     *  Gecko ainda do jar velho (refeito sem reiniciar), a interface daqui tem o método e a dele não — o RMI recusa antes de
+     *  andar ("unrecognized method hash"), e daí em diante vale o laço daqui (geckoSemMedia), em vez de toda rodada falhar. */
+    private boolean geckoSemMedia = false;
+
+    private static boolean metodoDesconhecido(Throwable c) {   // só esse texto: um UnmarshalException da volta (o Gecko já andou)
+        for (; c != null; c = c.getCause())                      // não pode virar "faz os passos de novo"
+            if (String.valueOf(c.getMessage()).contains("unrecognized method hash")) return true;
+        return false;
+    }
+
     private String stepMedia(int n, String[] nomes) throws Exception {
-        double[] r;
+        double[] r = null;
         java.lang.reflect.Method mm = null;
-        try { mm = GeckoRemoteInterface.class.getMethod("simulateStepsAveraged", int.class, String[].class); }
-        catch (NoSuchMethodException semPatch) { }
+        if (!geckoSemMedia) {
+            try { mm = GeckoRemoteInterface.class.getMethod("simulateStepsAveraged", int.class, String[].class); }
+            catch (NoSuchMethodException semPatch) { }
+        }
         if (mm != null) {
             try { r = (double[]) mm.invoke(g, n, (Object) nomes); }
-            catch (java.lang.reflect.InvocationTargetException e) { throw e.getCause() instanceof Exception ? (Exception) e.getCause() : e; }
-        } else {
+            catch (java.lang.reflect.InvocationTargetException e) {
+                if (!metodoDesconhecido(e.getCause())) throw e.getCause() instanceof Exception ? (Exception) e.getCause() : e;
+                geckoSemMedia = true;                                        // o Gecko não andou: o laço daqui faz os n passos
+                System.err.println("Gecko sem simulateStepsAveraged (jar velho no ar): a média por passo pelo laço do motor");
+            }
+        }
+        if (r == null) {
             r = new double[nomes.length + 1];
             for (int k = 0; k < n; k++) {
                 g.simulateSteps(1);

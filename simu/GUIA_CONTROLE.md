@@ -255,6 +255,10 @@ As medidas em `m` são as do instante t_k, já com o efeito do que foi aplicado 
 amostrar a corrente do indutor sempre no começo do período de chaveamento pega o vale da ondulação, não a média. O
 exemplo do buck tira a média do período no próprio código. Outra saída é amostrar no meio do tempo ligado.
 
+As **perdas** (os medidores FLOW de um Pv: `Pv_…`, `Pcond_…`, `Psw_…`) são a exceção: em `m` vem a **média do último
+Ts**, não o valor do instante. A perda de chaveamento do Gecko é E/Δt num passo só (o da comutação), e o valor do instante
+seria zero quase sempre e um pico às vezes. A temperatura (`Tj_…`) vem no instante, como as outras.
+
 ## 5. Como não errar (lista de conferência)
 
 1. **Δt resolve o circuito**: bem menor que as constantes de tempo e que o período de chaveamento. O Gecko usa Euler
