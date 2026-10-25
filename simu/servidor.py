@@ -37,6 +37,7 @@ from motor import ErroMotor, Motor
 import contextos
 import ia as ias_maisim
 import janelas_gecko
+import msd
 import processos  # noqa: E402                as IAs e o login: num grupo próprio (Linux e Windows)
 import resumo_rodada
 
@@ -5253,6 +5254,104 @@ def claude_mudanca(i):
     return dict(h[i]["mudanca"], pedido=h[i].get("pedido") or "", desfeita=bool(h[i].get("desfeita")))
 
 
+# levar um circuito para outro MaiSim (msd.py; Marcelo, 24/10): exportar o circuito com o que o acompanha e as rodadas
+# escolhidas; importar em duas etapas: o arquivo cru vai para o cache (a prévia, com um token) e só depois é gravado
+MSD_CACHE = ESTADO.parent / "msd"
+
+
+def msd_circuito(rel):
+    arq = (RAIZ / str(rel or "")).resolve()
+    if not modelo_ok(arq) or arq.suffix != ".ipes" or not arq.is_file():
+        raise ErroMotor(lingua.tr("msd.so_circuitos"))
+    return arq
+
+
+def msd_irmaos(arq):
+    """O que acompanha o .ipes no pacote (só os que existem): o controle, a aparência (ou a do .cores.json antigo) e o layout."""
+    out = {}
+    if arquivo_controle(arq).is_file():
+        out[".controle.json"] = arquivo_controle(arq).read_bytes()
+    if arquivo_aparencia(arq).is_file():
+        out[".aparencia.json"] = arquivo_aparencia(arq).read_bytes()
+    elif arquivo_cores(arq).is_file():
+        out[".aparencia.json"] = json.dumps(aparencia_do_arquivo(arq), ensure_ascii=False, indent=1).encode()
+    if arquivo_scope(arq).is_file():
+        out[".scope.json"] = arquivo_scope(arq).read_bytes()
+    return out
+
+
+def msd_info(rel):
+    arq = msd_circuito(rel)
+    return {"arq": relativo(arq), "nome": arq.stem, "tamanho": arq.stat().st_size, "irmaos": sorted(msd_irmaos(arq)),
+            "valido": bool(msd.NOME.match(arq.stem))}
+
+
+def msd_exporta(rel, pastas):
+    """O .msd do circuito com as rodadas pedidas (as pastas em RODADAS; só as deste circuito)."""
+    import numpy as np
+    arq = msd_circuito(rel)
+    ds = []
+    for p in pastas:
+        d = RODADAS / p
+        if not msd.PASTA.match(p) or not d.is_dir():
+            raise ErroMotor(lingua.tr("msd.rodada_invalida", pasta=p))
+        try:
+            meta = json.loads(str(np.load(next(d.glob("scope_*.npz")), allow_pickle=False)["meta"]))
+        except Exception:
+            meta = {}
+        if str(meta.get("modelo") or "").replace("\\", "/") != relativo(arq):
+            raise ErroMotor(lingua.tr("msd.rodada_de_outro", pasta=p))
+        ds.append(d)
+    try:
+        return msd.monta(arq.stem, arq.read_bytes(), msd_irmaos(arq), ds)
+    except ValueError as e:
+        raise ErroMotor(str(e))
+
+
+def msd_limpa_cache(idade=3600):
+    for f in MSD_CACHE.glob("*.msd") if MSD_CACHE.is_dir() else []:
+        try:
+            if time.time() - f.stat().st_mtime > idade:
+                f.unlink()
+        except OSError:
+            pass
+
+
+def msd_token(token):
+    f = MSD_CACHE / f"{token}.msd"
+    if not re.fullmatch(r"[0-9a-f]{32}", str(token or "")) or not f.is_file():
+        raise ErroMotor(lingua.tr("msd.token"))
+    return f
+
+
+def msd_previa(f, token):
+    man = msd.le(f)
+    nome = man["circuito"]
+    return {"token": token, "circuito": nome, "autor": man["autor"], "sistema": man["sistema"], "maisim": man["maisim"], "criado": man["criado"],
+            "versao": man["versao"], "irmaos": man["irmaos"], "rodadas": man["rodadas"], "avisos": man["avisos"], "tamanho": man["tamanho"],
+            "conflito": msd.ocupado(SALVOS, nome), "sugerido": msd.livre(SALVOS, nome), "pasta": str(SALVOS)}
+
+
+def msd_importa(corpo):
+    f = msd_token(corpo.get("token"))
+    nome = str(corpo.get("nome") or "").strip()
+    rods = corpo.get("rodadas")
+    rods = [str(x) for x in rods] if isinstance(rods, list) else None
+    substituir = corpo.get("substituir") is True
+    if substituir and editor.get("aberto") and (RAIZ / editor["aberto"]).resolve() == (SALVOS / f"{nome}.ipes").resolve():
+        raise ErroMotor(lingua.tr("msd.aberto", nome=nome))
+    if msd.ocupado(SALVOS, nome) and not substituir:
+        raise ErroMotor(lingua.tr("msd.ja_existe", nome=nome), codigo="confirmar", sugerido=msd.livre(SALVOS, nome))
+    try:
+        r = msd.instala(f, SALVOS, RODADAS, nome, rods, substituir, relativo)
+    except ValueError as e:
+        raise ErroMotor(str(e))
+    f.unlink(missing_ok=True)
+    rel = relativo(r["ipes"])
+    anota_recente(rel)
+    return {"arq": rel, "nome": r["nome"], "rodadas": r["rodadas"]}
+
+
 PORTAS_PAGINA = {int(os.environ["MAISIM_PORTA_PAGINA"])}  # a página do MaiSim (Vite) e, no main(), a porta deste servidor
 
 
@@ -5282,7 +5381,7 @@ class Manipulador(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
 
-    def _resposta(self, codigo, corpo, tipo="application/json"):
+    def _resposta(self, codigo, corpo, tipo="application/json", extra=None):
         corpo = corpo if isinstance(corpo, bytes) else json.dumps(corpo, separators=(",", ":")).encode()
         pid = getattr(self, "_pedido_id", None)
         if pid:                                          # a resposta deste pedido fica guardada (a página pode repetir o pedido)
@@ -5294,6 +5393,8 @@ class Manipulador(BaseHTTPRequestHandler):
         self.send_header("Content-Type", tipo)
         self.send_header("Content-Length", str(len(corpo)))
         self.send_header("Cache-Control", "no-store")
+        for k, v in (extra or {}).items():
+            self.send_header(k, v)
         self.end_headers()
         self.wfile.write(corpo)
 
@@ -5357,6 +5458,19 @@ class Manipulador(BaseHTTPRequestHandler):
             return self._resposta(200, guia_controle().read_bytes(), "text/markdown; charset=utf-8")
         if rota == "/modelos":
             return self._resposta(200, lista_modelos())
+        if rota in ("/msd/info", "/msd/exportar"):      # o .msd: o que vai junto; e o arquivo (?arq=…&rodadas=pasta,pasta)
+            if not pedido_local(self, False):
+                return self._resposta(403, {"erro": lingua.tr("servidor.so_local")})
+            q = {k: v[0] for k, v in parse_qs(u.query).items()}
+            if rota == "/msd/info":
+                return self._editor(lambda: msd_info(q.get("arq")))
+            try:
+                dados, avisos = msd_exporta(q.get("arq"), [p for p in q.get("rodadas", "").split(",") if p])
+            except ErroMotor as e:
+                return self._resposta(409, {"erro": str(e)})
+            nome = re.sub(r"[^\w\-]", "_", Path(q.get("arq", "")).stem)
+            return self._resposta(200, dados, "application/octet-stream", {"Content-Disposition": f'attachment; filename="{nome}.msd"',
+                                                                            "X-MaiSim-Avisos": json.dumps(avisos)})
         if rota == "/modelos/pastas":                  # onde ficam os circuitos (a tela inicial e o Abrir mostram)
             return self._resposta(200, {"meus": str(SALVOS), "biblioteca": str(LIB), "extras": [[n, str(d)] for n, d in pastas_extras()]})
         if rota == "/scope/padrao":                    # o layout padrão do scope de um circuito (?modelo= o meta.modelo da rodada)
@@ -5482,10 +5596,36 @@ class Manipulador(BaseHTTPRequestHandler):
         # página de fora mandaria um controle.py e o testaria (código rodando aqui); o X-MaiSim, só nas rotas do Claude
         if not pedido_local(self, rota.startswith("/claude/")):
             return self._resposta(403, {"erro": lingua.tr("servidor.so_pagina_local")})
+        if rota.startswith("/msd/") and not pedido_local(self, True):   # o .msd grava no disco: só a página do MaiSim (X-MaiSim)
+            return self._resposta(403, {"erro": lingua.tr("servidor.so_pagina_local")})
+        if rota == "/msd/ver":                         # o .msd cru no corpo (sem base64: as rodadas são grandes), com teto
+            try:
+                n = int(self.headers.get("Content-Length", 0))
+            except ValueError:
+                n = -1
+            if not 0 < n <= msd.MAX_BYTES:
+                return self._resposta(413, {"erro": lingua.tr("msd.grande", mb=msd.MAX_BYTES // 2**20, max=msd.MAX_ARQS)})
+            msd_limpa_cache()
+            MSD_CACHE.mkdir(parents=True, exist_ok=True)
+            token = uuid.uuid4().hex
+            f = MSD_CACHE / f"{token}.msd"
+            try:
+                with open(f, "wb") as out:
+                    while n > 0:
+                        bloco = self.rfile.read(min(n, 1 << 20))
+                        if not bloco:
+                            break
+                        out.write(bloco); n -= len(bloco)
+                return self._resposta(200, msd_previa(f, token))
+            except (ValueError, OSError) as e:
+                f.unlink(missing_ok=True)
+                return self._resposta(400, {"erro": str(e)})
         try:
             corpo = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
         except ValueError:
             return self._resposta(400, {"erro": lingua.tr("servidor.json_invalido")})
+        if rota == "/msd/importar":                    # {token, nome, rodadas: [pastas], substituir}: grava o que a prévia mostrou
+            return self._editor(lambda: msd_importa(corpo))
         if rota.startswith("/claude/"):                # o login do Claude do MaiSim
             if not pedido_local(self, True):
                 return self._resposta(403, {"erro": lingua.tr("servidor.so_pagina_local")})
