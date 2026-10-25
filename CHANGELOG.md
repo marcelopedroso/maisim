@@ -7,7 +7,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Fixed
-- Tests: `dicas_tela` waits for the keyboard (Tab) tooltip instead of a fixed 700 ms, which the slower CI machine sometimes missed in the full suite (#PR).
+- Tests: `dicas_tela` waits for the keyboard (Tab) tooltip instead of a fixed 700 ms, which the slower CI machine sometimes missed in the full suite (#141).
 
 ## [0.3.1] - 2026-10-25
 
