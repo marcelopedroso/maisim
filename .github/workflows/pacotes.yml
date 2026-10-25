@@ -31,8 +31,7 @@ jobs:
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: "11"
-          cache: maven
+          java-version: "11"   # sem cache: maven — o pom.xml do Gecko só existe depois do gecko/construir.sh (fora do git)
       - name: tools
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq unzip > /dev/null
