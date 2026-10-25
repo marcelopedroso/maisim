@@ -6,6 +6,9 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Changed
+- Editor palette: items never tested in MaiSim or that make no sense here are no longer offered — Export/Import Data to/from Simulink, Data export to file, Data from File, Java-Function, C/C++ Function, Small signal analysis, Sparse control, PMSM controller and PMSM modulator (`ESCONDIDOS` in `simu/catalogo_gecko.py`, `"oculto"` in `catalogo.json`). A circuit that already has one still opens, draws and runs. Developer setup: `app/scripts/maisim.sh --abrir` (`npm run abrir`) runs the launcher, so closing the window stops MaiSim as in the packages; on WSL the launcher opens Windows' Chrome or Edge, and `MAISIM_NAVEGADOR` may carry options. Without `--abrir`, `npm run maisim` stays up until Ctrl+C as before (#127).
+
 ### Added
 - Version and automatic updates: a discreet `v0.3.0` under the logo in the side rail (also in the home page's *About and credits*), whose tooltip says how MaiSim is installed (Windows installed, Linux AppImage or source code). The simu checks the GitHub Releases at startup and every 6 h (short timeout; silent when offline) and a dot on the version shows when a newer one exists on your channel (*stable*: releases only; *testing*: with the `-rc` pre-releases; semver order, so 0.3.0-rc13 < 0.3.0 < 0.3.1). Clicking opens a dialog with the release notes, **Update** / **Later** and the channel. **Update** refuses while a run is going or a circuit is unsaved; on Windows it downloads `MaiSim-Setup-<v>.exe`, checks it against its `.sha256` (refuses on mismatch), runs it silently and reopens MaiSim; with the AppImage it downloads the new one, checks the SHA-256, swaps it in place atomically and restarts; in a source checkout it only says `git pull`. Routes are local-only (`X-MaiSim` on the POSTs) (#126).
 

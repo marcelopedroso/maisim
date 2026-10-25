@@ -5,6 +5,7 @@
     "type": "module",
     "scripts": {
         "maisim": "bash scripts/maisim.sh",
+        "abrir": "bash scripts/maisim.sh --abrir",
         "dev": "vite"
     },
     "devDependencies": {

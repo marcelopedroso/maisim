@@ -23,7 +23,7 @@ pasta de rodadas da instância de teste (--manter-rodadas as deixa).
 
 Itens repetidos no catálogo (ADD, SUB, MUL, DIV e SGN estão em Control e em Math) rodam uma vez só; o resultado vale
 para as duas abas. O SCOPE (o scope do Gecko) não aparece na paleta (regra do MaiSim: medidor vai para o /maisim/scope),
-mas está no catálogo e é vistoriado (na_paleta = false). Nenhum item é pulado: lido o código do Gecko, nenhum construtor
+mas está no catálogo e é vistoriado (na_paleta = false); o mesmo para os "oculto" (catalogo_gecko.py, ESCONDIDOS). Nenhum item é pulado: lido o código do Gecko, nenhum construtor
 abre janela nem espera nada de fora ao inserir (as janelas dos diálogos só abrem com duplo clique no Gecko); o que pode
 abrir janela de erro na rodada (C/C++ sem biblioteca, exportar dados, falta de memória) cai na vigia do servidor, que a
 fecha com OK e avisa (aviso_gecko, registrado aqui).
@@ -340,7 +340,7 @@ def main():
     try:
         for k, it in enumerate(itens, 1):
             r = {kk: it[kk] for kk in ("aba", "nome", "id", "enum", "classe", "dom", "typ")}
-            r["na_paleta"] = it["id"] != "SCOPE"
+            r["na_paleta"] = it["id"] != "SCOPE" and not it.get("oculto")
             chave = (it["dom"], it["typ"], it["id"])
             if chave in feitos:
                 base = feitos[chave]
@@ -373,7 +373,7 @@ def main():
         for it in itens:
             if (it["aba"], it["id"]) not in feitas:
                 saida.append(dict({kk: it[kk] for kk in ("aba", "nome", "id", "enum", "classe", "dom", "typ")},
-                                  na_paleta=it["id"] != "SCOPE", nao_testado=True))
+                                  na_paleta=it["id"] != "SCOPE" and not it.get("oculto"), nao_testado=True))
         livre = para_rodada()
         volta = api("editor/abrir", {"arq": RESTAURA, "modo": "descartar"}) if livre else {"ERRO": "ocupado", "erro": "rodada presa"}
         if volta.get("ERRO"):

@@ -4,13 +4,17 @@
 # ar é reaproveitado e continua no ar. Ctrl+C derruba o que ESTE comando subiu. O Gecko só cai se não houver circuito sem
 # salvar (o simulador compara o que está no Gecko com o arquivo aberto); se houver, ele fica no ar e o comando diz como derrubar.
 # Variável: MAISIM_SEM_GECKO=1 (não sobe o Gecko).
+# Opção: --abrir (npm run abrir): o lançador (app/lancador.py --abrir, o mesmo do Windows e do AppImage) em vez disto —
+# abre a janela do MaiSim e, fechada a última (~20 s depois), desliga; o Gecko fica se houver circuito sem salvar, nunca
+# para no meio de uma rodada, e o ícone de novo com o MaiSim no ar só abre a janela. Sem --abrir (o npm run maisim, o
+# sobe_fundo.sh, um serviço do systemd): tudo fica no ar até o Ctrl+C, com a janela fechada ou não.
 # Opção: -p PORTA (npm run maisim -- -p 8100): a página nessa porta e as outras logo em seguida (+1 o simulador, +2 o scope,
 # +3 o Gecko, +4 o motor do editor, +5 a tela do Gecko, +6 o VNC; a tela virtual :PORTA/100); sem -p, as de config/ (7100…).
 set -u
 APP="$(cd "$(dirname "$0")/.." && pwd)"                   # app/ (a página)
 SM="$(cd "$APP/.." && pwd)"                               # a raiz do projeto: scope/, simu/, gecko/
 . "$SM/config/fala.sh"                                     # fala pt en: as mensagens no idioma do terminal
-B=; CACHE_DADO=${MAISIM_CACHE:-}                            # o cache escolhido por você (no ambiente) vale mais que o do -p
+B=; ABRIR=; CACHE_DADO=${MAISIM_CACHE:-}                            # o cache escolhido por você (no ambiente) vale mais que o do -p
 while [ $# -gt 0 ]; do
   case "$1" in
     -p|--porta)
@@ -21,16 +25,21 @@ while [ $# -gt 0 ]; do
       export MAISIM_PORTA_PAGINA=$B MAISIM_PORTA_SIMU=$((B + 1)) MAISIM_PORTA_SCOPE=$((B + 2)) MAISIM_PORTA_GECKO=$((B + 3))
       export MAISIM_PORTA_MOTOR=$((B + 4)) MAISIM_PORTA_TELA=$((B + 5)) MAISIM_PORTA_VNC=$((B + 6)) MAISIM_TELA_X=":$((B / 100))"
       shift 2;;
+    --abrir) ABRIR=1; shift;;
     -h|--help)
-      fala "uso: npm run maisim [-- -p PORTA]   (sem -p: http://localhost:7100; com -p 8100: http://localhost:8100, e 8101–8106)" \
-           "usage: npm run maisim [-- -p PORT]   (no -p: http://localhost:7100; with -p 8100: http://localhost:8100, and 8101–8106)"; exit 0;;
-    *) fala "maisim: opção desconhecida: $1 (use -p PORTA, ou -h)" "maisim: unknown option: $1 (use -p PORT, or -h)"; exit 2;;
+      fala "uso: npm run maisim [-- -p PORTA] [--abrir]   (sem -p: http://localhost:7100; com -p 8100: http://localhost:8100, e 8101–8106;
+     --abrir: abre a janela, e fechar a janela desliga)" \
+           "usage: npm run maisim [-- -p PORT] [--abrir]   (no -p: http://localhost:7100; with -p 8100: http://localhost:8100, and 8101–8106;
+     --abrir: opens the window, and closing the window stops MaiSim)"; exit 0;;
+    *) fala "maisim: opção desconhecida: $1 (use -p PORTA, --abrir, ou -h)" "maisim: unknown option: $1 (use -p PORT, --abrir, or -h)"; exit 2;;
   esac
 done
 eval "$(python3 "$SM/config/ler_config.py" --shell)"     # as portas e as pastas (config/padrao.env, o .env, o ambiente)
 # com -p, um cache só desta porta (o estado do editor, as conversas, o Gecko e os PIDs dele): duas instâncias lado a lado não
 # se atropelam; os seus dados (circuitos, rodadas) continuam os mesmos
 if [ -n "$B" ] && [ -z "$CACHE_DADO" ]; then export MAISIM_CACHE="$MAISIM_CACHE/porta-$B"; mkdir -p "$MAISIM_CACHE"; fi
+if [ -n "$ABRIR" ]; then                                   # o lançador, com as portas e o cache daqui (no ambiente)
+  exec python3 "$APP/lancador.py" --abrir ${MAISIM_SEM_GECKO:+--sem-gecko}; fi
 LOG="$MAISIM_CACHE/logs"; mkdir -p "$LOG"
 PORTA=$MAISIM_PORTA_PAGINA; SP=$MAISIM_PORTA_SCOPE; MP=$MAISIM_PORTA_SIMU
 GECKO="$MAISIM_PORTA_TELA $MAISIM_PORTA_GECKO $MAISIM_PORTA_MOTOR"

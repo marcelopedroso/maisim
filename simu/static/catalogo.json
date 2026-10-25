@@ -895,7 +895,8 @@
      "typ": 22,
      "classe": "ReglerToEXTERNAL",
      "id": "ToEXT",
-     "nome": "Export Data to Simulink"
+     "nome": "Export Data to Simulink",
+     "oculto": true
     },
     {
      "enum": "C_FROM_EXTERNAL",
@@ -903,7 +904,8 @@
      "typ": 23,
      "classe": "ReglerFromEXTERNAL",
      "id": "FromEXT",
-     "nome": "Import Data from Simulink"
+     "nome": "Import Data from Simulink",
+     "oculto": true
     },
     {
      "enum": "C_DATA_EXPORT",
@@ -911,7 +913,8 @@
      "typ": 75,
      "classe": "ReglerSaveData",
      "id": "DataExport",
-     "nome": "Data export to file"
+     "nome": "Data export to file",
+     "oculto": true
     },
     {
      "enum": "C_SOURCE_IMPORT_DATA",
@@ -920,7 +923,8 @@
      "classe": "ReglerImportFromFile",
      "typ_enum": 89,
      "id": "FILE",
-     "nome": "Data from File"
+     "nome": "Data from File",
+     "oculto": true
     },
     {
      "enum": "C_SOURCE_RANDOM",
@@ -942,7 +946,8 @@
      "typ": 61,
      "classe": "ReglerJavaFunction",
      "id": "JAVA",
-     "nome": "Java-Function"
+     "nome": "Java-Function",
+     "oculto": true
     },
     {
      "enum": "C_NATIVE_C_FUNCTION",
@@ -950,7 +955,8 @@
      "typ": 88,
      "classe": "ReglerNativeC",
      "id": "C DLL",
-     "nome": "C/C++ Function"
+     "nome": "C/C++ Function",
+     "oculto": true
     },
     {
      "enum": "C_SMALL_SIG",
@@ -958,7 +964,8 @@
      "typ": 87,
      "classe": "ReglerSmallSignalAnalysis",
      "id": "ANALYSIS",
-     "nome": "Small signal analysis"
+     "nome": "Small signal analysis",
+     "oculto": true
     },
     {
      "enum": "C_ABCDQ",
@@ -990,7 +997,8 @@
      "typ": 59,
      "classe": "ReglerSPARSEMATRIX",
      "id": "SPARSEMATRIX",
-     "nome": "Sparse control"
+     "nome": "Sparse control",
+     "oculto": true
     },
     {
      "enum": "C_PMSM_CONTROL",
@@ -998,7 +1006,8 @@
      "typ": 76,
      "classe": "ReglerPMSMCONTROL",
      "id": "PMSM_CTRL",
-     "nome": "PMSM controller"
+     "nome": "PMSM controller",
+     "oculto": true
     },
     {
      "enum": "C_PMSM_MODULATOR",
@@ -1006,7 +1015,8 @@
      "typ": 77,
      "classe": "ReglerPMSM_Modulator",
      "id": "PMSM_MOD",
-     "nome": "PMSM modulator"
+     "nome": "PMSM modulator",
+     "oculto": true
     },
     {
      "enum": "C_THYR_CTRL",
