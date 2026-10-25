@@ -43,6 +43,9 @@ Compression=lzma2/max
 SolidCompression=yes
 LZMANumBlockThreads=4
 CloseApplications=no
+; uma atualização (o MaiSim já instalado) vai para a mesma pasta, sem perguntar
+UsePreviousAppDir=yes
+DisableDirPage=auto
 ShowLanguageDialog=yes
 
 [Languages]
@@ -129,6 +132,17 @@ begin
     for I := 0 to GetArrayLength(Linhas) - 1 do
       if Pos(Nome + '=', Linhas[I]) = 1 then
         Result := Copy(Linhas[I], Length(Nome) + 2, MaxInt);
+end;
+
+{ já há um MaiSim instalado com a config pessoal: é uma atualização — a pasta dos circuitos e a porta ficam como estão }
+function Atualizacao: Boolean;
+begin
+  Result := FileExists(ArquivoConfig);
+end;
+
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := Atualizacao and ((PageID = PaginaDados.ID) or (PageID = PaginaPorta.ID));
 end;
 
 function PastaDados(Param: String): String;
