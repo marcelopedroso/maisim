@@ -45,9 +45,12 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   await pg.evaluate(() => { const x = document.createElement("button"); x.id = "tab-dica"; x.title = "pelo teclado"; x.textContent = "·"; document.querySelector("main").prepend(x);
     const y = document.createElement("button"); y.id = "tab-antes"; y.textContent = "·"; document.querySelector("main").prepend(y); y.focus(); });
   // espera a dica aparecer (até 5 s): na máquina do CI, mais lenta, os 700 ms fixos de antes às vezes não davam
+  // o mouse vai para o botão sem dica do topo: os botões postos no topo empurram a página para baixo, e o mouse parado
+  // viraria "em cima" de outro elemento (no CI, a linha de um circuito recente), cuja dica ganharia da do Tab
+  await pg.hover("#tab-antes");
   await pg.keyboard.press("Tab");
   const estTab = () => pg.evaluate(() => ({ foco: document.activeElement.id, vis: document.getElementById("dica-ui").classList.contains("vis"), txt: document.getElementById("dica-ui").textContent }));
-  await pg.waitForFunction(() => document.activeElement.id === "tab-dica" && document.getElementById("dica-ui").classList.contains("vis"), null, { timeout: 5000 }).catch(() => {});
+  await pg.waitForFunction(() => document.activeElement.id === "tab-dica" && document.getElementById("dica-ui").classList.contains("vis") && document.getElementById("dica-ui").textContent === "pelo teclado", null, { timeout: 5000 }).catch(() => {});
   const tab = await estTab();
   ok(tab.foco === "tab-dica" && tab.vis && tab.txt === "pelo teclado", `início: pelo Tab, a dica do elemento com o foco (${JSON.stringify(tab)})`);
   await pg.keyboard.press("Escape"); await pg.waitForTimeout(200);
