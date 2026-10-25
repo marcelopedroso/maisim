@@ -146,9 +146,19 @@ begin
   Result := FileExists(ArquivoConfig);
 end;
 
+{ uma pasta dentro do que a atualização troca inteiro (maisim, python e jre da pasta do programa: o [InstallDelete]) }
+function EmPastaTrocada(Pasta: String): Boolean;
+var D, A: String;
+begin
+  D := Lowercase(AddBackslash(Pasta));
+  A := Lowercase(AddBackslash(WizardDirValue));
+  Result := (Pos(A + 'maisim\', D) = 1) or (Pos(A + 'python\', D) = 1) or (Pos(A + 'jre\', D) = 1);
+end;
+
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
-  Result := Atualizacao and ((PageID = PaginaDados.ID) or (PageID = PaginaPorta.ID));
+  { numa atualização, a pasta dos circuitos só é perguntada de novo se estiver onde a atualização apagaria }
+  Result := Atualizacao and (((PageID = PaginaDados.ID) and not EmPastaTrocada(PaginaDados.Values[0])) or (PageID = PaginaPorta.ID));
 end;
 
 function PastaDados(Param: String): String;
@@ -199,7 +209,9 @@ begin
     { os circuitos nunca dentro da pasta do programa (nem ela dentro deles): a atualização e o desinstalar mexem nela }
     D := Lowercase(AddBackslash(PaginaDados.Values[0]));
     A := Lowercase(AddBackslash(WizardDirValue));
-    if (Pos(A, D) = 1) or (Pos(D, A) = 1) then begin
+    { instalação nova: fora da pasta do programa; atualização: só fora do que ela troca inteiro (a de antes, dentro da
+      pasta do programa, era aceita e fica onde está) }
+    if (not Atualizacao and ((Pos(A, D) = 1) or (Pos(D, A) = 1))) or EmPastaTrocada(PaginaDados.Values[0]) then begin
       MsgBox(FmtMessage(CustomMessage('DadosNoPrograma'), [WizardDirValue]), mbError, MB_OK);
       Result := False;
     end;
