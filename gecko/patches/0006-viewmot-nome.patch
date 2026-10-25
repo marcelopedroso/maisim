@@ -1,0 +1,26 @@
+diff --git a/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/ComponentCoupling.java b/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/ComponentCoupling.java
+index 5c0b9e1a..14ebc602 100644
+--- a/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/ComponentCoupling.java
++++ b/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/ComponentCoupling.java
+@@ -148,7 +148,9 @@ public final class ComponentCoupling {
+                 String setString = _coupledElements[i].getStringID();
+ 
+                 if (_internalStringIndex >= 0) {
+-                    setString += _internalString;
++                    // MaiSim: "machine.quantity", the same string ReglerVIEWMOT.getParameterString() builds (without the
++                    // dot, the field flipped between "M-DC.1n [rpm]" and "M-DC.1.n [rpm]" after every simulation)
++                    setString += "." + _internalString;
+                 }                
+                 _parentElement.getParameterString()[_parStringIndices[i]] = setString;
+             }
+@@ -231,7 +233,9 @@ public final class ComponentCoupling {
+                             
+                             internStringAdded = true;
+                             for (int index = 0; index < internStrings.size(); index++) {
+-                                final String internString = parameterString[parStringIndex];
++                                // MaiSim: the suffix is the machine's own internal string (it was the whole parameter string,
++                                // so every reopen prepended the machine name again: "M-DC.1M-DC.1.n [rpm]", and so on)
++                                final String internString = internStrings.get(index);
+                                 if (parameterString[parStringIndex].startsWith(elem.getStringID())
+                                         && parameterString[parStringIndex].endsWith(internString)) {
+                                     _internalString = internString;

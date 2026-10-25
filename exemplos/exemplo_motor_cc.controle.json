@@ -1,0 +1,76 @@
+{
+ "ativo": true,
+ "Ts": 5e-05,
+ "atuacoes": [
+  "d"
+ ],
+ "parametros": [
+  {
+   "nome": "n_ref",
+   "valor": 1000.0,
+   "unidade": "rpm"
+  },
+  {
+   "nome": "Vdc",
+   "valor": 240.0,
+   "unidade": "V"
+  },
+  {
+   "nome": "k",
+   "valor": 1.0,
+   "unidade": "V·s/rad"
+  },
+  {
+   "nome": "Kp_w",
+   "valor": 1.0,
+   "unidade": "A·s/rad"
+  },
+  {
+   "nome": "Ki_w",
+   "valor": 50.0,
+   "unidade": "A/rad"
+  },
+  {
+   "nome": "Imax",
+   "valor": 15.0,
+   "unidade": "A"
+  },
+  {
+   "nome": "Kp_i",
+   "valor": 15.708,
+   "unidade": "V/A"
+  },
+  {
+   "nome": "Ki_i",
+   "valor": 1570.8,
+   "unidade": "V/(A·s)"
+  },
+  {
+   "nome": "dmax",
+   "valor": 0.98,
+   "unidade": ""
+  }
+ ],
+ "codigo": "# Motor CC de excitação independente: controle de velocidade em cascata, aqui no controle.py.\n# Circuito: meia ponte (S.1 e S.2, complementares) no barramento de 240 V alimenta a armadura do M-DC.1; o campo\n# tem a fonte própria de 100 V (Re = 100 ohm: ie = 1 A, k = c·Le·ie/Ne = 200·0,5·1/100 = 1 V·s/rad).\n# O PWM é do Gecko: a razão cíclica \"d\" (o CONST que este código escreve) contra a portadora triangular de 20 kHz.\n# As medidas vêm da máquina (blocos \"Grandeza da máquina\"): n_MDC1 (rpm) e ia_MDC1 (A).\n#\n# A cada Ts = 50 µs (um período da portadora, amostrando no pico dela: a média da corrente):\n#   1. malha de velocidade (PI): erro em rad/s → referência de corrente i_ref, limitada a ±Imax;\n#   2. malha de corrente (PI) com a f.c.e.m. k·ω somada à frente: tensão de armadura v_a → d = v_a/Vdc.\n#\n# Ajuste (planta da corrente: 1/(Ra + s·La); da velocidade: k/(J·s)):\n#   - corrente: cruzamento em 500 Hz, Kp_i = La·ωc = 15,7 V/A e Ki_i = Ra·ωc = 1571 V/(A·s) (o zero cancela o polo L/R);\n#   - velocidade: cruzamento em 200 rad/s, Kp_w = J·ωc/k = 1 A·s/rad e Ki_w = Kp_w·ωc/4 = 50 A/rad;\n#   - anti-windup: as integrais só andam quando a saída não está saturada.\n# Acionamentos (no painel): o torque de carga Tm de 0 para 8 N·m em 0,15 s e a referência de 1000 para 1500 rpm em 0,3 s.\n# Em regime: Tel = Tm + fr·ω e ω = (v_a − Ra·ia)/k.\n\ndef iniciar(p, e):\n    e[\"int_w\"] = 0.0       # integral do erro de velocidade\n    e[\"int_i\"] = 0.0       # integral do erro de corrente\n\n\ndef passo(t, m, p, e):\n    w = m[\"n_MDC1\"] * math.pi / 30           # rpm → rad/s\n    w_ref = p[\"n_ref\"] * math.pi / 30\n    ia = m[\"ia_MDC1\"]\n\n    # malha de velocidade → referência de corrente\n    erro_w = w_ref - w\n    i_ref = p[\"Kp_w\"] * erro_w + p[\"Ki_w\"] * (e[\"int_w\"] + erro_w * p[\"Ts\"])\n    if abs(i_ref) < p[\"Imax\"]:\n        e[\"int_w\"] += erro_w * p[\"Ts\"]\n    i_ref = max(-p[\"Imax\"], min(p[\"Imax\"], i_ref))\n\n    # malha de corrente → tensão de armadura (com a f.c.e.m. à frente) → razão cíclica\n    erro_i = i_ref - ia\n    v = p[\"k\"] * w + p[\"Kp_i\"] * erro_i + p[\"Ki_i\"] * (e[\"int_i\"] + erro_i * p[\"Ts\"])\n    d = v / p[\"Vdc\"]\n    if 0.0 < d < p[\"dmax\"]:\n        e[\"int_i\"] += erro_i * p[\"Ts\"]\n    d = max(0.0, min(p[\"dmax\"], d))\n\n    scope(\"n_ref\", p[\"n_ref\"])\n    scope(\"i_ref\", i_ref)\n    return {\"d\": d}\n",
+ "atraso": {
+  "modo": "amostra",
+  "tempo": 0.0
+ },
+ "acionamentos": [
+  {
+   "t": 0.15,
+   "alvo": "CONST:Tm",
+   "valor": 8.0
+  },
+  {
+   "t": 0.3,
+   "alvo": "p:n_ref",
+   "valor": 1500.0
+  }
+ ],
+ "arquivos": {},
+ "controladores": [],
+ "rede": {
+  "latencia": 0.0
+ }
+}

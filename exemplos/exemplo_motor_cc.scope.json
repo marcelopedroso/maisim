@@ -1,0 +1,10 @@
+{
+ "colunas": 1,
+ "itens": [
+  {"secao": "Motor CC — controle de velocidade"},
+  {"titulo": "Velocidade n (rpm)", "sinais": ["n_MDC1", "n_ref"], "largura": 1},
+  {"titulo": "Corrente de armadura (A)", "sinais": ["ia_MDC1", "i_ref"], "largura": 1},
+  {"titulo": "Torque (N·m)", "sinais": ["Tel_MDC1", "Tm"], "largura": 1},
+  {"titulo": "Razão cíclica d", "sinais": ["d"], "largura": 1}
+ ]
+}
