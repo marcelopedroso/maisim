@@ -263,10 +263,15 @@ function textoMat(g, texto, x, y, px, peso = "") {
     g.font = `${px * 0.8}px ${mat}`; g.fillText(q.sub, x, y + px * 0.3); x += g.measureText(q.sub).width;
   }
 }
+// as perdas que a rodada grava pela média do intervalo entre amostras (meta.media_intervalo, do /maisim/simu): a nota na legenda
+const emMedia = (se) => !se.soma && !se.pot && !!(se.F && se.F.meta && (se.F.meta.media_intervalo || []).includes(se.canal));
 function legendaMat(p) {                               // os nomes da legenda do uPlot (a 1ª série é o tempo)
   if (!p.u) return;
   p.u.root.querySelectorAll(".u-legend .u-series").forEach((lin, k) => { const l = lin.querySelector(".u-label"), se = p.series[k - 1];
-    if (l && se) l.innerHTML = htmlMat(se.rot); });
+    if (!l || !se) return;
+    const med = emMedia(se);
+    l.innerHTML = htmlMat(se.rot) + (med ? ` <span class="nota-media">${escH(tr("scope.media_intervalo"))}</span>` : "");
+    if (med) l.title = tr("scope.t_media_intervalo"); else l.removeAttribute("title"); });
 }
 function tituloMat(p) { const t = p.el && p.el.querySelector(".titulo-mat"); if (t) t.innerHTML = htmlMat(p.titulo); }
 

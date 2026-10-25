@@ -81,6 +81,7 @@ def escreve(npz, destino=None, estado=None, saida_controle=""):
          tr("resumo.tempo", t0=_fmt(t0), t1=_fmt(t1), dtg=_fmt(meta.get('dt_gecko')), dt=_fmt(meta.get('dt')),
             ts=f"{_fmt(ctl.get('Ts'))} s" if ctl else tr("resumo.sem_controle"), n=len(canais)),   # a unidade só com o número
          *([tr("resumo.solver", nome=tr(f"resumo.solver.{meta['solver']}"))] if meta.get("solver") in SOLVERS.values() else []),
+         *([tr("resumo.media_intervalo", lista=", ".join(meta["media_intervalo"]))] if meta.get("media_intervalo") else []),
          tr("resumo.fasores", f=f"{f0:g}"),
          tr("resumo.janelas", lista="; ".join(f"J{i + 1} = [{_fmt(a)}, {_fmt(b)}) s" for i, (a, b) in enumerate(js))), "",
          tr("resumo.regime"), "",

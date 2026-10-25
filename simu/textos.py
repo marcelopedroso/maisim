@@ -797,6 +797,8 @@ T = {
     "resumo.tempo": {"pt": "- tempo simulado: {t0} a {t1} s; passo do Gecko {dtg} s; uma amostra do scope a cada {dt} s; Ts do controle {ts}; {n} canais",
                      "en": "- simulated time: {t0} to {t1} s; Gecko step {dtg} s; one scope sample every {dt} s; control Ts {ts}; {n} channels"},
     "resumo.solver": {"pt": "- integração (solverType do Gecko): {nome}", "en": "- integration (Gecko solverType): {nome}"},
+    "resumo.media_intervalo": {"pt": "- gravados como a média do intervalo entre amostras (perdas; não o valor de um passo): {lista}",
+                               "en": "- recorded as the average over the interval between samples (losses; not a single step's value): {lista}"},
     "resumo.solver.backward-euler": {"pt": "Euler implícito (backward-euler)", "en": "backward Euler (backward-euler)"},
     "resumo.solver.trapezoidal": {"pt": "trapézio (trapezoidal)", "en": "trapezoidal (trapezoidal)"},
     "resumo.solver.gear-shichman": {"pt": "Gear, BDF2 (gear-shichman)", "en": "Gear, BDF2 (gear-shichman)"},
