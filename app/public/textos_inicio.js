@@ -73,6 +73,9 @@ maisimI18n.add({
   "inicio.so_circ_title": { pt: "todas as simulações de novo", en: "all simulations again" },
   "inicio.so_circ_aria": { pt: "tirar o filtro do circuito", en: "remove the circuit filter" },
   "inicio.creditos_bt": { pt: "Sobre e créditos", en: "About and credits" },
+  "inicio.versao": { pt: "MaiSim {versao} · {tipo}", en: "MaiSim {versao} · {tipo}" },
+  "inicio.versao_nova": { pt: "há a {versao}: atualizar…", en: "{versao} is available: update…" },
+  "inicio.versao_procurar": { pt: "atualizações…", en: "updates…" },
   "inicio.creditos_html": {
     pt: `
                 <p>MaiSim é software livre (GNU GPL v3), de Marcelo Pedroso. Feito sobre:</p>
