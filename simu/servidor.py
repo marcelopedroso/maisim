@@ -4005,6 +4005,14 @@ claude_instala = {}                               # a instalação em andamento 
 trava_instala = threading.Lock()
 
 
+def claude_instala_para():
+    """O servidor saindo (fechar o MaiSim, reiniciar): o instalador em andamento cai junto — senão ele seguiria sozinho,
+    e o servidor seguinte, sem saber dele, poderia abrir um segundo instalador no mesmo destino."""
+    proc = claude_instala.get("proc")
+    if proc is not None and proc.poll() is None:
+        processos.encerra(proc.pid, forte=True)
+
+
 def comando_instala_claude():
     """O comando do instalador do Claude Code, ou None (fora do Windows, sem o de teste)."""
     teste = os.environ.get("MAISIM_INSTALA_CLAUDE_CMD")
@@ -6139,6 +6147,7 @@ def main():
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))   # kill: sai pelo atexit (o login em andamento não fica órfão)
     atexit.register(claude_login_cancela)
     atexit.register(claude_para)
+    atexit.register(claude_instala_para)
     srv = ThreadingHTTPServer(("127.0.0.1", a.porta), Manipulador)   # a porta ocupada sai aqui, antes de mexer no cache
     srv.daemon_threads = True
     for arq in (ESTADO.parent / "desfazer").glob("*.ipes"):        # a pilha é da memória: o que ficou de antes é órfão

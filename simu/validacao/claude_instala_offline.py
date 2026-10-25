@@ -108,6 +108,17 @@ for modo, espera_txt, extra in (("erro", "saída 3", {}), ("nada", "não aparece
     ok(not st["ok"] and espera_txt in (st["erro"] or "") and not srv.CLAUDE.instalado(), f"{modo if not extra else 'prazo'}: {st['erro']}")
     srv.CLAUDE_INSTALA_PRAZO = 15 * 60; os.environ.pop("ESPERA", None)
 alvo.unlink(missing_ok=True)
+# o servidor saindo no meio: o instalador cai junto (o atexit), não fica sozinho instalando
+os.environ["MAISIM_INSTALA_CLAUDE_CMD"], os.environ["ESPERA"] = cmd("ok"), "30"
+srv.claude_instala_inicia(); proc = srv.claude_instala["proc"]; time.sleep(0.5)
+srv.claude_instala_para()
+for _ in range(30):
+    if proc.poll() is not None:
+        break
+    time.sleep(0.1)
+ok(proc.poll() is not None and not srv.CLAUDE.instalado(), f"o servidor saindo: o instalador em andamento é encerrado (saída {proc.poll()})")
+os.environ.pop("ESPERA", None); espera_fim()
+alvo.unlink(missing_ok=True)
 # fora do Windows, sem o instalador de mentira: nada a rodar (a tela mostra o comando); no Windows, o PowerShell oficial
 del os.environ["MAISIM_INSTALA_CLAUDE_CMD"]
 ok(srv.comando_instala_claude() is None and not srv.claude_estado()["pode_instalar"], "Linux: sem instalador (pode_instalar falso)")
