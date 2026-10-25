@@ -158,6 +158,16 @@ const SIMB = { INT: "∫", PI: "PI", PD: "d/dt", PT1: "PT1", PT2: "PT2", TF: "H(
     await pg.evaluate(() => maisimI18n.muda("pt")); await pg.waitForTimeout(500);
     for (const id of Object.keys(NOMES.pt)) { const p = await painel(nomeDe(id)); if (!p.t.startsWith(NOMES.pt[id] + " ·")) ptNomes.push(`${id}: "${p.t}"`); }
     ok(!ptNomes.length, `de volta ao português: ${ptNomes.join("; ") || "os mesmos nomes de antes"}`);
+    // a caixa de texto com um título longo, sozinha na ponta direita: o ajuste à tela mostra a caixa inteira (Codex, #139)
+    const corte = await pg.evaluate(() => { const f = dados.folhas[folhaAtual], salvo = f.elementos;
+      const xm = Math.max(...salvo.map((e) => e.x)) + 4, ym = salvo[0] ? salvo[0].y : 0;
+      const base = salvo.find((e) => e.tipo === "TEXT");
+      f.elementos = salvo.concat([Object.assign(JSON.parse(JSON.stringify(base)), { nome: "TEXT.longo", x: xm, y: ym, titulo: "um título bem comprido para a caixa de texto" })]);
+      desenha(); ajusta(); desenha();
+      const cx = document.querySelector(`#svg g.el[data-i="${f.elementos.length - 1}"] rect.corpo`), rr = cx.getBoundingClientRect(), sv = $("svg").getBoundingClientRect();
+      const res = { dentro: rr.right <= sv.right + 0.5 && rr.left >= sv.left - 0.5, larg: +cx.getAttribute("width") / G, dir: rr.right, svg: sv.right };
+      f.elementos = salvo; desenha(); ajusta(); return res; });
+    ok(corte.dentro && corte.larg > 4, `a caixa de texto longa na ponta direita cabe no ajuste: borda ${corte.dir.toFixed(0)} ≤ ${corte.svg.toFixed(0)} px (${corte.larg.toFixed(1)} quadrados de largura)`);
     ok(!erros.length, `sem erro na página: ${erros.join(" | ") || "nenhum"}`);
   } catch (e) { ok(false, "erro: " + e.message); }
   finally { if (pg) await pg.evaluate(() => maisimI18n.muda("pt")).catch(() => {}); if (b) await b.close(); console.log(falhas ? `\n${falhas} FALHA(S)` : "\nOK: tudo certo"); process.exit(falhas ? 1 : 0); }

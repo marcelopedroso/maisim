@@ -901,6 +901,10 @@ function ajusta() {
   let [x0, y0, x1, y1] = f.limites;
   if (f.tamanho) { x0 = Math.min(x0, 0); y0 = Math.min(y0, 0); x1 = Math.max(x1, f.tamanho[0]); y1 = Math.max(y1, f.tamanho[1]); }   // SM: a folha inteira (tamanho fixo)
   x1 += f.elementos.some((e) => MEDIDOR.has(e.tipo)) ? 5 : 0;   // o nome no scope, à direita dos medidores
+  // a caixa de texto alarga para a direita até o título caber (até 12 quadrados a partir de x − 1): o ajuste conta a caixa
+  // inteira, pela largura desenhada (ou, antes do desenho, pelo máximo)
+  f.elementos.forEach((e, i) => { if (e.tipo !== "TEXT") return; const c = $("svg").querySelector(`g.el[data-i="${i}"] rect.corpo`);
+    x1 = Math.max(x1, e.x - 1 + (c ? +c.getAttribute("width") / G : 12) - m + 0.5); });
   // nunca menor que 30 × 20 quadrados: uma folha vazia ou de uma peça só não vira um zoom absurdo
   if (x1 - x0 < 30) { const c = (x0 + x1) / 2; x0 = c - 15; x1 = c + 15; }
   if (y1 - y0 < 20) { const c = (y0 + y1) / 2; y0 = c - 10; y1 = c + 10; }
