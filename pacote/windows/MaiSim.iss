@@ -42,10 +42,9 @@ LicenseFile=..\..\LICENSE
 Compression=lzma2/max
 SolidCompression=yes
 LZMANumBlockThreads=4
-; o que ainda estiver usando arquivos do programa depois do --parar (um Gecko com circuito sem salvar): o assistente
-; mostra quem é e oferece fechar (o Restart Manager do Windows); não reabre nada depois
-CloseApplications=yes
-RestartApplications=no
+; o MaiSim no ar é desligado no PrepareToInstall (o Restart Manager do Windows não fecha processos sem janela, como os
+; do MaiSim)
+CloseApplications=no
 ; uma atualização (o MaiSim já instalado) vai para a mesma pasta, sem perguntar
 UsePreviousAppDir=yes
 DisableDirPage=auto
@@ -70,6 +69,8 @@ pt.PortaOcupada=A porta %1 já está em uso neste computador (outro MaiSim, ou o
 pt.Abrir=Abrir o MaiSim agora (a primeira vez leva até um minuto)
 pt.Desligar=Desligar o MaiSim
 pt.PastaCircuitos=Pasta dos meus circuitos
+pt.FecharSemSalvar=O MaiSim ainda está aberto (talvez com um circuito sem salvar). Fechar para atualizar? As mudanças não salvas se perdem.
+pt.Aberto=Feche o MaiSim e rode o instalador de novo.
 pt.ApagarDados=Apagar também os seus circuitos, rodadas e configurações (%1)? Isso não dá para desfazer.
 en.DadosTitulo=Where your circuits are kept
 en.DadosSub=Circuits, runs and the AI contexts are kept in a visible folder.
@@ -85,6 +86,8 @@ en.PortaOcupada=Port %1 is already in use on this computer (another MaiSim, or W
 en.Abrir=Open MaiSim now (the first time takes up to a minute)
 en.Desligar=Stop MaiSim
 en.PastaCircuitos=My circuits folder
+en.FecharSemSalvar=MaiSim is still running (maybe with an unsaved circuit). Close it to update? Unsaved changes will be lost.
+en.Aberto=Close MaiSim and run the installer again.
 en.ApagarDados=Also delete your circuits, runs and settings (%1)? This cannot be undone.
 
 [Files]
@@ -217,9 +220,24 @@ begin
   end;
 end;
 
+{ os processos rodando de dentro da pasta do programa (o Python e o Java do MaiSim), pelo caminho: acha também um MaiSim
+  cuja instalação anterior parou no meio (sem o lancador.py) }
+function ProcessosNoPrograma(Matar: Boolean): Boolean;
+var Saida, Cmd: String; Cod: Integer; Ansi: AnsiString;
+begin
+  Saida := ExpandConstant('{tmp}\processos.txt');
+  Cmd := '$p = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -like ''' + ExpandConstant('{app}') + '\*'' }; ';
+  if Matar then Cmd := Cmd + '$p | Stop-Process -Force; Start-Sleep -Seconds 2; ';
+  Cmd := Cmd + '@($p).Count | Out-File -Encoding ascii ''' + Saida + '''';
+  Result := False;
+  if Exec('powershell.exe', '-NoProfile -ExecutionPolicy Bypass -Command "' + Cmd + '"', '', SW_HIDE, ewWaitUntilTerminated, Cod) then
+    if LoadStringFromFile(Saida, Ansi) then
+      Result := StrToIntDef(Trim(String(Ansi)), 0) > 0;
+end;
+
 { uma atualização com o MaiSim no ar: desliga ele antes de trocar os arquivos (o Windows não deixa trocar um arquivo em
-  uso — "Acesso negado" no jre\bin\awt.dll); o --parar guarda o Gecko se houver circuito sem salvar, e aí o
-  CloseApplications acima mostra o que sobrou }
+  uso — "Acesso negado" no jre\bin\awt.dll). Primeiro o --parar (desliga direito; guarda o Gecko se houver circuito sem
+  salvar); se ainda sobrar processo, pergunta e encerra }
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var Py, Lanc: String; Cod: Integer;
 begin
@@ -228,6 +246,12 @@ begin
   Lanc := ExpandConstant('{app}\maisim\app\lancador.py');
   if FileExists(Py) and FileExists(Lanc) then
     Exec(Py, '"' + Lanc + '" --produto --parar', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, Cod);
+  if ProcessosNoPrograma(False) then begin
+    if WizardSilent or (MsgBox(CustomMessage('FecharSemSalvar'), mbConfirmation, MB_YESNO) = IDYES) then
+      ProcessosNoPrograma(True);
+    if ProcessosNoPrograma(False) then
+      Result := CustomMessage('Aberto');
+  end;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
