@@ -1606,6 +1606,14 @@ async function salvaNaBiblioteca(e) {
   } catch (er) { msg(er.message, "erro"); }
 }
 // Salvar (Ctrl+S, disquete): por cima do arquivo aberto, se ele é seu (os seus circuitos ou a biblioteca); senão, Salvar como
+// fechar a janela do MaiSim com mudanças não salvas, quando fechar desliga o MaiSim (o lançador do "só usar" vigia: o
+// maisim-nav.js marca maisimVigiada): o aviso do navegador ("Sair do site?"; o texto é dele, no idioma dele). O circuito não
+// se perde (o Gecko fica no ar com ele), mas a pessoa fica sabendo. Não nas trocas de página dentro do MaiSim (o maisim-nav.js marca o clique: o circuito fica no Gecko e a página seguinte o
+// retoma) nem na janela à parte do código (a principal continua com o circuito)
+addEventListener("beforeunload", (ev) => {
+  if (!window.maisimVigiada || !(ed.sujo || ed.novo) || Date.now() - (window.maisimNavegando || 0) < 5000 || new URLSearchParams(location.search).get("janela") === "1") return;
+  ev.preventDefault(); ev.returnValue = "";
+});
 function marcaSujo(s) { ed.sujo = !!s; $("bt-salvar").classList.toggle("sujo", ed.sujo); $("bt-salvar").title = tr(ed.sujo ? "simu.t_salvar_sujo" : "simu.t_salvar"); }
 async function salvar() {
   if (dados && dados.fechado) { msg(tr("simu.nada_salvar"), "erro"); return; }
