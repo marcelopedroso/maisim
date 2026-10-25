@@ -27,6 +27,12 @@ import lingua  # noqa: E402                    as mensagens no idioma do pedido
 import textos  # noqa: E402,F401
 
 ENV_BRANCA = ("PATH", "HOME", "USER", "LOGNAME", "LANG", "LC_ALL", "LC_CTYPE", "TZ", "TMPDIR")
+# no Windows, também as do sistema e da pessoa: sem SYSTEMROOT a rede e a criptografia não sobem, sem USERPROFILE/APPDATA a
+# ferramenta não acha a casa, sem TEMP não tem onde escrever (o os.environ do Windows já vem com os nomes em maiúsculas)
+if os.name == "nt":
+    ENV_BRANCA += ("SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "PATHEXT", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "APPDATA",
+                   "LOCALAPPDATA", "PROGRAMDATA", "PROGRAMFILES", "PROGRAMFILES(X86)", "PROGRAMW6432", "COMMONPROGRAMFILES",
+                   "TEMP", "TMP", "USERNAME", "USERDOMAIN", "COMPUTERNAME", "OS", "PROCESSOR_ARCHITECTURE", "NUMBER_OF_PROCESSORS")
 
 
 class IA:
@@ -36,6 +42,7 @@ class IA:
     modelos = ("",)               # "" = o padrão da conta
     esforcos = ("",)
     tem_login = False             # o login é pelo MaiSim (estado/entra/codigo/sai abaixo); o do Claude é o do servidor
+    acha = None                   # () → o caminho da ferramenta: procurado de novo enquanto ela não existe (instalada depois)
 
     def __init__(self, binario, pasta):
         self.bin = str(binario)
@@ -50,6 +57,8 @@ class IA:
         return env
 
     def instalado(self):
+        if self.acha and not Path(self.bin).exists():
+            self.bin = str(self.acha())
         return Path(self.bin).exists()
 
     # ---- o que cada IA define

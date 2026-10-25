@@ -4,7 +4,7 @@
 // servidor o código que a página mostrou. O do Gemini é o do Gemini CLI (~/.gemini-maisim): a página do Google mostra um
 // código depois de autorizar, e a tela o manda ao servidor. Nada de credencial passa por aqui.
 const cla = { estado: null, falha: "", aviso: "", enviando: false, timer: null, janela: null, desenhado: "", uso: null,
-  ias: [], iaAviso: {}, iaEnviando: {}, iaTimer: null, aberta: {}, iaUso: {} };   // aberta: os detalhes de cada conta (o botão)   // ias: /claude/ias (as outras IAs trazem o estado do login)
+  ias: [], iaAviso: {}, iaEnviando: {}, iaTimer: null, aberta: {}, iaUso: {}, inst: null, instTimer: null };   // inst: a instalação do Claude Code (o botão Instalar)   // aberta: os detalhes de cada conta (o botão)   // ias: /claude/ias (as outras IAs trazem o estado do login)
 
 // o diodo com o brilho de IA, animado (o "carregando" do MaiSim): corrente passando, faíscas piscando, o brilho mudando de cor
 function diodoIA(px = 22) {
@@ -52,7 +52,7 @@ function botaoClaude() {
   if (e) avisaTrilho([logado ? "Claude" : "", ...outras.map((a) => a.nome)].filter(Boolean));
   b.classList.toggle("logado", logado || outras.length > 0); b.classList.toggle("andamento", emAndamento() || iaAndando()); b.classList.toggle("falha", !!cla.falha && !e);
   b.title = (!e ? (cla.falha ? tr("ia.bt_falha", { erro: cla.falha }) : tr("ia.bt"))
-    : !e.instalado ? tr("ia.bt_ausente")
+    : !e.instalado ? tr(cla.inst && cla.inst.andamento ? "ia.bt_instalando" : "ia.bt_ausente")
     : logado ? tr(e.plano ? "ia.bt_logado_plano" : "ia.bt_logado", { email: e.email || "?", plano: e.plano }) : emAndamento() ? tr("ia.bt_andamento") : tr("ia.bt_entrar"))
     + outras.map((a) => ` · ${tr("ia.bt_outra", { nome: a.nome, email: a.estado.email || "?" })}`).join("");
 }
@@ -73,11 +73,51 @@ async function atualizaIAs() {
 let seqClaude = 0, aplicadoClaude = 0;
 async function atualizaClaude() {
   const meu = ++seqClaude;
-  try { const e = await apiClaude("estado"); if (meu < aplicadoClaude) return cla.estado; aplicadoClaude = meu; cla.estado = e; cla.falha = ""; }
+  try { const e = await apiClaude("estado"); if (meu < aplicadoClaude) return cla.estado; aplicadoClaude = meu; cla.estado = e; cla.falha = "";
+    cla.inst = e.instalacao || null; }                  // o servidor manda a instalação sempre que houve uma (desde que subiu)
   catch (err) { if (meu < aplicadoClaude) return cla.estado; aplicadoClaude = meu; cla.falha = err.message || tr("ia.erro"); }
-  botaoClaude(); desenhaJanelaClaude(); acompanhaClaude();
+  botaoClaude(); desenhaJanelaClaude(); acompanhaClaude(); acompanhaInstalacao();
   if (typeof cc !== "undefined" && cc.aberto) desenhaChat();          // a conversa do controle depende do login
   return cla.estado;
+}
+// a instalação do Claude Code pelo botão (Windows: o instalador oficial da Anthropic, no servidor): enquanto anda, a saída;
+// no fim, o estado de novo (o servidor procura o claude.exe recém-instalado) e a janela passa ao "Entrar"
+function acompanhaInstalacao() {
+  const anda = !!(cla.inst && cla.inst.andamento);
+  if (anda && !cla.instTimer) cla.instTimer = setInterval(async () => {
+    try { cla.inst = await apiClaude("instalacao"); } catch (err) { return; }      // uma falha de rede: tenta na próxima
+    if (!cla.inst.andamento) { clearInterval(cla.instTimer); cla.instTimer = null; await atualizaClaude(); atualizaIAs(); }
+    else { botaoClaude(); desenhaJanelaClaude(); }
+  }, 1500);
+  else if (!anda && cla.instTimer) { clearInterval(cla.instTimer); cla.instTimer = null; }
+}
+async function instalaClaude() {
+  cla.aviso = ""; cla.instalando = true; desenhaJanelaClaude();
+  try { cla.inst = await apiClaude("instalar", {}); } catch (err) { cla.aviso = err.message; }
+  finally { cla.instalando = false; }
+  botaoClaude(); desenhaJanelaClaude(); acompanhaInstalacao();
+}
+async function procuraClaude() {                        // instalado por fora (outra pasta, ou pelo terminal): o servidor procura de novo
+  cla.aviso = ""; cla.procurando = true; desenhaJanelaClaude();
+  try { await atualizaClaude(); } finally { cla.procurando = false; }
+  if (cla.estado && !cla.estado.instalado) cla.aviso = tr("ia.ainda_ausente");
+  desenhaJanelaClaude(); if (cla.estado && cla.estado.instalado) atualizaIAs();
+}
+// o "não instalado" do Claude: no Windows, o botão Instalar (e a saída do instalador, enquanto anda ou se falhou); no Linux e
+// no macOS, o comando oficial para o terminal; nos dois, "Procurar de novo"
+function htmlAusenteClaude(e) {
+  const i = cla.inst, saida = i && i.saida ? `<pre class="cla-saida">${escT(i.saida)}</pre>` : "";
+  if (!e.pode_instalar) return `<p>${tr("ia.ausente_html")}</p><p class="cla-alt">${tr("ia.instalar_claude_terminal_html", { cmd: "curl -fsSL https://claude.ai/install.sh | bash" })}</p>`;
+  if (i && i.andamento) return `<p>${tr("ia.ausente_html")}</p><p class="cla-espera">${escT(tr("ia.instalando"))}</p>${saida}`;
+  return `<p>${tr("ia.ausente_html")}</p><p class="cla-alt">${tr("ia.instalar_claude_win_html")}</p>`
+    + (i && i.erro ? `<p class="cla-erro">${escT(i.erro)}</p>${saida}` : "");
+}
+function botoesAusenteClaude(e) {
+  if (cla.inst && cla.inst.andamento) return "";
+  const proc = `<button id="cla-procura"${cla.procurando ? " disabled" : ""}>${escT(cla.procurando ? tr("ia.procurando") : tr("ia.procurar"))}</button>`;
+  if (!e.pode_instalar) return proc;
+  return proc + `<button id="cla-instalar" class="primario"${cla.instalando ? " disabled" : ""}>${escT(cla.instalando ? tr("ia.abrindo")
+    : cla.inst && cla.inst.erro ? tr("ia.instalar_de_novo") : tr("ia.instalar"))}</button>`;
 }
 // enquanto o login anda (com a janela aberta ou não): o retorno automático pode chegar a qualquer hora
 function acompanhaClaude() {
@@ -105,6 +145,7 @@ function desenhaJanelaClaude() {
   const e = cla.estado, l = (e && e.login) || {};
   const modo = !e ? "falha" : !e.instalado ? "ausente" : e.logado ? "logado" : l.andamento ? "andamento" : "deslogado";
   const chave = JSON.stringify([modo, e && e.email, e && e.plano, e && e.erro, l.url_auto, l.url_manual, l.erro, cla.aviso, cla.falha, cla.enviando, cla.uso,
+    e && e.pode_instalar, cla.inst, cla.instalando, cla.procurando,
     outrasIAs().map((a) => a.estado), cla.iaAviso, cla.iaEnviando, cla.aberta, cla.iaUso]);
   if (chave === cla.desenhado) return;
   cla.desenhado = chave;
@@ -114,7 +155,7 @@ function desenhaJanelaClaude() {
   const pasta = tr("ia.pasta_html", { pasta: (e && e.pasta) || "~/.claude-maisim" }), aberta = !!cla.aberta.claude;
   const corpo = {
     falha: `<p class="cla-erro">${escT(cla.falha ? tr("ia.sem_servidor_erro", { erro: cla.falha }) : tr("ia.sem_servidor"))}</p>`,
-    ausente: `<p>${tr("ia.ausente_html")}</p>`,
+    ausente: e && !e.instalado ? htmlAusenteClaude(e) : "",
     logado: `<p class="cla-ok">${tr(e && e.plano ? "ia.conectado_plano_html" : "ia.conectado_html", { email: (e && e.email) || "?", plano: e && e.plano })}</p>
       ${aberta ? `<div class="cla-det">${htmlUso(cla.uso)}<p>${trHtml("ia.usa_pasta_html", { nome: "Claude" }, { pasta })}</p></div>` : ""}`,
     andamento: `<p>${escT(tr("ia.passo1_anthropic"))}</p>
@@ -122,11 +163,11 @@ function desenhaJanelaClaude() {
       <p class="cla-alt">${tr("ia.passo2_anthropic_html")}</p>
       <label class="cla-cod"><input id="cla-codigo" placeholder="${escT(tr("ia.ph_codigo"))}" autocomplete="off" spellcheck="false"><button id="cla-enviar"${cla.enviando ? " disabled" : ""}>${escT(cla.enviando ? tr("ia.conferindo") : tr("ia.enviar"))}</button></label>
       <p class="cla-espera">${escT(tr("ia.esperando_aut"))}</p>`,
-    deslogado: `<p>${trHtml("ia.deslogado_html", {}, { pasta })}</p>${l.erro ? `<p class="cla-erro">${escT(tr("ia.ultimo_login", { erro: l.erro }))}</p>` : ""}`,
+    deslogado: `${cla.inst && cla.inst.ok && Date.now() / 1000 - cla.inst.fim < 600 ? `<p class="cla-ok">${escT(tr("ia.instalado_entre"))}</p>` : ""}<p>${trHtml("ia.deslogado_html", {}, { pasta })}</p>${l.erro ? `<p class="cla-erro">${escT(tr("ia.ultimo_login", { erro: l.erro }))}</p>` : ""}`,
   }[modo] + (e && e.erro ? `<p class="cla-erro">${escT(e.erro)}</p>` : "") + (cla.aviso ? `<p class="cla-erro">${escT(cla.aviso)}</p>` : "")
     + (cla.falha && e ? `<p class="cla-erro">${escT(tr("ia.sem_servidor_agora", { erro: cla.falha }))}</p>` : "");
   const botoes = {
-    falha: `<button id="cla-tentar">${escT(tr("ia.tentar"))}</button>`, ausente: "",
+    falha: `<button id="cla-tentar">${escT(tr("ia.tentar"))}</button>`, ausente: e && !e.instalado ? botoesAusenteClaude(e) : "",
     logado: `${botaoDetalhes("claude")}<button id="cla-sair" class="perigo">${escT(tr("ia.sair"))}</button>`,
     andamento: `<button id="cla-cancelar">${escT(tr("ia.cancelar"))}</button>`,
     deslogado: `<button id="cla-entrar" class="primario">${escT(tr("ia.entrar"))}</button>`,
@@ -158,6 +199,8 @@ function desenhaJanelaClaude() {
   m.querySelector(".m-ok").onclick = fechaJanelaClaude;
   const on = (id, f) => { const x = m.querySelector(`#${id}`); if (x) x.onclick = f; };
   on("cla-entrar", entraClaude);
+  on("cla-instalar", instalaClaude);
+  on("cla-procura", procuraClaude);
   on("cla-tentar", atualizaClaude);
   on("cla-cancelar", async () => { cla.aviso = ""; try { cla.estado = await apiClaude("cancelar", {}); } catch (err) { cla.aviso = err.message; } atualizaClaude(); });
   on("cla-sair", async () => { if (!(await confirma(tr("ia.sair_titulo", { nome: "Claude" }), tr("ia.sair_texto", { nome: "Claude" }), tr("ia.sair"), true))) return;
@@ -200,6 +243,7 @@ function htmlUso(u, ia = "claude") {
 // Os textos são getters: lidos na hora de desenhar, no idioma de agora
 const IA_DE = {
   antigravity: { empresa: "Google", ferramenta: "Antigravity CLI", instala: "curl -fsSL https://antigravity.google/cli/install.sh | bash",
+    instalaWin: "irm https://antigravity.google/cli/install.ps1 | iex",   // no Windows: o do PowerShell (o mesmo site), não o bash
     // os termos do Antigravity limitam o uso junto com produtos que não são do Google, e há relatos de contas suspensas (23/10)
     atencao: { href: "https://antigravity.google/terms", get texto() { return tr("ia.antigravity_atencao"); } },
     conta: "",
@@ -212,10 +256,12 @@ const IA_DE = {
 function htmlContaIA(a) {
   const e = a.estado, l = e.login || {}, d = IA_DE[a.id] || {}, av = cla.iaAviso[a.id], env = cla.iaEnviando[a.id];
   const modo = !e.instalado ? "ausente" : e.logado ? "logado" : l.andamento ? "andamento" : "deslogado";
+  const win = !!(cla.estado && cla.estado.sistema === "windows");   // um comando de bash não serve lá
   const pasta = tr("ia.pasta_html", { pasta: e.pasta || "" }), ferr0 = d.ferramenta || a.nome, ferr = escT(ferr0), nome = escT(a.nome);
   const conectado = e.email ? (e.plano ? "ia.conectado_plano_html" : "ia.conectado_html") : e.plano ? "ia.conectado_so_plano_html" : "ia.conectado_so_html";
   const corpo = {
-    ausente: `<p>${escT(tr("ia.outra_ausente", { ferr: ferr0 }))}${d.instala ? ` ${tr("ia.instalar_html", { cmd: d.instala })}` : ""}</p>`,
+    ausente: `<p>${escT(tr("ia.outra_ausente", { ferr: ferr0 }))}${win && d.instalaWin ? ` ${tr("ia.instalar_ps_html", { cmd: d.instalaWin })}`
+      : d.instala && !win ? ` ${tr("ia.instalar_html", { cmd: d.instala })}` : ""}</p>`,
     logado: `<p class="cla-ok">${tr(conectado, { email: e.email, plano: e.plano })}</p>
       ${cla.aberta[a.id] ? `<div class="cla-det">${htmlUso(cla.iaUso[a.id], a.id)}<p>${trHtml("ia.usa_pasta_html", { nome: a.nome }, { pasta })}${e.email ? ` ${escT(tr("ia.plano_nao_informa", { ferr: ferr0 }))}` : ""}</p></div>` : ""}`,
     andamento: `<p>1. ${escT(d.pagina || tr("ia.pagina_padrao"))}</p>

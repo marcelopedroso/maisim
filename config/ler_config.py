@@ -71,7 +71,7 @@ def pasta_cache():
 
 def arquivo_pessoal():
     """A config de quem usa a versão "só usar" (a porta e as pastas que o instalador pergunta; sobrevive às atualizações):
-    %APPDATA%\MaiSim\maisim.env no Windows; $XDG_CONFIG_HOME/maisim/maisim.env (~/.config/maisim/maisim.env) no Linux."""
+    %APPDATA%\\MaiSim\\maisim.env no Windows; $XDG_CONFIG_HOME/maisim/maisim.env (~/.config/maisim/maisim.env) no Linux."""
     if os.name == "nt":
         return Path(os.environ.get("APPDATA") or Path.home() / "AppData" / "Roaming") / "MaiSim" / "maisim.env"
     return Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "maisim" / "maisim.env"
@@ -120,6 +120,10 @@ def carrega(perfil=None):
         v["MAISIM_PERFIL"] = perfil
     if perfil == "produto":
         v.setdefault("MAISIM_CONFIG_PESSOAL", str(arquivo_pessoal()))   # onde o instalador e o lançador gravam a porta
+        # o login do Claude do MaiSim no Windows: %APPDATA%\MaiSim\claude, ao lado da config da pessoa (não uma pasta
+        # .claude-maisim solta na pasta pessoal, o padrão do Linux); escrita na config pessoal ou no ambiente, vale a escrita
+        if os.name == "nt" and "MAISIM_CLAUDE_DIR" not in proprios:
+            v["MAISIM_CLAUDE_DIR"] = str(arquivo_pessoal().parent / "claude")
     return v
 
 
