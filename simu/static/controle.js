@@ -135,6 +135,9 @@ const TABELAS = {
   diag: { get nome() { return tr("ctl.tab_diag"); }, sub: "", get dica() { return tr("ctl.tab_diag_dica"); } },
   ac: { get nome() { return tr("ctl.tab_ac"); }, get sub() { return tr("ctl.tab_ac_sub"); }, get dica() { return tr("ctl.tab_ac_dica"); } },
 };
+// o nome nas tabelas: em notação (htmlMat, de simu.js; como no desenho e no scope) e, ao lado, o do código, menor (o que se
+// escreve em m["…"]); filtro (data-busca) e ordem continuam pelo nome do código
+const nomeMat = (n) => `<span class="ct-mat">${htmlMat(n)}</span> <code class="ct-cod">${escT(n)}</code>`;
 const ICONE_TAB = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M2 6.2h12M2 9.8h12M6.5 6.2v7.3"/></svg>';
 ctl.tabela = null; ctl.ordem = {}; ctl.filtro = {};
 try { const g = JSON.parse(localStorage.getItem("maisim-simu-ctl-tabelas") || "null");
@@ -351,10 +354,10 @@ function desenhaLigacoes() {
   const lAtu = d.atuadores.map((a) => { const dest = destinoTexto(a), u = usoAtu(a.nome), m = marcados.has(a.nome);
     return { s: { marc: m ? 0 : 1, nome: a.nome, bloco: a.bloco, destino: dest, uso: u.length, ac: acDe(a.nome) },
       html: `<tr class="ctl-item" data-busca="${escT(`${a.nome} ${a.bloco}`.toLowerCase())}" title="${escT(tr("ctl.t_atu_linha", { bloco: a.bloco }))}">
-        <td><input type="checkbox" data-atu="${escT(a.nome)}" ${m ? "checked" : ""} aria-label="${escT(tr("ctl.a_marcar", { nome: a.nome }))}"></td><td><code>${escT(a.nome)}</code></td><td><code>${escT(a.bloco)}</code></td>
+        <td><input type="checkbox" data-atu="${escT(a.nome)}" ${m ? "checked" : ""} aria-label="${escT(tr("ctl.a_marcar", { nome: a.nome }))}"></td><td>${nomeMat(a.nome)}</td><td><code>${escT(a.bloco)}</code></td>
         <td class="dest">${escT(dest)}</td><td class="uso">${htmlOndeUsa(u)}</td><td class="dest">${escT(acDe(a.nome) || "—")}</td></tr>` }; })
     .concat(c.atuacoes.filter((x) => !d.atuadores.some((a) => a.nome === x)).map((x) => ({ s: { marc: 0, nome: x, bloco: "", destino: "", uso: usoAtu(x).length },
-      html: `<tr class="ctl-item fora" data-busca="${escT(x.toLowerCase())}"><td><input type="checkbox" data-atu="${escT(x)}" checked></td><td><code>${escT(x)}</code></td><td></td>
+      html: `<tr class="ctl-item fora" data-busca="${escT(x.toLowerCase())}"><td><input type="checkbox" data-atu="${escT(x)}" checked></td><td>${nomeMat(x)}</td><td></td>
         <td class="dest">${escT(d.circuito ? tr("ctl.nao_no_circuito") : tr("ctl.abra_edicao_conferir"))}</td><td class="uso">${htmlOndeUsa(usoAtu(x))}</td><td></td></tr>` })));
   $("ctl-atu").innerHTML = ordenaLinhas(lAtu, "atu").map((x) => x.html).join("") ||
     vazio(6, escT(d.circuito ? tr("ctl.sem_const") : tr("ctl.abra_edicao_blocos")));
@@ -362,7 +365,7 @@ function desenhaLigacoes() {
   const lPar = c.parametros.map((q, i) => { const u = q.nome ? usoPar(q.nome) : [];
     return { s: { nome: q.nome, valor: Number(q.valor), unidade: q.unidade || "", uso: u.length },
       html: `<tr class="ctl-par" data-i="${i}" data-busca="${escT(q.nome.toLowerCase())}">
-        <td><input data-k="nome" value="${escT(q.nome)}" placeholder="${escT(tr("ctl.ph_nome"))}" title="${escT(tr("ctl.t_par_nome"))}"></td><td><input data-k="valor" value="${q.valor}" placeholder="${escT(tr("ctl.ph_valor"))}"></td>
+        <td><div class="ct-par-nome"><span class="ct-mat">${htmlMat(q.nome)}</span><input data-k="nome" value="${escT(q.nome)}" placeholder="${escT(tr("ctl.ph_nome"))}" title="${escT(tr("ctl.t_par_nome"))}"></div></td><td><input data-k="valor" value="${q.valor}" placeholder="${escT(tr("ctl.ph_valor"))}"></td>
         <td><input data-k="unidade" value="${escT(q.unidade || "")}" placeholder="${escT(tr("ctl.ph_unidade"))}"></td><td class="uso">${htmlOndeUsa(u)}</td>
         <td><button class="rm" data-rm="${i}" title="${escT(tr("ctl.t_tirar_nome", { nome: q.nome }))}">×</button></td></tr>` }; });
   $("ctl-par").innerHTML = ordenaLinhas(lPar, "par").map((x) => x.html).join("") || vazio(5, escT(tr("ctl.sem_par")));
@@ -412,7 +415,7 @@ function desenhaEntradas() {                            // a tabela das medidas:
   $("ctl-ent").closest("table").classList.toggle("um-ctl", !(d.controle.controladores || []).length);   // um controlador só: sem a coluna
   const l = d.entradas.map((x) => { const u = usoMed(x), por = lidaPor(x);
     return { s: { nome: x, por: por.join(", "), uso: u.length },
-      html: `<tr data-busca="${escT(x.toLowerCase())}"><td><code>${escT(x)}</code></td><td class="dest col-ctl">${escT(por.join(", ") || tr("ctl.nenhum"))}</td><td class="uso">${htmlOndeUsa(u)}</td></tr>` }; });
+      html: `<tr data-busca="${escT(x.toLowerCase())}"><td>${nomeMat(x)}</td><td class="dest col-ctl">${escT(por.join(", ") || tr("ctl.nenhum"))}</td><td class="uso">${htmlOndeUsa(u)}</td></tr>` }; });
   $("ctl-ent").innerHTML = ordenaLinhas(l, "ent").map((x) => x.html).join("") ||
     `<tr><td colspan="3" class="vazio">${escT(d.circuito ? tr("ctl.sem_medidas") : tr("ctl.abra_edicao_medidas"))}</td></tr>`;
   filtraTabela();
@@ -964,6 +967,9 @@ function desenhaDiagrama() {
   // as dicas no padrão do MaiSim (maisim-dica.js, pelo atributo title), não a caixinha do navegador que o <title> do SVG mostra
   const dica = (g, t) => g.setAttribute("title", t);
   const el = (tag, at, pai = svg, txt) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(at)) e.setAttribute(k, v); if (txt != null) e.textContent = txt; pai.appendChild(e); return e; };
+  // os nomes dos sinais em notação, como no desenho e no scope (poeMat, de simu.js: v_a → v com o a subscrito); só a vista,
+  // o nome do código fica no data-txt. fs: o tamanho (px) da fonte do CSS daquele texto
+  const elMat = (at, pai, s, fs) => { const t = el("text", at, pai); poeMat(t, s, fs); return t; };
   const defs = el("defs", {}), mk = el("marker", { id: "cd-seta", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 10, markerHeight: 10, markerUnits: "userSpaceOnUse", orient: "auto-start-reverse" }, defs);   // a ponta não cresce com o destaque
   el("path", { d: "M0 0L10 5L0 10z", fill: "var(--acento)" }, mk);
   const mk2 = el("marker", { id: "cd-seta-a", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 8, markerHeight: 8, markerUnits: "userSpaceOnUse", orient: "auto" }, defs);
@@ -980,7 +986,7 @@ function desenhaDiagrama() {
   const camLig = el("g", {}), camMsg = el("g", {}), camNos = el("g", {});
   const medida = (e, x, y, x2, y2) => {                // o chip da medida e a linha até o DSP
     const g = el("g", { class: "med no", "data-nos": [e.k, ...e.dsps].join("|") }, camNos), w = larg(e.rot);
-    el("rect", { x, y, width: w, height: 22, rx: 6 }, g); el("text", { x: x + 9, y: y + 15 }, g, e.rot);
+    el("rect", { x, y, width: w, height: 22, rx: 6 }, g); elMat({ x: x + 9, y: y + 15 }, g, e.rot, 11.5);
     if (e.dica) dica(g, e.dica);
     for (const n of e.dsps) el("path", { class: "lig", d: curva(x + w, y + 11, x2 != null ? x2 : caixas[n].x,
       separadas ? pontaChega[`${e.k}|${n}`] : y2 != null ? y2 : meio(caixas[n])), "data-nos": `${e.k}|${n}` }, camLig);
@@ -991,8 +997,8 @@ function desenhaDiagrama() {
   for (const e of sais) {                               // DSP → atuações
     const g = el("g", { class: "atu no", "data-nos": [e.k, ...e.dsps].join("|") }, camNos), w = larg(e.rot);
     el("rect", { x: XA, y: e.y, width: w, height: 22, rx: 11, fill: COR.atuFundo, stroke: COR.atuBorda }, g);
-    el("text", { x: XA + 9, y: e.y + 15, fill: COR.atuTexto }, g, e.rot);
-    if (e.curta || e.dica) { const t = e.curta || e.dica; el("text", { class: "dest", x: XA + 4, y: e.y + 34, fill: "var(--sutil)" }, g, t.length > 28 ? t.slice(0, 27) + "…" : t); dica(g, e.dica || t); }
+    elMat({ x: XA + 9, y: e.y + 15, fill: COR.atuTexto }, g, e.rot, 11.5);
+    if (e.curta || e.dica) { const t = e.curta || e.dica; elMat({ class: "dest", x: XA + 4, y: e.y + 34, fill: "var(--sutil)" }, g, t.length > 28 ? t.slice(0, 27) + "…" : t, 10); dica(g, e.dica || t); }
     for (const n of e.dsps) { const b = caixas[n]; el("path", { class: "esc", d: curva(b.x + b.w, separadas ? pontaSai[`${n}|${e.k}`] : meio(b), XA - 2, e.y + 11), stroke: COR.atuBorda, "marker-end": "url(#cd-seta-a)", "data-nos": `${n}|${e.k}` }, camLig); }
   }
   for (const r of rotas) {                              // as linhas das mensagens
@@ -1014,7 +1020,7 @@ function desenhaDiagrama() {
         if (!msgs[p].le.size) return tr("ctl.le_desconhecido", { p });   // não é "nada": não se sabe
         return leMsg(p, gr.chaves, msgs[p].le); })].filter(Boolean).join("\n"));
     el("rect", { class: "fundo-rot", x: lx - wr / 2, y: ly - 13, width: wr, height: 28, rx: 5 }, g);
-    el("text", { class: "rot", x: lx, y: ly, "text-anchor": "middle" }, g, txt); el("text", { class: "lat", x: lx, y: ly + 12, "text-anchor": "middle" }, g, quando);
+    elMat({ class: "rot", x: lx, y: ly, "text-anchor": "middle" }, g, txt, 11); el("text", { class: "lat", x: lx, y: ly + 12, "text-anchor": "middle" }, g, quando);
   });
   for (const b of Object.values(caixas)) {              // as caixas dos DSPs por cima
     const q = b.q, g = el("g", { class: "dsp no", "data-arq": q.arquivo, "data-nos": q.nome }, camNos);
@@ -1365,6 +1371,9 @@ function tagAtuador(g, x, y, nome, centrada = false) {   // centrada: x é o mei
   lado.addEventListener("click", (ev) => { const vi = ev.target.closest("#ctl-var-lista [data-tabela]"); if (vi) alterna(vi.dataset.tabela); });
   lado.addEventListener("keydown", (ev) => { const vi = ev.target.closest("#ctl-var-lista [data-tabela]"); if (vi && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); alterna(vi.dataset.tabela); } });
   $("ct-fecha").onclick = fechaTabela;
+  // a notação ao lado do nome do parâmetro acompanha o que se digita (o redesenho espera o campo perder o foco)
+  $("ctl-par").addEventListener("input", (e) => { const i = e.target;
+    if (i.dataset && i.dataset.k === "nome") { const s = i.closest(".ct-par-nome") && i.closest(".ct-par-nome").querySelector(".ct-mat"); if (s) s.innerHTML = htmlMat(i.value.trim()); } });
   $("ctl-par-novo").onclick = () => { if (!ctl.dados) return; const c = coleta(); let k = 1; while (c.parametros.some((q) => q.nome === `k${k}`)) k++;
     if (c.invalido) return; c.parametros.push({ nome: `k${k}`, valor: 0, unidade: "" }); Object.assign(ctl.dados.controle, c); ctl.filtro.par = ""; $("ct-filtro").value = ""; desenhaLigacoes();
     const nova = document.querySelector(`#ctl-par .ctl-par[data-i="${c.parametros.length - 1}"]`); if (nova) { nova.scrollIntoView({ block: "nearest" }); nova.querySelector('[data-k="nome"]').select(); } guardaControle(); };

@@ -89,8 +89,30 @@ const COD = 'import leitura\nimport escrita\n\n\ndef iniciar(p, e):\n    e["leit
     // 9. medidas: o nome numa lista de nomes conta ("Va", "Vb"…, o leitura.py do Marcelo); a chave do dicionário de saída, não
     await pg.click('#ctl-var-lista [data-tabela="ent"]'); await pg.waitForTimeout(400);
     const med = await pg.evaluate((f) => [...document.querySelectorAll("#ctl-ent tr")].map(eval(f)), linha.toString());
-    ok(med.length === 2 && med.includes("i_L controle.py:12") && med.includes("u_ctrl sem uso") && !(await pg.$("#ctl-ent [data-ins]")),
-      `medidas: ${med.join(" | ")} (um controlador só: sem a coluna do controlador; sem o ↳)`);
+    ok(med.length === 2 && med.includes("iL i_L controle.py:12") && med.includes("uctrl u_ctrl sem uso") && !(await pg.$("#ctl-ent [data-ins]")),
+      `medidas: ${med.join(" | ")} (um controlador só: sem a coluna do controlador; sem o ↳; o nome em notação e o do código ao lado)`);
+    // 9b. a notação nas tabelas (como no desenho e no scope): i_L → i itálico com o L subscrito; o nome do código ao lado, em
+    // monoespaçada; o filtro casa o nome do código (i_l), não o desenhado (il)
+    const nota = (sel) => pg.evaluate((s) => [...document.querySelectorAll(s)].filter((r) => r.style.display !== "none").map((r) => {
+      const m = r.querySelector(".ct-mat"), l = m && m.querySelector(".mat-l, .mat-b"), sub = m && m.querySelector("sub"), cod = r.querySelector("code.ct-cod, input[data-k=nome]");
+      return `${l ? l.textContent : "?"}|${sub ? sub.textContent : "?"}|${cod ? cod.value || cod.textContent : "?"}`; }), sel);
+    const nMed = await nota("#ctl-ent tr");
+    await pg.fill("#ct-filtro", "i_l"); await pg.waitForTimeout(200); const fMed = await nota("#ctl-ent tr");
+    await pg.fill("#ct-filtro", "il"); await pg.waitForTimeout(200); const fMed2 = await nota("#ctl-ent tr");
+    await pg.fill("#ct-filtro", ""); await pg.waitForTimeout(200);
+    await pg.evaluate(() => mostraTabela("par")); await pg.waitForTimeout(300); const nPar = await nota("#ctl-par .ctl-par");
+    // renomear um parâmetro: a notação ao lado acompanha a digitação (sem esperar o redesenho)
+    const campo = '#ctl-par .ctl-par[data-i="0"] [data-k="nome"]', antes = await pg.inputValue(campo);
+    await pg.fill(campo, "K_zz");
+    const vivo = await pg.evaluate(() => { const m = document.querySelector('#ctl-par .ctl-par[data-i="0"] .ct-mat'); return m ? m.textContent : ""; });
+    ok(/K/.test(vivo) && /zz/.test(vivo) && !vivo.includes(antes), `renomear: a notação acompanha a digitação ("${antes}" → "${vivo}")`);
+    await pg.fill(campo, antes); await pg.press(campo, "Tab"); await pg.waitForTimeout(800);
+    await pg.evaluate(() => mostraTabela("atu")); await pg.waitForTimeout(300); const nAtu = await nota("#ctl-atu .ctl-item");
+    await pg.evaluate(() => mostraTabela("diag")); await pg.waitForTimeout(500);
+    const dAtu = await pg.evaluate(() => [...document.querySelectorAll("#ctl-diag-svg .atu text:not(.dest)")].map((t) => `${t.dataset.txt}:${[...t.querySelectorAll("tspan")].map((x) => x.textContent).join("|")}`));
+    ok(nMed.slice().sort().join() === "i|L|i_L,u|ctrl|u_ctrl" && fMed.join() === "i|L|i_L" && !fMed2.length && nPar.includes("i|ref|i_ref") && nAtu.join() === "u|ctrl|u_ctrl"
+       && dAtu.join() === "u_ctrl:u|ctrl|\u200b",
+      `notação: medidas ${nMed.join(", ")}; filtro "i_l" ${fMed.join()} e "il" ${fMed2.length} linhas; parâmetro ${nPar.find((x) => /ref/.test(x))}; atuação ${nAtu}; no diagrama ${dAtu.join().replace("\u200b", "")} (o nome do código no data-txt)`);
     // 10. acionamentos: + e ×; ordenar por t
     await pg.click('#ctl-var-lista [data-tabela="ac"]'); await pg.waitForTimeout(400);
     await pg.click('table[data-t="ac"] th[data-col="t"]'); await pg.waitForTimeout(300);

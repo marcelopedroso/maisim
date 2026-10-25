@@ -378,7 +378,8 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   table.ct th[data-col="t"] { min-width:76px; } table.ct th[data-col="alvo"] { min-width:150px; } table.ct th[data-col="uso"] { min-width:130px; }
   table.ct th[data-col="destino"] { min-width:180px; } table.ct th[data-col="bloco"] { min-width:90px; }
   table.ct td { padding:3px 6px; border-bottom:1px solid var(--suave3); vertical-align:middle; } table.ct tr:hover td { background:var(--suave3); }
-  table.ct td code { font:12px ui-monospace, monospace; } table.ct td.dest { color:var(--sutil); font-size:11.5px; }
+  table.ct td code { font:12px ui-monospace, monospace; } table.ct .ct-mat { font-size:13.5px; margin-right:4px; white-space:nowrap; }
+  table.ct td code.ct-cod { font-size:10.5px; color:var(--sutil); } table.ct .ct-par-nome { display:flex; align-items:center; gap:6px; } table.ct .ct-par-nome input { flex:1; }  /* o nome em notação; o do código ao lado */ table.ct td.dest { color:var(--sutil); font-size:11.5px; }
   table.ct input:not([type=checkbox]), table.ct select { width:100%; min-width:0; font:12px ui-monospace, monospace; padding:2px 4px; border:1px solid var(--borda); border-radius:4px; }
   table.ct .uso a { color:var(--acento); cursor:pointer; font:11.5px ui-monospace, monospace; margin-right:8px; white-space:nowrap; } table.ct .uso a:hover { text-decoration:underline; }
   table.ct .sem-uso { color:var(--fraco); font-style:italic; font-size:11.5px; }
