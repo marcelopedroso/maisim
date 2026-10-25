@@ -3,6 +3,10 @@
 // MaiSim (direto na porta do módulo), a página não acha o arquivo e segue sem o menu. Páginas do React chamam
 // window.maisimNav.montar() / desmontar() (só a página inicial usa; os seminários ficam sem o menu).
 (() => {
+  // as dicas do MaiSim no lugar da caixinha do navegador (maisim-dica.js), nas páginas que ainda não as trouxeram (a inicial, a do Gecko)
+  if (!window.maisimDica && !document.querySelector('script[src$="maisim-dica.js"]')) {
+    const d = document.createElement("script"); d.src = "/maisim-dica.js"; d.onerror = () => d.remove(); (document.head || document.documentElement).appendChild(d);
+  }
   if (window.maisimNav || window.top !== window.self) return;     // embutido (tela dividida): sem menu
   const L = 56;
   // os textos do trilho, em português e inglês (o idioma: o botão PT/EN aqui no pé, ao lado do tema; maisim-i18n.js)

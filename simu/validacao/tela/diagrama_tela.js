@@ -89,7 +89,7 @@ const ORQ = CTL('    envia("dsp_a", {"theta": 1.0})\n    envia("dsp_b", {"theta"
         ligadas: [...svg.querySelectorAll("path.ligado")].map((p) => p.dataset.nos).sort(), outra: ap('path.msg[data-nos="controle|dsp_a"]') }; });
     ok(!foco.dspA && !foco.ctl && !foco.s04 && !foco.s06 && foco.s01 && foco.outra && foco.ligadas.includes("dsp_a|dsp_b") && foco.ligadas.includes("controle|dsp_b") && foco.ligadas.includes("dsp_b|dsp_a"),
       `o mouse no dsp_b: acesos ele, o dsp_a e o controle (ligados por mensagem), a s04 e a s06; apagados a s01 e a mensagem controle → dsp_a; linhas grossas: ${foco.ligadas.join(", ")}`);
-    await pg.waitForTimeout(500);                         // a dica do MaiSim (dica.js), não a caixinha do navegador (o <title> do SVG)
+    await pg.waitForTimeout(500);                         // a dica do MaiSim (maisim-dica.js), não a caixinha do navegador (o <title> do SVG)
     const dc = await pg.evaluate(() => ({ vis: $("dica-ui").classList.contains("vis"), txt: $("dica-ui").textContent, titles: $("ctl-diag-svg").querySelectorAll("title").length }));
     ok(dc.vis && /^dsp_b \(dsp_b\.py\) · lê s04/.test(dc.txt) && dc.titles === 0, `a dica do MaiSim no dsp_b ("${dc.txt.slice(0, 60)}…"), nenhum <title> no SVG`);
     // separar / juntar as linhas (Marcelo, 21/10: "cada entrada ter uma linha… um botão para agrupar ou explodir"): separadas,

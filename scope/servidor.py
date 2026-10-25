@@ -253,8 +253,8 @@ class Manipulador(BaseHTTPRequestHandler):
             return self._resposta(200, (AQUI / "static" / "index.html").read_bytes(), TIPOS[".html"])
         if rota.startswith("/static/"):
             arq = (AQUI / "static" / Path(rota).name)
-            if rota == "/static/maisim-i18n.js":       # as traduções: um arquivo só, o da página inicial (app/public)
-                arq = RAIZ / "app" / "public" / "maisim-i18n.js"
+            if rota in ("/static/maisim-i18n.js", "/static/maisim-dica.js"):   # as traduções e as dicas: um arquivo só, o da
+                arq = RAIZ / "app" / "public" / Path(rota).name                   # página inicial (app/public)
             if arq.is_file():
                 return self._resposta(200, arq.read_bytes(), TIPOS.get(arq.suffix, "application/octet-stream"))
             return self._resposta(404, {"erro": lingua.tr("scope_srv.nao_achei")})
