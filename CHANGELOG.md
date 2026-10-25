@@ -35,6 +35,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 - Sources follow the generator convention: the current arrow of a voltage source leaves its + terminal, and its measured current (scope, Measure, the control's `m[...]`) is positive when it delivers power. Gecko measures every current from terminal 1 to terminal 2, so MaiSim flips the sign it reads for a voltage source; the Gecko file is unchanged. The current source shows its arrow (terminal 1 → 2) instead of a "+" (#71).
 
 ### Fixed
+- Windows: the MaiSim window's taskbar icon is sharp — the launcher gives the browser window MaiSim's own app ID and relaunch icon (maisim.ico), and the installer's shortcuts share that ID (#109).
 - Windows: reading the editor state no longer fails with "Compressed file ended before the end-of-stream marker" — a .ipes read while Gecko is still writing it is read again after a moment (up to ~3 s) (#107).
 - Example and test circuits no longer carry the author's local path in Gecko's internal `path` line (only the file name) (#110).
 - The MaiSim window icon is sharp: PNG favicons in 32/48/64/192 px and a multi-size favicon.ico first in the page head, without the SVG favicon and with a new URL so Edge does not reuse the cached one (the browser app window and the Windows taskbar use the favicon; the SVG came out small and blurry) (#106).
