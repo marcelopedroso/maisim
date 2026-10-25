@@ -48,14 +48,17 @@ try:
     mods = api("modelos")
     grupos = {m.get("grupo") for m in mods}
     nomes = {Path(m["arq"]).stem for m in mods if m.get("grupo") == "exemplos"}
-    novos = {"exemplo_buck", "exemplo_buck_degrau", "exemplo_boost", "exemplo_buck_boost", "exemplo_retificador_trifasico", "exemplo_inversor_ponte_completa",
+    novos = {"exemplo_buck", "exemplo_buck_degrau", "exemplo_buck_termico", "exemplo_boost", "exemplo_buck_boost", "exemplo_retificador_trifasico", "exemplo_inversor_ponte_completa",
              "exemplo_inversor_trifasico", "exemplo_inversor_meia_ponte", "exemplo_ponte_h_cc", "exemplo_retificador_monofasico",
              "exemplo_retificador_trifasico_controlado"}
     sub = list((RAIZ / "exemplos" / "subcircuitos").glob("*.ipes")) if (RAIZ / "exemplos" / "subcircuitos").is_dir() else []
-    ok(novos <= nomes and len(nomes) == 13 and "exemplo_cascata_hb" not in nomes and not sub and "exemplos do GeckoCIRCUITS" not in grupos,
-       f"o Abrir: os 13 exemplos (sem as células em cascata, que usam o SM-HB do MMC; nenhum subcircuito em exemplos/); sem o grupo do GeckoCIRCUITS ({sorted(grupos)})")
+    ok(novos <= nomes and len(nomes) == 14 and "exemplo_cascata_hb" not in nomes and not sub and "exemplos do GeckoCIRCUITS" not in grupos,
+       f"o Abrir: os 14 exemplos (sem as células em cascata, que usam o SM-HB do MMC; nenhum subcircuito em exemplos/); sem o grupo do GeckoCIRCUITS ({sorted(grupos)})")
     CONF = [  # arquivo, o que conferir na janela final (a média, salvo dito), alvo, tolerância
-        ("buck", "v_o", 24.0, 0.04), ("buck_degrau", "i_L", 24.0 / 5, 0.04), ("boost", "v_o", 48.0, 0.04), ("buck_boost", "v_o", -24.0, 0.04),
+        ("buck", "v_o", 24.0, 0.04), ("buck_degrau", "i_L", 24.0 / 5, 0.04),
+        # o buck térmico: Tj em regime = 25 °C + P·ΣRth, com P do modo simples do Gecko a 12 A e 48 V (condução
+        # 0,5·(12·0,6 + 12²·0,01) = 4,32 W; chaveamento 20 kHz·(3 + 1,5)·10⁻⁵ Ws/A·12 A·48/400 = 1,30 W) e ΣRth = 5 K/W: ≈ 53 °C
+        ("buck_termico", "Tj_IGBT1", 25 + 5.0 * (0.5 * (12 * 0.6 + 144 * 0.01) + 20e3 * 4.5e-5 * 12 * 48 / 400), 0.05), ("boost", "v_o", 48.0, 0.04), ("buck_boost", "v_o", -24.0, 0.04),
         ("retificador_trifasico", "v_dc", 1.35 * 220, 0.02), ("inversor_ponte_completa", "fundamental de v_ab", 0.8 * 200, 0.02),
         ("inversor_trifasico", "fundamental de v_ab", 0.866 * 0.8 * 400, 0.02), ("inversor_meia_ponte", "fundamental de v_am", 0.8 * 100, 0.02),
         ("ponte_h_cc", "i_a", (0.5 * 100 - 40) / 1.0, 0.05), ("retificador_monofasico", "v_dc", 165.0, 0.05),

@@ -202,7 +202,7 @@
         (async () => {
             const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
             // a ordem da grade: CC-CC, pontes e inversores, retificadores, controle digital (o título e a linha: inicio.ex.<nome> e .d)
-            const ORDEM = ["exemplo_buck", "exemplo_buck_degrau", "exemplo_boost", "exemplo_buck_boost", "exemplo_ponte_h_cc", "exemplo_inversor_meia_ponte",
+            const ORDEM = ["exemplo_buck", "exemplo_buck_degrau", "exemplo_buck_termico", "exemplo_boost", "exemplo_buck_boost", "exemplo_ponte_h_cc", "exemplo_inversor_meia_ponte",
                 "exemplo_inversor_ponte_completa", "exemplo_inversor_trifasico", "exemplo_retificador_monofasico", "exemplo_retificador_trifasico",
                 "exemplo_retificador_trifasico_controlado", "exemplo_controle_pi", "exemplo_controle_pwm"];
             try {

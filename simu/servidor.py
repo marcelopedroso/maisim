@@ -670,11 +670,12 @@ def blocos_elementos(t):
         yield m, d.get("idStringDialog", "").strip(), d.get("uniqueObjectIdentifier", "").strip(), d.get("parentSheetIdentifier", "0").strip()
 
 
-def acopla(nome, campos, ref=None, folhas=None, dominio="CONTROL"):
-    """Medidor (VOLT/AMP): o que ele mede, na folha principal ou dentro de subcircuitos (folhas = "0" ou o identificador do
-    subcircuito; vários de uma vez para os SMs iguais). A interface remota do Gecko não tem isso; o Gecko salva o estado,
-    escrevemos o acoplamento no bloco do medidor (parameterString e, para corrente, a referência ao componente DA MESMA
-    folha: os nomes se repetem de um SM para outro) e o Gecko reabre o arquivo: quem valida é ele."""
+def acopla(nome, campos, ref=None, folhas=None, dominio="CONTROL", losscomp=None):
+    """Medidor (VOLT/AMP/TEMP/FLOW), GATE ou Pv: o que ele mede, comanda ou aquece, na folha principal ou dentro de
+    subcircuitos (folhas = "0" ou o identificador do subcircuito; vários de uma vez para os SMs iguais). A interface remota
+    do Gecko não tem isso; o Gecko salva o estado, escrevemos o acoplamento no bloco (parameterString e, para corrente, a
+    referência ao componente DA MESMA folha: os nomes se repetem de um SM para outro) e o Gecko reabre o arquivo: quem valida
+    é ele. losscomp: no FLOW, que perda ele lê do Pv (total, conduction, switching; a linha losscomp do bloco)."""
     MOTOR.cmd(f"SAVEAS {ESTADO}")
     t, gz = _texto(ESTADO)
     folhas = folhas_ok(folhas, t)
@@ -690,6 +691,9 @@ def acopla(nome, campos, ref=None, folhas=None, dominio="CONTROL"):
                 raise ErroMotor(lingua.tr("editor.nao_achei_componente" if fo == "0" else "editor.nao_achei_componente_sub", ref=ref))
             b = re.sub(r"\ncoupledReferenceID\[\] [^\n]*", f"\ncoupledReferenceID[] {alvo} ", b)
             b = re.sub(r"\ncopyCoupledReferenceID\[\] [^\n]*", f"\ncopyCoupledReferenceID[] {alvo} ", b)
+        if losscomp:                                    # o FLOW de antes do Gecko gravar o losscomp (ou um bloco sem ele): entra antes do fim
+            b = re.sub(r"\nlosscomp [^\n]*", f"\nlosscomp {losscomp}", b) if "\nlosscomp " in b else \
+                re.sub(r"(\n<\\ElementCONTROL>)", f"\nlosscomp {losscomp}\\1", b, count=1)
         partes += [t[fim:m.start()], b]
         fim = m.end()
         feitas.add(fo)
@@ -705,7 +709,7 @@ def acopla(nome, campos, ref=None, folhas=None, dominio="CONTROL"):
     esperado = [c if c != "NIX_NIX_NIX" else "" for c in campos[:2]]
     for fo in folhas:
         e = next((x for x in r["folhas"].get(fo, {"elementos": []})["elementos"] if x["nome"] == nome), None)
-        if e is None or [x or "" for x in e["mede"][:len(esperado)]] != esperado:
+        if e is None or [x or "" for x in e["mede"][:len(esperado)]] != esperado or (losscomp and e.get("losscomp") != losscomp):
             raise ErroMotor(lingua.tr("editor.gecko_recusou_acoplamento", nome=nome, ficou=e and e['mede']))
     return r
 
@@ -1987,6 +1991,7 @@ def aparencia_do_arquivo(arq_ipes):
 
 CANAIS_V = ("#eab308", "#06b6d4", "#d946ef", "#22c55e")   # como os canais de um osciloscópio: amarelo, ciano, magenta, verde
 COR_HALL = "#0ea5e9"                                       # corrente: o azul de um sensor Hall
+COR_TERMICA = "#f97316"                                    # temperatura e perda (TEMP, FLOW): o laranja da aba Térmica
 
 
 def cores_efetivas(r):
@@ -2002,6 +2007,8 @@ def cores_efetivas(r):
             out[canal] = escolhidas.get(canal, CANAIS_V[nv % len(CANAIS_V)]); nv += 1
         elif t == "AMP":
             out[canal] = escolhidas.get(canal, COR_HALL)
+        elif t in ("TEMP", "FLOW"):
+            out[canal] = escolhidas.get(canal, COR_TERMICA)
         elif canal in escolhidas:
             out[canal] = escolhidas[canal]
     return out
@@ -2271,6 +2278,10 @@ def saidas_gecko(e):
     return out
 
 
+MEDIDORES = ("VOLT", "AMP", "TEMP", "FLOW")         # os que viram sinal também dentro de um subcircuito (TEMP: a temperatura
+                                                    # entre dois rótulos térmicos; FLOW: a perda que um Pv calcula)
+
+
 def elemento_do_sinal(el):
     """O componente de um sinal da rodada, sem a saída (a de um bloco de várias saídas: "ABCDQ.1@d" → "ABCDQ.1")."""
     return el.rpartition("@")[0] or el
@@ -2309,7 +2320,7 @@ def sinais_da_rodada(r, destino=None, ap=None):
                 else:
                     poe(e["nome"], e["saidas"][0] or e["nome"], e.get("uid"))
             else:                                   # dentro de um subcircuito: os medidores e as tags (regra: medidor vai para o scope)
-                if (e["tipo"] not in ("VOLT", "AMP") and not eh_tag(e)) or not e["saidas"]:
+                if (e["tipo"] not in MEDIDORES and not eh_tag(e)) or not e["saidas"]:
                     continue
                 poe(f"{fl['nome']}#{e['nome']}", f"{prefixo_sub(fl['nome'])}_" + (e["saidas"][0] or e["nome"]), e.get("uid"))
     fora = {"scope": fs, "controle": fc}.get(destino, set())
@@ -3205,6 +3216,8 @@ controle_rodada = {"pausa": threading.Event(), "parar": threading.Event()}
 
 
 CHAVES = {"S", "IGBT", "MOSFET", "THYR"}            # o que um GATE pode comandar
+COM_PERDA = CHAVES | {"D"}                          # o que um Pv pode aquecer (os semicondutores: LossCalculatable no Gecko)
+PERDAS = ("total", "conduction", "switching")       # o que o FLOW lê do Pv (LossComponent.getSaveString)
 trava_rodada = threading.Lock()
 DEVOLVER = ESTADO.with_name("devolver.json")           # CONST de uma rodada em andamento (servidor caiu no meio: devolve na partida)
 
@@ -3680,12 +3693,14 @@ def comando(op, a):
     inteiro = lambda v: str(int(v))
     nome = lambda v: v if NOME.match(str(v)) else (_ for _ in ()).throw(ErroMotor(lingua.tr("editor.nome_invalido", nome=repr(v))))
     rot = lambda v: v if ROTULO.match(str(v)) else (_ for _ in ()).throw(ErroMotor(lingua.tr("editor.rotulo_invalido", rotulo=repr(v))))
+    # o nome do parâmetro como o Gecko o dá (PARAMS): alguns têm parênteses, como a temperatura inicial da Cth, Temp(0)
+    par = lambda v: v if re.match(r"^[A-Za-z0-9_.()\-]+$", str(v)) else (_ for _ in ()).throw(ErroMotor(lingua.tr("editor.nome_invalido", nome=repr(v))))
     if op == "CREATE":
         if not re.match(r"^[A-Za-z0-9_ .\->]+$", str(a[3])):
             raise ErroMotor(lingua.tr("editor.tipo_invalido", tipo=repr(a[3])))
         return f"CREATE {nome(a[0])} {inteiro(a[1])} {inteiro(a[2])} {a[3]}"
     formas = {"DELETE": (nome,), "ROTATE": (nome,), "MOVE": (nome, inteiro, inteiro), "RENAME": (nome, nome),
-              "SETP": (nome, nome, num), "SETG": (nome, num), "INNODE": (nome, inteiro, rot), "OUTNODE": (nome, inteiro, rot)}
+              "SETP": (nome, par, num), "SETG": (nome, num), "INNODE": (nome, inteiro, rot), "OUTNODE": (nome, inteiro, rot)}
     if op not in formas or len(a) != len(formas[op]):
         raise ErroMotor(lingua.tr("editor.pedido_desconhecido", op=op, args=a))
     return " ".join([op] + [f(v) for f, v in zip(formas[op], a)])
@@ -4675,6 +4690,11 @@ def claude_contexto(c, dt, tfim):
                 o = tr("ia_contexto.m_tensao", a=e['mede'][0] or '?', b=e['mede'][1] or '?')
             elif e and e["tipo"] == "AMP":
                 o = tr("ia_contexto.m_corrente_fonte" if el in fontes else "ia_contexto.m_corrente", c=e['mede'][0] or '?')
+            elif e and e["tipo"] == "TEMP":
+                o = tr("ia_contexto.m_temp", a=e['mede'][0] or '?', b=e['mede'][1] or '?')
+            elif e and e["tipo"] == "FLOW":
+                o = tr({"conduction": "ia_contexto.m_flow_conduction", "switching": "ia_contexto.m_flow_switching"}.get(
+                    e.get("losscomp"), "ia_contexto.m_flow_total"), pv=e['mede'][0] or '?')
             elif e and e["tipo"] == "CONST":
                 o = tr("ia_contexto.m_const", nome=e['nome'])
             else:
@@ -6091,6 +6111,26 @@ class Manipulador(BaseHTTPRequestHandler):
                     if not NOME.match(comp) or (tipos and not tipos & CHAVES):
                         raise ErroMotor(lingua.tr("editor.nao_e_chave", comp=repr(comp)))
                     return acopla(nome, [comp, "NIX_NIX_NIX", "0"], ref=comp, folhas=corpo.get("folhas"))
+                ult = editor.get("ultimo") or {"folhas": {}}
+                def tipos_de(n):                        # os tipos com este nome nas folhas pedidas (vazio: o Gecko decide)
+                    return {e["tipo"] for f in (corpo.get("folhas") or ["0"]) for e in ult["folhas"].get(str(f), {"elementos": []})["elementos"] if e["nome"] == n}
+                if tipo == "P":                          # Pv: a chave (ou o diodo) que ele aquece — a perda dela vira calor no nó térmico
+                    comp = str(corpo.get("componente", ""))
+                    if not NOME.match(comp) or (tipos_de(comp) and not tipos_de(comp) & COM_PERDA):
+                        raise ErroMotor(lingua.tr("editor.sem_perda", comp=repr(comp)))
+                    return acopla(nome, [comp, "NIX_NIX_NIX", "0"], ref=comp, folhas=corpo.get("folhas"), dominio="THERM")
+                if tipo == "T":                          # TEMP: a temperatura entre dois rótulos térmicos (como o voltímetro)
+                    n1, n2 = str(corpo.get("no1", "")).strip(), str(corpo.get("no2", "")).strip()
+                    if not (n1 and ROTULO.match(n1) and ROTULO.match(n2)):
+                        raise ErroMotor(lingua.tr("editor.mede_nos"))
+                    return acopla(nome, [n1, n2 or "NIX_NIX_NIX", "0"], folhas=corpo.get("folhas"))
+                if tipo == "F":                          # FLOW: a perda de um Pv (total, de condução ou de chaveamento)
+                    pv, lc = str(corpo.get("componente", "")), str(corpo.get("losscomp") or "total")
+                    if not NOME.match(pv) or (tipos_de(pv) and tipos_de(pv) != {"Pv"}):
+                        raise ErroMotor(lingua.tr("editor.nao_e_pv", comp=repr(pv)))
+                    if lc not in PERDAS:
+                        raise ErroMotor(lingua.tr("editor.losscomp", lista=", ".join(PERDAS)))
+                    return acopla(nome, [pv, "NIX_NIX_NIX", "0"], ref=pv, folhas=corpo.get("folhas"), losscomp=lc)
                 raise ErroMotor(lingua.tr("editor.mede_tipo"))
             return self._editor(com_desfazer(mede, corpo.get("descr") or lingua.tr("editor.desfazer_medidor"), manter_se_falhar=True))
         if rota == "/editor/variavel":                 # acao: nova | apaga | liga | desliga (ver variavel())

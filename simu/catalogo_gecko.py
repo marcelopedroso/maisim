@@ -49,9 +49,13 @@ for k, v in listas.items():                                 # tira o que está c
     corpo = re.sub(r"//[^\n]*", "", corpo)
     listas[k] = re.findall(r"(?:\w+Typ\.)?([A-Z][A-Za-z0-9_]+)", corpo)
 abas = []
+# os que o MaiSim não oferece mesmo que o Gecko ponha na paleta: o TH_MODUL (ThermMODUL) lança UnsupportedOperationException
+ESCONDIDOS = {"TH_MODUL"}
 for var, titulo in re.findall(r'createJPanelForTypes\((_typ\w+),\s*"([^"]+)"\)', fonte):
     itens = []
     for e in listas.get(var, []):
+        if e in ESCONDIDOS:
+            continue
         t = TIPOS.get(e)
         if not t:
             itens.append(dict(enum=e, erro="tipo não achado")); continue   # i18n-ok (script de quem monta o catalogo.json, não da tela)
