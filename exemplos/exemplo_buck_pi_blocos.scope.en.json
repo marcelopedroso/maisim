@@ -1,0 +1,9 @@
+{
+ "titulos": {
+  "Buck — PI em blocos": "Buck — PI in blocks",
+  "Tensão de saída v_o e referência v_ref (V)": "Output voltage v_o and reference v_ref (V)",
+  "Corrente no indutor i_L (A)": "Inductor current i_L (A)",
+  "Razão cíclica d": "Duty cycle d",
+  "Erro v_ref − v_o (V)": "Error v_ref − v_o (V)"
+ }
+}

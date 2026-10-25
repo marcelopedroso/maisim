@@ -5,7 +5,7 @@ Gecko (portadora SIGNAL + comparador GE, a razão cíclica num CONST — sem có
 Na instância de teste (7201): monta cada um, roda uma vez (o .ipes guarda Δt e o tempo final) e salva em circuitos/; com
 --exemplos, copia para exemplos/ do repositório. A conferência dos números fica em exemplos_api.py.
     python3 exemplos_monta.py [buck boost buck_boost retificador inversor] [--exemplos]"""
-import json, re, shutil, sys, time, urllib.request
+import json, math, re, shutil, sys, time, urllib.request
 from pathlib import Path
 
 _CONF = Path(__file__).resolve().parents[2] / "config/teste.env"     # a porta do simulador de teste (o perfil config/teste.env)
@@ -94,14 +94,19 @@ def tira_globais_sem_uso():
 
 
 # ---------------------------------------------------------------- os circuitos
-def buck():
-    """Buck: 48 V, d = 0,5 (V_o ≈ 24 V), 20 kHz, L 1 mH, C 100 µF, R 10 Ω."""
+def buck_planta():
+    """A potência do buck (o exemplo_buck e o buck com PI em blocos): 48 V, 20 kHz, L 1 mH, C 100 µF, R 10 Ω; a chave S.1."""
     poe("U.1", 4, 10, "U", 503, type=401, uDC=48.0)
     poe("S.1", 8, 6, "S", 502); poe("D.1", 12, 10, "D", 501); poe("L.1", 16, 6, "L", 502, L=1e-3)
     poe("C.1", 20, 10, "C", 503, C=100e-6); poe("R.1", 24, 10, "R", 503, R=10.0)
     fio("vin", (4, 8), (4, 6), (6, 6)); fio("sw", (10, 6), (14, 6)); fio("", (12, 8), (12, 6))
     fio("o", (18, 6), (24, 6), (24, 8)); fio("", (20, 8), (20, 6))
     fio("gnd", (4, 12), (4, 14), (24, 14), (24, 12)); fio("", (12, 12), (12, 14)); fio("", (20, 12), (20, 14))
+
+
+def buck():
+    """Buck: 48 V, d = 0,5 (V_o ≈ 24 V), 20 kHz, L 1 mH, C 100 µF, R 10 Ω."""
+    buck_planta()
     pwm(4, 20, 0.5, 20e3); gate("GATE.1", 20, 22, "g", "S.1")
     mede("VOLT.1", 30, 6, "v_o", no1="o", no2="gnd"); mede("AMP.1", 30, 10, "i_L", componente="L.1"); mede("VOLT.2", 30, 14, "v_sw", no1="sw", no2="gnd")
     return dict(dt=0.5e-6, tfim=0.02, amostras=8000)
@@ -119,6 +124,42 @@ def buck_degrau():
     sinal("SIGNAL.2", 4, 30, "SIGNAL", saida="carga", type=404, amplMAX=1.0, offset=0.0, f=25.0, d=0.5, phase=90.0)
     gate("GATE.2", 20, 30, "carga", "S.2")
     return dict(dt=0.5e-6, tfim=0.02, amostras=8000)
+
+
+def buck_pi_blocos():
+    """O buck com a malha de tensão toda em blocos (v0.3.1, Marcelo 25/10: "controlar tudo no circuito, sem Python"): a
+    potência do exemplo_buck, a referência v_ref de 24 V que sobe para 30 V aos 20 ms (TIME ≥ 20 ms → GAIN 6 → ADD com o
+    CONST de 24 V) e, aos 40 ms, a 2ª carga de 10 Ω pela chave S.2 (R de 10 para 5 Ω; TIME ≥ 40 ms → GATE.2).
+    A malha: erro = v_ref − v_o (SUB) → PI (r0 = Kp, a1 = Ki: y = Kp·x + Ki·∫x) → LIMIT de 0 a 0,95 → a razão cíclica d
+    contra a portadora triangular de 0 a 1 a 20 kHz (GE) → GATE.1 → S.1.
+    O ajuste pela planta LC (d → v_o: Vin/(LC·s² + (L/R)·s + 1), ω0 = 1/√(LC) = 3162 rad/s, Q = R·√(C/L) = 3,2 a 10 Ω):
+    um PI de integral dominante, o cruzamento ωc ≈ Ki·Vin = 480 rad/s abaixo de ω0/Q ≈ 1000 rad/s (o pico da ressonância
+    fica abaixo de 0 dB) com Ki = 10 1/(V·s); Kp = 0,005 1/V (Kp·Vin·Q = 0,76 < 1) põe o zero do PI em Ki/Kp = 2000 rad/s,
+    o que dá fase perto da ressonância: margem de fase ≈ 100°, de ganho ≈ 12 dB. O PI do Gecko não tem anti-windup, e
+    aqui nem precisa: com esse ganho a d não chega ao limite (no máximo ≈ 0,7)."""
+    buck_planta()
+    poe("S.2", 28, 8, "S", 503); poe("R.2", 28, 12, "R", 503, R=10.0)
+    fio("o", (24, 6), (28, 6)); fio("gnd", (24, 14), (28, 14))
+    # a referência e o degrau de carga (o tempo da simulação contra os instantes)
+    sinal("TIME.1", 4, 20, "TIME", saida="tempo")
+    sinal("CONST.1", 4, 24, "CONST", saida="t_ref", const=0.02)
+    sinal("GE.1", 12, 22, "GE", saida="degrau_ref", entradas=("tempo", "t_ref"))
+    sinal("GAIN.1", 20, 22, "GAIN", saida="dv_ref", entradas=("degrau_ref",), r0=6.0)
+    sinal("CONST.2", 20, 26, "CONST", saida="v_ref0", const=24.0)
+    sinal("ADD.1", 28, 24, "ADD", saida="v_ref", entradas=("v_ref0", "dv_ref"))
+    sinal("CONST.3", 4, 32, "CONST", saida="t_carga", const=0.04)
+    sinal("GE.2", 12, 32, "GE", saida="carga", entradas=("tempo", "t_carga"))
+    gate("GATE.2", 20, 32, "carga", "S.2")
+    # a malha de tensão e o PWM
+    sinal("SUB.1", 36, 24, "SUB", saida="erro", entradas=("v_ref", "v_o"))
+    sinal("PI.1", 44, 24, "PI", saida="u", entradas=("erro",), r0=0.005, a1=10.0)
+    sinal("LIMIT.1", 52, 24, "LIMIT", saida="d", entradas=("u",), min=0.0, max=0.95)
+    sinal("SIGNAL.1", 52, 28, "SIGNAL", saida="portadora", type=403, amplMAX=0.5, offset=0.5, f=20e3)
+    sinal("GE.3", 60, 26, "GE", saida="g", entradas=("d", "portadora"))
+    gate("GATE.1", 68, 26, "g", "S.1")
+    mede("VOLT.1", 34, 6, "v_o", no1="o", no2="gnd"); mede("AMP.1", 34, 10, "i_L", componente="L.1")
+    mede("VOLT.2", 34, 14, "v_sw", no1="sw", no2="gnd")
+    return dict(dt=0.5e-6, tfim=0.06, amostras=12000)
 
 
 def boost():
@@ -402,6 +443,66 @@ def motor_cc():
     return dict(dt=1e-6, tfim=0.45, amostras=9000)
 
 
+def motor_cc_blocos():
+    """O motor CC do exemplo_motor_cc (a mesma potência e a mesma máquina) com o controle em cascata todo em blocos, sem
+    Python (v0.3.1). Os degraus, pelo tempo da simulação (TIME ≥ instante → GAIN): o torque de carga Tm de 0 para 8 N·m em
+    0,15 s e a referência n_ref de 1000 para 1500 rpm em 0,3 s (o CONST de 1000 + GAIN 500).
+    - velocidade (os ganhos do exemplo em Python: Kp_w = 1 A·s/rad, Ki_w = 50 A/rad, cruzamento em 200 rad/s): o erro
+      n_ref − n_MDC1 (rpm) → GAIN π/30 (rad/s) → o P (GAIN Kp_w) + o I (INT de a1 = Ki_w) → LIMIT ±15 A = i_ref. O bloco PI
+      do Gecko não tem anti-windup, e esta malha satura em cada degrau (só com ele, o modelo médio dá ≈ 560 rpm de
+      sobressinal na partida): o INT só integra com |erro| < 10 rad/s (ABS, GT e MUL; longe da referência, só o P), como o
+      "só integra sem saturar" do Python. Os 10 rad/s: Kp_w·10 = 10 A, acima dos 8,2 A da carga (o P sozinho põe o erro
+      abaixo do limiar: o I nunca trava fora dele).
+    - corrente (os ganhos do Python: cruzamento em 500 Hz, Kp_i = La·ωc = 15,708 V/A e Ki_i = Ra·ωc = 1570,8 V/(A·s)):
+      i_ref − ia_MDC1 → PI (r0 = Kp_i, a1 = Ki_i) + a f.c.e.m. k·ω à frente (GAIN k·π/30 sobre o n) = a tensão de armadura
+      → GAIN 1/Vdc → LIMIT de 0 a 0,98 = d → a portadora de 20 kHz (GE, NOT) → GATE.1/GATE.2 → S.1/S.2.
+    As medidas: n_MDC1, ia_MDC1 e Tel_MDC1 (VIEWMOT). Em regime: Tel = Tm + fr·ω."""
+    poe("U.1", 4, 10, "U", 503, type=401, uDC=240.0)
+    perna(12, "a", "S.1", "S.2")
+    fio("p", (4, 8), (4, 4), (12, 4)); fio("gnd", (4, 12), (4, 14), (30, 14))
+    maquina("M-DC.1", 24, 10, "M-DC", carga="Tm", d=503, Ra=0.5, La=5e-3, Le=0.5, Re=100.0, Ne=100.0, I_Le=1.0, c=200.0,
+            J=5e-3, fr=1e-3)
+    fio("a", (18, 10), (22, 10)); fio("", (26, 10), (30, 10), (30, 14))
+    poe("U.2", 16, 22, "U", 503, type=401, uDC=100.0)
+    fio("vf", (22, 6), (22, 8)); fio("gnd", (20, 9), (22, 9))
+    fio("vf", (16, 20), (16, 18)); fio("gnd", (16, 24), (16, 26))
+    grandeza("VIEWMOT.1", 40, 10, "M-DC.1", "n [rpm]", "n_MDC1"); grandeza("VIEWMOT.2", 40, 12, "M-DC.1", "ia [A]", "ia_MDC1")
+    grandeza("VIEWMOT.3", 40, 14, "M-DC.1", "Tel [Nm]", "Tel_MDC1")
+    mede("VOLT.1", 40, 6, "v_a", no1="a", no2="gnd")
+    # os degraus de carga e de referência
+    sinal("TIME.1", 4, 30, "TIME", saida="tempo")
+    sinal("CONST.1", 4, 34, "CONST", saida="t_carga", const=0.15)
+    sinal("GE.1", 12, 32, "GE", saida="degrau_carga", entradas=("tempo", "t_carga"))
+    sinal("GAIN.1", 20, 32, "GAIN", saida="Tm", entradas=("degrau_carga",), r0=8.0)
+    sinal("CONST.2", 4, 38, "CONST", saida="t_ref", const=0.3)
+    sinal("GE.2", 12, 38, "GE", saida="degrau_ref", entradas=("tempo", "t_ref"))
+    sinal("GAIN.2", 20, 38, "GAIN", saida="dn_ref", entradas=("degrau_ref",), r0=500.0)
+    sinal("CONST.3", 20, 42, "CONST", saida="n_ref0", const=1000.0)
+    sinal("ADD.1", 28, 40, "ADD", saida="n_ref", entradas=("n_ref0", "dn_ref"))
+    # a malha de velocidade: P + I com a integração só perto da referência → i_ref
+    sinal("SUB.1", 36, 40, "SUB", saida="erro_n", entradas=("n_ref", "n_MDC1"))
+    sinal("GAIN.3", 44, 40, "GAIN", saida="erro_w", entradas=("erro_n",), r0=math.pi / 30)
+    sinal("GAIN.4", 52, 38, "GAIN", saida="P_w", entradas=("erro_w",), r0=1.0)
+    sinal("ABS.1", 52, 44, "ABS", saida="erro_abs", entradas=("erro_w",))
+    sinal("CONST.4", 52, 48, "CONST", saida="erro_max", const=10.0)
+    sinal("GT.1", 60, 46, "GT", saida="integra", entradas=("erro_max", "erro_abs"))
+    sinal("MUL.1", 68, 42, "MUL", saida="erro_int", entradas=("erro_w", "integra"))
+    sinal("INT.1", 76, 42, "INT", saida="I_w", entradas=("erro_int",), a1=50.0, y0=0.0, min=-15.0, max=15.0)
+    sinal("ADD.2", 84, 40, "ADD", saida="i_ref_u", entradas=("P_w", "I_w"))
+    sinal("LIMIT.1", 92, 40, "LIMIT", saida="i_ref", entradas=("i_ref_u",), min=-15.0, max=15.0)
+    # a malha de corrente: PI + a f.c.e.m. à frente → d
+    sinal("SUB.2", 36, 54, "SUB", saida="erro_i", entradas=("i_ref", "ia_MDC1"))
+    sinal("PI.1", 44, 54, "PI", saida="v_pi", entradas=("erro_i",), r0=15.708, a1=1570.8)
+    sinal("GAIN.5", 44, 58, "GAIN", saida="fcem", entradas=("n_MDC1",), r0=1.0 * math.pi / 30)
+    sinal("ADD.3", 52, 56, "ADD", saida="v_a_ref", entradas=("v_pi", "fcem"))
+    sinal("GAIN.6", 60, 56, "GAIN", saida="d_u", entradas=("v_a_ref",), r0=1 / 240.0)
+    sinal("LIMIT.2", 68, 56, "LIMIT", saida="d", entradas=("d_u",), min=0.0, max=0.98)
+    sinal("SIGNAL.1", 68, 60, "SIGNAL", saida="portadora", type=403, amplMAX=0.5, offset=0.5, f=20e3)
+    sinal("GE.3", 76, 58, "GE", saida="g", entradas=("d", "portadora")); sinal("NOT.1", 84, 60, "NOT", saida="gn", entradas=("g",))
+    gate("GATE.1", 92, 56, "g", "S.1"); gate("GATE.2", 92, 60, "gn", "S.2")
+    return dict(dt=1e-6, tfim=0.45, amostras=9000)
+
+
 def pmsm():
     """PMSM com controle dq em Python (v0.3.1), adaptado do dq_control_pmsm.ipes do Gecko (a máquina dele: Psi 0,191 Wb,
     3 pares de polos, Rs 1 Ω, Ld = Lq = 5 mH; aqui J 2e-3 kg·m², para a velocidade não andar aos saltos com a carga): o
@@ -431,10 +532,10 @@ def pmsm():
     return dict(dt=1e-6, tfim=0.12, amostras=12000)
 
 
-MONTA = {"buck": buck, "buck_degrau": buck_degrau, "buck_termico": buck_termico, "boost": boost, "buck_boost": buck_boost, "retificador_trifasico": retificador, "inversor_ponte_completa": inversor,
+MONTA = {"buck": buck, "buck_degrau": buck_degrau, "buck_pi_blocos": buck_pi_blocos, "buck_termico": buck_termico, "boost": boost, "buck_boost": buck_boost, "retificador_trifasico": retificador, "inversor_ponte_completa": inversor,
          "inversor_trifasico": inversor_trifasico, "inversor_meia_ponte": inversor_meia_ponte, "ponte_h_cc": ponte_h_cc,
          "retificador_monofasico": retificador_monofasico, "retificador_trifasico_controlado": retificador_controlado,
-         "motor_cc": motor_cc, "pmsm": pmsm}
+         "motor_cc": motor_cc, "motor_cc_blocos": motor_cc_blocos, "pmsm": pmsm}
 
 
 def monta(nome):

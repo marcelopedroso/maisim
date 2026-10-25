@@ -1,0 +1,9 @@
+{
+ "titulos": {
+  "Motor CC — PI em blocos": "DC motor — PI in blocks",
+  "Velocidade n (rpm)": "Speed n (rpm)",
+  "Corrente de armadura (A)": "Armature current (A)",
+  "Torque (N·m)": "Torque (N·m)",
+  "Razão cíclica d": "Duty cycle d"
+ }
+}
