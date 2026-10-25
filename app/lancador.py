@@ -60,6 +60,25 @@ def avisa(pt, en):
         ctypes.windll.user32.MessageBoxW(None, pt if PT else en, "MaiSim", 0x10)
 
 
+def migra_cache_antigo():
+    """No Windows, até a 0.3.0-rc2 o cache ficava solto em %LOCALAPPDATA%\\MaiSim (junto do que mais houver lá); agora é
+    %LOCALAPPDATA%\\MaiSim\\Cache. Na primeira vez, traz para lá só o que é do MaiSim (a recuperação do editor, as conversas,
+    o lancador.json do que estiver no ar): o resto da pasta não é nosso e fica. O que estiver em uso fica onde está."""
+    if not WIN or os.environ.get("MAISIM_PERFIL") != "produto":
+        return
+    import ler_config
+    novo = ler_config.pasta_cache()
+    if Path(os.environ.get("MAISIM_CACHE", "")) != novo or novo.exists():
+        return
+    novo.mkdir(parents=True, exist_ok=True)
+    for nome in ("simu", "gecko", "logs", "lancador.json"):
+        try:
+            if (novo.parent / nome).exists():
+                shutil.move(str(novo.parent / nome), str(novo / nome))
+        except OSError:
+            pass
+
+
 def no_ar(porta):
     try:
         with socket.create_connection(("127.0.0.1", int(porta)), timeout=0.5):
@@ -312,6 +331,7 @@ def main():
         avisa(f"O MaiSim não abriu: {e}.\nAcerte em {arq} (MAISIM_PORTA=8100, por exemplo) e abra de novo.",
               f"MaiSim did not start: {e}.\nFix it in {arq} (MAISIM_PORTA=8100, for instance) and open it again.")
         return 1
+    migra_cache_antigo()
     if a.parar:
         est = Path(os.environ["MAISIM_CACHE"]) / "lancador.json"
         try:
