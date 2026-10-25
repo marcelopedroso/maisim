@@ -35,7 +35,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 - Sources follow the generator convention: the current arrow of a voltage source leaves its + terminal, and its measured current (scope, Measure, the control's `m[...]`) is positive when it delivers power. Gecko measures every current from terminal 1 to terminal 2, so MaiSim flips the sign it reads for a voltage source; the Gecko file is unchanged. The current source shows its arrow (terminal 1 → 2) instead of a "+" (#71).
 
 ### Removed
-- The Google Antigravity and Gemini CLI integrations: signing in with a Google account through a third-party program risks the account being suspended. Claude (Claude Code) is the only AI; other AIs (e.g. a local model) are on the roadmap (#PR).
+- The Google Antigravity and Gemini CLI integrations: signing in with a Google account through a third-party program risks the account being suspended. Claude (Claude Code) is the only AI; other AIs (e.g. a local model) are on the roadmap (#111).
 
 ### Fixed
 - Claude Code on Windows: MaiSim looks for `claude.exe` (on the PATH, else `%USERPROFILE%\.local\bin\claude.exe`, which the installer does not put on the PATH of an already-open MaiSim) and never the npm `claude.cmd`; the AI processes get the Windows system variables they need (`SYSTEMROOT`, `USERPROFILE`, `APPDATA`, `TEMP`…) in their whitelisted environment; the Claude sign-in opens the person's own browser there (the Linux URL-catching script is not used); and in the produto profile the MaiSim Claude login lives in `%APPDATA%\MaiSim\claude` instead of a `.claude-maisim` folder in the home directory. Linux is unchanged (#108).
