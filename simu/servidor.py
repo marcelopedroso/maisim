@@ -3242,8 +3242,11 @@ controle_rodada = {"pausa": threading.Event(), "parar": threading.Event()}
 
 
 CHAVES = {"S", "IGBT", "MOSFET", "THYR"}            # o que um GATE pode comandar
-COM_PERDA = CHAVES | {"D"}                          # o que um Pv pode aquecer (os semicondutores: LossCalculatable no Gecko)
+COM_PERDA = CHAVES | {"D", "R"}                     # o que um Pv pode aquecer: os LossCalculatable do Gecko (os semicondutores
+                                                    # e o resistor do circuito, i²R; ThermPvChip.checkComponentCompatibility)
 PERDAS = ("total", "conduction", "switching")       # o que o FLOW lê do Pv (LossComponent.getSaveString)
+COM_FLUXO = {"Pv", "Rth", "Cth", "HEAT-SOURCE", "DT"}   # onde um FLOW mede (o CurrentMeasurable térmico: ReglerFlowMeter);
+                                                    # o losscomp só vale no Pv (nos outros, o fluxo de calor que passa)
 trava_rodada = threading.Lock()
 DEVOLVER = ESTADO.with_name("devolver.json")           # CONST de uma rodada em andamento (servidor caiu no meio: devolve na partida)
 
@@ -3488,19 +3491,22 @@ def _rodar(c, ctl_de_fora=None):
         DEVOLVER.unlink(missing_ok=True)
         raise
     # as perdas (sinais_de_media): cada amostra gravada é a média dos passos desde a anterior (somas em anda, por STEPA);
-    # o m[...] do controle segue com o ponto (o valor do passo, como antes)
+    # o m[...] do controle também recebe a média, a do último Ts (o valor do passo só pegaria a perda de chaveamento, E/Δt
+    # num passo, quando a amostra caísse nele: zero quase sempre e um pico às vezes); em t = 0, o ponto inicial
     els_media = sinais_de_media(r, sinais)
     canal_media = [(k, f) for (el, k), f in zip(sinais, fator) if el in els_media]     # (canal, fator), na ordem de els_media
     meta["media_intervalo"] = [k for k, _ in canal_media if k in canais_scope]
-    soma_media = dict(n=0, s=[0.0] * len(els_media))
+    soma_media = dict(n=0, s=[0.0] * len(els_media))   # desde a última amostra gravada (o scope)
+    soma_ts = dict(n=0, s=[0.0] * len(els_media))      # desde a última amostra do controle (o m[...])
+    relogio = dict(t=0.0)                               # o tempo do Gecko no fim do último STEPA (depois do INIT: 0)
 
-    def media():
-        """{canal: média do intervalo} das perdas desde a última amostra gravada (e zera); nada se nenhum passo andou."""
-        q = soma_media["n"]
+    def media(soma=soma_media):
+        """{canal: média do intervalo} das perdas desde a última amostra (e zera); nada se nenhum passo andou."""
+        q = soma["n"]
         if not q:
             return {}
-        out = {k: f * v / q for (k, f), v in zip(canal_media, soma_media["s"])}
-        soma_media.update(n=0, s=[0.0] * len(els_media))
+        out = {k: f * v / q for (k, f), v in zip(canal_media, soma["s"])}
+        soma.update(n=0, s=[0.0] * len(els_media))
         return out
 
     def passos(q):
@@ -3508,9 +3514,16 @@ def _rodar(c, ctl_de_fora=None):
         if not els_media:
             return float(MOTOR.cmd(f"STEP {q}"))
         v = MOTOR.cmd(f"STEPA {q} " + " ".join(els_media)).split()
-        soma_media["s"] = [a + q * float(b) for a, b in zip(soma_media["s"], v[1:])]
-        soma_media["n"] += q
-        return float(v[0])
+        t1 = float(v[0])
+        feitos = max(0, min(q, arred((t1 - relogio["t"]) / dt)))   # o Gecko pode parar no meio (um erro dele, engolido como no
+        relogio["t"] = t1                                          # STEP): a média é dos passos que ele andou, com esse peso
+        if feitos != q and not relogio.get("avisou"):
+            relogio["avisou"] = True
+            avisos_rodada.append(lingua.tr("rodada.gecko_parou_trecho", q=q, feitos=feitos, t=f"{t1:g}"))
+        for soma in (soma_media, soma_ts):
+            soma["s"] = [a + feitos * float(b) for a, b in zip(soma["s"], v[1:])]
+            soma["n"] += feitos
+        return t1
 
     controle_rodada["pausa"].clear(); controle_rodada["parar"].clear()
     arq = pasta / f"scope_{nome}.npz"
@@ -3543,13 +3556,15 @@ def _rodar(c, ctl_de_fora=None):
         """A cada Ts: medidas → passo() do usuário → atuações nos CONST → Ts no Gecko. Publica a cada "cada" períodos."""
         k, j, tt, regs, avisados = 0, 0, 0.0, None, set()
         vals = dict(iniciais) if iniciais else le_gecko()       # t = 0: o estado inicial (o passo de prova), não os zeros
+        media(soma_ts)
+        mts = {}                                         # as perdas do m[...]: a média do último Ts (em t = 0, o ponto)
         while k < n and not controle_rodada["parar"].is_set():
             if controle_rodada["pausa"].is_set():
                 rodada["estado"] = "pausada"; time.sleep(0.1); continue
             rodada["estado"] = "rodando"
             if j in params_ev:                           # acionamentos de p[...]: valem a partir desta amostra
                 trab.pede({"op": "parametros", "p": params_ev[j]})
-            res = trab.pede({"op": "passo", "t": tt, "m": ao_controle(vals)})
+            res = trab.pede({"op": "passo", "t": tt, "m": ao_controle(dict(vals, **mts))})
             a, sreg = res["a"], res["s"]
             fora = [x for x in a if x not in atu or x not in ctl["atuacoes"]]
             if fora:
@@ -3591,6 +3606,7 @@ def _rodar(c, ctl_de_fora=None):
                 pub.amostra(dict(t=tt, **ao_scope(dict(vals, **media())), **{col: sreg.get(x, float("nan")) for x, col in regs.items()}))
             tt = anda(k, passo, escritas_do_trecho(k, passo)); k += passo; j += 1
             vals = le_gecko()
+            mts = media(soma_ts)
             rodada.update(t=tt, amostras=rodada["amostras"] + (1 if j % cada == 0 else 0))
         pub.amostra(dict(t=tt, **ao_scope(dict(vals, **media())), **{col: float("nan") for col in (regs or {}).values()}))
         return k
@@ -3687,6 +3703,17 @@ def muda_solver(solver):
     aplica_solver(arq, solver)
 
 
+def rotulos_termicos(r, folhas=None):
+    """Os rótulos dos nós térmicos das folhas (os terminais dos elementos THERM e as conexões térmicas): o que o TEMP mede."""
+    out = set()
+    for f in (folhas or ["0"]):
+        fl = r["folhas"].get(str(f)) or {"elementos": [], "fios": []}
+        out |= {t["rotulo"] for e in fl["elementos"] if e["dom"] == "THERM" for t in e.get("terminais", []) if t.get("rotulo")}
+        out |= {x for e in fl["elementos"] if e["dom"] == "THERM" for x in e["entradas"] + e["saidas"] if x}
+        out |= {w["rotulo"] for w in fl["fios"] if w["dom"] == "THERM" and w["rotulo"]}
+    return out
+
+
 def circuito_aberto():
     """O circuito como a rodada o grava no meta (e no resumo.md): o arquivo aberto ou "novo (sem arquivo)"."""
     return editor["aberto"] or "novo (sem arquivo)"  # i18n-ok (marcador: o meta e o resumo.md o comparam)
@@ -3769,7 +3796,7 @@ def comando(op, a):
 # terminais na mesma posição dão dois bornes no mesmo ponto (o aviso do Gecko para isso está desligado no código dele):
 # aqui o terminal vai para a posição livre mais perto, na mesma borda. Pela interface remota, o Gecko só encosta ao mover
 # (criar deixa o terminal onde está, com o lado padrão, esquerda) e ignora um passo com dx == dy (moveComponent).
-TIPOS_TERMINAL = {"CIRCUIT_TERMINAL", "CONTROL_TERMINAL"}
+TIPOS_TERMINAL = {"CIRCUIT_TERMINAL", "CONTROL_TERMINAL", "THERM_TERMINAL", "RELUCTANCE_TERMINAL"}   # (os quatro: AbstractCircuitTerminal ou o de controle)
 LADO_NOME = {0: "editor.lado_cima", 1: "editor.lado_esquerda", 2: "editor.lado_direita", 3: "editor.lado_embaixo"}   # lingua.tr(…)
 LADO_ID = "cedb"                                       # o lado como a página o conhece (ipes.py: t["lado"], o LADO_TXT do simu.js)
 
@@ -6202,24 +6229,34 @@ class Manipulador(BaseHTTPRequestHandler):
                         raise ErroMotor(lingua.tr("editor.nao_e_chave", comp=repr(comp)))
                     return acopla(nome, [comp, "NIX_NIX_NIX", "0"], ref=comp, folhas=corpo.get("folhas"))
                 ult = editor.get("ultimo") or {"folhas": {}}
+                def els_de(n):                          # os elementos com este nome nas folhas pedidas
+                    return [e for f in (corpo.get("folhas") or ["0"]) for e in ult["folhas"].get(str(f), {"elementos": []})["elementos"] if e["nome"] == n]
                 def tipos_de(n):                        # os tipos com este nome nas folhas pedidas (vazio: o Gecko decide)
-                    return {e["tipo"] for f in (corpo.get("folhas") or ["0"]) for e in ult["folhas"].get(str(f), {"elementos": []})["elementos"] if e["nome"] == n}
+                    return {e["tipo"] for e in els_de(n)}
                 if tipo == "P":                          # Pv: a chave (ou o diodo) que ele aquece — a perda dela vira calor no nó térmico
                     comp = str(corpo.get("componente", ""))
-                    if not NOME.match(comp) or (tipos_de(comp) and not tipos_de(comp) & COM_PERDA):
+                    if not NOME.match(comp) or (tipos_de(comp) and not tipos_de(comp) & COM_PERDA) or \
+                            ("R" in tipos_de(comp) and not any(e["dom"] == "LK" for e in els_de(comp))):
                         raise ErroMotor(lingua.tr("editor.sem_perda", comp=repr(comp)))
                     return acopla(nome, [comp, "NIX_NIX_NIX", "0"], ref=comp, folhas=corpo.get("folhas"), dominio="THERM")
                 if tipo == "T":                          # TEMP: a temperatura entre dois rótulos térmicos (como o voltímetro)
                     n1, n2 = str(corpo.get("no1", "")).strip(), str(corpo.get("no2", "")).strip()
                     if not (n1 and ROTULO.match(n1) and ROTULO.match(n2)):
                         raise ErroMotor(lingua.tr("editor.mede_nos"))
+                    termicos = rotulos_termicos(ult, corpo.get("folhas"))   # um rótulo do circuito ou do controle não tem temperatura
+                    fora = [x for x in (n1, n2) if x and x not in termicos]
+                    if fora:
+                        raise ErroMotor(lingua.tr("editor.nao_termico", rot=", ".join(fora), lista=", ".join(sorted(termicos)) or "—"))
                     return acopla(nome, [n1, n2 or "NIX_NIX_NIX", "0"], folhas=corpo.get("folhas"))
                 if tipo == "F":                          # FLOW: a perda de um Pv (total, de condução ou de chaveamento)
                     pv, lc = str(corpo.get("componente", "")), str(corpo.get("losscomp") or "total")
-                    if not NOME.match(pv) or (tipos_de(pv) and tipos_de(pv) != {"Pv"}):
+                    if not NOME.match(pv) or (tipos_de(pv) and not tipos_de(pv) & COM_FLUXO) or \
+                            any(e["dom"] != "THERM" for e in els_de(pv) if e["tipo"] in COM_FLUXO):
                         raise ErroMotor(lingua.tr("editor.nao_e_pv", comp=repr(pv)))
                     if lc not in PERDAS:
                         raise ErroMotor(lingua.tr("editor.losscomp", lista=", ".join(PERDAS)))
+                    if tipos_de(pv) and "Pv" not in tipos_de(pv):
+                        lc = "total"                     # Rth, Cth, fonte de calor, DT: o fluxo de calor (o losscomp não vale)
                     return acopla(nome, [pv, "NIX_NIX_NIX", "0"], ref=pv, folhas=corpo.get("folhas"), losscomp=lc)
                 def motor_de(n):                        # o elemento da máquina com este nome (o 1º das folhas pedidas), ou None
                     return next((e for f in (corpo.get("folhas") or ["0"]) for e in ult["folhas"].get(str(f), {"elementos": []})["elementos"]

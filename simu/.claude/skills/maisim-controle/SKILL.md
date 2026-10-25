@@ -12,7 +12,8 @@ controle ou tirar conclusões sobre o tempo. O essencial:
 
 ## Contrato do código
 - `iniciar(p, e)` roda uma vez. `passo(t, m, p, e)` roda a cada Ts e devolve `{atuador: valor}` (ou `None`).
-- `m`: medidas em t (medidores e saídas de blocos de controle; dentro de um subcircuito, `Sub_1_<nome>` ou `<nome do subcircuito>_<nome>`). `p`: parâmetros do
+- `m`: medidas em t (medidores e saídas de blocos de controle; dentro de um subcircuito, `Sub_1_<nome>` ou `<nome do subcircuito>_<nome>`; as perdas FLOW de um Pv,
+  `Pv_`/`Pcond_`/`Psw_…`, vêm como a média do último Ts, não o valor do passo). `p`: parâmetros do
   painel, mais `p["Ts"]` (o efetivo, n·Δt). `e`: estado seu entre amostras.
 - Só as atuações marcadas no painel. Valores `float` finitos. Prazo de 5 s por `passo` e de 20 s para carregar + `iniciar`.
 - `scope("nome", v)`: os mesmos nomes desde a 1ª amostra (as colunas se fixam nela). `print()` vai para `controle.log`.

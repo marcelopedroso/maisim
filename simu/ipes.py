@@ -26,6 +26,10 @@ LK = {1: "R", 2: "L", 3: "C", 4: "U", 5: "I", 6: "D", 7: "S", 8: "THYR", 9: "MOS
 CONTROL = {1: "VOLT", 2: "AMP", 3: "CONST", 4: "SIGNAL", 5: "SCOPE", 6: "GATE", 7: "GAIN", 12: "ADD", 13: "SUB",
            18: "NOT", 19: "AND", 25: "DELAY", 45: "GE", 78: "TERM"}
 DOIS_PINOS = {"R", "L", "C", "U", "I", "D", "S", "IGBT", "MOSFET", "THYR"}
+# o terminal de subcircuito dos outros domínios (o THERM_TERMINAL e o RELUCTANCE_TERMINAL; servidor.TERMINAIS_SUB) também é
+# um "TERM": ganha o pino e vira borne do bloco SUBCIRCUIT, como o do circuito e o do controle (antes a rede térmica que
+# atravessava um subcircuito ficava com as pontas soltas e o bloco sem o pino térmico)
+TERM_OUTROS = {("THERM", 49), ("REL", 30), ("RELUCTANCE", 30)}
 # catálogo da paleta (catalogo_gecko.py): (família do enum, código) → nome curto e nome exibido; LK, THERM e REL
 # compartilham o enum CircuitTyp, CONTROL é o ControlTyp, SPECIAL o SpecialTyp
 FAMILIA = {"LK": "C", "THERM": "C", "REL": "C", "RELUCTANCE": "C", "CONTROL": "K", "SPECIAL": "S"}
@@ -125,7 +129,7 @@ def le(caminho):
         typ = int(d.get("typ", -1))
         cat = CATALOGO.get((FAMILIA.get(dom, dom), typ), (None, None))
         tipo = (LK if dom == "LK" else CONTROL if dom == "CONTROL" else {27: "SUBCIRCUIT"} if dom == "SPECIAL" else {}).get(typ) \
-            or cat[0] or f"{dom}{typ}"
+            or ("TERM" if (dom, typ) in TERM_OUTROS else None) or cat[0] or f"{dom}{typ}"
         par = {}
         for k in NOMES:
             if k in d:
@@ -151,6 +155,9 @@ def le(caminho):
         if dom == "CONTROL" and cat[0] == "VIEWMOT":    # a grandeza interna da máquina (parameterString: máquina+grandeza, máquina, grandeza)
             ps = _rotulos(d.get("parameterString[]")) + ["", "", ""]
             elementos[-1]["grandeza"] = ps[2] if ps[2] != "0" else ""
+        mv = re.search(r"<Verluste>.*?\nverlustTyp[ \t]+(\d+)", corpo, re.S)   # o modo de perda do semicondutor: 1 simples, 2 detalhado
+        if mv:                                                                 # (as curvas do .scl; aí uF/rON/k_on/k_off não valem)
+            elementos[-1]["perda_modo"] = int(mv.group(1))
         if "losscomp" in d:                         # o FLOW: que perda ele mede (total, conduction, switching; LossComponent do Gecko)
             elementos[-1]["losscomp"] = d["losscomp"].strip()
     for dom, corpo in re.findall(r"\nverbindung(\w+)\s+\(\d+\)\n<Verbindung>\n(.*?)<\\Verbindung>", t, re.S):

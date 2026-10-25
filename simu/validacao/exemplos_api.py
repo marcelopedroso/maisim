@@ -57,8 +57,9 @@ try:
     CONF = [  # arquivo, o que conferir na janela final (a média, salvo dito), alvo, tolerância
         ("buck", "v_o", 24.0, 0.04), ("buck_degrau", "i_L", 24.0 / 5, 0.04),
         # o buck térmico: Tj em regime = 25 °C + P·ΣRth, com P do modo simples do Gecko a 12 A e 48 V (condução
-        # 0,5·(12·0,6 + 12²·0,01) = 4,32 W; chaveamento 20 kHz·(3 + 1,5)·10⁻⁵ Ws/A·12 A·48/400 = 1,30 W) e ΣRth = 5 K/W: ≈ 53 °C
-        ("buck_termico", "Tj_IGBT1", 25 + 5.0 * (0.5 * (12 * 0.6 + 144 * 0.01) + 20e3 * 4.5e-5 * 12 * 48 / 400), 0.05), ("boost", "v_o", 48.0, 0.04), ("buck_boost", "v_o", -24.0, 0.04),
+        # 0,5·(12·0,6 + 12²·0,01) = 4,32 W; chaveamento 20 kHz·(3 + 1,5)·10⁻⁵ Ws/A·12 A·48/400 = 1,30 W) e ΣRth = 5 K/W: ≈ 53 °C.
+        # Confere a SUBIDA (Tj − 25 ≈ 28 K, ±5% = ±1,4 K): no absoluto, ±5% de 53 °C deixaria passar um chaveamento 40% errado
+        ("buck_termico", "Tj_IGBT1 − 25", 5.0 * (0.5 * (12 * 0.6 + 144 * 0.01) + 20e3 * 4.5e-5 * 12 * 48 / 400), 0.05), ("boost", "v_o", 48.0, 0.04), ("buck_boost", "v_o", -24.0, 0.04),
         ("retificador_trifasico", "v_dc", 1.35 * 220, 0.02), ("inversor_ponte_completa", "fundamental de v_ab", 0.8 * 200, 0.02),
         ("inversor_trifasico", "fundamental de v_ab", 0.866 * 0.8 * 400, 0.02), ("inversor_meia_ponte", "fundamental de v_am", 0.8 * 100, 0.02),
         ("ponte_h_cc", "i_a", (0.5 * 100 - 40) / 1.0, 0.05), ("retificador_monofasico", "v_dc", 165.0, 0.05),
@@ -79,7 +80,8 @@ try:
             m = t >= t[-1] - 3 / 60; v, tt = z[sinal.split()[-1]][m], t[m]
             x = float(np.hypot(2 * np.mean(v * np.cos(2 * np.pi * 60 * tt)), 2 * np.mean(v * np.sin(2 * np.pi * 60 * tt))))
         else:
-            m = t >= t[-1] - (2 / 60 if nome.startswith("retificador") else 0.005); x = float(z[sinal][m].mean())
+            m = t >= t[-1] - (2 / 60 if nome.startswith("retificador") else 0.005)
+            x = float(z[sinal.split(" − ")[0]][m].mean()) - (float(sinal.split(" − ")[1]) if " − " in sinal else 0.0)
         if nome == "buck_degrau":                       # antes do degrau (10 ms), a carga de 10 Ω: a metade da corrente
             m0 = (t >= 0.005) & (t < 0.0099); x0 = float(z["i_L"][m0].mean())
             ok(perto(x0, 24.0 / 10, 0.05), f"buck_degrau: antes do degrau (5 a 10 ms) i_L = {x0:.2f} (teoria 2,4); depois, a seguir")

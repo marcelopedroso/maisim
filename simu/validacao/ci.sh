@@ -23,7 +23,7 @@ TELA="largura_tela scope_menu_tela contextos_tela erro_copia_tela claude_tex_tel
 API="lingua_api lingua_ia_api claude_instala_api rodadas_api exemplos_api amostra_t0_api ia_troca_api claude_renova_api contextos_api padrao_janela_api claude_autonomo_api segue_codigo_api
   renomear_api janela_gecko_api colar_sms_api desativar_api fonte_gerador_api nomes_ocultos_api claude_controladores_api atuacoes_modulos_api biblioteca_rotulos_api modulos_api
   move_api variaveis_api ponta_migra_api controladores_api teste_controle teste_passo2 teste_revisao atraso_caminhos atraso_sub
-  sub_terminais_api claude_pedido_api nao_salvo_api assinatura_api destino_api varias_saidas_api gecko_novo_api msd_api solver_api termica_api atualizacao_api paleta_oculto_api motores_api"
+  sub_terminais_api claude_pedido_api nao_salvo_api assinatura_api destino_api varias_saidas_api gecko_novo_api msd_api solver_api termica_api termica_gecko_api termica_sub_api atualizacao_api paleta_oculto_api motores_api"
 ISOLADOS="fila_tema_tela scope_painel_tela comparar_tela scope_cores_tela scope_recolher_tela scope_apagar_tela"   # na instância isolada (sobe_fila.sh): o scope ao vivo
 RAPIDO="$OFFLINE amostra_t0_api assinatura_api nao_salvo_api controladores_api teste_controle atraso_caminhos atraso_sub
   biblioteca_rotulos_api ia_troca_api contextos_api largura_tela lingua_tela inicio_tela app_tela scope_visoes_tela cabecalho_tela validador_tela

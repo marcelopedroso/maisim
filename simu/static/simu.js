@@ -59,7 +59,9 @@ const UNID = { resistance: "Ω", inductance: "H", capacitance: "F", amplitude: "
 // nó da saída dele) e o TREF (a referência: o zero térmico) com um só (ipes.py, TERMICOS)
 const FORMA_TERMICA = { Rth: "R", Cth: "C", DT: "U", "HEAT-SOURCE": "I" };
 const UNID_TERMICA = { Rth: ["resistance", "K/W"], Cth: ["capacitance", "J/K"], DT: ["dcValue", "°C"], "HEAT-SOURCE": ["dcValue", "W"] };
-const COM_PERDA = ["S", "IGBT", "MOSFET", "THYR", "D"];      // o que um Pv pode aquecer (os semicondutores do Gecko)
+const COM_PERDA = ["S", "IGBT", "MOSFET", "THYR", "D"];      // os semicondutores do Gecko (a seção "Perdas" do painel)
+const AQUECIVEL = COM_PERDA.concat(["R"]);                     // o que um Pv pode aquecer (o resistor do circuito também: i²R)
+const COM_FLUXO = ["Pv", "Rth", "Cth", "HEAT-SOURCE", "DT"];   // onde um FLOW mede (no Pv a perda; nos outros o fluxo de calor)
 const CAMPOS_PERDA = ["uF", "rON", "k_on", "k_off", "uK"];  // o modo simples de perdas do Gecko (LossCalculationSimple)
 const PERDAS_FLOW = ["total", "conduction", "switching"];  // o que o FLOW lê do Pv (losscomp no .ipes)
 const PREFIXO_FLOW = { total: "Pv", conduction: "Pcond", switching: "Psw" };
@@ -1384,15 +1386,25 @@ function pvDoNo(f, r) {
   const naConexao = (t) => f.fios.some((w) => w.dom === "THERM" && w.rotulo === r && w.pts.some((p) => p[0] === t.x && p[1] === t.y));
   return f.elementos.find((x) => x.tipo === "Pv" && x.dom === "THERM" && x.terminais.some((t) => t.rotulo === r || naConexao(t))) || null;
 }
+// o rótulo r é o nó de um TREF (o zero térmico de referência)? Então o TEMP de um Pv contra ele é a Tj "pura"
+function ehRefTermica(f, r) {
+  if (!r) return true;
+  const naConexao = (t) => f.fios.some((w) => w.dom === "THERM" && w.rotulo === r && w.pts.some((p) => p[0] === t.x && p[1] === t.y));
+  return f.elementos.some((x) => x.tipo === "TREF" && x.dom === "THERM" && x.terminais.some((t) => t.rotulo === r || naConexao(t)));
+}
 // o nome automático no scope de um medidor, pelo que ele mede: i_R_1, v_a_gnd; a temperatura no nó de um Pv, Tj_<a peça>
-// (Tj_IGBT1), noutro nó T_<rótulo>; a perda, Pv_ / Pcond_ / Psw_<a peça que o Pv aquece> (Pv_IGBT1)
+// (Tj_IGBT1; contra outro nó que não o TREF, Tj_IGBT1_<ref>), noutro nó T_<rótulo>; a perda, Pv_ / Pcond_ / Psw_<a peça que o
+// Pv aquece> (Pv_IGBT1); o fluxo de calor de um Rth, Cth, fonte ou DT, P_<ele> (P_Rth1)
 function nomeAutoDe(tipo, m0, m1, lc) {
   const san = (x) => x.replace(/[^A-Za-z0-9_]/g, "_"), f = dados.folhas[folhaAtual];
   m0 = m0 || ""; m1 = m1 || "";
   if (tipo === "AMP") return san(`i_${m0}`);
   if (tipo === "VIEWMOT") return m0 && m1 ? nomeGrandeza(m0, m1) : "";
-  if (tipo === "TEMP") { const pv = pvDoNo(f, m0); return pv && pv.mede[0] ? `Tj_${semPonto(pv.mede[0])}` : san(`T_${m0}${m1 ? "_" + m1 : ""}`); }
-  if (tipo === "FLOW") { const pv = f.elementos.find((x) => x.tipo === "Pv" && x.nome === m0); return `${PREFIXO_FLOW[lc] || "Pv"}_${semPonto((pv && pv.mede[0]) || m0)}`; }
+  if (tipo === "TEMP") { const pv = pvDoNo(f, m0);
+    return pv && pv.mede[0] ? `Tj_${semPonto(pv.mede[0])}${ehRefTermica(f, m1) ? "" : "_" + semPonto(m1)}` : san(`T_${m0}${m1 ? "_" + m1 : ""}`); }
+  if (tipo === "FLOW") { const alvo = f.elementos.find((x) => x.dom === "THERM" && x.nome === m0);
+    if (alvo && alvo.tipo !== "Pv") return `P_${semPonto(m0)}`;
+    return `${PREFIXO_FLOW[lc] || "Pv"}_${semPonto((alvo && alvo.mede[0]) || m0)}`; }
   return san(`v_${m0}${m1 ? "_" + m1 : ""}`);
 }
 // a grandeza da máquina no scope e no m[...]: a grandeza sem a unidade e a máquina sem ponto nem hífen (n_MDC1, isa_PMSM1)
@@ -1529,13 +1541,25 @@ async function montaProps() {
     msg(tr("simu.aplicando"));
     const fs = alvos(); ok += nosSMs(fs);                       // dentro de um subcircuito: ele só, ou todos os iguais
     try { novoEstado(await api("editor/mede", Object.assign({ nome: e.nome, descr: ok, folhas: fs }, corpo))); msg(ok, "ok"); }
-    catch (err) { msg(err.message, "erro"); return; }
+    catch (err) { msg(err.message, "erro"); return false; }
     // nome no scope automático (i_R_1, v_a_gnd, Tj_IGBT1, Pv_IGBT1) enquanto o nome for vazio ou o automático de antes; um nome seu não muda
     const san = (x) => x.replace(/[^A-Za-z0-9_]/g, "_"),
       antes = e.tipo === "VIEWMOT" ? nomeAutoDe("VIEWMOT", e.mede[1], e.grandeza) : nomeAutoDe(e.tipo, e.mede[0], e.mede[1], e.losscomp);
     if (nomeAuto && (!e.saidas[0] || e.saidas[0] === antes) && e.saidas[0] !== san(nomeAuto))
       await pede("OUTNODE", [qualificado(e), 0, san(nomeAuto)], tr("simu.d_no_scope_como", { nome: e.nome, canal: san(nomeAuto) }));
+    return true;
   };
+  // o Pv aquece outra peça: o TEMP do nó dele e os FLOW dele com o nome automático de antes (Tj_IGBT1, Pv_IGBT1) passam ao
+  // da peça nova (Tj_D1, Pv_D1); um nome seu não muda
+  const dependentes = () => { const f = dados.folhas[folhaAtual];
+    return f.elementos.filter((x) => (x.tipo === "FLOW" && x.mede[0] === e.nome) || (x.tipo === "TEMP" && (pvDoNo(f, x.mede[0]) || {}).nome === e.nome))
+      .map((x) => ({ nome: x.nome, saida: x.saidas[0] || "", auto: nomeAutoDe(x.tipo, x.mede[0], x.mede[1], x.losscomp) })); };
+  const renomeiaDependentes = async (antes) => { const f = dados.folhas[folhaAtual];
+    for (const d of antes) {
+      const x = f.elementos.find((y) => y.nome === d.nome); if (!x || (d.saida && d.saida !== d.auto)) continue;
+      const novo = nomeAutoDe(x.tipo, x.mede[0], x.mede[1], x.losscomp);
+      if (novo !== x.saidas[0]) await pede("OUTNODE", [qualificado(x), 0, novo], tr("simu.d_no_scope_como", { nome: x.nome, canal: novo }));
+    } };
   if (v("#m-n1")) v("#m-n1").onchange = v("#m-n2").onchange = () => (`${v("#m-n1").value.trim()}|${v("#m-n2").value.trim()}` === ultimoMedido ||
     `${v("#m-n1").value.trim()}|${v("#m-n2").value.trim()}` === `${e.mede[0] || ""}|${e.mede[1] || ""}`) ? null : (ultimoMedido = `${v("#m-n1").value.trim()}|${v("#m-n2").value.trim()}`, mede({ tipo: "V", no1: v("#m-n1").value.trim(), no2: v("#m-n2").value.trim() }, tr("simu.d_mede_v", { nome: e.nome, a: v("#m-n1").value, b: v("#m-n2").value || "0" }), `v_${v("#m-n1").value.trim()}${v("#m-n2").value.trim() ? "_" + v("#m-n2").value.trim() : ""}`));
   const comps = dados.folhas[folhaAtual].elementos.filter((x) => x.dom === "LK" && x.terminais.length === 2 && x.tipo !== "VOLT" && x.tipo !== "AMP" && !x.grandezas);
@@ -1557,13 +1581,14 @@ async function montaProps() {
       mede({ tipo: "G", componente: c }, tr("simu.d_comanda", { nome: e.nome, c })); };
   }
   if (v("#m-pv")) {                                      // Pv: a chave ou o diodo que ele aquece (desta folha; o mesmo acoplamento do GATE)
-    const pecas = dados.folhas[folhaAtual].elementos.filter((x) => COM_PERDA.includes(x.tipo));
+    const pecas = dados.folhas[folhaAtual].elementos.filter((x) => AQUECIVEL.includes(x.tipo) && x.dom === "LK");
     comBusca(v("#m-pv"), pecas.map((x) => ({ v: x.nome, d: x.nome_tipo || descrTipo(x.tipo) || x.tipo })));
-    v("#m-pv").onchange = () => { const c = v("#m-pv").value.trim();
+    v("#m-pv").onchange = async () => { const c = v("#m-pv").value.trim();
       if (!c || c === (e.mede[0] || "") || c === ultimoMedido) return;
       ultimoMedido = c;
       if (!pecas.some((x) => x.nome === c)) { msg(tr("simu.sem_peca_folha", { c }), "erro"); return; }
-      mede({ tipo: "P", componente: c }, tr("simu.d_aquece", { nome: e.nome, c })); };
+      const antes = dependentes();
+      if (await mede({ tipo: "P", componente: c }, tr("simu.d_aquece", { nome: e.nome, c }))) await renomeiaDependentes(antes); };
   }
   if (v("#m-t1")) {                                      // TEMP: dois rótulos térmicos (como o voltímetro)
     const nos = nosTermicos();
@@ -1574,13 +1599,17 @@ async function montaProps() {
       mede({ tipo: "T", no1: a, no2: b }, tr("simu.d_mede_t", { nome: e.nome, a, b: b || "0" }), nomeAutoDe("TEMP", a, b)); };
   }
   if (v("#m-flow")) {                                    // FLOW: o Pv e que perda (total, condução, chaveamento; o losscomp no arquivo)
-    const pvs = dados.folhas[folhaAtual].elementos.filter((x) => x.tipo === "Pv" && x.dom === "THERM");
-    comBusca(v("#m-flow"), pvs.map((x) => ({ v: x.nome, d: x.mede[0] ? `♨ ${x.mede[0]}` : tr("simu.sem_peca") })));
-    v("#m-flow").onchange = v("#m-losscomp").onchange = () => { const c = v("#m-flow").value.trim(), lc = v("#m-losscomp").value, k = `${c}|${lc}`;
+    const pvs = dados.folhas[folhaAtual].elementos.filter((x) => COM_FLUXO.includes(x.tipo) && x.dom === "THERM");
+    comBusca(v("#m-flow"), pvs.map((x) => ({ v: x.nome, d: x.tipo !== "Pv" ? tr("simu.fluxo_de_calor") : x.mede[0] ? `♨ ${x.mede[0]}` : tr("simu.sem_peca") })));
+    const ehPv = (c) => (pvs.find((x) => x.nome === c) || {}).tipo === "Pv";
+    v("#m-losscomp").disabled = !!e.mede[0] && !ehPv(e.mede[0]);           // o losscomp só vale no Pv
+    v("#m-flow").onchange = v("#m-losscomp").onchange = () => { const c = v("#m-flow").value.trim(), lc = ehPv(c) ? v("#m-losscomp").value : "total", k = `${c}|${lc}`;
+      v("#m-losscomp").disabled = !!c && !ehPv(c);
       if (!c || k === ultimoMedido || k === `${e.mede[0] || ""}|${e.losscomp || "total"}`) return;
       ultimoMedido = k;
       if (!pvs.some((x) => x.nome === c)) { msg(tr("simu.sem_pv_folha", { c }), "erro"); return; }
-      mede({ tipo: "F", componente: c, losscomp: lc }, tr("simu.d_flow", { nome: e.nome, c, perda: tr("simu.perda_" + lc) }), nomeAutoDe("FLOW", c, "", lc)); };
+      mede({ tipo: "F", componente: c, losscomp: lc }, ehPv(c) ? tr("simu.d_flow", { nome: e.nome, c, perda: tr("simu.perda_" + lc) }) : tr("simu.d_fluxo", { nome: e.nome, c }),
+        nomeAutoDe("FLOW", c, "", lc)); };
   }
   const sinaisCtl = () => rotulosCtl(dados.folhas[folhaAtual]);        // os rótulos de sinal de controle desta folha
   if (v("#p-carga")) {                                   // a máquina: o torque de carga vem do sinal com este rótulo (vazio: sem carga)
@@ -1662,7 +1691,8 @@ async function montaProps() {
     const semi = e.dom === "LK" && COM_PERDA.includes(e.tipo), perdas = semi ? lst.filter((q) => CAMPOS_PERDA.includes(q.nome)) : [];
     const pvs = semi ? pvsDe(dados.folhas[folhaAtual], e.nome) : [];
     v("#p-params").innerHTML = (lst.filter((q) => !perdas.includes(q)).map(linhaPar).join("") || (perdas.length ? "" : `<i>${escT(tr("simu.sem_params"))}</i>`)) +
-      (perdas.length ? `<div class="sec-perdas"><h4>${escT(tr("simu.h_perdas"))}</h4><div class="aviso">${escT(tr("simu.perdas_modelo"))}</div>${perdas.map(linhaPar).join("")}
+      (perdas.length ? `<div class="sec-perdas"><h4>${escT(tr("simu.h_perdas"))}</h4><div class="aviso">${escT(tr("simu.perdas_modelo"))}</div>
+        ${e.perda_modo === 2 ? `<div class="aviso perda-detalhada" style="color:${COR.erro}">${escT(tr("simu.perda_detalhada"))}</div>` : ""}${perdas.map(linhaPar).join("")}
         <div class="aviso ${pvs.length ? "com-pv" : "sem-pv"}"${pvs.length ? "" : ` style="color:${COR.erro}"`}>${escT(pvs.length ? tr("simu.aquecido_por", { pv: pvs.map((x) => x.nome).join(", ") }) : tr("simu.sem_pv"))}</div></div>` : "");
     P.querySelectorAll("#p-params input[data-p]").forEach((i) => { const q = lst.find((x) => x.nome === i.dataset.p); if (q && q.pode_var) comVariaveis(i); });
     // useExternal (SIGNAL, LIMIT, HYS): os parâmetros que vêm das entradas, que o Gecko ignora aqui, ficam cinza, com a entrada
@@ -1973,7 +2003,7 @@ function expandeCantos(c) {
 // primeiro, o que não passar por um terminal ou ponta de conexão (no Gecko, ponta em cima de conexão liga: seria uma
 // ligação que ninguém pediu). Os dois passam: não liga e diz onde
 async function ligaTerminal(e, alvo, domAlvo) {
-  const domT = e.dom === "CONTROL" ? "CONTROL" : "LK";
+  const domT = e.dom === "CONTROL" || e.dom === "THERM" ? e.dom : "LK";   // o terminal térmico liga na rede térmica (o fio THERM)
   desenha();                                             // o terminal volta ao lugar dele (a prévia do arrasto sai)
   if (domAlvo !== domT) { msg(tr("simu.dom_nao_liga", { nome: e.nome, d1: nomeDom(domT), p: alvo, d2: nomeDom(domAlvo) }), "erro"); return; }
   const P = [e.x, e.y], f = dados.folhas[folhaAtual];
