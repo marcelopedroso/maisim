@@ -156,12 +156,21 @@ def hash_assinatura(a):
     return hashlib.sha1(repr(a).encode()).hexdigest()
 
 
+def bate_com(agora, h, solver_arquivo=None):
+    """A assinatura agora tem o hash h? Também no formato de antes do método de integração (três partes): um BASE ou VISTO
+    gravado por uma versão anterior, com um circuito salvo em trapézio ou Gear e o Gecko ainda aberto na atualização. O de
+    antes vale só se o método do Gecko for o do arquivo (solver_arquivo; None: não conferir) — senão a troca é mudança."""
+    if hash_assinatura(agora) == h:
+        return True
+    return len(agora) == 4 and hash_assinatura(agora[:3]) == h and solver_arquivo in (None, agora[3])
+
+
 def ja_visto(agora):
     """O editor já viu este estado do Gecko? (na memória; depois de reiniciar o servidor, pelo arquivo VISTO)"""
     if editor.get("assinatura") is not None:
         return editor["assinatura"] == agora
     try:
-        return VISTO.read_text().strip() == hash_assinatura(agora)
+        return bate_com(agora, VISTO.read_text().strip())
     except OSError:
         return False
 
@@ -218,7 +227,7 @@ def situacao_gecko():
     arq = (RAIZ / editor["aberto"]) if editor.get("aberto") else None
     if arq is not None and arq.is_file():
         base = base_conhecida()
-        circuito = (hash_assinatura(agora) != base) if base else (agora != assinatura(monta(arq)))
+        circuito = (not bate_com(agora, base, solver_do_texto(_texto(arq)[0]) or 0)) if base else (agora != assinatura(monta(arq)))
         # o mesmo que a abertura carrega, em qualquer idioma (aberto em pt e conferido em en, ou o contrário, não é mudança)
         atual = canon_controle(le_controle())
         controle = True

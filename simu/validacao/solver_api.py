@@ -106,6 +106,19 @@ api("editor/solver", {"solver": 2})
 r = api("editor/salvar", {"nome": "solver_api", "pasta": "circuitos", "sobrescrever": True}); assert "ERRO" not in r, r
 ok("\nsolverType 2\n" in texto(dest), "Salvar sem rodar grava o que o ⚙ escolheu (solverType 2)")
 ok(api("editor/pendente").get("pendente") is False, "salvo: nada pendente")
+# a atualização com o circuito em Gear aberto (Codex, #132): o BASE gravado por uma versão anterior tem a assinatura sem o
+# método; reiniciado o servidor (o Gecko continua aberto), o circuito intocado não pode aparecer como "não salvo"
+import os; os.environ.setdefault("MAISIM_PERFIL", "teste")   # (o import lê a configuração: a de teste, não a de uso)
+sys.path.insert(0, str(AQUI.parent)); import servidor as srv, ipes as ip   # noqa: E402 (só as funções puras)
+antiga = srv.hash_assinatura(srv.assinatura(ip.monta(T / "estado.ipes"))[:3])
+(T / "base.txt").write_text(antiga); (T / "visto.txt").write_text(antiga)
+subprocess.run([str(AQUI / "reinicia_servidor_teste.sh")], check=True, capture_output=True)
+p = api("editor/pendente")
+ok(p.get("pendente") is False, f"BASE da versão anterior (sem o método), servidor reiniciado, Gear no arquivo e no Gecko: nada pendente ({p.get('itens')})")
+r = api("editor/solver", {"solver": 1})
+p = api("editor/pendente")
+ok(p.get("pendente") is True and p.get("itens") == ["o circuito"], f"e trocar de Gear para trapézio ainda é mudança: {p.get('itens')}")
+api("editor/solver", {"solver": 2})
 for v in ("x", True, 1.9, 3):
     r = api("editor/solver", {"solver": v})
     ok(r.get("ERRO") and "desconhecido" in str(r.get("erro", "")), f"editor/solver {v!r} é recusado: {r.get('erro')}")
