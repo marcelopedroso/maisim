@@ -604,73 +604,15 @@ T = {
     "msd.token": {"pt": "a prévia expirou: escolha o arquivo .msd de novo", "en": "the preview expired: choose the .msd file again"},
     "msd.aberto": {"pt": "o circuito {nome} está aberto no editor: importe com outro nome ou abra outro circuito antes de substituir",
                    "en": "the circuit {nome} is open in the editor: import it under another name, or open another circuit before replacing it"},
-    # as contas das IAs que não são o Claude (ia/base.py, ia/antigravity.py, ia/gemini.py)
+    # as contas das IAs que não são o Claude (ia/base.py)
     "ia_conta.login_nao_existe": {"pt": "{nome}: o login pelo MaiSim ainda não existe", "en": "{nome}: signing in through MaiSim is not available yet"},
     "ia_conta.sem_login_andamento": {"pt": "{nome}: não há login em andamento", "en": "{nome}: no sign-in in progress"},
-    "ia_conta.renova_hoje": {"pt": "hoje às {h}h{m}", "en": "today at {h}:{m}"},
-    "ia_conta.renova_amanha": {"pt": "amanhã às {h}h{m}", "en": "tomorrow at {h}:{m}"},
-    "ia_conta.renova_dia": {"pt": "{dia}/{mes} às {h}h{m}", "en": "{mes}/{dia} at {h}:{m}"},
-    "ia_conta.grupo_claude_gpt": {"pt": "Claude e GPT", "en": "Claude and GPT"},
-    "ia_conta.janela_semana": {"pt": "semana", "en": "week"},
-    "ia_conta.saida": {"pt": "saída {codigo}", "en": "exit code {codigo}"},
-    "ia_conta.limites_erro": {"pt": "não consegui ler os limites: {erro}", "en": "could not read the limits: {erro}"},
-    "ia_conta.metodo_agy": {"pt": "conta Google, pelo Antigravity", "en": "Google account, through Antigravity"},
-    "ia_conta.metodo_google": {"pt": "conta Google", "en": "Google account"},
-    "ia_conta.ferramenta_terminal": {"pt": "terminal (negado)", "en": "terminal (denied)"},
-    "ia_conta.ferramenta": {"pt": "ferramenta", "en": "tool"},
-    "ia_conta.erro_ferramenta": {"pt": "erro na ferramenta", "en": "tool error"},
-    "ia_conta.agy_parou_command": {"pt": "o {nome} tentou o terminal, que o MaiSim não deixa, e parou sem responder. Peça de novo; se precisar, diga para ele usar só os arquivos desta pasta.",
-                                   "en": "{nome} tried to use the terminal, which MaiSim does not allow, and stopped without answering. Ask again; if needed, tell it to use only the files in this folder."},
-    "ia_conta.agy_parou_read_file": {"pt": "o {nome} tentou ler um arquivo fora da pasta, que o MaiSim não deixa, e parou sem responder. Peça de novo; se precisar, diga para ele usar só os arquivos desta pasta.",
-                                     "en": "{nome} tried to read a file outside the folder, which MaiSim does not allow, and stopped without answering. Ask again; if needed, tell it to use only the files in this folder."},
-    "ia_conta.agy_parou_write_file": {"pt": "o {nome} tentou escrever fora da pasta, que o MaiSim não deixa, e parou sem responder. Peça de novo; se precisar, diga para ele usar só os arquivos desta pasta.",
-                                      "en": "{nome} tried to write outside the folder, which MaiSim does not allow, and stopped without answering. Ask again; if needed, tell it to use only the files in this folder."},
-    "ia_conta.agy_parou_read_url": {"pt": "o {nome} tentou abrir uma página da web, que o MaiSim não deixa, e parou sem responder. Peça de novo; se precisar, diga para ele usar só os arquivos desta pasta.",
-                                    "en": "{nome} tried to open a web page, which MaiSim does not allow, and stopped without answering. Ask again; if needed, tell it to use only the files in this folder."},
-    "ia_conta.agy_parou_execute_url": {"pt": "o {nome} tentou o navegador, que o MaiSim não deixa, e parou sem responder. Peça de novo; se precisar, diga para ele usar só os arquivos desta pasta.",
-                                       "en": "{nome} tried to use the browser, which MaiSim does not allow, and stopped without answering. Ask again; if needed, tell it to use only the files in this folder."},
-    "ia_conta.agy_parou_mcp": {"pt": "o {nome} tentou uma ferramenta externa, que o MaiSim não deixa, e parou sem responder. Peça de novo; se precisar, diga para ele usar só os arquivos desta pasta.",
-                               "en": "{nome} tried to use an external tool, which MaiSim does not allow, and stopped without answering. Ask again; if needed, tell it to use only the files in this folder."},
-    "ia_conta.agy_parou": {"pt": "o {nome} tentou {o_que}, que o MaiSim não deixa, e parou sem responder. Peça de novo; se precisar, diga para ele usar só os arquivos desta pasta.",
-                           "en": "{nome} tried to use {o_que}, which MaiSim does not allow, and stopped without answering. Ask again; if needed, tell it to use only the files in this folder."},
-    "ia_conta.agy_sem_login": {"pt": "o {nome} não está com o login (o agy pediu para entrar de novo): entre de novo pelo balão da IA",
-                               "en": "{nome} is not signed in (agy asked to sign in again): sign in again from the AI bubble"},
-    "ia_conta.gemini_pasta_char": {"pt": "a pasta da conversa tem um caractere inesperado: {pasta}", "en": "the chat folder has an unexpected character: {pasta}"},
-    "ia_conta.gemini_sem_pasta": {"pt": "Gemini: sem a pasta da conversa não há como restringir a escrita",
-                                  "en": "Gemini: without the chat folder there is no way to restrict writing"},
-    "ia_conta.gemini_nao_atende": {"pt": "o Google não atende esta conta pelo Gemini CLI: \"This client is no longer supported for Gemini Code Assist for individuals… migrate to the Antigravity suite\". Contas Google pessoais (grátis, Pro e Ultra) agora vão pelo Antigravity; pelo Gemini CLI, só conta de organização (Code Assist Standard ou Enterprise) ou chave de API.",
-                                   "en": "Google does not serve this account through the Gemini CLI: \"This client is no longer supported for Gemini Code Assist for individuals… migrate to the Antigravity suite\". Personal Google accounts (free, Pro and Ultra) now go through Antigravity; through the Gemini CLI, only an organization account (Code Assist Standard or Enterprise) or an API key."},
-    "ia_conta.gemini_logout": {"pt": "o logout do Gemini não saiu", "en": "the Gemini sign-out did not go through"},
-    # o login pelo terminal (ia/login_pty.py)
-    "ia_login.nao_instalada": {"pt": "{nome}: a ferramenta não está instalada neste computador", "en": "{nome}: the tool is not installed on this computer"},
-    "ia_login.sem_rede": {"pt": "{txt} (sem resposta do Google: a rede deste computador não chegou lá)",
-                          "en": "{txt} (no response from Google: this computer could not reach it over the network)"},
-    "ia_login.invalid_grant": {"pt": "o Google recusou o código (invalid_grant): clique em entrar de novo e cole o código novo, inteiro",
-                               "en": "Google rejected the code (invalid_grant): click sign in again and paste the whole new code"},
-    "ia_login.feito": {"pt": "login feito", "en": "signed in"},
-    "ia_login.janela_propria": {"pt": "o login abriu numa janela de terminal própria: termine ali (o MaiSim acompanha e avisa quando entrar)",
-                                "en": "the sign-in opened in its own terminal window: finish it there (MaiSim follows and tells you when you are in)"},
-    "ia_login.janela_fechada": {"pt": "a janela do login fechou sem entrar: clique em entrar de novo", "en": "the sign-in window closed without signing in: click sign in again"},
-    "ia_login.sem_entrar": {"pt": "o login terminou sem entrar (saída {codigo})", "en": "the sign-in ended without completing (exit code {codigo})"},
-    "ia_login.cole_codigo": {"pt": "cole o código inteiro que a página do Google mostrou (letras, números, / - _)",
-                             "en": "paste the whole code the Google page showed (letters, digits, / - _)"},
-    "ia_login.sem_andamento": {"pt": "não há login do {nome} em andamento: clique em entrar de novo", "en": "no {nome} sign-in in progress: click sign in again"},
-    "ia_login.sem_link": {"pt": "o {nome} ainda não mostrou o link: espere um pouco", "en": "{nome} has not shown the link yet: wait a moment"},
-    "ia_login.cancelado": {"pt": "cancelado", "en": "cancelled"},
     # PR 10: fim
 
     # PR 11: o que a IA lê, no idioma do pedido. As regras (o prompt de sistema) ficam em ia/regras.pt.md e ia/regras.en.md.
     # O nome no começo das regras (a mesma frase dos dois arquivos: o servidor troca pela da outra IA)
     "ia.voce_claude": {"pt": "Você é o Claude do MaiSim", "en": "You are MaiSim's Claude"},
     "ia.voce_ia": {"pt": "Você é a IA do MaiSim ({nome})", "en": "You are MaiSim's AI ({nome})"},
-    # o Antigravity: só no começo da conversa, depois das regras
-    "ia.regra_agy": {"pt": "No MaiSim você NÃO tem terminal, navegador nem acesso a arquivos fora desta pasta: não tente (o pedido para "
-                           "sem resposta). Leia e edite só os arquivos desta pasta; o MaiSim testa e simula o código.",
-                     "en": "In MaiSim you do NOT have a terminal, a browser or access to files outside this folder: do not try (the request stops "
-                           "with no answer). Read and edit only the files in this folder; MaiSim tests and simulates the code."},
-    # o Gemini: o que ele ouve quando a política nega uma ferramenta (vai entre aspas no TOML: sem aspas nem barra invertida)
-    "ia.gemini_nega": {"pt": "o MaiSim não deixa: só ler, listar e procurar arquivos, e escrever ou editar os do controle (os editáveis e os .py) desta pasta",
-                       "en": "MaiSim does not allow this: only reading, listing and searching files, and writing or editing the control files (the editable ones and the .py files) in this folder"},
     # o lembrete no fim de cada pedido (o idioma da resposta vai nele: a conversa retomada depois de trocar o idioma segue o novo)
     "ia.lembrete_formato": {"pt": "Formato: modelagem e teoria em equação LaTeX ($…$ na linha, $$…$$ em destaque), também dentro de tabelas "
                                   "— ω, ∫, Σ, θ, chapéus e índices em LaTeX (\\omega, \\int, \\sum, \\hat{I}, V_{dc}), nunca entre crases; "

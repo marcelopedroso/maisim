@@ -3841,7 +3841,7 @@ def executa(op, a, r=None):
 # leitura da saída dela; o resto (a pasta de trabalho, o registro da conversa, os contextos) é igual para todas.
 IAS = ias_maisim.registro()                                     # o Claude; na instância de teste (MAISIM_IA_TESTE=1), também o Eco
 CLAUDE = IAS["claude"]
-for _a in IAS.values():                                      # a lista de modelos do Antigravity etc. (em segundo plano)
+for _a in IAS.values():                                      # o que cada peça põe em dia ao subir (em segundo plano)
     with lingua.com(lingua.ultima()):                 # na partida não há pedido: a última língua vista
         lingua.thread(_a.ao_iniciar).start()
 CLAUDE_DIR = CLAUDE.pasta                                   # MAISIM_CLAUDE_DIR / MAISIM_CLAUDE_BIN: testes; o caminho do `claude` é
@@ -4088,8 +4088,8 @@ def claude_instala_inicia():
 
 
 # ---------------------------------------------------------------- as contas das outras IAs (etapa 3 do hub de IA)
-# O login de uma IA que não é o Claude é da peça dela (ia/<nome>.py: o Gemini abre o CLI num terminal, mostra o link do
-# Google e repassa o código colado). O servidor só escolhe a peça e passa os erros para a tela.
+# O login de uma IA que não é o Claude é da peça dela (ia/<nome>.py: estado, entrar, o código colado, cancelar, sair).
+# O servidor só escolhe a peça e passa os erros para a tela. Hoje só o Claude, que tem o login dele mais abaixo.
 def ia_com_login(ia):
     a = IAS.get(str(ia or ""))
     if a is None or not a.tem_login:
@@ -4452,7 +4452,7 @@ def _resumo_ia(cid, modelo, esforco, ia="claude"):
 
 
 def _json_da_saida(texto):
-    """O JSON de uma saída de chamada única: o texto inteiro (o Gemini escreve em várias linhas) ou a última linha (o Claude)."""
+    """O JSON de uma saída de chamada única: o texto inteiro (uma IA que escreve em várias linhas) ou a última linha (o Claude)."""
     texto = (texto or "").strip()
     for t in (texto, texto.splitlines()[-1] if texto else ""):
         try:
@@ -4874,14 +4874,14 @@ def sessao_da_ia(chave, conv, ia):
         if not v or v.get("id") != conv["id"]:
             return str(uuid.uuid4())
         s = v.setdefault("sessoes", {})
-        if not re.fullmatch(r"[0-9A-Za-z_-]{8,80}", str(s.get(ia, ""))):   # um uuid do MaiSim, ou o id que a IA deu (o agy)
+        if not re.fullmatch(r"[0-9A-Za-z_-]{8,80}", str(s.get(ia, ""))):   # um uuid do MaiSim, ou o id que a IA deu
             s[ia] = str(uuid.uuid4())
             grava_sessoes(d)
         return s[ia]
 
 
 def guarda_sessao_da_ia(chave, conv_id, ia, sid):
-    """A IA que dá ela mesma o id da sessão (o Antigravity: conversation_id): o MaiSim guarda o que ela devolveu, para retomar."""
+    """A IA que dá ela mesma o id da sessão (o id da conversa dela): o MaiSim guarda o que ela devolveu, para retomar."""
     if ia == "claude" or not re.fullmatch(r"[0-9A-Za-z_-]{8,80}", str(sid or "")):
         return
     with trava_sessoes:
@@ -4927,8 +4927,8 @@ def _claude_lanca(prompt, c, dt, vez, chave, conv, pasta, anexos, memoria, model
 
 
 def _linha_do_erro(txt):
-    """A linha que diz o erro na saída de erro de uma ferramenta: não a última da pilha ("at …", Marcelo 21/10: o pedido ao
-    Gemini mostrou só "at process.processTicksAndRejections…") nem as chaves de um objeto impresso."""
+    """A linha que diz o erro na saída de erro de uma ferramenta: não a última da pilha ("at …", Marcelo 21/10: um pedido
+    mostrou só "at process.processTicksAndRejections…") nem as chaves de um objeto impresso."""
     linhas = [x.strip() for x in (txt or "").splitlines() if x.strip()]
     uteis = [x for x in linhas if not x.startswith("at ") and not re.fullmatch(r"[\[\]{}(),]+", x)]
     com_erro = [x for x in uteis if re.search(r"(?i)\berror\b|Error:|erro", x)]
@@ -4971,9 +4971,9 @@ def _acompanha_claude(proc, antes, dt, chave, pasta, anexos, memoria="", ia="cla
                         claude_pedido["eventos"] = (claude_pedido["eventos"] + [lingua.tr("pedido.ev_recusado", msg=e['msg'][:160])])[-40:]
                     elif t == "resultado":
                         resultado = e
-                        if e.get("modelo"):                  # o que respondeu de fato (o Gemini começa no "auto")
+                        if e.get("modelo"):                  # o que respondeu de fato (a IA pode começar no "auto")
                             claude_pedido["modelo"] = e["modelo"]
-        if resultado and resultado.get("sessao"):            # a sessão que a IA criou (o Antigravity): para retomar
+        if resultado and resultado.get("sessao"):            # a sessão que a IA criou (se ela der o id): para retomar
             guarda_sessao_da_ia(chave, pasta.name, ia, resultado["sessao"])
         erro_txt = proc.stderr.read()[-2000:] if proc.stderr else ""
         proc.wait(timeout=30)
@@ -4985,7 +4985,7 @@ def _acompanha_claude(proc, antes, dt, chave, pasta, anexos, memoria="", ia="cla
     if resultado is None:
         erro = a.erro_conhecido(erro_txt) or _linha_do_erro(erro_txt) or lingua.tr("pedido.ia_parou", ia=a.nome, saida=proc.returncode)
     elif not resultado["erro"] and not resultado.get("texto") and a.erro_conhecido(erro_txt):
-        erro = a.erro_conhecido(erro_txt)               # terminou "bem" mas sem resposta: o agy parou numa permissão negada
+        erro = a.erro_conhecido(erro_txt)               # terminou "bem" mas sem resposta: parou numa permissão negada
     else:
         if resultado["erro"]:                          # erros de execução vêm em "erros" (sem texto); erro da API, no texto
             erro = str(resultado.get("texto") or "; ".join(resultado.get("erros") or []) or resultado.get("subtipo") or "erro")[:600]
@@ -5543,7 +5543,7 @@ class Manipulador(BaseHTTPRequestHandler):
             if rota == "/claude/instalacao":           # a instalação do Claude Code (o botão Instalar): a tela acompanha
                 return self._resposta(200, claude_instala_estado())
             q = {k: v[0] for k, v in parse_qs(u.query).items()}
-            if rota == "/claude/ia/uso":               # os limites da conta de uma outra IA (o Antigravity: o /usage dele)
+            if rota == "/claude/ia/uso":               # os limites da conta de uma outra IA (se a peça informar)
                 return self._editor(lambda: ia_com_login(q.get("ia")).uso("forca" in q) or {"itens": [], "erro": lingua.tr("uso.ia_sem_limites")})
             if rota == "/claude/contextos":            # os contextos salvos, os usados nesta conversa e as conversas anteriores
                 return self._editor(claude_contextos)
@@ -5748,7 +5748,7 @@ class Manipulador(BaseHTTPRequestHandler):
                 return self._resposta(403, {"erro": lingua.tr("servidor.so_pagina_local")})
             acoes = {"/claude/login": claude_login_inicia, "/claude/instalar": claude_instala_inicia, "/claude/codigo": lambda: claude_login_codigo(corpo.get("codigo", "")),
                      "/claude/cancelar": lambda: (claude_login_cancela(), claude_estado())[1], "/claude/sair": claude_sai,
-                     # as contas das outras IAs (o Gemini): {"ia": id}
+                     # as contas das outras IAs: {"ia": id}
                      "/claude/ia/entrar": lambda: ia_conta(corpo.get("ia"), "entra"),
                      "/claude/ia/codigo": lambda: ia_conta(corpo.get("ia"), "codigo", corpo.get("codigo", "")),
                      "/claude/ia/cancelar": lambda: ia_conta(corpo.get("ia"), "cancela"),

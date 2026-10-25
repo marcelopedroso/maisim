@@ -6,8 +6,7 @@ Feito sobre:
   acompanham o MaiSim, em gecko/patches).
 - Python e NumPy (BSD); Eclipse Temurin (o Java, GPL v2 com Classpath Exception).
 - uPlot (MIT): os gráficos do scope. Monaco Editor (MIT): o editor de código. KaTeX (MIT): as equações. marked (MIT).
-- IA: o MaiSim não inclui IA. Ele chama, no seu computador, os programas oficiais Claude Code (Anthropic) e Google
-  Antigravity, que você instala e usa com a sua própria conta; cada um segue os próprios termos de uso. O MaiSim não é
-  afiliado a nenhuma dessas empresas.
+- IA: o MaiSim não inclui IA. Ele chama, no seu computador, o programa oficial Claude Code (Anthropic), que você
+  instala e usa com a sua própria conta; ele segue os próprios termos de uso. O MaiSim não é afiliado à Anthropic.
 
 Abra pelo atalho "MaiSim" (menu Iniciar ou área de trabalho). Para desligar: "Desligar o MaiSim" no menu Iniciar.

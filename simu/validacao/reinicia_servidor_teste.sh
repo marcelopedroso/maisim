@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # (re)sobe só o simulador da instância de teste (perfil config/teste.env) — o Gecko e o motor ficam. As IAs da instância
 # de teste NUNCA usam os logins de verdade: pastas descartáveis dentro da pasta de teste (desce_teste.sh apaga) e as IAs
-# de mentira (claude_falso.py, gemini_falso.py, agy_falso.py; login e logout do Claude vão para o CLI de verdade, nessa
+# de mentira (claude_falso.py; login e logout do Claude vão para o CLI de verdade, nessa
 # pasta). A página de teste (MAISIM_PORTA_PAGINA do perfil) é a origem aceita nos POST, além da porta do próprio servidor.
 AQUI="$(cd "$(dirname "$0")" && pwd)"; R="$(cd "$AQUI/../.." && pwd)"
 # só o perfil de teste (config/teste.env), nada do ambiente: um MAISIM_* exportado no terminal não vaza para cá

@@ -96,9 +96,8 @@ Os exemplos que vêm com o GeckoCIRCUITS ficam fora do **Abrir** (nem todos roda
 
 ## O Claude do MaiSim
 
-O botão **✦** no cabeçalho faz o login (Claude Code ou Google Antigravity), numa pasta só do MaiSim (`~/.claude-maisim`,
-`~/.agy-maisim`), sem tocar no seu login de sempre. Na aba Controle, o botão **Claude** abre a conversa: ele vê o
-circuito, as medidas, as atuações, o código e os números da última rodada, e propõe mudanças no controle (código,
+O botão **✦** no cabeçalho faz o login (Claude Code), numa pasta só do MaiSim (`~/.claude-maisim`), sem tocar no
+seu login de sempre. Na aba Controle, o botão **Claude** abre a conversa: ele vê o circuito, as medidas, as atuações, o código e os números da última rodada, e propõe mudanças no controle (código,
 parâmetros, acionamentos, módulos e controladores). Nada muda sem você aplicar: dá para ver a diferença, aplicar ou
 descartar. Ele não mexe no circuito; se faltar algo, diz o que montar.
 

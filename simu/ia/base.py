@@ -36,7 +36,7 @@ if os.name == "nt":
 
 
 class IA:
-    id = ""                       # "claude", "gemini", …
+    id = ""                       # "claude", …
     nome = ""                     # como aparece na tela
     variavel_pasta = ""           # a variável de ambiente que aponta a pasta de configuração da ferramenta
     modelos = ("",)               # "" = o padrão da conta
@@ -53,7 +53,7 @@ class IA:
         env = {k: os.environ[k] for k in ENV_BRANCA if k in os.environ}
         if self.variavel_pasta:
             env[self.variavel_pasta] = str(self.pasta)
-        env.update({"NO_COLOR": "1", "TERM": "dumb", **extra})   # extra pode trocar o TERM (o login do Gemini: um terminal)
+        env.update({"NO_COLOR": "1", "TERM": "dumb", **extra})   # extra pode trocar o TERM
         return env
 
     def instalado(self):
@@ -62,7 +62,7 @@ class IA:
         return Path(self.bin).exists()
 
     # ---- o que cada IA define
-    # pasta = a pasta de trabalho (cwd do processo): uma IA que recebe as regras ou a política por arquivo (o Gemini) as
+    # pasta = a pasta de trabalho (cwd do processo): uma IA que recebe as regras ou a política por arquivo as
     # grava aqui, antes de devolver o comando
     def comando(self, prompt, sessao, retoma, regras, modelo="", esforco="", passos=100, editaveis=(), pasta=None):
         raise NotImplementedError

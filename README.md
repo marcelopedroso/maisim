@@ -10,7 +10,7 @@
 
 MaiSim runs in your browser, on your own machine, with [GeckoCIRCUITS](https://github.com/geckocircuits/GeckoCIRCUITS)
 as its simulation engine. You build the circuit, write the control code in Python, run and measure, and you can ask an
-AI assistant (Claude Code or Google Antigravity) that sees the circuit, the control code and the runs.
+AI assistant (Claude Code) that sees the circuit, the control code and the runs.
 
 > The user interface is in English and Brazilian Portuguese: it follows your browser's language the first time, and the
 > PT/EN button at the foot of the side menu switches it. The documentation inside the modules (the `LEIA.md` files) is
@@ -42,8 +42,8 @@ sudo apt install -y python3 python3-numpy openjdk-11-jdk maven git xvfb x11vnc n
 ```
 
 MaiSim works with the AI installed on your computer (optional): [Claude Code](https://claude.com/claude-code)
-(`claude`) and/or Google Antigravity. You sign in from MaiSim's own screen, and the login is kept in a separate folder
-(`~/.claude-maisim`, `~/.agy-maisim`), so your usual login is not touched.
+(`claude`). You sign in from MaiSim's own screen, and the login is kept in a separate folder (`~/.claude-maisim`), so
+your usual login is not touched. Other AIs (e.g. a local model) may come later.
 
 ## Install and run
 
@@ -91,6 +91,6 @@ in [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`simu/validacao/LEIA.md`](simu/vali
 - **[noVNC](https://novnc.com)** (MPL 2.0) and **websockify** (LGPLv3), from the system: the Gecko display in the browser.
 - **[Vite](https://vite.dev)** (MIT): the web page server. **[Playwright](https://playwright.dev)** (Apache 2.0): the UI
   tests.
-- **AI:** MaiSim calls the official [Claude Code](https://claude.com/claude-code) (Anthropic) and Google Antigravity
-  programs, unmodified; each follows its own terms of use. MaiSim is not affiliated with any of these companies.
+- **AI:** MaiSim calls the official [Claude Code](https://claude.com/claude-code) (Anthropic) program,
+  unmodified; it follows its own terms of use. MaiSim is not affiliated with Anthropic.
 - **Logo:** concept and direction by Marcelo Pedroso, drawn with Claude ([`app/public/marca/`](app/public/marca/)).
