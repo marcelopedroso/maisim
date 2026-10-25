@@ -93,10 +93,14 @@ const lum = (rgb) => { const [r, g, b] = (rgb.match(/\d+/g) || [0, 0, 0]).map(Nu
       `posto pelo código: as opções de agora, a desligada apagada, o grupo (${e && e.ops.join("|")})`);
     await pg.keyboard.press("ArrowDown"); await pg.keyboard.press("ArrowDown"); await pg.waitForTimeout(80);
     ok((await estado(pg, "#dd1")).ativa === "quatro", "a seta pula a desligada");
+    const aria = await pg.$eval("#dd1", (s) => { const d = document.getElementById(s.getAttribute("aria-activedescendant") || "-");
+      return { ctl: s.getAttribute("aria-controls"), ativa: d && d.textContent, papel: d && d.getAttribute("role") }; });
+    ok(aria.ctl === "maisim-lista" && aria.ativa === "quatro" && aria.papel === "option", `o leitor de tela: aria-controls ${aria.ctl}, aria-activedescendant na "${aria.ativa}"`);
     await pg.evaluate(() => document.getElementById("dd1").add(new Option("cinco"))); await pg.waitForTimeout(150);
     ok((await estado(pg, "#dd1")).ops.slice(-1)[0] === "cinco", "uma opção posta com a lista aberta aparece nela");
     await pg.keyboard.press("End"); await pg.keyboard.press("Enter"); await pg.waitForTimeout(80);
     ok(await pg.$eval("#dd1", (s) => s.value) === "cinco", "End e Enter escolhem a última");
+    ok(await pg.$eval("#dd1", (s) => ["aria-expanded", "aria-controls", "aria-activedescendant"].every((k) => !s.hasAttribute(k))), "fechada: sem aria-expanded, aria-controls e aria-activedescendant");
     for (const [s, nome] of [["#dd2", "data-nativo"], ["#dd3", "multiple"]]) {
       await pg.click(s, { force: true }); await pg.waitForTimeout(120);
       ok(!(await estado(pg, s)), `${nome}: fica com o sistema (sem a lista do MaiSim)`);

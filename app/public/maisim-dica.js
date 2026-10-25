@@ -162,7 +162,7 @@
       d.className = "ml-op" + (o.selected ? " marcada" : "") + (o.disabled || (g && g.disabled) ? " desligada" : "") + (g ? " agrupada" : "");
       d.textContent = o.label || o.text || " "; d.setAttribute("role", "option"); d.setAttribute("aria-selected", o.selected ? "true" : "false");
       if (o.title) d.title = o.title;
-      d.dataset.i = o.index; lista.appendChild(d); itens.push({ d, o, g });
+      d.id = `ml-op-${itens.length}`; d.dataset.i = o.index; lista.appendChild(d); itens.push({ d, o, g });
     }
     ativa = itens.findIndex((x) => x.o.selected);
   }
@@ -182,18 +182,20 @@
     if (ativa >= 0 && itens[ativa]) itens[ativa].d.classList.remove("ativa");
     ativa = i;
     if (i >= 0 && itens[i]) { itens[i].d.classList.add("ativa"); if (rola) itens[i].d.scrollIntoView({ block: "nearest" }); }
+    if (sel) { if (i >= 0 && itens[i]) sel.setAttribute("aria-activedescendant", itens[i].d.id); else sel.removeAttribute("aria-activedescendant"); }   // o leitor de tela anuncia a opção ativa
   }
   function abre(s) {
     fecha(); sel = s; monta(); apaga();
+    sel.setAttribute("aria-expanded", "true"); sel.setAttribute("aria-controls", "maisim-lista");
     desenha(); document.body.appendChild(lista); poe(); marca(ativa, true);
-    sel.setAttribute("aria-expanded", "true");
     // o código trocou as opções (ou desligou o seletor, ou o tirou da página) com a lista aberta: a lista acompanha
-    vigia = new MutationObserver(() => { if (!sel || !serveSel(sel) || !sel.isConnected) { fecha(); return; } desenha(); poe(); marca(ativa, true); });
+    vigia = new MutationObserver((ms) => { if (ms.every((x) => x.target === sel && /^aria-/.test(x.attributeName || ""))) return;   // os aria-* que a própria lista põe
+      if (!sel || !serveSel(sel) || !sel.isConnected) { fecha(); return; } desenha(); poe(); marca(ativa, true); });
     vigia.observe(sel, { childList: true, subtree: true, attributes: true, characterData: true });
   }
   function fecha() {
     if (vigia) { vigia.disconnect(); vigia = null; }
-    if (sel) sel.removeAttribute("aria-expanded");
+    if (sel) for (const a of ["aria-expanded", "aria-controls", "aria-activedescendant"]) sel.removeAttribute(a);
     lista.remove(); sel = null; itens = []; ativa = -1;
   }
   function escolhe(i) {
