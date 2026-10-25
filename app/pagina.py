@@ -95,6 +95,28 @@ def le_cabecalho(s):
     return cab.decode("latin-1"), resto
 
 
+def cabecalho_fecha(de, para):
+    """A resposta de um módulo (fora do websocket): o cabeçalho com "Connection: close" — a página fecha a conexão depois
+    de cada resposta, e o navegador precisa saber disso para não tentar reusá-la (uma conexão morta); o resto vem no tubo."""
+    buf = b""
+    try:
+        while b"\r\n\r\n" not in buf and len(buf) < 65536:
+            x = de.recv(65536)
+            if not x:
+                break
+            buf += x
+    except OSError:
+        pass
+    cab, sep, resto = buf.partition(b"\r\n\r\n")
+    if sep:
+        linhas = [l for l in cab.split(b"\r\n") if not l.lower().startswith(b"connection:")]
+        buf = b"\r\n".join(linhas + [b"Connection: close"]) + sep + resto
+    try:
+        para.sendall(buf)
+    except OSError:
+        pass
+
+
 def tubo(de, para):
     """Copia de um socket para o outro até um fechar (o corpo, a resposta, o websocket)."""
     try:
@@ -169,6 +191,8 @@ class Pagina(socketserver.BaseRequestHandler):
             dest.sendall(("\r\n".join(novos) + "\r\n\r\n").encode("latin-1") + resto)
             ida = threading.Thread(target=tubo, args=(self.request, dest), daemon=True)
             ida.start()
+            if not upgrade:
+                cabecalho_fecha(dest, self.request)
             tubo(dest, self.request)
             ida.join(timeout=1)
         finally:

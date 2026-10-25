@@ -3,6 +3,13 @@
 // volta da linha (▶ na do erro); "pedir ao Claude" abre a conversa com o pedido escrito e não envia; numa saída que não é
 // erro, o "pedir ao Claude" some e o "copiar" leva o texto. Sem fotos.
 const { chromium } = require("playwright");
+const fs = require("fs"), path = require("path"), { execSync } = require("child_process");
+// o "pedir à IA" escreve o pedido na caixa da conversa — que só aparece com uma IA logada (#105): o Claude falso dos
+// testes fica logado durante o teste (como no claude_chat_tela)
+const pidSimu = execSync(`ss -ltnp | grep ':7201 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1`).toString().trim();
+const ENV = Object.fromEntries(fs.readFileSync(`/proc/${pidSimu}/environ`).toString().split("\0").filter((x) => x.includes("=")).map((x) => [x.slice(0, x.indexOf("=")), x.slice(x.indexOf("=") + 1)]));
+const LOGADO = path.join(ENV.MAISIM_CLAUDE_DIR, "falso_logado");
+fs.mkdirSync(ENV.MAISIM_CLAUDE_DIR, { recursive: true }); fs.writeFileSync(LOGADO, "");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
 const MOD = 'def conta(x):\n    a = 1\n    b = 2\n    c = a + b\n    return x["nao_tem"] + c\n';
@@ -55,6 +62,6 @@ const BOM = 'def iniciar(p, e):\n    pass\n\n\ndef passo(t, m, p, e):\n    retur
     await pg.evaluate(async () => { $("cc-texto").value = ""; await api("editor/novo", { modo: "descartar" }); });
     ok(!erros.length, `sem erros de JS nem diálogos ${erros.join(" ; ")}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message}`); }
-  finally { if (b) await b.close(); }
+  finally { if (b) await b.close(); fs.rmSync(LOGADO, { force: true }); }
   process.exit(falhas ? 1 : 0);
 })();
