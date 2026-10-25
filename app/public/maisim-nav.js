@@ -229,6 +229,28 @@
   // (pelos eventos da janela, não pelo aoMudar: valem também quando o motor de verdade chega depois da reserva)
   window.addEventListener("maisim-lingua", rotulaLingua);
   window.addEventListener("maisim-i18n-pronto", rotulaLingua);
+  // o sinal de vida (app/pagina.py, /maisim/vivo): a cada 15 s, com a situação da página (à vista, escondida, congelada); ao
+  // fechar (ou trocar de página), o aviso pelo sendBeacon. O lançador do "só usar" (--abrir) desliga o MaiSim quando não
+  // sobra nenhuma página aberta (Marcelo, 24/10: fechou a janela, fechou o MaiSim; o ícone abre de novo)
+  const novaVida = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+  let VIVA = novaVida();   // (a página que avisou que fechou não volta com o mesmo id: app/pagina.py ignora um sinal atrasado dela)
+  // (a resposta: "vigiada", se há um lançador que desliga o MaiSim quando ela fechar — o aviso de "sem salvar" do simu só então)
+  const vivo = (s) => fetch(`/maisim/vivo?id=${VIVA}&s=${s || (document.hidden ? "oculta" : "visivel")}`, { cache: "no-store", keepalive: true })
+    .then((r) => r.json()).then((j) => { window.maisimVigiada = !!j.vigiada; }).catch(() => { /* sem a página do MaiSim (a porta do módulo direto): nada */ });
+  const fechou = () => { try { navigator.sendBeacon(`/maisim/vivo?id=${VIVA}&fechou=1`); } catch (e) { vivo(); } };
+  vivo(); setInterval(vivo, 15000);
+  document.addEventListener("visibilitychange", () => vivo());
+  document.addEventListener("freeze", () => vivo("congelada"));
+  document.addEventListener("resume", () => vivo());
+  window.addEventListener("pagehide", fechou);
+  window.addEventListener("pageshow", (e) => { if (e.persisted) { VIVA = novaVida(); vivo(); } });   // de volta do cache do navegador (o "voltar")
+  // as trocas de página dentro do MaiSim (um link do trilho, da página inicial): não é fechar — o aviso de "sem salvar" do
+  // simu (beforeunload) fica só para fechar a janela (o circuito sem salvar está no Gecko: a página seguinte o retoma)
+  // (na volta do clique, não na ida: um link que o MaiSim intercepta e abre noutra janela — o Código, o Scope — já chega
+  // aqui com o preventDefault e não conta; nem o Ctrl/Shift+clique, que abre outra aba)
+  document.addEventListener("click", (e) => { const a = e.target.closest && e.target.closest("a[href]");
+    if (a && !e.defaultPrevented && e.button === 0 && !(e.ctrlKey || e.metaKey || e.shiftKey || e.altKey)
+        && a.origin === location.origin && (!a.target || a.target === "_self")) window.maisimNavegando = Date.now(); });
   window.maisimNav = { montar, desmontar, aplicaTema, aplicaEscala, situacaoIA };
   const eu = document.currentScript;
   if (!(eu && eu.dataset.manual)) { if (document.body) montar(); else document.addEventListener("DOMContentLoaded", montar); }

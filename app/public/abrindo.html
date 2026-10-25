@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pt">
+<!-- A janela do MaiSim enquanto o lançador sobe o Gecko e o motor (até ~1 min na primeira vez): o diodo pulsando; quando
+     /maisim/pronto disser que sim, vai para a tela inicial. O maisim-nav.js (manual: sem o trilho) dá o sinal de vida. -->
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MaiSim</title>
+<link rel="icon" href="/favicon.ico?v=2" sizes="16x16 32x32 48x48 256x256">
+<style>
+  :root { --fundo:#f7f6fb; --texto:#2b2340; --suave:#6b6380; }
+  @media (prefers-color-scheme: dark) { :root { --fundo:#16131f; --texto:#ece8f6; --suave:#a49cbc; } }
+  html, body { height:100%; margin:0; }
+  body { background:var(--fundo); color:var(--texto); font:16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+         display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; }
+  img { width:112px; height:112px; animation:pulsa 1.6s ease-in-out infinite; }
+  @keyframes pulsa { 0%, 100% { transform:scale(1); opacity:1; } 50% { transform:scale(1.08); opacity:.75; } }
+  @media (prefers-reduced-motion: reduce) { img { animation:none; } }
+  h1 { font-size:22px; margin:0; font-weight:600; }
+  p { margin:0; color:var(--suave); font-size:14px; text-align:center; max-width:340px; }
+</style>
+</head>
+<body>
+<img src="/marca/maisim-icone.svg" alt="">
+<h1 id="t">Abrindo o MaiSim…</h1>
+<p id="s">A primeira vez leva até um minuto.</p>
+<script>
+  if (!/^pt/i.test(navigator.language || "")) {
+    document.documentElement.lang = "en";
+    document.getElementById("t").textContent = "Opening MaiSim…";
+    document.getElementById("s").textContent = "The first time takes up to a minute.";
+  }
+  const confere = () => fetch("/maisim/pronto", { cache: "no-store" }).then((r) => r.json())
+    .then((j) => { if (j.pronto) location.replace("/"); else setTimeout(confere, 1000); })
+    .catch(() => setTimeout(confere, 1000));
+  confere();
+</script>
+<script src="/maisim-nav.js" data-manual="1"></script>
+</body>
+</html>

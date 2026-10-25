@@ -3,10 +3,14 @@ de programador segue com o npm run maisim / app/scripts/maisim.sh). Sobe, nesta 
 a página (app/pagina.py), o scope e o simulador (Python), o Gecko (Java; no Linux numa tela virtual, Xvfb) e o motor do
 editor (Java). Espera ficar pronto, abre o navegador como app (--abrir) e fica no ar; Ctrl+C (ou --parar, de outro lugar)
 derruba o que ele subiu — o Gecko só se não houver circuito sem salvar (a pergunta ao simulador, como no maisim.sh).
+Com --abrir (o atalho do "só usar"), fechar a janela do MaiSim também desliga: as páginas dão sinal de vida à página
+(app/pagina.py, /maisim/vivo) e, sem nenhuma aberta (nem rodada em andamento), ele para como o --parar. O ícone de novo,
+com o lançador ainda no ar, só abre a janela nele.
 
 uso: python3 app/lancador.py [--produto] [--abrir] [--sem-gecko]     |     python3 app/lancador.py [--produto] --parar
   --produto  o perfil da versão "só usar" (config/produto.env: os dados à vista em ~/MaiSim ou Documentos\\MaiSim)
-  MAISIM_JAVA (o java dos pacotes; senão o do sistema), MAISIM_GECKO_JAR (senão gecko/build/gecko-lote.jar)"""
+  MAISIM_JAVA (o java dos pacotes; senão o do sistema), MAISIM_GECKO_JAR (senão gecko/build/gecko-lote.jar),
+  MAISIM_NAVEGADOR (o navegador do --abrir; "nenhum": não abre — os testes)"""
 import argparse
 import json
 import locale
@@ -113,6 +117,8 @@ class Lancador:
         self.logs.mkdir(parents=True, exist_ok=True)
         self.estado = self.cache / "lancador.json"
         self.subiu = {}                                  # nome → Popen (só o que este lançador subiu)
+        self.parando = False                             # já derrubando: o ícone de novo espera e sobe outro
+        self.pronto = False                              # o Gecko e o motor no ar: a página "Abrindo o MaiSim…" segue (/maisim/pronto)
         self.sem_gecko = sem_gecko
         # o Java: o do pacote (a pasta jre ao lado do código, no instalador do Windows), o de MAISIM_JAVA (o AppRun do
         # AppImage) ou o do sistema (a versão de programador)
@@ -135,7 +141,7 @@ class Lancador:
 
     def grava(self):
         try:
-            self.estado.write_text(json.dumps({"lancador": os.getpid(), "processos": {n: p.pid for n, p in self.subiu.items()}}))
+            self.estado.write_text(json.dumps({"lancador": os.getpid(), "parando": self.parando, "pronto": self.pronto, "processos": {n: p.pid for n, p in self.subiu.items()}}))
         except OSError:
             pass
 
@@ -240,16 +246,65 @@ class Lancador:
         except (OSError, ValueError):
             pass
 
-    def abre(self):
-        """O navegador como app (uma janela só do MaiSim, sem abas): Edge, Chrome ou Chromium; senão o navegador padrão."""
-        url = f"http://localhost:{self.porta('PAGINA')}/"
+    def adota(self, anterior):
+        """O que ficou no ar de um lançador que já saiu (o Gecko que ficou por um circuito sem salvar): passa a ser deste
+        (Morto: só o pid), e o fim deste o derruba com a mesma regra. Só com o Gecko e o motor no ar (pids de outro dia, depois
+        de reiniciar o computador, podem ser de outros programas)."""
+        if vivo(anterior.get("lancador")) or not (no_ar(self.porta("GECKO")) and no_ar(self.porta("MOTOR"))):
+            return
+        self.subiu.update({n: Morto(pid) for n, pid in anterior.get("processos", {}).items()
+                           if n in ("gecko", "motor", "xvfb", "x11vnc", "websockify") and vivo(pid)})
+
+    def vida(self):
+        """O sinal de vida das páginas (app/pagina.py): {"ultimo", "fechou", "abas"}; None sem a página."""
+        try:
+            return json.loads(urllib.request.urlopen(f"http://127.0.0.1:{self.porta('PAGINA')}/maisim/vivo/ultimo", timeout=5).read())
+        except (OSError, ValueError):
+            return None
+
+    def segura(self):
+        """Um sinal de vida em nome da janela que vai abrir (conta 45 s, como uma página): o lançador no ar não desliga
+        enquanto ela carrega."""
+        try:
+            urllib.request.urlopen(f"http://127.0.0.1:{self.porta('PAGINA')}/maisim/vivo?id=lancador{os.getpid()}", timeout=5).read()
+            return True
+        except OSError:
+            return False
+
+    def sem_janela(self):
+        """Fechou a janela do MaiSim? Depois de algum sinal de vida, nenhuma página aberta e 20 s desde o último sinal ou
+        aviso de fechar (o recarregar e as trocas de página do MaiSim fecham uma e abrem outra na hora). Uma página à vista
+        sem sinal sai em 45 s (app/pagina.py). Com uma rodada em andamento, não: espera ela acabar (a pausada não segura:
+        parada, ela esperaria para sempre)."""
+        v = self.vida()
+        if not v or not v.get("ultimo") or v.get("abas"):
+            return False
+        if time.time() - max(v["ultimo"], v.get("fechou") or 0) < 20:
+            return False
+        try:
+            r = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{self.porta('SIMU')}/maisim/simu/editor/rodada", timeout=10).read())
+            if r.get("estado") in ("preparando", "rodando"):
+                return False
+        except (OSError, ValueError):
+            pass
+        return True
+
+    def abre(self, pagina=""):
+        """O navegador como app (uma janela só do MaiSim, sem abas): Edge, Chrome ou Chromium; senão o navegador padrão.
+        pagina: "abrindo.html" na partida (a animação até o Gecko ficar pronto; antes, a tela inicial pedia o circuito ao
+        motor que ainda subia e ficava com o erro "sem o motor do editor")."""
+        url = f"http://localhost:{self.porta('PAGINA')}/{pagina}"
+        escolhido = os.environ.get("MAISIM_NAVEGADOR")
+        if escolhido == "nenhum":
+            fala(f"no ar (sem abrir o navegador): {url}", f"running (browser not opened): {url}")
+            return
         nomes = ["msedge", "chrome", "google-chrome", "chromium", "chromium-browser"]
         achados = [shutil.which(n) for n in nomes]
         if WIN:
             for base in (os.environ.get("ProgramFiles(x86)", ""), os.environ.get("ProgramFiles", ""), os.environ.get("LOCALAPPDATA", "")):
                 for rel in (r"Microsoft\Edge\Application\msedge.exe", r"Google\Chrome\Application\chrome.exe"):
                     achados.append(str(Path(base) / rel) if base and (Path(base) / rel).is_file() else None)
-        nav = next((a for a in achados if a), None)
+        nav = escolhido or next((a for a in achados if a), None)
         if nav:
             subprocess.Popen([nav, f"--app={url}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         else:
@@ -259,6 +314,8 @@ class Lancador:
 
     def para(self, motivo=""):
         """Derruba o que este lançador subiu; o Gecko (e a tela dele) só sem circuito por salvar."""
+        self.parando = True
+        self.grava()
         pendente = None
         try:
             r = urllib.request.urlopen(f"http://127.0.0.1:{self.porta('SIMU')}/maisim/simu/editor/pendente", timeout=30)
@@ -362,7 +419,20 @@ def main():
         else:
             lc.para()
         return 0
+    est = Path(os.environ["MAISIM_CACHE"]) / "lancador.json"
+    try:
+        anterior = json.loads(est.read_text())
+    except (OSError, ValueError):
+        anterior = {}
     lc = Lancador(a.sem_gecko)
+    if a.abrir and vivo(anterior.get("lancador")) and no_ar(lc.porta("PAGINA")):
+        if not anterior.get("parando") and lc.segura():   # o ícone de novo, com o MaiSim no ar: só a janela
+            lc.abre()
+            return 0
+        fala("o MaiSim anterior está desligando; espero e abro de novo", "the previous MaiSim is shutting down; waiting to start again")
+        espera(lambda: not vivo(anterior["lancador"]), 90)
+    lc.adota(anterior)
+    lc.grava()
     parar = {"ja": False}
 
     def fim(*_):
@@ -378,18 +448,28 @@ def main():
     if not lc.servidores():
         fim()
     if a.abrir:
-        lc.abre()                                        # a página já funciona; o Gecko sobe enquanto isso
+        lc.abre("" if a.sem_gecko else "abrindo.html")   # a janela já abre; a tela inicial vem quando o Gecko estiver no ar
     if not a.sem_gecko:
         lc.gecko()
+    lc.pronto = True                                     # (também se o Gecko falhou: a tela inicial mostra o erro)
+    lc.grava()
     fala(f"no ar em http://localhost:{lc.porta('PAGINA')}/ — Ctrl+C (ou --parar) derruba o que subiu",
          f"running at http://localhost:{lc.porta('PAGINA')}/ — Ctrl+C (or --parar) stops what it started")
     pedido = lc.estado.with_name("lancador.parar")
     pedido.unlink(missing_ok=True)
+    n = 0
     while True:                                          # o --parar (de outro terminal, ou o atalho "Desligar o MaiSim") pede aqui
         time.sleep(1)
         if pedido.exists():
             pedido.unlink(missing_ok=True)
             fim()
+        n += 1
+        if a.abrir and n % 5 == 0 and lc.sem_janela():   # a janela do MaiSim fechou (e nenhuma outra página dele aberta)
+            fala("a janela do MaiSim fechou: desligando", "the MaiSim window was closed: shutting down")
+            if not parar["ja"]:
+                parar["ja"] = True
+                lc.para(t(" (janela fechada)", " (window closed)"))
+            return 0
 
 
 if __name__ == "__main__":

@@ -4,17 +4,23 @@ porta só, /maisim/simu → o simulador, /maisim/scope → o scope e /maisim/gec
 também). Cada resposta fecha a conexão (Connection: close), como o Vite fazia: a ponte Windows ↔ WSL às vezes deixa morta
 uma conexão guardada para reusar, e o POST seguinte falharia ("Failed to fetch").
 
+O sinal de vida das páginas (/maisim/vivo): cada página do MaiSim (o maisim-nav.js) dá sinal a cada 15 s e avisa ao fechar;
+o lançador do "só usar" (app/lancador.py --abrir) pergunta em /maisim/vivo/ultimo e, sem nenhuma página aberta, desliga o MaiSim.
+
 Os pacotes (o instalador do Windows, o AppImage) usam esta página; a versão de programador também (o Vite fica opcional:
 MAISIM_PAGINA=vite no npm run maisim).
 
 uso: python3 app/pagina.py [--porta 7100]   (as portas de config/: MAISIM_PORTA_PAGINA, _SIMU, _SCOPE, _TELA)"""
 import argparse
+import json
 import mimetypes
 import os
 import socket
 import socketserver
 import sys
 import threading
+import time
+from urllib.parse import parse_qs
 from pathlib import Path
 
 AQUI = Path(__file__).resolve().parent
@@ -26,6 +32,50 @@ PUBLICO, INICIO = AQUI / "public", AQUI / "index.html"
 TIPOS = {".js": "text/javascript; charset=utf-8", ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
          ".svg": "image/svg+xml", ".webmanifest": "application/manifest+json", ".json": "application/json",
          ".png": "image/png", ".ico": "image/x-icon", ".woff2": "font/woff2"}
+# o sinal de vida das páginas: id da página → (hora do último sinal, situação); "ultimo" (o último sinal de qualquer uma) e
+# "fechou" (o último aviso de que uma fechou). Uma página conta como aberta até PRAZO[situação] sem sinal: à vista, 45 s (o
+# sinal vem a cada 15 s); escondida (janela minimizada, outra aba), o Chrome espaça os relógios para 1 por minuto: 3 min;
+# congelada (o Chrome a pôs para dormir: sem relógio nenhum), 24 h — ela não diz nada até voltar ou fechar
+# "vigia": a última pergunta do lançador (--abrir); a resposta do sinal diz à página se fechar desliga o MaiSim
+VIVAS, VIDA, VIDA_TRAVA = {}, {"ultimo": None, "fechou": None}, threading.Lock()
+VIGIA = {"t": 0.0}
+# as que já avisaram que fecharam (id → hora): um sinal atrasado delas (o da troca para escondida, que o navegador manda
+# junto com o aviso de fechar, às vezes chega depois dele) não as reabre; guardadas 10 min
+FECHADAS = {}
+PRAZO = {"visivel": 45, "oculta": 180, "congelada": 86400}
+
+
+def sinal_de_vida(q):
+    """Um sinal de uma página (?id=…&s=visivel|oculta|congelada) ou o aviso de que fechou (?id=…&fechou=1)."""
+    pid = (q.get("id") or [""])[0][:64]
+    if not pid:
+        return
+    agora = time.time()
+    with VIDA_TRAVA:
+        for f, t in list(FECHADAS.items()):
+            if agora - t > 600:
+                del FECHADAS[f]
+        if q.get("fechou"):
+            VIVAS.pop(pid, None)
+            FECHADAS[pid] = VIDA["fechou"] = agora
+            return
+        if pid in FECHADAS:
+            return
+        s = (q.get("s") or ["visivel"])[0]
+        VIVAS[pid] = (agora, s if s in PRAZO else "visivel")
+        VIDA["ultimo"] = agora
+
+
+def vida():
+    """Para o lançador: o último sinal, o último fechamento e quantas páginas estão abertas agora (as que passaram do prazo saem)."""
+    agora = time.time()
+    with VIDA_TRAVA:
+        for pid, (t, s) in list(VIVAS.items()):
+            if agora - t > PRAZO[s]:
+                del VIVAS[pid]
+        return {**VIDA, "abas": len(VIVAS)}
+
+
 # para onde vai cada caminho: (prefixo, porta, tira o prefixo?)
 ROTAS = (("/maisim/simu", "MAISIM_PORTA_SIMU", False), ("/maisim/scope", "MAISIM_PORTA_SCOPE", False),
          ("/maisim/gecko", "MAISIM_PORTA_TELA", True))
@@ -73,6 +123,18 @@ class Pagina(socketserver.BaseRequestHandler):
         except ValueError:
             return
         caminho = alvo.split("?", 1)[0]
+        if caminho == "/maisim/vivo":                     # o sinal de vida (GET) ou o aviso de fechar (sendBeacon: POST)
+            sinal_de_vida(parse_qs(alvo.partition("?")[2]))
+            return self.resposta(200, json.dumps({"vigiada": time.time() - VIGIA["t"] < 15}).encode(), "application/json")
+        if caminho == "/maisim/pronto":                   # a página "Abrindo o MaiSim…": o lançador já subiu o Gecko e o motor?
+            try:
+                pronto = bool(json.loads((Path(os.environ["MAISIM_CACHE"]) / "lancador.json").read_text()).get("pronto", True))
+            except (KeyError, OSError, ValueError):
+                pronto = True                             # sem lançador (a versão de programador): nada a esperar
+            return self.resposta(200, json.dumps({"pronto": pronto}).encode(), "application/json")
+        if caminho == "/maisim/vivo/ultimo":
+            VIGIA["t"] = time.time()
+            return self.resposta(200, json.dumps(vida()).encode(), "application/json")
         for prefixo, porta, tira in ROTAS:
             if caminho == prefixo or caminho.startswith(prefixo + "/"):
                 return self.encaminha(metodo, alvo, versao, linhas[1:], resto, int(os.environ[porta]), prefixo if tira else "")
