@@ -536,6 +536,9 @@ function doisPinos(g, e) {
 // 270°); no M-DC o campo é a bobina entre os dois bornes de cima. Embaixo, o tipo e o torque de carga (o sinal de controle
 // que o dá, como o "Tm >>" do Gecko; sem sinal, em vermelho: a máquina gira em vazio)
 const ANG_DIR = { 503: 0, 504: 90, 501: 180, 502: 270 };
+// os rótulos de sinal de controle de uma folha: as saídas dos blocos de controle e os fios de controle com rótulo
+const rotulosCtl = (fl) => [...new Set(fl.elementos.filter((x) => x.dom === "CONTROL").flatMap((x) => x.saidas || []).concat(
+  fl.fios.filter((w) => w.dom === "CONTROL").map((w) => w.rotulo)).filter(Boolean))].sort();
 function desenhaMaquina(g, e) {
   const a = ANG_DIR[e.dir] || 0, cl = COR.lk, at = { class: "corpo", stroke: cl, "stroke-width": 1.4, fill: "none" };
   no("rect", { x: (e.x - 2.2) * G, y: (e.y - 2.4) * G, width: 4.4 * G, height: 4.8 * G, fill: "transparent" }, g);   // a área de clique
@@ -556,8 +559,10 @@ function desenhaMaquina(g, e) {
   texto(g, e.x, e.y + 0.5, /DC$/.test(e.id_gecko || "") ? "=" : "~", { "text-anchor": "middle", fill: cl, "font-size": 0.55 * G, "font-weight": 700 });
   texto(g, e.x + 1.15, e.y - 1.3, e.nome, { fill: COR.nome, "font-size": 0.6 * G });
   texto(g, e.x, e.y + 1.75, e.id_gecko || e.tipo, { "text-anchor": "middle", fill: COR.par, "font-size": 0.5 * G });
-  texto(g, e.x, e.y + 2.4, e.mede[0] ? `${tr("simu.carga_curta")} ← ${e.mede[0]}` : tr("simu.sem_carga"),
-    { class: "maq-carga", "text-anchor": "middle", fill: e.mede[0] ? COR.ct : COR.erro, "font-size": 0.45 * G });
+  // o sinal da carga sumiu da folha (o rótulo trocado ou apagado): a máquina giraria sem carga, então avisa em vermelho
+  const falta = e.mede[0] && !rotulosCtl(dados.folhas[folhaAtual]).includes(e.mede[0]);
+  texto(g, e.x, e.y + 2.4, e.mede[0] ? `${tr("simu.carga_curta")} ← ${e.mede[0]}${falta ? " " + tr("simu.carga_falta") : ""}` : tr("simu.sem_carga"),
+    { class: "maq-carga", "text-anchor": "middle", fill: e.mede[0] && !falta ? COR.ct : COR.erro, "font-size": 0.45 * G });
 }
 function valorPrincipal(e) {
   const p = e.par, v = (k) => (p[k + "_var"] ? `${p[k + "_var"]}= ` : "") + si(p[k], UNID[k]);
@@ -1578,9 +1583,7 @@ async function montaProps() {
       if (!pvs.some((x) => x.nome === c)) { msg(tr("simu.sem_pv_folha", { c }), "erro"); return; }
       mede({ tipo: "F", componente: c, losscomp: lc }, tr("simu.d_flow", { nome: e.nome, c, perda: tr("simu.perda_" + lc) }), nomeAutoDe("FLOW", c, "", lc)); };
   }
-  const sinaisCtl = () => { const fl = dados.folhas[folhaAtual];        // os rótulos de sinal de controle desta folha
-    return [...new Set(fl.elementos.filter((x) => x.dom === "CONTROL").flatMap((x) => x.saidas).concat(
-      fl.fios.filter((w) => w.dom === "CONTROL").map((w) => w.rotulo)).filter(Boolean))].sort(); };
+  const sinaisCtl = () => rotulosCtl(dados.folhas[folhaAtual]);        // os rótulos de sinal de controle desta folha
   if (v("#p-carga")) {                                   // a máquina: o torque de carga vem do sinal com este rótulo (vazio: sem carga)
     comBusca(v("#p-carga"), sinaisCtl().map((r) => ({ v: r, d: tr("simu.h_sinal_ctl") })));
     v("#p-carga").onchange = () => { const s = v("#p-carga").value.trim();

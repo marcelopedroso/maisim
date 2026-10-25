@@ -67,6 +67,18 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     await pg.fill("#p-carga", "Tm"); await pg.keyboard.press("Escape"); await pg.dispatchEvent("#p-carga", "change");
     await pg.waitForFunction(() => dados.folhas["0"].elementos.find((x) => x.nome === "M-DC.1").mede[0] === "Tm", null, { timeout: 20000 }).catch(() => {});
     ok((await elem("M-DC.1")).mede[0] === "Tm", "e de volta: carga ← Tm");
+    const carga = () => pg.evaluate(() => [...document.querySelectorAll("#svg text.maq-carga")].map((t) => [t.textContent, t.getAttribute("fill") === COR.erro]));
+    const comTm = await carga();
+    // o sinal da carga que não existe na folha (o rótulo trocado ou apagado): o desenho avisa em vermelho (a máquina giraria sem carga)
+    await sel("M-DC.1"); await pg.waitForSelector("#p-carga");
+    await pg.fill("#p-carga", "Tsumiu"); await pg.keyboard.press("Escape"); await pg.dispatchEvent("#p-carga", "change");
+    await pg.waitForFunction(() => dados.folhas["0"].elementos.find((x) => x.nome === "M-DC.1").mede[0] === "Tsumiu", null, { timeout: 20000 }).catch(() => {});
+    const sumiu = await carga();
+    ok(comTm.some(([t, c]) => /← Tm$/.test(t) && !c) && sumiu.some(([t, c]) => /Tsumiu/.test(t) && /não existe|no such/.test(t) && c),
+      `o sinal da carga sem rótulo na folha: o aviso em vermelho (${JSON.stringify(comTm)} → ${JSON.stringify(sumiu)})`);
+    await sel("M-DC.1"); await pg.waitForSelector("#p-carga");
+    await pg.fill("#p-carga", "Tm"); await pg.keyboard.press("Escape"); await pg.dispatchEvent("#p-carga", "change");
+    await pg.waitForFunction(() => dados.folhas["0"].elementos.find((x) => x.nome === "M-DC.1").mede[0] === "Tm", null, { timeout: 20000 }).catch(() => {});
     // ---------------------------------------------------------------- o VIEWMOT ("grandeza da máquina")
     await sel("VIEWMOT.1"); await pg.waitForSelector("#m-grandeza");
     const opc = await pg.evaluate(() => [...document.querySelectorAll("#m-grandeza option")].map((o) => o.value));

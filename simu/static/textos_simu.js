@@ -632,6 +632,7 @@ maisimI18n.add({
   // as máquinas (Motor & EMI) e a grandeza da máquina (VIEWMOT)
   "simu.carga_curta": { pt: "carga", en: "load" },
   "simu.sem_carga": { pt: "(sem torque de carga)", en: "(no load torque)" },
+  "simu.carga_falta": { pt: "(sinal não existe)", en: "(no such signal)" },
   "simu.h_carga": { pt: "torque de carga", en: "load torque" },
   "simu.carga_sinal": { pt: "sinal", en: "signal" },
   "simu.carga_aviso": { pt: "o torque de carga (N·m) é o sinal de controle com este rótulo, desta folha (ex.: a saída de um CONST, que o controle ou um acionamento muda); vazio: a máquina gira em vazio",
