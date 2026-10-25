@@ -10,7 +10,8 @@ para 0,2 mJ/K: τ = 5 K/W · 0,2 mJ/K = 1 ms):
   dividida pelo tempo = a média do Psw_IGBT1; e o fsw·(k_on·i_on + k_off·i_off)·|V|/uK da conta de papel, perto;
 - o diodo: o mesmo, com a tensão dele (−v_sw);
 - Tj: a rede RC (C·dT/dt = P − (T − 25)/ΣRth) alimentada pelo Pv_IGBT1 medido dá o Tj_IGBT1 medido; o τ que melhor encaixa é
-  Rth·Cth; em regime, Tj = 25 + ⟨P⟩·ΣRth; Tj_D1 = 25 + Pv_D1·4 (sem Cth).
+  Rth·Cth; em regime, Tj = 25 + ⟨P⟩·ΣRth; Tj_D1: a rede RC do diodo (Rth 4 K/W, Cth 1 mJ/K, τ = 4 ms) com o Pv_D1 medido,
+  e sem picos (sem a Cth, a Tj do diodo seguia cada pulso de perda: ~350 °C).
 E a amostragem das perdas (o FLOW: média do intervalo, não o ponto; 25/10): com uma amostra a cada 50 passos (sem controle)
 e a cada 100 (com um controle que não atua, Ts = 5Δt), cada amostra do Pv/Pcond/Psw é a média dos passos do intervalo da
 rodada com todas (o Psw de antes, em ponto, dava média 0); o ⟨Psw⟩ do regime é o da soma passo a passo (±5%); Pv = Pcond
@@ -84,10 +85,11 @@ feitas, salvo = [], CIRC / "termica_api_t.ipes"
 try:
     j = api("editor/abrir", {"arq": EX, "modo": "descartar"})
     e = els(j)
-    term = {n: [(t["x"], t["y"], t["rotulo"]) for t in e[n]["terminais"]] for n in ("Pv.1", "Rth.1", "Cth.1", "DT.1", "TREF.1")}
+    term = {n: [(t["x"], t["y"], t["rotulo"]) for t in e[n]["terminais"]] for n in ("Pv.1", "Rth.1", "Cth.1", "Cth.2", "DT.1", "TREF.1")}
     ok(term["Pv.1"] == [(6, 34, "")] or term["Pv.1"][0][:2] == (6, 34), f"o Pv: um terminal, à direita (x + 2): {term['Pv.1']}")
     ok([p[:2] for p in term["Rth.1"]] == [(8, 34), (12, 34)] and [p[:2] for p in term["Cth.1"]] == [(8, 36), (8, 40)]
-       and [p[:2] for p in term["DT.1"]] == [(20, 36), (20, 40)], f"Rth (deitado), Cth e DT (em pé): dois terminais a ±2 ({term})")
+       and [p[:2] for p in term["DT.1"]] == [(20, 36), (20, 40)] and [p[:2] for p in term["Cth.2"]] == [(8, 50), (8, 54)],
+       f"Rth (deitado), Cth (a do IGBT e a do diodo) e DT (em pé): dois terminais a ±2 ({term})")
     ok([p[:2] for p in term["TREF.1"]] == [(14, 42)], f"o TREF: um terminal, um acima ({term['TREF.1']})")
     ok(not j["encaixe"]["soltas"] and j["encaixe"]["em_terminal"] > 20,
        f"sem pontas soltas: as conexões térmicas caem nos terminais ({j['encaixe']})")
@@ -150,9 +152,14 @@ try:
         regime = 25 + float(P[fim].mean()) * 5.0
         ok(abs(float(tj[fim].mean()) - regime) <= 0.02 * (regime - 25),
            f"Tj em regime = 25 + ⟨P⟩·ΣRth: medido {tj[fim].mean():.2f} °C, conta {regime:.2f} °C (⟨P⟩ = {P[fim].mean():.3f} W)")
-        dif = float(np.max(np.abs(25 + z["Pv_D1"][1:-1] * 4.0 - z["Tj_D1"][2:])))     # sem Cth: a perda do passo anterior
-        sobe = float(z["Tj_D1"][m].mean()) - 25
-        ok(dif <= 0.01 * sobe, f"Tj_D1 = 25 + Pv_D1·4 K/W em cada amostra (sem Cth; a perda do passo anterior): diferença máxima {dif:.3f} K (sobe {sobe:.1f} K)")
+        # o diodo: um nó só (Pv.2 → Tjd, Cth.2 à referência, Rth.3 ao ambiente): a mesma conta, com Rth 4 K/W e Cth 1 mJ/K
+        tjd, Pd = z["Tj_D1"][1:], z["Pv_D1"][1:]
+        sobe = float(tjd[fim].mean()) - 25
+        erro_d = float(np.max(np.abs(rc(Pd, tt, 4.0, 1e-3, tjd[0]) - tjd)))
+        ok(erro_d <= 0.01 * sobe, f"Tj_D1 = a rede RC do diodo (Rth 4 K/W, Cth 1 mJ/K, τ = 4 ms) com o Pv_D1 medido: erro máximo {erro_d:.3f} K (sobe {sobe:.1f} K)")
+        passo, pico, final = float(np.max(np.abs(np.diff(tjd)))), float(tjd.max()), 25 + float(Pd[m[1:]].mean()) * 4.0
+        ok(passo <= 0.1 and pico <= final + 1.0,
+           f"Tj_D1 sem picos: o maior salto entre amostras {passo:.3f} K, o máximo {pico:.1f} °C (o regime, 25 + ⟨Pv_D1⟩·4 = {final:.1f} °C)")
         # ------------------------------------------------ as perdas pela média do intervalo (com e sem o controle)
         FLOW = ["Pv_IGBT1", "Pcond_IGBT1", "Psw_IGBT1", "Pv_D1"]
         ref_sw = float(z["Psw_IGBT1"][m].mean())                # a soma passo a passo ÷ passos (a rodada com todas)
