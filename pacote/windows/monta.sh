@@ -43,6 +43,8 @@ rm -rf "$P/maisim/simu/validacao" "$P/maisim/.github" "$P/maisim/pacote" "$P/jre
 find "$P" -name "__pycache__" -prune -exec rm -rf {} +
 python3 "$R/pacote/windows/imagens.py" "$B/imagens" > /dev/null
 
+# o Inno Setup roda no container com outro usuário (no CI, o runner é outro uid): as pastas que ele lê e grava, liberadas
+chmod -R a+rwX "$OUT" "$B" "$R/pacote/windows"
 fala "pacote: compilando o instalador (Inno Setup, docker)…" "package: compiling the installer (Inno Setup, docker)…"
 docker run --rm -v "$R":/work -w /work/pacote/windows amake/innosetup:latest "/DVersao=$V" "/DFonte=..\\.build\\win\\MaiSim" "/DImagens=..\\.build\\win\\imagens" MaiSim.iss > "$B/iscc.log" 2>&1 \
   || { tail -20 "$B/iscc.log" >&2; exit 1; }
