@@ -1,0 +1,133 @@
+diff --git a/src/main/java/ch/technokrat/gecko/geckocircuits/control/PolynomTools.java b/src/main/java/ch/technokrat/gecko/geckocircuits/control/PolynomTools.java
+index 1dee4147..34ff30f1 100644
+--- a/src/main/java/ch/technokrat/gecko/geckocircuits/control/PolynomTools.java
++++ b/src/main/java/ch/technokrat/gecko/geckocircuits/control/PolynomTools.java
+@@ -168,7 +168,7 @@ public final class PolynomTools {
+                 polynomReal[k] = real;
+                 polynomImag[k] = imag;
+                 polynomReal[1 + k] = polynomReal[1 + k] + tmpReal[k];
+-                polynomImag[1 + k] = polynomImag[1 + k] + tmpReal[k];
++                polynomImag[1 + k] = polynomImag[1 + k] + tmpImag[k];   // MaiSim: tmpImag (was tmpReal: complex roots gave wrong coefficients)
+             }
+         }
+ 
+@@ -176,8 +176,10 @@ public final class PolynomTools {
+             polynomReal[k] *= factor;
+         }
+ 
++        // MaiSim: by the magnitude and never below index 0 (a negative gain made every coefficient "small", the loop ran
++        // past the start of the array and threw ArrayIndexOutOfBoundsException)
+         int maxIndex = MAX_ARRAY_SIZE - 1;
+-        while (polynomReal[maxIndex] < SMALL_VALUE) {
++        while (maxIndex > 0 && Math.abs(polynomReal[maxIndex]) < SMALL_VALUE) {
+             maxIndex--;
+         }
+ 
+@@ -311,7 +313,9 @@ public final class PolynomTools {
+             }
+         }
+ 
+-        final double[] remainder = new double[PolynomTools.getMaxPolynomialDegree(tmpStorage) + 1];
++        // MaiSim: the remainder's degree is below the denominator's; the rounding left in the cancelled top coefficients
++        // (1e-6 − 1e-3·1e-3 ≠ 0 in floating point) made it longer and the state-space step read the matrix at index −1
++        final double[] remainder = new double[Math.max(0, Math.min(PolynomTools.getMaxPolynomialDegree(tmpStorage) + 1, denominator.length - 1))];
+         System.arraycopy(tmpStorage, 0, remainder, 0, remainder.length);
+         return remainder;
+     }
+diff --git a/src/main/java/ch/technokrat/gecko/geckocircuits/control/ReglerPOW.java b/src/main/java/ch/technokrat/gecko/geckocircuits/control/ReglerPOW.java
+index 533143d8..5bde218a 100644
+--- a/src/main/java/ch/technokrat/gecko/geckocircuits/control/ReglerPOW.java
++++ b/src/main/java/ch/technokrat/gecko/geckocircuits/control/ReglerPOW.java
+@@ -33,7 +33,9 @@ public final class ReglerPOW extends RegelBlock {
+ 
+     @Override
+     public AbstractControlCalculatable getInternalControlCalculatableForSimulationStart() {
+-        return new AbstractControlCalculatable(1, 1) {
++        // MaiSim: two inputs (the block has two terminals and reads x2; the calculator was created with one, so x2 was
++        // never connected and the step threw ArrayIndexOutOfBoundsException)
++        return new AbstractControlCalculatable(2, 1) {
+ 
+             @Override
+             public void berechneYOUT(final double deltaT) {
+diff --git a/src/main/java/ch/technokrat/gecko/geckocircuits/control/ReglerTransferFunction.java b/src/main/java/ch/technokrat/gecko/geckocircuits/control/ReglerTransferFunction.java
+index bd339c9c..68b6b58e 100644
+--- a/src/main/java/ch/technokrat/gecko/geckocircuits/control/ReglerTransferFunction.java
++++ b/src/main/java/ch/technokrat/gecko/geckocircuits/control/ReglerTransferFunction.java
+@@ -41,13 +41,17 @@ public final class ReglerTransferFunction extends AbstractReglerSingleInputSingl
+     public ReglerTransferFunction() {
+         super();
+ 
++        // MaiSim: a new block is the first-order low-pass 1/(1 + 1e-3 s), in polynomial mode (it was 1/1, and in pole/zero
++        // mode the dialog rebuilt the polynomials from the placeholder pole 2 and zero 1: (s − 1)/(s − 2), unstable).
++        // Circuits saved before keep theirs: the file always carries the polynomials and the mode.
+         _numeratorPolynom[0] = 1;
+         _denomPolynom[0] = 1;
++        _denomPolynom[1] = 1e-3;
+         _zeros[0] = 1;
+         _poles[0] = 2;
+     }
+     final UserParameter<Boolean> _inPolynomMode = UserParameter.Builder.
+-            <Boolean>start("polynomMode", false).
++            <Boolean>start("polynomMode", true).
+             longName(I18nKeys.IF_TRUE_THEN_POLYNOM).
+             shortName("usePolynoms").
+             arrayIndex(this, -1).
+diff --git a/src/main/java/ch/technokrat/gecko/geckocircuits/control/StateSpaceCalculator.java b/src/main/java/ch/technokrat/gecko/geckocircuits/control/StateSpaceCalculator.java
+index ca5e9f39..99a536d6 100644
+--- a/src/main/java/ch/technokrat/gecko/geckocircuits/control/StateSpaceCalculator.java
++++ b/src/main/java/ch/technokrat/gecko/geckocircuits/control/StateSpaceCalculator.java
+@@ -138,7 +138,7 @@ public final class StateSpaceCalculator {
+         if (tmpNumPolynom.length - 2 > _denomPolynom.length) {
+             throw new ArrayIndexOutOfBoundsException("\nNumerator degree = " + (tmpNumPolynom.length - 1)
+                     + " is not allowed to be larger\nthan Denominator degree "
+-                    + (tmpNumPolynom.length - 1) + " + 2 = " + (_denomPolynom.length + 2));
++                    + (_denomPolynom.length - 1) + " + 2 = " + (_denomPolynom.length + 1));   // MaiSim: the degrees in the message
+         }
+ 
+         final int leadingSize = Math.max(0, tmpNumPolynom.length - _denomPolynom.length + 1);
+@@ -228,7 +228,7 @@ public final class StateSpaceCalculator {
+         switch (_leadingPolynom.length) {
+             case MAX_DEGREE_DIFF:
+                 resultValue += _leadingPolynom[2] * (_stateVariables._xNEW
+-                        - 2 * _stateVariables._xOLD + _stateVariables._xOLDOLD) / deltaT; // second derivative
++                        - 2 * _stateVariables._xOLD + _stateVariables._xOLDOLD) / (deltaT * deltaT); // second derivative (MaiSim: dt², was dt)
+             case 2:
+                 double toAdd = _leadingPolynom[1] * (_stateVariables._xNEW - _stateVariables._xOLD) / deltaT; // first derivative                
+                 resultValue += toAdd;
+diff --git a/src/main/java/ch/technokrat/gecko/geckocircuits/control/calculators/DelayCalculator.java b/src/main/java/ch/technokrat/gecko/geckocircuits/control/calculators/DelayCalculator.java
+index 71e1d7e5..9447c475 100644
+--- a/src/main/java/ch/technokrat/gecko/geckocircuits/control/calculators/DelayCalculator.java
++++ b/src/main/java/ch/technokrat/gecko/geckocircuits/control/calculators/DelayCalculator.java
+@@ -38,7 +38,7 @@ public final class DelayCalculator extends AbstractSingleInputSingleOutputCalcul
+     @Override
+     public void initWithNewDt(final double deltaT) {
+         _delayTime = _initDelayTime;
+-        double[] youtVerzoegertNew = new double[(int) (_delayTime / deltaT)];
++        double[] youtVerzoegertNew = new double[steps(_delayTime, deltaT)];
+         final double ratio = deltaT / _originalDt;
+         final int newStartIndex = Math.min(Math.max(0, (int) (_zeigerYOUT / ratio)), youtVerzoegertNew.length - 1);
+ 
+@@ -59,7 +59,7 @@ public final class DelayCalculator extends AbstractSingleInputSingleOutputCalcul
+         _delayTime = _initDelayTime;
+         _originalDt = deltaT;
+         _speicherLeer = true;
+-        _youtVerzoegert = new double[(int) (_delayTime / deltaT)];
++        _youtVerzoegert = new double[steps(_delayTime, deltaT)];
+         _zeigerYOUT = 0;
+ 
+     }
+@@ -88,6 +88,14 @@ public final class DelayCalculator extends AbstractSingleInputSingleOutputCalcul
+         }
+     }
+ 
++    /**
++     * MaiSim: the delay in whole steps, with a tolerance for the floating-point quotient (T = 70 µs, dt = 10 µs gives
++     * 6.999999999999999, and the plain (int) cast delayed 6 steps instead of 7).
++     */
++    static int steps(final double delayTime, final double deltaT) {
++        return (int) Math.floor(delayTime / deltaT + 1e-9);
++    }
++
+     public void setDelayTime(final double delayTime) {
+         if (delayTime < 0) {
+             throw new IllegalArgumentException("Error: Delay time must be positive!");

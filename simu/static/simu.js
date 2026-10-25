@@ -64,6 +64,23 @@ const AQUECIVEL = COM_PERDA.concat(["R"]);                     // o que um Pv po
 const COM_FLUXO = ["Pv", "Rth", "Cth", "HEAT-SOURCE", "DT"];   // onde um FLOW mede (no Pv a perda; nos outros o fluxo de calor)
 const CAMPOS_PERDA = ["uF", "rON", "k_on", "k_off", "uK"];  // o modo simples de perdas do Gecko (LossCalculationSimple)
 const PERDAS_FLOW = ["total", "conduction", "switching"];  // o que o FLOW lê do Pv (losscomp no .ipes)
+// a TF (H(s) = num/den, coeficientes crescentes: e.tf do ipes.py): o texto do polinômio que o campo aceita de volta (tf.py) e,
+// curto, o rótulo embaixo do bloco; o "gain" e o "usePolynoms" do Gecko são só do diálogo dele (o MaiSim grava os polinômios)
+const TF_SO_GECKO = ["constant", "polynomMode"];
+function textoPoli(p, curto) {
+  const num = (c) => { const m = Math.abs(c);
+    return m && (m < 1e-3 || m >= 1e4) ? m.toExponential(curto ? 2 : 11).replace(/\.?0+e/, "e").replace("e+", "e") : String(+m.toPrecision(curto ? 3 : 12)); };
+  const sup = (i) => curto ? String(i).replace(/./g, (d) => "⁰¹²³⁴⁵⁶⁷⁸⁹"[d]) : "^" + i;
+  const t = p.map((c, i) => [c, i]).filter(([c]) => c !== 0 || p.length === 1).map(([c, i]) => {
+    const m = Math.abs(c), k = i === 0 || m !== 1 ? num(c) : "";
+    return [c < 0 ? "-" : "+", k + (i === 0 ? "" : (k && !curto ? " s" : "s") + (i > 1 ? sup(i) : ""))]; });
+  const j = curto ? "" : " ";
+  return t.map(([sn, x], k) => k === 0 ? (sn === "-" ? "-" : "") + x : `${j}${sn}${j}${x}`).join("") || "0";
+}
+function rotuloTF(e) {
+  const pa = (p) => { const x = textoPoli(p, true); return p.filter((c) => c !== 0).length > 1 ? `(${x})` : x; };
+  return e.tf.den.length === 1 && e.tf.den[0] === 1 ? textoPoli(e.tf.num, true) : `${pa(e.tf.num)}/${pa(e.tf.den)}`;
+}
 const PREFIXO_FLOW = { total: "Pv", conduction: "Pcond", switching: "Psw" };
 const pvsDe = (f, nome) => f.elementos.filter((x) => x.tipo === "Pv" && x.mede[0] === nome);   // os Pv que aquecem o componente
 const semPonto = (n) => String(n || "").replace(/\./g, "").replace(/[^A-Za-z0-9_]/g, "_");     // IGBT.1 → IGBT1 (nomes de sinal)
@@ -734,6 +751,7 @@ function desenha() {
           "font-size": 0.42 * G, "font-family": MAT, "font-style": pars[k].simb.length === 1 ? "italic" : "normal" }); });
       if (e.tipo === "VIEWMOT") texto(g, e.x, topo + h + 0.55, e.mede[1] && e.grandeza ? `${e.mede[1]} · ${e.grandeza}` : tr("simu.sem_maquina"),
         { class: "vm-alvo", "text-anchor": "middle", fill: e.mede[1] ? COR.ct : COR.erro, "font-size": 0.45 * G });
+      if (e.tipo === "TF" && e.tf) cortaAte(texto(g, e.x, topo + h + 0.55, rotuloTF(e), { class: "tf-h", "text-anchor": "middle", fill: COR.ct, "font-size": 0.45 * G }), 9);
       if (e.tipo === "GATE") texto(g, e.x, topo + h + 0.55, e.mede[0] ? `→ ${e.mede[0]}` : tr("simu.sem_chave"), { "text-anchor": "middle", fill: e.mede[0] ? COR.ct : COR.erro, "font-size": 0.45 * G });
       // escrito pelo controle: a etiqueta vai em cima do bloco, como o nome de um componente (Marcelo, 19/10: na saída ela
       // cobria o que se liga ali, como o borne S do SM encostado no CONST)
@@ -1478,6 +1496,16 @@ async function montaProps() {
       <label><span>${escT(tr("simu.maquina"))}</span><input id="m-maq" value="${escT(e.mede[1] || "")}" placeholder="${escT(tr("simu.ph_maquina"))}" autocomplete="off"></label>
       <label><span>${escT(tr("simu.grandeza"))}</span><select id="m-grandeza"></select></label>
       <div class="aviso">${escT(tr("simu.grandeza_aviso"))}</div>` : ""}
+    ${e.tipo === "TF" && e.tf ? `<h4>${escT(tr("simu.h_tf"))}</h4>
+      <label><span>${escT(tr("simu.tf_forma"))}</span><select id="tf-modo"><option value="pol">${escT(tr("simu.tf_forma_pol"))}</option><option value="pz">${escT(tr("simu.tf_forma_pz"))}</option></select></label>
+      <div id="tf-pol"><label><span>${escT(tr("simu.tf_num"))}</span><input id="tf-num" value="${escT(textoPoli(e.tf.num))}" spellcheck="false" autocomplete="off"></label>
+        <label><span>${escT(tr("simu.tf_den"))}</span><input id="tf-den" value="${escT(textoPoli(e.tf.den))}" spellcheck="false" autocomplete="off"></label>
+        <div class="aviso">${escT(tr("simu.tf_aviso_pol"))}</div></div>
+      <div id="tf-pz" hidden><label><span>${escT(tr("simu.tf_zeros"))}</span><input id="tf-zeros" placeholder="${escT(tr("simu.tf_sem_zeros"))}" spellcheck="false" autocomplete="off"></label>
+        <label><span>${escT(tr("simu.tf_polos"))}</span><input id="tf-polos" placeholder="-1000, -50+300j" spellcheck="false" autocomplete="off"></label>
+        <label><span>${escT(tr("simu.tf_ganho"))}</span><input id="tf-ganho" value="1" spellcheck="false" autocomplete="off"></label>
+        <div class="aviso">${escT(tr("simu.tf_aviso_pz"))}</div></div>
+      <div class="botoes"><button id="tf-aplica">${escT(tr("simu.tf_aplicar"))}</button></div>` : ""}
     ${e.tipo === "VOLT" ? `<h4>${escT(tr("simu.h_mede"))}</h4><label><span>${escT(tr("simu.tensao_no"))}</span><input id="m-n1" value="${e.mede[0] || ""}"></label>
       ${seletorPonta(e, 0)}
       <label><span>${escT(tr("simu.menos_no"))}</span><input id="m-n2" value="${e.mede[1] || ""}"></label>
@@ -1637,6 +1665,20 @@ async function montaProps() {
       opcoes(c, v("#m-grandeza").value); aplica(); };
     v("#m-grandeza").onchange = aplica;
   }
+  if (v("#tf-aplica")) {                                 // TF: os dois polinômios (ou polos, zeros e k) de uma vez, pelo servidor (tf.py)
+    const pz = () => v("#tf-modo").value === "pz";
+    v("#tf-modo").onchange = () => { v("#tf-pol").hidden = pz(); v("#tf-pz").hidden = !pz(); };
+    const aplica = async () => {
+      const bt = v("#tf-aplica"); if (bt.disabled) return;
+      const z = v("#tf-zeros").value.trim(), p = v("#tf-polos").value.trim(), k = v("#tf-ganho").value.trim(), n = v("#tf-num").value.trim(), d = v("#tf-den").value.trim();
+      bt.disabled = true;
+      try { await (pz() ? mede({ tipo: "H", zeros: z, polos: p, ganho: k }, tr("simu.d_tf_pz", { nome: e.nome, z, p, k }))
+        : mede({ tipo: "H", num: n, den: d }, tr("simu.d_tf", { nome: e.nome, num: n, den: d }))); }
+      finally { bt.disabled = false; }
+    };
+    v("#tf-aplica").onclick = aplica;
+    for (const id of ["#tf-num", "#tf-den", "#tf-zeros", "#tf-polos", "#tf-ganho"]) v(id).onkeydown = (ev) => { if (ev.key === "Enter") { ev.preventDefault(); aplica(); } };
+  }
   if (v("#p-sinal")) {                                   // rótulos de saída dos blocos de controle desta folha
     const fl = dados.folhas[folhaAtual], sinais = [...new Set(fl.elementos.filter((x) => x.dom === "CONTROL").flatMap((x) => x.saidas).concat(
       fl.fios.filter((w) => w.dom === "CONTROL").map((w) => w.rotulo)).filter(Boolean))].sort();
@@ -1670,7 +1712,8 @@ async function montaProps() {
   ligaCaixaScope(P, e);
   if (ehTag(e)) { v("#p-params").innerHTML = `<i>${escT(tr("simu.tag_params"))}</i>`; return; }
   try {
-    const lst = await api(`editor/params?nome=${encodeURIComponent(qualificado(e))}&dom=${encodeURIComponent(e.dom)}&typ=${e.typ}`);   // dom/typ: o identificador no arquivo (para o $)
+    const lst = (await api(`editor/params?nome=${encodeURIComponent(qualificado(e))}&dom=${encodeURIComponent(e.dom)}&typ=${e.typ}`))   // dom/typ: o identificador no arquivo (para o $)
+      .filter((q) => !(e.tipo === "TF" && TF_SO_GECKO.includes(q.id)));
     if (ed.sel !== e.nome) return;
     const ligada = (q) => (q.id && e.par[q.id + "_var"]) || "";          // a variável $ que dá o valor (como no Gecko)
     // enumerações e caixinhas (Marcelo, 24/10: a forma da portadora aparecia como 404): o tipo do parâmetro vem do Gecko

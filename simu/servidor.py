@@ -43,6 +43,7 @@ import atualizacao
 import msd
 import processos  # noqa: E402                as IAs e o login: num grupo próprio (Linux e Windows)
 import resumo_rodada
+import tf  # noqa: E402                         a função de transferência do bloco TF (ler H(s), as regras do Gecko)
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "scope"))
 from publica import PublicadorScope  # noqa: E402  (o mesmo publicador do run.py)
@@ -722,6 +723,45 @@ def acopla(nome, campos, ref=None, folhas=None, dominio="CONTROL", losscomp=None
         e = next((x for x in r["folhas"].get(fo, {"elementos": []})["elementos"] if x["nome"] == nome), None)
         if e is None or [x or "" for x in e["mede"][:len(esperado)]] != esperado or (losscomp and e.get("losscomp") != losscomp):
             raise ErroMotor(lingua.tr("editor.gecko_recusou_acoplamento", nome=nome, ficou=e and e['mede']))
+    return r
+
+
+def grava_tf(nome, num, den, folhas=None):
+    """A TF (ReglerTransferFunction): o numerador e o denominador, já validados (tf.valida). Eles não são parâmetros da
+    interface remota (o setNumeratorPolynom dela não volta ao arquivo pelo motor): como no acopla(), o Gecko salva o estado,
+    escrevemos as duas linhas (20 valores crescentes) e o polynomMode true no bloco — sem ele, o diálogo do Gecko refaria os
+    polinômios a partir dos polos e zeros dele — e o Gecko reabre o arquivo: quem lê e confere é ele."""
+    MOTOR.cmd(f"SAVEAS {ESTADO}")
+    t, gz = _texto(ESTADO)
+    folhas = folhas_ok(folhas, t)
+    partes, fim, feitas = [], 0, set()
+    for m, n, uid, fo in blocos_elementos(t):
+        if n != nome or fo not in folhas or fo in feitas or m.group(1) != "CONTROL":
+            continue
+        b = m.group(0)
+        if "\nnominatorPolynom " not in b or "\ndenominatorPolynom " not in b:
+            raise ErroMotor(lingua.tr("editor.tf_nao_e_tf", comp=repr(nome)))
+        b = re.sub(r"\nnominatorPolynom [^\n]*", lambda _: "\nnominatorPolynom " + tf.linha(num), b)
+        b = re.sub(r"\ndenominatorPolynom [^\n]*", lambda _: "\ndenominatorPolynom " + tf.linha(den), b)
+        b = re.sub(r"\npolynomMode [^\n]*", "\npolynomMode true", b)
+        partes += [t[fim:m.start()], b]
+        fim = m.end()
+        feitas.add(fo)
+    faltam = [f for f in folhas if f not in feitas]
+    if faltam:
+        raise ErroMotor(lingua.tr("editor.nao_achei_na_principal", nome=nome) if faltam == ["0"] else
+                        lingua.tr("editor.nao_achei_em_subs", nome=nome, n=len(faltam)))
+    arq = ESTADO.with_name("tf.ipes")
+    t2 = "".join(partes) + t[fim:]
+    arq.write_bytes(gzip.compress(t2.encode()) if gz else t2.encode())
+    abre(arq)
+    r = estado()
+    igual = lambda a, b: len(a) == len(b) and all(abs(x - y) <= 1e-12 * max(abs(x), abs(y), 1e-300) for x, y in zip(a, b))
+    for fo in folhas:
+        e = next((x for x in r["folhas"].get(fo, {"elementos": []})["elementos"] if x["nome"] == nome), None)
+        h = (e or {}).get("tf") or {}
+        if not (igual(h.get("num") or [], num) and igual(h.get("den") or [], den)):
+            raise ErroMotor(lingua.tr("editor.gecko_recusou_tf", nome=nome))
     return r
 
 
@@ -6247,6 +6287,19 @@ class Manipulador(BaseHTTPRequestHandler):
                     return [e for f in (corpo.get("folhas") or ["0"]) for e in ult["folhas"].get(str(f), {"elementos": []})["elementos"] if e["nome"] == n]
                 def tipos_de(n):                        # os tipos com este nome nas folhas pedidas (vazio: o Gecko decide)
                     return {e["tipo"] for e in els_de(n)}
+                if tipo == "H":                          # TF: H(s) = num/den — polinômios em s (texto ou lista, crescentes) ou
+                    if tipos_de(nome) and tipos_de(nome) != {"TF"}:   # polos, zeros e ganho (a conta em numpy; só os polinômios vão)
+                        raise ErroMotor(lingua.tr("editor.tf_nao_e_tf", comp=repr(nome)))
+                    try:
+                        if corpo.get("polos") is not None or corpo.get("zeros") is not None:
+                            num, den = tf.de_polos_zeros(corpo.get("zeros") or [], corpo.get("polos") or [], corpo.get("ganho", 1))
+                        else:
+                            num, den = tf.polinomio(corpo.get("num"), "num"), tf.polinomio(corpo.get("den"), "den")
+                        num, den = tf.valida(num, den)
+                    except tf.ErroTF as x:
+                        quem = {"num": "editor.tf_quem_num", "den": "editor.tf_quem_den", "zeros": "editor.tf_quem_zeros", "polos": "editor.tf_quem_polos"}
+                        raise ErroMotor(lingua.tr(x.chave, **{k: lingua.tr(quem[v]) if k == "quem" else v for k, v in x.args_tr.items()}))
+                    return grava_tf(nome, num, den, folhas=corpo.get("folhas"))
                 if tipo == "P":                          # Pv: a chave (ou o diodo) que ele aquece — a perda dela vira calor no nó térmico
                     comp = str(corpo.get("componente", ""))
                     if not NOME.match(comp) or (tipos_de(comp) and not tipos_de(comp) & COM_PERDA) or \

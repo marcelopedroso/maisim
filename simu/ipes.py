@@ -90,6 +90,17 @@ def _rotulos(v):
     return [] if not v else ["" if r == "NIX_NIX_NIX" else r for r in v.split("/")[1:]]
 
 
+def _coefs(v):
+    """Uma linha de números do .ipes ("1.0 0.001 0.0 …") → a lista sem os zeros do fim ([0.0] se nula; None se não der)."""
+    try:
+        p = [float(x) for x in (v or "").split()]
+    except ValueError:
+        return None
+    while len(p) > 1 and p[-1] == 0:
+        p.pop()
+    return p or None
+
+
 def _texto(caminho):
     """O texto do .ipes (gzip ou não). Um gzip cortado é o Gecko ainda gravando (no Windows, o arquivo às vezes é lido
     logo antes de ele terminar): espera um pouco e lê de novo, por até ~3 s."""
@@ -158,6 +169,10 @@ def le(caminho):
         mv = re.search(r"<Verluste>.*?\nverlustTyp[ \t]+(\d+)", corpo, re.S)   # o modo de perda do semicondutor: 1 simples, 2 detalhado
         if mv:                                                                 # (as curvas do .scl; aí uF/rON/k_on/k_off não valem)
             elementos[-1]["perda_modo"] = int(mv.group(1))
+        if dom == "CONTROL" and cat[0] == "TF":       # a TF: o numerador e o denominador (crescentes, sem os zeros do fim; tf.py)
+            tf = {k: _coefs(d.get(c)) for k, c in (("num", "nominatorPolynom"), ("den", "denominatorPolynom"))}
+            if tf["num"] is not None and tf["den"] is not None:
+                elementos[-1]["tf"] = tf
         if "losscomp" in d:                         # o FLOW: que perda ele mede (total, conduction, switching; LossComponent do Gecko)
             elementos[-1]["losscomp"] = d["losscomp"].strip()
     for dom, corpo in re.findall(r"\nverbindung(\w+)\s+\(\d+\)\n<Verbindung>\n(.*?)<\\Verbindung>", t, re.S):
