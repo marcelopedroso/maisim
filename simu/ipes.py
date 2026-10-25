@@ -181,18 +181,28 @@ def le(caminho):
 # (trapezoidal), 2 Gear (gear-shichman, BDF2). O Gecko só o lê ao abrir o arquivo (e cada componente guarda o seu ao nascer):
 # não há chamada remota para trocar — quem troca reescreve a linha e reabre o arquivo (servidor.aplica_solver)
 SOLVERS = {0: "backward-euler", 1: "trapezoidal", 2: "gear-shichman"}
+SOLVER_LINHA = r"\nsolverType[ \t]+(-?\d+)[ \t]*(?=\r?\n|$)"   # a mesma linha para ler e para trocar (com ou sem \r)
+
+
+def solver_valido(v):
+    """O solverType pedido (0, 1, 2) ou None: só inteiros (True, 1.9 e "1.5" não valem; "1" vale, como vem de um formulário)."""
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, str) and re.fullmatch(r"\s*-?\d+\s*", v):
+        v = int(v)
+    return v if isinstance(v, int) and v in SOLVERS else None
 
 
 def solver_do_texto(t):
     """O solverType do texto de um .ipes (0, 1, 2) ou None (ausente ou desconhecido)."""
-    m = re.search(r"\nsolverType[ \t]+(-?\d+)[ \t]*(?=\n|$)", t)
+    m = re.search(SOLVER_LINHA, t)
     return int(m.group(1)) if m and int(m.group(1)) in SOLVERS else None
 
 
 def troca_solver(t, solver):
     """O texto do .ipes com o solverType trocado (ou acrescentado depois do dt, num arquivo que não o tem)."""
-    if re.search(r"\nsolverType[ \t]+-?\d+", t):
-        return re.sub(r"\nsolverType[ \t]+-?\d+", f"\nsolverType {int(solver)}", t, count=1)
+    if re.search(SOLVER_LINHA, t):
+        return re.sub(SOLVER_LINHA, f"\nsolverType {int(solver)}", t, count=1)
     return re.sub(r"(\ndt [^\n]*)", rf"\1\nsolverType {int(solver)}", t, count=1)
 
 

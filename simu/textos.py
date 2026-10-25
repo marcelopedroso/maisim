@@ -539,6 +539,7 @@ T = {
     "editor.losscomp": {"pt": "a perda do FLOW: {lista}", "en": "the FLOW loss: {lista}"},
     "editor.desfazer_medidor": {"pt": "medidor", "en": "meter"},
     "editor.desfazer_variavel": {"pt": "variável global", "en": "global variable"},
+    "editor.desfazer_solver": {"pt": "método de integração", "en": "integration method"},
     "editor.cantos_invalidos": {"pt": "cantos da conexão: [[x, y], …] com dois ou mais",
                                 "en": "wire corners: [[x, y], …] with two or more"},
     "editor.folhas_lista": {"pt": "folhas: lista", "en": "folhas: a list"},

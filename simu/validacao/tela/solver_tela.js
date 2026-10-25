@@ -1,8 +1,8 @@
 // o campo "Integração" do ⚙ (instância de teste 7200 → 7201 e o scope dela 7202), o PR B dos fundamentos numéricos: o
 // método de integração do Gecko (o solverType do .ipes: 0 Euler implícito, 1 trapézio, 2 Gear). O ⚙ mostra o do arquivo
-// aberto; escolher outro vale ao iniciar (a rodada diz qual no meta e no resumo.md, e o Gecko fica com ele); reabrir o ⚙
-// mostra o escolhido. No scope, o Comparar avisa quando A e B usaram métodos diferentes (e não avisa com o mesmo, nem com
-// rodadas de antes, que não dizem). O circuito: exemplos/exemplo_buck.ipes (solverType 0); no fim, reaberto como estava.
+// aberto; escolher outro vale na hora no circuito (o ponto de "não salvo" acende; a rodada diz qual no meta e no
+// resumo.md); reabrir o ⚙ mostra o escolhido. No scope, o Comparar avisa quando A e B usaram métodos diferentes, diz
+// "talvez" quando uma rodada é de antes do campo, e não avisa com o mesmo. O circuito: exemplos/exemplo_buck.ipes (solverType 0); no fim, reaberto como estava.
 const { chromium } = require("playwright");
 const { execFileSync } = require("child_process");
 const fs = require("fs"), path = require("path");
@@ -47,13 +47,16 @@ np.savez(${JSON.stringify(arq)}, meta=np.array(json.dumps(meta)), t=t, Va=np.sin
     const dicaI = await pg.evaluate(() => { const d = document.getElementById("dica-ui"); return d && d.classList.contains("vis") ? d.textContent : ""; });
     ok(/oscila/.test(dicaI), `o ⓘ mostra a dica do MaiSim: "${dicaI.slice(0, 60)}…"`);
     if (process.env.FOTO_SOLVER) await pg.screenshot({ path: process.env.FOTO_SOLVER });
-    // 2. trapézio + um tempo final curto; Guardar: a mensagem diz a integração e o sim.par guarda (o localStorage também)
+    // 2. trapézio + um tempo final curto; Guardar: vale já no circuito (o Gecko tem 1, o ponto de "não salvo" acende) e a
+    // mensagem diz a integração; o navegador não guarda a escolha (é do circuito)
     await pg.selectOption(".modal .m-solver", "1");
     await pg.fill('.modal input[name="tfim"]', "0.002"); await pg.fill('.modal input[name="nome"]', "solver_tela");
     await pg.click(".modal .m-ok");
-    await pg.waitForFunction(() => sim.par.solver === "1", null, { timeout: 10000 }).catch(() => {});
-    const par = await pg.evaluate(() => ({ s: sim.par.solver, ls: JSON.parse(localStorage.getItem("maisim-simu-sim") || "{}").solver, msg: document.querySelector("#msg") ? document.querySelector("#msg").textContent : "" }));
-    ok(par.s === "1" && par.ls === "1", `escolher trapézio: sim.par.solver = ${par.s} (guardado: ${par.ls})`);
+    await pg.waitForFunction(() => dados && dados.simulacao && dados.simulacao.solver === 1, null, { timeout: 20000 }).catch(() => {});
+    const par = await pg.evaluate(() => ({ s: dados.simulacao && dados.simulacao.solver, sujo: $("bt-salvar").classList.contains("sujo"), par: sim.par.solver,
+      ls: JSON.parse(localStorage.getItem("maisim-simu-sim") || "{}").solver, msg: document.querySelector("#msg") ? document.querySelector("#msg").textContent : "" }));
+    ok(par.s === 1 && par.sujo, `escolher trapézio: o circuito tem ${par.s} e o Salvar marca "não salvo" (${par.sujo})`);
+    ok(par.par === undefined && par.ls === undefined, `a escolha não fica no navegador (sim.par: ${par.par}, guardado: ${par.ls})`);
     ok(/integração: trapézio/.test(par.msg), `a mensagem diz: "${par.msg}"`);
     // 3. ▶: a rodada usa o trapézio (meta, resumo.md) e o Gecko fica com ele
     await pg.evaluate(() => iniciaSim());
@@ -83,7 +86,10 @@ np.savez(${JSON.stringify(arq)}, meta=np.array(json.dumps(meta)), t=t, Va=np.sin
     st = await compara(be, be2);
     ok(!/integração diferente/.test(st), `A × B no mesmo método: sem aviso ("${st.slice(-60)}")`);
     st = await compara(velha, trz);
-    ok(!/integração diferente/.test(st), "uma rodada de antes (sem o solver no meta): sem aviso");
+    ok(/integração talvez diferente \(A desconhecida \(rodada de antes\), B trapézio\)/.test(st) && !/integração diferente/.test(st),
+      `uma rodada de antes (sem o solver no meta) × trapézio: "talvez" ("${st.slice(-90)}")`);
+    st = await compara(velha, grava("velha2", null));
+    ok(!/integração/.test(st), "duas rodadas de antes: sem aviso");
     ok(!erros.length, `sem erros de JS nem diálogos ${erros.join(" ; ")}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message.split("\n")[0]}`); }
   finally {

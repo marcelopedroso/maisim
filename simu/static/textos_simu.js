@@ -483,8 +483,8 @@ maisimI18n.add({
   // os parâmetros da simulação
   "simu.m_dt": { pt: "Passo de tempo Δt (s)", en: "Time step Δt (s)" },
   "simu.m_solver": { pt: "Integração", en: "Integration" },
-  "simu.t_solver": { pt: "o método de integração do Gecko (solverType do .ipes): Euler implícito amortece e é o padrão; o trapézio é mais preciso no liso, mas oscila de um passo para o outro quando a corrente de um indutor é cortada (chave ou diodo abrindo); Gear (BDF2) é de 2ª ordem e amortece. Vale ao iniciar; Salvar o grava no circuito",
-                     en: "the Gecko integration method (the .ipes solverType): backward Euler damps and is the default; trapezoidal is more accurate on smooth stretches, but rings from one step to the next when an inductor current is cut (a switch or diode opening); Gear (BDF2) is 2nd order and damps. Applies when the run starts; Save writes it into the circuit" },
+  "simu.t_solver": { pt: "o método de integração do Gecko (solverType do .ipes): Euler implícito amortece e é o padrão; o trapézio é mais preciso no liso, mas oscila de um passo para o outro quando a corrente de um indutor é cortada (chave ou diodo abrindo); Gear (BDF2) é de 2ª ordem e amortece. É do circuito: vale na hora (Ctrl+Z desfaz), e Salvar o grava no arquivo",
+                     en: "the Gecko integration method (the .ipes solverType): backward Euler damps and is the default; trapezoidal is more accurate on smooth stretches, but rings from one step to the next when an inductor current is cut (a switch or diode opening); Gear (BDF2) is 2nd order and damps. It belongs to the circuit: it applies right away (Ctrl+Z undoes it), and Save writes it into the file" },
   "simu.solver_0": { pt: "Euler implícito", en: "backward Euler" },
   "simu.solver_1": { pt: "trapézio", en: "trapezoidal" },
   "simu.solver_2": { pt: "Gear (BDF2)", en: "Gear (BDF2)" },

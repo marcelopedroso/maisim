@@ -1269,8 +1269,8 @@ async function liga(on) {
   catch (e) { msg(e.message, "erro"); ed.ligado = false; document.body.classList.remove("editando"); poeCadeado(false); }
   setTimeout(() => dados && ajusta(), 50);
 }
-// a integração no Gecko (o solverType do .ipes): 0 Euler implícito, 1 trapézio, 2 Gear (BDF2). Vale ao iniciar, como o Δt
-// (o servidor reescreve a linha e reabre o circuito se o Gecko estiver com outro); sem escolha, o do arquivo aberto
+// a integração no Gecko (o solverType do .ipes): 0 Euler implícito, 1 trapézio, 2 Gear (BDF2). É do circuito, como uma
+// variável global: trocar no ⚙ vale na hora (o servidor reescreve a linha e o Gecko reabre; Ctrl+Z desfaz, Salvar grava)
 const SOLVERS = ["0", "1", "2"];
 // o Δt e o tempo final do arquivo aberto (o Gecko guarda os da última rodada) passam a ser os da simulação quando o modelo
 // muda: um modelo feito para Δt = 1 µs não roda com o Δt que sobrou de outro. Reabrir o mesmo modelo (entrar na edição de
@@ -1280,7 +1280,6 @@ function usaSimulacaoDoArquivo(j) {
   const s = j && j.simulacao, comDt = !!s && s.dt > 0 && s.tfim > 0, comSolver = !!s && SOLVERS.includes(String(s.solver));
   if (!s || (!comDt && !comSolver) || sim.par.modelo === j.arq) return "";
   if (comDt) { sim.par.dt = String(s.dt); sim.par.tfim = String(s.tfim); }
-  if (comSolver) sim.par.solver = String(s.solver);
   sim.par.modelo = j.arq;
   try { localStorage.setItem("maisim-simu-sim", JSON.stringify(sim.par)); } catch (e) { /* ok */ }
   return [comDt ? tr("simu.sim_do_arquivo", { dt: si(s.dt, "s"), tfim: si(s.tfim, "s") }) : "",
@@ -2230,10 +2229,10 @@ $("bt-globais").onclick = () => variaveisGlobais();
 async function garanteEdicao() { if (!ed.ligado) await liga(true); return ed.ligado; }
 
 // ---------------------------------------------------------------- simulação: parâmetros, iniciar, pausar, continuar, parar, progresso
-const solverAtual = () => (SOLVERS.includes(String(sim.par.solver)) ? String(sim.par.solver)
-  : dados && dados.simulacao && SOLVERS.includes(String(dados.simulacao.solver)) ? String(dados.simulacao.solver) : "0");
+const solverAtual = () => (dados && dados.simulacao && SOLVERS.includes(String(dados.simulacao.solver)) ? String(dados.simulacao.solver) : "0");   // o que o Gecko tem
 const sim = { estado: "parada", timer: null, par: { dt: "1e-6", tfim: "0.04", nome: "rodada", amostras: "4000", por_cima: "1" } };   // por_cima: a nova substitui a anterior de mesmo nome
 try { Object.assign(sim.par, JSON.parse(localStorage.getItem("maisim-simu-sim") || "{}")); } catch (e) { /* ok */ }
+delete sim.par.solver;                                 // a escolha guardada no navegador (antes de ser do circuito) não vale mais
 // ⚙ Parâmetros da simulação, em duas abas: "simulação" (Δt, tempo final… — valem ao iniciar) e "variáveis globais ($)", como
 // o Tools > Parameters do Gecko: criar, mudar, apagar (cada mudança vale na hora; Ctrl+Z desfaz). O $x abre na segunda aba
 // o nome da próxima depois de guardar uma rodada: rodada_teste → rodada_teste_2 → rodada_teste_3
@@ -2272,9 +2271,17 @@ async function parametrosSim(aba = "sim", op = {}) {
   if (!r) return false;
   if (roda) return true;
   r.por_cima = porCima ? "1" : "0";
-  const mudouSolver = solver !== solverAtual();        // o que estava à vista (o do arquivo, sem escolha antes) não conta como mudança
-  if (!mudouSolver && ["dt", "tfim", "nome", "amostras", "por_cima"].every((k) => r[k] === undefined || String(r[k]) === String(sim.par[k]))) return true;   // fechou sem mudar a simulação
-  if (mudouSolver) r.solver = solver;
+  const mudouSolver = solver !== solverAtual();
+  if (mudouSolver) {                                     // vai já para o circuito (como uma variável global): Salvar grava, Ctrl+Z desfaz
+    if (!(await garanteEdicao())) return false;
+    msg(tr("simu.aplicando"));
+    try { novoEstado(await api("editor/solver", { solver: +solver, descr: tr("simu.solver_escolhido", { nome: tr(`simu.solver_${solver}`) }) })); }
+    catch (e) { msg(e.message, "erro"); return false; }
+  }
+  if (["dt", "tfim", "nome", "amostras", "por_cima"].every((k) => r[k] === undefined || String(r[k]) === String(sim.par[k]))) {   // nada mais mudou
+    if (mudouSolver) msg(tr("simu.solver_escolhido", { nome: tr(`simu.solver_${solver}`) }), "ok");
+    return true;
+  }
   Object.assign(sim.par, r); try { localStorage.setItem("maisim-simu-sim", JSON.stringify(sim.par)); } catch (e) { /* ok */ }
   if (typeof infoTs === "function" && $("ctl-ts")) { infoTs(); infoAtraso(); }   // Ts = n × Δt no painel do controle
   msg(tr("simu.sim_par", { dt: r.dt, tfim: r.tfim }) + (mudouSolver ? ` · ${tr("simu.solver_escolhido", { nome: tr(`simu.solver_${solver}`) })}` : ""), "ok"); return true;

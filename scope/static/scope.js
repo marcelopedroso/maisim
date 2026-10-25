@@ -128,12 +128,17 @@ function preparaGrade() {
 }
 const avisoGrade = () => (uniao ? " · " + tr("scope.aviso_grade", { a: fmtDt(intervalo(A)), b: fmtDt(intervalo(B)) }) : "") + avisoSolver();
 // A e B com métodos de integração diferentes (o solverType do Gecko, no meta da rodada): a diferença entre as curvas pode
-// ser do método (o trapézio oscila onde o Euler implícito amortece), não do circuito. As rodadas de antes não dizem: sem aviso
+// ser do método (o trapézio oscila onde o Euler implícito amortece), não do circuito. Uma rodada do MaiSim de antes do campo
+// não diz qual foi (rodou com o do arquivo, não necessariamente o Euler implícito): com a outra dizendo, o aviso diz "desconhecido"
 const SOLVERS_SCOPE = ["backward-euler", "trapezoidal", "gear-shichman"];
 const solverDe = (F) => (F && F.meta && SOLVERS_SCOPE.includes(F.meta.solver) ? F.meta.solver : null);
+const doGecko = (F) => !!(F && F.meta && F.meta.planta === "gecko-maisim");
 function avisoSolver() {
   const a = solverDe(A), b = solverDe(B);
-  return a && b && a !== b ? " · " + tr("scope.aviso_solver", { a: tr(`scope.solver.${a}`), b: tr(`scope.solver.${b}`) }) : "";
+  if (!a && !b) return "";
+  if (!a || !b) return doGecko(A) && doGecko(B) ? " · " + tr("scope.aviso_solver_incerto", { a: a ? tr(`scope.solver.${a}`) : tr("scope.solver.desconhecido"),
+                                                                                   b: b ? tr(`scope.solver.${b}`) : tr("scope.solver.desconhecido") }) : "";
+  return a !== b ? " · " + tr("scope.aviso_solver", { a: tr(`scope.solver.${a}`), b: tr(`scope.solver.${b}`) }) : "";
 }
 
 // canal: "f" = tem resolução do passo fino (pulsos, tensões PWM reconstruídas, formas medidas no Gecko)
