@@ -19,10 +19,15 @@ jobs:
     name: AppImage and Windows installer
     runs-on: ubuntu-22.04
     timeout-minutes: 60
+    env:
+      TAG: ${{ inputs.tag }}   # only through the environment, never pasted into a script (whoever dispatches chooses it)
     steps:
+      - name: check the tag
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "not a version tag: $TAG"; exit 1; }
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ env.TAG }}
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -41,4 +46,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           ls -la pacote/dist
-          gh release upload "${{ inputs.tag }}" pacote/dist/* --repo "$GITHUB_REPOSITORY" --clobber
+          gh release upload "$TAG" pacote/dist/* --repo "$GITHUB_REPOSITORY" --clobber
