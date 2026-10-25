@@ -460,6 +460,7 @@ function faixaY(dados, x0, x1, vis, quais) {
   return { min: lo - m, max: hi + m };
 }
 function atualiza(p) {
+  if (p.xy) return atualizaXY(p);
   if (!p.u) return;
   const dados = dadosPainel(p);
   const x = dados[0]; if (!x.length) return;
@@ -497,7 +498,7 @@ function mudaX(p, faixa) {
   if (p.solto) { p.xZoom = faixa; agenda([p]); return; }
   xFaixa = faixa; agenda(paineis().filter((q) => !q.solto));
 }
-function reseta(p) { p.yZoom = null; p.pZoom = null; mudaX(p, null); }      // o enquadrar: vertical automática (ou o Y fixo) e o tempo todo
+function reseta(p) { if (p.xy) { p.xyZoom = null; escalaXY(p); return; } p.yZoom = null; p.pZoom = null; mudaX(p, null); }      // o enquadrar: vertical automática (ou o Y fixo) e o tempo todo
 
 // ---------------------------------------------------------------- medição num intervalo
 // Mesmo método de smauto.metrics (window, harmonic_phasors, thd), para os números baterem com os scripts e o artigo:
@@ -1096,6 +1097,7 @@ function refazGrafico(p) {
   criaGrafico(p, u && (fixar || pausado) && sc("x") ? { x: sc("x"), y: sc("y"), p: u.scales.p ? sc("p") : null, dados: pausado ? u.data : null } : null);
 }
 function criaGrafico(p, manter) {
+  if (p.xy) return criaGraficoXY(p);                    // o painel XY: o seu desenho (as trajetórias), mais abaixo
   if (p.u) { p.u.destroy(); p.u = null; }
   p.area.innerHTML = "";
   marcaComb(p);                                         // os sinais do painel mudaram: o Combinar acompanha
@@ -1154,6 +1156,7 @@ function criaGrafico(p, manter) {
         if (xr) mudaX(p, xr); else agenda([p]);
       }],
       draw: [(u) => faixaMed(u, p), (u) => cursoresMed(u, p), marcaAcionamentos],
+      setCursor: [cursorTempo],              // o instante sob o cursor: marcado nos painéis XY
       setSeries: [(u, i) => {                // clique na legenda: a escala vertical refaz sem a escondida
         const se = i != null && p.series[i - 1];
         if (se && (se.soma || se.pot)) { (p.med.oculta = p.med.oculta || {})[ocultaDe(se)] = !u.series[i].show; guardaLayout();
@@ -1478,19 +1481,20 @@ function menuOpc(p) {
   return m;
 }
 function adicionaPainel(cfg, posicao) {
-  const p = { tipo: "painel", id: ++seq, titulo: cfg.titulo || tr("scope.novo_painel"), sinais: (cfg.sinais || []).slice(), altura: cfg.altura ? alturaOk(cfg.altura) : 220,
+  const xy = cfg.xy ? novoXY(cfg.xy) : null;            // o painel XY (sinais: os que ele usa)
+  const p = { tipo: "painel", id: ++seq, titulo: cfg.titulo || tr("scope.novo_painel"), sinais: xy ? sinaisXY(xy) : (cfg.sinais || []).slice(), altura: cfg.altura ? alturaOk(cfg.altura) : xy ? 340 : 220, xy, xyZoom: null,
               largura: LARGURAS_OK.includes(cfg.largura) ? cfg.largura : larguraPadrao,
               yFixo: cfg.yFixo || null, pFixo: Array.isArray(cfg.pFixo) && cfg.pFixo.length === 2 && cfg.pFixo[1] > cfg.pFixo[0] ? cfg.pFixo.slice() : null, ganhos: Object.assign({}, cfg.ganhos || {}),
               modo: MODOS_ZOOM[cfg.modo] ? cfg.modo : "x", solto: !!cfg.solto, xZoom: null, yZoom: null, pZoom: null,
               med: novaMed(cfg.med), espFora: new Set(), recolhido: !!cfg.recolhido, expandido: false };
-  const el = document.createElement("div"); el.className = "cartao";
+  const el = document.createElement("div"); el.className = xy ? "cartao xy" : "cartao";
   // os textos fixos com data-tr* (o aplica() troca ao mudar o idioma); os títulos que mudam (b-rec, b-exp, b-solto, b-y): marca*()
   el.innerHTML = `<div class="cab"><span class="b-arrasta" draggable="true" title="${escH(tr("scope.p.t_arrasta"))}" data-tr-title="scope.p.t_arrasta">⠿</span><button class="b-rec">${ICONE_SETA}</button>
-    <input class="titulo" type="text"><span class="titulo-mat" title="${escH(tr("scope.p.t_titulo"))}" data-tr-title="scope.p.t_titulo"></span><div class="ferr"><button class="b-sinais" data-tr="scope.p.sinais">${escH(tr("scope.p.sinais"))}</button><button class="b-y" data-tr="scope.p.y_fixo">${escH(tr("scope.p.y_fixo"))}</button>
+    <input class="titulo" type="text"><span class="titulo-mat" title="${escH(tr("scope.p.t_titulo"))}" data-tr-title="scope.p.t_titulo"></span><div class="ferr"><button class="b-xy" title="${escH(tr("scope.xy.t_config"))}" data-tr-title="scope.xy.t_config" data-tr="scope.xy.botao">${escH(tr("scope.xy.botao"))}</button><button class="b-xyi" title="${escH(tr("scope.xy.t_ajuda"))}" data-tr-title="scope.xy.t_ajuda">i</button><button class="b-sinais" data-tr="scope.p.sinais">${escH(tr("scope.p.sinais"))}</button><button class="b-y" data-tr="scope.p.y_fixo">${escH(tr("scope.p.y_fixo"))}</button>
     <span class="zoom" title="${escH(tr("scope.p.t_zoom"))}" data-tr-title="scope.p.t_zoom"><span class="rot">Zoom</span>${Object.keys(MODOS_ZOOM).map((m) =>
       `<button class="b-zm" data-m="${m}" title="${escH(tr(`scope.zm.t_${m}`))}" data-tr-title="scope.zm.t_${m}" data-tr="scope.zm.${m}">${escH(tr(`scope.zm.${m}`))}</button>`).join("")}</span>
     <button class="b-reset" title="${escH(tr("scope.p.t_reset"))}" data-tr-title="scope.p.t_reset">${ICONE_TUDO}</button><button class="b-solto"></button><button class="b-med" title="${escH(tr("scope.p.t_med"))}" data-tr-title="scope.p.t_med" data-tr="scope.p.medir">${escH(tr("scope.p.medir"))}</button>
-    <button class="b-opc" title="${escH(tr("scope.p.t_opc"))}" data-tr-title="scope.p.t_opc">⋯</button></div><button class="b-exp"></button><button class="b-rem" title="${escH(tr("scope.p.t_rem"))}" data-tr-title="scope.p.t_rem">✕</button></div><div class="area"></div>
+    <button class="b-opc" title="${escH(tr("scope.p.t_opc"))}" data-tr-title="scope.p.t_opc">⋯</button></div><button class="b-exp"></button><button class="b-rem" title="${escH(tr("scope.p.t_rem"))}" data-tr-title="scope.p.t_rem">✕</button></div><div class="xy-ajuda" hidden></div><div class="area"></div>
     <span class="b-alca" title="${escH(tr("scope.p.t_alca"))}" data-tr-title="scope.p.t_alca"></span>`;
   p.el = el; p.area = el.querySelector(".area");
   aplicaLargura(p);
@@ -1512,6 +1516,8 @@ function adicionaPainel(cfg, posicao) {
       const q = m.querySelector("input.busca"); if (q) q.focus(); }
   };
   el.querySelector(".b-sinais").onclick = abre("sinais", montaMenu);
+  el.querySelector(".b-xy").onclick = abre("xy", menuXY);
+  el.querySelector(".b-xyi").onclick = () => { const b = el.querySelector(".xy-ajuda"); b.hidden = !b.hidden; el.querySelector(".b-xyi").classList.toggle("ativo", !b.hidden); poeAjudaXY(p); };
   el.querySelector(".b-y").onclick = abre("y", menuY);
   el.querySelectorAll(".b-zm").forEach((b) => b.onclick = () => {
     p.modo = b.dataset.m; marcaZoom(p); guardaLayout();
@@ -1546,7 +1552,7 @@ function adicionaPainel(cfg, posicao) {
   return p;
 }
 
-const layoutAtual = () => ({ colunas: larguraPadrao, indice, itens: itens.map((x) => x.tipo === "secao" ? { secao: x.titulo, recolhida: x.recolhida || undefined } : { titulo: x.titulo, sinais: x.sinais, altura: x.altura, largura: x.largura, yFixo: x.yFixo, pFixo: x.pFixo || undefined, ganhos: x.ganhos, modo: x.modo, solto: x.solto, med: x.med, recolhido: x.recolhido || undefined }) });
+const layoutAtual = () => ({ colunas: larguraPadrao, indice, itens: itens.map((x) => x.tipo === "secao" ? { secao: x.titulo, recolhida: x.recolhida || undefined } : { titulo: x.titulo, sinais: x.sinais, altura: x.altura, largura: x.largura, yFixo: x.yFixo, pFixo: x.pFixo || undefined, ganhos: x.ganhos, modo: x.modo, solto: x.solto, med: x.med, recolhido: x.recolhido || undefined, xy: x.xy || undefined }) });
 let padraoPendente = "";                                // a chave cujo padrão está vindo (consultaPadrao)
 function guardaLayout() {
   const chave = chaveLayout();                          // sem rodada (sem circuito), nada a guardar
@@ -1731,6 +1737,316 @@ function redimensiona() {
   for (const p of paineis()) { if (p.u) p.u.setSize({ width: Math.max(300, p.el.clientWidth - 14), height: alturaDe(p) }); if (p.med.aberto && p.med.esp.aberto) desenhaEspectro(p); }
 }
 
+// ---------------------------------------------------------------- painel XY (Marcelo, 25/10: no lugar das janelas "Space Vector
+// Diagram" e "U-Z*i Diagram" do Gecko, que o MaiSim nunca mostra). Um sinal contra outro, como trajetória, nos dados já
+// gravados (nada muda na simulação; ao vivo, refaz a cada lote, como os painéis do tempo). Três modos:
+//   livre — Y contra X, quaisquer dois sinais da rodada;
+//   vetor — o vetor espacial de três fases a, b, c (Clarke invariante em amplitude, a do SpaceVectorDisplay do Gecko:
+//           α = (2a − b − c)/3, β = (b − c)/√3), β contra α; com dq, Park pelo ângulo θ (um sinal, em rad, ou 2π·f·t + φ₀):
+//           d = α cos θ + β sin θ, q = −α sin θ + β cos θ, q contra d (um conjunto equilibrado na frequência de θ: um ponto);
+//   uzi   — o "U-Z*i Diagram" do Gecko (ReglerU_ZI + UZiDisplay): até dois pares (u, i) e a impedância Z de cada um; o ponto
+//           (u, Z·i) — u na horizontal, Z·i na vertical, em volts, os dois na mesma escala — desenhado a cada passo. A reta
+//           u = Z·i (45°) é a de uma carga resistiva Z; uma elipse, defasagem entre u e i.
+// A média móvel (µs) é o "Average time [us]" das duas janelas do Gecko: a média dos pontos no intervalo que acaba no instante.
+// Janela de tempo: tudo, os últimos N períodos de f (ao vivo, acompanha o fim), uma faixa t₀–t₁ ou o zoom do tempo dos painéis
+// ligados. Escala igual nos eixos (um círculo sai círculo). Início ○ e fim ●; nos modos vetor e U–Z·i, a seta da origem ao fim
+// (como no Gecko); o cursor de tempo de um painel do tempo marca o instante na trajetória
+const XY_MODOS = ["livre", "vetor", "uzi"];
+const XY_JANELAS = ["tudo", "ultimos", "faixa", "zoom"];
+const XY_PADRAO = { modo: "livre", x: "", y: "", a: "", b: "", c: "", dq: false, th: { fonte: "wt", canal: "", f: 60, fase: 0 },
+                    pares: [{ u: "", i: "", z: 1 }, { u: "", i: "", z: 1 }], media: 0, jan: { tipo: "tudo", n: 2, f0: 60, t0: 0, t1: 10 }, iguais: true };
+const XY_MAX_PONTOS = 40000;                             // acima disso, um ponto a cada k (a trajetória continua a mesma à vista)
+const numOk = (v, pad) => (Number.isFinite(+v) && v !== "" && v !== null ? +v : pad);
+function novoXY(c) {                                     // o xy do layout guardado ou importado, conferido campo a campo
+  const s = (v) => (typeof v === "string" ? v.slice(0, 200) : ""), o = c && typeof c === "object" ? c : {}, P = XY_PADRAO;
+  const th = o.th && typeof o.th === "object" ? o.th : {}, jan = o.jan && typeof o.jan === "object" ? o.jan : {};
+  const pares = (Array.isArray(o.pares) ? o.pares : []).slice(0, 2).map((x) => ({ u: s(x && x.u), i: s(x && x.i), z: numOk(x && x.z, 1) }));
+  while (pares.length < 2) pares.push({ u: "", i: "", z: 1 });
+  return { modo: XY_MODOS.includes(o.modo) ? o.modo : P.modo, x: s(o.x), y: s(o.y), a: s(o.a), b: s(o.b), c: s(o.c), dq: !!o.dq,
+    th: { fonte: th.fonte === "sinal" ? "sinal" : "wt", canal: s(th.canal), f: numOk(th.f, 60), fase: numOk(th.fase, 0) }, pares,
+    media: Math.max(0, numOk(o.media, 0)), iguais: o.iguais !== false,
+    jan: { tipo: XY_JANELAS.includes(jan.tipo) ? jan.tipo : "tudo", n: Math.max(0.01, numOk(jan.n, 2)), f0: numOk(jan.f0, 60) > 0 ? +jan.f0 : 60,
+           t0: numOk(jan.t0, 0), t1: numOk(jan.t1, 10) } };
+}
+function sinaisXY(xy) {                                  // os sinais que o painel usa (p.sinais: o índice, "só a rodada", as cores)
+  const l = xy.modo === "vetor" ? [xy.a, xy.b, xy.c].concat(xy.dq && xy.th.fonte === "sinal" ? [xy.th.canal] : [])
+    : xy.modo === "uzi" ? xy.pares.flatMap((q) => [q.u, q.i]) : [xy.x, xy.y];
+  return [...new Set(l.filter(Boolean))];
+}
+// Clarke (invariante em amplitude) e Park; à parte, para o teste conferir os números
+function clarke(a, b, c) { return [(2 * a - b - c) / 3, (b - c) / Math.sqrt(3)]; }
+function park(al, be, th) { const co = Math.cos(th), si = Math.sin(th); return [al * co + be * si, -al * si + be * co]; }
+// os nomes da rodada que parecem três fases: x_a, x_b, x_c (ou xa, xb, xc) de mesmo prefixo; as correntes primeiro
+function triosDe(canais) {
+  const por = {};
+  for (const c of canais) { const m = String(c).match(/^(.*?)_?([abcABC])$/); if (m && m[1]) (por[m[1]] = por[m[1]] || {})[m[2].toLowerCase()] = c; }
+  return Object.values(por).filter((g) => g.a && g.b && g.c).sort((x, y) => (/^[iI]/.test(y.a) ? 1 : 0) - (/^[iI]/.test(x.a) ? 1 : 0));
+}
+function xyAuto(modo) {                                  // um painel XY novo: os sinais que parecem servir
+  const cs = catalogo().map((c) => c.canal).filter((c) => temSinal(A, c)), xy = novoXY({});
+  const tri = triosDe(cs)[0], par = paresAuto(cs)[0];
+  xy.modo = modo || (tri ? "vetor" : "livre");
+  if (tri) Object.assign(xy, { a: tri.a, b: tri.b, c: tri.c });
+  if (par) Object.assign(xy.pares[0], { u: par.v, i: par.i });
+  xy.x = cs[0] || ""; xy.y = cs[1] || cs[0] || "";
+  const f = (A && A.meta && +A.meta.f0) || 0; if (f > 0) { xy.th.f = f; xy.jan.f0 = f; }
+  return xy;
+}
+// a janela de tempo [k0, k1] (amostras) da rodada F; o fim é o último instante com todos os sinais (ao vivo, cada um chega no seu lote)
+function janelaXY(F, xy, n) {
+  const t = F.dados.t, J = xy.jan; if (!t || !n) return null;
+  let a = -Infinity, b = Infinity;                       // em ms
+  if (J.tipo === "ultimos") { b = t[n - 1] * 1e3; a = b - J.n * 1e3 / J.f0; }
+  else if (J.tipo === "faixa") { a = Math.min(J.t0, J.t1); b = Math.max(J.t0, J.t1); }
+  else if (J.tipo === "zoom" && xFaixa) { a = xFaixa[0]; b = xFaixa[1]; }
+  let k0 = 0; while (k0 < n && t[k0] * 1e3 < a - 1e-9) k0++;
+  let k1 = n - 1; while (k1 >= k0 && t[k1] * 1e3 > b + 1e-9) k1--;
+  return k1 >= k0 ? [k0, k1] : null;
+}
+// média móvel de x nas últimas m amostras (o "Average time" do Gecko), de k0 a k1, com a história antes de k0
+function mediaMovel(x, k0, k1, m) {
+  const out = new Float64Array(k1 - k0 + 1);
+  if (m <= 1) { for (let k = k0; k <= k1; k++) out[k - k0] = x[k]; return out; }
+  let s = 0, c = 0; const ini = Math.max(0, k0 - m + 1);
+  for (let k = ini; k <= k1; k++) {
+    const v = x[k]; if (v === v) { s += v; c++; }
+    const sai = k - m; if (sai >= ini) { const w = x[sai]; if (w === w) { s -= w; c--; } }
+    if (k >= k0) out[k - k0] = c ? s / c : NaN;
+  }
+  return out;
+}
+// as trajetórias do painel na rodada F: [{x, y, t (ms), rot, cor, dash}] (x, y e t do mesmo tamanho, já na janela)
+function curvasXY(p, F, ehB) {
+  const xy = p.xy, t = F && F.dados.t; if (!t || !t.length) return [];
+  const g = (c) => (c ? grossa(F, c) : null), out = [];
+  const quer = (cs) => { const gs = cs.map(g); return gs.every(Boolean) ? gs : null; };
+  const faz = (gs, calc, rot, cor) => {                   // gs: as séries de entrada; calc(vals, k) → [x, y]
+    const n = Math.min(t.length, ...gs.map((s) => s.length)), jan = janelaXY(F, xy, n); if (!jan) return;
+    const [k0, k1] = jan, N = k1 - k0 + 1, xs = new Float64Array(N), ys = new Float64Array(N), ts = new Float64Array(N);
+    const v = new Array(gs.length);
+    for (let k = k0; k <= k1; k++) { for (let j = 0; j < gs.length; j++) { const q = gs[j][k]; v[j] = q == null ? NaN : +q; }
+      const r = calc(v, k); xs[k - k0] = r[0]; ys[k - k0] = r[1]; ts[k - k0] = t[k] * 1e3; }
+    let X = xs, Y = ys;
+    const m = Math.round(xy.media * 1e-6 / (intervalo(F) || 1));   // a média móvel: com a história antes da janela
+    if (xy.media > 0 && m > 1) {
+      const h = Math.max(0, k0 - m + 1), XH = new Float64Array(k1 - h + 1), YH = new Float64Array(k1 - h + 1);
+      for (let k = h; k <= k1; k++) { for (let j = 0; j < gs.length; j++) { const q = gs[j][k]; v[j] = q == null ? NaN : +q; } const r = calc(v, k); XH[k - h] = r[0]; YH[k - h] = r[1]; }
+      X = mediaMovel(XH, k0 - h, k1 - h, m); Y = mediaMovel(YH, k0 - h, k1 - h, m);
+    }
+    const passo = Math.max(1, Math.ceil(N / XY_MAX_PONTOS));
+    const corta = (a) => (passo === 1 ? a : Float64Array.from({ length: Math.ceil(N / passo) }, (_, i) => a[Math.min(N - 1, i * passo)]));
+    out.push({ x: corta(X), y: corta(Y), t: corta(ts), rot: rot + (B ? (ehB ? " · B" : " · A") : ""), cor: ehB ? corClara(cor) : cor, dash: ehB ? [6, 4] : null });
+  };
+  if (xy.modo === "livre") { const gs = quer([xy.x, xy.y]); if (gs) faz(gs, (v) => v, `${rotulo(xy.y)} × ${rotulo(xy.x)}`, corDoSinal(xy.y, 0)); }
+  else if (xy.modo === "vetor") {
+    const usaSinal = xy.dq && xy.th.fonte === "sinal", gs = quer([xy.a, xy.b, xy.c].concat(usaSinal ? [xy.th.canal] : []));
+    const w = 2 * Math.PI * xy.th.f, f0 = xy.th.fase * Math.PI / 180;
+    if (gs) faz(gs, (v, k) => { const ab = clarke(v[0], v[1], v[2]); return xy.dq ? park(ab[0], ab[1], usaSinal ? v[3] : w * t[k] + f0) : ab; },
+      xy.dq ? "dq" : "αβ", PALETA[0]);
+  } else xy.pares.forEach((q, j) => { const gs = q.u && q.i ? quer([q.u, q.i]) : null, z = q.z;
+    if (gs) faz(gs, (v) => [v[0], z * v[1]], `${rotulo(q.u)} · ${+z.toPrecision(6)} Ω·${rotulo(q.i)}`, ["#d62728", "#1f77b4"][j]); });   // as cores do Gecko: o 1º par vermelho, o 2º azul
+  return out;
+}
+const eixosXY = (xy) => xy.modo === "vetor" ? (xy.dq ? ["d", "q"] : ["α", "β"]) : xy.modo === "uzi" ? ["u (V)", "Z·i (V)"] : [rotulo(xy.x), rotulo(xy.y)];
+// o raio e o centro da 1ª trajetória (o teste lê: um conjunto equilibrado dá círculo no αβ e um ponto no dq)
+function estatXY(cv) {
+  if (!cv) return null;
+  let sx = 0, sy = 0, n = 0; for (let k = 0; k < cv.x.length; k++) if (cv.x[k] === cv.x[k] && cv.y[k] === cv.y[k]) { sx += cv.x[k]; sy += cv.y[k]; n++; }
+  if (!n) return null;
+  let sr = 0, sr2 = 0, rmin = Infinity, rmax = 0, dmax = 0; const cx = sx / n, cy = sy / n;
+  for (let k = 0; k < cv.x.length; k++) { const x = cv.x[k], y = cv.y[k]; if (x !== x || y !== y) continue;
+    const r = Math.hypot(x, y); sr += r; sr2 += r * r; rmin = Math.min(rmin, r); rmax = Math.max(rmax, r); dmax = Math.max(dmax, Math.hypot(x - cx, y - cy)); }
+  const rm = sr / n;
+  return { n, cx, cy, r: rm, rdp: Math.sqrt(Math.max(0, sr2 / n - rm * rm)), rmin, rmax, espalha: dmax };
+}
+// as escalas: os dados (com a origem, nos modos vetor e U–Z·i), ou o zoom do painel; com a escala igual, o eixo mais folgado
+// cresce até os dois terem as mesmas unidades por pixel
+function escalaXY(p) {
+  const u = p.u; if (!u) return;
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  if (p.xyZoom) [x0, x1, y0, y1] = [...p.xyZoom.x, ...p.xyZoom.y];
+  else {
+    for (const cv of p.curvas || []) for (let k = 0; k < cv.x.length; k++) { const x = cv.x[k], y = cv.y[k];
+      if (x === x && y === y) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } }
+    if (!isFinite(x0)) { x0 = -1; x1 = 1; y0 = -1; y1 = 1; }
+    if (p.xy.modo !== "livre") { x0 = Math.min(x0, 0); x1 = Math.max(x1, 0); y0 = Math.min(y0, 0); y1 = Math.max(y1, 0); }
+    const mx = 0.06 * (x1 - x0 || Math.abs(x0) || 1), my = 0.06 * (y1 - y0 || Math.abs(y0) || 1);
+    x0 -= mx; x1 += mx; y0 -= my; y1 += my;
+  }
+  const W = u.bbox.width || 1, H = u.bbox.height || 1;
+  if (p.xy.iguais) {
+    const s = Math.max((x1 - x0) / W, (y1 - y0) / H), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    x0 = cx - s * W / 2; x1 = cx + s * W / 2; y0 = cy - s * H / 2; y1 = cy + s * H / 2;
+  }
+  sincronizando = true;
+  u.batch(() => { u.setScale("x", { min: x0, max: x1 }); u.setScale("y", { min: y0, max: y1 }); });
+  sincronizando = false;
+}
+let tCursor = null, tCursorPendente = false;             // o instante sob o cursor de um painel do tempo (ms), marcado nas trajetórias
+function cursorTempo(u) {
+  const l = u.cursor.left, t = l != null && l >= 0 ? u.posToVal(l, "x") : null;
+  if (t === tCursor || !paineis().some((p) => p.xy && p.u)) return;
+  tCursor = t;
+  if (tCursorPendente) return; tCursorPendente = true;
+  requestAnimationFrame(() => { tCursorPendente = false; for (const p of paineis()) if (p.xy && p.u) p.u.redraw(false, false); });
+}
+function pertoT(ts, t) {                                 // o índice da amostra mais perto do instante t (busca binária)
+  let lo = 0, hi = ts.length - 1; if (hi < 0 || t < ts[0] || t > ts[hi]) return -1;
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (ts[m] <= t) lo = m; else hi = m; }
+  return t - ts[lo] <= ts[hi] - t ? lo : hi;
+}
+function desenhaXY(u, p) {                               // gancho draw: as trajetórias, a origem, o início e o fim, a seta, os marcadores
+  if (p.u !== u) return;
+  const g = u.ctx, r = devicePixelRatio || 1, C = cores(), { left, top, width, height } = u.bbox;
+  const X = (v) => u.valToPos(v, "x", true), Y = (v) => u.valToPos(v, "y", true);
+  g.save(); g.beginPath(); g.rect(left, top, width, height); g.clip();
+  const ox = X(0), oy = Y(0);                            // os eixos pela origem
+  g.strokeStyle = C.base; g.lineWidth = r; g.setLineDash([3 * r, 3 * r]); g.beginPath();
+  if (ox >= left && ox <= left + width) { g.moveTo(ox, top); g.lineTo(ox, top + height); }
+  if (oy >= top && oy <= top + height) { g.moveTo(left, oy); g.lineTo(left + width, oy); }
+  g.stroke(); g.setLineDash([]);
+  for (const cv of p.curvas || []) {
+    g.strokeStyle = cv.cor; g.lineWidth = 1.5 * r; g.setLineDash((cv.dash || []).map((d) => d * r)); g.beginPath();
+    let ini = -1, fim = -1, sobe = true;
+    for (let k = 0; k < cv.x.length; k++) { const x = cv.x[k], y = cv.y[k];
+      if (x !== x || y !== y) { sobe = true; continue; }
+      if (ini < 0) ini = k; fim = k;
+      if (sobe) { g.moveTo(X(x), Y(y)); sobe = false; } else g.lineTo(X(x), Y(y)); }
+    g.stroke(); g.setLineDash([]);
+    if (ini < 0) continue;
+    const ex = X(cv.x[fim]), ey = Y(cv.y[fim]);
+    if (p.xy.modo !== "livre") {                         // a seta da origem ao ponto de agora, como no Gecko
+      const ang = Math.atan2(ey - oy, ex - ox), a = 8 * r;
+      g.strokeStyle = cv.cor; g.fillStyle = cv.cor; g.lineWidth = 1.2 * r; g.globalAlpha = 0.75;
+      g.beginPath(); g.moveTo(ox, oy); g.lineTo(ex, ey); g.stroke();
+      g.beginPath(); g.moveTo(ex, ey); g.lineTo(ex - a * Math.cos(ang - 0.4), ey - a * Math.sin(ang - 0.4)); g.lineTo(ex - a * Math.cos(ang + 0.4), ey - a * Math.sin(ang + 0.4)); g.closePath(); g.fill();
+      g.globalAlpha = 1;
+    }
+    g.lineWidth = 1.6 * r; g.strokeStyle = cv.cor; g.fillStyle = C.fundo;    // o início: ○; o fim: ●
+    g.beginPath(); g.arc(X(cv.x[ini]), Y(cv.y[ini]), 4.5 * r, 0, 2 * Math.PI); g.fill(); g.stroke();
+    g.fillStyle = cv.cor; g.beginPath(); g.arc(ex, ey, 4 * r, 0, 2 * Math.PI); g.fill();
+    for (const [t, cor] of [[tCursor, C.faixaBorda], [p.xyHover && p.xyHover.cv === cv ? p.xyHover.t : null, C.titulo]]) {
+      const k = t == null ? -1 : pertoT(cv.t, t); if (k < 0 || cv.x[k] !== cv.x[k]) continue;
+      g.strokeStyle = cor; g.lineWidth = 2 * r; g.beginPath(); g.arc(X(cv.x[k]), Y(cv.y[k]), 6 * r, 0, 2 * Math.PI); g.stroke();
+    }
+  }
+  g.restore();
+}
+function leituraXY(p) {                                  // embaixo do gráfico: as curvas, o início e o fim; com o mouse, o ponto mais perto
+  const el = p.area.querySelector(".xy-leitura"); if (!el) return;
+  const [nx, ny] = eixosXY(p.xy), h = p.xyHover, s = p.xyStat;
+  const linhas = (p.curvas || []).map((cv) => {
+    const ok = (k) => cv.x[k] === cv.x[k] && cv.y[k] === cv.y[k];
+    let i0 = 0; while (i0 < cv.x.length && !ok(i0)) i0++; let i1 = cv.x.length - 1; while (i1 >= 0 && !ok(i1)) i1--;
+    return `<span class="xy-c"><i style="background:${cv.cor}"></i>${htmlMat(cv.rot)}` + (i0 <= i1 ? ` <span class="sutil">○ ${fmtT(cv.t[i0])} · ● ${fmtT(cv.t[i1])}</span>` : "") + "</span>"; }).join("");
+  const est = s && p.xy.modo === "vetor" ? `<span class="xy-est" title="${escH(tr("scope.xy.t_est"))}">${escH(tr("scope.xy.est", { r: fmtM(s.r), rdp: fmtM(s.rdp), cx: fmtM(s.cx), cy: fmtM(s.cy) }))}</span>` : "";
+  const pt = h ? `<span class="xy-pt"><b>t</b> = ${fmtT(h.t)} · ${htmlMat(nx)} = ${fmtM(h.x)} · ${htmlMat(ny)} = ${fmtM(h.y)}</span>` : "";
+  const html = linhas + est + pt;
+  if (el._h !== html) { el._h = html; el.innerHTML = html; }
+}
+function atualizaXY(p) {
+  if (!p.u) return;
+  p.curvas = (B ? [A, B] : [A]).flatMap((F) => curvasXY(p, F, F === B));
+  p.series = p.curvas.map((cv) => ({ rot: cv.rot, cor: cv.cor, largura: 1.5, dash: cv.dash || undefined }));   // a legenda do PNG
+  p.xyStat = estatXY(p.curvas[0]);
+  if (!fixar || p.u.scales.x.min == null) escalaXY(p);
+  p.u.redraw(false, false); leituraXY(p);
+}
+function criaGraficoXY(p) {
+  if (p.u) { p.u.destroy(); p.u = null; }
+  p.area.innerHTML = ""; p.semDados = false;
+  p.sinais = sinaisXY(p.xy);
+  if (!A || !p.sinais.length) { p.area.innerHTML = `<div class="vazio">${escH(tr(A ? "scope.xy.vazio" : "scope.p.aguardando"))}</div>`; return; }
+  p.curvas = (B ? [A, B] : [A]).flatMap((F) => curvasXY(p, F, F === B));
+  if (!p.curvas.length) {                                // os sinais não estão nesta rodada (ou ainda não chegaram)
+    p.semDados = !!(A.dados && A.dados.t && A.dados.t.length);
+    p.area.innerHTML = `<div class="vazio">${escH(tr("scope.p.nao_existem"))}</div>`; return;
+  }
+  const C = cores(), [nx, ny] = eixosXY(p.xy);
+  const vals = (u, vs) => vs.map((v) => v == null ? "" : (Math.abs(v) >= 1000 ? (v / 1000).toFixed(1) + "k" : +v.toFixed(3)));
+  const eixo = { stroke: C.eixo, grid: { stroke: C.grade }, ticks: { stroke: C.grade }, values: vals };
+  p.u = new uPlot({
+    width: Math.max(300, p.el.clientWidth - 14), height: alturaDe(p),
+    scales: { x: { time: false, auto: false }, y: { auto: false } },
+    series: [{}, { stroke: "transparent", points: { show: false } }],   // uma série vazia: o uPlot desenha só os eixos e a grade
+    axes: [Object.assign({ label: nx }, eixo), Object.assign({ label: ny, size: 64, labelSize: 20 }, eixo)],
+    legend: { show: false },
+    cursor: { drag: { x: true, y: true, setScale: false, dist: 3 }, bind: { dblclick: () => null }, points: { show: false } },
+    hooks: {
+      draw: [(u) => desenhaXY(u, p)],
+      setSize: [() => setTimeout(() => { if (p.u) { if (!p.xyZoom || p.xy.iguais) escalaXY(p); } }, 0)],
+      setSelect: [(u) => {                               // o retângulo arrastado vira o zoom (nos dois eixos)
+        const s = u.select; if (s.width < 3 && s.height < 3) return;
+        p.xyZoom = { x: [u.posToVal(s.left, "x"), u.posToVal(s.left + s.width, "x")], y: [u.posToVal(s.top + s.height, "y"), u.posToVal(s.top, "y")] };
+        u.setSelect({ left: 0, top: 0, width: 0, height: 0 }, false); escalaXY(p); }],
+    },
+  }, [[0, 1], [null, null]], p.area);
+  const lei = document.createElement("div"); lei.className = "xy-leitura"; p.area.appendChild(lei);
+  p.u.over.addEventListener("dblclick", () => { p.xyZoom = null; escalaXY(p); });
+  p.u.over.addEventListener("mousemove", (e) => {        // o ponto da trajetória mais perto do mouse (em pixels)
+    let best = null, dmin = 12 * 12;
+    for (const cv of p.curvas || []) for (let k = 0; k < cv.x.length; k++) {
+      const dx = p.u.valToPos(cv.x[k], "x") - e.offsetX, dy = p.u.valToPos(cv.y[k], "y") - e.offsetY, d = dx * dx + dy * dy;
+      if (d < dmin) { dmin = d; best = { cv, t: cv.t[k], x: cv.x[k], y: cv.y[k] }; } }
+    if ((best && best.t) !== (p.xyHover && p.xyHover.t)) { p.xyHover = best; p.u.redraw(false, false); leituraXY(p); }
+  });
+  p.u.over.addEventListener("mouseleave", () => { if (p.xyHover) { p.xyHover = null; p.u.redraw(false, false); leituraXY(p); } });
+  atualizaXY(p);
+}
+// a configuração (XY ▾): o modo, os sinais, θ, os pares e Z, a média, a janela de tempo e a escala igual
+function menuXY(p) {
+  const m = document.createElement("div"); m.className = "menu menu-xy";
+  const desenha = () => {
+    const xy = p.xy, cs = catalogo().filter((c) => temSinal(A, c.canal) || (B && temSinal(B, c.canal)));
+    const sel = (cls, atual, vazio) => `<select class="${cls}">${vazio ? `<option value="">—</option>` : ""}${cs.map((c) =>
+      `<option value="${escH(c.canal)}"${c.canal === atual ? " selected" : ""}>${escH(c.rotulo)}</option>`).join("")}${atual && !cs.some((c) => c.canal === atual) ? `<option value="${escH(atual)}" selected>${escH(atual)}</option>` : ""}</select>`;
+    const num = (cls, v, extra = "") => `<input type="number" step="any" class="${cls}" value="${+(+v).toPrecision(8)}"${extra}>`;
+    let h = `<div class="menu-topo"><b>${escH(tr("scope.xy.config"))}</b><button class="menu-fecha" type="button" title="${escH(tr("scope.p.fechar_esc"))}">×</button></div>
+      <div class="seg">${XY_MODOS.map((k) => `<button data-modo="${k}" class="${xy.modo === k ? "ativo" : ""}" title="${escH(tr(`scope.xy.t_m_${k}`))}">${escH(tr(`scope.xy.m_${k}`))}</button>`).join("")}</div>`;
+    if (xy.modo === "livre") h += `<label>X ${sel("xy-x", xy.x)}</label><label>Y ${sel("xy-y", xy.y)}</label>`;
+    else if (xy.modo === "vetor") {
+      h += `<label>a ${sel("xy-a", xy.a)}</label><label>b ${sel("xy-b", xy.b)}</label><label>c ${sel("xy-c", xy.c)}</label>
+        <label title="${escH(tr("scope.xy.t_dq"))}"><input type="checkbox" class="xy-dq"${xy.dq ? " checked" : ""}> ${escH(tr("scope.xy.dq"))}</label>`;
+      if (xy.dq) h += `<div class="xy-th"><label><input type="radio" name="xy-th-${p.id}" value="wt"${xy.th.fonte === "wt" ? " checked" : ""}> θ = 2π·f·t + φ₀</label>
+        <label class="rec" title="${escH(tr("scope.xy.t_f"))}">f ${num("xy-f", xy.th.f)} Hz · φ₀ ${num("xy-fase", xy.th.fase)}°</label>
+        <label><input type="radio" name="xy-th-${p.id}" value="sinal"${xy.th.fonte === "sinal" ? " checked" : ""}> ${escH(tr("scope.xy.th_sinal"))} ${sel("xy-th", xy.th.canal, true)}</label></div>`;
+    } else xy.pares.forEach((q, j) => { h += `<div class="xy-par"><b>${escH(tr("scope.xy.par", { n: j + 1 }))}</b><label>u ${sel(`xy-u xy-${j}`, q.u, j > 0)}</label>
+        <label>i ${sel(`xy-i xy-${j}`, q.i, j > 0)}</label><label title="${escH(tr("scope.xy.t_z"))}">Z ${num(`xy-z xy-${j}`, q.z)} Ω</label></div>`; });
+    const J = xy.jan;
+    h += `<label title="${escH(tr("scope.xy.t_media"))}">${escH(tr("scope.xy.media"))} ${num("xy-media", xy.media, ' min="0"')} µs</label>
+      <label>${escH(tr("scope.xy.janela"))} <select class="xy-jan">${XY_JANELAS.map((k) => `<option value="${k}"${J.tipo === k ? " selected" : ""}>${escH(tr(`scope.xy.j_${k}`))}</option>`).join("")}</select></label>`;
+    if (J.tipo === "ultimos") h += `<label class="rec">N ${num("xy-n", J.n, ' min="0"')} · f ${num("xy-f0", J.f0, ' min="0"')} Hz</label>`;
+    if (J.tipo === "faixa") h += `<label class="rec">t₀ ${num("xy-t0", J.t0)} · t₁ ${num("xy-t1", J.t1)} ms</label>`;
+    h += `<label title="${escH(tr("scope.xy.t_iguais"))}"><input type="checkbox" class="xy-iguais"${xy.iguais ? " checked" : ""}> ${escH(tr("scope.xy.iguais"))}</label>`;
+    m.innerHTML = h;
+    const muda = (f) => { f(p.xy); p.xyZoom = null; guardaLayout(); criaGrafico(p); poeAjudaXY(p); desenha(); };
+    m.querySelector(".menu-fecha").onclick = () => m.remove();
+    m.querySelectorAll("[data-modo]").forEach((b) => b.onclick = () => muda((x) => { x.modo = b.dataset.modo; }));
+    const liga = (cls, f, ev = "onchange") => m.querySelectorAll(cls).forEach((e) => { e[ev] = () => muda((x) => f(x, e)); });
+    liga(".xy-x", (x, e) => { x.x = e.value; }); liga(".xy-y", (x, e) => { x.y = e.value; });
+    for (const k of "abc") liga(`.xy-${k}`, (x, e) => { x[k] = e.value; });
+    liga(".xy-dq", (x, e) => { x.dq = e.checked; });
+    liga(`input[name="xy-th-${p.id}"]`, (x, e) => { x.th.fonte = e.value; });
+    liga(".xy-th", (x, e) => { x.th.canal = e.value; if (e.value) x.th.fonte = "sinal"; });
+    liga(".xy-f", (x, e) => { if (e.value !== "" && isFinite(+e.value)) x.th.f = +e.value; });   // f < 0: a sequência negativa liga(".xy-fase", (x, e) => { if (e.value !== "") x.th.fase = +e.value; });
+    for (const j of [0, 1]) {
+      liga(`.xy-u.xy-${j}`, (x, e) => { x.pares[j].u = e.value; }); liga(`.xy-i.xy-${j}`, (x, e) => { x.pares[j].i = e.value; });
+      liga(`.xy-z.xy-${j}`, (x, e) => { if (e.value !== "" && isFinite(+e.value)) x.pares[j].z = +e.value; });
+    }
+    liga(".xy-media", (x, e) => { if (+e.value >= 0) x.media = +e.value; });
+    liga(".xy-jan", (x, e) => { x.jan.tipo = e.value; });
+    liga(".xy-n", (x, e) => { if (+e.value > 0) x.jan.n = +e.value; }); liga(".xy-f0", (x, e) => { if (+e.value > 0) x.jan.f0 = +e.value; });
+    liga(".xy-t0", (x, e) => { if (e.value !== "") x.jan.t0 = +e.value; }); liga(".xy-t1", (x, e) => { if (e.value !== "") x.jan.t1 = +e.value; });
+    liga(".xy-iguais", (x, e) => { x.iguais = e.checked; });
+  };
+  desenha();
+  return m;
+}
+function poeAjudaXY(p) {                                 // o (i) aberto: o que o modo de agora desenha (as fórmulas; o U–Z·i do Gecko)
+  const box = p.el && p.el.querySelector(".xy-ajuda");
+  if (box && !box.hidden && p.xy) box.innerHTML = `<b>${escH(tr(`scope.xy.m_${p.xy.modo}`))}</b>` + [`scope.xy.aj_${p.xy.modo}`, "scope.xy.aj_comum"].map((k) => `<p>${escH(tr(k))}</p>`).join("");
+}
+
 // ---------------------------------------------------------------- PNG
 function nomeArq(s) { return (s || "scope").normalize("NFD").replace(/[^\w.-]+/g, "_").replace(/_+/g, "_").slice(0, 80); }
 function canvasPainel(p) {
@@ -1893,6 +2209,11 @@ $("bt-painel").onclick = () => {                       // só a rodada: no fim d
   if (alvo) { abreSecaoDe(adicionaPainel({ titulo: tr("scope.novo_painel"), sinais: [] }, itens.indexOf(alvo.ps[alvo.ps.length - 1]) + 1)); indice.secao = alvo.k; }
   else { abreSecaoDe(adicionaPainel({ titulo: tr("scope.novo_painel"), sinais: [] })); const gs = grupos(); indice.secao = gs[gs.length - 1].k; }
   guardaLayout();
+};
+$("bt-painel-xy").onclick = () => {                    // o painel XY (vetor espacial, U–Z·i, livre): no fim, como o + Painel
+  const alvo = soDaRodada() ? grupos().reverse().find((g) => g.ps.some((p) => p.u)) : null;
+  const p = adicionaPainel({ titulo: tr("scope.xy.novo"), xy: xyAuto() }, alvo ? itens.indexOf(alvo.ps[alvo.ps.length - 1]) + 1 : null);
+  abreSecaoDe(p); const gs = grupos(); indice.secao = (alvo || gs[gs.length - 1]).k; guardaLayout();
 };
 $("bt-secao").onclick = () => { adicionaSecao(tr("scope.nova_secao")); const gs = grupos(); indice.secao = gs[gs.length - 1].k; guardaLayout(); };
 $("bt-porlinha").onclick = () => {
@@ -2065,7 +2386,7 @@ $("bt-carregar").onclick = async () => {
 // clique fora de um menu fecha os menus. O caminho do clique (composedPath) é o da hora do clique: um botão do menu que o
 // próprio clique redesenhou (a paleta de cores, por exemplo) já saiu da página, mas o clique foi dentro do menu
 document.addEventListener("click", (e) => {
-  const dentro = e.composedPath().some((x) => x instanceof Element && x.matches(".menu, .b-sinais, .b-y, .b-opc"));
+  const dentro = e.composedPath().some((x) => x instanceof Element && x.matches(".menu, .b-sinais, .b-y, .b-opc, .b-xy"));
   if (!dentro) document.querySelectorAll(".menu").forEach((m) => m.remove());
 });
 document.addEventListener("keydown", (e) => {
@@ -2106,7 +2427,7 @@ maisimI18n.aoMudar(() => {
   poePorLinha();
   for (const x of itens) if (x.tipo === "secao") marcaRecolhida(x);
   for (const p of paineis()) {
-    marcaY(p); marcaZoom(p); marcaRecolhido(p); marcaExpande(p);
+    marcaY(p); marcaZoom(p); marcaRecolhido(p); marcaExpande(p); poeAjudaXY(p);
     p.el.querySelectorAll(".med-tab, .med-pot").forEach((tab) => { tab.dataset.chave = ""; });   // as tabelas da medição são refeitas (mede, medePot)
     refazGrafico(p);                                   // com Fixar eixos / Pausar, o que está na tela fica
   }

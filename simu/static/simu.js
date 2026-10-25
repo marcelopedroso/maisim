@@ -212,9 +212,9 @@ function levaLayout(de, para) {
 // o layout mudou no scope (outra janela) com as escolhas abertas aqui: refaz as listas (os números delas são posições)
 let redesenhaNoPainel = null;
 addEventListener("storage", (e) => { if (redesenhaNoPainel && e.key === `maisim-scope-layout-v5:${circuitoDoLayout()}`) redesenhaNoPainel(); });
-function gruposDoLayout(L) {                             // [{secao, paineis: [item]}]; os painéis antes da 1ª seção ficam em "(sem seção)"
+function gruposDoLayout(L) {                             // [{secao, paineis: [item]}]; os painéis antes da 1ª seção ficam em "(sem seção)"; os XY (os sinais vêm do modo deles) não
   const gs = []; let g = null;                            // (secao "": o nome mostrado é o do idioma, nomeSecao)
-  for (const x of L.itens) { if (x.secao) { g = { secao: x.secao, item: x, paineis: [] }; gs.push(g); } else { if (!g) { g = { secao: "", item: null, paineis: [] }; gs.push(g); } g.paineis.push(x); } }
+  for (const x of L.itens) { if (x.secao) { g = { secao: x.secao, item: x, paineis: [] }; gs.push(g); } else if (!x.xy) { if (!g) { g = { secao: "", item: null, paineis: [] }; gs.push(g); } g.paineis.push(x); } }
   return gs;
 }
 const nomeSecao = (g) => g.secao || tr("simu.sem_secao");
