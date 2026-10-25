@@ -20,6 +20,7 @@ import signal
 import re
 import queue
 import subprocess
+import tempfile
 import threading
 from collections import OrderedDict, defaultdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -5302,10 +5303,13 @@ def msd_exporta(rel, pastas):
         if str(meta.get("modelo") or "").replace("\\", "/") != relativo(arq):
             raise ErroMotor(lingua.tr("msd.rodada_de_outro", pasta=p))
         ds.append(d)
+    tmp = tempfile.TemporaryFile()                  # o .msd vai para o disco, não para a memória (rodadas grandes)
     try:
-        return msd.monta(arq.stem, arq.read_bytes(), msd_irmaos(arq), ds)
+        _, avisos = msd.monta(arq.stem, arq.read_bytes(), msd_irmaos(arq), ds, destino=tmp)
     except ValueError as e:
+        tmp.close()
         raise ErroMotor(str(e))
+    return tmp, avisos
 
 
 def msd_limpa_cache(idade=3600):
@@ -5465,12 +5469,19 @@ class Manipulador(BaseHTTPRequestHandler):
             if rota == "/msd/info":
                 return self._editor(lambda: msd_info(q.get("arq")))
             try:
-                dados, avisos = msd_exporta(q.get("arq"), [p for p in q.get("rodadas", "").split(",") if p])
+                tmp, avisos = msd_exporta(q.get("arq"), [p for p in q.get("rodadas", "").split(",") if p])
             except ErroMotor as e:
                 return self._resposta(409, {"erro": str(e)})
             nome = re.sub(r"[^\w\-]", "_", Path(q.get("arq", "")).stem)
-            return self._resposta(200, dados, "application/octet-stream", {"Content-Disposition": f'attachment; filename="{nome}.msd"',
-                                                                            "X-MaiSim-Avisos": json.dumps(avisos)})
+            with tmp:                                  # do arquivo temporário para a página, em pedaços
+                self.send_response(200)
+                for k, v in (("Content-Type", "application/octet-stream"), ("Content-Length", str(tmp.tell())), ("Cache-Control", "no-store"),
+                             ("Content-Disposition", f'attachment; filename="{nome}.msd"'), ("X-MaiSim-Avisos", json.dumps(avisos))):
+                    self.send_header(k, v)
+                self.end_headers()
+                tmp.seek(0)
+                shutil.copyfileobj(tmp, self.wfile, 1 << 20)
+            return
         if rota == "/modelos/pastas":                  # onde ficam os circuitos (a tela inicial e o Abrir mostram)
             return self._resposta(200, {"meus": str(SALVOS), "biblioteca": str(LIB), "extras": [[n, str(d)] for n, d in pastas_extras()]})
         if rota == "/scope/padrao":                    # o layout padrão do scope de um circuito (?modelo= o meta.modelo da rodada)

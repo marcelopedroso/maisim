@@ -90,13 +90,14 @@ def _le_meta_npz(f):
         return {}
 
 
-def monta(nome, ipes, irmaos=None, rodadas=(), autor=None):
+def monta(nome, ipes, irmaos=None, rodadas=(), autor=None, destino=None):
     """O .msd de um circuito. nome: o do circuito; ipes: o .ipes (bytes); irmaos: {".controle.json": bytes, …} (os que
-    existem); rodadas: as pastas das rodadas escolhidas (Path). Devolve (bytes, avisos)."""
+    existem); rodadas: as pastas das rodadas escolhidas (Path). Sem destino, devolve (bytes, avisos); com destino (um
+    arquivo binário aberto), grava nele e devolve (None, avisos). Em fluxo: o tamanho é conferido pelo disco antes de ler,
+    e as rodadas são lidas uma de cada vez direto para o zip (um .npz grande não fica duas vezes na memória)."""
     if not NOME.match(nome):
         raise ValueError(lingua.tr("msd.nome_invalido", nome=nome))
-    arqs, avisos, lista_r, datas = {}, [], [], {}
-    arqs[f"circuito/{nome}.ipes"] = ipes
+    avisos, lista_r = [], []
     try:
         import gzip
         txt = gzip.decompress(ipes).decode("utf-8", errors="replace")
@@ -104,9 +105,9 @@ def monta(nome, ipes, irmaos=None, rodadas=(), autor=None):
         txt = ipes.decode("utf-8", errors="replace")
     if USA_FORA.search(txt) or any("EXTERNAL" in m.group(1) for m in GESTOR.finditer(txt)):
         avisos.append(lingua.tr("msd.aviso_externo"))
-    for suf, b in (irmaos or {}).items():
-        if suf in IRMAOS and b is not None:
-            arqs[f"circuito/{nome}{suf}"] = b
+    # o que vai: (caminho no .msd, bytes já na mão | Path a ler na hora, data)
+    itens = [(f"circuito/{nome}.ipes", ipes, time.time())]
+    itens += [(f"circuito/{nome}{suf}", b, time.time()) for suf, b in (irmaos or {}).items() if suf in IRMAOS and b is not None]
     for d in rodadas:
         d = Path(d)
         if not d.is_dir() or not PASTA.match(d.name):
@@ -115,42 +116,44 @@ def monta(nome, ipes, irmaos=None, rodadas=(), autor=None):
         meta = _le_meta_npz(npz) if npz else {}
         tam = 0
         for f in sorted(d.rglob("*")):
-            if not f.is_file():
-                continue
-            rel = f.relative_to(d).as_posix()
-            if f.suffix.lower() not in EXT and f.name not in SOLTOS:
+            if not f.is_file() or (f.suffix.lower() not in EXT and f.name not in SOLTOS):
                 continue                 # o que o MaiSim não conhece não vai (e o importador o recusaria)
-            b = f.read_bytes()
-            if f.suffix == ".npz" and f.name.startswith("scope_"):
-                b = _muda_npz(b, _neutro(nome))
-            elif rel == "resumo.md":
-                b = _muda_resumo(b, _neutro(nome))
-            arqs[f"rodadas/{d.name}/{rel}"] = b
-            datas[f"rodadas/{d.name}/{rel}"] = f.stat().st_mtime
-            tam += len(b)
+            st = f.stat()
+            itens.append((f"rodadas/{d.name}/{f.relative_to(d).as_posix()}", f, st.st_mtime))
+            tam += st.st_size
         lista_r.append({"pasta": d.name, "nome": str(meta.get("rotulo") or d.name),
                         "data": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime((npz or d).stat().st_mtime)),
                         "guardada": (d / ".guardada").exists(), "tamanho": tam})
-    if len(arqs) > MAX_ARQS or sum(len(b) for b in arqs.values()) > MAX_BYTES:
+    total = sum(len(x) if isinstance(x, bytes) else x.stat().st_size for _, x, _ in itens)
+    if len(itens) > MAX_ARQS or total > MAX_BYTES:       # antes de ler qualquer rodada
         raise ValueError(lingua.tr("msd.grande", mb=MAX_BYTES // 2**20, max=MAX_ARQS))
     if autor is None:
         try:
             autor = getpass.getuser()
         except Exception:
             autor = ""
-    man = {"formato": FORMATO, "versao": VERSAO, "maisim": versao_maisim(), "criado": time.strftime("%Y-%m-%dT%H:%M:%S"),
-           "autor": autor, "sistema": platform.system(), "circuito": nome, "avisos": avisos,
-           "arquivos": [{"caminho": k, "tamanho": len(b), "sha256": _sha(b)} for k, b in arqs.items()], "rodadas": lista_r}
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        z.writestr("manifest.json", json.dumps(man, ensure_ascii=False, indent=1))
-        for k, b in arqs.items():
+    neutro, lista = _neutro(nome), []
+    saida = destino if destino is not None else io.BytesIO()
+    with zipfile.ZipFile(saida, "w", zipfile.ZIP_DEFLATED) as z:
+        for k, x, data in itens:
+            b = x if isinstance(x, bytes) else x.read_bytes()
+            if k.startswith("rodadas/"):
+                if k.endswith(".npz") and k.rsplit("/", 1)[1].startswith("scope_"):
+                    b = _muda_npz(b, neutro)
+                elif k.count("/") == 2 and k.endswith("/resumo.md"):
+                    b = _muda_resumo(b, neutro)
+            lista.append({"caminho": k, "tamanho": len(b), "sha256": _sha(b)})
             # o .npz já vem comprimido: guardado sem comprimir de novo (rápido e do mesmo tamanho)
             # a data de cada arquivo (a de origem, nas rodadas: a lista delas ordena por ela)
-            i = zipfile.ZipInfo(k, time.localtime(max(datas.get(k, time.time()), 315532800))[:6])
+            i = zipfile.ZipInfo(k, time.localtime(max(data, 315532800))[:6])
             i.compress_type = zipfile.ZIP_STORED if k.endswith(".npz") else zipfile.ZIP_DEFLATED
             z.writestr(i, b)
-    return buf.getvalue(), avisos
+            del b
+        man = {"formato": FORMATO, "versao": VERSAO, "maisim": versao_maisim(), "criado": time.strftime("%Y-%m-%dT%H:%M:%S"),
+               "autor": autor, "sistema": platform.system(), "circuito": nome, "avisos": avisos, "arquivos": lista,
+               "rodadas": lista_r}
+        z.writestr("manifest.json", json.dumps(man, ensure_ascii=False, indent=1))   # por último: já com os SHA-256
+    return (None if destino is not None else saida.getvalue()), avisos
 
 
 def _caminho_ok(nome):
