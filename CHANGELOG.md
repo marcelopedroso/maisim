@@ -7,6 +7,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Changed
+- Control panel: signal names in math notation, as on the drawing and in the scope (`v_a` → *v* with subscript a, `i_Lf_a` → *i* with subscript Lf,a) — in the control **Diagram** (measurement and actuation chips, message labels) and in the **Variables** tables (Measurements, Parameters, Actuations), which keep the exact code name beside it in small monospace; filtering still matches the code name (#PR)
 - Editor palette: items never tested in MaiSim or that make no sense here are no longer offered — Export/Import Data to/from Simulink, Data export to file, Data from File, Java-Function, C/C++ Function, Small signal analysis, Sparse control, PMSM controller and PMSM modulator (`ESCONDIDOS` in `simu/catalogo_gecko.py`, `"oculto"` in `catalogo.json`). A circuit that already has one still opens, draws and runs. Developer setup: `app/scripts/maisim.sh --abrir` (`npm run abrir`) runs the launcher, so closing the window stops MaiSim as in the packages; on WSL the launcher opens Windows' Chrome or Edge, and `MAISIM_NAVEGADOR` may carry options. Without `--abrir`, `npm run maisim` stays up until Ctrl+C as before (#127).
 
 ### Added

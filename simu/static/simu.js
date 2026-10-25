@@ -103,7 +103,10 @@ function partesMat(texto) {                            // [{txt}] ou [{base, sub
 }
 const MAT = "KaTeX_Main, 'Latin Modern Roman', 'Times New Roman', serif";
 function textoMat(pai, x, y, s, at = {}) {             // como texto(), com o nome em notação (o original no data-txt)
-  const t = texto(pai, x, y, "", at), fs = parseFloat(at["font-size"]) || 0.62 * G; t.setAttribute("data-txt", s);
+  const t = texto(pai, x, y, "", at); poeMat(t, s, parseFloat(at["font-size"]) || 0.62 * G); return t;
+}
+function poeMat(t, s, fs) {                            // enche um <text> já feito com o nome em notação (tamanho fs, px); o original no data-txt
+  t.textContent = ""; t.setAttribute("data-txt", s);
   for (const q of partesMat(s)) {
     if (q.txt != null) { no("tspan", {}, t).textContent = q.txt; continue; }
     no("tspan", q.base.length === 1 ? { "font-family": `KaTeX_Math, ${MAT}`, "font-style": "italic", "font-size": fs * 1.18, "font-weight": 400 }

@@ -8,7 +8,7 @@ const { chromium } = require("playwright");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
 const CTL = (corpo = "    pass\n") => `def iniciar(p, e):\n    pass\n\n\ndef passo(t, m, p, e):\n${corpo}    return {}\n`;
-const ORQ = CTL('    envia("dsp_a", {"theta": 1.0})\n    envia("dsp_b", {"theta": 1.0})\n');
+const ORQ = CTL('    envia("dsp_a", {"theta": 1.0, "w_ref": 2.0})\n    envia("dsp_b", {"theta": 1.0, "w_ref": 2.0})\n');
 (async () => {
   let b;
   try {
@@ -35,20 +35,21 @@ const ORQ = CTL('    envia("dsp_a", {"theta": 1.0})\n    envia("dsp_b", {"theta"
         dsps: Object.fromEntries([...svg.querySelectorAll(".dsp")].map((g) => [g.dataset.nos, bb(g)])),
         meds: Object.fromEntries([...svg.querySelectorAll(".med")].map((g) => [g.querySelector("text").textContent, bb(g)])),
         atus: Object.fromEntries([...svg.querySelectorAll(".atu")].map((g) => [g.querySelector("text").textContent, Object.assign(bb(g), { dest: (g.querySelector("text.dest") || {}).textContent || "" })])),
-        msgs: svg.querySelectorAll("path.msg").length, rots: [...svg.querySelectorAll("text.rot")].map((t) => t.textContent), lats: [...svg.querySelectorAll("text.lat")].map((t) => t.textContent) }; });
+        msgs: svg.querySelectorAll("path.msg").length, rots: [...svg.querySelectorAll("text.rot")].map((t) => t.dataset.txt),
+        notacao: [...svg.querySelectorAll("text.rot tspan")].map((t) => t.textContent).join("|"), lats: [...svg.querySelectorAll("text.lat")].map((t) => t.textContent) }; });
     let v = await le();
     ok(v.vis && v.bt && Object.keys(v.dsps).sort().join() === "controle,dsp_a,dsp_b", `o botão mostra o diagrama no lugar do código, com os DSPs ${Object.keys(v.dsps).join(", ")}`);
     ok(v.dsps.controle.x < v.dsps.dsp_a.x && v.dsps.dsp_a.x === v.dsps.dsp_b.x, "colunas pela ordem das mensagens: o controle antes de dsp_a e dsp_b (na mesma coluna)");
     ok(v.meds.s01.x + v.meds.s01.w < v.dsps.controle.x && v.meds.s03.x > v.dsps.controle.x + v.dsps.controle.w && v.meds.s03.x + v.meds.s03.w < v.dsps.dsp_a.x,
       "medidas: as do controle à esquerda dele; a s03 (só do dsp_a) encostada no dsp_a");
-    ok(v.msgs === 2 && JSON.stringify(v.rots) === '["theta"]' && JSON.stringify(v.lats) === '["fibra 20 µs"]', `mensagens: ${v.msgs} setas, um rótulo "${v.rots}" (${v.lats})`);
+    ok(v.msgs === 2 && JSON.stringify(v.rots) === '["theta, w_ref"]' && v.notacao === "theta, |w|ref|\u200b" && JSON.stringify(v.lats) === '["fibra 20 µs"]', `mensagens: ${v.msgs} setas, um rótulo "${v.rots}" (${v.lats}), em notação: ${v.notacao.replace("\u200b", "")} (w_ref → w com ref subscrito; o nome do código no data-txt)`);
     ok(v.atus.s05 && v.atus.s06 && v.atus.s05.x > v.dsps.dsp_a.x + v.dsps.dsp_a.w && /^→ nada ligado$/.test(v.atus.s05.dest), `atuações à direita: s05 "${v.atus.s05 && v.atus.s05.dest}", s06`);
     // "todas as medidas" vira um bloco
     await monta(true); await pg.waitForTimeout(800);
     v = await le();
     ok(Object.keys(v.meds).some((k) => /^todas as medidas \(6\)$/.test(k)) && !("s04" in v.meds), `dsp_b lendo todas: um bloco "${Object.keys(v.meds).find((k) => /todas/.test(k))}"`);
     // o código muda: sem o envia ao dsp_b, uma seta só
-    await pg.evaluate(() => { const m = ctl.modelos["controle.py"]; m.setValue(m.getValue().replace('    envia("dsp_b", {"theta": 1.0})\n', "")); });
+    await pg.evaluate(() => { const m = ctl.modelos["controle.py"]; m.setValue(m.getValue().replace('    envia("dsp_b", {"theta": 1.0, "w_ref": 2.0})\n', "")); });
     await pg.waitForTimeout(1800);
     v = await le();
     ok(v.vis && v.msgs === 1, `o código sem o envia ao dsp_b: ${v.msgs} seta (o diagrama acompanha)`);
