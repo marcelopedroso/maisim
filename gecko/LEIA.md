@@ -12,7 +12,18 @@ e no Windows, sem X11 (o simu lê o arquivo e avisa a página). `0005`: `simulat
 saídas escolhidas lidas depois de cada um (o STEPA do motor: as perdas do FLOW, cuja de chaveamento dura um passo só, vão
 ao scope como a média do intervalo entre amostras). `0006`: o nome da grandeza no bloco Grandeza da máquina (VIEWMOT)
 estável — o Gecko punha o nome da máquina na frente de novo a cada abertura ("M-DC.1M-DC.1.n [rpm]"…) e trocava o campo
-depois de cada simulação (o circuito parecia sem salvar); agora fica sempre "M-DC.1.n [rpm]".
+depois de cada simulação (o circuito parecia sem salvar); agora fica sempre "M-DC.1.n [rpm]". `0007`: os blocos de controle
+quebrados (v0.3.1) — o POW (x^y) com as duas entradas de verdade (o calculador nascia com uma: ligar a 2ª não valia e o
+passo dava ArrayIndexOutOfBounds); a TF com o termo de 2ª derivada dividido por dt² (era por dt: um numerador com 2 graus a
+mais que o denominador dava a 2ª derivada vezes dt², quase nada); no `PolynomTools` do diálogo da TF (polos e zeros →
+polinômios), a parte imaginária somada com a imaginária (somava a real: raízes complexas depois de uma real davam os
+coeficientes errados) e o corte dos zeros do fim pelo módulo e sem passar do índice 0 (com ganho negativo, ia até −1 e
+caía), e o resto da divisão de polinômios nunca mais longo que o denominador (o arredondamento deixava um coeficiente
+"quase zero" e a TF lia o vetor de estado no índice −1); o DELAY conta os passos com tolerância (T = 70 µs com Δt = 10
+µs dava 6,999… → 6 passos; agora 7); e a TF nova nasce 1/(1 + 1e-3 s) em modo polinômio (era 1/1, e o
+diálogo, no modo polos e zeros, a refazia com o polo 2 e o zero 1 de enfeite: (s − 1)/(s − 2), instável). Os circuitos
+salvos antes não mudam: o arquivo guarda os polinômios e o modo. O MaiSim escreve a TF pelo arquivo (`editor/mede` tipo H),
+como os medidores.
 
 **Tudo de uma vez (recomendado):** em `app/`, `npm run maisim` sobe o scope, o simulador, este Gecko e a página, e o
 Ctrl+C derruba o que ele subiu (o Gecko só se não houver circuito sem salvar; ver `app/scripts/maisim.sh`).

@@ -8,7 +8,7 @@ de um bloco novo e o que cada bloco faz, num circuito pequeno por grupo, com a s
   usa o tempo do começo do passo: TIME = t − Δt na amostra de tempo t.
 - Os dinâmicos, contra a recorrência do Gecko (com as entradas gravadas) e contra a resposta contínua: PT1 (Tustin; 63,2 %
   em t = T, final a1), PT2 (a1·(1 − cos(t/T)): sem amortecimento), PI (r0·x + a1·∫x), INT (rampa, reset com z ≥ 1, z = 0,99
-  não zera, limites), PD (derivador puro: a1·dx/dt), DELAY (atraso de int(T/Δt) passos, 0 enquanto enche), HYS (±1, troca
+  não zera, limites), PD (derivador puro: a1·dx/dt), DELAY (atraso de ⌊T/Δt + 1e-9⌋ passos, patch 0007, 0 enquanto enche), HYS (±1, troca
   em ±h), LIMIT, S-H (por nível, > 0,5), COUNTER (subidas por 0,5; reset > 0,5); a rodada de novo dá o mesmo (nada fica de
   uma rodada para a outra).
 - Os de lógica e os Math contra o numpy: GE, GT, EQ, NE, AND, OR, XOR, NOT (limiar 0,5), ABS, ROUND (Math.round do Java),
@@ -217,10 +217,10 @@ try:
         ok(maxdif(z["y_pd"][1:], 0.5 * 200) < 1e-6 and z["y_pd"][0] == 0,
            f"PD (a1 = 0,5) de uma rampa de inclinação 200: {z['y_pd'][5]:.6f} = a1·200 (derivador puro: G = a1·s)")
         for nome, Td in (("y_d1", 7e-5), ("y_d2", 1.23e-4)):
-            n = int(Td / DT)
+            n = int(Td / DT + 1e-9)                      # o patch 0007: floor com tolerância (70 µs / 10 µs = 7, não 6)
             esp = np.concatenate([np.zeros(n), tt[:-n]])
             ok(maxdif(z[nome], esp) < 1e-15 and np.all(z[nome][:n] == 0),
-               f"DELAY (T = {Td:g} s): {n} passos = int(T/Δt) (T/Δt = {Td / DT!r}; atraso {n * DT:.2e} s), 0 enquanto enche")
+               f"DELAY (T = {Td:g} s): {n} passos = ⌊T/Δt + 1e-9⌋ (T/Δt = {Td / DT!r}; atraso {n * DT:.2e} s), 0 enquanto enche")
         # HYS: +1 acima de h, −1 abaixo de −h, segura entre (0 até a 1ª troca)
         h, x = 0.5, z["sen"]
         e, v = np.empty(N), 0.0
