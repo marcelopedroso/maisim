@@ -2028,7 +2028,8 @@ function menuXY(p) {
     liga(".xy-dq", (x, e) => { x.dq = e.checked; });
     liga(`input[name="xy-th-${p.id}"]`, (x, e) => { x.th.fonte = e.value; });
     liga(".xy-th", (x, e) => { x.th.canal = e.value; if (e.value) x.th.fonte = "sinal"; });
-    liga(".xy-f", (x, e) => { if (e.value !== "" && isFinite(+e.value)) x.th.f = +e.value; });   // f < 0: a sequência negativa liga(".xy-fase", (x, e) => { if (e.value !== "") x.th.fase = +e.value; });
+    liga(".xy-f", (x, e) => { if (e.value !== "" && isFinite(+e.value)) x.th.f = +e.value; });   // f < 0: a sequência negativa
+    liga(".xy-fase", (x, e) => { if (e.value !== "" && isFinite(+e.value)) x.th.fase = +e.value; });
     for (const j of [0, 1]) {
       liga(`.xy-u.xy-${j}`, (x, e) => { x.pares[j].u = e.value; }); liga(`.xy-i.xy-${j}`, (x, e) => { x.pares[j].i = e.value; });
       liga(`.xy-z.xy-${j}`, (x, e) => { if (e.value !== "" && isFinite(+e.value)) x.pares[j].z = +e.value; });

@@ -118,6 +118,12 @@ const api = async (rota, corpo) => (await fetch(SIMU + rota, corpo === undefined
     X = [await dq(giro * 60)]; const q = X[0].stat;
     ok(X[0].xy.dq && q && q.espalha / s.r < 0.12 && Math.abs(Math.hypot(q.cx, q.cy) - s.r) < 0.05 * s.r,
        `dq com θ = 2π·(${giro * 60} Hz)·t: um ponto em (${q && q.cx.toFixed(2)}, ${q && q.cy.toFixed(2)}) A, |dq| = ${q && Math.hypot(q.cx, q.cy).toFixed(2)} (o raio do αβ: ${s.r.toFixed(2)}), espalhado em ${q && (100 * q.espalha / s.r).toFixed(1)} % do raio`);
+    // φ₀ = 90°: o mesmo ponto girado de 90° (o módulo igual), e o valor guardado no painel
+    await (await menu()).locator(".xy-fase").fill("90"); await (await menu()).locator(".xy-fase").dispatchEvent("change"); await pg.waitForTimeout(300);
+    const F = (await xy())[0], qf = F.stat, gira = qf && Math.abs(((Math.atan2(qf.cy, qf.cx) - Math.atan2(q.cy, q.cx)) * 180 / Math.PI + 540) % 360 - 180);
+    ok(F.xy.th.fase === 90 && qf && Math.abs(gira - 90) < 5 && Math.abs(Math.hypot(qf.cx, qf.cy) / Math.hypot(q.cx, q.cy) - 1) < 0.02,
+       `φ₀ = ${F.xy.th.fase}°: o ponto dq girou ${gira && gira.toFixed(1)}° (o módulo ${qf && Math.hypot(qf.cx, qf.cy).toFixed(2)} A)`);
+    await (await menu()).locator(".xy-fase").fill("0"); await (await menu()).locator(".xy-fase").dispatchEvent("change"); await pg.waitForTimeout(300);
     await (await menu()).locator(".menu-fecha").click();
     await cartao().screenshot({ path: path.join(__dirname, "scope_xy_dq.png") });
     // 5. outro painel XY, no modo U–Z·i: v_an contra 10 Ω · i_a (a carga é 10 Ω + 10 mH: uma elipse inclinada)
