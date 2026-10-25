@@ -93,7 +93,9 @@ const ORFA = path.join(RODADAS, "2026-01-01_000009_ap_orfa");
     const [x1, x2] = await pg.evaluate((arqs) => Promise.all([0, 1].map(() => fetch("apagar", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ arqs }) }).then(async (r) => ({ st: r.status, j: await r.json().catch(() => null) })))), arqs);
     const soma = [x1, x2].map((x) => x.j ? `${x.j.apagados.length} apagadas, ${(x.j.ja || []).length} já, ${x.j.recusados.length} recusadas` : `HTTP ${x.st}`);
-    const resumo = await pg.evaluate((j) => resumoApagar(j), x2.j || { apagados: [], recusados: [] });
+    // o aviso de quem chegou depois (o que achou as duas já apagadas): a ordem em que o servidor atende os dois não é fixa
+    const tardio = x1.j && (x1.j.ja || []).length ? x1 : x2;
+    const resumo = await pg.evaluate((j) => resumoApagar(j), tardio.j || { apagados: [], recusados: [] });
     ok(arqs.length === 2 && x1.st === 200 && x2.st === 200 && x1.j.apagados.length + x2.j.apagados.length === 2 && (x1.j.ja || []).length + (x2.j.ja || []).length === 2
        && !x1.j.recusados.length && !x2.j.recusados.length && !fs.existsSync(d4) && !fs.existsSync(d5) && resumo === "nada apagado; 2 já tinham saído",
       `dois pedidos juntos: ${soma.join(" | ")}; o aviso: "${resumo}"`);
