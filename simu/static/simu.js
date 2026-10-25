@@ -51,7 +51,7 @@ const externaDe = (e) => { const x = EXTERNA[e.tipo]; return x && e.entradas.len
 // os bornes das entradas externas, na ordem de pars (os de antes, como o sinal do LIMIT, ficam de fora); sem elas, null
 const bornesExternos = (e) => { const x = EXTERNA[e.tipo], t = x && e.terminais.filter((u) => u.lado === "e");
   return t && t.length === x.de + x.pars.length ? t.slice(x.de) : null; };
-const SIMBOLO = { LIMIT: "LIM", CONST: "C", SIGNAL: "∿", GATE: "G", GAIN: "K", ADD: "+", SUB: "−", NOT: "¬", AND: "&", DELAY: "Δt", GE: "≥", VOLT: "V", AMP: "A" };
+const SIMBOLO = { VIEWMOT: "M", LIMIT: "LIM", CONST: "C", SIGNAL: "∿", GATE: "G", GAIN: "K", ADD: "+", SUB: "−", NOT: "¬", AND: "&", DELAY: "Δt", GE: "≥", VOLT: "V", AMP: "A" };
 const UNID = { resistance: "Ω", inductance: "H", capacitance: "F", amplitude: "V", dcValue: "V", frequency: "Hz", onResistance: "Ω",
   offResistance: "Ω", frequenz: "Hz", phaseDegrees: "°", phase: "°", initialCurrent: "A" };
 // a rede térmica (aba Térmica): Rth, Cth, DT e HEAT-SOURCE com dois terminais, desenhados como R, C, fonte de tensão e de
@@ -531,6 +531,34 @@ function doisPinos(g, e) {
       texto(g, c[0], c[1], e.tipo, { "text-anchor": "middle", fill: COR.lk, "font-size": 0.5 * G });
   }
 }
+// as máquinas (aba Motor & EMI; os bornes onde o Gecko os põe, ipes.py MOTORES): o círculo com M e "=" (CC) ou "~" (CA),
+// as ligações num quadro local girado com a orientação (a do Gecko é sempre uma rotação: 503 0°, 504 90°, 501 180°, 502
+// 270°); no M-DC o campo é a bobina entre os dois bornes de cima. Embaixo, o tipo e o torque de carga (o sinal de controle
+// que o dá, como o "Tm >>" do Gecko; sem sinal, em vermelho: a máquina gira em vazio)
+const ANG_DIR = { 503: 0, 504: 90, 501: 180, 502: 270 };
+function desenhaMaquina(g, e) {
+  const a = ANG_DIR[e.dir] || 0, cl = COR.lk, at = { class: "corpo", stroke: cl, "stroke-width": 1.4, fill: "none" };
+  no("rect", { x: (e.x - 2.2) * G, y: (e.y - 2.4) * G, width: 4.4 * G, height: 4.8 * G, fill: "transparent" }, g);   // a área de clique
+  const r = no("g", { transform: `rotate(${a} ${e.x * G} ${e.y * G})` }, g);
+  const L = (pts, o = {}) => no("polyline", Object.assign({ points: pts.map(([x, y]) => `${(e.x + x) * G},${(e.y + y) * G}`).join(" ") }, at, o), r);
+  const local = (t) => { const dx = t.x - e.x, dy = t.y - e.y;           // a rotação de volta: o borne no quadro de 503
+    return a === 90 ? [dy, -dx] : a === 180 ? [-dx, -dy] : a === 270 ? [-dy, dx] : [dx, dy]; };
+  const campo = e.id_gecko === "M-DC" ? [e.terminais[1], e.terminais[3]].filter(Boolean) : [];
+  for (const t of e.terminais) {
+    const [lx, ly] = local(t), sx = Math.sign(lx) || -1;
+    if (campo.includes(t)) L([[lx, ly], [-1.45, ly]]);                  // o campo: até a bobina
+    else if (ly === 0) L([[lx, 0], [sx, 0]]);
+    else L([[lx, ly], [sx, ly], [0, 0]]);                               // as fases de fora do eixo: para o centro (o círculo cobre)
+  }
+  if (campo.length) no("rect", { class: "corpo", x: (e.x - 1.45) * G, y: (e.y - 2.15) * G, width: 0.5 * G, height: 1.3 * G, fill: cl, stroke: cl, "stroke-width": 1 }, r);
+  no("circle", { class: "corpo", cx: e.x * G, cy: e.y * G, r: G, fill: COR.cartao, stroke: cl, "stroke-width": 1.6 }, g);
+  texto(g, e.x, e.y - 0.15, "M", { class: "simbolo", "text-anchor": "middle", fill: cl, "font-size": 0.75 * G, "font-weight": 700 });
+  texto(g, e.x, e.y + 0.5, /DC$/.test(e.id_gecko || "") ? "=" : "~", { "text-anchor": "middle", fill: cl, "font-size": 0.55 * G, "font-weight": 700 });
+  texto(g, e.x + 1.15, e.y - 1.3, e.nome, { fill: COR.nome, "font-size": 0.6 * G });
+  texto(g, e.x, e.y + 1.75, e.id_gecko || e.tipo, { "text-anchor": "middle", fill: COR.par, "font-size": 0.5 * G });
+  texto(g, e.x, e.y + 2.4, e.mede[0] ? `${tr("simu.carga_curta")} ← ${e.mede[0]}` : tr("simu.sem_carga"),
+    { class: "maq-carga", "text-anchor": "middle", fill: e.mede[0] ? COR.ct : COR.erro, "font-size": 0.45 * G });
+}
 function valorPrincipal(e) {
   const p = e.par, v = (k) => (p[k + "_var"] ? `${p[k + "_var"]}= ` : "") + si(p[k], UNID[k]);
   if (e.dom === "THERM") {                             // K/W, J/K, °C e W sem prefixo (0,5 K/W, não 500 mK/W)
@@ -607,7 +635,12 @@ function desenha() {
     n++;
     const g = no("g", { class: (e.tipo === "SUBCIRCUIT" ? "el sub" : "el") + (ed.sel === e.nome || ed.multi.has(e.nome) ? " sel" : "") + (e.ativo === false ? " desativado" : ""), "data-i": i }, camEl);
     if (e.ativo === false) no("title", {}, g).textContent = tr(e.curto ? "simu.el_curto" : "simu.el_desativado", { nome: e.nome });
-    if ((e.dom === "LK" || e.dom === "THERM") && e.tipo !== "TERM" && e.terminais.length === 2) {
+    if (e.dom === "LK" && e.grandezas) {
+      desenhaMaquina(g, e);
+      // o rótulo do borne só quando nenhuma conexão chega nele (a da conexão já o mostra; ligado só pelo nome, como no Gecko)
+      if (mostrar.rotulos) e.terminais.forEach((t) => { if (!t.rotulo || ptsFio.has(`${t.x},${t.y}`)) return; const esq = t.x < e.x;
+        rotulo(camRot, t.x + (esq ? -0.25 : 0.25), t.y - 0.42, t.rotulo, { "text-anchor": esq ? "end" : "start", fill: COR.rot, "font-size": 0.5 * G }); });
+    } else if ((e.dom === "LK" || e.dom === "THERM") && e.tipo !== "TERM" && e.terminais.length === 2) {
       const [a, b] = e.terminais;                                       // área de clique ao longo do elemento
       no("rect", { x: (Math.min(a.x, b.x) - 0.7) * G, y: (Math.min(a.y, b.y) - 0.7) * G, width: (Math.abs(a.x - b.x) + 1.4) * G,
         height: (Math.abs(a.y - b.y) + 1.4) * G, fill: "transparent" }, g);
@@ -692,6 +725,8 @@ function desenha() {
       if (ext) ext.forEach((t, k) => { const esq = t.x < e.x;
         texto(g, t.x + (esq ? 0.32 : -0.32), t.y, pars[k].simb, { class: "pino-ext", "text-anchor": esq ? "start" : "end", fill: COR.ct,
           "font-size": 0.42 * G, "font-family": MAT, "font-style": pars[k].simb.length === 1 ? "italic" : "normal" }); });
+      if (e.tipo === "VIEWMOT") texto(g, e.x, topo + h + 0.55, e.mede[1] && e.grandeza ? `${e.mede[1]} · ${e.grandeza}` : tr("simu.sem_maquina"),
+        { class: "vm-alvo", "text-anchor": "middle", fill: e.mede[1] ? COR.ct : COR.erro, "font-size": 0.45 * G });
       if (e.tipo === "GATE") texto(g, e.x, topo + h + 0.55, e.mede[0] ? `→ ${e.mede[0]}` : tr("simu.sem_chave"), { "text-anchor": "middle", fill: e.mede[0] ? COR.ct : COR.erro, "font-size": 0.45 * G });
       // escrito pelo controle: a etiqueta vai em cima do bloco, como o nome de um componente (Marcelo, 19/10: na saída ela
       // cobria o que se liga ali, como o borne S do SM encostado no CONST)
@@ -1351,9 +1386,17 @@ function nomeAutoDe(tipo, m0, m1, lc) {
   const san = (x) => x.replace(/[^A-Za-z0-9_]/g, "_"), f = dados.folhas[folhaAtual];
   m0 = m0 || ""; m1 = m1 || "";
   if (tipo === "AMP") return san(`i_${m0}`);
+  if (tipo === "VIEWMOT") return m0 && m1 ? nomeGrandeza(m0, m1) : "";
   if (tipo === "TEMP") { const pv = pvDoNo(f, m0); return pv && pv.mede[0] ? `Tj_${semPonto(pv.mede[0])}` : san(`T_${m0}${m1 ? "_" + m1 : ""}`); }
   if (tipo === "FLOW") { const pv = f.elementos.find((x) => x.tipo === "Pv" && x.nome === m0); return `${PREFIXO_FLOW[lc] || "Pv"}_${semPonto((pv && pv.mede[0]) || m0)}`; }
   return san(`v_${m0}${m1 ? "_" + m1 : ""}`);
+}
+// a grandeza da máquina no scope e no m[...]: a grandeza sem a unidade e a máquina sem ponto nem hífen (n_MDC1, isa_PMSM1)
+const nomeGrandeza = (maq, q) => `${String(q).split(" ")[0]}_${String(maq).replace(/[.\-]/g, "")}`.replace(/[^A-Za-z0-9_]/g, "_");
+// os bornes de uma máquina no painel (a ordem de e.terminais: as entradas e depois as saídas do Gecko)
+function nomeBorneMaq(e, lado, k) {
+  if (e.id_gecko === "M-DC" || e.id_gecko === "PM-DC") return tr(`simu.borne_${k ? "campo" : "armadura"}_${lado === "e" ? "mais" : "menos"}`);
+  return lado === "e" ? tr("simu.borne_fase", { f: "abc"[k] || k + 1 }) : tr("simu.borne_n", { n: k + 1 });
 }
 const nomeEntrada = (e, i) => { const x = externaDe(e), p = x && x.pars[i - x.de];
   return p ? tr("simu.entrada_ext_n", { n: i + 1, o: tr(p.k) }) : tr("simu.entrada_n", { n: i + 1 }); };
@@ -1401,13 +1444,24 @@ async function montaProps() {
     ${e.dom === "THERM" && e.terminais.length === 1 ? `<h4>${escT(tr("simu.h_ligacoes"))}</h4>
       <label><span>${escT(tr(e.tipo === "Pv" ? "simu.no_aquecido" : "simu.no_referencia"))}</span><input ${e.tipo === "Pv" ? 'data-out="0"' : 'data-in="0"'} value="${escT((e.tipo === "Pv" ? e.saidas : e.entradas)[0] || "")}"></label>
       <div class="aviso">${escT(tr("simu.termico_ligacoes_aviso"))}</div>` : ""}
-    ${(e.dom === "LK" || e.dom === "THERM") && e.terminais.length === 2 ? `<h4>${escT(tr("simu.h_ligacoes"))}</h4>
+    ${(e.dom === "LK" || e.dom === "THERM") && e.terminais.length === 2 && !e.grandezas ? `<h4>${escT(tr("simu.h_ligacoes"))}</h4>
       <label><span>${escT(tr(e.tipo === "U" ? "simu.term1_mais" : "simu.term1_inicio"))}</span><input data-in="0" value="${e.entradas[0] || ""}"></label>
       <label><span>${escT(tr(e.tipo === "U" ? "simu.term2_menos" : "simu.term2_fim"))}</span><input data-out="0" value="${e.saidas[0] || ""}"></label>
       <div class="aviso">${escT(tr("simu.ligacoes_aviso"))}</div>` : ""}
     ${(e.tipo === "U" || e.tipo === "I") && e.dom === "LK" && e.par.sourceType === 400 ? `<h4>${escT(tr("simu.h_sinal_ctl"))}</h4>
       <label><span>${escT(tr("simu.valor_vem_de"))}</span><input id="p-sinal" value="${e.mede[0] || ""}" placeholder="${escT(tr("simu.ph_rotulo_sinal"))}" autocomplete="off"></label>
       <div class="aviso">${escT(tr("simu.fonte_aviso"))}</div>` : ""}
+    ${e.dom === "LK" && e.grandezas ? `<h4>${escT(tr("simu.h_carga"))}</h4>
+      <label><span>${escT(tr("simu.carga_sinal"))}</span><input id="p-carga" value="${escT(e.mede[0] || "")}" placeholder="${escT(tr("simu.ph_rotulo_sinal"))}" autocomplete="off"></label>
+      <div class="aviso">${escT(tr("simu.carga_aviso"))}</div>
+      <h4>${escT(tr("simu.h_ligacoes"))}</h4>
+      ${e.terminais.map((t) => { const k = e.terminais.filter((u) => u.lado === t.lado).indexOf(t);
+        return `<label><span>${escT(nomeBorneMaq(e, t.lado, k))}</span><input ${t.lado === "e" ? "data-in" : "data-out"}="${k}" value="${escT(t.rotulo || "")}" placeholder="${escT(tr("simu.ph_ou_conexao"))}"></label>`; }).join("")}
+      <div class="aviso">${escT(tr("simu.maquina_aviso"))}</div>` : ""}
+    ${e.tipo === "VIEWMOT" ? `<h4>${escT(tr("simu.h_grandeza"))}</h4>
+      <label><span>${escT(tr("simu.maquina"))}</span><input id="m-maq" value="${escT(e.mede[1] || "")}" placeholder="${escT(tr("simu.ph_maquina"))}" autocomplete="off"></label>
+      <label><span>${escT(tr("simu.grandeza"))}</span><select id="m-grandeza"></select></label>
+      <div class="aviso">${escT(tr("simu.grandeza_aviso"))}</div>` : ""}
     ${e.tipo === "VOLT" ? `<h4>${escT(tr("simu.h_mede"))}</h4><label><span>${escT(tr("simu.tensao_no"))}</span><input id="m-n1" value="${e.mede[0] || ""}"></label>
       ${seletorPonta(e, 0)}
       <label><span>${escT(tr("simu.menos_no"))}</span><input id="m-n2" value="${e.mede[1] || ""}"></label>
@@ -1473,13 +1527,14 @@ async function montaProps() {
     try { novoEstado(await api("editor/mede", Object.assign({ nome: e.nome, descr: ok, folhas: fs }, corpo))); msg(ok, "ok"); }
     catch (err) { msg(err.message, "erro"); return; }
     // nome no scope automático (i_R_1, v_a_gnd, Tj_IGBT1, Pv_IGBT1) enquanto o nome for vazio ou o automático de antes; um nome seu não muda
-    const san = (x) => x.replace(/[^A-Za-z0-9_]/g, "_"), antes = nomeAutoDe(e.tipo, e.mede[0], e.mede[1], e.losscomp);
+    const san = (x) => x.replace(/[^A-Za-z0-9_]/g, "_"),
+      antes = e.tipo === "VIEWMOT" ? nomeAutoDe("VIEWMOT", e.mede[1], e.grandeza) : nomeAutoDe(e.tipo, e.mede[0], e.mede[1], e.losscomp);
     if (nomeAuto && (!e.saidas[0] || e.saidas[0] === antes) && e.saidas[0] !== san(nomeAuto))
       await pede("OUTNODE", [qualificado(e), 0, san(nomeAuto)], tr("simu.d_no_scope_como", { nome: e.nome, canal: san(nomeAuto) }));
   };
   if (v("#m-n1")) v("#m-n1").onchange = v("#m-n2").onchange = () => (`${v("#m-n1").value.trim()}|${v("#m-n2").value.trim()}` === ultimoMedido ||
     `${v("#m-n1").value.trim()}|${v("#m-n2").value.trim()}` === `${e.mede[0] || ""}|${e.mede[1] || ""}`) ? null : (ultimoMedido = `${v("#m-n1").value.trim()}|${v("#m-n2").value.trim()}`, mede({ tipo: "V", no1: v("#m-n1").value.trim(), no2: v("#m-n2").value.trim() }, tr("simu.d_mede_v", { nome: e.nome, a: v("#m-n1").value, b: v("#m-n2").value || "0" }), `v_${v("#m-n1").value.trim()}${v("#m-n2").value.trim() ? "_" + v("#m-n2").value.trim() : ""}`));
-  const comps = dados.folhas[folhaAtual].elementos.filter((x) => x.dom === "LK" && x.terminais.length === 2 && x.tipo !== "VOLT" && x.tipo !== "AMP");
+  const comps = dados.folhas[folhaAtual].elementos.filter((x) => x.dom === "LK" && x.terminais.length === 2 && x.tipo !== "VOLT" && x.tipo !== "AMP" && !x.grandezas);
   if (v("#m-comp")) {
     comBusca(v("#m-comp"), comps.map((x) => ({ v: x.nome, d: x.nome_tipo || descrTipo(x.tipo) || x.tipo })));
     v("#m-comp").onchange = () => { const c = v("#m-comp").value.trim();
@@ -1522,6 +1577,34 @@ async function montaProps() {
       ultimoMedido = k;
       if (!pvs.some((x) => x.nome === c)) { msg(tr("simu.sem_pv_folha", { c }), "erro"); return; }
       mede({ tipo: "F", componente: c, losscomp: lc }, tr("simu.d_flow", { nome: e.nome, c, perda: tr("simu.perda_" + lc) }), nomeAutoDe("FLOW", c, "", lc)); };
+  }
+  const sinaisCtl = () => { const fl = dados.folhas[folhaAtual];        // os rótulos de sinal de controle desta folha
+    return [...new Set(fl.elementos.filter((x) => x.dom === "CONTROL").flatMap((x) => x.saidas).concat(
+      fl.fios.filter((w) => w.dom === "CONTROL").map((w) => w.rotulo)).filter(Boolean))].sort(); };
+  if (v("#p-carga")) {                                   // a máquina: o torque de carga vem do sinal com este rótulo (vazio: sem carga)
+    comBusca(v("#p-carga"), sinaisCtl().map((r) => ({ v: r, d: tr("simu.h_sinal_ctl") })));
+    v("#p-carga").onchange = () => { const s = v("#p-carga").value.trim();
+      if (s === (e.mede[0] || "") || s === ultimoMedido) return;
+      ultimoMedido = s;
+      mede({ tipo: "L", sinal: s }, tr(s ? "simu.d_carga" : "simu.d_sem_carga", { nome: e.nome, s })); };
+  }
+  if (v("#m-maq")) {                                     // VIEWMOT: a máquina (desta folha) e a grandeza (a lista do Gecko para ela)
+    const maqs = dados.folhas[folhaAtual].elementos.filter((x) => x.dom === "LK" && x.grandezas);
+    comBusca(v("#m-maq"), maqs.map((x) => ({ v: x.nome, d: x.nome_tipo || x.id_gecko || x.tipo })));
+    const opcoes = (nome, q) => { const m = maqs.find((x) => x.nome === nome), gs = m ? m.grandezas : [];
+      v("#m-grandeza").innerHTML = gs.map((g) => `<option value="${escT(g)}" ${g === q ? "selected" : ""}>${escT(g)} · ${escT(tr("simu.gm_" + g.split(" ")[0]))}</option>`).join("")
+        || `<option value="">${escT(tr("simu.sem_maquina"))}</option>`;
+      v("#m-grandeza").disabled = !gs.length;
+      if (gs.length && !gs.includes(q)) v("#m-grandeza").value = gs.includes("n [rpm]") ? "n [rpm]" : gs[0]; };
+    opcoes(e.mede[1] || "", e.grandeza || "");
+    const aplica = () => { const c = v("#m-maq").value.trim(), q = v("#m-grandeza").value, k = `${c}|${q}`;
+      if (!c || !q || k === ultimoMedido || k === `${e.mede[1] || ""}|${e.grandeza || ""}`) return;
+      ultimoMedido = k;
+      mede({ tipo: "M", componente: c, grandeza: q }, tr("simu.d_grandeza", { nome: e.nome, c, q }), nomeAutoDe("VIEWMOT", c, q)); };
+    v("#m-maq").onchange = () => { const c = v("#m-maq").value.trim();
+      if (c && !maqs.some((x) => x.nome === c)) { msg(tr("simu.sem_maquina_folha", { c }), "erro"); return; }
+      opcoes(c, v("#m-grandeza").value); aplica(); };
+    v("#m-grandeza").onchange = aplica;
   }
   if (v("#p-sinal")) {                                   // rótulos de saída dos blocos de controle desta folha
     const fl = dados.folhas[folhaAtual], sinais = [...new Set(fl.elementos.filter((x) => x.dom === "CONTROL").flatMap((x) => x.saidas).concat(

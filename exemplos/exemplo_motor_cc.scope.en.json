@@ -1,0 +1,9 @@
+{
+ "titulos": {
+  "Motor CC — controle de velocidade": "DC motor — speed control",
+  "Velocidade n (rpm)": "Speed n (rpm)",
+  "Corrente de armadura (A)": "Armature current (A)",
+  "Torque (N·m)": "Torque (N·m)",
+  "Razão cíclica d": "Duty cycle d"
+ }
+}

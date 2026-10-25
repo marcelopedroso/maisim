@@ -1,0 +1,9 @@
+{
+ "titulos": {
+  "PMSM — controle dq": "PMSM — dq control",
+  "Velocidade n (rpm)": "Speed n (rpm)",
+  "Correntes i_d e i_q (A)": "Currents i_d and i_q (A)",
+  "Correntes de fase (A)": "Phase currents (A)",
+  "Torque (N·m)": "Torque (N·m)"
+ }
+}

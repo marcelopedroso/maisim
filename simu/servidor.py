@@ -4736,6 +4736,8 @@ def claude_contexto(c, dt, tfim):
             elif e and e["tipo"] == "FLOW":
                 o = tr({"conduction": "ia_contexto.m_flow_conduction", "switching": "ia_contexto.m_flow_switching"}.get(
                     e.get("losscomp"), "ia_contexto.m_flow_total"), pv=e['mede'][0] or '?')
+            elif e and e["tipo"] == "VIEWMOT" and e.get("grandeza"):
+                o = tr("ia_contexto.m_maquina", q=e["grandeza"], maq=e["mede"][1] or "?")
             elif e and e["tipo"] == "CONST":
                 o = tr("ia_contexto.m_const", nome=e['nome'])
             else:
@@ -6202,6 +6204,25 @@ class Manipulador(BaseHTTPRequestHandler):
                     if lc not in PERDAS:
                         raise ErroMotor(lingua.tr("editor.losscomp", lista=", ".join(PERDAS)))
                     return acopla(nome, [pv, "NIX_NIX_NIX", "0"], ref=pv, folhas=corpo.get("folhas"), losscomp=lc)
+                def motor_de(n):                        # o elemento da máquina com este nome (o 1º das folhas pedidas), ou None
+                    return next((e for f in (corpo.get("folhas") or ["0"]) for e in ult["folhas"].get(str(f), {"elementos": []})["elementos"]
+                                 if e["nome"] == n and e.get("grandezas")), None)
+                if tipo == "L":                          # a máquina: o torque de carga vem do sinal de controle com este rótulo
+                    s = str(corpo.get("sinal", "")).strip()   # (AbstractMotor: parameterString[0]; vazio = sem carga)
+                    if not ROTULO.match(s):
+                        raise ErroMotor(lingua.tr("editor.sinal_rotulo"))
+                    if not motor_de(nome):
+                        raise ErroMotor(lingua.tr("editor.nao_e_maquina", comp=repr(nome)))
+                    return acopla(nome, [s or "NIX_NIX_NIX", "NIX_NIX_NIX", "0"], folhas=corpo.get("folhas"), dominio="LK")
+                if tipo == "M":                          # VIEWMOT: uma grandeza interna da máquina (parameterString máquina.grandeza,
+                    maq, q = str(corpo.get("componente", "")), str(corpo.get("grandeza", ""))   # máquina, grandeza)
+                    m = motor_de(maq) if NOME.match(maq) else None
+                    if not m:
+                        raise ErroMotor(lingua.tr("editor.nao_e_maquina", comp=repr(maq)))
+                    if q not in m["grandezas"]:
+                        raise ErroMotor(lingua.tr("editor.grandeza_maquina", lista=", ".join(m["grandezas"])))
+                    # [0] "máquina.grandeza", como o Gecko (patch 0006) o refaz ao abrir e ao simular
+                    return acopla(nome, [f"{maq}.{q}", maq, q], ref=maq, folhas=corpo.get("folhas"))
                 raise ErroMotor(lingua.tr("editor.mede_tipo"))
             return self._editor(com_desfazer(mede, corpo.get("descr") or lingua.tr("editor.desfazer_medidor"), manter_se_falhar=True))
         if rota == "/editor/variavel":                 # acao: nova | apaga | liga | desliga (ver variavel())

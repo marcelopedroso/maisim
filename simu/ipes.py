@@ -148,6 +148,9 @@ def le(caminho):
                               txt=[float(d.get("dxTxt", 0) or 0), float(d.get("dyTxt", 0) or 0)], par=par,
                               id_gecko=cat[0], nome_tipo=cat[1], ativo=d.get("enabledShorted", "1").strip() == "1",
                               curto=d.get("enabledShorted", "1").strip() == "2", bruto=_bruto(corpo, d)))   # Gecko: 0 desativado, 1 ativo, 2 em curto
+        if dom == "CONTROL" and cat[0] == "VIEWMOT":    # a grandeza interna da máquina (parameterString: máquina+grandeza, máquina, grandeza)
+            ps = _rotulos(d.get("parameterString[]")) + ["", "", ""]
+            elementos[-1]["grandeza"] = ps[2] if ps[2] != "0" else ""
         if "losscomp" in d:                         # o FLOW: que perda ele mede (total, conduction, switching; LossComponent do Gecko)
             elementos[-1]["losscomp"] = d["losscomp"].strip()
     for dom, corpo in re.findall(r"\nverbindung(\w+)\s+\(\d+\)\n<Verbindung>\n(.*?)<\\Verbindung>", t, re.S):
@@ -213,6 +216,18 @@ def _termicos(e):
     return out
 
 
+# as máquinas (Motor & EMI; geometria_gecko.json): os terminais em posição relativa, como os blocos de controle (ponto_gecko
+# na orientação). M-DC: entradas armadura + (−2, 0) e campo + (−2, 2), saídas armadura − (2, 0) e campo − (−2, 1); PM-DC só
+# a armadura; PMSM e IM-CAGE as três fases em (−2, 1), (−2, 0), (−2, −1). Sem eixo mecânico: o torque de carga é um sinal de
+# controle pelo rótulo (parameterString[0], AbstractMotor) e as grandezas internas saem pelo VIEWMOT
+MOTORES = {"M-DC", "PM-DC", "PMSM", "IM-CAGE", "SM-SAL", "SM-RO", "IM", "IM-SAT"}
+# o que o VIEWMOT lê de cada uma (getParameterStringIntern do Gecko, o texto exato que vai no parameterString[2])
+TRIFASICAS = ["isa [A]", "isb [A]", "isc [A]", "omega", "n [rpm]", "theta [rad]", "Tel [Nm]"]
+GRANDEZAS_MOTOR = {"M-DC": ["ia [A]", "ie [A]", "omega", "n [rpm]", "phi [Vs]", "emf [V]", "Tel [Nm]", "theta [rad]"],
+                   "PM-DC": ["ia [A]", "omega", "n [rpm]", "emf [V]", "Tel [Nm]", "theta [rad]"],
+                   **{k: TRIFASICAS for k in ("PMSM", "IM-CAGE", "SM-SAL", "SM-RO", "IM", "IM-SAT")}}
+
+
 def _dois_pinos(e):
     x, y, s = e["x"], e["y"], {503: (0, 1), 501: (0, -1), 502: (1, 0), 504: (-1, 0)}.get(e["dir"], (0, 1))
     return [(x - 2 * s[0], y - 2 * s[1]), (x + 2 * s[0], y + 2 * s[1])]
@@ -250,6 +265,12 @@ def monta(caminho):
             term = [dict(x=px, y=py, rotulo=r) for (px, py), r in zip(_dois_pinos(e), (e["entradas"] + [""])[:1] + (e["saidas"] + [""])[:1])]
         elif e["tipo"] == "TERM":
             term = [dict(x=e["x"], y=e["y"], rotulo="")]
+        elif e["dom"] == "LK" and e.get("id_gecko") in MOTORES and e["id_gecko"] in GEOMETRIA:   # onde o Gecko põe
+            geo = GEOMETRIA[e["id_gecko"]]
+            term = [dict(zip(("x", "y"), ponto_gecko(e, *pr)), rotulo=(rots[k] if k < len(rots) else ""), lado=lado)
+                    for lista, rots, lado in ((geo["entradas"], e["entradas"], "e"), (geo["saidas"], e["saidas"], "s"))
+                    for k, pr in enumerate(lista) if isinstance(pr, list)]
+            e["grandezas"] = GRANDEZAS_MOTOR[e["id_gecko"]]
         elif e["dom"] == "THERM" and e.get("id_gecko") in TERMICOS:
             term = [dict(x=px, y=py, rotulo=r) for px, py, r in _termicos(e)]
         elif e["dom"] == "CONTROL" and e.get("id_gecko") in GEOMETRIA and e["tipo"] != "TERM":   # onde o Gecko põe

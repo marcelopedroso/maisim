@@ -1,0 +1,10 @@
+{
+ "colunas": 1,
+ "itens": [
+  {"secao": "PMSM — controle dq"},
+  {"titulo": "Velocidade n (rpm)", "sinais": ["n_PMSM1", "n_ref"], "largura": 1},
+  {"titulo": "Correntes i_d e i_q (A)", "sinais": ["i_d", "i_q", "iq_ref"], "largura": 1},
+  {"titulo": "Correntes de fase (A)", "sinais": ["isa_PMSM1", "isb_PMSM1", "isc_PMSM1"], "largura": 1},
+  {"titulo": "Torque (N·m)", "sinais": ["Tel_PMSM1", "Tm"], "largura": 1}
+ ]
+}

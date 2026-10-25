@@ -1,4 +1,4 @@
-"""Os modelos de exemplo do MaiSim (instância de teste 7201), pedido de Marcelo em 22/10: cada um (exemplos/, montados por
+"""Os modelos de exemplo do MaiSim (instância de teste 7201), pedido de Marcelo em 22/10 (e os dois de motor, v0.3.1): cada um (exemplos/, montados por
 exemplos_monta.py) abre sem pontas soltas nem variáveis sobrando, roda com o Δt e o tempo final gravados nele e dá o número
 da teoria na janela de regime; o "Abrir" mostra os exemplos e não os do GeckoCIRCUITS (MAISIM_EXEMPLOS_GECKO desligado);
 os exemplos de antes sem as sobras (o SM solto e o TAG.1 do PWM; as variáveis $ do MMC)."""
@@ -50,10 +50,10 @@ try:
     nomes = {Path(m["arq"]).stem for m in mods if m.get("grupo") == "exemplos"}
     novos = {"exemplo_buck", "exemplo_buck_degrau", "exemplo_buck_termico", "exemplo_boost", "exemplo_buck_boost", "exemplo_retificador_trifasico", "exemplo_inversor_ponte_completa",
              "exemplo_inversor_trifasico", "exemplo_inversor_meia_ponte", "exemplo_ponte_h_cc", "exemplo_retificador_monofasico",
-             "exemplo_retificador_trifasico_controlado"}
+             "exemplo_retificador_trifasico_controlado", "exemplo_motor_cc", "exemplo_pmsm"}
     sub = list((RAIZ / "exemplos" / "subcircuitos").glob("*.ipes")) if (RAIZ / "exemplos" / "subcircuitos").is_dir() else []
-    ok(novos <= nomes and len(nomes) == 14 and "exemplo_cascata_hb" not in nomes and not sub and "exemplos do GeckoCIRCUITS" not in grupos,
-       f"o Abrir: os 14 exemplos (sem as células em cascata, que usam o SM-HB do MMC; nenhum subcircuito em exemplos/); sem o grupo do GeckoCIRCUITS ({sorted(grupos)})")
+    ok(novos <= nomes and len(nomes) == 16 and "exemplo_cascata_hb" not in nomes and not sub and "exemplos do GeckoCIRCUITS" not in grupos,
+       f"o Abrir: os 16 exemplos (sem as células em cascata, que usam o SM-HB do MMC; nenhum subcircuito em exemplos/); sem o grupo do GeckoCIRCUITS ({sorted(grupos)})")
     CONF = [  # arquivo, o que conferir na janela final (a média, salvo dito), alvo, tolerância
         ("buck", "v_o", 24.0, 0.04), ("buck_degrau", "i_L", 24.0 / 5, 0.04),
         # o buck térmico: Tj em regime = 25 °C + P·ΣRth, com P do modo simples do Gecko a 12 A e 48 V (condução
@@ -62,7 +62,9 @@ try:
         ("retificador_trifasico", "v_dc", 1.35 * 220, 0.02), ("inversor_ponte_completa", "fundamental de v_ab", 0.8 * 200, 0.02),
         ("inversor_trifasico", "fundamental de v_ab", 0.866 * 0.8 * 400, 0.02), ("inversor_meia_ponte", "fundamental de v_am", 0.8 * 100, 0.02),
         ("ponte_h_cc", "i_a", (0.5 * 100 - 40) / 1.0, 0.05), ("retificador_monofasico", "v_dc", 165.0, 0.05),
-        ("retificador_trifasico_controlado", "v_dc", 1.35 * 220 * 0.866, 0.02)]
+        ("retificador_trifasico_controlado", "v_dc", 1.35 * 220 * 0.866, 0.02),
+        # os motores com o controle em Python (o .controle.json do exemplo): a velocidade no fim, a referência do último degrau
+        ("motor_cc", "n_MDC1", 1500.0, 0.01), ("pmsm", "n_PMSM1", 2000.0, 0.01)]
     for nome, sinal, alvo, tol in CONF:
         arq = f"exemplos/exemplo_{nome}.ipes"
         j, r, z = roda(arq)

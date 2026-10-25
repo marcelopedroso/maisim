@@ -1,0 +1,88 @@
+{
+ "ativo": true,
+ "Ts": 0.0001,
+ "atuacoes": [
+  "da",
+  "db",
+  "dc"
+ ],
+ "parametros": [
+  {
+   "nome": "n_ref",
+   "valor": 1000.0,
+   "unidade": "rpm"
+  },
+  {
+   "nome": "Vdc",
+   "valor": 400.0,
+   "unidade": "V"
+  },
+  {
+   "nome": "pares",
+   "valor": 3.0,
+   "unidade": ""
+  },
+  {
+   "nome": "Psi",
+   "valor": 0.191,
+   "unidade": "Wb"
+  },
+  {
+   "nome": "Ld",
+   "valor": 0.005,
+   "unidade": "H"
+  },
+  {
+   "nome": "Lq",
+   "valor": 0.005,
+   "unidade": "H"
+  },
+  {
+   "nome": "Kp_w",
+   "valor": 1.0,
+   "unidade": "A·s/rad"
+  },
+  {
+   "nome": "Ki_w",
+   "valor": 200.0,
+   "unidade": "A/rad"
+  },
+  {
+   "nome": "Iq_max",
+   "valor": 20.0,
+   "unidade": "A"
+  },
+  {
+   "nome": "Kp_i",
+   "valor": 9.42,
+   "unidade": "V/A"
+  },
+  {
+   "nome": "Ki_i",
+   "valor": 1885.0,
+   "unidade": "V/(A·s)"
+  }
+ ],
+ "codigo": "# PMSM com controle vetorial (dq) em Python, adaptado do dq_control_pmsm.ipes do GeckoCIRCUITS.\n# Circuito: inversor trifásico de dois níveis (S.1 a S.6) no barramento de 400 V alimenta o PMSM.1 (Psi 0,191 Wb,\n# 3 pares de polos, Rs 1 ohm, Ld = Lq = 5 mH, J 2e-3 kg·m²). O PWM é do Gecko: as razões cíclicas da, db e dc (os CONST\n# que este código escreve) contra a portadora triangular de 10 kHz. As medidas vêm da máquina (blocos \"Grandeza da\n# máquina\"): as correntes isa/isb/isc, o ângulo mecânico theta e a velocidade n.\n#\n# A cada Ts = 100 µs (um período da portadora, amostrando no pico dela: a média das correntes):\n#   1. Clarke e Park com o ângulo elétrico θ = p·theta (o eixo d no ímã, como o Gecko: i_d = α·cos θ + β·sen θ);\n#   2. PI de velocidade → referência i_q (limitada a ±Iq_max); i_d de referência = 0 (o torque é 1,5·p·Psi·i_q);\n#   3. PIs de i_d e i_q com o desacoplamento (−ωe·Lq·i_q em v_d; ωe·(Ld·i_d + Psi) em v_q), |v| limitado a Vdc/√3;\n#   4. Park inverso com o ângulo adiantado de 1,5·ωe·Ts (a tensão só chega uma amostra depois e vale o período todo),\n#      e a injeção de sequência zero mín-máx (equivale ao SVPWM): d_k = 0,5 + (v_k + v0)/Vdc.\n#\n# Ajuste (planta da corrente: 1/(Rs + s·L); da velocidade: 1,5·p·Psi/(J·s)):\n#   - correntes: cruzamento em 300 Hz, Kp_i = L·ωc = 9,42 V/A e Ki_i = Rs·ωc = 1885 V/(A·s);\n#   - velocidade: cruzamento em 430 rad/s, Kp_w = J·ωc/(1,5·p·Psi) = 1 A·s/rad e Ki_w = Kp_w/Ti = 200 A/rad (Ti = 5 ms).\n# Acionamentos (no painel): o torque de carga Tm de 0 para 5 N·m em 40 ms e a referência de 1000 para 2000 rpm em 70 ms.\n\nR3 = math.sqrt(3)\n\n\ndef iniciar(p, e):\n    e[\"int_w\"] = 0.0\n    e[\"int_d\"] = 0.0\n    e[\"int_q\"] = 0.0\n\n\ndef pi_passo(e, chave, erro, kp, ki, ts, livre):\n    \"\"\"Saída de um PI; a integral só anda se a saída anterior não saturou (livre).\"\"\"\n    u = kp * erro + ki * (e[chave] + erro * ts)\n    if livre:\n        e[chave] += erro * ts\n    return u\n\n\ndef passo(t, m, p, e):\n    ts, pp = p[\"Ts\"], p[\"pares\"]\n    th = pp * m[\"theta_PMSM1\"]                  # ângulo elétrico\n    w = m[\"n_PMSM1\"] * math.pi / 30             # velocidade mecânica, rad/s\n    we = pp * w                                 # velocidade elétrica\n    ia, ib, ic = m[\"isa_PMSM1\"], m[\"isb_PMSM1\"], m[\"isc_PMSM1\"]\n\n    # Clarke e Park\n    alfa = (2 * ia - ib - ic) / 3\n    beta = (ib - ic) / R3\n    c, s = math.cos(th), math.sin(th)\n    i_d = alfa * c + beta * s\n    i_q = -alfa * s + beta * c\n\n    # velocidade → i_q de referência\n    erro_w = p[\"n_ref\"] * math.pi / 30 - w\n    iq_ref = pi_passo(e, \"int_w\", erro_w, p[\"Kp_w\"], p[\"Ki_w\"], ts, abs(e.get(\"iq_ref\", 0.0)) < p[\"Iq_max\"])\n    iq_ref = max(-p[\"Iq_max\"], min(p[\"Iq_max\"], iq_ref))\n    e[\"iq_ref\"] = iq_ref\n\n    # correntes → tensões dq (com o desacoplamento), |v| até Vdc/√3\n    livre = e.get(\"livre\", True)\n    v_d = pi_passo(e, \"int_d\", 0.0 - i_d, p[\"Kp_i\"], p[\"Ki_i\"], ts, livre) - we * p[\"Lq\"] * i_q\n    v_q = pi_passo(e, \"int_q\", iq_ref - i_q, p[\"Kp_i\"], p[\"Ki_i\"], ts, livre) + we * (p[\"Ld\"] * i_d + p[\"Psi\"])\n    vmax = 0.95 * p[\"Vdc\"] / R3\n    mod = math.hypot(v_d, v_q)\n    e[\"livre\"] = mod < vmax\n    if mod > vmax:\n        v_d, v_q = v_d * vmax / mod, v_q * vmax / mod\n\n    # Park inverso (adiantado de 1,5·Ts) e sequência zero mín-máx\n    thv = th + 1.5 * we * ts\n    c, s = math.cos(thv), math.sin(thv)\n    va = v_d * c - v_q * s\n    vbeta = v_d * s + v_q * c\n    vb = -0.5 * va + R3 / 2 * vbeta\n    vc = -0.5 * va - R3 / 2 * vbeta\n    v0 = -(max(va, vb, vc) + min(va, vb, vc)) / 2\n    d = [max(0.0, min(1.0, 0.5 + (v + v0) / p[\"Vdc\"])) for v in (va, vb, vc)]\n\n    scope(\"n_ref\", p[\"n_ref\"])\n    scope(\"i_d\", i_d)\n    scope(\"i_q\", i_q)\n    scope(\"iq_ref\", iq_ref)\n    return {\"da\": d[0], \"db\": d[1], \"dc\": d[2]}\n",
+ "atraso": {
+  "modo": "amostra",
+  "tempo": 0.0
+ },
+ "acionamentos": [
+  {
+   "t": 0.04,
+   "alvo": "CONST:Tm",
+   "valor": 5.0
+  },
+  {
+   "t": 0.07,
+   "alvo": "p:n_ref",
+   "valor": 2000.0
+  }
+ ],
+ "arquivos": {},
+ "controladores": [],
+ "rede": {
+  "latencia": 0.0
+ }
+}

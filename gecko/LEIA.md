@@ -10,7 +10,9 @@ sem tela virtual) e, com `-Dmaisim.dialogos=ARQUIVO`, uma vigia dentro do própr
 anota "título TAB texto" no arquivo e aperta o botão padrão: um pedido nunca fica esperando um OK que ninguém vê, no Linux
 e no Windows, sem X11 (o simu lê o arquivo e avisa a página). `0005`: `simulateStepsAveraged`, os passos com a média de
 saídas escolhidas lidas depois de cada um (o STEPA do motor: as perdas do FLOW, cuja de chaveamento dura um passo só, vão
-ao scope como a média do intervalo entre amostras).
+ao scope como a média do intervalo entre amostras). `0006`: o nome da grandeza no bloco Grandeza da máquina (VIEWMOT)
+estável — o Gecko punha o nome da máquina na frente de novo a cada abertura ("M-DC.1M-DC.1.n [rpm]"…) e trocava o campo
+depois de cada simulação (o circuito parecia sem salvar); agora fica sempre "M-DC.1.n [rpm]".
 
 **Tudo de uma vez (recomendado):** em `app/`, `npm run maisim` sobe o scope, o simulador, este Gecko e a página, e o
 Ctrl+C derruba o que ele subiu (o Gecko só se não houver circuito sem salvar; ver `app/scripts/maisim.sh`).

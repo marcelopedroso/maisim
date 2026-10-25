@@ -5,10 +5,12 @@ Gecko (portadora SIGNAL + comparador GE, a razão cíclica num CONST — sem có
 Na instância de teste (7201): monta cada um, roda uma vez (o .ipes guarda Δt e o tempo final) e salva em circuitos/; com
 --exemplos, copia para exemplos/ do repositório. A conferência dos números fica em exemplos_api.py.
     python3 exemplos_monta.py [buck boost buck_boost retificador inversor] [--exemplos]"""
-import json, shutil, sys, time, urllib.request
+import json, re, shutil, sys, time, urllib.request
 from pathlib import Path
 
-B = "http://localhost:7201/maisim/simu/"
+_CONF = Path(__file__).resolve().parents[2] / "config/teste.env"     # a porta do simulador de teste (o perfil config/teste.env)
+_PORTA = re.search(r"(?m)^MAISIM_PORTA_SIMU=(\d+)", _CONF.read_text()) if _CONF.exists() else None
+B = f"http://localhost:{_PORTA.group(1) if _PORTA else 7201}/maisim/simu/"
 CIRC = Path.home() / ".cache/maisim_teste/circuitos"
 EXEMPLOS = Path(__file__).resolve().parents[2] / "exemplos"
 
@@ -360,9 +362,79 @@ def buck_termico():
     return dict(dt=0.5e-6, tfim=0.06, amostras=12000)
 
 
+def maquina(nome, x, y, tipo, carga=None, d=None, **par):
+    """Uma máquina (aba Motor & EMI) com os parâmetros e o torque de carga vindo do sinal de controle com o rótulo carga
+    (editor/mede tipo L, como o painel do motor)."""
+    poe(nome, x, y, tipo, d, **par)
+    if carga:
+        ok(api("editor/mede", {"nome": nome, "tipo": "L", "sinal": carga}), (nome, carga))
+
+
+def grandeza(nome, x, y, maq, q, saida):
+    """Um VIEWMOT ("Grandeza da máquina"): a grandeza interna q da máquina maq (a lista do Gecko: "n [rpm]", "ia [A]"…) na saída."""
+    sinal(nome, x, y, "VIEWMOT", saida=saida)
+    ok(api("editor/mede", {"nome": nome, "tipo": "M", "componente": maq, "grandeza": q}), (nome, maq, q))
+
+
+def motor_cc():
+    """Motor CC de excitação independente com controle de velocidade em Python (v0.3.1): meia ponte (S.1/S.2
+    complementares, PWM de 20 kHz pelo Gecko: o CONST "d" que o controle.py escreve contra a portadora) no barramento de
+    240 V, armadura Ra 0,5 Ω, La 5 mH; campo próprio de 100 V (Re 100 Ω, Le 0,5 H, Ne 100, I_Le(0) = 1 A: ie = 1 A e
+    k = c·Le·ie/Ne = 1 V·s/rad com c = 200); J 0,005 kg·m², fr 0,001 N·m·s. O torque de carga é o sinal Tm (um CONST que o
+    acionamento muda de 0 para 8 N·m em 0,15 s); as medidas, n_MDC1, ia_MDC1 e Tel_MDC1 (blocos "Grandeza da máquina")."""
+    poe("U.1", 4, 10, "U", 503, type=401, uDC=240.0)
+    perna(12, "a", "S.1", "S.2")
+    fio("p", (4, 8), (4, 4), (12, 4)); fio("gnd", (4, 12), (4, 14), (30, 14))
+    maquina("M-DC.1", 24, 10, "M-DC", carga="Tm", d=503, Ra=0.5, La=5e-3, Le=0.5, Re=100.0, Ne=100.0, I_Le=1.0, c=200.0,
+            J=5e-3, fr=1e-3)
+    fio("a", (18, 10), (22, 10)); fio("", (26, 10), (30, 10), (30, 14))          # a armadura: + no nó a, − no gnd
+    poe("U.2", 16, 22, "U", 503, type=401, uDC=100.0)                            # o campo: a fonte própria (vf), − no gnd
+    fio("vf", (22, 6), (22, 8)); fio("gnd", (20, 9), (22, 9))
+    fio("vf", (16, 20), (16, 18)); fio("gnd", (16, 24), (16, 26))
+    sinal("CONST.1", 4, 30, "CONST", saida="d", const=0.0)
+    sinal("SIGNAL.1", 4, 34, "SIGNAL", saida="portadora", type=403, amplMAX=0.5, offset=0.5, f=20e3)
+    sinal("GE.1", 12, 32, "GE", saida="g", entradas=("d", "portadora")); sinal("NOT.1", 18, 34, "NOT", saida="gn", entradas=("g",))
+    gate("GATE.1", 26, 30, "g", "S.1"); gate("GATE.2", 26, 34, "gn", "S.2")
+    sinal("CONST.2", 34, 30, "CONST", saida="Tm", const=0.0)
+    grandeza("VIEWMOT.1", 34, 34, "M-DC.1", "n [rpm]", "n_MDC1"); grandeza("VIEWMOT.2", 34, 36, "M-DC.1", "ia [A]", "ia_MDC1")
+    grandeza("VIEWMOT.3", 34, 38, "M-DC.1", "Tel [Nm]", "Tel_MDC1")
+    mede("VOLT.1", 40, 6, "v_a", no1="a", no2="gnd")
+    return dict(dt=1e-6, tfim=0.45, amostras=9000)
+
+
+def pmsm():
+    """PMSM com controle dq em Python (v0.3.1), adaptado do dq_control_pmsm.ipes do Gecko (a máquina dele: Psi 0,191 Wb,
+    3 pares de polos, Rs 1 Ω, Ld = Lq = 5 mH; aqui J 2e-3 kg·m², para a velocidade não andar aos saltos com a carga): o
+    inversor trifásico de dois níveis (S.1 a S.6, as pernas a, b, c) no barramento de 400 V; o PWM pelo Gecko (os CONST
+    da, db e dc que o controle.py escreve contra a portadora triangular de 10 kHz: g_k = d_k ≥ portadora, n_k o
+    complementar); o torque de carga Tm (CONST: de 0 para 5 N·m em 40 ms, pelo acionamento); as medidas da máquina:
+    isa/isb/isc_PMSM1, theta_PMSM1, n_PMSM1 e Tel_PMSM1."""
+    poe("U.1", 4, 10, "U", 503, type=401, uDC=400.0)
+    for k, f in enumerate("abc"):
+        perna(12 + 8 * k, f, f"S.{k + 1}", f"S.{k + 4}")
+    fio("p", (4, 8), (4, 4), (28, 4)); fio("neg", (4, 12), (4, 14), (28, 14))
+    maquina("PMSM.1", 40, 10, "PMSM", carga="Tm", d=503, Psi=0.191, p=3.0, Rs=1.0, Ld=5e-3, Lq=5e-3, J=2e-3, fr=2.1e-4)
+    for k, f in enumerate("abc"):                          # as fases da máquina (a, b, c de cima para baixo), pelos rótulos
+        fio(f, (35, 9 + k), (38, 9 + k))
+    sinal("SIGNAL.1", 4, 40, "SIGNAL", saida="portadora", type=403, amplMAX=0.5, offset=0.5, f=10e3)
+    for k, f in enumerate("abc"):
+        yy = 28 + 4 * k
+        sinal(f"CONST.{k + 1}", 4, yy, "CONST", saida=f"d{f}", const=0.5)
+        sinal(f"GE.{k + 1}", 15, yy, "GE", saida=f"g_{f}", entradas=(f"d{f}", "portadora"))
+        sinal(f"NOT.{k + 1}", 21, yy + 2, "NOT", saida=f"n_{f}", entradas=(f"g_{f}",))
+        gate(f"GATE.{k + 1}", 28, yy, f"g_{f}", f"S.{k + 1}"); gate(f"GATE.{k + 4}", 33, yy + 2, f"n_{f}", f"S.{k + 4}")
+    sinal("CONST.4", 40, 26, "CONST", saida="Tm", const=0.0)
+    for k, (q, s) in enumerate((("isa [A]", "isa"), ("isb [A]", "isb"), ("isc [A]", "isc"), ("theta [rad]", "theta"),
+                                ("n [rpm]", "n"), ("Tel [Nm]", "Tel"))):
+        grandeza(f"VIEWMOT.{k + 1}", 40, 30 + 2 * k, "PMSM.1", q, f"{s}_PMSM1")
+    mede("VOLT.1", 48, 6, "v_ab", no1="a", no2="b")
+    return dict(dt=1e-6, tfim=0.12, amostras=12000)
+
+
 MONTA = {"buck": buck, "buck_degrau": buck_degrau, "buck_termico": buck_termico, "boost": boost, "buck_boost": buck_boost, "retificador_trifasico": retificador, "inversor_ponte_completa": inversor,
          "inversor_trifasico": inversor_trifasico, "inversor_meia_ponte": inversor_meia_ponte, "ponte_h_cc": ponte_h_cc,
-         "retificador_monofasico": retificador_monofasico, "retificador_trifasico_controlado": retificador_controlado}
+         "retificador_monofasico": retificador_monofasico, "retificador_trifasico_controlado": retificador_controlado,
+         "motor_cc": motor_cc, "pmsm": pmsm}
 
 
 def monta(nome):
@@ -372,6 +444,9 @@ def monta(nome):
     est = api("editor/estado")
     soltas = (est.get("encaixe") or {}).get("soltas")
     print(f"{nome}: {len(els())} elementos; pontas soltas: {soltas}")
+    ctl = EXEMPLOS / f"exemplo_{nome}.controle.json"     # os de controle em Python: o controle do repositório (a fonte) roda junto
+    if ctl.exists():
+        ok(api("editor/controle", {"controle": json.loads(ctl.read_text())}), "controle")
     j = ok(api("editor/rodar", {"dt": str(par["dt"]), "tfim": str(par["tfim"]), "nome": f"monta_{nome}", "amostras": str(par["amostras"])}), "rodar")
     while j.get("estado") in ("preparando", "rodando", "pausada"):
         time.sleep(0.5); j = api("editor/rodada")
@@ -387,8 +462,13 @@ if __name__ == "__main__":
     for n in nomes:
         monta(n)
         if "--exemplos" in sys.argv:
-            for suf in (".ipes", ".aparencia.json"):           # sem .controle.json: em malha aberta, o controle é o padrão (desligado)
+            for suf in (".ipes", ".aparencia.json"):           # o .controle.json (os de controle em Python) é a fonte: já está em exemplos/
                 f = CIRC / f"exemplo_{n}{suf}"
-                if f.exists():
+                if f.exists() and suf == ".ipes":           # a linha path do Gecko só com o nome do arquivo (sem a pasta de quem montou)
+                    import gzip
+                    t = re.sub(r"(?m)^path [^\n]*[/\\]([^/\\\n]+)$", r"path \1", gzip.decompress(f.read_bytes()).decode("utf-8", "replace"))
+                    (EXEMPLOS / f.name).write_bytes(gzip.compress(t.encode("utf-8")))
+                    print("  →", EXEMPLOS / f.name)
+                elif f.exists():
                     shutil.copyfile(f, EXEMPLOS / f.name)
                     print("  →", EXEMPLOS / f.name)
