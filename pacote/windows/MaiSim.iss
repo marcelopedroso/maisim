@@ -42,7 +42,12 @@ LicenseFile=..\..\LICENSE
 Compression=lzma2/max
 SolidCompression=yes
 LZMANumBlockThreads=4
+; o MaiSim no ar é desligado no PrepareToInstall (o Restart Manager do Windows não fecha processos sem janela, como os
+; do MaiSim)
 CloseApplications=no
+; uma atualização (o MaiSim já instalado) vai para a mesma pasta, sem perguntar
+UsePreviousAppDir=yes
+DisableDirPage=auto
 ShowLanguageDialog=yes
 
 [Languages]
@@ -64,6 +69,8 @@ pt.PortaOcupada=A porta %1 já está em uso neste computador (outro MaiSim, ou o
 pt.Abrir=Abrir o MaiSim agora (a primeira vez leva até um minuto)
 pt.Desligar=Desligar o MaiSim
 pt.PastaCircuitos=Pasta dos meus circuitos
+pt.FecharSemSalvar=O MaiSim ainda está aberto (talvez com um circuito sem salvar). Fechar para atualizar? As mudanças não salvas se perdem.
+pt.Aberto=Feche o MaiSim e rode o instalador de novo.
 pt.ApagarDados=Apagar também os seus circuitos, rodadas e configurações (%1)? Isso não dá para desfazer.
 en.DadosTitulo=Where your circuits are kept
 en.DadosSub=Circuits, runs and the AI contexts are kept in a visible folder.
@@ -79,6 +86,8 @@ en.PortaOcupada=Port %1 is already in use on this computer (another MaiSim, or W
 en.Abrir=Open MaiSim now (the first time takes up to a minute)
 en.Desligar=Stop MaiSim
 en.PastaCircuitos=My circuits folder
+en.FecharSemSalvar=MaiSim is still running (maybe with an unsaved circuit). Close it to update? Unsaved changes will be lost.
+en.Aberto=Close MaiSim and run the installer again.
 en.ApagarDados=Also delete your circuits, runs and settings (%1)? This cannot be undone.
 
 [Files]
@@ -131,6 +140,27 @@ begin
         Result := Copy(Linhas[I], Length(Nome) + 2, MaxInt);
 end;
 
+{ já há um MaiSim instalado com a config pessoal: é uma atualização — a pasta dos circuitos e a porta ficam como estão }
+function Atualizacao: Boolean;
+begin
+  Result := FileExists(ArquivoConfig);
+end;
+
+{ uma pasta dentro do que a atualização troca inteiro (maisim, python e jre da pasta do programa: o [InstallDelete]) }
+function EmPastaTrocada(Pasta: String): Boolean;
+var D, A: String;
+begin
+  D := Lowercase(AddBackslash(Pasta));
+  A := Lowercase(AddBackslash(WizardDirValue));
+  Result := (Pos(A + 'maisim\', D) = 1) or (Pos(A + 'python\', D) = 1) or (Pos(A + 'jre\', D) = 1);
+end;
+
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  { numa atualização, a pasta dos circuitos só é perguntada de novo se estiver onde a atualização apagaria }
+  Result := Atualizacao and (((PageID = PaginaDados.ID) and not EmPastaTrocada(PaginaDados.Values[0])) or (PageID = PaginaPorta.ID));
+end;
+
 function PastaDados(Param: String): String;
 begin
   if PaginaDados <> nil then Result := PaginaDados.Values[0]
@@ -179,7 +209,9 @@ begin
     { os circuitos nunca dentro da pasta do programa (nem ela dentro deles): a atualização e o desinstalar mexem nela }
     D := Lowercase(AddBackslash(PaginaDados.Values[0]));
     A := Lowercase(AddBackslash(WizardDirValue));
-    if (Pos(A, D) = 1) or (Pos(D, A) = 1) then begin
+    { instalação nova: fora da pasta do programa; atualização: só fora do que ela troca inteiro (a de antes, dentro da
+      pasta do programa, era aceita e fica onde está) }
+    if (not Atualizacao and ((Pos(A, D) = 1) or (Pos(D, A) = 1))) or EmPastaTrocada(PaginaDados.Values[0]) then begin
       MsgBox(FmtMessage(CustomMessage('DadosNoPrograma'), [WizardDirValue]), mbError, MB_OK);
       Result := False;
     end;
@@ -197,6 +229,40 @@ begin
         PaginaPorta.Values[0] := IntToStr(Livre);
       Result := False;   { mostra a porta nova na página antes de seguir }
     end;
+  end;
+end;
+
+{ os processos rodando de dentro da pasta do programa (o Python e o Java do MaiSim), pelo caminho: acha também um MaiSim
+  cuja instalação anterior parou no meio (sem o lancador.py) }
+function ProcessosNoPrograma(Matar: Boolean): Boolean;
+var Saida, Cmd: String; Cod: Integer; Ansi: AnsiString;
+begin
+  Saida := ExpandConstant('{tmp}\processos.txt');
+  Cmd := '$p = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -like ''' + ExpandConstant('{app}') + '\*'' }; ';
+  if Matar then Cmd := Cmd + '$p | Stop-Process -Force; Start-Sleep -Seconds 2; ';
+  Cmd := Cmd + '@($p).Count | Out-File -Encoding ascii ''' + Saida + '''';
+  Result := False;
+  if Exec('powershell.exe', '-NoProfile -ExecutionPolicy Bypass -Command "' + Cmd + '"', '', SW_HIDE, ewWaitUntilTerminated, Cod) then
+    if LoadStringFromFile(Saida, Ansi) then
+      Result := StrToIntDef(Trim(String(Ansi)), 0) > 0;
+end;
+
+{ uma atualização com o MaiSim no ar: desliga ele antes de trocar os arquivos (o Windows não deixa trocar um arquivo em
+  uso — "Acesso negado" no jre\bin\awt.dll). Primeiro o --parar (desliga direito; guarda o Gecko se houver circuito sem
+  salvar); se ainda sobrar processo, pergunta e encerra }
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var Py, Lanc: String; Cod: Integer;
+begin
+  Result := '';
+  Py := ExpandConstant('{app}\python\pythonw.exe');
+  Lanc := ExpandConstant('{app}\maisim\app\lancador.py');
+  if FileExists(Py) and FileExists(Lanc) then
+    Exec(Py, '"' + Lanc + '" --produto --parar', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, Cod);
+  if ProcessosNoPrograma(False) then begin
+    if WizardSilent or (MsgBox(CustomMessage('FecharSemSalvar'), mbConfirmation, MB_YESNO) = IDYES) then
+      ProcessosNoPrograma(True);
+    if ProcessosNoPrograma(False) then
+      Result := CustomMessage('Aberto');
   end;
 end;
 
