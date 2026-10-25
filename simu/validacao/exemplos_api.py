@@ -89,6 +89,22 @@ try:
     jp = api("editor/abrir", {"arq": "exemplos/exemplo_controle_pi.ipes", "modo": "descartar"})
     ok("TAG.1" not in els and "SM1" not in els and list(j["folhas"]) == ["0"] and not j.get("globais") and not jp.get("globais"),
        f"exemplo_controle_pwm sem o SM solto e o TAG.1; o PWM e o PI sem as variáveis $ do MMC ({els})")
+    # o painel XY pronto no layout padrão do scope (<nome>.scope.json, 25/10): o trifásico com o vetor espacial das correntes
+    # (αβ e dq a −60 Hz, a sequência do exemplo) e o U–Z·i de v_an; a ponte completa com o U–Z·i de v_ab; os títulos em inglês
+    def padrao(arq, l):
+        q = urllib.request.Request(B + "scope/padrao?modelo=" + arq, headers={"Cookie": f"maisim-lingua={l}"})
+        return (json.loads(urllib.request.urlopen(q, timeout=60).read()).get("layout") or {}).get("itens") or []
+    for arq, quer in (("exemplos/exemplo_inversor_trifasico.ipes", [("vetor", False, "i_a"), ("vetor", True, "i_a"), ("uzi", False, "v_an")]),
+                      ("exemplos/exemplo_inversor_ponte_completa.ipes", [("uzi", False, "v_ab")])):
+        pt, en = padrao(arq, "pt"), padrao(arq, "en")
+        xy = [x["xy"] for x in pt if x.get("xy")]
+        tem = [(x["modo"], bool(x.get("dq")), x.get("a") or x["pares"][0]["u"]) for x in xy]
+        dq_ok = all(x["th"]["f"] == -60 for x in xy if x.get("dq"))
+        uzi_ok = all(abs(x["pares"][0]["z"] - 10.69) < 0.01 and x["media"] == 200 for x in xy if x["modo"] == "uzi")
+        tit_en = [x.get("titulo") or x.get("secao") for x in en]
+        ok(tem == quer and dq_ok and uzi_ok and len(en) == len(pt) and [x.get("xy") for x in en] == [x.get("xy") for x in pt]
+           and tit_en != [x.get("titulo") or x.get("secao") for x in pt] and all(t and not re.search(r"[ãçõé]|Tensão|Corrente", t) for t in tit_en),
+           f"{Path(arq).stem}: o scope abre com os painéis XY {tem} (dq a −60 Hz, U–Z·i com |Z| = 10,69 Ω e média de 200 µs); em inglês: {tit_en}")
     # a trava (Marcelo, 22/10: "não poder salvar por cima o exemplo"): um exemplo aberto não tem dono (o "salvar" vira "salvar
     # como") e o servidor só grava em circuitos/ ou subcircuitos/
     j = api("editor/abrir", {"arq": "exemplos/exemplo_buck.ipes", "modo": "descartar"})

@@ -1,0 +1,9 @@
+{
+ "titulos": {
+  "Inversor em ponte completa": "Full-bridge inverter",
+  "Tensão na carga v_ab (V)": "Load voltage v_ab (V)",
+  "Corrente na carga i_o (A)": "Load current i_o (A)",
+  "U–Z·i da carga RL": "U–Z·i of the RL load",
+  "U–Z·i: v_ab × |Z|·i_o, |Z| = 10,69 Ω (V)": "U–Z·i: v_ab × |Z|·i_o, |Z| = 10.69 Ω (V)"
+ }
+}

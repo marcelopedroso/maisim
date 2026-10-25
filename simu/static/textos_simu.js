@@ -231,6 +231,7 @@ maisimI18n.add({
   "simu.sim_do_arquivo": { pt: "Δt = {dt}, tempo final {tfim} (do arquivo; mude na ⚙ ao lado do ▶)", en: "Δt = {dt}, end time {tfim} (from the file; change it in the ⚙ next to ▶)" },
   // a paleta e pôr componentes
   "simu.aba_biblioteca": { pt: "Biblioteca", en: "Library" },
+  "simu.cmp_viewmot": { pt: "Grandeza da máquina", en: "Machine quantity" },
   "simu.t_item_lib": { pt: "{nome} · subcircuito da biblioteca · {info} · clique ou arraste para a folha", en: "{nome} · library subcircuit · {info} · click or drag onto the sheet" },
   "simu.t_item": { pt: "{nome} · tipo {typ} · {dom} · clique ou arraste para a folha", en: "{nome} · type {typ} · {dom} · click or drag onto the sheet" },
   "simu.lib_vazia": { pt: "a biblioteca está vazia: selecione um subcircuito e use “salvar na biblioteca…”", en: "the library is empty: select a subcircuit and use “save to library…”" },

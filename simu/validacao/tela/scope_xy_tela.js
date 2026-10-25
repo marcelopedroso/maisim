@@ -2,12 +2,26 @@
 // teste (simu 7201 → scope 7202): roda o inversor trifásico do exemplo (carga RL em estrela, 60 Hz), põe um painel XY no
 // vetor espacial das correntes i_a, i_b, i_c (um círculo em volta da origem: o raio quase constante), o mesmo em dq com
 // θ = 2π·f·t no sentido do giro (um ponto: o espalhamento pequeno perto do raio), um U–Z·i (v_an contra 10 Ω·i_a), confere Clarke e Park nos
-// números, e que o layout (recarregar; exportar e importar as visões) guarda os painéis XY. As fotos: scope_xy_*.png
+// números, e que o layout (recarregar; exportar e importar as visões) guarda os painéis XY. Antes, pela página (7200, que
+// leva ao simu e ao padrão do circuito): os exemplos já abrem com os painéis XY do <nome>.scope.json — o trifásico com o αβ,
+// o dq (f = −60 Hz) e o U–Z·i de v_an; a ponte completa com o U–Z·i de v_ab. As fotos: scope_xy_*.png
 const { chromium } = require("playwright");
 const fs = require("fs"), os = require("os"), path = require("path");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
 const SIMU = "http://localhost:7201/maisim/simu/", SCOPE = "http://localhost:7202/maisim/scope/";
+const PAG = "http://localhost:7200/maisim/scope/";
+const ZRL = Math.hypot(10, 2 * Math.PI * 60 * 0.01);       // |Z| da carga RL dos exemplos a 60 Hz (10 Ω, 10 mH): 10,69 Ω
+const roda = async (arq, nome) => {
+  const ab = await api("editor/abrir", { arq, modo: "descartar" });
+  let r = await api("editor/rodar", { dt: "1e-6", tfim: "0.05", nome, amostras: "10000" });
+  for (let k = 0; k < 600 && ["preparando", "rodando", "pausada"].includes(r.estado); k++) { await new Promise((s) => setTimeout(s, 500)); r = await api("editor/rodada"); }
+  return { ab, r };
+};
+// os painéis XY à vista: o modo, as contas (xyStat), e o tamanho de cada trajetória (|x| e |y| máximos)
+const lePaineisXY = (pg) => pg.evaluate(() => paineis().filter((p) => p.xy).map((p) => { const cv = (p.curvas || [])[0] || { x: [], y: [] };
+  let xm = 0, ym = 0; for (let k = 0; k < cv.x.length; k++) { xm = Math.max(xm, Math.abs(cv.x[k])); ym = Math.max(ym, Math.abs(cv.y[k])); }
+  return { titulo: p.titulo, xy: p.xy, stat: p.xyStat, n: cv.x.length, xm, ym, u: !!p.u }; }));
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "scope_xy_"));
 const api = async (rota, corpo) => (await fetch(SIMU + rota, corpo === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo) })).json();
 (async () => {
@@ -27,6 +41,34 @@ const api = async (rota, corpo) => (await fetch(SIMU + rota, corpo === undefined
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message));
     await pg.addInitScript(() => { new MutationObserver(() => { const m = document.querySelector(".sc-modal");   // as perguntas do scope: aceita
       if (m && !m.dataset.visto) { m.dataset.visto = 1; setTimeout(() => m.querySelector(".sc-ok").click(), 50); } }).observe(document, { childList: true, subtree: true }); });
+    // 1b. o padrão dos exemplos (pela página, com o simu): os painéis XY prontos, sem mexer em nada
+    const pgP = await ctx.newPage(); pgP.on("pageerror", (e) => erros.push(e.message));
+    const abreP = async (arq, n) => { await pgP.goto(PAG + "?a=" + encodeURIComponent(arq));
+      await pgP.waitForFunction((n) => typeof A !== "undefined" && A && A.dados && A.dados.t && paineis().filter((p) => p.xy && p.u && p.xyStat).length === n, n, { timeout: 30000 });
+      await pgP.waitForTimeout(600); return lePaineisXY(pgP); };
+    let P = await abreP(r.arquivo, 3);
+    const [pab, pdq, puz] = P, rI = 0.8 * 400 / 2 / ZRL;   // a fundamental da corrente de fase: m·V_dc/2 / |Z| ≈ 15,0 A
+    ok(pab.xy.modo === "vetor" && !pab.xy.dq && pab.stat.rdp / pab.stat.r < 0.05 && Math.abs(pab.stat.r / rI - 1) < 0.05 && Math.hypot(pab.stat.cx, pab.stat.cy) < 0.05 * pab.stat.r,
+       `o padrão do trifásico: "${pab.titulo}", um círculo de raio ${pab.stat.r.toFixed(2)} A (teoria m·V_dc/2/|Z| = ${rI.toFixed(2)}), desvio ${(100 * pab.stat.rdp / pab.stat.r).toFixed(2)} %`);
+    ok(pdq.xy.dq && pdq.xy.th.f === -60 && pdq.stat.espalha / pab.stat.r < 0.12 && Math.abs(Math.hypot(pdq.stat.cx, pdq.stat.cy) / pab.stat.r - 1) < 0.05,
+       `"${pdq.titulo}": um ponto em (${pdq.stat.cx.toFixed(2)}, ${pdq.stat.cy.toFixed(2)}) A, |dq| = ${Math.hypot(pdq.stat.cx, pdq.stat.cy).toFixed(2)}, espalhado em ${(100 * pdq.stat.espalha / pab.stat.r).toFixed(1)} % do raio`);
+    ok(puz.xy.modo === "uzi" && puz.xy.pares[0].u === "v_an" && puz.xy.media === 200 && Math.abs(puz.ym / (ZRL * rI) - 1) < 0.1 && Math.abs(puz.xm / puz.ym - 1) < 0.1,
+       `"${puz.titulo}": |Z·i| máx ${puz.ym.toFixed(1)} V ≈ |u| máx ${puz.xm.toFixed(1)} V (a carga com |Z|: as duas amplitudes iguais, ${(ZRL * rI).toFixed(1)} V)`);
+    await pgP.locator(".cartao.xy").nth(0).scrollIntoViewIfNeeded(); await pgP.mouse.move(0, 0);
+    const caixa = async (els) => { const bs = []; for (const e of els) bs.push(await e.boundingBox());
+      const x = Math.min(...bs.map((b) => b.x)), y = Math.min(...bs.map((b) => b.y));
+      return { x, y, width: Math.max(...bs.map((b) => b.x + b.width)) - x, height: Math.max(...bs.map((b) => b.y + b.height)) - y }; };
+    await pgP.screenshot({ path: path.join(__dirname, "scope_xy_exemplo_vetor.png"), clip: await caixa([pgP.locator(".cartao.xy").nth(0), pgP.locator(".cartao.xy").nth(1)]) });
+    await pgP.locator(".cartao.xy").nth(2).screenshot({ path: path.join(__dirname, "scope_xy_exemplo_uzi_trifasico.png") });
+    const pc = await roda("exemplos/exemplo_inversor_ponte_completa.ipes", "xy_ponte");
+    ok(!pc.ab.ERRO && pc.r.estado === "fim", `a rodada da ponte completa: ${pc.r.estado} (${pc.r.arquivo || pc.r.erro || ""})`);
+    P = await abreP(pc.r.arquivo, 1);
+    const iP = 0.8 * 200 / ZRL;                              // a fundamental de i_o: m·V_dc / |Z| ≈ 15,0 A
+    ok(P[0].xy.modo === "uzi" && P[0].xy.pares[0].u === "v_ab" && P[0].xy.pares[0].i === "i_o" && Math.abs(P[0].ym / (ZRL * iP) - 1) < 0.1 && Math.abs(P[0].xm / P[0].ym - 1) < 0.1,
+       `o padrão da ponte completa: "${P[0].titulo}", |Z·i| máx ${P[0].ym.toFixed(1)} V ≈ |u| máx ${P[0].xm.toFixed(1)} V (teoria ${(ZRL * iP).toFixed(1)} V)`);
+    await pgP.locator(".cartao.xy").first().scrollIntoViewIfNeeded(); await pgP.mouse.move(0, 0);
+    await pgP.locator(".cartao.xy").first().screenshot({ path: path.join(__dirname, "scope_xy_exemplo_uzi.png") });
+    await pgP.close();
     const URL_A = SCOPE + "?a=" + encodeURIComponent(rod.arq);
     const abre = async () => { await pg.goto(URL_A); await pg.waitForFunction(() => typeof A !== "undefined" && A && A.dados && A.dados.t && itens.length, null, { timeout: 30000 }); await pg.waitForTimeout(400); };
     await abre();

@@ -128,7 +128,10 @@ continuam (quem publica rodadas de fora usa `/publicar`).
   ligados; **Mesma escala nos dois eixos** (o círculo sai círculo). Início ○, fim ●, a seta da origem ao fim (vetor, U–Z·i); o
   mouse mostra o ponto mais perto (t, x, y); o cursor de um painel do tempo marca o instante. Arrastar = zoom; duplo clique ou ⛶
   volta. Calculado no navegador sobre os dados gravados (a simulação não muda); ao vivo, a cada lote. No layout e nas visões
-  exportadas (`xy` no item; `sinais` são os que ele usa). Teste: `scope_xy_tela` (o inversor trifásico do exemplo).
+  exportadas (`xy` no item; `sinais` são os que ele usa), e no padrão do circuito (`<nome>.scope.json`): o
+  `exemplo_inversor_trifasico` abre com o αβ e o dq (f = −60 Hz) das correntes e o U–Z·i de v_an; o
+  `exemplo_inversor_ponte_completa`, com o U–Z·i da carga RL (|Z| = 10,69 Ω, média de 200 µs). Teste: `scope_xy_tela` (os
+  dois exemplos, pelo padrão, e o inversor trifásico montado à mão).
 
 ## Arquivos
 `servidor.py` (HTTP + Server-Sent Events, só biblioteca padrão), `publica.py` (fila com envio em lotes e as máscaras de

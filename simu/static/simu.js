@@ -1201,6 +1201,8 @@ async function liga(on) {
   }
   if (!ed.catalogo) { ed.catalogo = await (await fetch("static/catalogo.json")).json();
     const med = ed.catalogo.abas.find((a) => a.aba === "Measure"); if (med) med.itens.unshift(TAG_ITEM);   // a tag do MaiSim, junto dos medidores
+    // "rotulo" (catalogo_gecko.py, ROTULOS): o nome do MaiSim nos dois idiomas no lugar do do Gecko, como o da tag
+    ed.catalogo.abas.forEach((a) => a.itens.forEach((i) => { if (i.rotulo) Object.defineProperty(i, "nome", { get: () => tr(i.rotulo) }); }));
     desenhaPaleta(); carregaBiblioteca(); }
   if ($("sel-modelo").value === NOVO || !$("sel-modelo").value) return;   // novo, ou fechado: nada a abrir
   msg(tr("simu.abrindo"));
@@ -1246,7 +1248,10 @@ function usaSimulacaoDoArquivo(j) {
 }
 function desenhaPaleta() {
   const c = { abas: ed.catalogo.abas.concat([{ aba: tr("simu.aba_biblioteca"), itens: ed.lib }]) }, q = $("busca").value.trim().toLowerCase();
-  $("abas").innerHTML = c.abas.map((a, k) => `<button data-k="${k}" class="${k === ed.aba && !q ? "ativo" : ""}">${a.aba}</button>`).join("");
+  // a aba com tudo "oculto" (a Reluctance) não aparece; o índice das outras fica o mesmo (ed.aba)
+  const vazia = (a) => a.itens.length && a.itens.every((i) => i.oculto);
+  if (vazia(c.abas[ed.aba] || { itens: [] })) ed.aba = 0;
+  $("abas").innerHTML = c.abas.map((a, k) => vazia(a) ? "" : `<button data-k="${k}" class="${k === ed.aba && !q ? "ativo" : ""}">${a.aba}</button>`).join("");
   $("abas").querySelectorAll("button").forEach((b) => b.onclick = () => { ed.aba = +b.dataset.k; $("busca").value = ""; desenhaPaleta(); });
   const itens = (q ? c.abas.flatMap((a) => a.itens.map((i) => Object.assign({ aba: a.aba }, i))).filter((i) => `${i.nome} ${i.id}`.toLowerCase().includes(q))
                     : c.abas[ed.aba].itens).filter((i) => i.id !== "SCOPE" && !i.oculto);   // regra do MaiSim: medidor vai para o

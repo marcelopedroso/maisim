@@ -2022,7 +2022,7 @@ def carrega_aparencia_de(arq_ipes):
 # o layout padrão do scope de um circuito (Marcelo, 23/10), ao lado do .ipes (<nome>.scope.json): o scope o guarda
 # ("guardar como padrão deste circuito") e volta a ele; um circuito sem layout no navegador começa por ele; vai junto no
 # "salvar como"; os exemplos vêm com o deles (só leitura). O do dia a dia continua no navegador, livre para mexer
-CHAVES_PAINEL = ("titulo", "sinais", "altura", "largura", "yFixo", "pFixo", "ganhos", "modo", "solto", "recolhido", "med")
+CHAVES_PAINEL = ("titulo", "sinais", "altura", "largura", "yFixo", "pFixo", "ganhos", "modo", "solto", "recolhido", "med", "xy")   # xy: o painel XY (o scope confere campo a campo, novoXY)
 
 
 def arquivo_scope(arq_ipes):
@@ -2046,6 +2046,8 @@ def limpa_layout(L):
             p = {k: x[k] for k in CHAVES_PAINEL if k in x}
             p["titulo"] = str(p.get("titulo") or "")[:200]
             p["sinais"] = [c for c in x["sinais"] if nome(c)][:200]
+            if not isinstance(p.get("xy"), dict):
+                p.pop("xy", None)
             itens.append(p)
     if not itens:
         raise ErroMotor(lingua.tr("scope.layout_vazio"))
