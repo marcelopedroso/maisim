@@ -29,8 +29,8 @@ np.savez(${JSON.stringify(arq)}, meta=np.array(json.dumps(meta)), t=t, Va=np.sin
     for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof dados !== "undefined" && dados && dados.editor && ed.ligado)); k++) {
       if (await pg.$(".modal .m-ok")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }
     const campo = () => pg.evaluate(() => { const s = document.querySelector(".modal .m-solver");
-      return s && { v: s.value, ops: [...s.options].map((o) => `${o.value}:${o.textContent}`).join("|"), rot: s.closest("label").querySelector("span").textContent,
-                    dica: s.closest("label").title }; });
+      return s && { v: s.value, ops: [...s.options].map((o) => `${o.value}:${o.textContent}`).join("|"), rot: s.closest("label").querySelector("span").firstChild.textContent,
+                    dica: (s.closest("label").querySelector(".ctl-i") || {}).title || "", nativa: s.title || s.closest("label").title }; });
     const abreEngrenagem = async () => { await pg.evaluate(() => { parametrosSim(); }); await pg.waitForSelector(".modal .m-solver", { timeout: 20000 }); };
 
     // 1. o ⚙ mostra o solverType do arquivo (o exemplo: 0, Euler implícito), com os três métodos e a dica
@@ -38,7 +38,15 @@ np.savez(${JSON.stringify(arq)}, meta=np.array(json.dumps(meta)), t=t, Va=np.sin
     let c = await campo();
     ok(c && c.rot === "Integração" && c.v === "0" && c.ops === "0:Euler implícito|1:trapézio|2:Gear (BDF2)",
       `o campo "${c && c.rot}" mostra o do arquivo (${c && c.v}): ${c && c.ops}`);
-    ok(c && /trapézio/.test(c.dica) && /oscila/.test(c.dica), `a dica explica a diferença: "${c && c.dica.slice(0, 80)}…"`);
+    ok(c && /trapézio/.test(c.dica) && /oscila/.test(c.dica) && !c.nativa, `a explicação fica no ⓘ ao lado do nome (não no title do campo): "${c && c.dica.slice(0, 80)}…"`);
+    // a foto do ⚙ (o campo no padrão dos seletores do MaiSim e a dica do ⓘ, no lugar da caixinha do navegador)
+    await pg.hover(".modal .m-solver"); await pg.waitForTimeout(400);
+    const dicaNoCampo = await pg.evaluate(() => { const d = document.getElementById("dica-ui"); return !!d && d.classList.contains("vis"); });
+    ok(!dicaNoCampo, "passar o mouse no seletor não abre dica por cima da lista");
+    await pg.hover(".modal label:has(.m-solver) .ctl-i"); await pg.waitForTimeout(700);
+    const dicaI = await pg.evaluate(() => { const d = document.getElementById("dica-ui"); return d && d.classList.contains("vis") ? d.textContent : ""; });
+    ok(/oscila/.test(dicaI), `o ⓘ mostra a dica do MaiSim: "${dicaI.slice(0, 60)}…"`);
+    if (process.env.FOTO_SOLVER) await pg.screenshot({ path: process.env.FOTO_SOLVER });
     // 2. trapézio + um tempo final curto; Guardar: a mensagem diz a integração e o sim.par guarda (o localStorage também)
     await pg.selectOption(".modal .m-solver", "1");
     await pg.fill('.modal input[name="tfim"]', "0.002"); await pg.fill('.modal input[name="nome"]', "solver_tela");

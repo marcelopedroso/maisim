@@ -2051,9 +2051,9 @@ async function parametrosSim(aba = "sim", op = {}) {
       <div class="m-aba" data-aba="sim"><p>${escT(tr("simu.m_valem"))}</p>
         ${op.aviso ? `<p class="m-guardada">${escT(op.aviso)}</p>` : ""}
         ${SIM.map((c) => `<label><span>${c.rotulo}</span><input name="${c.nome}" value="${escT(c.valor ?? "")}" ${c.dica ? `title="${c.dica}"` : ""}${roda ? " disabled" : ""}></label>`).join("")}
-        <label title="${escT(tr("simu.t_solver"))}"><span>${escT(tr("simu.m_solver"))}</span><select class="m-solver"${roda ? " disabled" : ""}>
+        <label><span>${escT(tr("simu.m_solver"))}<span class="ctl-i" tabindex="0" title="${escT(tr("simu.t_solver"))}">i</span></span><select class="m-solver"${roda ? " disabled" : ""}>
           ${SOLVERS.map((k) => `<option value="${k}"${k === solver ? " selected" : ""}>${escT(tr(`simu.solver_${k}`))}</option>`).join("")}</select></label>
-        <label title="${escT(tr("simu.t_porcima"))}"><span>${escT(tr("simu.m_rodada_nova"))}</span><select class="m-porcima"${roda ? " disabled" : ""}>
+        <label><span>${escT(tr("simu.m_rodada_nova"))}<span class="ctl-i" tabindex="0" title="${escT(tr("simu.t_porcima"))}">i</span></span><select class="m-porcima"${roda ? " disabled" : ""}>
           <option value="1"${porCima ? " selected" : ""}>${escT(tr("simu.porcima_sim"))}</option><option value="0"${porCima ? "" : " selected"}>${escT(tr("simu.porcima_nao"))}</option></select></label></div>
       ${comVars ? `<div class="m-aba" data-aba="vars"><p>${tr("simu.m_vars_html")}</p><div id="gv"></div></div>` : ""}`,
     monta: (fundo) => {
