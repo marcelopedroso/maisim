@@ -126,6 +126,12 @@ class Pagina(socketserver.BaseRequestHandler):
         if caminho == "/maisim/vivo":                     # o sinal de vida (GET) ou o aviso de fechar (sendBeacon: POST)
             sinal_de_vida(parse_qs(alvo.partition("?")[2]))
             return self.resposta(200, json.dumps({"vigiada": time.time() - VIGIA["t"] < 15}).encode(), "application/json")
+        if caminho == "/maisim/pronto":                   # a página "Abrindo o MaiSim…": o lançador já subiu o Gecko e o motor?
+            try:
+                pronto = bool(json.loads((Path(os.environ["MAISIM_CACHE"]) / "lancador.json").read_text()).get("pronto", True))
+            except (KeyError, OSError, ValueError):
+                pronto = True                             # sem lançador (a versão de programador): nada a esperar
+            return self.resposta(200, json.dumps({"pronto": pronto}).encode(), "application/json")
         if caminho == "/maisim/vivo/ultimo":
             VIGIA["t"] = time.time()
             return self.resposta(200, json.dumps(vida()).encode(), "application/json")

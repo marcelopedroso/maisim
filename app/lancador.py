@@ -118,6 +118,7 @@ class Lancador:
         self.estado = self.cache / "lancador.json"
         self.subiu = {}                                  # nome → Popen (só o que este lançador subiu)
         self.parando = False                             # já derrubando: o ícone de novo espera e sobe outro
+        self.pronto = False                              # o Gecko e o motor no ar: a página "Abrindo o MaiSim…" segue (/maisim/pronto)
         self.sem_gecko = sem_gecko
         # o Java: o do pacote (a pasta jre ao lado do código, no instalador do Windows), o de MAISIM_JAVA (o AppRun do
         # AppImage) ou o do sistema (a versão de programador)
@@ -140,7 +141,7 @@ class Lancador:
 
     def grava(self):
         try:
-            self.estado.write_text(json.dumps({"lancador": os.getpid(), "parando": self.parando, "processos": {n: p.pid for n, p in self.subiu.items()}}))
+            self.estado.write_text(json.dumps({"lancador": os.getpid(), "parando": self.parando, "pronto": self.pronto, "processos": {n: p.pid for n, p in self.subiu.items()}}))
         except OSError:
             pass
 
@@ -288,9 +289,11 @@ class Lancador:
             pass
         return True
 
-    def abre(self):
-        """O navegador como app (uma janela só do MaiSim, sem abas): Edge, Chrome ou Chromium; senão o navegador padrão."""
-        url = f"http://localhost:{self.porta('PAGINA')}/"
+    def abre(self, pagina=""):
+        """O navegador como app (uma janela só do MaiSim, sem abas): Edge, Chrome ou Chromium; senão o navegador padrão.
+        pagina: "abrindo.html" na partida (a animação até o Gecko ficar pronto; antes, a tela inicial pedia o circuito ao
+        motor que ainda subia e ficava com o erro "sem o motor do editor")."""
+        url = f"http://localhost:{self.porta('PAGINA')}/{pagina}"
         escolhido = os.environ.get("MAISIM_NAVEGADOR")
         if escolhido == "nenhum":
             fala(f"no ar (sem abrir o navegador): {url}", f"running (browser not opened): {url}")
@@ -445,9 +448,11 @@ def main():
     if not lc.servidores():
         fim()
     if a.abrir:
-        lc.abre()                                        # a página já funciona; o Gecko sobe enquanto isso
+        lc.abre("" if a.sem_gecko else "abrindo.html")   # a janela já abre; a tela inicial vem quando o Gecko estiver no ar
     if not a.sem_gecko:
         lc.gecko()
+    lc.pronto = True                                     # (também se o Gecko falhou: a tela inicial mostra o erro)
+    lc.grava()
     fala(f"no ar em http://localhost:{lc.porta('PAGINA')}/ — Ctrl+C (ou --parar) derruba o que subiu",
          f"running at http://localhost:{lc.porta('PAGINA')}/ — Ctrl+C (or --parar) stops what it started")
     pedido = lc.estado.with_name("lancador.parar")
