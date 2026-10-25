@@ -39,8 +39,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
         run: |
-          outros=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate -q '.[].filename' \
-                   | grep -vE '^(CHANGELOG\.md|README[^/]*\.md|CONTRIBUTING\.md|pacote/LEIA\.md)$' || true)
+          # fails closed: if the file list cannot be read, the step fails (never "only text" by accident)
+          arquivos=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate -q '.[].filename')
+          [ -n "$arquivos" ] || { echo "could not read the PR's files"; exit 1; }
+          outros=$(printf '%s\n' "$arquivos" | grep -vE '^(CHANGELOG\.md|README[^/]*\.md|CONTRIBUTING\.md|pacote/LEIA\.md)$' || true)
           if [ -z "$outros" ]; then echo "only text: no tests"; echo "so_texto=true" >> "$GITHUB_OUTPUT"; fi
       - uses: actions/checkout@v7
         if: steps.texto.outputs.so_texto != 'true'
@@ -104,3 +106,8 @@ jobs:
                        -q '.closingIssuesReferences[] | select(.url | startswith("https://github.com/" + env.GITHUB_REPOSITORY + "/issues/")) | .number'); do
             gh issue close "$n" --repo "$GITHUB_REPOSITORY" --comment "Closed by #$PR (merged by verify)." || true
           done
+          # a new version (VERSION changed): the full suite now — tag, Release and packages (a merge made with the Actions
+          # token does not trigger full-suite.yml's push)
+          if gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json files -q '.files[].path' | grep -qx VERSION; then
+            gh workflow run full-suite.yml --repo "$GITHUB_REPOSITORY" --ref main
+          fi
