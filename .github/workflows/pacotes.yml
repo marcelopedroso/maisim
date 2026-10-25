@@ -45,5 +45,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          ls -la pacote/dist
-          gh release upload "$TAG" pacote/dist/* --repo "$GITHUB_REPOSITORY" --clobber
+          # também com nome fixo (sem a versão): o link .../releases/latest/download/MaiSim-Setup.exe nunca muda (README, site)
+          cd pacote/dist
+          cp MaiSim-Setup-*.exe MaiSim-Setup.exe && sha256sum MaiSim-Setup.exe > MaiSim-Setup.exe.sha256
+          cp MaiSim-*-x86_64.AppImage MaiSim-x86_64.AppImage && sha256sum MaiSim-x86_64.AppImage > MaiSim-x86_64.AppImage.sha256
+          ls -la
+          gh release upload "$TAG" ./* --repo "$GITHUB_REPOSITORY" --clobber
