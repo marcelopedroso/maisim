@@ -6,6 +6,10 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Fixed
+- Tests: `dicas_tela` waits for the keyboard (Tab) tooltip instead of a fixed 700 ms, which the slower CI machine sometimes missed in the full suite (#141).
+- Tests: `scope_apagar_tela` checks the notice of whichever of two simultaneous delete requests was served second (the server's order is not fixed; the v0.3.1 full suite got the other order) (#141).
+
 ## [0.3.1] - 2026-10-25
 
 ### Added
