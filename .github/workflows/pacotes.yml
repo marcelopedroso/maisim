@@ -1,0 +1,49 @@
+# The "just use it" packages for a version (pacote/LEIA.md): the Linux AppImage and the Windows installer, built from the
+# version's tag and attached to its GitHub Release with their .sha256 files. Started by full-suite.yml right after it
+# creates the Release (a Release made with the Actions token does not trigger other workflows; workflow_dispatch does),
+# or by hand: Actions → packages → Run workflow, with the tag (e.g. v0.3.0-rc1).
+name: packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "the version tag to package (e.g. v0.3.0-rc1)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: AppImage and Windows installer
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    env:
+      TAG: ${{ inputs.tag }}   # only through the environment, never pasted into a script (whoever dispatches chooses it)
+    steps:
+      - name: check the tag
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "not a version tag: $TAG"; exit 1; }
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "11"
+          cache: maven
+      - name: tools
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq unzip > /dev/null
+          python3 -m pip install --quiet pillow
+      - name: Linux AppImage
+        run: bash pacote/linux/monta.sh
+      - name: Windows installer
+        run: bash pacote/windows/monta.sh
+      - name: attach to the Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -la pacote/dist
+          gh release upload "$TAG" pacote/dist/* --repo "$GITHUB_REPOSITORY" --clobber
