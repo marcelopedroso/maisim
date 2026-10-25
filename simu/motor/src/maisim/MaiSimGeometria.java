@@ -5,7 +5,11 @@ import ch.technokrat.gecko.geckocircuits.allg.AbstractComponentTyp;
 import ch.technokrat.gecko.geckocircuits.circuit.AbstractTerminal;
 import ch.technokrat.gecko.geckocircuits.circuit.AbstractTypeInfo;
 import ch.technokrat.gecko.geckocircuits.circuit.SpecialTyp;
+import ch.technokrat.gecko.geckocircuits.circuit.ComponentDirection;
+import ch.technokrat.gecko.geckocircuits.circuit.TerminalFixedPosition;
 import ch.technokrat.gecko.geckocircuits.circuit.TerminalRelativePosition;
+import ch.technokrat.gecko.geckocircuits.circuit.TerminalTwoPortComponent;
+import ch.technokrat.gecko.geckocircuits.circuit.TerminalTwoPortRelativeFixedDirection;
 import ch.technokrat.gecko.geckocircuits.circuit.circuitcomponents.CircuitTyp;
 import ch.technokrat.gecko.geckocircuits.control.ControlTyp;
 import ch.technokrat.gecko.geckocircuits.control.RegelBlock;
@@ -23,6 +27,10 @@ import java.util.List;
  * de controle com mais de uma saída, também os nomes delas (nomes_saida: o que o servidor pede ao Gecko, uma por sinal) —
  * e num que pode ter mais de uma conforme o arquivo (VariableTerminalNumber: o Sliding DFT, uma por frequência; o From
  * EXTERNAL), mesmo que o de fábrica tenha uma só: o Sliding DFT só nomeia "DFT" (a 1ª), o From EXTERNAL "0", "1", "2", "etc.".
+ * Os terminais sem posição relativa (os da térmica e os de dois pinos): {"dist": d} no TerminalTwoPortComponent (centro + d
+ * na direção da orientação do elemento), {"dist": d, "dir": código} no TerminalTwoPortRelativeFixedDirection (centro + d
+ * numa direção fixa, qualquer que seja a orientação: a saída do Pv, a entrada do TREF) e {"fixo": [x, y]} no
+ * TerminalFixedPosition (o THERMAL_ZERO, (−4711, −4711), invisível: o lado de referência do Pv e do TREF).
  * uso: java -Djava.awt.headless=true -cp gecko.jar:bin maisim.MaiSimGeometria > geometria.json
  */
 public final class MaiSimGeometria {
@@ -31,8 +39,13 @@ public final class MaiSimGeometria {
         StringBuilder sb = new StringBuilder("[");
         Field fx = TerminalRelativePosition.class.getDeclaredField("_posX");
         Field fy = TerminalRelativePosition.class.getDeclaredField("_posY");
-        fx.setAccessible(true);
-        fy.setAccessible(true);
+        Field fd2 = TerminalTwoPortComponent.class.getDeclaredField("_termDist");
+        Field fdf = TerminalTwoPortRelativeFixedDirection.class.getDeclaredField("_termDist");
+        Field fdir = TerminalTwoPortRelativeFixedDirection.class.getDeclaredField("_fixedDirection");
+        Field fpos = TerminalFixedPosition.class.getDeclaredField("_fixedPosition");
+        for (Field f : new Field[]{fx, fy, fd2, fdf, fdir, fpos}) {
+            f.setAccessible(true);
+        }
         for (int i = 0; i < terms.size(); i++) {
             AbstractTerminal t = terms.get(i);
             if (i > 0) {
@@ -40,8 +53,15 @@ public final class MaiSimGeometria {
             }
             if (t instanceof TerminalRelativePosition) {               // os valores crus: o leitor aplica a orientação
                 sb.append("[").append(fx.getInt(t)).append(",").append(fy.getInt(t)).append("]");
+            } else if (t instanceof TerminalTwoPortComponent) {        // dois pinos: na direção da orientação do elemento
+                sb.append("{\"dist\":").append(fd2.getInt(t)).append("}");
+            } else if (t instanceof TerminalTwoPortRelativeFixedDirection) {   // numa direção fixa (Pv, TREF)
+                sb.append("{\"dist\":").append(fdf.getInt(t)).append(",\"dir\":").append(((ComponentDirection) fdir.get(t)).code()).append("}");
+            } else if (t instanceof TerminalFixedPosition) {           // ponto fixo da folha (o zero térmico)
+                Object q = fpos.get(t);                               // o Point do próprio Gecko (control.Point), campos x e y
+                sb.append("{\"fixo\":[").append(q.getClass().getField("x").getInt(q)).append(",").append(q.getClass().getField("y").getInt(q)).append("]}");
             } else {
-                sb.append("null");                                   // terminal sem posição relativa (dois pinos etc.)
+                sb.append("null");                                   // outro tipo de terminal
             }
         }
         return sb.append("]").toString();

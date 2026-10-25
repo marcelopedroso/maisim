@@ -8,11 +8,11 @@ const TEMA_COR = {
   claro: { lk: "#2233aa", fioLK: "#2b4be0", ct: "#2e8b3d", fioCT: "#2e8b3d", rot: "#1b7f2a", par: "#b0249a", nome: "#1b1f24", sub: "#5b3fd1",
     cartao: "#fff", corpo: "#eef1ff", ctFundo: "#e4f5df", subFundo: "#f6f3ff", bordaSM: "#b9a8f0", grade: "#d5d9e0", seta: "#c2410c",
     texto: "#1f2937", texto2: "#334155", ampFundo: "#e0f2fe", ampTexto: "#0369a1", erro: "#b42318", fraco: "#8a939d", liga: "#1b7f2a",
-    atuFundo: "#fff7e6", atuBorda: "#d97706", atuIcone: "#b45309", atuTexto: "#92400e" },
+    atuFundo: "#fff7e6", atuBorda: "#d97706", atuIcone: "#b45309", atuTexto: "#92400e", th: "#c2410c", fioTH: "#ea580c", thFundo: "#fff1e6" },
   escuro: { lk: "#8fa2ff", fioLK: "#6d86ff", ct: "#4fc56c", fioCT: "#4fc56c", rot: "#6ee7a0", par: "#f08ae0", nome: "#e6e8ec", sub: "#b39dff",
     cartao: "#171a21", corpo: "#1c2240", ctFundo: "#13261a", subFundo: "#221d38", bordaSM: "#5b4a9c", grade: "#2a303a", seta: "#fb923c",
     texto: "#e6e8ec", texto2: "#cbd5e1", ampFundo: "#0c2a3a", ampTexto: "#7dd3fc", erro: "#f87171", fraco: "#6b7480", liga: "#4ade80",
-    atuFundo: "#33280f", atuBorda: "#d97706", atuIcone: "#fbbf24", atuTexto: "#fcd34d" } };
+    atuFundo: "#33280f", atuBorda: "#d97706", atuIcone: "#fbbf24", atuTexto: "#fcd34d", th: "#fb923c", fioTH: "#f97316", thFundo: "#2e1a0c" } };
 const temaAtual = () => (document.documentElement.dataset.tema === "escuro" ? "escuro" : "claro");
 const COR = Object.assign({}, TEMA_COR[temaAtual()]);
 addEventListener("maisim-tema", () => {                    // o tema mudou: o desenho e a paleta com as cores novas
@@ -54,6 +54,17 @@ const bornesExternos = (e) => { const x = EXTERNA[e.tipo], t = x && e.terminais.
 const SIMBOLO = { LIMIT: "LIM", CONST: "C", SIGNAL: "∿", GATE: "G", GAIN: "K", ADD: "+", SUB: "−", NOT: "¬", AND: "&", DELAY: "Δt", GE: "≥", VOLT: "V", AMP: "A" };
 const UNID = { resistance: "Ω", inductance: "H", capacitance: "F", amplitude: "V", dcValue: "V", frequency: "Hz", onResistance: "Ω",
   offResistance: "Ω", frequenz: "Hz", phaseDegrees: "°", phase: "°", initialCurrent: "A" };
+// a rede térmica (aba Térmica): Rth, Cth, DT e HEAT-SOURCE com dois terminais, desenhados como R, C, fonte de tensão e de
+// corrente (o Gecko os modela assim: temperatura ~ tensão, calor ~ corrente); o Pv (a perda de um componente vira calor no
+// nó da saída dele) e o TREF (a referência: o zero térmico) com um só (ipes.py, TERMICOS)
+const FORMA_TERMICA = { Rth: "R", Cth: "C", DT: "U", "HEAT-SOURCE": "I" };
+const UNID_TERMICA = { Rth: ["resistance", "K/W"], Cth: ["capacitance", "J/K"], DT: ["dcValue", "°C"], "HEAT-SOURCE": ["dcValue", "W"] };
+const COM_PERDA = ["S", "IGBT", "MOSFET", "THYR", "D"];      // o que um Pv pode aquecer (os semicondutores do Gecko)
+const CAMPOS_PERDA = ["uF", "rON", "k_on", "k_off", "uK"];  // o modo simples de perdas do Gecko (LossCalculationSimple)
+const PERDAS_FLOW = ["total", "conduction", "switching"];  // o que o FLOW lê do Pv (losscomp no .ipes)
+const PREFIXO_FLOW = { total: "Pv", conduction: "Pcond", switching: "Psw" };
+const pvsDe = (f, nome) => f.elementos.filter((x) => x.tipo === "Pv" && x.mede[0] === nome);   // os Pv que aquecem o componente
+const semPonto = (n) => String(n || "").replace(/\./g, "").replace(/[^A-Za-z0-9_]/g, "_");     // IGBT.1 → IGBT1 (nomes de sinal)
 const $ = (id) => document.getElementById(id);
 let dados = null, folhaAtual = "0", ver = { x: 0, y: 0, w: 100, h: 60 }, mostrar = { controle: true, rotulos: true, corrente: true, medicoes: true };
 
@@ -119,6 +130,8 @@ const soma = (a, b, k = 1) => [a[0] + k * b[0], a[1] + k * b[1]];
 // terminal de componente) cai em qualquer ponto de outra conexão; cruzamento sem ponta não liga. Bolinha onde três ou mais
 // ramos se encontram e há uma ponta: conexão que passa pelo ponto conta 2 ramos; ponta ou terminal, 1. Potência e controle à parte.
 const domTerm = (e, t) => t.dom || (e.dom === "CONTROL" || e.dom === "THERM" ? e.dom : "LK");
+const corFio = (d) => d === "CONTROL" ? COR.fioCT : d === "THERM" ? COR.fioTH : COR.fioLK;   // a conexão térmica em laranja
+const corDom = (d) => d === "LK" ? COR.lk : d === "THERM" ? COR.th : COR.ct;                // e os terminais
 function juncoes(f) {
   const ramos = new Map(), ponta = new Set();
   const soma = (d, x, y, n, eh) => { const k = `${d}|${x},${y}`; ramos.set(k, (ramos.get(k) || 0) + n); if (eh) ponta.add(k); };
@@ -133,7 +146,7 @@ function juncoes(f) {
 function desenhaJuncoes(g, f) {
   for (const [d, x, y] of juncoes(f)) {
     if (d === "CONTROL" && !mostrar.controle) continue;
-    no("circle", { class: "juncao", cx: x * G, cy: y * G, r: 0.24 * G, fill: d === "CONTROL" ? COR.fioCT : COR.fioLK }, g);
+    no("circle", { class: "juncao", cx: x * G, cy: y * G, r: 0.24 * G, fill: corFio(d) }, g);
   }
 }
 // medidores: o nome com que o sinal vai para o /maisim/scope (o rótulo da saída, ou o nome do bloco, como em rodar() no servidor)
@@ -148,7 +161,7 @@ const canalScope = (e, fid = folhaAtual) => {
   if (dados && dados.canais && dados.canais[el]) return dados.canais[el];
   const c = (e.saidas[0] || e.nome).replace(/[^A-Za-z0-9_]/g, "_");
   return fid === "0" ? c : `${prefixoSub(dados.folhas[fid].nome)}_${c}`; };
-const MEDIDOR = new Set(["VOLT", "AMP"]);
+const MEDIDOR = new Set(["VOLT", "AMP", "TEMP", "FLOW"]);     // TEMP e FLOW: a temperatura e a perda (aba Measure, térmicos)
 // a seção e o painel do scope de um sinal (Marcelo, 23/10): o layout do scope é por circuito, guardado no navegador (o mesmo
 // endereço do simu: as duas páginas veem o mesmo); escolher aqui muda o layout, e o scope (aqui dentro ou na
 // janela dele) se remonta. Um circuito ainda no automático: o automático vira o layout dele antes (os outros sinais não somem)
@@ -348,7 +361,7 @@ function seletorPonta(e, k) {
   return `<label class="ponta-no"><span>${escT(tr(k ? "simu.garra_no" : "simu.ponta_no"))}</span><input data-ponta="${k ? "-" : "+"}" value="${escT(atual || tr("simu.automatico"))}"
     placeholder="${escT(tr("simu.ph_busca"))}" autocomplete="off" title="${escT(tit)}"></label>`;
 }
-const corCanal = (canal, tipo = "VOLT") => (dados && dados.cores && dados.cores[canal]) || (tipo === "AMP" ? "#0ea5e9" : "#eab308");
+const corCanal = (canal, tipo = "VOLT") => (dados && dados.cores && dados.cores[canal]) || (tipo === "AMP" ? "#0ea5e9" : tipo === "TEMP" || tipo === "FLOW" ? "#f97316" : "#eab308");
 // as marcas levam o nome do medidor (data-medidor): clicar nelas abre o medidor (Marcelo, 22/10: "clicar na bolinha do sensor
 // e ele abrir os dados")
 const marcaDe = (g, medidor, x, y) => no("g", Object.assign({ class: "medido", transform: `translate(${x * G},${y * G})` },
@@ -455,12 +468,14 @@ function doisPinos(g, e) {
   const [t1, t2] = e.terminais.map((t) => [t.x, t.y]);
   const u = [(t2[0] - t1[0]) / 4, (t2[1] - t1[1]) / 4], n = [-u[1], u[0]], c = [(t1[0] + t2[0]) / 2, (t1[1] + t2[1]) / 2];
   const a = soma(c, u, -1), b = soma(c, u, 1), linha = (p, q, at = {}) => no("line", Object.assign({ x1: p[0] * G, y1: p[1] * G, x2: q[0] * G, y2: q[1] * G }, at), g);
-  const corpo = { class: "corpo", stroke: COR.lk, "stroke-width": 1.6, fill: "none" };
+  const th = e.dom === "THERM", cl = th ? COR.th : COR.lk;            // a rede térmica: o símbolo elétrico equivalente, em laranja
+  const corpo = { class: "corpo", stroke: cl, "stroke-width": 1.6, fill: "none" };
   const poli = (pts, at = {}) => no("polygon", Object.assign({ points: pts.map(P).join(" ") }, corpo, at), g);
-  switch (e.tipo) {
+  const forma = th ? FORMA_TERMICA[e.tipo] || e.tipo : e.tipo;
+  switch (forma) {
     case "R":
       linha(t1, a, corpo); linha(b, t2, corpo);
-      poli([soma(a, n, 0.35), soma(b, n, 0.35), soma(b, n, -0.35), soma(a, n, -0.35)], { fill: COR.corpo }); break;
+      poli([soma(a, n, 0.35), soma(b, n, 0.35), soma(b, n, -0.35), soma(a, n, -0.35)], { fill: th ? COR.thFundo : COR.corpo }); break;
     case "L": {
       linha(t1, a, corpo); linha(b, t2, corpo);
       let d = `M ${P(a)}`; for (let k = 1; k <= 4; k++) d += ` A ${0.25 * G} ${0.25 * G} 0 0 1 ${P(soma(a, u, 0.5 * k))}`;
@@ -475,15 +490,15 @@ function doisPinos(g, e) {
     case "U": case "I": {
       const r = 0.85; linha(t1, soma(c, u, -r), corpo); linha(soma(c, u, r), t2, corpo);
       no("circle", Object.assign({ cx: c[0] * G, cy: c[1] * G, r: r * G }, corpo, { fill: COR.cartao }), g);
-      if (e.tipo === "U" && e.par.sourceType === 402) {
+      if (forma === "U" && e.par.sourceType === 402) {
         let d = `M ${P(soma(c, n, -0.5))}`; for (let k = 1; k <= 20; k++) { const s = -0.5 + k / 20; d += ` L ${P(soma(soma(c, n, s), u, 0.32 * Math.sin(2 * Math.PI * (s + 0.5))))}`; }
         no("path", Object.assign({ d }, corpo, { "stroke-width": 1.2 }), g);
-      } else if (e.tipo === "U") texto(g, c[0], c[1], "=", { "text-anchor": "middle", fill: COR.lk });
+      } else if (forma === "U") texto(g, c[0], c[1], th ? "T" : "=", { "text-anchor": "middle", fill: cl });   // DT: a temperatura definida
       else {                                     // fonte de corrente: a seta do Gecko, do terminal 1 para o 2 (ela empurra a corrente para fora pelo 2)
         linha(soma(c, u, -0.5), soma(c, u, 0.3), corpo);
-        poli([soma(c, u, 0.55), soma(soma(c, u, 0.2), n, 0.24), soma(soma(c, u, 0.2), n, -0.24)], { fill: COR.lk, "stroke-width": 0.8 });
+        poli([soma(c, u, 0.55), soma(soma(c, u, 0.2), n, 0.24), soma(soma(c, u, 0.2), n, -0.24)], { fill: cl, "stroke-width": 0.8 });
       }
-      if (e.tipo === "U") { const mais = soma(soma(c, u, -1.25), n, 0.55); texto(g, mais[0], mais[1], "+", { "text-anchor": "middle", fill: COR.lk, "font-size": 0.8 * G }); }
+      if (forma === "U") { const mais = soma(soma(c, u, -1.25), n, 0.55); texto(g, mais[0], mais[1], "+", { "text-anchor": "middle", fill: cl, "font-size": 0.8 * G }); }
       break;
     }
     case "D": {
@@ -515,6 +530,10 @@ function doisPinos(g, e) {
 }
 function valorPrincipal(e) {
   const p = e.par, v = (k) => (p[k + "_var"] ? `${p[k + "_var"]}= ` : "") + si(p[k], UNID[k]);
+  if (e.dom === "THERM") {                             // K/W, J/K, °C e W sem prefixo (0,5 K/W, não 500 mK/W)
+    const [k, u] = UNID_TERMICA[e.tipo] || []; if (!k || p[k] == null) return "";
+    return (p[k + "_var"] ? `${p[k + "_var"]}= ` : "") + `${+Number(p[k]).toPrecision(3)} ${u}`;
+  }
   if (e.tipo === "R") return v("resistance");
   if (e.tipo === "L") return v("inductance");
   if (e.tipo === "C") return v("capacitance");
@@ -555,7 +574,7 @@ function desenha() {
   f.fios.forEach((w, k) => {
     if (w.dom === "CONTROL" && !mostrar.controle) return;
     const pts = w.pts.map(P).join(" "), sel = ed.fioSel === chaveFio(w) || ed.multiFios.has(chaveFio(w));
-    no("polyline", { "data-fio": k, points: pts, fill: "none", stroke: sel ? "#e8a33d" : w.dom === "LK" ? COR.fioLK : COR.fioCT, "stroke-width": sel ? 3 : 1.4, "stroke-linejoin": "round" }, camFios);
+    no("polyline", { "data-fio": k, points: pts, fill: "none", stroke: sel ? "#e8a33d" : corFio(w.dom), "stroke-width": sel ? 3 : 1.4, "stroke-linejoin": "round" }, camFios);
     if (clicaveis) no("polyline", { class: "fio", "data-k": k, points: pts, fill: "none", stroke: "transparent", "stroke-width": 0.6 * G }, camFios);
     if (mostrar.rotulos && w.rotulo) rotulo(camRot, w.pts[0][0] + 0.2, w.pts[0][1] - 0.45, w.rotulo, { fill: COR.rot, "font-size": 0.55 * G });
     if (mostrar.medicoes && w.rotulo && medidos.V.has(w.rotulo) && !nosMarcados.has(w.rotulo)) { nosMarcados.add(w.rotulo); marcas.push([w.pts[0][0], w.pts[0][1] - 0.5, medidos.V.get(w.rotulo)]); }
@@ -585,18 +604,38 @@ function desenha() {
     n++;
     const g = no("g", { class: (e.tipo === "SUBCIRCUIT" ? "el sub" : "el") + (ed.sel === e.nome || ed.multi.has(e.nome) ? " sel" : "") + (e.ativo === false ? " desativado" : ""), "data-i": i }, camEl);
     if (e.ativo === false) no("title", {}, g).textContent = tr(e.curto ? "simu.el_curto" : "simu.el_desativado", { nome: e.nome });
-    if (e.dom === "LK" && e.tipo !== "TERM" && e.terminais.length === 2) {
+    if ((e.dom === "LK" || e.dom === "THERM") && e.tipo !== "TERM" && e.terminais.length === 2) {
       const [a, b] = e.terminais;                                       // área de clique ao longo do elemento
       no("rect", { x: (Math.min(a.x, b.x) - 0.7) * G, y: (Math.min(a.y, b.y) - 0.7) * G, width: (Math.abs(a.x - b.x) + 1.4) * G,
         height: (Math.abs(a.y - b.y) + 1.4) * G, fill: "transparent" }, g);
       doisPinos(g, e);
-      if (mostrar.corrente && e.tipo !== "VOLT") setaCorrente(g, e);
+      if (mostrar.corrente && e.dom === "LK" && e.tipo !== "VOLT") setaCorrente(g, e);
       if (mostrar.medicoes && medidos.I.has(e.nome)) marcaMedida(camRot, e, ...medidos.I.get(e.nome));
       const tx = txtDe(e);                                               // o nome junto do corpo (ver txtDe)
       texto(g, e.x + tx.dx, e.y + tx.dy, e.nome, { fill: COR.nome, "font-size": 0.6 * G, "text-anchor": tx.ancora });
       const val = valorPrincipal(e); if (val) texto(g, e.x + tx.dx, e.y + tx.dy + 0.7, val, { fill: COR.par, "font-size": 0.55 * G, "text-anchor": tx.ancora });
       if (mostrar.rotulos) e.terminais.forEach((t, k) => { const r = (k ? e.saidas : e.entradas)[0];
         if (r) rotulo(camRot, t.x + 0.25, t.y - 0.45, r, { fill: COR.rot, "font-size": 0.55 * G }); });
+    } else if (e.dom === "THERM" && (e.tipo === "Pv" || e.tipo === "TREF") && e.terminais.length === 1) {
+      // um terminal só (o outro lado é o zero térmico, invisível): o Pv, uma fonte de calor com a seta para a saída (à
+      // direita), e embaixo a peça que ele aquece ("♨ IGBT.1"; sem ela, em vermelho: a perda não é calculada); o TREF, o
+      // terra térmico, abaixo do terminal
+      const t = e.terminais[0], cl = COR.th, at = { class: "corpo", stroke: cl, "stroke-width": 1.6, fill: "none" };
+      const linha = (x1, y1, x2, y2, o = {}) => no("line", Object.assign({ x1: x1 * G, y1: y1 * G, x2: x2 * G, y2: y2 * G }, at, o), g);
+      no("rect", { x: (Math.min(e.x, t.x) - 1) * G, y: (Math.min(e.y, t.y) - 1) * G, width: (Math.abs(e.x - t.x) + 2) * G, height: (Math.abs(e.y - t.y) + 2) * G, fill: "transparent" }, g);
+      if (e.tipo === "Pv") {
+        no("circle", Object.assign({ cx: e.x * G, cy: e.y * G, r: 0.85 * G }, at, { fill: COR.thFundo }), g);
+        linha(e.x - 0.45, e.y, e.x + 0.3, e.y);
+        no("polygon", { class: "corpo", points: [[e.x + 0.6, e.y], [e.x + 0.25, e.y - 0.25], [e.x + 0.25, e.y + 0.25]].map(P).join(" "), fill: cl }, g);
+        linha(e.x + 0.85, e.y, t.x, t.y);
+        texto(g, e.x - 1, e.y - 1.5, e.nome, { fill: COR.nome, "font-size": 0.55 * G });
+        texto(g, e.x, e.y + 1.5, e.mede[0] ? `♨ ${e.mede[0]}` : tr("simu.sem_peca"), { class: "pv-alvo", "text-anchor": "middle", fill: e.mede[0] ? cl : COR.erro, "font-size": 0.45 * G });
+      } else {
+        linha(t.x, t.y, e.x, e.y);
+        [[0.7, 0], [0.45, 0.25], [0.2, 0.5]].forEach(([w, dy]) => linha(e.x - w, e.y + dy, e.x + w, e.y + dy, { "stroke-width": 1.8 }));
+        texto(g, e.x + 1, e.y + 0.2, e.nome, { fill: COR.nome, "font-size": 0.55 * G });
+      }
+      if (mostrar.rotulos && t.rotulo) rotulo(camRot, t.x + 0.25, t.y - 0.45, t.rotulo, { fill: COR.rot, "font-size": 0.55 * G });
     } else if (e.tipo === "TERM") {
       const cor = e.dom === "LK" ? COR.lk : COR.ct;
       no("rect", { class: "corpo", x: (e.x - 0.4) * G, y: (e.y - 0.4) * G, width: 0.8 * G, height: 0.8 * G, rx: 3, fill: COR.cartao, stroke: cor, "stroke-width": 1.6 }, g);
@@ -674,7 +713,7 @@ function desenha() {
       }
     }
     for (const t of e.terminais) {                                      // bornes: cheio se ligado (conexão ou rótulo), vazado se livre
-      const cor = (t.dom || e.dom) === "LK" ? COR.lk : COR.ct, k = `${t.x},${t.y}`, livre = !t.rotulo && !ptsFio.has(k) && ptsTerm.get(k) < 2;
+      const cor = corDom(t.dom || e.dom), k = `${t.x},${t.y}`, livre = !t.rotulo && !ptsFio.has(k) && ptsTerm.get(k) < 2;
       no("circle", { class: "borne", cx: t.x * G, cy: t.y * G, r: (livre ? 0.2 : 0.13) * G, fill: livre ? COR.cartao : cor, stroke: cor, "stroke-width": livre ? 1.4 : 0 }, g);
     }
   });
@@ -747,6 +786,9 @@ function dica(ev, e) {
   }
   if (e.tipo === "VOLT" && e.mede[0]) linhas.unshift([tr("simu.dica_mede_v"), `${e.mede[0]} − ${e.mede[1] || "0"}`]);
   if (e.tipo === "GATE" && e.mede[0]) linhas.unshift([tr("simu.dica_comanda"), e.mede[0]]);
+  if (e.tipo === "Pv" && e.dom === "THERM") linhas.unshift([tr("simu.h_aquece"), e.mede[0] || tr("simu.sem_peca")]);
+  if (e.tipo === "TEMP" && e.mede[0]) linhas.unshift([tr("simu.h_mede"), `${e.mede[0]} − ${e.mede[1] || "0"}`]);
+  if (e.tipo === "FLOW" && e.mede[0]) linhas.unshift([tr("simu.h_mede"), `${e.mede[0]} · ${tr("simu.perda_" + (PERDAS_FLOW.includes(e.losscomp) ? e.losscomp : "total"))}`]);
   if (e.entradas.filter(Boolean).length) linhas.push([tr(e.dom === "LK" ? "simu.dica_no1" : "simu.dica_entradas"), e.entradas.map((s) => s || "·").join(", ")]);
   if (e.saidas.filter(Boolean).length) linhas.push([tr(e.dom === "LK" ? "simu.dica_no2" : "simu.dica_saidas"), e.saidas.map((s) => s || "·").join(", ")]);
   if (e.tipo === "SUBCIRCUIT") linhas.push([tr("simu.dica_terminais"), e.terminais.map((t) => t.interno + (t.rotulo ? ` → ${t.rotulo}` : "")).join(", ")], ["", tr("simu.dica_abre_sm")]);
@@ -1288,6 +1330,22 @@ async function mostraProps() {
 }
 // o nome da linha da entrada em "rótulos dos terminais": numa entrada externa, o que ela dá ("entrada 1 · amplitude",
 // "entrada 2 · mínimo" no LIMIT)
+// o Pv cuja saída está no nó térmico de rótulo r (pelo rótulo do terminal ou de uma conexão térmica que passa por ele)
+function pvDoNo(f, r) {
+  if (!r) return null;
+  const naConexao = (t) => f.fios.some((w) => w.dom === "THERM" && w.rotulo === r && w.pts.some((p) => p[0] === t.x && p[1] === t.y));
+  return f.elementos.find((x) => x.tipo === "Pv" && x.dom === "THERM" && x.terminais.some((t) => t.rotulo === r || naConexao(t))) || null;
+}
+// o nome automático no scope de um medidor, pelo que ele mede: i_R_1, v_a_gnd; a temperatura no nó de um Pv, Tj_<a peça>
+// (Tj_IGBT1), noutro nó T_<rótulo>; a perda, Pv_ / Pcond_ / Psw_<a peça que o Pv aquece> (Pv_IGBT1)
+function nomeAutoDe(tipo, m0, m1, lc) {
+  const san = (x) => x.replace(/[^A-Za-z0-9_]/g, "_"), f = dados.folhas[folhaAtual];
+  m0 = m0 || ""; m1 = m1 || "";
+  if (tipo === "AMP") return san(`i_${m0}`);
+  if (tipo === "TEMP") { const pv = pvDoNo(f, m0); return pv && pv.mede[0] ? `Tj_${semPonto(pv.mede[0])}` : san(`T_${m0}${m1 ? "_" + m1 : ""}`); }
+  if (tipo === "FLOW") { const pv = f.elementos.find((x) => x.tipo === "Pv" && x.nome === m0); return `${PREFIXO_FLOW[lc] || "Pv"}_${semPonto((pv && pv.mede[0]) || m0)}`; }
+  return san(`v_${m0}${m1 ? "_" + m1 : ""}`);
+}
 const nomeEntrada = (e, i) => { const x = externaDe(e), p = x && x.pars[i - x.de];
   return p ? tr("simu.entrada_ext_n", { n: i + 1, o: tr(p.k) }) : tr("simu.entrada_n", { n: i + 1 }); };
 async function montaProps() {
@@ -1331,7 +1389,10 @@ async function montaProps() {
     <h4>${escT(tr("simu.h_params"))}</h4><div id="p-params"><i>${escT(tr("simu.lendo"))}</i></div>
     ${vars.length ? `<h4>${escT(tr("simu.h_vars_usa"))}</h4>${vars.map((v) => `<label><span>${v}</span><input data-g="${v}" value="${dados.globais[v]}"></label>`).join("")}
       <div class="aviso">${escT(tr("simu.vars_aviso"))}</div>` : ""}
-    ${e.dom === "LK" && e.terminais.length === 2 ? `<h4>${escT(tr("simu.h_ligacoes"))}</h4>
+    ${e.dom === "THERM" && e.terminais.length === 1 ? `<h4>${escT(tr("simu.h_ligacoes"))}</h4>
+      <label><span>${escT(tr(e.tipo === "Pv" ? "simu.no_aquecido" : "simu.no_referencia"))}</span><input ${e.tipo === "Pv" ? 'data-out="0"' : 'data-in="0"'} value="${escT((e.tipo === "Pv" ? e.saidas : e.entradas)[0] || "")}"></label>
+      <div class="aviso">${escT(tr("simu.termico_ligacoes_aviso"))}</div>` : ""}
+    ${(e.dom === "LK" || e.dom === "THERM") && e.terminais.length === 2 ? `<h4>${escT(tr("simu.h_ligacoes"))}</h4>
       <label><span>${escT(tr(e.tipo === "U" ? "simu.term1_mais" : "simu.term1_inicio"))}</span><input data-in="0" value="${e.entradas[0] || ""}"></label>
       <label><span>${escT(tr(e.tipo === "U" ? "simu.term2_menos" : "simu.term2_fim"))}</span><input data-out="0" value="${e.saidas[0] || ""}"></label>
       <div class="aviso">${escT(tr("simu.ligacoes_aviso"))}</div>` : ""}
@@ -1345,6 +1406,14 @@ async function montaProps() {
     ${e.tipo === "GATE" ? `<h4>${escT(tr("simu.h_chave"))}</h4><label><span>${escT(tr("simu.chave"))}</span><input id="m-chave" value="${e.mede[0] || ""}" placeholder="${escT(tr("simu.ph_chave"))}" autocomplete="off"></label>
       <div class="aviso">${tr("simu.gate_aviso_html")}</div>` : ""}
     ${e.tipo === "AMP" ? `<h4>${escT(tr("simu.h_mede"))}</h4><label><span>${escT(tr("simu.corrente_de"))}</span><input id="m-comp" value="${e.mede[0] || ""}" placeholder="${escT(tr("simu.ph_busca"))}" autocomplete="off"></label>` : ""}
+    ${e.tipo === "Pv" && e.dom === "THERM" ? `<h4>${escT(tr("simu.h_aquece"))}</h4><label><span>${escT(tr("simu.peca_aquece"))}</span><input id="m-pv" value="${escT(e.mede[0] || "")}" placeholder="${escT(tr("simu.ph_peca"))}" autocomplete="off"></label>
+      <div class="aviso">${escT(tr("simu.pv_aviso"))}</div>` : ""}
+    ${e.tipo === "TEMP" ? `<h4>${escT(tr("simu.h_mede"))}</h4><label><span>${escT(tr("simu.temp_no"))}</span><input id="m-t1" value="${escT(e.mede[0] || "")}" autocomplete="off"></label>
+      <label><span>${escT(tr("simu.temp_ref"))}</span><input id="m-t2" value="${escT(e.mede[1] || "")}" autocomplete="off"></label>
+      <div class="aviso">${escT(tr("simu.temp_aviso"))}</div>` : ""}
+    ${e.tipo === "FLOW" ? `<h4>${escT(tr("simu.h_mede"))}</h4><label><span>${escT(tr("simu.perda_de"))}</span><input id="m-flow" value="${escT(e.mede[0] || "")}" placeholder="${escT(tr("simu.ph_pv"))}" autocomplete="off"></label>
+      <label><span>${escT(tr("simu.perda_qual"))}</span><select id="m-losscomp">${PERDAS_FLOW.map((k) => `<option value="${k}" ${(e.losscomp || "total") === k ? "selected" : ""}>${escT(tr("simu.perda_" + k))}</option>`).join("")}</select></label>
+      <div class="aviso">${escT(tr("simu.flow_aviso"))}</div>` : ""}
     ${ehTag(e) ? `<h4>${escT(tr("simu.h_marca"))}</h4><label><span>${escT(tr("simu.entrada_rotulo"))}</span><input data-in="0" value="${e.entradas[0] || ""}" placeholder="${escT(tr("simu.ph_ou_conexao"))}"></label>
       <div class="aviso">${escT(tr("simu.tag_aviso"))}</div>` : ""}
     ${ehSinal(e, folhaDe(e)) ? `<div class="destino"><label class="no-scope" title="${escT(tr("simu.t_vai_scope"))}"><input type="checkbox" id="p-scope" ${noScope(e) ? "checked" : ""}> ${escT(tr("simu.vai_scope"))}</label>
@@ -1394,8 +1463,8 @@ async function montaProps() {
     const fs = alvos(); ok += nosSMs(fs);                       // dentro de um subcircuito: ele só, ou todos os iguais
     try { novoEstado(await api("editor/mede", Object.assign({ nome: e.nome, descr: ok, folhas: fs }, corpo))); msg(ok, "ok"); }
     catch (err) { msg(err.message, "erro"); return; }
-    // nome no scope automático (i_R_1, v_a_gnd) enquanto o nome for vazio ou o automático de antes; um nome seu não muda
-    const san = (x) => x.replace(/[^A-Za-z0-9_]/g, "_"), antes = san(e.tipo === "AMP" ? `i_${e.mede[0] || ""}` : `v_${e.mede[0] || ""}${e.mede[1] ? "_" + e.mede[1] : ""}`);
+    // nome no scope automático (i_R_1, v_a_gnd, Tj_IGBT1, Pv_IGBT1) enquanto o nome for vazio ou o automático de antes; um nome seu não muda
+    const san = (x) => x.replace(/[^A-Za-z0-9_]/g, "_"), antes = nomeAutoDe(e.tipo, e.mede[0], e.mede[1], e.losscomp);
     if (nomeAuto && (!e.saidas[0] || e.saidas[0] === antes) && e.saidas[0] !== san(nomeAuto))
       await pede("OUTNODE", [qualificado(e), 0, san(nomeAuto)], tr("simu.d_no_scope_como", { nome: e.nome, canal: san(nomeAuto) }));
   };
@@ -1418,6 +1487,32 @@ async function montaProps() {
       ultimoMedido = c;
       if (!chaves.some((x) => x.nome === c)) { msg(tr("simu.sem_chave_folha", { c }), "erro"); return; }
       mede({ tipo: "G", componente: c }, tr("simu.d_comanda", { nome: e.nome, c })); };
+  }
+  if (v("#m-pv")) {                                      // Pv: a chave ou o diodo que ele aquece (desta folha; o mesmo acoplamento do GATE)
+    const pecas = dados.folhas[folhaAtual].elementos.filter((x) => COM_PERDA.includes(x.tipo));
+    comBusca(v("#m-pv"), pecas.map((x) => ({ v: x.nome, d: x.nome_tipo || descrTipo(x.tipo) || x.tipo })));
+    v("#m-pv").onchange = () => { const c = v("#m-pv").value.trim();
+      if (!c || c === (e.mede[0] || "") || c === ultimoMedido) return;
+      ultimoMedido = c;
+      if (!pecas.some((x) => x.nome === c)) { msg(tr("simu.sem_peca_folha", { c }), "erro"); return; }
+      mede({ tipo: "P", componente: c }, tr("simu.d_aquece", { nome: e.nome, c })); };
+  }
+  if (v("#m-t1")) {                                      // TEMP: dois rótulos térmicos (como o voltímetro)
+    const nos = nosTermicos();
+    for (const id of ["#m-t1", "#m-t2"]) comBusca(v(id), nos.map((r) => ({ v: r, d: tr("simu.no_termico") })));
+    v("#m-t1").onchange = v("#m-t2").onchange = () => { const a = v("#m-t1").value.trim(), b = v("#m-t2").value.trim(), k = `${a}|${b}`;
+      if (!a || k === ultimoMedido || k === `${e.mede[0] || ""}|${e.mede[1] || ""}`) return;
+      ultimoMedido = k;
+      mede({ tipo: "T", no1: a, no2: b }, tr("simu.d_mede_t", { nome: e.nome, a, b: b || "0" }), nomeAutoDe("TEMP", a, b)); };
+  }
+  if (v("#m-flow")) {                                    // FLOW: o Pv e que perda (total, condução, chaveamento; o losscomp no arquivo)
+    const pvs = dados.folhas[folhaAtual].elementos.filter((x) => x.tipo === "Pv" && x.dom === "THERM");
+    comBusca(v("#m-flow"), pvs.map((x) => ({ v: x.nome, d: x.mede[0] ? `♨ ${x.mede[0]}` : tr("simu.sem_peca") })));
+    v("#m-flow").onchange = v("#m-losscomp").onchange = () => { const c = v("#m-flow").value.trim(), lc = v("#m-losscomp").value, k = `${c}|${lc}`;
+      if (!c || k === ultimoMedido || k === `${e.mede[0] || ""}|${e.losscomp || "total"}`) return;
+      ultimoMedido = k;
+      if (!pvs.some((x) => x.nome === c)) { msg(tr("simu.sem_pv_folha", { c }), "erro"); return; }
+      mede({ tipo: "F", componente: c, losscomp: lc }, tr("simu.d_flow", { nome: e.nome, c, perda: tr("simu.perda_" + lc) }), nomeAutoDe("FLOW", c, "", lc)); };
   }
   if (v("#p-sinal")) {                                   // rótulos de saída dos blocos de controle desta folha
     const fl = dados.folhas[folhaAtual], sinais = [...new Set(fl.elementos.filter((x) => x.dom === "CONTROL").flatMap((x) => x.saidas).concat(
@@ -1466,8 +1561,15 @@ async function montaProps() {
       return ligada(q) ? `<span class="com-var"><input data-p="${q.nome}" value="${escT(ligada(q))}" class="var" autocomplete="off"><small title="${escT(tr("simu.t_valor_var", { v: ligada(q) }))}">= ${si(q.valor, q.unidade)}</small></span>`
         : `<input data-p="${q.nome}" value="${q.valor}"${q.pode_var ? ' autocomplete="off"' : ""}>`;
     };
-    v("#p-params").innerHTML = lst.map((q) => `<label title="${q.descricao}${q.pode_var ? " · " + escT(tr("simu.t_pode_var")) : ""}"><span>${q.nome}${q.unidade ? ` [${q.unidade}]` : ""}</span>
-      ${q.erro ? `<i>${q.erro}</i>` : campo(q)}</label>`).join("") || `<i>${escT(tr("simu.sem_params"))}</i>`;
+    const linhaPar = (q) => `<label title="${q.descricao}${q.pode_var ? " · " + escT(tr("simu.t_pode_var")) : ""}"><span>${q.nome}${q.unidade ? ` [${q.unidade}]` : ""}</span>
+      ${q.erro ? `<i>${q.erro}</i>` : campo(q)}</label>`;
+    // num semicondutor, a seção "Perdas": os campos do modo simples do Gecko juntos (uF e rON também valem no circuito: são a
+    // queda e a resistência em condução), a conta que ele faz e se há um Pv que use a perda (sem Pv, ela não é calculada)
+    const semi = e.dom === "LK" && COM_PERDA.includes(e.tipo), perdas = semi ? lst.filter((q) => CAMPOS_PERDA.includes(q.nome)) : [];
+    const pvs = semi ? pvsDe(dados.folhas[folhaAtual], e.nome) : [];
+    v("#p-params").innerHTML = (lst.filter((q) => !perdas.includes(q)).map(linhaPar).join("") || (perdas.length ? "" : `<i>${escT(tr("simu.sem_params"))}</i>`)) +
+      (perdas.length ? `<div class="sec-perdas"><h4>${escT(tr("simu.h_perdas"))}</h4><div class="aviso">${escT(tr("simu.perdas_modelo"))}</div>${perdas.map(linhaPar).join("")}
+        <div class="aviso ${pvs.length ? "com-pv" : "sem-pv"}"${pvs.length ? "" : ` style="color:${COR.erro}"`}>${escT(pvs.length ? tr("simu.aquecido_por", { pv: pvs.map((x) => x.nome).join(", ") }) : tr("simu.sem_pv"))}</div></div>` : "");
     P.querySelectorAll("#p-params input[data-p]").forEach((i) => { const q = lst.find((x) => x.nome === i.dataset.p); if (q && q.pode_var) comVariaveis(i); });
     // useExternal (SIGNAL, LIMIT, HYS): os parâmetros que vêm das entradas, que o Gecko ignora aqui, ficam cinza, com a entrada
     // que dá cada um, o número dela no bloco (Marcelo, 24/10: pareciam editáveis); a caixinha muda na hora, antes do Gecko
@@ -1736,6 +1838,11 @@ function comVariaveis(inp) {
 function nosDaFolha() {                              // rótulos de nó da folha aberta (conexões e terminais), para o voltímetro
   const f = dados.folhas[folhaAtual], s = new Set(f.fios.map((w) => w.rotulo).filter(Boolean));
   for (const e of f.elementos) if (e.dom === "LK") for (const r of [...e.entradas, ...e.saidas]) if (r) s.add(r);
+  return [...s].sort((a, b) => a.localeCompare(b, "pt", { numeric: true }));
+}
+function nosTermicos() {                             // rótulos térmicos da folha aberta (conexões e terminais da rede térmica), para o TEMP
+  const f = dados.folhas[folhaAtual], s = new Set(f.fios.filter((w) => w.dom === "THERM").map((w) => w.rotulo).filter(Boolean));
+  for (const e of f.elementos) if (e.dom === "THERM") for (const t of e.terminais) if (t.rotulo) s.add(t.rotulo);
   return [...s].sort((a, b) => a.localeCompare(b, "pt", { numeric: true }));
 }
 

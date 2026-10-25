@@ -148,6 +148,8 @@ def le(caminho):
                               txt=[float(d.get("dxTxt", 0) or 0), float(d.get("dyTxt", 0) or 0)], par=par,
                               id_gecko=cat[0], nome_tipo=cat[1], ativo=d.get("enabledShorted", "1").strip() == "1",
                               curto=d.get("enabledShorted", "1").strip() == "2", bruto=_bruto(corpo, d)))   # Gecko: 0 desativado, 1 ativo, 2 em curto
+        if "losscomp" in d:                         # o FLOW: que perda ele mede (total, conduction, switching; LossComponent do Gecko)
+            elementos[-1]["losscomp"] = d["losscomp"].strip()
     for dom, corpo in re.findall(r"\nverbindung(\w+)\s+\(\d+\)\n<Verbindung>\n(.*?)<\\Verbindung>", t, re.S):
         d = dict(l.split(" ", 1) for l in corpo.split("\n") if " " in l)
         xs, ys = list(map(int, d.get("x[]", "").split())), list(map(int, d.get("y[]", "").split()))
@@ -191,6 +193,26 @@ def troca_solver(t, solver):
     return re.sub(r"(\ndt [^\n]*)", rf"\1\nsolverType {int(solver)}", t, count=1)
 
 
+# os da rede térmica com terminal à vista (THERM; geometria_gecko.json): Rth, Cth, DT (temperatura definida) e HEAT-SOURCE têm
+# dois, como os de dois pinos do circuito ({"dist": ±2}, na orientação do elemento); o Pv (perda do componente) só a saída
+# ({"dist": 2, "dir": 502}: sempre à direita, qualquer que seja a orientação) e o TREF só a entrada ({"dist": -1, "dir": 503}:
+# um acima); o outro lado dos dois é o zero térmico ({"fixo": THERMAL_ZERO}), invisível — fica de fora
+TERMICOS = {"Rth", "Cth", "DT", "HEAT-SOURCE", "Pv", "TREF"}
+DIRECAO = {503: (0, 1), 501: (0, -1), 502: (1, 0), 504: (-1, 0)}    # getPointFromDirection: o sentido de + dist
+
+
+def _termicos(e):
+    """[(x, y, rótulo)] dos terminais de um elemento térmico, onde o Gecko os põe (ver TERMICOS)."""
+    geo, out = GEOMETRIA.get(e.get("id_gecko")) or {}, []
+    for lista, rots in ((geo.get("entradas") or [], e["entradas"]), (geo.get("saidas") or [], e["saidas"])):
+        for k, g in enumerate(lista):
+            if not isinstance(g, dict) or "dist" not in g:
+                continue
+            sx, sy = DIRECAO.get(g.get("dir", e["dir"]), (0, 1))
+            out.append((e["x"] + sx * g["dist"], e["y"] + sy * g["dist"], rots[k] if k < len(rots) else ""))
+    return out
+
+
 def _dois_pinos(e):
     x, y, s = e["x"], e["y"], {503: (0, 1), 501: (0, -1), 502: (1, 0), 504: (-1, 0)}.get(e["dir"], (0, 1))
     return [(x - 2 * s[0], y - 2 * s[1]), (x + 2 * s[0], y + 2 * s[1])]
@@ -228,6 +250,8 @@ def monta(caminho):
             term = [dict(x=px, y=py, rotulo=r) for (px, py), r in zip(_dois_pinos(e), (e["entradas"] + [""])[:1] + (e["saidas"] + [""])[:1])]
         elif e["tipo"] == "TERM":
             term = [dict(x=e["x"], y=e["y"], rotulo="")]
+        elif e["dom"] == "THERM" and e.get("id_gecko") in TERMICOS:
+            term = [dict(x=px, y=py, rotulo=r) for px, py, r in _termicos(e)]
         elif e["dom"] == "CONTROL" and e.get("id_gecko") in GEOMETRIA and e["tipo"] != "TERM":   # onde o Gecko põe
             geo, ne, ns = GEOMETRIA[e["id_gecko"]], len(e["entradas"]), len(e["saidas"])
             ext = EXTERNAS.get(e["id_gecko"])
