@@ -159,7 +159,8 @@
      "typ": 16,
      "classe": "MotorSmSalient",
      "id": "SM-SAL",
-     "nome": "SM-SAL"
+     "nome": "SM-SAL",
+     "oculto": true
     },
     {
      "enum": "LK_MOTOR_SMROUND",
@@ -167,7 +168,8 @@
      "typ": 17,
      "classe": "MotorSmRound",
      "id": "SM-RO",
-     "nome": "SM-RO"
+     "nome": "SM-RO",
+     "oculto": true
     },
     {
      "enum": "LK_MOTOR_IMC",
@@ -175,7 +177,8 @@
      "typ": 20,
      "classe": "MotorInductionMachine",
      "id": "IM",
-     "nome": "Induction Machine"
+     "nome": "Induction Machine",
+     "oculto": true
     },
     {
      "enum": "LK_MOTOR_IMA",
@@ -191,7 +194,8 @@
      "typ": 21,
      "classe": "MotorImSat",
      "id": "IM-SAT",
-     "nome": "IM-SAT"
+     "nome": "IM-SAT",
+     "oculto": true
     },
     {
      "enum": "LK_LISN",
@@ -199,7 +203,8 @@
      "typ": 13,
      "classe": "LISN",
      "id": "LISN",
-     "nome": "LISN"
+     "nome": "LISN",
+     "oculto": true
     }
    ]
   },
@@ -244,7 +249,8 @@
      "typ": 30,
      "classe": "RelTerminal",
      "id": "RELUCTANCE_TERMINAL",
-     "nome": "Reluctance Terminal"
+     "nome": "Reluctance Terminal",
+     "oculto": true
     },
     {
      "enum": "LK_GLOBAL_TERMINAL",
@@ -276,7 +282,8 @@
      "typ": 32,
      "classe": "ReluctanceGlobalTerminal",
      "id": "REL_GLOBAL",
-     "nome": "Global Reluctance Terminal"
+     "nome": "Global Reluctance Terminal",
+     "oculto": true
     },
     {
      "enum": "C_MUX",
@@ -358,7 +365,8 @@
      "typ": 24,
      "classe": "ResistorReluctance",
      "id": "Rel",
-     "nome": "Reluctance"
+     "nome": "Reluctance",
+     "oculto": true
     },
     {
      "enum": "NONLIN_REL",
@@ -366,7 +374,8 @@
      "typ": 52,
      "classe": "NonLinearReluctance",
      "id": "NLRel",
-     "nome": "Nonlinear Reluctance"
+     "nome": "Nonlinear Reluctance",
+     "oculto": true
     },
     {
      "enum": "REL_MMF",
@@ -374,7 +383,8 @@
      "typ": 26,
      "classe": "VoltageSourceReluctanceMMF",
      "id": "MMF",
-     "nome": "MMF [amp-turns]"
+     "nome": "MMF [amp-turns]",
+     "oculto": true
     },
     {
      "enum": "REL_INDUCTOR",
@@ -382,7 +392,8 @@
      "typ": 25,
      "classe": "ReluctanceInductor",
      "id": "LRel",
-     "nome": "Inductor-Reluctance"
+     "nome": "Inductor-Reluctance",
+     "oculto": true
     }
    ]
   },
@@ -552,7 +563,8 @@
      "typ": 79,
      "classe": "ReglerMMF",
      "id": "MMF_MEAS",
-     "nome": "MMF Measurement [A]"
+     "nome": "MMF Measurement [A]",
+     "oculto": true
     },
     {
      "enum": "C_FLUXMETER",
@@ -560,7 +572,8 @@
      "typ": 80,
      "classe": "ReglerFluxMeter",
      "id": "FLUX",
-     "nome": "Flux Measurement [Wb]"
+     "nome": "Flux Measurement [Wb]",
+     "oculto": true
     },
     {
      "enum": "C_TEMP",
@@ -584,7 +597,8 @@
      "typ": 62,
      "classe": "ReglerVIEWMOT",
      "id": "VIEWMOT",
-     "nome": "Machine-Internal"
+     "nome": "Machine-Internal",
+     "rotulo": "simu.cmp_viewmot"
     },
     {
      "enum": "C_CISPR16",
@@ -592,7 +606,8 @@
      "typ": 60,
      "classe": "ReglerCISPR16",
      "id": "CISPR16",
-     "nome": "EMI Test Receiver"
+     "nome": "EMI Test Receiver",
+     "oculto": true
     },
     {
      "enum": "C_SPACE_VECTOR",
@@ -600,7 +615,8 @@
      "typ": 63,
      "classe": "ReglerSpaceVector",
      "id": "SV",
-     "nome": "Space Vector Diagram"
+     "nome": "Space Vector Diagram",
+     "oculto": true
     },
     {
      "enum": "C_U_ZI",
@@ -608,7 +624,8 @@
      "typ": 73,
      "classe": "ReglerU_ZI",
      "id": "UZI",
-     "nome": "U-Z*i Diagram"
+     "nome": "U-Z*i Diagram",
+     "oculto": true
     }
    ]
   },

@@ -1,0 +1,128 @@
+{
+ "colunas": 2,
+ "itens": [
+  {
+   "secao": "Inversor trifásico: as fases"
+  },
+  {
+   "titulo": "Correntes de fase i_a, i_b, i_c (A)",
+   "sinais": [
+    "i_a",
+    "i_b",
+    "i_c"
+   ],
+   "largura": 2
+  },
+  {
+   "titulo": "Tensão de linha v_ab e de fase v_an (V)",
+   "sinais": [
+    "v_ab",
+    "v_an"
+   ],
+   "largura": 2
+  },
+  {
+   "secao": "Vetor espacial das correntes"
+  },
+  {
+   "titulo": "Vetor espacial αβ das correntes (A)",
+   "sinais": [
+    "i_a",
+    "i_b",
+    "i_c"
+   ],
+   "largura": 2,
+   "altura": 340,
+   "xy": {
+    "modo": "vetor",
+    "a": "i_a",
+    "b": "i_b",
+    "c": "i_c",
+    "dq": false,
+    "th": {
+     "fonte": "wt",
+     "canal": "",
+     "f": 60,
+     "fase": 0
+    },
+    "media": 0,
+    "jan": {
+     "tipo": "ultimos",
+     "n": 2,
+     "f0": 60,
+     "t0": 0,
+     "t1": 10
+    },
+    "iguais": true
+   }
+  },
+  {
+   "titulo": "Correntes em dq, θ = 2π·(−60 Hz)·t (A)",
+   "sinais": [
+    "i_a",
+    "i_b",
+    "i_c"
+   ],
+   "largura": 2,
+   "altura": 340,
+   "xy": {
+    "modo": "vetor",
+    "a": "i_a",
+    "b": "i_b",
+    "c": "i_c",
+    "dq": true,
+    "th": {
+     "fonte": "wt",
+     "canal": "",
+     "f": -60,
+     "fase": 0
+    },
+    "media": 0,
+    "jan": {
+     "tipo": "ultimos",
+     "n": 2,
+     "f0": 60,
+     "t0": 0,
+     "t1": 10
+    },
+    "iguais": true
+   }
+  },
+  {
+   "secao": "U–Z·i da fase a"
+  },
+  {
+   "titulo": "U–Z·i: v_an × |Z|·i_a, |Z| = 10,69 Ω (V)",
+   "sinais": [
+    "v_an",
+    "i_a"
+   ],
+   "largura": 2,
+   "altura": 340,
+   "xy": {
+    "modo": "uzi",
+    "pares": [
+     {
+      "u": "v_an",
+      "i": "i_a",
+      "z": 10.69
+     },
+     {
+      "u": "",
+      "i": "",
+      "z": 1
+     }
+    ],
+    "media": 200,
+    "jan": {
+     "tipo": "ultimos",
+     "n": 2,
+     "f0": 60,
+     "t0": 0,
+     "t1": 10
+    },
+    "iguais": true
+   }
+  }
+ ]
+}

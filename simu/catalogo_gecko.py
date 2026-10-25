@@ -64,7 +64,29 @@ ESCONDIDOS = {
     "C_SPARSEMATRIX": "controle pronto do conversor matricial esparso, específico demais",   # i18n-ok
     "C_PMSM_CONTROL": "controle pronto de PMSM do Gecko, nunca testado",   # i18n-ok
     "C_PMSM_MODULATOR": "modulador pronto de PMSM do Gecko, nunca testado",   # i18n-ok
+    # 25/10 (v0.3.1): as janelas do Gecko que o scope já faz (o painel XY: vetor espacial e U–Z·i) e o receptor de EMI
+    "C_CISPR16": "receptor de EMI (CISPR 16) do Gecko, sem teste nem exemplo",   # i18n-ok
+    "C_SPACE_VECTOR": "janela do Gecko; no MaiSim é o painel XY do scope (vetor espacial)",   # i18n-ok
+    "C_U_ZI": "janela do Gecko; no MaiSim é o painel XY do scope (U–Z·i)",   # i18n-ok
+    # o domínio de relutância inteiro (a aba Reluctance, os seus medidores e terminais): nenhum exemplo nem teste
+    "C_MMFMETER": "medidor de FMM do domínio de relutância",   # i18n-ok
+    "C_FLUXMETER": "medidor de fluxo do domínio de relutância",   # i18n-ok
+    "REL_RELUCTANCE": "domínio de relutância, sem exemplo nem teste",   # i18n-ok
+    "NONLIN_REL": "domínio de relutância, sem exemplo nem teste",   # i18n-ok
+    "REL_MMF": "domínio de relutância, sem exemplo nem teste",   # i18n-ok
+    "REL_INDUCTOR": "domínio de relutância, sem exemplo nem teste",   # i18n-ok
+    "REL_TERMINAL": "terminal de subcircuito do domínio de relutância",   # i18n-ok
+    "REL_GLOBAL_TERMINAL": "terminal global do domínio de relutância",   # i18n-ok
+    # das máquinas ficam M-DC, PM-DC, PMSM e IM-CAGE (os pinos, o símbolo e os exemplos); LISN: sem teste nem exemplo
+    "LK_MOTOR_SMSALIENT": "máquina síncrona de polos salientes, sem pinos nem exemplo no MaiSim",   # i18n-ok
+    "LK_MOTOR_SMROUND": "máquina síncrona de rotor liso, sem pinos nem exemplo no MaiSim",   # i18n-ok
+    "LK_MOTOR_IMC": "máquina de indução, sem pinos nem exemplo no MaiSim (fica a IM-CAGE)",   # i18n-ok
+    "LK_MOTOR_IMSAT": "máquina de indução com saturação, sem pinos nem exemplo no MaiSim",   # i18n-ok
+    "LK_LISN": "LISN (a rede de estabilização da medição de EMI), sem teste nem exemplo",   # i18n-ok
 }
+# o nome na paleta que não é o do Gecko (I18nKeys, só em inglês): "rotulo" é a chave do textos_simu.js (pt e en), e o
+# simu.js a mostra no lugar do "nome" (que fica o do Gecko, para a busca e o arquivo)
+ROTULOS = {"C_VIEWMOT": "simu.cmp_viewmot"}   # "Machine-Internal": a grandeza de dentro de uma máquina (ω, n, Tel, ia…)
 for var, titulo in re.findall(r'createJPanelForTypes\((_typ\w+),\s*"([^"]+)"\)', fonte):
     itens = []
     for e in listas.get(var, []):
@@ -72,7 +94,8 @@ for var, titulo in re.findall(r'createJPanelForTypes\((_typ\w+),\s*"([^"]+)"\)',
         if not t:
             itens.append(dict(enum=e, erro="tipo não achado")); continue   # i18n-ok (script de quem monta o catalogo.json, não da tela)
         ident, chave = info(t["classe"])
-        itens.append(dict(t, id=ident, nome=TEXTOS.get(chave, chave or e), **({"oculto": True} if e in ESCONDIDOS else {})))
+        itens.append(dict(t, id=ident, nome=TEXTOS.get(chave, chave or e), **({"oculto": True} if e in ESCONDIDOS else {}),
+                          **({"rotulo": ROTULOS[e]} if e in ROTULOS else {})))
     abas.append(dict(aba=titulo, itens=itens))
 saida = Path(__file__).parent / "static" / "catalogo.json"
 saida.write_text(json.dumps(dict(fonte="MDPGeckoCIRCUITS, SchematischeEingabeAuswahl2 + CircuitTyp/ControlTyp/SpecialTyp + I18nKeys",

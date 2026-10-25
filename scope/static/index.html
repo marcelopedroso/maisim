@@ -265,6 +265,21 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
   .sc-modal h3 { margin:0 0 8px; font-size:16px; } .sc-modal p { margin:0 0 14px; font-size:13.5px; line-height:1.45; color:var(--sutil); }
   .sc-modal .sc-bts { display:flex; justify-content:flex-end; gap:8px; } .sc-modal button { padding:5px 14px; border-radius:7px; }
   @media (max-width: 900px) { #paineis > .cartao { grid-column: 1 / -1; } #indice { flex-basis:180px; } }
+  /* o painel XY (vetor espacial, U–Z·i, livre): a sua configuração (XY ▾) e o ⓘ; sem as ferramentas do tempo */
+  .cartao:not(.xy) .b-xy, .cartao:not(.xy) .b-xyi, .cartao:not(.xy) .xy-ajuda { display:none; }
+  .cartao.xy .b-sinais, .cartao.xy .b-y, .cartao.xy .zoom, .cartao.xy .b-solto, .cartao.xy .b-med { display:none; }
+  .cab .b-xyi { font:italic 700 13px Georgia, "Times New Roman", serif; border-radius:50%; width:24px; height:24px; padding:0; }   /* o (i) da ajuda */
+  .xy-ajuda { font-size:12px; color:var(--sutil); border:1px dashed var(--borda); border-radius:6px; padding:4px 10px; margin:0 0 6px; }
+  .xy-ajuda p { margin:4px 0; }
+  .xy-leitura { display:flex; flex-wrap:wrap; gap:3px 14px; font-size:12px; padding:3px 6px; min-height:18px; }
+  .xy-leitura i { display:inline-block; width:14px; height:3px; vertical-align:middle; margin-right:5px; }
+  .xy-leitura .sutil, .xy-est { color:var(--sutil); }
+  .menu-xy { width:310px; display:flex; flex-direction:column; gap:6px; }
+  .menu-xy label { display:flex; gap:6px; align-items:center; flex-wrap:wrap; font-size:12px; }
+  .menu-xy select { flex:1; min-width:0; } .menu-xy input[type=number] { width:76px; }
+  .menu-xy .seg { display:flex; gap:4px; flex-wrap:wrap; } .menu-xy .seg button { font-size:12px; padding:2px 8px; }
+  .menu-xy .rec { padding-left:20px; }
+  .menu-xy .xy-par, .menu-xy .xy-th { display:flex; flex-direction:column; gap:4px; border-left:2px solid var(--borda); padding-left:8px; }
 </style>
 </head>
 <body>
@@ -282,6 +297,7 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
     <label title="para de redesenhar (os dados continuam chegando)" data-tr-title="scope.h.t_pausar" data-tr="scope.h.pausar"><input type="checkbox" id="ck-pausar"> Pausar</label>
     <div class="grupo">
       <button id="bt-painel" data-tr="scope.h.painel">+ Painel</button>
+      <button id="bt-painel-xy" title="painel XY: um sinal contra outro, o vetor espacial (αβ, dq) de três fases ou o diagrama U–Z·i do Gecko" data-tr-title="scope.h.t_painel_xy" data-tr="scope.h.painel_xy">+ Painel XY</button>
       <button id="bt-secao" title="novo título de seção no fim" data-tr-title="scope.h.t_secao" data-tr="scope.h.secao">+ Seção</button>
       <button id="bt-porlinha" title="quantos painéis por linha, para todos (cada painel muda o seu no menu ⋯)" data-tr-title="scope.h.t_porlinha" data-tr-js>Por linha: 2</button>
       <span class="menu-layout"><button id="bt-layout" title="o layout deste circuito: guardar como padrão, voltar ao padrão, ou o automático" data-tr-title="scope.h.t_layout">Layout ▾</button>

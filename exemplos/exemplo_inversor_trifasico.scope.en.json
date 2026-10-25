@@ -1,0 +1,12 @@
+{
+ "titulos": {
+  "Inversor trifásico: as fases": "Three-phase inverter: the phases",
+  "Correntes de fase i_a, i_b, i_c (A)": "Phase currents i_a, i_b, i_c (A)",
+  "Tensão de linha v_ab e de fase v_an (V)": "Line voltage v_ab and phase voltage v_an (V)",
+  "Vetor espacial das correntes": "Space vector of the currents",
+  "Vetor espacial αβ das correntes (A)": "αβ space vector of the currents (A)",
+  "Correntes em dq, θ = 2π·(−60 Hz)·t (A)": "Currents in dq, θ = 2π·(−60 Hz)·t (A)",
+  "U–Z·i da fase a": "U–Z·i of phase a",
+  "U–Z·i: v_an × |Z|·i_a, |Z| = 10,69 Ω (V)": "U–Z·i: v_an × |Z|·i_a, |Z| = 10.69 Ω (V)"
+ }
+}

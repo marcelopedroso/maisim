@@ -1,0 +1,58 @@
+{
+ "colunas": 2,
+ "itens": [
+  {
+   "secao": "Inversor em ponte completa"
+  },
+  {
+   "titulo": "Tensão na carga v_ab (V)",
+   "sinais": [
+    "v_ab"
+   ],
+   "largura": 2
+  },
+  {
+   "titulo": "Corrente na carga i_o (A)",
+   "sinais": [
+    "i_o"
+   ],
+   "largura": 2
+  },
+  {
+   "secao": "U–Z·i da carga RL"
+  },
+  {
+   "titulo": "U–Z·i: v_ab × |Z|·i_o, |Z| = 10,69 Ω (V)",
+   "sinais": [
+    "v_ab",
+    "i_o"
+   ],
+   "largura": 2,
+   "altura": 340,
+   "xy": {
+    "modo": "uzi",
+    "pares": [
+     {
+      "u": "v_ab",
+      "i": "i_o",
+      "z": 10.69
+     },
+     {
+      "u": "",
+      "i": "",
+      "z": 1
+     }
+    ],
+    "media": 200,
+    "jan": {
+     "tipo": "ultimos",
+     "n": 2,
+     "f0": 60,
+     "t0": 0,
+     "t1": 10
+    },
+    "iguais": true
+   }
+  }
+ ]
+}

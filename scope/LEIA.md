@@ -117,6 +117,21 @@ continuam (quem publica rodadas de fora usa `/publicar`).
     ele aconteceu (`composedPath`).
   * Teste: `simu/validacao/tela/scope_cores_tela.js` 10/10, na instância isolada (`sobe_fila.sh`), só lendo duas
     gravações do simu.
+- **+ Painel XY** (25/10, no lugar das janelas "Space Vector Diagram" e "U-Z*i Diagram" do Gecko, que o MaiSim não mostra):
+  um painel de trajetória, configurado em **XY ▾** e explicado no **ⓘ**. *Livre*: Y contra X, quaisquer dois sinais da rodada.
+  *Vetor espacial*: três fases a, b, c (achadas pelos nomes: `i_a`, `i_b`, `i_c`) → Clarke invariante em amplitude, a mesma do
+  `SpaceVectorDisplay` do Gecko (α = (2a − b − c)/3, β = (b − c)/√3), β contra α; com **dq**, Park pelo ângulo θ (um sinal em
+  rad, ou 2π·f·t + φ₀): d = α cos θ + β sin θ, q = −α sin θ + β cos θ. *U–Z·i*: o bloco UZI do Gecko (`ReglerU_ZI` +
+  `UZiDisplay`): até dois pares (u, i), cada um com a sua impedância Z (Ω), e o ponto (u, Z·i) — u na horizontal, Z·i na
+  vertical, os dois em volts, o 1º par em vermelho e o 2º em azul, como lá. **Média móvel** (µs) = o "Average time" do Gecko;
+  **Tempo**: a rodada inteira, os últimos N períodos de f (ao vivo acompanha o fim), t₀–t₁ ou o zoom do tempo dos painéis
+  ligados; **Mesma escala nos dois eixos** (o círculo sai círculo). Início ○, fim ●, a seta da origem ao fim (vetor, U–Z·i); o
+  mouse mostra o ponto mais perto (t, x, y); o cursor de um painel do tempo marca o instante. Arrastar = zoom; duplo clique ou ⛶
+  volta. Calculado no navegador sobre os dados gravados (a simulação não muda); ao vivo, a cada lote. No layout e nas visões
+  exportadas (`xy` no item; `sinais` são os que ele usa), e no padrão do circuito (`<nome>.scope.json`): o
+  `exemplo_inversor_trifasico` abre com o αβ e o dq (f = −60 Hz) das correntes e o U–Z·i de v_an; o
+  `exemplo_inversor_ponte_completa`, com o U–Z·i da carga RL (|Z| = 10,69 Ω, média de 200 µs). Teste: `scope_xy_tela` (os
+  dois exemplos, pelo padrão, e o inversor trifásico montado à mão).
 
 ## Arquivos
 `servidor.py` (HTTP + Server-Sent Events, só biblioteca padrão), `publica.py` (fila com envio em lotes e as máscaras de
