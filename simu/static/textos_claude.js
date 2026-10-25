@@ -149,6 +149,8 @@ maisimI18n.add({
   "cc.consultando": { pt: "consultando a IA do MaiSim…", en: "checking the MaiSim AI…" },
   "cc.entre_conta": { pt: "Para pedir à IA, entre com a sua conta do {ia} (o balão no cabeçalho).", en: "To ask the AI, sign in with your {ia} account (the balloon in the header)." },
   "cc.entre_conta_outra": { pt: "Para pedir à IA, entre com a sua conta do {ia} (o balão no cabeçalho), ou escolha outra IA embaixo.", en: "To ask the AI, sign in with your {ia} account (the balloon in the header), or choose another AI below." },
+  "cc.sem_conta": { pt: "Para pedir à IA, conecte uma conta de IA neste computador (o Claude, o Gemini…).", en: "To ask the AI, connect an AI account on this computer (Claude, Gemini…)." },
+  "cc.abrir_contas": { pt: "Contas da IA", en: "AI accounts" },
   "cc.entrar_com": { pt: "Entrar com o {ia}", en: "Sign in with {ia}" },
   "cc.oi": { pt: "Ela lê o circuito e o código e propõe o controle; você vê a diferença antes de aplicar.", en: "It reads the circuit and the code and proposes the control; you see the diff before applying it." },
   "cc.ex_pi": { pt: "“um PI de corrente com anti-windup”", en: "“a current PI with anti-windup”" },

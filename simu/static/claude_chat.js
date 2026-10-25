@@ -278,6 +278,7 @@ function desenhaChat() {
   const box = $("cc-msgs"), noFim = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
   let h = "";
   if (!cla.estado) h = `<div class="cc-vazio">${escT(tr("cc.consultando"))}</div>`;
+  else if (!alguma) h = `<div class="cc-vazio"><div class="cc-oi"><svg class="mascote" width="40" height="40" aria-hidden="true"><use href="#maisim-claude"/></svg><p>${escT(tr("cc.sem_conta"))}</p></div><button id="cc-entrar" class="primario">${escT(tr("cc.abrir_contas"))}</button></div>`;
   else if (!logado) h = `<div class="cc-vazio"><div class="cc-oi"><svg class="mascote" width="40" height="40" aria-hidden="true"><use href="#maisim-claude"/></svg><p>${escT(tr((cc.ias || []).filter((a) => a.instalado).length > 1 ? "cc.entre_conta_outra" : "cc.entre_conta", { ia: nomeIA() }))}</p></div><button id="cc-entrar" class="primario">${escT(tr("cc.entrar_com", { ia: nomeIA() }))}</button></div>`;
   else {
     const hist = (e && e.conversa && e.conversa.historico) || [];
