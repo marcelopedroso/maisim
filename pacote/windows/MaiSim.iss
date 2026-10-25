@@ -42,7 +42,10 @@ LicenseFile=..\..\LICENSE
 Compression=lzma2/max
 SolidCompression=yes
 LZMANumBlockThreads=4
-CloseApplications=no
+; o que ainda estiver usando arquivos do programa depois do --parar (um Gecko com circuito sem salvar): o assistente
+; mostra quem é e oferece fechar (o Restart Manager do Windows); não reabre nada depois
+CloseApplications=yes
+RestartApplications=no
 ; uma atualização (o MaiSim já instalado) vai para a mesma pasta, sem perguntar
 UsePreviousAppDir=yes
 DisableDirPage=auto
@@ -212,6 +215,19 @@ begin
       Result := False;   { mostra a porta nova na página antes de seguir }
     end;
   end;
+end;
+
+{ uma atualização com o MaiSim no ar: desliga ele antes de trocar os arquivos (o Windows não deixa trocar um arquivo em
+  uso — "Acesso negado" no jre\bin\awt.dll); o --parar guarda o Gecko se houver circuito sem salvar, e aí o
+  CloseApplications acima mostra o que sobrou }
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var Py, Lanc: String; Cod: Integer;
+begin
+  Result := '';
+  Py := ExpandConstant('{app}\python\pythonw.exe');
+  Lanc := ExpandConstant('{app}\maisim\app\lancador.py');
+  if FileExists(Py) and FileExists(Lanc) then
+    Exec(Py, '"' + Lanc + '" --produto --parar', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, Cod);
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
