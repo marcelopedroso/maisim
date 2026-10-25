@@ -27,6 +27,7 @@
     "nav.tamanho_maior": { pt: "Tamanho do MaiSim: {pct}% (clique: maior)", en: "MaiSim size: {pct}% (click: larger)" },
     "nav.tamanho_menor": { pt: "Tamanho do MaiSim: {pct}% (clique: menor)", en: "MaiSim size: {pct}% (click: smaller)" },
     "nav.lingua": { pt: "Idioma: português (clique: English)", en: "Language: English (click: português)" },
+    "nav.ajuda": { pt: "Ajuda (F1)", en: "Help (F1)" },
   };
   if (I()) I().add(TXT);
   const tr = (k, p) => { if (I()) return I().tr(k, p);
@@ -80,6 +81,8 @@
   #maisim-nav .tema { border:0; background:transparent; cursor:pointer; font:inherit; }
   #maisim-nav .lingua[hidden] { display:none; }
   #maisim-nav .lingua { border:0; background:transparent; cursor:pointer; font:600 12px/1 system-ui, sans-serif; letter-spacing:.04em; }
+  #maisim-nav .ajuda { border:0; background:transparent; cursor:pointer; font:700 14px/1 system-ui, sans-serif; opacity:.75; }
+  #maisim-nav .ajuda:hover { opacity:1; }
   #maisim-nav.claro { background:#ffffff; border-right-color:#d9dde3; }
   #maisim-nav.claro .marca { color:#6d28d9; }
   #maisim-nav.claro .marca svg path:nth-of-type(2) { fill:none; }
@@ -181,7 +184,8 @@
     nav.insertAdjacentHTML("beforeend", `<a class="item ia" href="/maisim/simu/?contas=1" data-rotulo="${tr("nav.ia")}" aria-label="${tr("nav.ia")}">${ICONE_IA}<span class="ponto"></span></a>`
       + (comEscala() ? `<div class="escala"><button class="item mais" type="button" aria-label="${tr("nav.maior")}">+</button>
       <span class="pct"></span><button class="item menos" type="button" aria-label="${tr("nav.menor")}">−</button></div>` : "")
-      + `<button class="item lingua" type="button" hidden></button><button class="item tema" type="button"></button>`);
+      + `<button class="item lingua" type="button" hidden></button><button class="item tema" type="button"></button>`
+      + `<button class="item ajuda" type="button" data-rotulo="${tr("nav.ajuda")}" aria-label="${tr("nav.ajuda")}">?</button>`);
     const bl = nav.querySelector(".lingua");             // PT/EN: mostra o idioma de agora; o clique troca pelo outro, em todas as janelas
     bl.addEventListener("click", () => { if (trocaLingua()) I().muda(I().lingua() === "pt" ? "en" : "pt"); });
     if (comEscala()) { nav.querySelector(".mais").addEventListener("click", () => mudaEscala(1)); nav.querySelector(".menos").addEventListener("click", () => mudaEscala(-1)); }
@@ -192,6 +196,10 @@
       const prox = TEMAS[(TEMAS.indexOf(escolhaTema()) + 1) % TEMAS.length];
       try { localStorage.setItem("maisim-tema", prox); } catch (e) { /* ok */ }
       aplicaTema();
+    });
+    nav.querySelector(".ajuda").addEventListener("click", () => {
+      if (window.maisimAjuda && typeof window.maisimAjuda.alterna === "function") window.maisimAjuda.alterna();
+      else window.open("/ajuda.html", "maisim-ajuda", "popup,width=1100,height=860");
     });
     document.body.prepend(nav);
     rotulaLingua();
@@ -224,6 +232,8 @@
     const m = nav.querySelector(".mais"), n = nav.querySelector(".menos");
     if (m) m.setAttribute("aria-label", tr("nav.maior"));
     if (n) n.setAttribute("aria-label", tr("nav.menor"));
+    const aj = nav.querySelector(".ajuda");
+    if (aj) { aj.dataset.rotulo = tr("nav.ajuda"); aj.setAttribute("aria-label", tr("nav.ajuda")); }
     aplicaTema(); aplicaEscala();
   }
   // (pelos eventos da janela, não pelo aoMudar: valem também quando o motor de verdade chega depois da reserva)
@@ -252,6 +262,11 @@
     if (a && !e.defaultPrevented && e.button === 0 && !(e.ctrlKey || e.metaKey || e.shiftKey || e.altKey)
         && a.origin === location.origin && (!a.target || a.target === "_self")) window.maisimNavegando = Date.now(); });
   window.maisimNav = { montar, desmontar, aplicaTema, aplicaEscala, situacaoIA };
+  // carregar o suporte à ajuda (F1): o script e os textos
+  if (!window.maisimAjuda && !document.querySelector("script[src*='maisim-ajuda.js']")) {
+    const s1 = document.createElement("script"); s1.src = "/textos_ajuda.js"; s1.async = false; document.head.appendChild(s1);
+    const s2 = document.createElement("script"); s2.src = "/maisim-ajuda.js"; s2.async = false; document.head.appendChild(s2);
+  }
   const eu = document.currentScript;
   if (!(eu && eu.dataset.manual)) { if (document.body) montar(); else document.addEventListener("DOMContentLoaded", montar); }
 })();

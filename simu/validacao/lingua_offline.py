@@ -520,6 +520,7 @@ def confere_pares():
     pares = [(RAIZ / "simu/GUIA_CONTROLE.md", RAIZ / "simu/GUIA_CONTROLE.en.md", "md", True),   # o guia: o par já existe (PR 12)
              (RAIZ / "simu/ia/regras.pt.md", RAIZ / "simu/ia/regras.en.md", "md", False)]
     pares += [(p, p.with_name(p.stem + ".en.py"), "py", False) for p in sorted((RAIZ / "simu").glob("*_modelo.py"))]
+    pares += [(p, p.with_name(p.stem[:-3] + ".en.md"), "md", True) for p in sorted((RAIZ / "app/public/ajuda").glob("*.pt.md"))]
     for a, b, tipo, obrigatorio in pares:
         if obrigatorio and not (a.exists() and b.exists()):
             ok(False, f"{b.relative_to(RAIZ)}: falta o par ({a.name} e {b.name} precisam existir os dois)")

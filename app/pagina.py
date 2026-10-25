@@ -31,7 +31,7 @@ ler_config.aplica()
 PUBLICO, INICIO = AQUI / "public", AQUI / "index.html"
 TIPOS = {".js": "text/javascript; charset=utf-8", ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
          ".svg": "image/svg+xml", ".webmanifest": "application/manifest+json", ".json": "application/json",
-         ".png": "image/png", ".ico": "image/x-icon", ".woff2": "font/woff2"}
+         ".png": "image/png", ".ico": "image/x-icon", ".woff2": "font/woff2", ".md": "text/markdown; charset=utf-8"}
 # o sinal de vida das páginas: id da página → (hora do último sinal, situação); "ultimo" (o último sinal de qualquer uma) e
 # "fechou" (o último aviso de que uma fechou). Uma página conta como aberta até PRAZO[situação] sem sinal: à vista, 45 s (o
 # sinal vem a cada 15 s); escondida (janela minimizada, outra aba), o Chrome espaça os relógios para 1 por minuto: 3 min;
