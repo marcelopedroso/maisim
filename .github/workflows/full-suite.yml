@@ -1,13 +1,18 @@
-# After every merge into main: the full test suite (simu/validacao/ci.sh completo — UI, API, offline and the live scope
+# Once a day (and on demand, e.g. before a version): the full test suite (simu/validacao/ci.sh completo — UI, API, offline and the live scope
 # on the isolated instance). Green → a comment on every PR merged since the last green run ("full suite passed"), and,
 # if VERSION changed, the vX.Y.Z tag and a Release with notes (a -rc version: pre-release), then packages.yml builds the
 # AppImage and the Windows installer and attaches them. Red → an issue.
-# Started by verify.yml (after merging a PR) or by a push to main (a merge made on the GitHub page).
+# Runs at 04:00 (Brasília) only if main changed since the last green run, when VERSION changes on main (a new version:
+# tag, Release and packages right away), or by hand (Actions → full suite → Run workflow). Not after every merge: with
+# ~30 PRs a day that spent the month's Actions minutes in one day (24/10/2026); verify.yml already tests each PR.
 name: full suite
 
 on:
+  schedule:
+    - cron: "0 7 * * *"
   push:
     branches: [main]
+    paths: [VERSION]
   workflow_dispatch:
 
 concurrency:
@@ -18,8 +23,29 @@ permissions:
   contents: read
 
 jobs:
+  changed:
+    name: anything new on main?
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+    outputs:
+      run: ${{ steps.c.outputs.run }}
+    steps:
+      - id: c
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prev=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow full-suite.yml --branch main --status success --limit 1 --json headSha -q '.[0].headSha')
+          if [ "$GITHUB_EVENT_NAME" = schedule ] && [ "$prev" = "$GITHUB_SHA" ]; then
+            echo "main has not changed since the last green full suite: nothing to do"; echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
   suite:
     name: full test suite
+    needs: changed
+    if: needs.changed.outputs.run == 'true'
     runs-on: ubuntu-22.04
     timeout-minutes: 150
     steps:
