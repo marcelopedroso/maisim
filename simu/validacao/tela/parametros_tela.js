@@ -36,7 +36,7 @@ const abre = () => fetch("http://localhost:7201/maisim/simu/editor/abrir", { met
     const lst = await params(), tq = lst.find((q) => q.nome === "type");
     let s = await lista();
     ok(tq && tq.valor === 403 && tq.tipo === "ControlSourceType" && !tq.pode_var, `SIGNAL.1 type: o Gecko guarda ${tq && tq.valor} (${tq && tq.tipo}, variável $: ${tq && tq.pode_var})`);
-    ok(s && s.v === "403" && s.txt === "Triangular" && s.ops.join("|") === "402:Senoidal|403:Triangular|404:Retangular|405:Aleatória (ruído)|406:Importada (arquivo)",
+    ok(s && s.v === "403" && s.txt === "Triangular" && s.ops.join("|") === "402:Senoidal|403:Triangular|404:Retangular|405:Aleatória (ruído)",
       `a lista mostra "${s && s.txt}" (${s && s.ops.join(" · ")})`);
     const caixas = await pg.evaluate(() => ["useExternal", "display"].map((p) => { const i = document.querySelector(`#p-params input[data-p="${p}"]`); return i && `${p}:${i.type}:${i.checked}`; }));
     ok(caixas.join() === "useExternal:checkbox:false,display:checkbox:false", `os sim/não do Gecko são caixinhas: ${caixas.join(", ")}`);

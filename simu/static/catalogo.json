@@ -406,7 +406,8 @@
      "typ": 7,
      "classe": "ReglerGain",
      "id": "GAIN",
-     "nome": "GAIN"
+     "nome": "GAIN",
+     "rotulo": "simu.cmp_gain"
     },
     {
      "enum": "C_PT1",
@@ -414,7 +415,8 @@
      "typ": 8,
      "classe": "ReglerPT1",
      "id": "PT1",
-     "nome": "PT1"
+     "nome": "PT1",
+     "rotulo": "simu.cmp_pt1"
     },
     {
      "enum": "C_PT2",
@@ -422,7 +424,8 @@
      "typ": 9,
      "classe": "ReglerPT2",
      "id": "PT2",
-     "nome": "PT2"
+     "nome": "PT2",
+     "rotulo": "simu.cmp_pt2"
     },
     {
      "enum": "C_INT",
@@ -430,7 +433,8 @@
      "typ": 64,
      "classe": "ReglerIntegrator",
      "id": "INT",
-     "nome": "Integrator"
+     "nome": "Integrator",
+     "rotulo": "simu.cmp_int"
     },
     {
      "enum": "C_PI",
@@ -438,7 +442,8 @@
      "typ": 10,
      "classe": "ReglerPI",
      "id": "PI",
-     "nome": "PI"
+     "nome": "PI",
+     "rotulo": "simu.cmp_pi"
     },
     {
      "enum": "C_PD",
@@ -446,7 +451,8 @@
      "typ": 29,
      "classe": "ReglerPD",
      "id": "PD",
-     "nome": "PD"
+     "nome": "PD",
+     "rotulo": "simu.cmp_pd"
     },
     {
      "enum": "C_HYS",
@@ -454,7 +460,8 @@
      "typ": 11,
      "classe": "ReglerHysteresis",
      "id": "HYS",
-     "nome": "Hysteresis"
+     "nome": "Hysteresis",
+     "rotulo": "simu.cmp_hys"
     },
     {
      "enum": "C_LIMIT",
@@ -462,7 +469,8 @@
      "typ": 27,
      "classe": "ReglerLimit",
      "id": "LIMIT",
-     "nome": "Limiter"
+     "nome": "Limiter",
+     "rotulo": "simu.cmp_limit"
     },
     {
      "enum": "C_ADD",
@@ -470,7 +478,8 @@
      "typ": 12,
      "classe": "ReglerAdd",
      "id": "ADD",
-     "nome": "Addition"
+     "nome": "Addition",
+     "rotulo": "simu.cmp_add"
     },
     {
      "enum": "C_SUB",
@@ -478,7 +487,8 @@
      "typ": 13,
      "classe": "ReglerSubtraction",
      "id": "SUB",
-     "nome": "Subtraction"
+     "nome": "Subtraction",
+     "rotulo": "simu.cmp_sub"
     },
     {
      "enum": "C_MUL",
@@ -486,7 +496,8 @@
      "typ": 14,
      "classe": "ReglerMUL",
      "id": "MUL",
-     "nome": "Multiplication"
+     "nome": "Multiplication",
+     "rotulo": "simu.cmp_mul"
     },
     {
      "enum": "C_DIV",
@@ -494,7 +505,8 @@
      "typ": 15,
      "classe": "ReglerDivision",
      "id": "DIV",
-     "nome": "Division"
+     "nome": "Division",
+     "rotulo": "simu.cmp_div"
     },
     {
      "enum": "C_MIN",
@@ -502,7 +514,8 @@
      "typ": 49,
      "classe": "ReglerMIN",
      "id": "MIN",
-     "nome": "Minimum"
+     "nome": "Minimum",
+     "rotulo": "simu.cmp_min"
     },
     {
      "enum": "C_MAX",
@@ -510,7 +523,8 @@
      "typ": 50,
      "classe": "ReglerMAX",
      "id": "MAX",
-     "nome": "Maximum"
+     "nome": "Maximum",
+     "rotulo": "simu.cmp_max"
     },
     {
      "enum": "C_SIGN",
@@ -518,7 +532,8 @@
      "typ": 51,
      "classe": "ReglerSignum",
      "id": "SGN",
-     "nome": "Signum function"
+     "nome": "Signum function",
+     "rotulo": "simu.cmp_sgn"
     },
     {
      "enum": "C_TF",
@@ -526,7 +541,8 @@
      "typ": 74,
      "classe": "ReglerTransferFunction",
      "id": "TF",
-     "nome": "Transfer Function H(s)"
+     "nome": "Transfer Function H(s)",
+     "rotulo": "simu.cmp_tf"
     }
    ]
   },
@@ -638,7 +654,8 @@
      "typ": 18,
      "classe": "ReglerNOT",
      "id": "NOT",
-     "nome": "NOT"
+     "nome": "NOT",
+     "rotulo": "simu.cmp_not"
     },
     {
      "enum": "C_AND",
@@ -646,7 +663,8 @@
      "typ": 19,
      "classe": "ReglerAnd",
      "id": "AND",
-     "nome": "AND"
+     "nome": "AND",
+     "rotulo": "simu.cmp_and"
     },
     {
      "enum": "C_OR",
@@ -654,7 +672,8 @@
      "typ": 20,
      "classe": "ReglerOr",
      "id": "OR",
-     "nome": "OR"
+     "nome": "OR",
+     "rotulo": "simu.cmp_or"
     },
     {
      "enum": "C_XOR",
@@ -662,7 +681,8 @@
      "typ": 21,
      "classe": "ReglerExclusiveOr",
      "id": "XOR",
-     "nome": "XOR"
+     "nome": "XOR",
+     "rotulo": "simu.cmp_xor"
     },
     {
      "enum": "C_DELAY",
@@ -670,7 +690,8 @@
      "typ": 25,
      "classe": "ReglerDelay",
      "id": "DELAY",
-     "nome": "Delay"
+     "nome": "Delay",
+     "rotulo": "simu.cmp_delay"
     },
     {
      "enum": "C_SAMPLEHOLD",
@@ -678,7 +699,8 @@
      "typ": 26,
      "classe": "ReglerSampleHold",
      "id": "SHLD",
-     "nome": "Sample-Hold"
+     "nome": "Sample-Hold",
+     "rotulo": "simu.cmp_shld"
     },
     {
      "enum": "C_COUNTER",
@@ -686,7 +708,8 @@
      "typ": 53,
      "classe": "ReglerCounter",
      "id": "COUNTER",
-     "nome": "Counter"
+     "nome": "Counter",
+     "rotulo": "simu.cmp_counter"
     },
     {
      "enum": "C_GE",
@@ -694,7 +717,8 @@
      "typ": 45,
      "classe": "ReglerGreaterEqual",
      "id": "GE",
-     "nome": "Greater-Equal (>=)"
+     "nome": "Greater-Equal (>=)",
+     "rotulo": "simu.cmp_ge"
     },
     {
      "enum": "C_GT",
@@ -702,7 +726,8 @@
      "typ": 46,
      "classe": "ReglerGreaterThan",
      "id": "GT",
-     "nome": "Greater (>)"
+     "nome": "Greater (>)",
+     "rotulo": "simu.cmp_gt"
     },
     {
      "enum": "C_EQ",
@@ -710,7 +735,8 @@
      "typ": 47,
      "classe": "ReglerEqual",
      "id": "EQ",
-     "nome": "Equal (==)"
+     "nome": "Equal (==)",
+     "rotulo": "simu.cmp_eq"
     },
     {
      "enum": "C_NE",
@@ -718,7 +744,8 @@
      "typ": 48,
      "classe": "ReglerNE",
      "id": "NE",
-     "nome": "Not Equal (!=)"
+     "nome": "Not Equal (!=)",
+     "rotulo": "simu.cmp_ne"
     }
    ]
   },
@@ -731,7 +758,8 @@
      "typ": 12,
      "classe": "ReglerAdd",
      "id": "ADD",
-     "nome": "Addition"
+     "nome": "Addition",
+     "rotulo": "simu.cmp_add"
     },
     {
      "enum": "C_SUB",
@@ -739,7 +767,8 @@
      "typ": 13,
      "classe": "ReglerSubtraction",
      "id": "SUB",
-     "nome": "Subtraction"
+     "nome": "Subtraction",
+     "rotulo": "simu.cmp_sub"
     },
     {
      "enum": "C_MUL",
@@ -747,7 +776,8 @@
      "typ": 14,
      "classe": "ReglerMUL",
      "id": "MUL",
-     "nome": "Multiplication"
+     "nome": "Multiplication",
+     "rotulo": "simu.cmp_mul"
     },
     {
      "enum": "C_DIV",
@@ -755,7 +785,8 @@
      "typ": 15,
      "classe": "ReglerDivision",
      "id": "DIV",
-     "nome": "Division"
+     "nome": "Division",
+     "rotulo": "simu.cmp_div"
     },
     {
      "enum": "C_ABS",
@@ -763,7 +794,8 @@
      "typ": 32,
      "classe": "ReglerAbsolutValue",
      "id": "ABS",
-     "nome": "Absolute"
+     "nome": "Absolute",
+     "rotulo": "simu.cmp_abs"
     },
     {
      "enum": "C_SIGN",
@@ -771,7 +803,8 @@
      "typ": 51,
      "classe": "ReglerSignum",
      "id": "SGN",
-     "nome": "Signum function"
+     "nome": "Signum function",
+     "rotulo": "simu.cmp_sgn"
     },
     {
      "enum": "C_ROUND",
@@ -779,7 +812,8 @@
      "typ": 33,
      "classe": "ReglerRound",
      "id": "ROUND",
-     "nome": "Round"
+     "nome": "Round",
+     "rotulo": "simu.cmp_round"
     },
     {
      "enum": "C_SQR",
@@ -787,7 +821,8 @@
      "typ": 42,
      "classe": "ReglerSQR",
      "id": "SQR",
-     "nome": "Square"
+     "nome": "Square",
+     "rotulo": "simu.cmp_sqr"
     },
     {
      "enum": "C_SQRT",
@@ -795,7 +830,8 @@
      "typ": 43,
      "classe": "ReglerSQRT",
      "id": "SQRT",
-     "nome": "SQRT"
+     "nome": "SQRT",
+     "rotulo": "simu.cmp_sqrt"
     },
     {
      "enum": "C_POW",
@@ -803,7 +839,8 @@
      "typ": 44,
      "classe": "ReglerPOW",
      "id": "POW",
-     "nome": "POW"
+     "nome": "POW",
+     "rotulo": "simu.cmp_pow"
     },
     {
      "enum": "C_EXP",
@@ -811,7 +848,8 @@
      "typ": 40,
      "classe": "ReglerExponential",
      "id": "EXP",
-     "nome": "EXP"
+     "nome": "EXP",
+     "rotulo": "simu.cmp_exp"
     },
     {
      "enum": "C_LN",
@@ -819,7 +857,8 @@
      "typ": 41,
      "classe": "ReglerLN",
      "id": "LN",
-     "nome": "LN"
+     "nome": "LN",
+     "rotulo": "simu.cmp_ln"
     },
     {
      "enum": "C_SIN",
@@ -827,7 +866,8 @@
      "typ": 34,
      "classe": "ReglerSIN",
      "id": "SIN",
-     "nome": "SIN"
+     "nome": "SIN",
+     "rotulo": "simu.cmp_sin"
     },
     {
      "enum": "C_COS",
@@ -835,7 +875,8 @@
      "typ": 36,
      "classe": "ReglerCosine",
      "id": "COS",
-     "nome": "COS"
+     "nome": "COS",
+     "rotulo": "simu.cmp_cos"
     },
     {
      "enum": "C_TAN",
@@ -843,7 +884,8 @@
      "typ": 38,
      "classe": "ReglerTAN",
      "id": "TAN",
-     "nome": "TAN"
+     "nome": "TAN",
+     "rotulo": "simu.cmp_tan"
     },
     {
      "enum": "C_ASIN",
@@ -851,7 +893,8 @@
      "typ": 35,
      "classe": "ReglerAreaSine",
      "id": "ASIN",
-     "nome": "ASIN"
+     "nome": "ASIN",
+     "rotulo": "simu.cmp_asin"
     },
     {
      "enum": "C_ACOS",
@@ -859,7 +902,8 @@
      "typ": 37,
      "classe": "ReglerAreaCosine",
      "id": "ACOS",
-     "nome": "ACOS"
+     "nome": "ACOS",
+     "rotulo": "simu.cmp_acos"
     },
     {
      "enum": "C_ATAN",
@@ -867,7 +911,8 @@
      "typ": 39,
      "classe": "ReglerAreaTangens",
      "id": "ATAN",
-     "nome": "ATAN"
+     "nome": "ATAN",
+     "rotulo": "simu.cmp_atan"
     },
     {
      "enum": "C_SDFT",
@@ -875,7 +920,8 @@
      "typ": 82,
      "classe": "ReglerSlidingDFT",
      "id": "SDFT",
-     "nome": "SDFT"
+     "nome": "SDFT",
+     "rotulo": "simu.cmp_sdft"
     }
    ]
   },
@@ -888,7 +934,8 @@
      "typ": 4,
      "classe": "ReglerSignalSource",
      "id": "SIGNAL",
-     "nome": "Signal Source"
+     "nome": "Signal Source",
+     "rotulo": "simu.cmp_signal"
     },
     {
      "enum": "C_CONST",
@@ -896,7 +943,8 @@
      "typ": 3,
      "classe": "ReglerConstant",
      "id": "CONST",
-     "nome": "Constant value"
+     "nome": "Constant value",
+     "rotulo": "simu.cmp_const"
     },
     {
      "enum": "C_SWITCH",
@@ -904,7 +952,8 @@
      "typ": 6,
      "classe": "ReglerGate",
      "id": "GATE",
-     "nome": "Gate Control"
+     "nome": "Gate Control",
+     "rotulo": "simu.cmp_gate"
     },
     {
      "enum": "C_TO_EXTERNAL",
@@ -950,7 +999,8 @@
      "classe": "ReglerRandomWalk",
      "typ_enum": 90,
      "id": "RANDOM",
-     "nome": "Random Walk"
+     "nome": "Random Walk",
+     "rotulo": "simu.cmp_random"
     }
    ]
   },
@@ -990,7 +1040,8 @@
      "typ": 65,
      "classe": "ReglerABCDQ",
      "id": "ABCDQ",
-     "nome": "abc>>dq transformation"
+     "nome": "abc>>dq transformation",
+     "rotulo": "simu.cmp_abcdq"
     },
     {
      "enum": "C_DQABC",
@@ -998,7 +1049,8 @@
      "typ": 66,
      "classe": "ReglerDQABC",
      "id": "DQABC",
-     "nome": "dq>>abc transformation"
+     "nome": "dq>>abc transformation",
+     "rotulo": "simu.cmp_dqabc"
     },
     {
      "enum": "C_TIME",
@@ -1006,7 +1058,8 @@
      "typ": 58,
      "classe": "ReglerTIME",
      "id": "TIME",
-     "nome": "Simulation Time"
+     "nome": "Simulation Time",
+     "rotulo": "simu.cmp_time"
     },
     {
      "enum": "C_SPARSEMATRIX",
@@ -1041,7 +1094,8 @@
      "typ": 72,
      "classe": "ReglerThyristorControl",
      "id": "THYRISTOR_CONTROL",
-     "nome": "Thyristor Control"
+     "nome": "Thyristor Control",
+     "rotulo": "simu.cmp_thyristor_control"
     },
     {
      "enum": "TEXTFIELD",
@@ -1049,7 +1103,8 @@
      "typ": 70,
      "classe": "TextFieldBlock",
      "id": "TEXT",
-     "nome": "Text Field"
+     "nome": "Text Field",
+     "rotulo": "simu.cmp_text"
     }
    ]
   }

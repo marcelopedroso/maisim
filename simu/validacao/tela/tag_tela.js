@@ -19,7 +19,7 @@ const PI = require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_con
     const tela = (x, y) => pg.evaluate(([gx, gy]) => { const s = $("svg"), m = s.getScreenCTM(), pt = s.createSVGPoint(); pt.x = gx * G; pt.y = gy * G; const q = pt.matrixTransform(m); return [q.x, q.y]; }, [x, y]);
     const lim = await pg.evaluate(() => dados.folhas["0"].limites);
     const px = Math.round((lim[0] + lim[2]) / 2), py = lim[3] + 2;                     // embaixo do circuito, dentro da vista
-    await pg.click('#abas button:text-is("Measure")'); await pg.waitForTimeout(200);
+    await pg.click('#abas button[data-aba="Measure"]'); await pg.waitForTimeout(200);
     ok(await pg.isVisible('#itens .item[data-id="TAG"]'), "a tag está na paleta (Measure)");
     await pg.click('#itens .item[data-id="TAG"]'); const [x, y] = await tela(px, py); await pg.mouse.click(x, y); await pg.waitForTimeout(1500);
     let t = await pg.evaluate(() => { const e = dados.folhas["0"].elementos.find((x) => x.nome === "TAG.1"); return e && { tipo: e.tipo, sai: e.saidas[0], sel: ed.sel }; });

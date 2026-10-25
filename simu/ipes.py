@@ -82,6 +82,11 @@ NOMES = ["resistance", "inductance", "capacitance", "initialCurrent", "initialVa
          "dcValue", "offset", "onResistance", "offResistance", "constantValue", "k", "typQuelle", "amplitudeAC", "frequenz",
          "anteilDC", "phase", "tastverhaeltnis", "uForward", "rOn", "rOff", "delayTime", "blockSizeX", "blockSizeY",
          "worksheetSizeX", "worksheetSizeY", "terminalLocation", "sourceType"]
+# e os dos blocos de controle (só no domínio CONTROL: o valor embaixo do bloco e a dica, no simu.js; v0.3.1): PI (r0 = Kp,
+# a1 = Ki, T_Value só de exibição), PT1/PT2 (T, a1), INT (a1, y0, min, max), PD (a1), HYS (h), LIMIT (minLimit, maxLimit),
+# DELAY (tDelay), SDFT (windowSpan, freq_1), TF (constant), THYRISTOR_CONTROL (onTime, initFreq, phaseShift)
+NOMES_CONTROLE = ["r0", "a1", "T", "T_Value", "y0", "min", "max", "h", "minLimit", "maxLimit", "tDelay", "windowSpan", "freq_1",
+                  "constant", "onTime", "initFreq", "phaseShift"]
 
 
 def _rotulos(v):
@@ -138,11 +143,12 @@ def le(caminho):
                 d.setdefault(k, v)
         dom = tag[len("Element"):]                  # LK, CONTROL, SPECIAL, THERM …
         typ = int(d.get("typ", -1))
-        cat = CATALOGO.get((FAMILIA.get(dom, dom), typ), (None, None))
+        cat = CATALOGO.get((FAMILIA.get(dom, dom), typ)) or (CATALOGO.get(("S", typ)) if dom == "CONTROL" and typ == 70 else None) \
+            or (None, None)                         # a caixa de texto (TEXTFIELD, do SpecialTyp) é gravada como ElementCONTROL 70
         tipo = (LK if dom == "LK" else CONTROL if dom == "CONTROL" else {27: "SUBCIRCUIT"} if dom == "SPECIAL" else {}).get(typ) \
             or ("TERM" if (dom, typ) in TERM_OUTROS else None) or cat[0] or f"{dom}{typ}"
         par = {}
-        for k in NOMES:
+        for k in NOMES + (NOMES_CONTROLE if dom == "CONTROL" else []):
             if k in d:
                 try:
                     par[k] = float(d[k])
@@ -173,6 +179,8 @@ def le(caminho):
             tf = {k: _coefs(d.get(c)) for k, c in (("num", "nominatorPolynom"), ("den", "denominatorPolynom"))}
             if tf["num"] is not None and tf["den"] is not None:
                 elementos[-1]["tf"] = tf
+        if dom == "CONTROL" and cat[0] == "TEXT":      # a caixa de texto: o título (o Gecko só a edita na janela dele)
+            elementos[-1]["titulo"] = "" if d.get("title_string", "").strip() == "NIX_NIX_NIX" else d.get("title_string", "").strip()
         if "losscomp" in d:                         # o FLOW: que perda ele mede (total, conduction, switching; LossComponent do Gecko)
             elementos[-1]["losscomp"] = d["losscomp"].strip()
     for dom, corpo in re.findall(r"\nverbindung(\w+)\s+\(\d+\)\n<Verbindung>\n(.*?)<\\Verbindung>", t, re.S):
