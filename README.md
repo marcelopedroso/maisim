@@ -63,6 +63,14 @@ at the repository root with only what changes.
 Your data (circuits, subcircuits, runs, AI contexts) lives in `~/.local/share/maisim`; what can be rebuilt (editor
 state, conversations, logs, Gecko), in `~/.cache/maisim`.
 
+### Taking a circuit to another machine
+
+On the home page, **Export** on a circuit's row saves a `<name>.msd` file: the circuit (with its subcircuits), its control
+code, appearance and default scope layout, plus the runs you tick (none by default; the estimated size is shown).
+**Import…** in the Circuits header reads a `.msd` on any MaiSim (Windows, WSL or Linux), shows what comes in and, if the
+name is taken, offers `<name>_2` (replacing needs a confirmation). The runs come linked to the imported circuit. A `.msd`
+is a zip with a `manifest.json` that lists every file with its SHA-256; nothing is written unless every file checks out.
+
 ## Tests and contributing
 
 Everything goes in through pull requests, with the tests running on GitHub Actions (API tests in Python and UI tests

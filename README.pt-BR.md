@@ -62,6 +62,14 @@ com o que muda.
 Os seus dados (circuitos, subcircuitos, rodadas, contextos da IA) ficam em `~/.local/share/maisim`; o que dá para
 refazer (estado do editor, conversas, registros, Gecko), em `~/.cache/maisim`.
 
+### Levar um circuito para outra máquina
+
+Na página inicial, **Exportar**, na linha de um circuito, grava um arquivo `<nome>.msd`: o circuito (com os subcircuitos),
+o controle, a aparência e o layout padrão do scope, e as rodadas que você marcar (nenhuma por padrão; o tamanho estimado
+aparece antes). **Importar…**, no cabeçalho de Circuitos, lê um `.msd` em qualquer MaiSim (Windows, WSL ou Linux), mostra
+o que vem e, se o nome já existe, sugere `<nome>_2` (substituir pede confirmação). As rodadas chegam ligadas ao circuito
+importado. Um `.msd` é um zip com um `manifest.json` que lista cada arquivo com o SHA-256; nada é gravado se algum não conferir.
+
 ## Testes e como contribuir
 
 Tudo entra por pull request, com os testes rodando no GitHub Actions (testes de API em Python e de tela com o

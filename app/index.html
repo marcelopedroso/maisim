@@ -55,6 +55,20 @@
         #filtro-circ { width:100%; box-sizing:border-box; margin:0 0 8px; padding:7px 10px; border:1px solid var(--borda); border-radius:8px; background:var(--cartao); color:inherit; font:inherit; }
         #lista-circ { max-height:50vh; overflow:auto; } #lista-circ .grupo { padding:6px 16px; font-size:12px; color:var(--sutil); background:var(--fundo, transparent); border-top:1px solid var(--borda); text-transform:uppercase; letter-spacing:.3px; }
         #lista-circ .grupo:first-child { border-top:0; } #lista-circ .vazio { padding:14px 16px; color:var(--sutil); font-size:13px; }
+        /* levar um circuito para outro MaiSim (o .msd): Exportar em cada linha, Importar… no cabeçalho; os diálogos de cada um */
+        #bt-importar { font:inherit; font-size:13px; color:var(--acento); background:none; border:1px solid var(--borda); border-radius:8px; padding:4px 10px; cursor:pointer; }
+        #bt-importar:hover { border-color:var(--acento); }
+        .rodada button.exportar { flex:none; font:inherit; font-size:13px; color:var(--sutil); background:none; border:1px solid var(--borda); border-radius:8px; padding:5px 10px; cursor:pointer; }
+        .rodada button.exportar:hover { border-color:var(--acento); color:var(--acento); }
+        .modal.largo { width:min(580px, calc(100vw - 32px)); }
+        .msd-rods { max-height:40vh; overflow:auto; border:1px solid var(--borda); border-radius:8px; margin:6px 0; }
+        .msd-rods label { display:flex; align-items:center; gap:8px; padding:6px 10px; border-top:1px solid var(--borda); font-size:13px; cursor:pointer; }
+        .msd-rods label:first-child { border-top:0; } .msd-rods .n { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .msd-rods .d { color:var(--sutil); white-space:nowrap; } .msd-rods .vazio { padding:8px 10px; color:var(--sutil); font-size:13px; }
+        .msd-nome { display:flex; align-items:center; gap:8px; font-size:13.5px; margin:4px 0; } .msd-nome input[type=text] { flex:1; min-width:0; padding:4px 8px; border:1px solid var(--borda); border-radius:6px; background:var(--cartao); color:inherit; font:inherit; }
+        .modal p.aviso { color:#b45309; } .modal p.erro { color:#c0392b; } .modal .total { font-size:13px; }
+        .modal button.primario { background:var(--acento); border-color:var(--acento); color:#fff; } .modal button:disabled { opacity:.6; cursor:default; }
+        .modal a.primario { font-size:14px; padding:6px 14px; border-radius:8px; background:var(--acento); color:#fff; text-decoration:none; }
         #pasta-circ { margin:6px 0 0; color:var(--sutil); font-size:12px; word-break:break-all; }
         #recentes h2 { font-size:15px; margin:0 0 10px; color:var(--sutil); font-weight:600; letter-spacing:.3px; text-transform:uppercase; }
         .rodadas { border:1px solid var(--borda); border-radius:12px; background:var(--cartao); overflow:hidden; }
@@ -141,7 +155,9 @@
         </section>
         <section id="circuitos" hidden>
             <div class="cab"><h2 data-tr="inicio.circuitos">Circuitos</h2>
-                <span class="abas-circ" role="tablist"><button type="button" role="tab" data-aba="recentes" aria-selected="true" data-tr="inicio.circ_recentes">Recentes</button><button type="button" role="tab" data-aba="todos" aria-selected="false" data-tr="inicio.circ_todos">Todos os circuitos</button></span></div>
+                <span class="abas-circ" role="tablist"><button type="button" role="tab" data-aba="recentes" aria-selected="true" data-tr="inicio.circ_recentes">Recentes</button><button type="button" role="tab" data-aba="todos" aria-selected="false" data-tr="inicio.circ_todos">Todos os circuitos</button></span>
+                <button type="button" id="bt-importar" title="trazer um circuito de outro MaiSim (um arquivo .msd)" data-tr="inicio.msd_importar" data-tr-title="inicio.msd_importar_title">Importar…</button>
+                <input type="file" id="arq-msd" accept=".msd" hidden></div>
             <input type="search" id="filtro-circ" hidden placeholder="procurar circuito…" aria-label="procurar circuito" data-tr-ph="inicio.circ_ph" data-tr-aria="inicio.circ_ph">
             <div class="rodadas" id="lista-circ"></div>
             <p class="sub-ult" id="pasta-circ"></p>
@@ -215,7 +231,6 @@
             let todos;                                   // os exemplos só entram em Recentes, se foram abertos (a grade deles já está acima)
             try { todos = await (await fetch("/maisim/simu/modelos")).json(); mods = todos.filter((m) => (m.id_grupo || m.grupo) !== "exemplos"); } catch (e) { return; }   // sem o simu: sem a seção
             try { pastas = await (await fetch("/maisim/simu/modelos/pastas")).json(); } catch (e) { /* sem o caminho */ }
-            if (!mods.length && !todos.some((m) => m.aberto_em)) return;
             const sec = document.getElementById("circuitos"), lista = document.getElementById("lista-circ"), filtro = document.getElementById("filtro-circ");
             if (!sec || !lista || !filtro) return;          // a página mudou enquanto a lista vinha (um teste troca o corpo por um iframe)
             const nome = (m) => m.nome.replace(/\.ipes$/, "");
@@ -226,13 +241,15 @@
             const LIXO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>';
             const linha = (m, det) => `<div class="rodada"><div class="info"><b title="${esc(m.arq)}">${esc(nome(m))}</b><div class="det">${esc(det)}</div></div>` +
                 `<a href="/maisim/simu/?modelo=${encodeURIComponent(m.arq)}">${esc(tr("inicio.circ_abrir"))}</a>` +
+                `<button class="exportar" type="button" data-arq="${esc(m.arq)}" title="${esc(tr("inicio.msd_exportar_title"))}" aria-label="${esc(tr("inicio.msd_exportar_aria", { nome: nome(m) }))}">${esc(tr("inicio.msd_exportar"))}</button>` +
                 (m.apagavel && m.arq !== aberto ? `<button class="apagar" type="button" data-arq="${esc(m.arq)}" title="${esc(tr("inicio.circ_apagar_title"))}" aria-label="${esc(tr("inicio.circ_apagar_aria", { nome: nome(m) }))}">${LIXO}</button>` : "") + `</div>`;
             let aba = "recentes";
             const desenha = () => {
                 if (aba === "recentes") {
                     const abertos = todos.filter((m) => m.aberto_em).sort((a, b) => b.aberto_em - a.aberto_em);
                     const lst = (abertos.length ? abertos : [...mods].sort((a, b) => (b.alterado || 0) - (a.alterado || 0))).slice(0, 8);
-                    lista.innerHTML = lst.map((m) => linha(m, [m.grupo, m.aberto_em ? tr("inicio.circ_aberto", { q: quando(m.aberto_em) }) : tr("inicio.circ_alterado", { q: quando(m.alterado) })].join(" · "))).join("");
+                    lista.innerHTML = lst.map((m) => linha(m, [m.grupo, m.aberto_em ? tr("inicio.circ_aberto", { q: quando(m.aberto_em) }) : tr("inicio.circ_alterado", { q: quando(m.alterado) })].join(" · "))).join("")
+                        || `<div class="vazio">${esc(tr("inicio.circ_vazio"))}</div>`;
                 } else {
                     const q = filtro.value.trim().toLowerCase(), grupos = new Map();
                     for (const m of mods) if (!q || m.nome.toLowerCase().includes(q)) { if (!grupos.has(m.grupo)) grupos.set(m.grupo, []); grupos.get(m.grupo).push(m); }
@@ -246,6 +263,7 @@
                 filtro.hidden = aba !== "todos"; desenha(); if (aba === "todos") filtro.focus(); });
             filtro.oninput = desenha;
             lista.onclick = async (ev) => {
+                const ex = ev.target.closest("button.exportar"); if (ex) { const m = todos.find((x) => x.arq === ex.dataset.arq); if (m) exporta(m); return; }
                 const bt = ev.target.closest("button.apagar"); if (!bt) return;
                 const m = mods.find((x) => x.arq === bt.dataset.arq); if (!m) return;
                 const f = document.createElement("div"); f.className = "modal-fundo";
@@ -261,6 +279,86 @@
                     const j = await r.json(); if (!r.ok || j.erro) throw new Error(j.erro || r.status);
                     mods.splice(mods.indexOf(m), 1); const k = todos.indexOf(m); if (k >= 0) todos.splice(k, 1); desenha();
                 } catch (e) { alert(tr("inicio.circ_apagar_erro", { erro: e.message })); }   // i18n-ok (o texto vem do dicionário)
+            };
+            // levar um circuito para outro MaiSim (Marcelo, 24/10): o .msd. Exportar: o que vai junto e as rodadas deste circuito
+            // (as do scope, pelo caminho; nenhuma marcada: podem ser grandes), com o total; o arquivo baixa cru. Importar: o arquivo
+            // cru vai ao simu (a prévia: quem, quando, as rodadas, o conflito de nome), e só "Importar" grava
+            const mb = (b) => b >= 1e9 ? `${(b / 1e9).toFixed(1)} GB` : b >= 1e6 ? `${(b / 1e6).toFixed(b < 1e7 ? 1 : 0)} MB` : `${Math.max(1, Math.round(b / 1e3))} kB`;
+            const ITENS = { ".controle.json": "inicio.msd_item_controle", ".aparencia.json": "inicio.msd_item_aparencia", ".scope.json": "inicio.msd_item_scope" };
+            const itens = (irmaos) => [tr("inicio.msd_item_circuito"), ...irmaos.map((s) => tr(ITENS[s]))].join(", ");
+            const modal = (html) => { const f = document.createElement("div"); f.className = "modal-fundo"; f.innerHTML = html; document.body.appendChild(f);
+                const fim = () => { f.remove(); document.removeEventListener("keydown", k); }; const k = (e) => { if (e.key === "Escape") fim(); };
+                document.addEventListener("keydown", k); f.addEventListener("click", (e) => { if (e.target === f || e.target.closest(".m-nao")) fim(); }); return { f, fim }; };
+            const confirma = (titulo, texto, ok) => new Promise((res) => { const { f, fim } = modal(`<div class="modal" role="dialog" aria-modal="true"><h3>${esc(titulo)}</h3><p>${esc(texto)}</p>` +
+                `<div class="botoes"><button type="button" class="m-nao">${esc(tr("inicio.cancelar"))}</button><button type="button" class="m-sim perigo">${esc(ok)}</button></div></div>`);
+                const obs = new MutationObserver(() => { if (!f.isConnected) { obs.disconnect(); res(false); } }); obs.observe(document.body, { childList: true });
+                f.querySelector(".m-sim").onclick = () => { obs.disconnect(); fim(); res(true); }; f.querySelector(".m-sim").focus(); });
+            const recarrega = async () => { try { todos = await (await fetch("/maisim/simu/modelos")).json(); mods = todos.filter((m) => (m.id_grupo || m.grupo) !== "exemplos"); } catch (e) { /* fica a lista de antes */ } desenha(); };
+            const exporta = async (m) => {
+                let info, rods = [];
+                try { const r = await fetch(`/maisim/simu/msd/info?arq=${encodeURIComponent(m.arq)}`); info = await r.json(); if (!r.ok || info.erro) throw new Error(info.erro || r.status); }
+                catch (e) { alert(tr("inicio.msd_erro", { erro: e.message })); return; }   // i18n-ok (o texto vem do dicionário)
+                try { rods = (await (await fetch("/maisim/scope/rodadas")).json()).filter((r) => r.do_simu && r.pasta && r.modelo === m.arq); } catch (e) { /* sem o scope: só o circuito */ }
+                const pasta = (r) => r.arq.split("/").slice(-2, -1)[0];
+                const { f, fim } = modal(`<div class="modal largo msd-exp" role="dialog" aria-modal="true"><h3>${esc(tr("inicio.msd_exp_titulo", { nome: nome(m) }))}</h3>` +
+                    `<p>${esc(tr("inicio.msd_vai", { itens: itens(info.irmaos) }))}</p><p>${esc(tr("inicio.msd_fica"))}</p><p>${esc(tr("inicio.msd_rodadas"))}</p>` +
+                    `<div class="msd-rods">${rods.map((r, i) => `<label><input type="checkbox" data-i="${i}"><span class="n">${esc(r.nome)}${r.guardada ? ` <span title="${esc(tr("inicio.msd_guardada"))}">⭐</span>` : ""}</span>` +
+                        `<span class="d">${esc(quando(r.mtime))} · ${mb(r.pasta_tam || r.tamanho || 0)}</span></label>`).join("") || `<div class="vazio">${esc(tr("inicio.msd_sem_rodadas"))}</div>`}</div>` +
+                    `<p class="total"></p><p class="erro" hidden></p><div class="botoes"><button type="button" class="m-nao">${esc(tr("inicio.cancelar"))}</button>` +
+                    `<button type="button" class="m-exp primario">${esc(tr("inicio.msd_exportar"))}</button></div></div>`);
+                const marcadas = () => [...f.querySelectorAll(".msd-rods input:checked")].map((x) => rods[+x.dataset.i]);
+                const total = () => { f.querySelector(".total").textContent = tr("inicio.msd_total", { tam: mb(info.tamanho + marcadas().reduce((a, r) => a + (r.pasta_tam || r.tamanho || 0), 0)) }); };
+                f.querySelector(".msd-rods").onchange = total; total();
+                const bt = f.querySelector(".m-exp"); bt.focus();
+                bt.onclick = async () => {
+                    bt.disabled = true; bt.textContent = tr("inicio.msd_exportando");
+                    try {
+                        const r = await fetch(`/maisim/simu/msd/exportar?arq=${encodeURIComponent(m.arq)}&rodadas=${encodeURIComponent(marcadas().map(pasta).join(","))}`);
+                        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).erro || r.status);
+                        let avisos = []; try { avisos = JSON.parse(r.headers.get("X-MaiSim-Avisos") || "[]"); } catch (e) { /* sem avisos */ }
+                        const url = URL.createObjectURL(await r.blob()), a = document.createElement("a");   // cru, como veio (sem base64)
+                        a.href = url; a.download = `${info.nome}.msd`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000);
+                        if (!avisos.length) return fim();
+                        f.querySelector(".modal").innerHTML = `<h3>${esc(tr("inicio.msd_aviso_titulo"))}</h3>${avisos.map((x) => `<p class="aviso">${esc(x)}</p>`).join("")}` +
+                            `<div class="botoes"><button type="button" class="m-nao">${esc(tr("inicio.ok"))}</button></div>`;
+                    } catch (e) { const p = f.querySelector(".erro"); p.hidden = false; p.textContent = tr("inicio.msd_erro", { erro: e.message }); bt.disabled = false; bt.textContent = tr("inicio.msd_exportar"); }
+                };
+            };
+            const entrada = document.getElementById("arq-msd");
+            document.getElementById("bt-importar").onclick = () => { entrada.value = ""; entrada.click(); };
+            entrada.onchange = async () => {
+                const arq = entrada.files && entrada.files[0]; if (!arq) return;
+                const { f, fim } = modal(`<div class="modal largo msd-imp" role="dialog" aria-modal="true"><p>${esc(tr("inicio.msd_lendo"))}</p></div>`);
+                let pv;
+                try { const r = await fetch("/maisim/simu/msd/ver", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-MaiSim": "1" }, body: arq });
+                    pv = await r.json(); if (!r.ok || pv.erro) throw new Error(pv.erro || r.status); }
+                catch (e) { f.querySelector(".modal").innerHTML = `<p class="erro">${esc(tr("inicio.msd_erro", { erro: e.message }))}</p><div class="botoes"><button type="button" class="m-nao">${esc(tr("inicio.ok"))}</button></div>`; return; }
+                const dt = pv.criado ? new Date(pv.criado) : null;
+                f.querySelector(".modal").innerHTML = `<h3>${esc(tr("inicio.msd_imp_titulo", { nome: pv.circuito }))}</h3>` +
+                    `<p>${esc(tr("inicio.msd_de", { autor: pv.autor || "?", sistema: pv.sistema || "?", quando: dt && !isNaN(dt) ? quando(dt.getTime() / 1000) : "?", maisim: pv.maisim || "?" }))}</p>` +
+                    `<p>${esc(tr("inicio.msd_vem", { itens: itens(pv.irmaos) }))}</p>${pv.avisos.map((x) => `<p class="aviso">${esc(x)}</p>`).join("")}` +
+                    (pv.rodadas.length ? `<p>${esc(tr("inicio.msd_rodadas_vem"))}</p><div class="msd-rods">${pv.rodadas.map((r, i) => `<label><input type="checkbox" checked data-i="${i}"><span class="n">${esc(r.nome)}${r.guardada ? ` <span title="${esc(tr("inicio.msd_guardada"))}">⭐</span>` : ""}</span>` +
+                        `<span class="d">${esc(r.data ? quando(new Date(r.data).getTime() / 1000) : "")} · ${mb(r.tamanho || 0)}</span></label>`).join("")}</div>` : "") +
+                    (pv.conflito ? `<div class="msd-conflito"><p class="aviso">${esc(tr("inicio.msd_conflito", { nome: pv.circuito }))}</p>` +
+                        `<label class="msd-nome"><input type="radio" name="msd-modo" value="como" checked>${esc(tr("inicio.msd_como"))} <input type="text" id="msd-nome" value="${esc(pv.sugerido)}" maxlength="60" spellcheck="false"></label>` +
+                        `<label class="msd-nome"><input type="radio" name="msd-modo" value="substituir">${esc(tr("inicio.msd_substituir"))}</label></div>` : "") +
+                    `<p class="erro" hidden></p><div class="botoes"><button type="button" class="m-nao">${esc(tr("inicio.cancelar"))}</button><button type="button" class="m-imp primario">${esc(tr("inicio.msd_importar_bt"))}</button></div>`;
+                const bt = f.querySelector(".m-imp"); bt.focus();
+                bt.onclick = async () => {
+                    const subst = !!f.querySelector('input[name="msd-modo"][value="substituir"]:checked');
+                    const nomeNovo = pv.conflito && !subst ? f.querySelector("#msd-nome").value.trim() : pv.circuito;
+                    if (subst && !(await confirma(tr("inicio.msd_subst_q", { nome: pv.circuito }), tr("inicio.msd_subst_txt", { nome: pv.circuito }), tr("inicio.msd_substituir_bt")))) return;
+                    const rodadas = [...f.querySelectorAll(".msd-rods input:checked")].map((x) => pv.rodadas[+x.dataset.i].pasta);
+                    bt.disabled = true; bt.textContent = tr("inicio.msd_importando");
+                    try { const r = await fetch("/maisim/simu/msd/importar", { method: "POST", headers: { "Content-Type": "application/json", "X-MaiSim": "1" },
+                            body: JSON.stringify({ token: pv.token, nome: nomeNovo, rodadas, substituir: subst }) });
+                        const j = await r.json(); if (!r.ok || j.erro) throw new Error(j.erro || r.status);
+                        f.querySelector(".modal").innerHTML = `<h3>${esc(tr("inicio.msd_feito", { nome: j.nome }))}</h3><p>${esc(tr("inicio.msd_feito_txt", { n: j.rodadas.length }))}</p>` +
+                            `<div class="botoes"><button type="button" class="m-nao">${esc(tr("inicio.msd_fechar"))}</button><a class="primario m-abrir" href="/maisim/simu/?modelo=${encodeURIComponent(j.arq)}">${esc(tr("inicio.circ_abrir"))}</a></div>`;
+                        aba = "recentes"; document.querySelectorAll(".abas-circ button").forEach((x) => x.setAttribute("aria-selected", String(x.dataset.aba === "recentes"))); filtro.hidden = true;
+                        await recarrega();
+                    } catch (e) { const p = f.querySelector(".erro"); p.hidden = false; p.textContent = tr("inicio.msd_erro", { erro: e.message }); bt.disabled = false; bt.textContent = tr("inicio.msd_importar_bt"); }
+                };
             };
             if (pastas.meus) document.getElementById("pasta-circ").textContent = tr("inicio.circ_pasta", { pasta: pastas.meus });
             desenha(); sec.hidden = false;
