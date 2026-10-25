@@ -49,8 +49,22 @@ for k, v in listas.items():                                 # tira o que está c
     corpo = re.sub(r"//[^\n]*", "", corpo)
     listas[k] = re.findall(r"(?:\w+Typ\.)?([A-Z][A-Za-z0-9_]+)", corpo)
 abas = []
-# os que o MaiSim não oferece mesmo que o Gecko ponha na paleta: o TH_MODUL (ThermMODUL) lança UnsupportedOperationException
-ESCONDIDOS = {"TH_MODUL"}
+# o que o MaiSim não oferece na paleta (pedido de Marcelo, 25/10: o que nunca testamos ou não faz sentido aqui), mesmo que o
+# Gecko o ponha lá: fica no catalogo.json com "oculto" (o ipes.py ainda dá nome e id a ele, e um circuito que já o tem abre,
+# desenha e roda), só a paleta do simu.js não o mostra. TH_MODUL (ThermMODUL, PR #119) lança UnsupportedOperationException.
+ESCONDIDOS = {
+    "TH_MODUL": "ThermMODUL lança UnsupportedOperationException no Gecko",   # i18n-ok (motivos do script, não da tela)
+    "C_TO_EXTERNAL": "ponte com o Simulink, que o MaiSim não usa",   # i18n-ok
+    "C_FROM_EXTERNAL": "ponte com o Simulink, que o MaiSim não usa",   # i18n-ok
+    "C_DATA_EXPORT": "grava arquivo fora do MaiSim; o scope e as rodadas já exportam",   # i18n-ok
+    "C_SOURCE_IMPORT_DATA": "lê um arquivo de dados de fora, sem teste nem exemplo",   # i18n-ok
+    "C_JAVA_FUNCTION": "compila código Java dentro do Gecko; o MaiSim tem o controle.py",   # i18n-ok
+    "C_NATIVE_C_FUNCTION": "precisa de uma biblioteca C/C++ compilada à parte",   # i18n-ok
+    "C_SMALL_SIG": "análise de pequenos sinais do Gecko, fora do caminho do MaiSim",   # i18n-ok
+    "C_SPARSEMATRIX": "controle pronto do conversor matricial esparso, específico demais",   # i18n-ok
+    "C_PMSM_CONTROL": "controle pronto de PMSM do Gecko, nunca testado",   # i18n-ok
+    "C_PMSM_MODULATOR": "modulador pronto de PMSM do Gecko, nunca testado",   # i18n-ok
+}
 for var, titulo in re.findall(r'createJPanelForTypes\((_typ\w+),\s*"([^"]+)"\)', fonte):
     itens = []
     for e in listas.get(var, []):
@@ -60,13 +74,14 @@ for var, titulo in re.findall(r'createJPanelForTypes\((_typ\w+),\s*"([^"]+)"\)',
         if not t:
             itens.append(dict(enum=e, erro="tipo não achado")); continue   # i18n-ok (script de quem monta o catalogo.json, não da tela)
         ident, chave = info(t["classe"])
-        itens.append(dict(t, id=ident, nome=TEXTOS.get(chave, chave or e)))
+        itens.append(dict(t, id=ident, nome=TEXTOS.get(chave, chave or e), **({"oculto": True} if e in ESCONDIDOS else {})))
     abas.append(dict(aba=titulo, itens=itens))
 saida = Path(__file__).parent / "static" / "catalogo.json"
 saida.write_text(json.dumps(dict(fonte="MDPGeckoCIRCUITS, SchematischeEingabeAuswahl2 + CircuitTyp/ControlTyp/SpecialTyp + I18nKeys",
                                  abas=abas), ensure_ascii=False, indent=1))
 n = sum(len(a["itens"]) for a in abas)
 sem = [i["enum"] for a in abas for i in a["itens"] if not i.get("id")]
-print(f"{len(abas)} abas, {n} itens; sem nome curto: {sem or 'nenhum'}")
+print(f"{len(abas)} abas, {n} itens; sem nome curto: {sem or 'nenhum'}; fora da paleta: "
+      f"{[i['enum'] for a in abas for i in a['itens'] if i.get('oculto')] or 'nenhum'}")
 for a in abas:
     print(f"  {a['aba']:12} {len(a['itens']):3}: " + ", ".join(f"{i.get('nome')} [{i.get('id')}·{i.get('typ')}]" for i in a["itens"][:5]) + (" …" if len(a["itens"]) > 5 else ""))

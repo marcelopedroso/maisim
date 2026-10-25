@@ -1246,7 +1246,8 @@ function desenhaPaleta() {
   $("abas").innerHTML = c.abas.map((a, k) => `<button data-k="${k}" class="${k === ed.aba && !q ? "ativo" : ""}">${a.aba}</button>`).join("");
   $("abas").querySelectorAll("button").forEach((b) => b.onclick = () => { ed.aba = +b.dataset.k; $("busca").value = ""; desenhaPaleta(); });
   const itens = (q ? c.abas.flatMap((a) => a.itens.map((i) => Object.assign({ aba: a.aba }, i))).filter((i) => `${i.nome} ${i.id}`.toLowerCase().includes(q))
-                    : c.abas[ed.aba].itens).filter((i) => i.id !== "SCOPE");      // regra do MaiSim: medidor vai para o /maisim/scope
+                    : c.abas[ed.aba].itens).filter((i) => i.id !== "SCOPE" && !i.oculto);   // regra do MaiSim: medidor vai para o
+  // /maisim/scope; "oculto": o que o MaiSim não oferece (catalogo_gecko.py, ESCONDIDOS) — um circuito que já o tem abre e roda
   $("itens").innerHTML = itens.map((i) => `<div class="item${ed.colocar && ed.colocar.id === i.id ? " ativo" : ""}${i.lib ? " lib" : ""}" data-id="${i.id}" draggable="true"
     title="${i.lib ? tr("simu.t_item_lib", { nome: i.nome, info: i.info }) : tr("simu.t_item", { nome: i.nome, typ: i.typ, dom: i.dom })}">
     ${icone(i)}<span>${i.nome}</span>${i.lib ? `<small>${i.info}</small>` : ""}</div>`).join("") ||

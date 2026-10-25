@@ -1,7 +1,7 @@
 """O lançador do MaiSim, igual no Linux e no Windows (o que os pacotes usam: o instalador do Windows e o AppImage; a versão
-de programador segue com o npm run maisim / app/scripts/maisim.sh). Sobe, nesta ordem, o que ainda não estiver no ar:
-a página (app/pagina.py), o scope e o simulador (Python), o Gecko (Java; no Linux numa tela virtual, Xvfb) e o motor do
-editor (Java). Espera ficar pronto, abre o navegador como app (--abrir) e fica no ar; Ctrl+C (ou --parar, de outro lugar)
+de programador também, com app/scripts/maisim.sh --abrir; sem --abrir, o maisim.sh fica no ar até o Ctrl+C). Sobe, nesta
+ordem, o que ainda não estiver no ar: a página (app/pagina.py), o scope e o simulador (Python), o Gecko (Java; no Linux
+numa tela virtual, Xvfb) e o motor do editor (Java). Espera ficar pronto, abre o navegador como app (--abrir) e fica no ar; Ctrl+C (ou --parar, de outro lugar)
 derruba o que ele subiu — o Gecko só se não houver circuito sem salvar (a pergunta ao simulador, como no maisim.sh).
 Com --abrir (o atalho do "só usar"), fechar a janela do MaiSim também desliga: as páginas dão sinal de vida à página
 (app/pagina.py, /maisim/vivo) e, sem nenhuma aberta (nem rodada em andamento), ele para como o --parar. O ícone de novo,
@@ -10,11 +10,13 @@ com o lançador ainda no ar, só abre a janela nele.
 uso: python3 app/lancador.py [--produto] [--abrir] [--sem-gecko]     |     python3 app/lancador.py [--produto] --parar
   --produto  o perfil da versão "só usar" (config/produto.env: os dados à vista em ~/MaiSim ou Documentos\\MaiSim)
   MAISIM_JAVA (o java dos pacotes; senão o do sistema), MAISIM_GECKO_JAR (senão gecko/build/gecko-lote.jar),
-  MAISIM_NAVEGADOR (o navegador do --abrir; "nenhum": não abre — os testes)"""
+  MAISIM_NAVEGADOR (o navegador do --abrir, com opções se quiser; "nenhum": não abre — os testes; no WSL, sem ele, o
+  Chrome ou o Edge do Windows)"""
 import argparse
 import json
 import locale
 import os
+import shlex
 import shutil
 import signal
 import socket
@@ -166,6 +168,14 @@ def migra_cache_antigo():
                 shutil.move(str(novo.parent / nome), str(novo / nome))
         except OSError:
             pass
+
+
+def wsl():
+    """Linux dentro do Windows (WSL): o kernel diz "microsoft" no osrelease."""
+    try:
+        return not WIN and "microsoft" in Path("/proc/sys/kernel/osrelease").read_text().lower()
+    except OSError:
+        return False
 
 
 def no_ar(porta):
@@ -389,9 +399,16 @@ class Lancador:
             for base in (os.environ.get("ProgramFiles(x86)", ""), os.environ.get("ProgramFiles", ""), os.environ.get("LOCALAPPDATA", "")):
                 for rel in (r"Microsoft\Edge\Application\msedge.exe", r"Google\Chrome\Application\chrome.exe"):
                     achados.append(str(Path(base) / rel) if base and (Path(base) / rel).is_file() else None)
+        elif wsl():                                  # no WSL, o navegador é o do Windows (o localhost do WSL2 chega nele)
+            for rel in ("Google/Chrome/Application/chrome.exe", "Microsoft/Edge/Application/msedge.exe"):
+                for base in ("/mnt/c/Program Files", "/mnt/c/Program Files (x86)"):
+                    achados.append(f"{base}/{rel}" if Path(base, rel).is_file() else None)
         nav = escolhido or next((a for a in achados if a), None)
-        if nav:
-            subprocess.Popen([nav, f"--app={url}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # no Linux, MAISIM_NAVEGADOR pode trazer opções depois do programa ('"/mnt/c/…/chrome.exe" --profile-directory="Profile 1"');
+        # no Windows, é só o caminho (com espaços e barras invertidas, como antes)
+        cmd = [nav] if nav and (not escolhido or WIN or Path(escolhido).is_file()) else shlex.split(nav or "")
+        if cmd:
+            subprocess.Popen(cmd + [f"--app={url}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         else:
             import webbrowser
             webbrowser.open(url)

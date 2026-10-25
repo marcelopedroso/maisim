@@ -75,8 +75,15 @@ seu login de sempre. Outras IAs (por exemplo, um modelo local) podem vir depois.
 git clone https://github.com/marcelopedroso/maisim.git && cd maisim
 simu/vendor.sh                # o editor de código (Monaco) aqui, para o MaiSim funcionar sem internet
 gecko/construir.sh            # o GeckoCIRCUITS original num commit fixo + o patch do MaiSim → gecko/build/gecko-lote.jar
-app/scripts/maisim.sh         # sobe tudo (ou: cd app && npm run maisim); Ctrl+C derruba o que ele subiu
+app/scripts/maisim.sh --abrir # sobe tudo e abre a janela do MaiSim (ou: cd app && npm run abrir)
 ```
+
+Com `--abrir` ele usa o mesmo lançador do instalador do Windows e do AppImage (`app/lancador.py`): fechar a última janela
+do MaiSim desliga o MaiSim uns 20 s depois (nunca no meio de uma rodada; o Gecko fica se houver circuito sem salvar), e
+rodar de novo com o MaiSim no ar só abre a janela outra vez. No WSL a janela abre no Chrome ou no Edge do Windows
+(`MAISIM_NAVEGADOR` escolhe outro navegador, com opções). Sem `--abrir` (`npm run maisim`, ou `app/scripts/sobe_fundo.sh`
+em segundo plano) o MaiSim fica no ar até o Ctrl+C (ou `app/scripts/para_fundo.sh`), com a janela aberta ou não;
+`MAISIM_PAGINA=vite` serve a página pelo Vite nesse modo.
 
 Abra **http://localhost:7100**. Para usar outra porta, passe com `-p`: `npm run maisim -- -p 8100` serve a página na 8100
 e os outros serviços nas portas logo depois (8101–8106). Para ficar de vez com outra porta, uma linha num `.env` na raiz:

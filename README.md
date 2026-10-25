@@ -75,8 +75,15 @@ your usual login is not touched. Other AIs (e.g. a local model) may come later.
 git clone https://github.com/marcelopedroso/maisim.git && cd maisim
 simu/vendor.sh                # the code editor (Monaco) here, so MaiSim works offline
 gecko/construir.sh            # upstream GeckoCIRCUITS at a pinned commit + MaiSim's patch → gecko/build/gecko-lote.jar
-app/scripts/maisim.sh         # starts everything (or: cd app && npm run maisim); Ctrl+C stops what it started
+app/scripts/maisim.sh --abrir # starts everything and opens the MaiSim window (or: cd app && npm run abrir)
 ```
+
+With `--abrir` it runs the same launcher as the Windows installer and the AppImage (`app/lancador.py`): closing the last
+MaiSim window stops MaiSim about 20 s later (never during a run; Gecko stays up if a circuit is unsaved), and running it
+again while MaiSim is up only reopens the window. On WSL the window opens in Windows' Chrome or Edge (`MAISIM_NAVEGADOR`
+picks another browser, options allowed). Without `--abrir` (`npm run maisim`, or `app/scripts/sobe_fundo.sh` in the
+background) MaiSim stays up until Ctrl+C (or `app/scripts/para_fundo.sh`), whether the window is open or not;
+`MAISIM_PAGINA=vite` serves the page with Vite in that mode.
 
 Open **http://localhost:7100**. To use another port, pass it with `-p`: `npm run maisim -- -p 8100` serves the page on
 8100 and the other services on the ports right after it (8101–8106). To keep another port for good, put one line in a
