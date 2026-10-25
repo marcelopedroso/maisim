@@ -86,6 +86,25 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     await pg.evaluate(() => { delete dados.folhas["0"].elementos.find((x) => x.nome === "IGBT.1").perda_modo; });
     await sel("D.1"); await pg.waitForSelector(".sec-perdas", { timeout: 20000 });
     ok(!(await pg.$(".sec-perdas .perda-detalhada")), "no modo simples, sem o aviso");
+    // o terminal térmico de um subcircuito, arrastado até um nó térmico de dentro, liga por um fio térmico (Codex, #134: ele
+    // ia como fio do circuito e era recusado por domínio diferente)
+    const sm = await pg.evaluate(async () => {
+      const cmd = (op, args) => api("editor/cmd", { op, args });
+      await cmd("CREATE", ["SUBCIRCUIT.9", 60, 10, "SUBCIRCUIT"]);
+      await cmd("CREATE", ["SUBCIRCUIT.9#THERM_TERMINAL.1", 5, 12, "THERM_TERMINAL"]);
+      const j = await cmd("CREATE", ["SUBCIRCUIT.9#Rth.1", 10, 20, "Rth"]);
+      novoEstado(j);
+      const b = j.folhas["0"].elementos.find((x) => x.nome === "SUBCIRCUIT.9");
+      return b.uid; });
+    const r = await pg.evaluate(async (uid) => {
+      folhaAtual = uid; desenha();
+      const f = dados.folhas[uid], t = f.elementos.find((x) => x.nome === "THERM_TERMINAL.1"), rth = f.elementos.find((x) => x.nome === "Rth.1");
+      const alvo = [rth.terminais[0].x, rth.terminais[0].y], dom = pontosDeLigacao().get(alvo.join(","));
+      await ligaTerminal(t, alvo, dom);
+      const g = dados.folhas[uid];
+      return { dom, fios: g.fios.map((w) => w.dom), msg: document.querySelector("#msg") ? document.querySelector("#msg").textContent : "" }; }, sm);
+    ok(r.dom === "THERM" && r.fios.length === 1 && r.fios[0] === "THERM", `o terminal térmico do subcircuito arrastado até o Rth: fio ${JSON.stringify(r.fios)} (${r.msg})`);
+    await pg.evaluate(() => { folhaAtual = "0"; desenha(); });
     // a paleta: a aba Térmica, sem o TH_MODUL (lança UnsupportedOperationException no Gecko)
     const pal = await pg.evaluate(() => { const a = ed.catalogo.abas.find((x) => /Thermal/.test(x.aba));
       return { ids: a ? a.itens.map((i) => i.id) : [], modul: ed.catalogo.abas.some((x) => x.itens.some((i) => i.enum === "TH_MODUL")) }; });

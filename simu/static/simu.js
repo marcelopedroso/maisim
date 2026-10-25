@@ -2003,7 +2003,7 @@ function expandeCantos(c) {
 // primeiro, o que não passar por um terminal ou ponta de conexão (no Gecko, ponta em cima de conexão liga: seria uma
 // ligação que ninguém pediu). Os dois passam: não liga e diz onde
 async function ligaTerminal(e, alvo, domAlvo) {
-  const domT = e.dom === "CONTROL" ? "CONTROL" : "LK";
+  const domT = e.dom === "CONTROL" || e.dom === "THERM" ? e.dom : "LK";   // o terminal térmico liga na rede térmica (o fio THERM)
   desenha();                                             // o terminal volta ao lugar dele (a prévia do arrasto sai)
   if (domAlvo !== domT) { msg(tr("simu.dom_nao_liga", { nome: e.nome, d1: nomeDom(domT), p: alvo, d2: nomeDom(domAlvo) }), "erro"); return; }
   const P = [e.x, e.y], f = dados.folhas[folhaAtual];
