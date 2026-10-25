@@ -72,6 +72,13 @@ with tempfile.TemporaryDirectory() as d:
     at.aplicando = {"fase": "baixando"}; at._aplica("appimage", at.nova, reinicia=False)
     ok(alvo.read_bytes() == b"velho" and not alvo.with_name(alvo.name + ".novo").exists() and at.aplicando["fase"] == "erro" and "SHA-256" in at.aplicando["erro"],
        "o SHA-256 errado: o AppImage de agora fica, sem .novo, e a página vê o erro")
+    # ocupado DURANTE o download (uma rodada começou): baixa, confere, mas não troca nem reinicia
+    r[0]["assets"][1]["browser_download_url"] = sha; (d / "releases.json").write_text(json.dumps(r)); at.verifica()
+    at.ocupado = lambda: "rodada em andamento"
+    at.aplicando = {"fase": "baixando"}; at._aplica("appimage", at.nova, reinicia=False)
+    ok(alvo.read_bytes() == b"velho" and not alvo.with_name(alvo.name + ".novo").exists() and at.aplicando["fase"] == "erro"
+       and at.aplicando["erro"] == "rodada em andamento", "ocupado durante o download: não troca o AppImage (e apaga o .novo)")
+    at.ocupado = lambda: None
     at.aplicando = None
     try:
         at.ocupado = lambda: "salve antes"; at.aplica(); ok(False, "com circuito sem salvar deveria recusar")

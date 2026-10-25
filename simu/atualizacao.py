@@ -245,6 +245,12 @@ class Atualizacao:
         lingua.thread(self._aplica, tipo, nova, nome="atualizacao-aplica").start()
         return self.estado()
 
+    def _confere_livre(self):
+        """Antes de instalar ou trocar: o MaiSim ainda livre (sem rodada, sem circuito sem salvar)? Senão, não instala."""
+        motivo = self.ocupado()
+        if motivo:
+            raise ValueError(motivo)
+
     def _fase(self, **x):
         with self.trava:
             self.aplicando.update(x)
@@ -257,12 +263,18 @@ class Atualizacao:
                 for velho in self.cache.glob("MaiSim-Setup-*.exe"):   # os de antes (o desta vez baixa de novo: confere)
                     velho.unlink(missing_ok=True)
                 exe = baixa(a["url"], self.cache / a["nome"], a["sha256"], progresso)
+                self._confere_livre()                   # de novo: durante o download pode ter começado uma rodada ou uma edição
                 self._fase(fase="instalando")
                 if reinicia:
                     instala_windows(exe)
             else:
                 alvo = Path(os.environ["APPIMAGE"])
                 novo = baixa(a["url"], alvo.with_name(alvo.name + ".novo"), a["sha256"], progresso)
+                try:
+                    self._confere_livre()
+                except ValueError:
+                    novo.unlink(missing_ok=True)
+                    raise
                 troca_appimage(novo, alvo)
                 self._fase(fase="reiniciando")
                 if reinicia:
