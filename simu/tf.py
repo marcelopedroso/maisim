@@ -82,12 +82,12 @@ def _analisa(txt, quem):
         return r
 
     def produto():
-        r = potencia()
+        r = unario()
         while True:
             t = olha()
             if t in (("o", "*"), ("o", "/")):
                 come()
-                d = potencia()
+                d = unario()
                 if t[1] == "*":
                     r = _vezes(r, d)
                 else:                            # só por constante (H(s) racional vai em numerador e denominador)
@@ -102,8 +102,8 @@ def _analisa(txt, quem):
             else:
                 return r
 
-    def potencia():
-        b = unario()
+    def potencia():                              # a potência antes do sinal: −s^2 = −(s²), como na matemática
+        b = atomo()
         if olha() == ("o", "^"):
             come()
             t = come()
@@ -124,7 +124,7 @@ def _analisa(txt, quem):
         if olha() == ("o", "+"):
             come()
             return unario()
-        return atomo()
+        return potencia()
 
     def atomo():
         t = come()

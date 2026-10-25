@@ -64,6 +64,11 @@ def perto(a, b, rel=1e-9):
 
 TAU, WN, ZETA, W0 = 1e-3, 1000.0, 0.5, 2 * math.pi * 50
 feitas = []
+# a leitura do polinômio (tf.py, sem o servidor): a potência vem antes do sinal, −s^2 = −(s²) (Codex, #137)
+import sys; sys.path.insert(0, str(RAIZ / "simu")); import tf as TF
+casos = [("-s^2", [0, 0, -1]), ("1 - s^2", [1, 0, -1]), ("(-s)^2", [0, 0, 1]), ("2*-s^2", [0, 0, -2]), ("-(1+s)^2", [-1, -2, -1]), ("s^2 - s", [0, -1, 1])]
+ruins = [t for t, e in casos if not perto(list(TF.polinomio(t, "num"))[:len(e)], [float(x) for x in e])]
+ok(not ruins, f"a potência antes do sinal: {', '.join(t for t, _ in casos)} (erradas: {ruins})")
 try:
     api("editor/novo", {"modo": "descartar"})
     els = [("CONST.1", 4, 6, "CONST"), ("TF.1", 12, 4, "TF"), ("PT1.1", 12, 8, "PT1"), ("TF.2", 12, 12, "TF"),
