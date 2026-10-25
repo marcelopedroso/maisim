@@ -623,22 +623,25 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   button.primario:disabled { background:var(--suave); border-color:var(--borda); color:var(--fraco); cursor:not-allowed; }   /* desligado tem de parecer desligado (Marcelo, 19/10) */
   /* os seletores da conversa (IA, modelo, esforço, simular sozinho) no padrão do MaiSim: cantos redondos, a seta própria, o
      acento ao passar e no foco; onde o navegador deixa (Chrome 135+, appearance: base-select), a lista aberta também */
-  .cc-botoes select { appearance:none; -webkit-appearance:none; font:inherit; font-size:11.5px; line-height:1.3; color:var(--texto); max-width:130px;
+  .cc-botoes select, .modal label select { appearance:none; -webkit-appearance:none; font:inherit; font-size:11.5px; line-height:1.3; color:var(--texto); max-width:130px;
     padding:3px 22px 3px 8px; border:1px solid var(--borda); border-radius:7px; cursor:pointer; text-overflow:ellipsis;
     background:var(--campo) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5l3 3 3-3' fill='none' stroke='%238a939d' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 6px center / 11px;
     transition:border-color .12s, box-shadow .12s; }
-  .cc-botoes select:hover { border-color:var(--acento-borda); background-color:var(--acento-suave); }
-  .cc-botoes select:focus-visible { outline:none; border-color:var(--acento); box-shadow:0 0 0 3px var(--acento-suave); }
+  .cc-botoes select:hover, .modal label select:hover { border-color:var(--acento-borda); background-color:var(--acento-suave); }
+  .cc-botoes select:focus-visible, .modal label select:focus-visible { outline:none; border-color:var(--acento); box-shadow:0 0 0 3px var(--acento-suave); }
+  /* os do ⚙ (a rodada nova, a integração) no mesmo padrão, do tamanho dos campos ao lado */
+  .modal label select { font-size:13px; max-width:none; width:100%; padding:5px 24px 5px 8px; }
+  .modal label .ctl-i { margin-left:6px; vertical-align:1px; }
   #cc-auto { max-width:180px; } #cc-ia { font-weight:600; color:var(--acento); }
   @supports (appearance: base-select) {
-    .cc-botoes select, .cc-botoes select::picker(select) { appearance:base-select; }
-    .cc-botoes select::picker-icon { display:none; }
-    .cc-botoes select::picker(select) { border:1px solid var(--borda); border-radius:10px; background:var(--cartao); color:var(--texto); padding:4px;
+    .cc-botoes select, .cc-botoes select::picker(select), .modal label select, .modal label select::picker(select) { appearance:base-select; }
+    .cc-botoes select::picker-icon, .modal label select::picker-icon { display:none; }
+    .cc-botoes select::picker(select), .modal label select::picker(select) { border:1px solid var(--borda); border-radius:10px; background:var(--cartao); color:var(--texto); padding:4px;
       box-shadow:0 10px 28px var(--sombra); margin:4px 0; }
-    .cc-botoes select option { font-size:12px; font-weight:400; color:var(--texto); padding:5px 10px 5px 8px; border-radius:6px; gap:6px; cursor:pointer; }
-    .cc-botoes select option:hover, .cc-botoes select option:focus-visible { background:var(--suave); outline:none; }
-    .cc-botoes select option:checked { color:var(--acento); font-weight:600; background:var(--acento-suave); }
-    .cc-botoes select option::checkmark { color:var(--acento); }
+    .cc-botoes select option, .modal label select option { font-size:12px; font-weight:400; color:var(--texto); padding:5px 10px 5px 8px; border-radius:6px; gap:6px; cursor:pointer; }
+    .cc-botoes select option:hover, .cc-botoes select option:focus-visible, .modal label select option:hover, .modal label select option:focus-visible { background:var(--suave); outline:none; }
+    .cc-botoes select option:checked, .modal label select option:checked { color:var(--acento); font-weight:600; background:var(--acento-suave); }
+    .cc-botoes select option::checkmark, .modal label select option::checkmark { color:var(--acento); }
   }
   .cc-auto-fim { font-size:12px; color:var(--sutil); border-left:3px solid var(--acento-borda); padding:4px 8px; margin:4px 0; }
   button.perigo { background:#dc2626; border-color:#dc2626; color:#fff; } button.perigo:hover { background:#b91c1c; }

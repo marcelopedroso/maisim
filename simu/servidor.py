@@ -34,7 +34,7 @@ ler_config.aplica()                          # as portas e as pastas (config/pad
 import lingua  # noqa: E402                    o idioma de cada pedido (português e inglês)
 import textos  # noqa: E402,F401               os textos do simu nos dois idiomas (registra o catálogo)
 
-from ipes import monta
+from ipes import monta, SOLVERS, solver_do_texto, troca_solver
 from motor import ErroMotor, Motor
 import contextos
 import ia as ias_maisim
@@ -3264,6 +3264,16 @@ def _rodar(c, ctl_de_fora=None):
     n = arred(tfim / dt)
     if n > 5_000_000:
         raise ErroMotor(lingua.tr("rodada.passos_demais", n=n))
+    solver = c.get("solver")                        # o método de integração do ⚙ (solverType); sem ele, o que o Gecko já tem
+    if solver not in (None, ""):
+        try:
+            solver = int(solver)
+        except (TypeError, ValueError):
+            solver = -1
+        if solver not in SOLVERS:
+            raise ErroMotor(lingua.tr("rodada.solver_invalido", v=c.get("solver")))
+    else:
+        solver = None
     r = estado()
     amostras = max(10, min(n, int(c.get("amostras", 4000))))
     m = max(1, math.ceil(n / amostras))
@@ -3402,6 +3412,7 @@ def _rodar(c, ctl_de_fora=None):
                         "rede": ctl["rede"]} if ctl["controladores"] else {})))
     try:
         MOTOR.cmd(f"SAVEAS {pasta / (nome + '.ipes')}")      # o circuito exato desta rodada, ao lado do resultado
+        meta["solver"] = SOLVERS[aplica_solver(pasta / (nome + ".ipes"), solver)]   # e com o método de integração dela
         if valores_antes:                                # se o servidor cair no meio, a próxima partida devolve os CONST
             DEVOLVER.write_text(json.dumps(valores_antes))
         MOTOR.cmd(f"INIT {dt!r} {tfim!r}")
@@ -3588,6 +3599,23 @@ def _rodar(c, ctl_de_fora=None):
 # anteriores com o mesmo nome E do mesmo circuito que não estejam guardadas (.guardada). O modo autônomo da IA sempre cria
 # nova; pela API, o padrão é criar nova (a tela manda por_cima)
 GUARDADA = ".guardada"
+
+
+def aplica_solver(arq, solver):
+    """O método de integração (solverType) que vale na rodada, a partir do arquivo que o Gecko acabou de gravar (arq, a cópia
+    da rodada): se o ⚙ pede outro, a linha é reescrita e o Gecko reabre o arquivo — ele só lê o solverType ao abrir (não há
+    chamada remota para trocar, e cada componente guarda o seu ao nascer). Como o Δt e o tempo final, que vão no INIT de cada
+    rodada, o do ⚙ vale ao iniciar; depois o Gecko fica com ele, e o Salvar o grava no modelo. Devolve o que vale (0, 1, 2)."""
+    b = Path(arq).read_bytes()
+    gz = b[:2] == b"\x1f\x8b"
+    t = (gzip.decompress(b) if gz else b).decode("latin-1")   # latin-1: ida e volta byte a byte (o resto do arquivo intocado)
+    atual = solver_do_texto(t)
+    if solver is None or solver == atual:
+        return 0 if atual is None else atual             # sem a linha, o Gecko usa o padrão dele (Euler implícito)
+    t = troca_solver(t, solver).encode("latin-1")
+    Path(arq).write_bytes(gzip.compress(t) if gz else t)
+    abre(arq)
+    return solver
 
 
 def circuito_aberto():

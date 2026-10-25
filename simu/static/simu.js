@@ -1182,15 +1182,22 @@ async function liga(on) {
   catch (e) { msg(e.message, "erro"); ed.ligado = false; document.body.classList.remove("editando"); poeCadeado(false); }
   setTimeout(() => dados && ajusta(), 50);
 }
+// a integração no Gecko (o solverType do .ipes): 0 Euler implícito, 1 trapézio, 2 Gear (BDF2). Vale ao iniciar, como o Δt
+// (o servidor reescreve a linha e reabre o circuito se o Gecko estiver com outro); sem escolha, o do arquivo aberto
+const SOLVERS = ["0", "1", "2"];
 // o Δt e o tempo final do arquivo aberto (o Gecko guarda os da última rodada) passam a ser os da simulação quando o modelo
 // muda: um modelo feito para Δt = 1 µs não roda com o Δt que sobrou de outro. Reabrir o mesmo modelo (entrar na edição de
-// novo) não mexe no que o usuário escolheu em Parâmetros da simulação.
+// novo) não mexe no que o usuário escolheu em Parâmetros da simulação. A integração do arquivo vem junto (a mensagem só a
+// diz quando não é o Euler implícito, o padrão do Gecko)
 function usaSimulacaoDoArquivo(j) {
-  const s = j && j.simulacao;
-  if (!s || !(s.dt > 0) || !(s.tfim > 0) || sim.par.modelo === j.arq) return "";
-  sim.par.dt = String(s.dt); sim.par.tfim = String(s.tfim); sim.par.modelo = j.arq;
+  const s = j && j.simulacao, comDt = !!s && s.dt > 0 && s.tfim > 0, comSolver = !!s && SOLVERS.includes(String(s.solver));
+  if (!s || (!comDt && !comSolver) || sim.par.modelo === j.arq) return "";
+  if (comDt) { sim.par.dt = String(s.dt); sim.par.tfim = String(s.tfim); }
+  if (comSolver) sim.par.solver = String(s.solver);
+  sim.par.modelo = j.arq;
   try { localStorage.setItem("maisim-simu-sim", JSON.stringify(sim.par)); } catch (e) { /* ok */ }
-  return tr("simu.sim_do_arquivo", { dt: si(s.dt, "s"), tfim: si(s.tfim, "s") });
+  return [comDt ? tr("simu.sim_do_arquivo", { dt: si(s.dt, "s"), tfim: si(s.tfim, "s") }) : "",
+          comSolver && String(s.solver) !== "0" ? tr("simu.solver_do_arquivo", { nome: tr(`simu.solver_${s.solver}`) }) : ""].filter(Boolean).join(" · ");
 }
 function desenhaPaleta() {
   const c = { abas: ed.catalogo.abas.concat([{ aba: tr("simu.aba_biblioteca"), itens: ed.lib }]) }, q = $("busca").value.trim().toLowerCase();
@@ -2021,6 +2028,8 @@ $("bt-globais").onclick = () => variaveisGlobais();
 async function garanteEdicao() { if (!ed.ligado) await liga(true); return ed.ligado; }
 
 // ---------------------------------------------------------------- simulação: parâmetros, iniciar, pausar, continuar, parar, progresso
+const solverAtual = () => (SOLVERS.includes(String(sim.par.solver)) ? String(sim.par.solver)
+  : dados && dados.simulacao && SOLVERS.includes(String(dados.simulacao.solver)) ? String(dados.simulacao.solver) : "0");
 const sim = { estado: "parada", timer: null, par: { dt: "1e-6", tfim: "0.04", nome: "rodada", amostras: "4000", por_cima: "1" } };   // por_cima: a nova substitui a anterior de mesmo nome
 try { Object.assign(sim.par, JSON.parse(localStorage.getItem("maisim-simu-sim") || "{}")); } catch (e) { /* ok */ }
 // ⚙ Parâmetros da simulação, em duas abas: "simulação" (Δt, tempo final… — valem ao iniciar) e "variáveis globais ($)", como
@@ -2035,14 +2044,16 @@ async function parametrosSim(aba = "sim", op = {}) {
   // simulando: só para ver (Marcelo, 22/10) — as variáveis mexem no circuito na hora, e a rodada usa o do início; os
   // parâmetros da simulação travam junto (valeriam só para a próxima). Copiar o nome de uma variável continua
   const roda = sim.estado === "rodando" || sim.estado === "pausada";
-  let porCima = sim.par.por_cima !== "0";
+  let porCima = sim.par.por_cima !== "0", solver = solverAtual();
   if (op.nome) SIM.find((c) => c.nome === "nome").valor = op.nome;   // depois de guardar uma rodada: o nome da próxima
   const r = await modal({ titulo: escT(tr("simu.m_param")), foco: op.nome ? 'input[name="nome"]' : null, ok: escT(tr(roda ? "simu.fechar" : "simu.guardar")), cancelar: roda ? "" : escT(tr("simu.cancelar")), largo: comVars,
     html: `${roda ? `<p class="m-trava">${escT(tr("simu.m_trava"))}</p>` : ""}${comVars ? `<div class="m-abas" role="tablist"><button type="button" data-aba="sim">${escT(tr("simu.m_aba_sim"))}</button><button type="button" data-aba="vars">${escT(tr("simu.m_aba_vars"))}</button></div>` : ""}
       <div class="m-aba" data-aba="sim"><p>${escT(tr("simu.m_valem"))}</p>
         ${op.aviso ? `<p class="m-guardada">${escT(op.aviso)}</p>` : ""}
         ${SIM.map((c) => `<label><span>${c.rotulo}</span><input name="${c.nome}" value="${escT(c.valor ?? "")}" ${c.dica ? `title="${c.dica}"` : ""}${roda ? " disabled" : ""}></label>`).join("")}
-        <label title="${escT(tr("simu.t_porcima"))}"><span>${escT(tr("simu.m_rodada_nova"))}</span><select class="m-porcima"${roda ? " disabled" : ""}>
+        <label><span>${escT(tr("simu.m_solver"))}<span class="ctl-i" tabindex="0" title="${escT(tr("simu.t_solver"))}">i</span></span><select class="m-solver"${roda ? " disabled" : ""}>
+          ${SOLVERS.map((k) => `<option value="${k}"${k === solver ? " selected" : ""}>${escT(tr(`simu.solver_${k}`))}</option>`).join("")}</select></label>
+        <label><span>${escT(tr("simu.m_rodada_nova"))}<span class="ctl-i" tabindex="0" title="${escT(tr("simu.t_porcima"))}">i</span></span><select class="m-porcima"${roda ? " disabled" : ""}>
           <option value="1"${porCima ? " selected" : ""}>${escT(tr("simu.porcima_sim"))}</option><option value="0"${porCima ? "" : " selected"}>${escT(tr("simu.porcima_nao"))}</option></select></label></div>
       ${comVars ? `<div class="m-aba" data-aba="vars"><p>${tr("simu.m_vars_html")}</p><div id="gv"></div></div>` : ""}`,
     monta: (fundo) => {
@@ -2052,16 +2063,19 @@ async function parametrosSim(aba = "sim", op = {}) {
         const f = fundo.querySelector(`.m-aba[data-aba="${a}"] input`); if (f) setTimeout(() => f.focus(), 0); };
       fundo.querySelectorAll(".m-abas button").forEach((b) => b.onclick = () => mostra(b.dataset.aba));
       fundo.querySelector(".m-porcima").onchange = (ev) => { porCima = ev.target.value === "1"; };
+      fundo.querySelector(".m-solver").onchange = (ev) => { solver = ev.target.value; };
       if (comVars) listaGlobais(fundo.querySelector("#gv"), roda);
       mostra(comVars ? aba : "sim");
     } });
   if (!r) return false;
   if (roda) return true;
   r.por_cima = porCima ? "1" : "0";
-  if (["dt", "tfim", "nome", "amostras", "por_cima"].every((k) => r[k] === undefined || String(r[k]) === String(sim.par[k]))) return true;   // fechou sem mudar a simulação
+  const mudouSolver = solver !== solverAtual();        // o que estava à vista (o do arquivo, sem escolha antes) não conta como mudança
+  if (!mudouSolver && ["dt", "tfim", "nome", "amostras", "por_cima"].every((k) => r[k] === undefined || String(r[k]) === String(sim.par[k]))) return true;   // fechou sem mudar a simulação
+  if (mudouSolver) r.solver = solver;
   Object.assign(sim.par, r); try { localStorage.setItem("maisim-simu-sim", JSON.stringify(sim.par)); } catch (e) { /* ok */ }
   if (typeof infoTs === "function" && $("ctl-ts")) { infoTs(); infoAtraso(); }   // Ts = n × Δt no painel do controle
-  msg(tr("simu.sim_par", { dt: r.dt, tfim: r.tfim }), "ok"); return true;
+  msg(tr("simu.sim_par", { dt: r.dt, tfim: r.tfim }) + (mudouSolver ? ` · ${tr("simu.solver_escolhido", { nome: tr(`simu.solver_${solver}`) })}` : ""), "ok"); return true;
 }
 async function iniciaSim() {
   if (VISTA_CODIGO) { msg(tr("simu.play_no_circuito"), "erro"); return; }

@@ -163,9 +163,32 @@ def le(caminho):
             sim[campo] = float(m.group(1)) if m else None
         except ValueError:
             sim[campo] = None
+    sim = sim if all(v and v > 0 for v in sim.values()) else {}
+    solver = solver_do_texto(t)                         # o método de integração (solverType), à parte: 0 é um valor válido
+    if solver is not None:
+        sim["solver"] = solver
     # as variáveis globais e o Δt/tempo final voltam junto (não como atributo da função: duas leituras ao mesmo tempo, nos
     # pedidos simultâneos do servidor, trocariam os de um modelo pelos de outro)
-    return elementos, fios, dict(globais=globais, simulacao=sim if all(v and v > 0 for v in sim.values()) else {})
+    return elementos, fios, dict(globais=globais, simulacao=sim)
+
+
+# o solverType do .ipes (DatenSpeicher do Gecko; o SolverType.getOldGeckoIndex): 0 Euler implícito (backward-euler), 1 trapézio
+# (trapezoidal), 2 Gear (gear-shichman, BDF2). O Gecko só o lê ao abrir o arquivo (e cada componente guarda o seu ao nascer):
+# não há chamada remota para trocar — quem troca reescreve a linha e reabre o arquivo (servidor.aplica_solver)
+SOLVERS = {0: "backward-euler", 1: "trapezoidal", 2: "gear-shichman"}
+
+
+def solver_do_texto(t):
+    """O solverType do texto de um .ipes (0, 1, 2) ou None (ausente ou desconhecido)."""
+    m = re.search(r"\nsolverType[ \t]+(-?\d+)[ \t]*(?=\n|$)", t)
+    return int(m.group(1)) if m and int(m.group(1)) in SOLVERS else None
+
+
+def troca_solver(t, solver):
+    """O texto do .ipes com o solverType trocado (ou acrescentado depois do dt, num arquivo que não o tem)."""
+    if re.search(r"\nsolverType[ \t]+-?\d+", t):
+        return re.sub(r"\nsolverType[ \t]+-?\d+", f"\nsolverType {int(solver)}", t, count=1)
+    return re.sub(r"(\ndt [^\n]*)", rf"\1\nsolverType {int(solver)}", t, count=1)
 
 
 def _dois_pinos(e):

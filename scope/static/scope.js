@@ -126,7 +126,15 @@ function preparaGrade() {
   }
   uniao = { x: Float64Array.from(xs, (t) => t * 1e3), iA: Int32Array.from(iA), iB: Int32Array.from(iB) };
 }
-const avisoGrade = () => uniao ? " · " + tr("scope.aviso_grade", { a: fmtDt(intervalo(A)), b: fmtDt(intervalo(B)) }) : "";
+const avisoGrade = () => (uniao ? " · " + tr("scope.aviso_grade", { a: fmtDt(intervalo(A)), b: fmtDt(intervalo(B)) }) : "") + avisoSolver();
+// A e B com métodos de integração diferentes (o solverType do Gecko, no meta da rodada): a diferença entre as curvas pode
+// ser do método (o trapézio oscila onde o Euler implícito amortece), não do circuito. As rodadas de antes não dizem: sem aviso
+const SOLVERS_SCOPE = ["backward-euler", "trapezoidal", "gear-shichman"];
+const solverDe = (F) => (F && F.meta && SOLVERS_SCOPE.includes(F.meta.solver) ? F.meta.solver : null);
+function avisoSolver() {
+  const a = solverDe(A), b = solverDe(B);
+  return a && b && a !== b ? " · " + tr("scope.aviso_solver", { a: tr(`scope.solver.${a}`), b: tr(`scope.solver.${b}`) }) : "";
+}
 
 // canal: "f" = tem resolução do passo fino (pulsos, tensões PWM reconstruídas, formas medidas no Gecko)
 function tipo(canal) { return /^(s_|varm_|e_[abc]$|fino_)/.test(canal) ? "f" : "c"; }
