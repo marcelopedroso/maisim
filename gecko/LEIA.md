@@ -27,7 +27,14 @@ como os medidores. `0008`: `simulateStepsSampled`, muitas amostras numa chamada 
 saídas pedidas no fim e a média das de perda (FLOW) a cada passo, os mesmos números do `simulateSteps` + `getOutputs` (e do
 `simulateStepsAveraged`) amostra a amostra (o STEPS do motor: a rodada sem controle em Python vai em blocos, sem duas idas e
 voltas até o Gecko por amostra; ~0,3 ms cada, contra ~1 µs de cálculo por passo no buck). Um passo que falha encerra o bloco
-depois do registro daquela amostra, como o `simulateSteps` engole o erro e segue.
+depois do registro daquela amostra, como o `simulateSteps` engole o erro e segue. `0009`: `initialOutputs`, as saídas em t = 0
+sem passo nenhum (o INICIAL do motor): depois do `initSimulation`, as tensões e temperaturas da solução inicial que o próprio
+Gecko faz com as condições iniciais (uC(0), Temp(0); a solução dele é tomada em t = −1 ns: uma senoide sai −7e-5 V em vez de 0)
+vão aos medidores, a máquina como começa, e os blocos de controle são calculados uma vez em t = 0 com passo zero (o
+integrador dá y0, a portadora o valor de t = 0); um FLOW das perdas de um Pv dá 0 (o cálculo das perdas guarda o último
+valor da rodada anterior até o 1º passo) e um valor não finito (uma derivada em t = 0) dá 0. O estado mexido nessa conta
+some no `initSimulation` seguinte (o servidor inicializa de novo antes de andar). As chaves ainda não leram o GATE em t = 0
+(o Gecko as comanda no 1º passo): a tensão de uma chave aberta sai do divisor das resistências de bloqueio.
 
 **Tudo de uma vez (recomendado):** em `app/`, `npm run maisim` sobe o scope, o simulador, este Gecko e a página, e o
 Ctrl+C derruba o que ele subiu (o Gecko só se não houver circuito sem salvar; ver `app/scripts/maisim.sh`).

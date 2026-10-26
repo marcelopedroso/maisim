@@ -61,7 +61,9 @@ def passo(t, m, p, e):      # a cada Ts
 ```
 
 * `t`: tempo da amostra (s); a primeira é t = 0.
-* `m`: medidas no instante `t`.
+* `m`: medidas no instante `t`. Em t = 0, o estado inicial do circuito: com as condições iniciais dele (o uC(0) de um
+  capacitor, o Temp(0) de uma Cth, o y0 de um integrador, a velocidade inicial da máquina) e, sem elas, o valor de partida
+  (a corrente de um indutor 0, a máquina parada); as perdas (FLOW de um Pv) valem 0 — nada foi dissipado ainda.
 * `p`: parâmetros do painel, mais `p["Ts"]` (o efetivo).
 * `e`: dicionário seu, que persiste entre amostras.
 * O retorno é um dicionário `{atuador: valor}` (ou `None`). Cada chave tem de ser uma atuação marcada no painel, e cada

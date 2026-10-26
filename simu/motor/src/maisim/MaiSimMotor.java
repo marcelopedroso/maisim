@@ -161,6 +161,31 @@ public final class MaiSimMotor {
         return sb.toString();
     }
 
+    /** INICIAL nome… → os valores em t = 0 (patch 0009, initialOutputs): depois do INIT e sem passo nenhum, o estado inicial
+     *  do circuito com as condições iniciais dele (as tensões e temperaturas que o Gecko resolve no INIT a partir de uC(0),
+     *  Temp(0)…, a máquina como começa, o y0 de um integrador). O servidor dá INIT de novo antes de andar. Sem o método,
+     *  o erro "SEM_INICIAL" (o servidor volta ao passo de prova de antes). */
+    private boolean geckoSemInicial = false;
+
+    private String inicial(String[] nomes) throws Exception {
+        java.lang.reflect.Method mm = null;
+        if (!geckoSemInicial) {
+            try { mm = GeckoRemoteInterface.class.getMethod("initialOutputs", String[].class); }
+            catch (NoSuchMethodException semPatch) { }
+        }
+        if (mm == null) throw new IllegalStateException("SEM_INICIAL");
+        double[] v;
+        try { v = (double[]) mm.invoke(g, (Object) nomes); }
+        catch (java.lang.reflect.InvocationTargetException e) {
+            if (!metodoDesconhecido(e.getCause())) throw e.getCause() instanceof Exception ? (Exception) e.getCause() : e;
+            geckoSemInicial = true;
+            throw new IllegalStateException("SEM_INICIAL");
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < v.length; i++) sb.append(i > 0 ? " " : "").append(v[i]);   // como o GETM
+        return sb.toString();
+    }
+
     private String trata(String linha) throws Exception {
         String[] p = linha.split("\\s+");
         switch (p[0]) {
@@ -192,6 +217,7 @@ public final class MaiSimMotor {
             case "STEP": g.simulateSteps(Integer.parseInt(p[1])); return Double.toString(g.getSimulationTime());
             case "STEPA": return stepMedia(Integer.parseInt(p[1]), Arrays.copyOfRange(p, 2, p.length));   // STEPA n nome… → t médias
             case "STEPS": return stepAmostras(p);                                    // STEPS m q np ponto… na média… → r registros
+            case "INICIAL": return inicial(Arrays.copyOfRange(p, 1, p.length));      // INICIAL nome… → os valores em t = 0
             case "TIME": return Double.toString(g.getSimulationTime());
             case "END": g.endSimulation(); return "";
             case "GET": return Double.toString(g.getOutput(p[1]));
@@ -236,7 +262,7 @@ public final class MaiSimMotor {
             }
             default: throw new IllegalArgumentException("unknown command: " + p[0] + " (commands: " + Arrays.toString(
                     new String[]{"PING", "OPEN", "SAVEAS", "CREATE", "DELETE", "MOVE", "POS", "ROTATE", "ORIENT", "RENAME", "PARAMS",
-                            "ACCPARAMS", "GETP", "SETP", "GETG", "SETG", "INNODE", "OUTNODE", "GETIN", "GETOUT", "LIST", "SHEET", "CLEAR", "INIT", "STEP", "STEPA", "STEPS", "TIME", "END", "GET", "GETM", "SETM", "QUIT"}) + ")");
+                            "ACCPARAMS", "GETP", "SETP", "GETG", "SETG", "INNODE", "OUTNODE", "GETIN", "GETOUT", "LIST", "SHEET", "CLEAR", "INIT", "STEP", "STEPA", "STEPS", "INICIAL", "TIME", "END", "GET", "GETM", "SETM", "QUIT"}) + ")");
         }
     }
 }

@@ -64,7 +64,9 @@ def passo(t, m, p, e):      # every Ts
 ```
 
 * `t`: the sample time (s); the first one is t = 0.
-* `m`: the measurements at the instant `t`.
+* `m`: the measurements at the instant `t`. At t = 0, the circuit's initial state: with its initial conditions (a
+  capacitor's uC(0), a Cth's Temp(0), an integrator's y0, the machine's initial speed) and, without them, the starting value
+  (an inductor current 0, the machine at rest); the losses (FLOW of a Pv) are 0 — nothing has been dissipated yet.
 * `p`: the panel's parameters, plus `p["Ts"]` (the effective one).
 * `e`: your own dictionary, which persists between samples.
 * The return value is a dictionary `{actuator: value}` (or `None`). Each key must be an actuation checked in the panel,

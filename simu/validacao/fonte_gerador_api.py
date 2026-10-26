@@ -2,7 +2,7 @@
 … podíamos deixar lá como está e mostrar no nosso o certo"). O Gecko mede toda corrente do terminal 1 para o 2, por dentro
 do componente: na fonte de tensão (+ no terminal 1) a corrente que ela entrega dava negativa. O MaiSim a lê com o sinal
 trocado (sentido_gerador): positiva quando sai pelo +. A fonte de corrente empurra do terminal 1 para o 2 e o Gecko já a mede
-como gerador: sem troca. Confere: 10 V em 5 Ω → i_U = +2 A (também na 1ª amostra, a do passo de prova); 1 A em 10 Ω →
+como gerador: sem troca. Confere: 10 V em 5 Ω → i_U = +2 A (também na 1ª amostra, a de t = 0: o estado inicial); 1 A em 10 Ω →
 i_I = +1 A e v = +10 V no terminal 2; a corrente de um resistor não muda (a mesma convenção de antes); o meta da gravação
 marca i_U como gerador; um ganho do Gecko ligado ao i_U ainda vê o sinal do Gecko (−2 A) e a rodada avisa."""
 import json, os, time, urllib.request
@@ -45,7 +45,7 @@ ok(abs(d.get("i_U", 0) - 2.0) < 1e-6, f"fonte de tensão como gerador: i_U = {d.
 ok(abs(d.get("i_R", 0) - 2.0) < 1e-6, f"resistor como antes (do terminal 1 para o 2): i_R = {d.get('i_R')} A")
 ok(abs(d.get("i_I", 0) - 1.0) < 1e-6, f"fonte de corrente sem troca: i_I = {d.get('i_I')} A (o valor dela)")
 ok(abs(d.get("v_b", 0) - 10.0) < 1e-6, f"a fonte de corrente empurra para o terminal 2: v_b = {d.get('v_b')} V (+10 V em 10 Ω)")
-ok(d.get("i_U0") is not None and abs(d["i_U0"] - 2.0) < 1e-6, f"a 1ª amostra (t = 0, o passo de prova) também como gerador: {d.get('i_U0')} A")
+ok(d.get("i_U0") is not None and abs(d["i_U0"] - 2.0) < 1e-6, f"a 1ª amostra (t = 0, o estado inicial: 10 V em 5 Ω) também como gerador: {d.get('i_U0')} A")
 ok(d.get("gerador") == ["i_U"], f"o meta da gravação marca o sinal trocado: {d.get('gerador')}")
 av = " ".join(j.get("avisos") or [])
 ok(abs(d.get("g_U", 0) + 2.0) < 1e-6 and "i_U" in av and "GAIN.1" in av,

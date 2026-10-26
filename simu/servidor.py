@@ -3499,22 +3499,36 @@ def _rodar(c, ctl_de_fora=None):
         if valores_antes:                                # se o servidor cair no meio, a próxima partida devolve os CONST
             DEVOLVER.write_text(json.dumps(valores_antes))
         MOTOR.cmd(f"INIT {dt!r} {tfim!r}")
-        # a amostra de t = 0: antes do 1º passo as saídas do Gecko valem 0 (nada foi calculado), e o controle recebia zeros
-        # em passo(t = 0) e o scope mostrava 0 (achado de 20/10 no porte do controle do artigo: os SMs nasceriam com
-        # v_C = 0 e o PLL leria 0). Um passo de prova lê o estado inicial que o Gecko calcula (o 1º passo, com os CONST
-        # como estão) e a simulação recomeça do zero (INIT de novo): o tempo e o resto da rodada não mudam
+        # a amostra de t = 0: o estado INICIAL do circuito, com as condições iniciais dele (o uC(0) de um capacitor, o
+        # Temp(0) de uma Cth, a velocidade inicial da máquina, o y0 de um integrador) e, sem condição inicial, o valor
+        # natural de partida — nunca o resto da rodada anterior nem o efeito de um passo (Marcelo, 26/10). Antes do 1º
+        # passo as saídas do Gecko valem 0 (nada calculado: os SMs nasceriam com v_C = 0 e o PLL leria 0, achado de
+        # 20/10); o INICIAL do motor (patch 0009) lê o que o Gecko resolve no INIT, sem andar, e a simulação recomeça do
+        # zero (INIT de novo). Um Gecko sem o patch: o passo de prova de antes (o estado de t = Δt)
         iniciais = None
         if sinais:
-            MOTOR.cmd("STEP 1")
+            prova = dict(usa=False)
+
+            def le_t0(lista):
+                nomes = " ".join(el for el, _ in lista)
+                if not prova["usa"]:
+                    try:
+                        return MOTOR.cmd("INICIAL " + nomes).split()
+                    except ErroMotor as e_:
+                        if "SEM_INICIAL" not in str(e_):
+                            raise
+                        prova["usa"] = True
+                        MOTOR.cmd("STEP 1")
+                return MOTOR.cmd("GETM " + nomes).split()
             try:
-                iniciais = le_gecko()
+                iniciais = valores_gecko(le_t0(sinais))
             except ErroMotor:
                 # um sinal que o Gecko não lê (o Data from File sem os dados: "has no output"; a 5ª saída do DEMUX) derrubava
                 # a rodada inteira: um a um, e os que falham ficam fora dela (scope e m[...]), com aviso
                 ruins = []
                 for s_ in sinais:
                     try:
-                        MOTOR.cmd("GETM " + s_[0])
+                        le_t0([s_])
                     except ErroMotor as e_:
                         ruins.append(s_)
                         avisos_rodada.append(lingua.tr("rodada.sinal_ilegivel", canal=s_[1], comp=elemento_do_sinal(s_[0]), erro=e_))
@@ -3526,7 +3540,7 @@ def _rodar(c, ctl_de_fora=None):
                 canais_scope[:] = [k for k in canais_scope if k not in sem]
                 canais_ctl[:] = [k for k in canais_ctl if k not in sem]
                 meta["sinais"] = [x for x in meta["sinais"] if x["canal"] not in sem]
-                iniciais = le_gecko()
+                iniciais = valores_gecko(le_t0(sinais))
             MOTOR.cmd(f"INIT {dt!r} {tfim!r}")
     except BaseException:
         if trab:
@@ -3604,7 +3618,7 @@ def _rodar(c, ctl_de_fora=None):
     def laco_controle(pub):
         """A cada Ts: medidas → passo() do usuário → atuações nos CONST → Ts no Gecko. Publica a cada "cada" períodos."""
         k, j, tt, regs, avisados = 0, 0, 0.0, None, set()
-        vals = dict(iniciais) if iniciais else le_gecko()       # t = 0: o estado inicial (o passo de prova), não os zeros
+        vals = dict(iniciais) if iniciais else le_gecko()       # t = 0: o estado inicial (INICIAL), não os zeros
         media(soma_ts)
         mts = {}                                         # as perdas do m[...]: a média do último Ts (em t = 0, o ponto)
         while k < n and not controle_rodada["parar"].is_set():
