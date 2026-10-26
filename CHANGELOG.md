@@ -6,6 +6,9 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Added
+- **Label connectors, like PSIM's**: a loose end with a node label (a wire end on no terminal and touched by no other wire, or a labeled terminal with no wire) is drawn as a flag with the name inside (in math notation), its base on the end and its arrow pointing outward along the wire — left/right mirrored; on vertical ends the name stays horizontal and the flag becomes a small house pointing up or down — with the border in the domain color (power blue, control green, thermal orange). Labeled wires connected at both ends keep the small text. Hovering (or focusing) a flag highlights every flag and wire with the same name; its tooltip lists what the name connects to; clicking it while editing selects the wire (or the component). The voltmeter marks move out of the way of a flag, and the labels button hides the flags too. New palette item **Connector (label)** in the Circuit and Control tabs: click a terminal or a wire point, type the name and a short labeled wire (two squares, toward the free side) is created in one undo step; Esc cancels. The examples whose control blocks had a scope tag over an input connector moved those blocks one row down (same results). New test `conectores_tela`; `pontas_tela` and `blocos_tela` adjusted (#PR).
+
 ## [0.3.2] - 2026-10-26
 
 ### Added

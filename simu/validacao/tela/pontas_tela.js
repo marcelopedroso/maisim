@@ -40,9 +40,13 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   await pg.keyboard.press("ArrowDown"); await pg.keyboard.press("ArrowDown"); await pg.keyboard.press("Enter"); await pg.waitForTimeout(900);   // automático → U.1
   const depois = await marcas();
   const u = nos["+"].find((c) => c.nome === "U.1"), u2 = nos["-"].find((c) => c.nome === "U.1"), G = await pg.evaluate(() => G);
-  const esperado = [`translate(${u.x * G},${(u.y - 0.5) * G})`, `translate(${u2.x * G},${(u2.y + 1.2) * G})`];   // V+ acima do terminal de cima, V− abaixo do de baixo
-  ok(JSON.stringify(antes) !== JSON.stringify(depois) && depois.some((m) => m[0] === "V+" && m[1] === esperado[0]) && depois.some((m) => m[0] === "V−" && m[1] === esperado[1]),
-     `marcas: antes (automático) ${JSON.stringify(antes)} → depois (U.1) ${JSON.stringify(depois)}`);
+  // V+ acima do terminal de cima, V− abaixo do de baixo, na coluna do U.1 (o rótulo do borne, sem conexão, é um conector:
+  // a bandeirinha sai do borne e a marca fica do lado de fora dela — acima da de cima, abaixo da de baixo)
+  const xy = (m) => m[1].match(/translate\(([-\d.]+),([-\d.]+)\)/).slice(1).map((v) => +v / G);
+  const mMais = depois.find((m) => m[0] === "V+"), mMenos = depois.find((m) => m[0] === "V−");
+  ok(JSON.stringify(antes) !== JSON.stringify(depois) && mMais && mMenos && xy(mMais)[0] === u.x && xy(mMais)[1] - 0.32 < u.y && xy(mMais)[1] > u.y - 2.5
+     && xy(mMenos)[0] === u2.x && xy(mMenos)[1] - 1.13 > u2.y && xy(mMenos)[1] < u2.y + 3.5,
+     `marcas: antes (automático) ${JSON.stringify(antes)} → depois (U.1, terminais em y ${u.y} e ${u2.y}) ${JSON.stringify(depois)}`);
   await pg.screenshot({ path: "pontas.png" });
   const sv = await pg.evaluate(() => api("editor/salvar", { nome: "pontas_teste", pasta: "circuitos", sobrescrever: true }));
   const re = await pg.evaluate((a) => api("editor/abrir", { arq: a, modo: "descartar" }), ARQ);

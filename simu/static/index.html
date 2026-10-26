@@ -123,6 +123,12 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
               box-shadow:0 6px 20px var(--sombra); z-index:5; }
   #faixa-sm label { margin-left:8px; font-weight:600; color:var(--sm); cursor:pointer; } #faixa-sm .sub-faixa { display:block; color:var(--sutil); font-size:11.5px; margin-top:2px; }
   body.editando .fio { cursor:pointer; } body.modo-fio .fio { cursor:crosshair; }
+  /* os conectores de rótulo (a bandeirinha do PSIM): o realce acende os do mesmo nome e as conexões com ele, na cor do domínio (color) */
+  body.editando #svg .conector-rot { cursor:pointer; } #svg .conector-rot { outline:none; }
+  #svg .conector-rot.realce polygon, #svg .conector-rot:focus-visible polygon { stroke-width:2.6px; filter:drop-shadow(0 0 2.5px currentColor); }
+  #svg polyline.realce { stroke-width:3px; filter:drop-shadow(0 0 2px currentColor); }
+  #conector-nome { position:fixed; z-index:60; } /* o campo do nome do conector da paleta, junto do ponto clicado */
+  #conector-nome input { width:10em; font-size:12.5px; padding:3px 7px; border:1.5px solid var(--acento); border-radius:6px; background:var(--campo); color:var(--texto); box-shadow:0 4px 14px var(--sombra); }
   /* tela dividida: o scope ao lado (dividida na vertical) ou embaixo; --w-/--h-escolhida vêm do arrasto da divisória */
   :root { --h-scope:0px; --w-scope:0px; }
   body.com-scope.scope-baixo { --h-scope:var(--h-escolhida, 46vh); }
