@@ -52,6 +52,14 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     // equação, o acento saía como "\c" literal
     ok(!ac.barra && !ac.erro && ac.texto.some((x) => /^bra.+o$/.test(x)) && ac.texto.some((x) => /^m.+dia$/.test(x)),
        `acentos no índice como texto ("${ac.texto.join('", "')}"), sem o "\\c" literal de antes`);
+    // o √ (SVG do KaTeX, com o caminho em várias linhas): sem <br> dentro do desenho, e ele aparece (26/10: "3√3/π" saía "3 3/π"
+    // em toda resposta com raiz — o markdown trocava as quebras do caminho por <br>)
+    const raiz = await pg.evaluate(() => { const d = document.createElement("div"); d.style.cssText = "position:fixed;left:200px;top:400px;z-index:9999;background:#fff";
+      d.innerHTML = mdLeve("$$V = \\frac{3\\sqrt{3}}{\\pi}\\hat V$$ e $\\sqrt{2}$"); document.body.appendChild(d);
+      // o traço de verdade (getBBox do caminho): com "<br>" no atributo d, o caminho é inválido e não desenha nada
+      const ss = [...d.querySelectorAll(".katex svg path")].map((x) => ({ w: x.getBBox().width, br: /<br/i.test(x.getAttribute("d")) }));
+      d.remove(); return ss; });
+    ok(raiz.length === 2 && raiz.every((x) => x.w > 3 && !x.br), `o √ desenhado (o traço: ${raiz.map((x) => Math.round(x.w) + (x.br ? ", com <br> no caminho" : "")).join(" e ")})`);
     // na conversa: as fontes do KaTeX carregam (servidas de static/katex)
     const fontes = await pg.evaluate(async () => {
       const d = document.createElement("div"); d.id = "teste-tex"; d.innerHTML = mdLeve("$$\\sum_{k=1}^{N} v_{c,k} = V_{dc}$$");

@@ -6,6 +6,9 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Fixed
+- AI chat equations: the √ (and other parts KaTeX draws as SVG) was missing, so 3√3/π showed as "3 3/π" in every AI's answers — the light markdown turned the line breaks inside the SVG path into <br> (#151).
+
 ## [0.3.2-rc1] - 2026-10-25
 
 ### Added
