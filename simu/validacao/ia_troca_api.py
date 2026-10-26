@@ -1,8 +1,10 @@
 """Trocar de IA no meio da conversa (instância de teste 7201 com MAISIM_IA_TESTE=1: além do Claude de mentira, o "Eco", o
 mesmo claude de mentira com outra pasta de configuração), etapa 2 do hub de IA (21/10): cada IA retoma a SUA sessão quando
 volta; a que chega (ou que não viu o que a outra respondeu) recebe CONVERSA.md, a conversa no registro do MaiSim, e o pedido
-cita; cada resposta guarda qual IA respondeu; /claude/ias lista as IAs."""
-import json, subprocess, time, urllib.request
+cita; cada resposta guarda qual IA respondeu; /claude/ias lista as IAs. O Eco entra por chave de API (ia/base.py, ComChave):
+a chave fica num arquivo 0600 na pasta dele, a página só vê o começo e os 4 últimos caracteres, e ela não vai para a pasta
+da conversa, o histórico, as chamadas da IA nem o registro do servidor; sem a chave, o pedido ao Eco é recusado."""
+import json, os, stat, subprocess, time, urllib.request
 from pathlib import Path
 B = "http://localhost:7201/maisim/simu/"
 PID = subprocess.run("ss -ltnp | grep ':7201 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1", shell=True, capture_output=True, text=True).stdout.strip()
@@ -50,12 +52,32 @@ for d in (CONF, ECO):
     (d / "falso_logado").write_text("")
     (d / "falso_cenario").write_text("le_conversa")
     (d / "falso_chamadas.jsonl").unlink(missing_ok=True)
+CHAVE = "sk-teste" + "0123456789abcdef" + "WXYZ"          # de mentira; o teste confere que ela não aparece em lugar nenhum
+ARQ_CHAVE = ECO / "maisim" / "chave"
 try:
+    api("claude/ia/sair", {"ia": "eco"})
     ias = api("claude/ias")
-    ok([a["id"] for a in ias] == ["claude", "eco"] and all(a["instalado"] for a in ias),
-       f"/claude/ias: {[(a['id'], a['nome'], a['instalado']) for a in ias]}")
+    eco = next((a for a in ias if a["id"] == "eco"), {})
+    ok([a["id"] for a in ias] == ["claude", "eco"] and all(a["instalado"] for a in ias) and eco.get("modo_login") == "chave"
+       and eco.get("tem_login") and not eco["estado"]["logado"],
+       f"/claude/ias: {[(a['id'], a['nome'], a['instalado'], a.get('modo_login')) for a in ias]} (o Eco, de chave, sem chave)")
     api("editor/abrir", {"arq": str(SALVOS / "exemplo_controle_pwm.ipes"), "modo": "descartar"})
     api("claude/nova", {})
+    r = api("claude/pedir", {"texto": "x", "dt": 1e-6, "tfim": 0.002, "ia": "eco"})
+    ok(r.get("ERRO") == 409 and "Eco" in r.get("erro", ""), f"sem a chave: o pedido ao Eco é recusado ({r.get('erro')})")
+    r1 = api("claude/ia/codigo", {"ia": "eco", "codigo": "abc"})
+    r2 = api("claude/ia/codigo", {"ia": "eco", "codigo": "pk-" + "x" * 30})
+    ok(r1.get("ERRO") == 409 and "sk-" in r1.get("erro", "") and r2.get("ERRO") == 409 and not ARQ_CHAVE.exists(),
+       f"chave mal formada: recusada sem guardar ({r1.get('erro')})")
+    r = api("claude/ia/codigo", {"ia": "eco", "codigo": f"  {CHAVE}\n"})
+    modo = stat.S_IMODE(os.stat(ARQ_CHAVE).st_mode) if ARQ_CHAVE.exists() else None
+    ok(r.get("logado") and r.get("chave") == "sk-••••••••••WXYZ" and CHAVE not in json.dumps(r) and modo == 0o600
+       and stat.S_IMODE(os.stat(ARQ_CHAVE.parent).st_mode) == 0o700 and ARQ_CHAVE.read_text().strip() == CHAVE,
+       f"chave salva: 0600 ({oct(modo or 0)}) na pasta 0700, a resposta só com {r.get('chave')!r}")
+    vistos = json.dumps([api("claude/ias"), api("claude/estado")], ensure_ascii=False)
+    ok(CHAVE not in vistos and "sk-••••••••••WXYZ" in vistos, "a página nunca recebe a chave de volta (/claude/ias, /claude/estado)")
+    u = api("claude/ia/uso?ia=eco")
+    ok((u.get("saldo") or {}).get("valor") == 1.84, f"o saldo da IA de chave (o de mentira): {u.get('saldo')}")
     sid = api("claude/contextos")["conversa"]
     api("claude/pedir", {"texto": "um", "dt": 1e-6, "tfim": 0.002, "ia": "claude"})
     e = espera()
@@ -88,10 +110,17 @@ try:
        "de volta ao Eco: retoma a sessão DELE e lê CONVERSA.md (o que veio depois)")
     r = api("claude/pedir", {"texto": "x", "dt": 1e-6, "tfim": 0.002, "ia": "nenhuma"})
     ok(r.get("ERRO") == 409 and "IA desconhecida" in r.get("erro", ""), f"IA desconhecida: recusado ({r.get('erro')})")
+    pasta_conv = CASA / "conversas"
+    onde = [str(f) for f in [*pasta_conv.rglob("*"), CASA / "sessoes.json", CONF / "falso_chamadas.jsonl", ECO / "falso_chamadas.jsonl",
+                             Path(ENV["MAISIM_DADOS"]) / "simu.log"] if f.is_file() and CHAVE.encode() in f.read_bytes()]
+    ok(not onde, f"a chave não está na conversa, no histórico, nas chamadas da IA nem no registro do servidor {onde}")
+    r = api("claude/ia/sair", {"ia": "eco"})
+    ok(not r.get("logado") and not ARQ_CHAVE.exists() and r.get("chave") is None, "sair: a chave é apagada")
     api("claude/nova", {})
     s_nova = next((v for v in json.loads((CASA / "sessoes.json").read_text()).values() if v.get("id") == api("claude/contextos")["conversa"]), {})
     ok(not s_nova.get("sessoes"), "conversa nova: as sessões das IAs recomeçam")
 finally:
+    api("claude/ia/sair", {"ia": "eco"})
     for d in (CONF, ECO):
         for f in ("falso_logado", "falso_cenario"):
             (d / f).unlink(missing_ok=True)

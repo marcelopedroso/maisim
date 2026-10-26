@@ -2,19 +2,32 @@
 pergunta aqui qual usar. Hoje só o Claude (as IAs do Google saíram na v0.3.0: o login da conta Google por
 programas de terceiros arrisca suspender a conta; outras IAs ficam para o roadmap). Na instância de teste
 (MAISIM_IA_TESTE=1), também o "Eco": o mesmo claude de mentira com outra pasta de configuração (a troca de IA no meio da
-conversa)."""
+conversa) e o login por chave de API (base.ComChave: uma chave de mentira, "sk-…")."""
 import os
 import shutil
+import time
 from pathlib import Path
 
-from .base import IA  # noqa: F401
+from .base import IA, ComChave  # noqa: F401
 from .claude import Claude
 
 
-class Eco(Claude):
-    """Só para teste: uma segunda IA, igual ao Claude (o claude de mentira), com outra pasta e outro nome."""
+class Eco(ComChave, Claude):
+    """Só para teste: uma segunda IA, igual ao Claude (o claude de mentira), com outra pasta, outro nome e o login por chave
+    (a janela das contas no modo da chave; o seletor de IA do chat aparece com ela e o Claude conectados). O "saldo" é de
+    mentira: a barra de uso do chat e a janela mostram o da IA escolhida. Os modelos têm nomes próprios na tela e o esforço
+    tem só o padrão (o seletor de esforço some), como numa IA que roda pelo Claude Code com outro serviço."""
     id = "eco"
     nome = "Eco (teste)"
+    inicio_chave = "sk-"
+    modelos = ("", "opus", "sonnet")
+    esforcos = ("",)
+
+    def rotulos(self):
+        return {"opus": "Eco Pro", "sonnet": "Eco Flash"}
+
+    def uso(self, forca=False):
+        return {"itens": [], "saldo": {"valor": 1.84, "moeda": "USD"}, "quando": time.time()} if self.le_chave() else None
 
 
 def acha_claude():

@@ -21,10 +21,9 @@
     "nav.codigo": { pt: "Código · o controle em outra janela", en: "Code · the control in its own window" },
     "nav.scope": { pt: "Scope · rodadas e medição", en: "Scope · runs and measurement" },
     "nav.ia": { pt: "IA do MaiSim: as contas", en: "MaiSim AI: the accounts" },
-    "nav.ia_conectadas": { pt: { one: "IA: {nomes} conectado (clique: as contas)", other: "IA: {nomes} conectados (clique: as contas)" },
-      en: { one: "AI: {nomes} connected (click: the accounts)", other: "AI: {nomes} connected (click: the accounts)" } },
+    "nav.ia_conectadas": { pt: { one: "IA: {nomes} conectado (clique: as contas)", other: "IAs conectadas: {nomes} (clique: as contas)" },
+      en: { one: "AI: {nomes} connected (click: the accounts)", other: "AIs connected: {nomes} (click: the accounts)" } },
     "nav.ia_nenhuma": { pt: "IA: nenhuma conectada (clique: conectar)", en: "AI: none connected (click: connect)" },
-    "nav.e": { pt: " e ", en: " and " },
     "nav.tema_sistema": { pt: "Tema: como o sistema (clique: claro)", en: "Theme: like the system (click: light)" },
     "nav.tema_claro": { pt: "Tema: claro (clique: escuro)", en: "Theme: light (click: dark)" },
     "nav.tema_escuro": { pt: "Tema: escuro (clique: como o sistema)", en: "Theme: dark (click: like the system)" },
@@ -199,7 +198,7 @@
   // simu avisa: maisim-ia-logados). A janela à parte (janela=1) não mostra o trilho: não pergunta
   const ICONE_IA = svg('<path d="M4.5 4.5h15a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-8.5l-4.5 3.6v-3.6h-2a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2z"/><path d="M6.5 11h2.2M15.6 11h1.9M8.7 8.2l5.6 2.8-5.6 2.8z"/><path d="M15.6 8.2v5.6"/>');
   let ultimaIA = 0, ultimasIAs = null;
-  const rotuloIA = (nomes) => (nomes.length ? tr("nav.ia_conectadas", { n: nomes.length, nomes: nomes.join(tr("nav.e")) }) : tr("nav.ia_nenhuma"));
+  const rotuloIA = (nomes) => (nomes.length ? tr("nav.ia_conectadas", { n: nomes.length, nomes: nomes.join(", ") }) : tr("nav.ia_nenhuma"));   // "IAs conectadas: Claude, DeepSeek"
   const soJanela = () => new URLSearchParams(location.search).get("janela") === "1";
   async function situacaoIA(agora) {
     const a = document.querySelector("#maisim-nav .item.ia");

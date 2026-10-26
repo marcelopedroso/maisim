@@ -4,9 +4,14 @@
 Pedido: `claude -p` restrito (só Read, Edit, Write, Glob e Grep; Edit só nos arquivos editáveis da pasta e nos .py; sem
 shell, sem MCP, sem perguntar), stream-json, retomando a sessão da conversa (--resume) ou criando (--session-id).
 Resumo de um contexto: `claude -p` só com leitura, sem sessão, saída JSON."""
+import os
 import re
+import shlex
+from pathlib import Path
 
 from .base import IA
+
+import processos  # noqa: E402                  (o simu/ no caminho: o base.py o põe)
 
 RENOVA_LOGIN = re.compile(r"Failed to refresh OAuth token|another Claude Code process is refreshing", re.I)
 
@@ -35,6 +40,19 @@ class Claude(IA):
         return [self.bin, "-p", prompt, "--output-format", "json", "--restricted", "--tools", "Read,Glob,Grep",
                 "--permission-mode", "dontAsk", "--permission-prompts", "none", "--strict-mcp-config", "--no-session-persistence",
                 "--max-turns", "30", *(["--model", modelo] if modelo else []), *(["--effort", esforco] if esforco else [])]
+
+    def comando_instala(self):
+        """No Windows, o instalador oficial da Anthropic (PowerShell: `irm https://claude.ai/install.ps1 | iex`, sem
+        administrador); fora dele, None (a tela mostra o comando do terminal). MAISIM_INSTALA_CLAUDE_CMD (testes) troca o
+        instalador por outro comando, em qualquer sistema. Vale também para a IA que roda pelo Claude Code (a mesma ferramenta)."""
+        teste = os.environ.get("MAISIM_INSTALA_CLAUDE_CMD")
+        if teste:
+            return shlex.split(teste)
+        if not processos.WIN:
+            return None
+        ps = Path(os.environ.get("SYSTEMROOT") or r"C:\Windows") / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+        return [str(ps) if ps.exists() else "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+                "$ProgressPreference='SilentlyContinue'; irm https://claude.ai/install.ps1 | iex"]
 
     def comando_estado(self):
         return [self.bin, "auth", "status", "--json"]
