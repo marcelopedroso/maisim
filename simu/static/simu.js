@@ -495,6 +495,53 @@ function tagScope(g, x, y, canal, cor, destino = "ambos", { larg = Infinity, fim
   r.setAttribute("width", w * G);
   if (fim) gg.setAttribute("transform", `translate(${(x - w) * G},${y * G})`);
 }
+// o conector de rótulo, como o "label" do PSIM (Marcelo, 26/10): numa ponta solta com nome (a de uma conexão, ou um borne
+// sem conexão), uma bandeirinha com o nome dentro, a base encostada na ponta e a seta para fora. lado: para onde ela aponta
+// (d, e, c, b: direita, esquerda, cima, baixo). Em pé (c, b), o nome continua deitado, para ler sem virar a cabeça, e a
+// bandeirinha vira uma casinha com a ponta para cima ou para baixo. A borda na cor do domínio (a da conexão), o fundo do
+// cartão; a cor também em "color", para o brilho do realce. at: o que identifica a ponta (data-k: a conexão; data-i: o
+// componente). Devolve a caixa ocupada [x0, x1, y0, y1], em quadrados da grade
+function conector(g, x, y, nome, lado, dom, dica, at = {}) {
+  const cor = corFio(dom), H = 0.3, A = 0.28, PAD = 0.2;   // 0,6 de altura: abaixo da etiqueta do scope de uma saída (y − 0,62)
+  const gg = no("g", Object.assign({ class: "conector-rot", "data-rot": nome, "data-dom": dom, tabindex: 0, "aria-label": dica,
+    style: `color:${cor}`, transform: `translate(${x * G},${y * G})` }, at), g);
+  // a dica no atributo title: a caixinha do MaiSim (maisim-dica.js) a mostra; um <title> dentro do SVG daria a do navegador
+  gg.setAttribute("title", dica);
+  const pol = no("polygon", { fill: COR.cartao, stroke: cor, "stroke-width": 1.6, "stroke-linejoin": "round" }, gg);
+  const t = textoMat(gg, 0, 0, nome, { fill: COR.texto, "font-size": 0.46 * G, "font-weight": 600, "text-anchor": "middle", "dominant-baseline": "middle" });
+  const w = (t.getComputedTextLength() / G || 0.33 * largMat(nome)) + 2 * PAD;   // medido (fora da tela, 0: a conta do tagScope)
+  const s = lado === "e" || lado === "c" ? -1 : 1;
+  const pts = lado === "d" || lado === "e" ? [[0, -H], [s * w, -H], [s * (w + A), 0], [s * w, H], [0, H]]
+    : [[-w / 2, 0], [w / 2, 0], [w / 2, s * 2 * H], [0, s * (2 * H + A)], [-w / 2, s * 2 * H]];
+  pol.setAttribute("points", pts.map(([a, b]) => `${a * G},${b * G}`).join(" "));
+  const [cx, cy] = lado === "d" || lado === "e" ? [s * w / 2, 0] : [0, s * H];
+  t.setAttribute("x", cx * G); t.setAttribute("y", (cy + 0.02) * G);
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  return [x + Math.min(...xs), x + Math.max(...xs), y + Math.min(...ys), y + Math.max(...ys)];
+}
+// para onde segue a ponta de uma conexão (fim: a última; senão, a primeira): o lado do passo que chega nela
+function ladoPonta(pts, fim) {
+  const lst = fim ? pts.slice().reverse() : pts, p = lst[0], q = lst.find((r) => r[0] !== p[0] || r[1] !== p[1]);
+  if (!q) return "d";
+  const dx = p[0] - q[0], dy = p[1] - q[1];
+  return Math.abs(dx) >= Math.abs(dy) ? (dx < 0 ? "e" : "d") : (dy < 0 ? "c" : "b");
+}
+// de que lado de um componente fica o borne: o do eixo mais longe do centro (o de dois pinos, pelo outro borne)
+function ladoBorne(e, t) {
+  const o = e.terminais.length === 2 ? e.terminais.find((u) => u !== t) : e, dx = t.x - o.x, dy = t.y - o.y;
+  return Math.abs(dx) >= Math.abs(dy) ? (dx < 0 ? "e" : "d") : (dy < 0 ? "c" : "b");
+}
+// a dica de um conector: o que mais tem este nome na folha (os componentes com um borne nele, pelo rótulo do borne ou por
+// uma conexão com o nome, e quantos outros conectores)
+function dicaConector(f, nome, dom, nConectores) {
+  const pts = new Set(f.fios.filter((w) => w.rotulo === nome && w.dom === dom).flatMap((w) => w.pts.map((p) => p.join(","))));
+  const comps = [...new Set(f.elementos.filter((e) => e.tipo !== "SCOPE" && (e.terminais || []).some((t) => domTerm(e, t) === dom
+    && (t.rotulo === nome || pts.has(`${t.x},${t.y}`)))).map((e) => e.nome))];
+  const lista = comps.slice(0, 6).join(", ") + (comps.length > 6 ? " " + tr("simu.ren_mais", { n: comps.length - 6 }) : "");
+  return [comps.length ? tr("simu.t_conector", { nome, lista }) : tr("simu.t_conector_so", { nome }),
+    nConectores > 1 ? tr("simu.t_conector_outros", { n: nConectores - 1 }) : "",
+    ed.ligado ? tr("simu.t_conector_clique") : ""].filter(Boolean).join("\n");
+}
 // onde vai o nome (e o valor) de um componente de dois pinos: o deslocamento que o Gecko guarda (dxTxt, dyTxt). O padrão
 // dele, (2, 2), dado a todo componente criado, joga o texto para baixo e à direita — num componente deitado cai junto do
 // vizinho (o L.1 parecia do R.1). Com o padrão, o MaiSim põe o texto colado no corpo: deitado, em cima e centrado; em pé, à
@@ -716,32 +763,37 @@ function desenha() {
   }
   const ptsFio = new Set(f.fios.flatMap((w) => w.pts.map((p) => p.join(","))));   // borne ligado: conexão, rótulo ou outro terminal no mesmo ponto
   const ptsTerm = new Map(); for (const e of f.elementos) for (const t of e.terminais || []) { const k = `${t.x},${t.y}`; ptsTerm.set(k, (ptsTerm.get(k) || 0) + 1); }
+  // os conectores de rótulo (ver conector()): uma ponta de conexão é solta quando não cai num borne e nenhuma outra conexão
+  // passa por ela (como o pts_fio do ipes.py: cada conexão conta uma vez em cada ponto seu); com nome, ganha a bandeirinha.
+  // Um borne com nome e sem conexão nem outro borne no ponto também. Desenhados depois dos componentes, com as marcas dos
+  // voltímetros, que descem para não cobrir uma bandeirinha. comBandeira: os pontos das conexões com bandeirinha, com o nome
+  // (o borne na outra ponta não repete o nome em texto)
+  const nFios = new Map(); for (const w of f.fios) for (const q of new Set(w.pts.map((p) => p.join(",")))) nFios.set(q, (nFios.get(q) || 0) + 1);
+  const solta = (p) => { const q = p.join(","); return !ptsTerm.has(q) && nFios.get(q) === 1; };
+  const bandeiras = [], comBandeira = new Set();
+  const rotBorne = (e, i, t, nome, x, y, at, lado) => {   // o nome de um borne: bandeirinha (solto), nada (já na bandeirinha) ou texto
+    const q = `${t.x},${t.y}`;
+    if (!ptsFio.has(q) && ptsTerm.get(q) < 2) bandeiras.push({ x: t.x, y: t.y, nome, lado, dom: domTerm(e, t), at: { "data-i": i } });
+    else if (!comBandeira.has(`${q}|${nome}`)) rotulo(camRot, x, y, nome, at);
+  };
   f.fios.forEach((w, k) => {
     if (w.dom === "CONTROL" && !mostrar.controle) return;
     const pts = w.pts.map(P).join(" "), sel = ed.fioSel === chaveFio(w) || ed.multiFios.has(chaveFio(w));
-    no("polyline", { "data-fio": k, points: pts, fill: "none", stroke: sel ? "#e8a33d" : corFio(w.dom), "stroke-width": sel ? 3 : 1.4, "stroke-linejoin": "round" }, camFios);
+    no("polyline", Object.assign({ "data-fio": k, points: pts, fill: "none", stroke: sel ? "#e8a33d" : corFio(w.dom), "stroke-width": sel ? 3 : 1.4, "stroke-linejoin": "round" },
+      w.rotulo ? { "data-rot": w.rotulo, "data-dom": w.dom, style: `color:${corFio(w.dom)}` } : {}), camFios);
     if (clicaveis) no("polyline", { class: "fio", "data-k": k, points: pts, fill: "none", stroke: "transparent", "stroke-width": 0.6 * G }, camFios);
-    if (mostrar.rotulos && w.rotulo) rotulo(camRot, w.pts[0][0] + 0.2, w.pts[0][1] - 0.45, w.rotulo, { fill: COR.rot, "font-size": 0.55 * G });
+    if (mostrar.rotulos && w.rotulo) {
+      const pontas = w.pts.length > 1 ? [false, true] : [false], soltas = pontas.filter((fim) => solta(fim ? w.pts[w.pts.length - 1] : w.pts[0]));
+      soltas.forEach((fim) => { const p = fim ? w.pts[w.pts.length - 1] : w.pts[0];
+        bandeiras.push({ x: p[0], y: p[1], nome: w.rotulo, lado: ladoPonta(w.pts, fim), dom: w.dom, at: { "data-k": k } }); });
+      if (soltas.length) w.pts.forEach((p) => comBandeira.add(`${p.join(",")}|${w.rotulo}`));
+      else rotulo(camRot, w.pts[0][0] + 0.2, w.pts[0][1] - 0.45, w.rotulo, { fill: COR.rot, "font-size": 0.55 * G });   // ligada dos dois lados: o texto
+    }
     if (mostrar.medicoes && w.rotulo && medidos.V.has(w.rotulo) && !nosMarcados.has(w.rotulo)) { nosMarcados.add(w.rotulo); marcas.push([w.pts[0][0], w.pts[0][1] - 0.5, medidos.V.get(w.rotulo)]); }
   });
   desenhaJuncoes(camFios, f);
   for (const e of f.elementos) for (const t of e.terminais || [])           // nó medido só por rótulo de terminal (sem conexão com o rótulo)
     if (mostrar.medicoes && t.rotulo && (t.dom || e.dom) === "LK" && medidos.V.has(t.rotulo) && !nosMarcados.has(t.rotulo)) { nosMarcados.add(t.rotulo); marcas.push([t.x, t.y - 0.5, medidos.V.get(t.rotulo)]); }
-  // as marcas dos voltímetros, as das pontas escolhidas e as automáticas dos nós, desenhadas juntas no fim (Marcelo, 24/10:
-  // "uma ponteira de sinal ficou por baixo da outra" — o − embaixo de um resistor e o + em cima do seguinte, no mesmo nó): de
-  // cima para baixo, uma que cairia sobre outra já posta (a caixa V± e o nome do sinal) desce até ficar livre
-  // a caixa de uma marca: o V± (0,62 de altura) e o nome do sinal ao lado, mais alto com o subscrito (0,81)
-  const ALT_MARCA = 0.86, caixa = ([x, y, m]) => [x - 0.15, x + 1.05 + largMat(m[0]) * 0.27, y - 1.13, y - 0.32];
-  const postas = [];
-  for (const mk of marcas.sort((a, b) => a[1] - b[1] || a[0] - b[0])) {
-    for (;;) {                                         // cada passo desce abaixo de uma já posta: termina (são finitas)
-      const [a0, a1, b0, b1] = caixa(mk);
-      const bate = postas.find((q) => { const [c0, c1, d0, d1] = caixa(q); return a0 < c1 && c0 < a1 && b0 < d1 + 0.05 && d0 < b1 + 0.05; });
-      if (!bate) break;
-      mk[1] = bate[1] + ALT_MARCA;
-    }
-    postas.push(mk); marcaNo(camRot, mk[0], mk[1], mk[2]);
-  }
   let n = 0;
   f.elementos.forEach((e, i) => {
     if (e.tipo === "SCOPE") return;                                    // o /maisim/scope faz esse papel
@@ -753,7 +805,7 @@ function desenha() {
       desenhaMaquina(g, e);
       // o rótulo do borne só quando nenhuma conexão chega nele (a da conexão já o mostra; ligado só pelo nome, como no Gecko)
       if (mostrar.rotulos) e.terminais.forEach((t) => { if (!t.rotulo || ptsFio.has(`${t.x},${t.y}`)) return; const esq = t.x < e.x;
-        rotulo(camRot, t.x + (esq ? -0.25 : 0.25), t.y - 0.42, t.rotulo, { "text-anchor": esq ? "end" : "start", fill: COR.rot, "font-size": 0.5 * G }); });
+        rotBorne(e, i, t, t.rotulo, t.x + (esq ? -0.25 : 0.25), t.y - 0.42, { "text-anchor": esq ? "end" : "start", fill: COR.rot, "font-size": 0.5 * G }, esq ? "e" : "d"); });
     } else if ((e.dom === "LK" || e.dom === "THERM") && e.tipo !== "TERM" && e.terminais.length === 2) {
       const [a, b] = e.terminais;                                       // área de clique ao longo do elemento
       no("rect", { x: (Math.min(a.x, b.x) - 0.7) * G, y: (Math.min(a.y, b.y) - 0.7) * G, width: (Math.abs(a.x - b.x) + 1.4) * G,
@@ -765,7 +817,7 @@ function desenha() {
       texto(g, e.x + tx.dx, e.y + tx.dy, e.nome, { fill: COR.nome, "font-size": 0.6 * G, "text-anchor": tx.ancora });
       const val = valorPrincipal(e); if (val) texto(g, e.x + tx.dx, e.y + tx.dy + 0.7, val, { fill: COR.par, "font-size": 0.55 * G, "text-anchor": tx.ancora });
       if (mostrar.rotulos) e.terminais.forEach((t, k) => { const r = (k ? e.saidas : e.entradas)[0];
-        if (r) rotulo(camRot, t.x + 0.25, t.y - 0.45, r, { fill: COR.rot, "font-size": 0.55 * G }); });
+        if (r) rotBorne(e, i, t, r, t.x + 0.25, t.y - 0.45, { fill: COR.rot, "font-size": 0.55 * G }, ladoBorne(e, t)); });
     } else if (e.dom === "THERM" && (e.tipo === "Pv" || e.tipo === "TREF") && e.terminais.length === 1) {
       // um terminal só (o outro lado é o zero térmico, invisível): o Pv, uma fonte de calor com a seta para a saída (à
       // direita), e embaixo a peça que ele aquece ("♨ IGBT.1"; sem ela, em vermelho: a perda não é calculada); o TREF, o
@@ -785,7 +837,7 @@ function desenha() {
         [[0.7, 0], [0.45, 0.25], [0.2, 0.5]].forEach(([w, dy]) => linha(e.x - w, e.y + dy, e.x + w, e.y + dy, { "stroke-width": 1.8 }));
         texto(g, e.x + 1, e.y + 0.2, e.nome, { fill: COR.nome, "font-size": 0.55 * G });
       }
-      if (mostrar.rotulos && t.rotulo) rotulo(camRot, t.x + 0.25, t.y - 0.45, t.rotulo, { fill: COR.rot, "font-size": 0.55 * G });
+      if (mostrar.rotulos && t.rotulo) rotBorne(e, i, t, t.rotulo, t.x + 0.25, t.y - 0.45, { fill: COR.rot, "font-size": 0.55 * G }, ladoBorne(e, t));
     } else if (e.tipo === "TERM") {
       const cor = e.dom === "LK" ? COR.lk : COR.ct;
       no("rect", { class: "corpo", x: (e.x - 0.4) * G, y: (e.y - 0.4) * G, width: 0.8 * G, height: 0.8 * G, rx: 3, fill: COR.cartao, stroke: cor, "stroke-width": 1.6 }, g);
@@ -819,7 +871,7 @@ function desenha() {
         if (t.junto) no("circle", { class: "junto", cx: t.x * G, cy: t.y * G, r: 0.45 * G, fill: "none", stroke: COR.erro, "stroke-width": 1.6, "stroke-dasharray": "3 2" }, g);
         if (mostrar.rotulos && t.rotulo) {
           const po = t.lado === "e" ? [t.x - 0.3, t.y - 0.45] : [t.x + 0.3, t.y - 0.45];
-          rotulo(camRot, po[0], po[1], t.rotulo, { "text-anchor": t.lado === "e" ? "end" : "start", fill: COR.rot, "font-size": 0.55 * G });
+          rotBorne(e, i, t, t.rotulo, po[0], po[1], { "text-anchor": t.lado === "e" ? "end" : "start", fill: COR.rot, "font-size": 0.55 * G }, ["e", "d", "c"].includes(t.lado) ? t.lado : "b");
         }
       }
     } else if (e.dom !== "CONTROL") {                                   // tipo sem símbolo próprio: caixa com o nome curto
@@ -875,8 +927,8 @@ function desenha() {
         if (t.x !== borda) no("line", { x1: t.x * G, y1: t.y * G, x2: borda * G, y2: t.y * G, stroke: COR.ct, "stroke-width": 1.4 }, g);
         if (atuador && t.lado === "s") continue;                                                              // a etiqueta já diz o nome
         if ((MEDIDOR.has(e.tipo) || ehTag(e)) && t.lado === "s") { if (mostrar.medicoes) tagScope(camRot, t.x + 0.35, t.y, canalScope(e), corSinal(canalScope(e), e), destinoDe(e)); }   // regra: medidor (e tag) vai para o /maisim/scope
-        else if (mostrar.rotulos && t.rotulo && !saiScope.includes(t)) rotulo(camRot, t.lado === "e" ? t.x - 0.2 : t.x + 0.2, t.y - 0.42, t.rotulo,
-          { "text-anchor": t.lado === "e" ? "end" : "start", fill: COR.rot, "font-size": 0.5 * G });
+        else if (mostrar.rotulos && t.rotulo && !saiScope.includes(t)) rotBorne(e, i, t, t.rotulo, t.lado === "e" ? t.x - 0.2 : t.x + 0.2, t.y - 0.42,
+          { "text-anchor": t.lado === "e" ? "end" : "start", fill: COR.rot, "font-size": 0.5 * G }, t.x < e.x ? "e" : "d");
       }
     }
     for (const t of e.terminais) {                                      // bornes: cheio se ligado (conexão ou rótulo), vazado se livre
@@ -884,6 +936,29 @@ function desenha() {
       no("circle", { class: "borne", cx: t.x * G, cy: t.y * G, r: (livre ? 0.2 : 0.13) * G, fill: livre ? COR.cartao : cor, stroke: cor, "stroke-width": livre ? 1.4 : 0 }, g);
     }
   });
+  // as marcas dos voltímetros, as das pontas escolhidas e as automáticas dos nós, desenhadas juntas no fim (Marcelo, 24/10:
+  // "uma ponteira de sinal ficou por baixo da outra" — o − embaixo de um resistor e o + em cima do seguinte, no mesmo nó): de
+  // cima para baixo, uma que cairia sobre outra já posta (a caixa V± e o nome do sinal) desce até ficar livre
+  // a caixa de uma marca: o V± (0,62 de altura) e o nome do sinal ao lado, mais alto com o subscrito (0,81)
+  // (as bandeirinhas dos conectores, já postas, também: a marca que fica acima da ponta da bandeirinha sobe até passar
+  // dela — no borne de cima de um componente em pé, descer a poria sobre o corpo —, e a que fica abaixo desce)
+  const ALT_MARCA = 0.86, caixa = (q) => q.cx || [q[0] - 0.15, q[0] + 1.05 + largMat(q[2][0]) * 0.27, q[1] - 1.13, q[1] - 0.32];
+  const nMesmo = new Map(); for (const c of bandeiras) { const q = `${c.dom}|${c.nome}`; nMesmo.set(q, (nMesmo.get(q) || 0) + 1); }
+  const postas = bandeiras.map((c) => ({ py: c.y, cx: conector(camRot, c.x, c.y, c.nome, c.lado, c.dom, dicaConector(f, c.nome, c.dom, nMesmo.get(`${c.dom}|${c.nome}`)), c.at) }));
+  for (const mk of marcas.sort((a, b) => a[1] - b[1] || a[0] - b[0])) {
+    // cada passo sai de cima de uma já posta; subir pode voltar a bater (entre duas bandeirinhas frente a frente): depois
+    // de 12 passos, de volta à altura de antes, à direita das bandeirinhas dessa altura, e daí só descendo (termina: são finitas)
+    const y0 = mk[1];
+    for (let n = 0; ; n++) {
+      const [a0, a1, b0, b1] = caixa(mk);
+      const bate = postas.find((q) => { const [c0, c1, d0, d1] = caixa(q); return a0 < c1 && c0 < a1 && b0 < d1 + 0.05 && d0 < b1 + 0.05; });
+      if (!bate) break;
+      if (n === 12) { mk[1] = y0; const [, , e0, e1] = caixa(mk);
+        mk[0] = Math.max(mk[0], ...postas.filter((q) => q.cx && q.cx[2] < e1 + 0.05 && e0 < q.cx[3] + 0.05 && q.cx[1] > mk[0] - 0.15).map((q) => q.cx[1] + 0.3)); continue; }
+      mk[1] = !bate.cx ? bate[1] + ALT_MARCA : n < 12 && (b0 + b1) / 2 < bate.py ? bate.cx[2] + 0.32 - 0.06 : bate.cx[3] + 1.13 + 0.06;
+    }
+    postas.push(mk); marcaNo(camRot, mk[0], mk[1], mk[2]);
+  }
   $("info").textContent = [ed.ligado && tr("simu.info_editando"), tr("simu.info_elementos", { n }), tr("simu.info_conexoes", { n: f.fios.length }),
     folhaAtual === "0" && tr("simu.info_encaixe", { a: dados.encaixe.pontas - dados.encaixe.soltas.length, b: dados.encaixe.pontas })].filter(Boolean).join(" · ");
   ed.fantasma = no("g", { "pointer-events": "none", style: "display:none" }, svg);
@@ -985,10 +1060,10 @@ function dica(ev, e) {
     if (ev.button !== 0) return;
     const g = ev.target.closest && ev.target.closest(".el");
     const e = g && dados ? dados.folhas[folhaAtual].elementos[+g.dataset.i] : null;
-    const livre = ed.ligado && !ed.colocar && !ed.fio.modo && !simulando();
+    const livre = ed.ligado && !ed.colocar && !ed.fio.modo && !ed.conector && !simulando();
     arrasto = { x: ev.clientX, y: ev.clientY, v: Object.assign({}, ver), moveu: false,
                 el: livre && e && !ev.shiftKey ? { e, g } : null, shift: livre && ev.shiftKey,
-                ret: livre && ev.shiftKey && !e && !(ev.target.closest && ev.target.closest(".fio")) ? grade(ev) : null,
+                ret: livre && ev.shiftKey && !e && !(ev.target.closest && ev.target.closest(".fio, .conector-rot[data-k]")) ? grade(ev) : null,
                 grupo: livre && e && !ev.shiftKey && ed.multi.has(e.nome) && tamanhoSel() > 1 };
     if (!arrasto.el && !arrasto.shift) svg.classList.add("arrastando");
   });
@@ -1030,7 +1105,7 @@ function dica(ev, e) {
     const a = arrasto; arrasto = null; svg.classList.remove("arrastando");
     if (a.ret) { const r = $("ret-sel"); if (r) r.remove(); if (a.moveu) selecionaRetangulo(a.ret, grade(ev)); return; }
     if (a.shift) {                                                       // Shift + clique: põe ou tira da seleção
-      const fw = ev.target.closest && ev.target.closest(".fio"), g = ev.target.closest && ev.target.closest(".el");
+      const fw = ev.target.closest && ev.target.closest(".fio, .conector-rot[data-k]"), g = ev.target.closest && ev.target.closest(".el, .conector-rot[data-i]");
       if (fw) alternaSel(null, dados.folhas[folhaAtual].fios[+fw.dataset.k]);
       else if (g) alternaSel(dados.folhas[folhaAtual].elementos[+g.dataset.i], null);
       return;
@@ -1046,12 +1121,15 @@ function dica(ev, e) {
     if (a.el && a.moveu) { desenha(); return; }
     if (a.moveu) return;
     if (ed.ligado && ed.fio.modo) { cliqueFio(ev); return; }
+    if (ed.ligado && ed.conector) { poeConector(ev); return; }
     if (ed.ligado && ed.colocar) { coloca(ev); return; }
     const md = ed.ligado && ev.target.closest && ev.target.closest(".medido[data-medidor]");   // a marca de um medidor: abre o medidor
     if (md) { const m = dados.folhas[folhaAtual].elementos.find((x) => x.nome === md.dataset.medidor); if (m) { seleciona(m); return; } }
-    const fw = ed.ligado && ev.target.closest && ev.target.closest(".fio");
+    const fw = ed.ligado && ev.target.closest && ev.target.closest(".fio, .conector-rot[data-k]");   // a bandeirinha: como a conexão
     if (fw) { const w = dados.folhas[folhaAtual].fios[+fw.dataset.k]; const ja = ed.fioSel === chaveFio(w) && !ed.multiFios.size;
       selecionaFio(w); if (ja) mostraPainelProps(); return; }
+    const cb = ed.ligado && ev.target.closest && ev.target.closest(".conector-rot[data-i]");   // a de um borne solto: o componente
+    if (cb) { seleciona(dados.folhas[folhaAtual].elementos[+cb.dataset.i]); return; }
     const g = ev.target.closest && ev.target.closest(".el");
     const e = g ? dados.folhas[folhaAtual].elementos[+g.dataset.i] : null;
     const ja = e && ed.sel === e.nome && !ed.multi.size;              // clicar de novo no selecionado: abre o painel da direita
@@ -1060,6 +1138,20 @@ function dica(ev, e) {
     if (e && e.tipo === "SUBCIRCUIT" && dados.folhas[e.uid]) abre(e.uid);
   });
   svg.addEventListener("mouseleave", esconde);
+  // o realce dos conectores: o mouse (ou o foco do teclado) numa bandeirinha acende todas as do mesmo nome e as conexões com
+  // ele (no mesmo domínio); sair apaga. Enter ou espaço numa bandeirinha com foco: o mesmo que clicar nela
+  const realca = (c) => { svg.querySelectorAll(".realce").forEach((x) => x.classList.remove("realce"));
+    if (c) svg.querySelectorAll(`[data-rot="${CSS.escape(c.dataset.rot)}"][data-dom="${CSS.escape(c.dataset.dom)}"]`).forEach((x) => x.classList.add("realce")); };
+  const conectorDe = (x) => x && x.closest && x.closest(".conector-rot");
+  svg.addEventListener("mouseover", (ev) => { const c = conectorDe(ev.target); if (c && !c.contains(ev.relatedTarget)) realca(c); });
+  svg.addEventListener("mouseout", (ev) => { const c = conectorDe(ev.target); if (c && !c.contains(ev.relatedTarget)) realca(conectorDe(document.activeElement)); });
+  svg.addEventListener("focusin", (ev) => realca(conectorDe(ev.target)));
+  svg.addEventListener("focusout", () => realca(null));
+  svg.addEventListener("keydown", (ev) => {
+    const c = conectorDe(ev.target); if (!c || !ed.ligado || (ev.key !== "Enter" && ev.key !== " ")) return;
+    ev.preventDefault(); const f = dados.folhas[folhaAtual];
+    if (c.dataset.k != null) selecionaFio(f.fios[+c.dataset.k]); else if (c.dataset.i != null) seleciona(f.elementos[+c.dataset.i]);
+  });
   addEventListener("mousemove", (ev) => {               // onde o Ctrl+V cola: pela posição na área do desenho (a dica, a faixa do
     const r = svg.getBoundingClientRect();              // SM ou outro quadro por cima não tiram o mouse do desenho)
     ed.mouse = r.width && ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom ? grade(ev) : null;
@@ -1067,9 +1159,11 @@ function dica(ev, e) {
   addEventListener("keydown", (ev) => {
     if (ev.target.closest && ev.target.closest("input, select, textarea, [contenteditable], #ctl-editor")) return;   // digitando (o controle.py também)
     if (document.querySelector(".modal-fundo")) return;
-    if (ed.ligado && simulando() && (["w", "W", "r", "R", "Delete", "Backspace"].includes(ev.key) && !ev.ctrlKey && !ev.metaKey
+    if (ed.ligado && simulando() && (["w", "W", "c", "C", "r", "R", "Delete", "Backspace"].includes(ev.key) && !ev.ctrlKey && !ev.metaKey
         || (ev.ctrlKey || ev.metaKey) && ["x", "X", "v", "V"].includes(ev.key))) { ev.preventDefault(); avisaTrava(); return; }
     if (ed.ligado && !ev.ctrlKey && !ev.metaKey && !ev.altKey && (ev.key === "w" || ev.key === "W")) { ev.preventDefault(); modoFio(!ed.fio.modo); return; }
+    if (ed.ligado && !ev.ctrlKey && !ev.metaKey && !ev.altKey && (ev.key === "c" || ev.key === "C")) { ev.preventDefault(); modoConector(!ed.conector); return; }
+    if (ed.conector && ev.key === "Escape") { modoConector(false); return; }
     if (ed.fio.modo && ed.fio.cantos.length) {
       if (ev.key === "Escape") { ed.fio.cantos = []; ed.fio.dom = null; previaFio(); msg(tr("simu.fio_desfeito")); return; }
       if (ev.key === "Enter" && !ev.ctrlKey && !ev.metaKey) { ev.preventDefault(); terminaFio(); return; }
@@ -1104,7 +1198,7 @@ function dica(ev, e) {
 // ---------------------------------------------------------------- editor: o Gecko do MaiSim aplica cada mudança e o desenho vem do estado dele
 const ed = { ligado: false, sel: null, colocar: null, catalogo: null, aba: 0, fantasma: null, fioSel: null, todos: true, lib: [], sujo: false,
   multi: new Set(), multiFios: new Set(),        // a seleção de vários (Shift): nomes dos componentes e chaves das conexões
-             fio: { modo: false, cantos: [], dom: null, mouse: null } };
+             fio: { modo: false, cantos: [], dom: null, mouse: null }, conector: false };
 function msg(t, tipo = "") { $("msg").textContent = t; $("msg").className = tipo; if (tipo) anota(t, tipo);
   if (VISTA_CODIGO && tipo === "erro" && typeof poeEstado === "function") poeEstado(t, "erro"); }   // sem o cabeçalho: o erro vai para a linha do editor
 // histórico: as últimas 20 mudanças e avisos (o que passa em verde ou vermelho no topo), embaixo do painel da direita
@@ -1361,6 +1455,7 @@ function poeCadeado(on) { $("bt-editar").classList.toggle("ativo", on); $("bt-ed
 async function liga(on) {
   ed.ligado = on; document.body.classList.toggle("editando", on); poeCadeado(on);
   if (ed.fio.modo) modoFio(false);
+  if (ed.conector) modoConector(false);
   seleciona(null); escolhe(null);
   if (!on) {
     if (ed.novo && !(await confirma(escT(tr("simu.novo_nao_salvo")), tr("simu.sair_descarta_html", { nome: ed.novo }), escT(tr("simu.sair_sem_salvar")), true))) {
@@ -1438,7 +1533,7 @@ function desenhaPaleta() {
   $("itens").querySelectorAll(".item").forEach((d) => {
     d.onclick = () => { const it = acha(d.dataset.id); escolhe(ed.colocar && ed.colocar.id === it.id ? null : it); };
     // arrastar: só marca o item (redesenhar a paleta aqui tiraria da página o item que está sendo arrastado e cancelaria o gesto)
-    d.addEventListener("dragstart", (ev) => { const it = acha(d.dataset.id); if (ed.fio.modo) modoFio(false);
+    d.addEventListener("dragstart", (ev) => { const it = acha(d.dataset.id); if (ed.fio.modo) modoFio(false); if (ed.conector) modoConector(false);
       ed.colocar = it; document.body.classList.add("colocando"); d.classList.add("ativo");
       ev.dataTransfer.setData("text/plain", it.id); ev.dataTransfer.effectAllowed = "copy"; });
     d.addEventListener("dragend", (ev) => { if (ev.dataTransfer.dropEffect === "none" && ed.colocar) escolhe(null); });
@@ -1460,6 +1555,7 @@ async function carregaBiblioteca() {
 function escolhe(item) {
   if (item && simulando()) { avisaTrava(); return; }
   if (item && ed.fio.modo) modoFio(false);
+  if (item && ed.conector) modoConector(false);
   ed.colocar = item; document.body.classList.toggle("colocando", !!item);
   if (ed.fantasma) ed.fantasma.style.display = "none";
   if (ed.catalogo) desenhaPaleta();
@@ -1489,6 +1585,107 @@ async function coloca(ev) {
   }
   await pede("CREATE", [naFolhaPrincipal() ? nome : `${dados.folhas[folhaAtual].nome}#${nome}`, x, y, item.id], tr("simu.d_criado", { item: item.nome, nome, x, y }));
 }
+// a ferramenta conector (o label do PSIM, Marcelo 26/10; o botão "Conector" abaixo do "Fio", tecla C): clicar num borne ou num ponto
+// de conexão abre ali mesmo um campo para o nome; com ele, um pedaço curto de conexão (2 quadrados, ou 1 se só ele cabe) sai
+// do ponto para o lado livre, já com o nome, no domínio do ponto (potência, controle ou térmico): a outra ponta fica solta e a
+// bandeirinha aparece sozinha. Um passo só no desfazer (editor/fio, a conexão nova com o rótulo); o nome passa pela regra do
+// rótulo (o servidor confere de novo); repetido é o que liga. Esc no campo desiste do nome; fora dele, sai da ferramenta.
+// W e C se excluem (ligar um desliga o outro), como o W e o item da paleta
+function modoConector(on) {
+  if (on && simulando()) { avisaTrava(); return; }
+  if (on) { if (ed.fio.modo) modoFio(false); escolhe(null); ed.sel = null; ed.fioSel = null; mostraProps(); }
+  ed.conector = on; document.body.classList.toggle("modo-conector", on); $("bt-conector").classList.toggle("ativo", on);
+  if (!on) { const c = $("conector-nome"); if (c) c.remove(); }
+  msg(on ? tr("simu.modo_conector") : "");
+  desenha();
+}
+async function poeConector(ev) {
+  const p = grade(ev), dom = pontosDeLigacao().get(p.join(","));
+  if (foraDaFolha(p)) return;
+  if (!dom) { msg(tr("simu.conector_onde"), "erro"); return; }
+  const cantos = caminhoConector(p);
+  if (!cantos) { msg(tr("simu.conector_sem_lado"), "erro"); return; }
+  // o nome do ponto em cada folha que vai receber o conector: num subcircuito com "os iguais juntos", outra folha igual
+  // pode ter outro nome ali, e o conector ligaria os dois nós dela sem aviso
+  const fs = alvos(), atuais = nomesNasFolhas(p, dom, fs);
+  const nome = await nomeNoLugar(ev.clientX, ev.clientY, dom, nomeDoPonto(p, dom) || atuais[0] || "", atuais);
+  if (!nome || !ed.conector) return;
+  const descr = tr("simu.d_conector", { nome, x: p[0], y: p[1] }) + nosSMs(fs);
+  msg(tr("simu.ligando"));
+  try { novoEstado(await api("editor/fio", { acao: "novo", cantos, dom, rotulo: nome, folhas: fs, descr })); msg(descr, "ok"); }
+  catch (e) { msg(e.message, "erro"); }
+}
+// o nome que o ponto p já tem no domínio dom: o da conexão clicada, o de outra conexão do mesmo nó ou o rótulo de um borne
+// nele ("" se nenhum). O nó pela regra do Gecko (a ponta de uma conexão em qualquer ponto de outra liga; cruzar sem ponta,
+// não), a partir das conexões que passam por p; os bornes em qualquer ponto delas (ou em p)
+// os nomes que o ponto p já tem nas folhas fs (sem repetir; as que não têm nome ali não contam)
+const nomesNasFolhas = (p, dom, fs) => [...new Set(fs.map((f) => nomeDoPonto(p, dom, f)).filter(Boolean))];
+function nomeDoPonto(p, dom, folha = folhaAtual) {
+  const f = dados.folhas[folha] || { fios: [], elementos: [] }, q = p.join(","), fios = f.fios.filter((w) => w.dom === dom);
+  const pts = fios.map((w) => new Set(w.pts.map((r) => r.join(",")))), pontas = fios.map((w) => [w.pts[0].join(","), w.pts[w.pts.length - 1].join(",")]);
+  const no = fios.map((_, k) => k).filter((k) => pts[k].has(q)), fila = no.slice();
+  while (fila.length) { const k = fila.shift();
+    fios.forEach((_, u) => { if (!no.includes(u) && (pontas[u].some((x) => pts[k].has(x)) || pontas[k].some((x) => pts[u].has(x)))) { no.push(u); fila.push(u); } }); }
+  const lugar = new Set([q, ...no.flatMap((k) => [...pts[k]])]);
+  const borne = f.elementos.flatMap((e) => (e.terminais || []).filter((t) => t.rotulo && domTerm(e, t) === dom && lugar.has(`${t.x},${t.y}`)).map((t) => t.rotulo));
+  return [...no.map((k) => fios[k].rotulo).filter(Boolean), ...borne][0] || "";
+}
+// para onde sai o pedaço do conector, a partir do ponto p: o primeiro lado em que os passos não caem em conexão, borne,
+// corpo de componente (a caixa dele e dos bornes) nem fora da folha. Primeiro o lado de fora do que já está ali (o
+// componente do borne, ou a conexão de que p é a ponta), depois direita, baixo, esquerda e cima. null: nenhum lado livre
+function caminhoConector(p) {
+  const f = dados.folhas[folhaAtual], lig = pontosDeLigacao(), q = p.join(","), tam = f.tamanho;
+  const caixas = f.elementos.filter((e) => e.tipo !== "SCOPE").map((e) => {
+    const xs = [e.x, ...(e.terminais || []).map((t) => t.x)], ys = [e.y, ...(e.terminais || []).map((t) => t.y)];
+    if (e.tipo === "SUBCIRCUIT" && e.tamanho) { xs.push(e.x - 0.5 + e.tamanho[0]); ys.push(e.y - 0.5 + e.tamanho[1]); }
+    return [Math.min(...xs) - 0.5, Math.max(...xs) + 0.5, Math.min(...ys) - 0.5, Math.max(...ys) + 0.5]; });
+  const ocupado = ([x, y]) => lig.has(`${x},${y}`) || x < 1 || y < 1 || (tam && (x > tam[0] - 1 || y > tam[1] - 1))
+    || caixas.some(([a, b, c, d]) => x > a && x < b && y > c && y < d);
+  const el = f.elementos.find((e) => e.tipo !== "SCOPE" && (e.terminais || []).some((t) => `${t.x},${t.y}` === q));
+  const w = !el && f.fios.find((u) => u.pts.length > 1 && (u.pts[0].join(",") === q || u.pts[u.pts.length - 1].join(",") === q));
+  const pref = el ? ladoBorne(el, el.terminais.find((t) => `${t.x},${t.y}` === q)) : w ? ladoPonta(w.pts, w.pts[0].join(",") !== q) : null;
+  const DIR = { d: [1, 0], b: [0, 1], e: [-1, 0], c: [0, -1] }, ordem = [...new Set([pref, "d", "b", "e", "c"].filter(Boolean))];
+  for (const n of [2, 1]) for (const k of ordem) {
+    const [dx, dy] = DIR[k], passos = Array.from({ length: n }, (_, s) => [p[0] + dx * (s + 1), p[1] + dy * (s + 1)]);
+    if (!passos.some(ocupado)) return [p, passos[n - 1]];
+  }
+  return null;
+}
+// o campo do nome do conector, junto do ponto clicado (cx, cy: na tela), com os nomes que já existem no domínio para
+// escolher; já preenchido com o nome que o ponto tem (atual). Enter devolve o nome (conferido como o do rótulo do nó); outro
+// nome num ponto que já tem um junta os dois nós: o MaiSim pergunta antes (cancelar volta ao campo). Esc ou sair do campo
+// desiste (a ferramenta continua)
+function nomeNoLugar(cx, cy, dom, atual = "", atuais = atual ? [atual] : []) {
+  return new Promise((ok) => {
+    const f = dados.folhas[folhaAtual];
+    const nomes = [...new Set([...f.fios.filter((w) => w.dom === dom && w.rotulo).map((w) => w.rotulo),
+      ...f.elementos.flatMap((e) => (e.terminais || []).filter((t) => t.rotulo && domTerm(e, t) === dom).map((t) => t.rotulo))])].sort();
+    const velho = $("conector-nome"); if (velho) velho.remove();
+    const cx_ = Math.min(cx + 10, innerWidth - 170), cy_ = Math.max(4, Math.min(cy - 14, innerHeight - 40));
+    const caixa = document.createElement("div"); caixa.id = "conector-nome"; caixa.style.left = cx_ + "px"; caixa.style.top = cy_ + "px";
+    caixa.innerHTML = `<input type="text" list="conector-nomes" autocomplete="off" spellcheck="false" placeholder="${escT(tr("simu.ph_conector"))}"
+      title="${escT(tr("simu.t_conector_nome"))}" aria-label="${escT(tr("simu.t_conector_nome"))}"><datalist id="conector-nomes">${nomes.map((x) => `<option value="${escT(x)}">`).join("")}</datalist>`;
+    document.body.appendChild(caixa);
+    const inp = caixa.querySelector("input"); let feito = false, perguntando = false;
+    inp.value = atual;
+    const fim = (v) => { if (feito) return; feito = true; caixa.remove(); ok(v); };
+    inp.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); fim(null); return; }
+      if (e.key !== "Enter") return;
+      e.preventDefault(); const r = inp.value.trim(); if (!r) return;
+      if (!/^[A-Za-z0-9_.+\-]+$/.test(r)) { msg(tr("simu.rotulo_invalido", { r }), "erro"); inp.select(); return; }
+      const outros = atuais.filter((x) => x !== r);    // os nomes que o ponto já tem (aqui ou numa folha igual) e não são r
+      if (!outros.length) { fim(r); return; }
+      perguntando = true;                              // o aviso tira o foco do campo: não é desistir
+      confirma(escT(tr("simu.m_conector_curto")), tr("simu.m_conector_curto_html", { a: outros.join(", "), b: r }), escT(tr("simu.criar")), true).then((sim) => {
+        perguntando = false;
+        if (sim) fim(r); else if (!feito) { inp.focus(); inp.select(); }
+      });
+    });
+    inp.addEventListener("blur", () => { if (!perguntando) fim(null); });
+    requestAnimationFrame(() => { inp.focus(); inp.select(); });
+  });
+}
 function seleciona(e) { ed.sel = e ? e.nome : null; ed.fioSel = null; ed.multi.clear(); ed.multiFios.clear(); desenha(); mostraProps(); }
 // simulando, o circuito fica só para ver (Marcelo, 22/10: "o bloqueio de edição quando tiver rodando"): o servidor já recusava
 // as mudanças (ocupado()), mas a tela deixava mexer e só depois dava o erro. Agora: clicar seleciona e mostra os dados; arrastar,
@@ -1501,8 +1698,8 @@ function avisaTrava() {                                // fica 4 s (a barra de p
 function travaCircuito(on) {
   const mudou = document.body.classList.contains("circ-travado") !== on;
   document.body.classList.toggle("circ-travado", on);
-  for (const id of ["bt-modelo", "bt-novo", "bt-salvar", "bt-salvar-como", "bt-fio"]) if ($(id)) $(id).disabled = on;
-  if (on) { if (ed.fio.modo) modoFio(false); if (ed.colocar) escolhe(null); }
+  for (const id of ["bt-modelo", "bt-novo", "bt-salvar", "bt-salvar-como", "bt-fio", "bt-conector"]) if ($(id)) $(id).disabled = on;
+  if (on) { if (ed.fio.modo) modoFio(false); if (ed.conector) modoConector(false); if (ed.colocar) escolhe(null); }
   if (mudou && ed.ligado) mostraProps();
 }
 async function mostraProps() {
@@ -2198,7 +2395,7 @@ async function ligaTerminal(e, alvo, domAlvo) {
 }
 function modoFio(on) {
   if (on && simulando()) { avisaTrava(); return; }
-  if (on) { escolhe(null); ed.sel = null; ed.fioSel = null; mostraProps(); }
+  if (on) { if (ed.conector) modoConector(false); escolhe(null); ed.sel = null; ed.fioSel = null; mostraProps(); }
   Object.assign(ed.fio, { modo: on, cantos: [], dom: null });
   document.body.classList.toggle("modo-fio", on); $("bt-fio").classList.toggle("ativo", on);
   msg(on ? tr("simu.modo_fio") : "");
@@ -2259,6 +2456,7 @@ function previaFio() {                             // o fio sendo desenhado e o 
   }
 }
 $("bt-fio").onclick = () => ed.ligado && modoFio(!ed.fio.modo);
+$("bt-conector").onclick = () => ed.ligado && modoConector(!ed.conector);
 
 // ---------------------------------------------------------------- modal (no lugar dos avisos do navegador)
 // (os textos chegam prontos, em HTML; os botões padrão no idioma de agora: o padrão do parâmetro vale a cada chamada)
