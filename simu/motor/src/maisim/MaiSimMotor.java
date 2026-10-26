@@ -126,6 +126,41 @@ public final class MaiSimMotor {
         return sb.toString();
     }
 
+    /** STEPS m q np ponto… na média… → "r" e r registros "t feitos ponto… média…": q amostras de m passos numa chamada só
+     *  (patch 0008, simulateStepsSampled; a rodada sem controle em Python manda blocos de amostras, em vez de um STEP e um
+     *  GETM — dois saltos até o Gecko — por amostra). Os mesmos passos, leituras e médias do STEP/STEPA + GETM. Sem o método
+     *  (o motor compilado com um jar sem o patch, ou um Gecko ainda do jar velho: o RMI recusa antes de andar), responde o
+     *  erro "SEM_LOTE" e o servidor segue amostra a amostra, como antes. */
+    private boolean geckoSemLote = false;
+
+    private String stepAmostras(String[] p) throws Exception {
+        int m = Integer.parseInt(p[1]), q = Integer.parseInt(p[2]), np = Integer.parseInt(p[3]);
+        String[] pontos = Arrays.copyOfRange(p, 4, 4 + np);
+        int na = Integer.parseInt(p[4 + np]);
+        String[] medias = Arrays.copyOfRange(p, 5 + np, 5 + np + na);
+        if (p.length != 5 + np + na) throw new IllegalArgumentException("STEPS m q np point… na average…: wrong count");
+        java.lang.reflect.Method mm = null;
+        if (!geckoSemLote) {
+            try { mm = GeckoRemoteInterface.class.getMethod("simulateStepsSampled", int.class, int.class, String[].class, String[].class); }
+            catch (NoSuchMethodException semPatch) { }
+        }
+        if (mm == null) throw new IllegalStateException("SEM_LOTE");
+        double[] r;
+        try { r = (double[]) mm.invoke(g, m, q, (Object) pontos, (Object) medias); }
+        catch (java.lang.reflect.InvocationTargetException e) {
+            if (!metodoDesconhecido(e.getCause())) throw e.getCause() instanceof Exception ? (Exception) e.getCause() : e;
+            geckoSemLote = true;                                             // o Gecko não andou
+            throw new IllegalStateException("SEM_LOTE");
+        }
+        int w = 2 + np + na, regs = r.length / w;
+        StringBuilder sb = new StringBuilder(Integer.toString(regs));
+        for (int i = 0; i < regs * w; i++) {
+            if (i % w == 1) sb.append(' ').append((int) r[i]);              // os passos feitos: inteiro
+            else sb.append(' ').append(r[i]);                                  // como o STEP/STEPA/GETM (Double.toString)
+        }
+        return sb.toString();
+    }
+
     private String trata(String linha) throws Exception {
         String[] p = linha.split("\\s+");
         switch (p[0]) {
@@ -156,6 +191,7 @@ public final class MaiSimMotor {
             case "INIT": g.initSimulation(Double.parseDouble(p[1]), Double.parseDouble(p[2])); return "";   // INIT dt tfim
             case "STEP": g.simulateSteps(Integer.parseInt(p[1])); return Double.toString(g.getSimulationTime());
             case "STEPA": return stepMedia(Integer.parseInt(p[1]), Arrays.copyOfRange(p, 2, p.length));   // STEPA n nome… → t médias
+            case "STEPS": return stepAmostras(p);                                    // STEPS m q np ponto… na média… → r registros
             case "TIME": return Double.toString(g.getSimulationTime());
             case "END": g.endSimulation(); return "";
             case "GET": return Double.toString(g.getOutput(p[1]));
@@ -200,7 +236,7 @@ public final class MaiSimMotor {
             }
             default: throw new IllegalArgumentException("unknown command: " + p[0] + " (commands: " + Arrays.toString(
                     new String[]{"PING", "OPEN", "SAVEAS", "CREATE", "DELETE", "MOVE", "POS", "ROTATE", "ORIENT", "RENAME", "PARAMS",
-                            "ACCPARAMS", "GETP", "SETP", "GETG", "SETG", "INNODE", "OUTNODE", "GETIN", "GETOUT", "LIST", "SHEET", "CLEAR", "INIT", "STEP", "STEPA", "TIME", "END", "GET", "GETM", "SETM", "QUIT"}) + ")");
+                            "ACCPARAMS", "GETP", "SETP", "GETG", "SETG", "INNODE", "OUTNODE", "GETIN", "GETOUT", "LIST", "SHEET", "CLEAR", "INIT", "STEP", "STEPA", "STEPS", "TIME", "END", "GET", "GETM", "SETM", "QUIT"}) + ")");
         }
     }
 }

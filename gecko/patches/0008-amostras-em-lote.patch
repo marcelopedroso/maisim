@@ -1,0 +1,124 @@
+diff --git a/src/main/java/ch/technokrat/gecko/GeckoRemoteInterface.java b/src/main/java/ch/technokrat/gecko/GeckoRemoteInterface.java
+index a465d433..d4a8ff35 100644
+--- a/src/main/java/ch/technokrat/gecko/GeckoRemoteInterface.java
++++ b/src/main/java/ch/technokrat/gecko/GeckoRemoteInterface.java
+@@ -205,6 +205,18 @@ public interface GeckoRemoteInterface extends Remote {
+     @Declaration("double[] simulateStepsAveraged(int steps, String[] elementNames)")
+     double[] simulateStepsAveraged(int steps, String[] elementNames) throws RemoteException;
+ 
++    /**
++     * Many samples in one call: for each of the samples, stepsPerSample steps (as simulateSteps), then the record
++     * {simulation time, steps done, the outputs of pointNames read once at the end, the means over the steps of the
++     * outputs of averageNames read after EVERY step (as simulateStepsAveraged)}. "block@output" reads that named output.
++     * A step that fails ends the call after the record of that sample (its steps done so far): the result then has fewer
++     * records. Result: records x (2 + pointNames.length + averageNames.length) values, record after record.
++     */
++    @Category(MethodCategory.SIMULATION_START)
++    @Documentation(I18nKeys.SIMULATE_STEPS_DOCUMENTATION)
++    @Declaration("double[] simulateStepsSampled(int stepsPerSample, int samples, String[] pointNames, String[] averageNames)")
++    double[] simulateStepsSampled(int stepsPerSample, int samples, String[] pointNames, String[] averageNames) throws RemoteException;
++
+     @Category(MethodCategory.SIMULATION_START)
+     @Documentation(I18nKeys.SIMULATE_TIME_DOCUMENTATION)
+     @Declaration("void simulateTime(double time)")
+diff --git a/src/main/java/ch/technokrat/gecko/GeckoRemoteTestingDummy.java b/src/main/java/ch/technokrat/gecko/GeckoRemoteTestingDummy.java
+index 93d2f6c3..4837e6d9 100644
+--- a/src/main/java/ch/technokrat/gecko/GeckoRemoteTestingDummy.java
++++ b/src/main/java/ch/technokrat/gecko/GeckoRemoteTestingDummy.java
+@@ -155,6 +155,11 @@ public class GeckoRemoteTestingDummy implements GeckoRemoteInterface {
+         return new double[elementNames.length + 1];
+     }
+ 
++    @Override
++    public double[] simulateStepsSampled(int stepsPerSample, int samples, String[] pointNames, String[] averageNames) throws RemoteException {
++        return new double[samples * (2 + pointNames.length + averageNames.length)];
++    }
++
+     @Override
+     public double[] getOutputs(String[] elementNames) throws RemoteException {
+         return new double[elementNames.length];
+diff --git a/src/main/java/ch/technokrat/gecko/geckoscript/AbstractGeckoCustom.java b/src/main/java/ch/technokrat/gecko/geckoscript/AbstractGeckoCustom.java
+index 70bac47d..7c228a30 100644
+--- a/src/main/java/ch/technokrat/gecko/geckoscript/AbstractGeckoCustom.java
++++ b/src/main/java/ch/technokrat/gecko/geckoscript/AbstractGeckoCustom.java
+@@ -177,6 +177,80 @@ public abstract class AbstractGeckoCustom implements GeckoRemoteInterface {
+         return result;
+     }
+ 
++    /** The control blocks of names ("block@output" for a named output; null in outputs means the single output). */
++    private RegelBlock[] controlBlocks(final String[] names, final String[] outputs) {
++        final RegelBlock[] blocks = new RegelBlock[names.length];
++        for (int i = 0; i < names.length; i++) {
++            final int at = names[i].lastIndexOf('@');
++            final String name = at > 0 ? names[i].substring(0, at) : names[i];
++            outputs[i] = at > 0 ? names[i].substring(at + 1) : null;
++            final AbstractBlockInterface block = IDStringDialog.getComponentByName(name);
++            if (!(block instanceof RegelBlock)) {
++                writerOutputErrorLn("Error, selected component is not a control block!");
++                throw new RuntimeException("Error, selected component is not a control block: " + name);
++            }
++            blocks[i] = (RegelBlock) block;
++        }
++        return blocks;
++    }
++
++    /**
++     * Many samples in one call (see GeckoRemoteInterface.simulateStepsSampled): the same steps, readings and means as
++     * simulateSteps + getOutputs (and simulateStepsAveraged) once per sample, without a remote call per sample.
++     */
++    @Override
++    public final double[] simulateStepsSampled(final int stepsPerSample, final int samples, final String[] pointNames,
++            final String[] averageNames) {
++        if (!_simInited) {
++            initSimulation();
++            writeOutputLn("Warning: Simulation was not initialized prior to calling simulateStepsSampled(). "
++                    + "Simulation has been initialized to values specified in GeckoCIRCUITS.");
++        }
++        final int np = pointNames.length, na = averageNames.length, w = 2 + np + na;
++        final String[] pointOutputs = new String[np], averageOutputs = new String[na];
++        final RegelBlock[] points = controlBlocks(pointNames, pointOutputs);    // resolved once, before any step
++        final RegelBlock[] averages = controlBlocks(averageNames, averageOutputs);
++        final double[] result = new double[Math.max(0, samples) * w];
++        int records = 0;
++        try {
++            for (int s = 0; s < samples; s++) {
++                final int base = s * w;
++                final double[] sum = new double[na];
++                int done = 0;
++                boolean failed = false;
++                try {
++                    for (; done < stepsPerSample; done++) {
++                        _circuit.simulateOneStep();
++                        for (int i = 0; i < na; i++) {
++                            sum[i] += averageOutputs[i] == null ? averages[i].getOutput() : averages[i].getOutput(averageOutputs[i]);
++                        }
++                    }
++                } catch (IllegalAccessException e) {
++                    throw e;
++                } catch (Exception ex) {                  // as simulateSteps / simulateStepsAveraged: reported, not thrown
++                    writerOutputErrorLn((na > 0 ? "simulateStepsAveraged(): " : "simulateSteps(): ") + ex.getMessage());
++                    failed = true;
++                }
++                result[base] = getSimulationTime();
++                result[base + 1] = done;
++                for (int i = 0; i < np; i++) {
++                    result[base + 2 + i] = pointOutputs[i] == null ? points[i].getOutput() : points[i].getOutput(pointOutputs[i]);
++                }
++                for (int i = 0; i < na; i++) {
++                    result[base + 2 + np + i] = done > 0 ? sum[i] / done : 0.0;
++                }
++                records++;
++                if (failed) {
++                    break;
++                }
++            }
++        } catch (IllegalAccessException e) {
++            writerOutputErrorLn(e.getMessage());
++            throw new RuntimeException(e);
++        }
++        return records * w == result.length ? result : java.util.Arrays.copyOf(result, records * w);
++    }
++
+     @Override
+     public final void simulateTime(final double time) {
+         if (!_simInited) {

@@ -3286,6 +3286,8 @@ COM_PERDA = CHAVES | {"D", "R"}                     # o que um Pv pode aquecer: 
 PERDAS = ("total", "conduction", "switching")       # o que o FLOW lê do Pv (LossComponent.getSaveString)
 COM_FLUXO = {"Pv", "Rth", "Cth", "HEAT-SOURCE", "DT"}   # onde um FLOW mede (o CurrentMeasurable térmico: ReglerFlowMeter);
                                                     # o losscomp só vale no Pv (nos outros, o fluxo de calor que passa)
+LACOS = ("novo", "antigo")                          # o laço da rodada sem controle em Python (ver laco_simples); "antigo",
+                                                    # uma amostra por vez, fica para a comparação (desempenho_api.py)
 trava_rodada = threading.Lock()
 DEVOLVER = ESTADO.with_name("devolver.json")           # CONST de uma rodada em andamento (servidor caiu no meio: devolve na partida)
 
@@ -3352,6 +3354,9 @@ def _rodar(c, ctl_de_fora=None):
             raise ErroMotor(lingua.tr("rodada.solver_invalido", v=c.get("solver")))
     else:
         solver = None
+    laco = str(c.get("laco") or os.environ.get("MAISIM_LACO") or "novo")   # o caminho sem Python: em blocos (novo) ou um a um
+    if laco not in LACOS:
+        raise ErroMotor(lingua.tr("rodada.laco_invalido", v=laco, lista=", ".join(LACOS)))
     r = estado()
     amostras = max(10, min(n, int(c.get("amostras", 4000))))
     m = max(1, math.ceil(n / amostras))
@@ -3365,8 +3370,8 @@ def _rodar(c, ctl_de_fora=None):
     if not sinais:
         raise ErroMotor(lingua.tr("rodada.sem_medidas" if not sinais_da_rodada(r) else "rodada.sem_scope"))
     fator = sentido_gerador(r, sinais)              # a corrente da fonte de tensão como gerador (sentido_gerador)
-    le_gecko = lambda: {canal: f * float(v) for (_, canal), f, v in
-                        zip(sinais, fator, MOTOR.cmd("GETM " + " ".join(el for el, _ in sinais)).split())}
+    valores_gecko = lambda vs: {canal: f * float(v) for (_, canal), f, v in zip(sinais, fator, vs)}
+    le_gecko = lambda: valores_gecko(MOTOR.cmd("GETM " + " ".join(el for el, _ in sinais)).split())
     ao_scope = lambda v: {k: v[k] for k in canais_scope if k in v}
     ao_controle = lambda v: {k: v[k] for k in canais_ctl if k in v}
     todos_atu = atuadores_disponiveis(r)
@@ -3554,21 +3559,26 @@ def _rodar(c, ctl_de_fora=None):
             return float(MOTOR.cmd(f"STEP {q}"))
         v = MOTOR.cmd(f"STEPA {q} " + " ".join(els_media)).split()
         t1 = float(v[0])
+        soma_trecho(q, t1, v[1:])
+        return t1
+
+    def soma_trecho(q, t1, medias):
+        """Um trecho de q passos que terminou em t1, com as médias (texto, como vieram do motor) das perdas: nas somas."""
         feitos = max(0, min(q, arred((t1 - relogio["t"]) / dt)))   # o Gecko pode parar no meio (um erro dele, engolido como no
         relogio["t"] = t1                                          # STEP): a média é dos passos que ele andou, com esse peso
         if feitos != q and not relogio.get("avisou"):
             relogio["avisou"] = True
             avisos_rodada.append(lingua.tr("rodada.gecko_parou_trecho", q=q, feitos=feitos, t=f"{t1:g}"))
         for soma in (soma_media, soma_ts):
-            soma["s"] = [a + feitos * float(b) for a, b in zip(soma["s"], v[1:])]
+            soma["s"] = [a + feitos * float(b) for a, b in zip(soma["s"], medias)]
             soma["n"] += feitos
-        return t1
 
     controle_rodada["pausa"].clear(); controle_rodada["parar"].clear()
     arq = pasta / f"scope_{nome}.npz"
     rodada.clear()
     rodada.update(estado="rodando", nome=nome, t=0.0, tfim=tfim, dt=dt, passos=n, amostras=0, sinais=list(canais_scope),
-                  arquivo=relativo(arq), modelo=relativo(pasta / (nome + ".ipes")), inicio=time.time(), avisos=avisos_rodada)
+                  arquivo=relativo(arq), modelo=relativo(pasta / (nome + ".ipes")), inicio=time.time(), avisos=avisos_rodada,
+                  laco="controle" if trab else laco)
 
     def anda(k0, npassos, escritas):
         """Anda npassos a partir do passo k0, escrevendo (SETM) antes do passo k0 + o cada lista de escritas[o]."""
@@ -3650,14 +3660,62 @@ def _rodar(c, ctl_de_fora=None):
         pub.amostra(dict(t=tt, **ao_scope(dict(vals, **media())), **{col: float("nan") for col in (regs or {}).values()}))
         return k
 
+    eventos = sorted(escritas_ev)                       # os passos com escrita de CONST (acionamentos): o bloco para antes
+    lote = dict(usa=laco == "novo", q=8)                # amostras por bloco (STEPS): cresce até o bloco levar ~0,05–0,2 s
+
+    def amostras_do_bloco(k):
+        """Quantas amostras inteiras (m passos cada) a partir do passo k cabem num bloco: sem escrita de CONST dentro (a amostra
+        com uma escrita, mesmo no 1º passo dela, vai pelo caminho de uma a uma, que a faz no passo certo) e sem a última
+        amostra mais curta."""
+        q = min(lote["q"], (n - k) // m)
+        prox = next((w for w in eventos if w >= k), None)
+        if prox is not None:
+            q = min(q, (prox - k) // m)
+        return q
+
+    def anda_bloco(pub, k, q):
+        """q amostras de m passos numa chamada (STEPS): as mesmas contas da amostra a amostra (soma_trecho, valores_gecko,
+        media), publicadas uma a uma; devolve o passo seguinte, ou None se o Gecko não tem o lote (jar sem o patch 0008)."""
+        nomes = [el for el, _ in sinais]
+        t0 = time.perf_counter()
+        try:
+            v = MOTOR.cmd(f"STEPS {m} {q} {len(nomes)} {' '.join(nomes)} {len(els_media)} {' '.join(els_media)}".rstrip()).split()
+        except ErroMotor as e:
+            if "SEM_LOTE" not in str(e):
+                raise
+            lote["usa"] = False                         # o Gecko não andou: segue uma a uma (o caminho de antes)
+            return None
+        w, np_ = 2 + len(nomes) + len(els_media), len(nomes)
+        regs = int(v[0])
+        tt = None
+        for i in range(regs):
+            reg = v[1 + i * w: 1 + (i + 1) * w]
+            tt = float(reg[0])
+            if els_media:
+                soma_trecho(m, tt, reg[2 + np_:])
+            k += m
+            pub.amostra(dict(dict(t=tt, **valores_gecko(reg[2:2 + np_])), **media()))
+        if regs:
+            rodada.update(t=tt, amostras=rodada["amostras"] + regs)
+        gasto = time.perf_counter() - t0                 # o bloco seguinte: ~0,05–0,2 s (a pausa, o parar e o ao vivo entre blocos)
+        lote["q"] = min(lote["q"] * 2, 100_000) if gasto < 0.05 else max(1, lote["q"] // 2) if gasto > 0.2 else lote["q"]
+        return k
+
     def laco_simples(pub):
-        """Sem controle: anda m passos, lê e publica."""
+        """Sem controle: anda m passos, lê e publica — em blocos de amostras (STEPS, laco "novo") ou uma a uma."""
         k = 0
         pub.amostra(dict(t=0.0, **(iniciais or le_gecko())))
         while k < n and not controle_rodada["parar"].is_set():
             if controle_rodada["pausa"].is_set():
                 rodada["estado"] = "pausada"; time.sleep(0.1); continue
             rodada["estado"] = "rodando"
+            if lote["usa"]:
+                q = amostras_do_bloco(k)
+                if q > 0:
+                    k2 = anda_bloco(pub, k, q)
+                    if k2 is not None:
+                        k = k2
+                        continue
             passo = min(m, n - k)
             tt = anda(k, passo, escritas_do_trecho(k, passo)); k += passo
             pub.amostra(dict(dict(t=tt, **le_gecko()), **media()))
