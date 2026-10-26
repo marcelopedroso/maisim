@@ -10,7 +10,7 @@ import shutil
 import time
 from pathlib import Path
 
-from .base import IA, ComChave  # noqa: F401
+from .base import IA, ComChave, acha_unix  # noqa: F401
 from .claude import Claude
 from .deepseek import DeepSeek
 from .cursor import Cursor, acha_cursor
@@ -44,7 +44,7 @@ def acha_claude():
     if os.name == "nt":
         casa = Path(os.environ.get("USERPROFILE") or Path.home())
         return shutil.which("claude.exe") or str(casa / ".local" / "bin" / "claude.exe")
-    return shutil.which("claude") or str(Path.home() / ".local" / "bin" / "claude")
+    return acha_unix("claude")
 
 
 def registro():

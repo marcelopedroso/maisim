@@ -32,7 +32,7 @@ import threading
 import time
 from pathlib import Path
 
-from .base import IA, ComChave
+from .base import IA, ComChave, acha_unix, instalador_unix
 import lingua  # noqa: E402                    as mensagens no idioma do pedido (o config/ entra no sys.path pelo base)
 import processos  # noqa: E402                 o grupo do `agent` (Linux e Windows) e o encerra
 
@@ -61,7 +61,7 @@ def acha_cursor():
     if WIN:
         local = Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
         return str(local / "cursor-agent" / "cursor-agent.cmd")
-    return shutil.which("cursor-agent") or str(Path.home() / ".local" / "bin" / "cursor-agent")
+    return acha_unix("cursor-agent")
 
 
 def _versao_mais_nova(raiz):
@@ -190,8 +190,8 @@ class Cursor(ComChave, IA):
         teste = os.environ.get("MAISIM_INSTALA_CURSOR_CMD")
         if teste:
             return shlex.split(teste)
-        if not WIN:
-            return None
+        if not WIN:                                   # Linux/macOS: o instalador oficial, com a casa na pasta do MaiSim
+            return instalador_unix("curl https://cursor.com/install -fsS | bash")
         ps = Path(os.environ.get("SYSTEMROOT") or r"C:\Windows") / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
         return [str(ps) if ps.exists() else "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
                 "$ProgressPreference='SilentlyContinue'; irm 'https://cursor.com/install?win32=true' | iex"]

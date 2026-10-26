@@ -56,7 +56,8 @@ finally:
         os.environ.pop(k, None)
     importlib.reload(base)
 ok("SYSTEMROOT" not in base.ENV_BRANCA, "no Linux, a lista branca de antes")
-ok(ias.acha_claude() in (shutil.which("claude"), str(Path.home() / ".local" / "bin" / "claude")), f"Linux: o de antes ({ias.acha_claude()})")
+ok(ias.acha_claude() in (shutil.which("claude"), str(Path.home() / ".local" / "bin" / "claude"), str(base.FERRAMENTAS / ".local" / "bin" / "claude")),
+   f"Linux: o do PATH, o da pasta pessoal ou o da pasta de ferramentas do MaiSim ({ias.acha_claude()})")
 
 # ---- o servidor, com um claude ainda não instalado e um instalador de mentira (que põe um claude de mentira no lugar)
 alvo = T / "inst" / "claude"
@@ -124,13 +125,12 @@ for _ in range(30):
 ok(proc.poll() is not None and not srv.CLAUDE.instalado(), f"o servidor saindo: o instalador em andamento é encerrado (saída {proc.poll()})")
 os.environ.pop("ESPERA", None); espera_fim()
 alvo.unlink(missing_ok=True)
-# fora do Windows, sem o instalador de mentira: nada a rodar (a tela mostra o comando); no Windows, o PowerShell oficial
+# fora do Windows, sem o instalador de mentira: o instalador oficial (curl … | bash) com a casa na pasta de ferramentas do
+# MaiSim — o programa fica fora da pasta pessoal (não roda aqui: só o comando é conferido)
 del os.environ["MAISIM_INSTALA_CLAUDE_CMD"]
-ok(srv.CLAUDE.comando_instala() is None and not srv.claude_estado()["pode_instalar"], "Linux: sem instalador (pode_instalar falso)")
-try:
-    srv.claude_instala_inicia(); ok(False, "fora do Windows deveria recusar")
-except srv.ErroMotor as x:
-    ok("só instala" in str(x), f"Linux: recusa ({x})")
+c = srv.CLAUDE.comando_instala()
+ok(c and c[0] == "env" and f"HOME={base.FERRAMENTAS}" in c and c[-1].endswith("curl -fsSL https://claude.ai/install.sh | bash")
+   and "XDG_DATA_HOME" in c and srv.claude_estado()["pode_instalar"], f"Linux: o instalador oficial com HOME na pasta do MaiSim ({c and c[-1]})")
 srv.processos.WIN = True
 try:
     c = srv.CLAUDE.comando_instala()

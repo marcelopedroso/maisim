@@ -9,7 +9,7 @@ import re
 import shlex
 from pathlib import Path
 
-from .base import IA
+from .base import IA, instalador_unix
 
 import processos  # noqa: E402                  (o simu/ no caminho: o base.py o põe)
 
@@ -48,8 +48,8 @@ class Claude(IA):
         teste = os.environ.get("MAISIM_INSTALA_CLAUDE_CMD")
         if teste:
             return shlex.split(teste)
-        if not processos.WIN:
-            return None
+        if not processos.WIN:                         # Linux/macOS: o instalador oficial, com a casa na pasta do MaiSim
+            return instalador_unix("curl -fsSL https://claude.ai/install.sh | bash")
         ps = Path(os.environ.get("SYSTEMROOT") or r"C:\Windows") / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
         return [str(ps) if ps.exists() else "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
                 "$ProgressPreference='SilentlyContinue'; irm https://claude.ai/install.ps1 | iex"]
