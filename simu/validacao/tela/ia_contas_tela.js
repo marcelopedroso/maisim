@@ -35,7 +35,7 @@ const semChave = (pg) => pg.evaluate((k) => !document.documentElement.outerHTML.
     await pg.reload(); await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
     await pg.click("#bt-editar"); await pg.waitForTimeout(600); while (await pg.$(".modal-fundo")) { await pg.click(".modal .m-extra, .modal .m-ok"); await pg.waitForTimeout(800); }
     await pg.click("#bt-ctl"); await pg.waitForFunction(() => ctl.carregado && ctl.editor, null, { timeout: 30000 });
-    await pg.click("#ctl-claude-bt"); await pg.waitForFunction(() => cla.estado && cla.estado.logado && cc.ias.length === 2, null, { timeout: 20000 });
+    await pg.click("#ctl-claude-bt"); await pg.waitForFunction(() => cla.estado && cla.estado.logado && cc.ias.some((a) => a.id === "eco"), null, { timeout: 20000 });
     const sel = () => pg.evaluate(() => ({ visivel: getComputedStyle($("cc-ia")).display !== "none", ops: [...$("cc-ia").options].map((o) => o.textContent), ia: ccIA(),
       modelos: [...$("cc-modelo").options].map((o) => o.textContent), esforco: getComputedStyle($("cc-esforco")).display !== "none", uso: $("cc-uso").textContent }));
     const s0 = await sel();
@@ -48,6 +48,17 @@ const semChave = (pg) => pg.evaluate((k) => !document.documentElement.outerHTML.
     ok(j0.tipo === "password" && j0.bt === "Salvar chave" && /nunca aparece de volta/.test(j0.nota) && /Cole aqui/.test(j0.rotulo) && /não conectado/.test(j0.txt),
       `Eco sem chave: o campo de senha com rótulo, "Salvar chave" e o aviso (${j0.nota})`);
     await (await pg.$(".modal.cla")).screenshot({ path: "ia_contas_sem_chave.png" });
+    // a DeepSeek (sempre na lista, de chave): o texto dela, o link das chaves e o campo
+    const dsj = await pg.evaluate(() => { const s = $("iac-deepseek"); if (!s) return {}; const l = s.querySelector("a.iac-link");
+      const tm = s.querySelector("h4 a.iac-termos"), pv = s.querySelector(".iac-dados a");
+      return { txt: s.innerText, href: l && l.href, alvo: l && l.target, rel: l && l.rel, ph: s.querySelector("input[type=password]") && s.querySelector("input[type=password]").placeholder,
+        termos: tm && tm.href, dados: (s.querySelector(".iac-dados") || {}).textContent, priv: pv && pv.href }; });
+    ok(/^DeepSeek\s+não conectado/.test(dsj.txt || "") && /A DeepSeek funciona com uma chave de API \(cobrança por uso\)/.test(dsj.txt) && /1\. Crie a chave em platform\.deepseek\.com → API keys ↗/.test(dsj.txt)
+      && dsj.href === "https://platform.deepseek.com/api_keys" && dsj.alvo === "_blank" && /noopener/.test(dsj.rel) && dsj.ph === "sk-…",
+      `a DeepSeek: "${(dsj.txt || "").split("\n").slice(0, 3).join(" | ")}", o link ${dsj.href}`);
+    ok(dsj.termos === "https://cdn.deepseek.com/policies/en-US/deepseek-open-platform-terms-of-service.html" && /guardados na República Popular da China/.test(dsj.dados || "")
+      && dsj.priv === "https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html",
+      `a DeepSeek: os termos da plataforma no título e o que ela diz dos dados ("${(dsj.dados || "").slice(0, 70)}…"), com a política de privacidade`);
     // o aviso geral do topo vale para todas as IAs; os termos de cada empresa ficam na seção dela
     const topo = await pg.evaluate(() => { const t = document.querySelector(".modal.cla .cla-termos"), l = document.querySelector(".modal.cla section.cla-ia h4 a.iac-termos");
       return { t: t.textContent, links: t.querySelectorAll("a").length, href: l && l.href, alvo: l && l.target, dica: l && l.title, txt: l && l.textContent }; });

@@ -49,6 +49,7 @@ ok(v["MAISIM_PORTA_PAGINA"] == "8100" and v["MAISIM_TELA_X"] == ":81" and v["MAI
    "produto: a config pessoal (a porta e a pasta que o instalador pergunta) vale por cima")
 pessoal.unlink()
 ok(ler_config.carrega("produto")["MAISIM_CLAUDE_DIR"] == f"{h}/.claude-maisim", "produto no Linux: o login do Claude em ~/.claude-maisim (o de antes)")
+ok(ler_config.carrega("produto")["MAISIM_DEEPSEEK_DIR"] == f"{h}/.deepseek-maisim", "produto no Linux: a pasta da DeepSeek em ~/.deepseek-maisim")
 # o produto no Windows (um os com name = "nt" só para o ler_config): o login do Claude ao lado da config, em %APPDATA%\\MaiSim\\claude
 import types
 os_win = types.ModuleType("os"); os_win.__dict__.update(os.__dict__); os_win.name = "nt"
@@ -58,11 +59,13 @@ try:
     v = ler_config.carrega("produto")
     ok(v["MAISIM_CLAUDE_DIR"] == f"{h}/Roaming/MaiSim/claude" and v["MAISIM_CONFIG_PESSOAL"] == f"{h}/Roaming/MaiSim/maisim.env",
        f"produto no Windows: o login do Claude em %APPDATA%\\MaiSim\\claude ({v['MAISIM_CLAUDE_DIR']})")
+    ok(v["MAISIM_DEEPSEEK_DIR"] == f"{h}/Roaming/MaiSim/deepseek", f"produto no Windows: a pasta da DeepSeek em %APPDATA%\\MaiSim\\deepseek ({v['MAISIM_DEEPSEEK_DIR']})")
     ok(ler_config.carrega("teste")["MAISIM_CLAUDE_DIR"].endswith("maisim_teste/claude-maisim"), "no Windows, o perfil de teste continua com o dele")
+    ok(ler_config.carrega("teste")["MAISIM_DEEPSEEK_DIR"].endswith("maisim_teste/deepseek-maisim"), "no Windows, o perfil de teste continua com a pasta da DeepSeek dele")
     os.environ["MAISIM_CLAUDE_DIR"] = f"{h}/Outra"
     ok(ler_config.carrega("produto")["MAISIM_CLAUDE_DIR"] == f"{h}/Outra", "produto no Windows: MAISIM_CLAUDE_DIR escrita vale mais")
 finally:
     ler_config.os = os
     del os.environ["MAISIM_CLAUDE_DIR"]
-print(f"\n{14 - falhas}/14")
+print(f"\n{17 - falhas}/17")
 raise SystemExit(1 if falhas else 0)
