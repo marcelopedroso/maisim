@@ -18,6 +18,7 @@ Eventos comuns (traduz devolve uma lista):
 """
 import os
 import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -26,6 +27,28 @@ for _p in (Path(__file__).resolve().parents[2] / "config", Path(__file__).resolv
         sys.path.append(str(_p))
 import lingua  # noqa: E402                    as mensagens no idioma do pedido
 import textos  # noqa: E402,F401
+
+# fora do Windows, o botão Instalar roda o instalador oficial de cada ferramenta (o Claude Code, o Cursor CLI) com a casa
+# (HOME) nesta pasta só do MaiSim: o programa fica dentro do universo do MaiSim (~/.maisim-ferramentas/.local/bin), sem
+# mexer na pasta pessoal nem no PATH de quem usa; quem já tem a ferramenta instalada continua com a dela
+FERRAMENTAS = Path(os.environ.get("MAISIM_FERRAMENTAS") or Path.home() / ".maisim-ferramentas")
+
+
+def instalador_unix(cmd):
+    """O comando do instalador oficial (curl … | bash) rodando com HOME = FERRAMENTAS (os XDG_* de quem usa ficam de fora,
+    para o instalador não escrever na pasta pessoal por eles)."""
+    return ["env", "-u", "XDG_DATA_HOME", "-u", "XDG_CONFIG_HOME", "-u", "XDG_BIN_HOME", "-u", "XDG_CACHE_HOME",
+            f"HOME={FERRAMENTAS}", "bash", "-c", f'mkdir -p "$HOME" && {cmd}']
+
+
+def acha_unix(nome):
+    """A ferramenta fora do Windows: a do PATH, a do instalador oficial na pasta pessoal (~/.local/bin) ou a que o botão
+    Instalar pôs na pasta do MaiSim; nenhuma: o lugar do botão (procurado de novo depois de instalar)."""
+    for c in (shutil.which(nome), Path.home() / ".local" / "bin" / nome, FERRAMENTAS / ".local" / "bin" / nome):
+        if c and Path(c).exists():
+            return str(c)
+    return str(FERRAMENTAS / ".local" / "bin" / nome)
+
 
 ENV_BRANCA = ("PATH", "HOME", "USER", "LOGNAME", "LANG", "LC_ALL", "LC_CTYPE", "TZ", "TMPDIR")
 # no Windows, também as do sistema e da pessoa: sem SYSTEMROOT a rede e a criptografia não sobem, sem USERPROFILE/APPDATA a
@@ -104,6 +127,8 @@ class IA:
     def rotulos(self):
         """Os nomes dos modelos para a tela ({apelido: nome}); vazio = a tela usa os apelidos."""
         return {}
+
+    painel_uso = None             # a página do uso na conta, quando a ferramenta não o informa (a tela aponta para ela)
 
     def uso(self, forca=False):
         """Os limites da conta ({"itens": [{rotulo, pct usado, renova}], "quando"}), se a ferramenta informar; None se não."""

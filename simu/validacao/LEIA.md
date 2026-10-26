@@ -108,6 +108,15 @@ erro, recusa) vem do arquivo `falso_cenario` nessa pasta, e `falso_logado` faz o
 logout vão para o CLI de verdade (o `claude_tela.js` continua valendo). Cada chamada fica em `falso_chamadas.jsonl`,
 para conferir as opções.
 
+O Cursor do mesmo jeito: `MAISIM_CURSOR_BIN=<esta pasta>/cursor_falso.py` e `MAISIM_CURSOR_DIR` numa casa descartável (a
+HOME do `agent` de mentira). O `cursor_falso.py` imita o Cursor CLI 2026.10.22 (o stream-json da documentação, os comandos
+login/status/models/logout e as mensagens de erro) e aplica a mesma política de permissões do `agent` (negado > permitido;
+sem `--force`, escrever fora da pasta e o terminal são negados). Cenários em `falso_cenario` (ganho, le_conversa, terminal,
+fora, erro, limite, sem_login, lento, resumo_falha); `falso_login` (ok, erro) é a página do Cursor autorizando ou recusando.
+O registro (`falso_chamadas.jsonl`) guarda os nomes das variáveis do ambiente e se havia chave — nunca a chave.
+`cursor_offline.py` confere a peça sem servidor; `cursor_api.py`, o login, o pedido, a sessão, as recusas, os erros, o
+resumo, sair e a chave de API; `tela/cursor_tela.js`, a seção do Cursor na janela das contas.
+
 | Script | O que confere |
 |---|---|
 | `rodadas_api.py` | a rodada "por cima" e "guardar": duas por cima deixam uma pasta (a nova); a guardada fica; `por_cima` 0 cria outra; o mesmo nome noutro circuito não é tocado; com erro, a anterior fica; guardar o que não é rodada é recusado; o `ULTIMA_RODADA.md` da IA é a mais nova do circuito aberto (de outro circuito, não; sem rodada, nenhuma) | 8/8 |
