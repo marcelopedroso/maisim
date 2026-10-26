@@ -263,13 +263,20 @@ function htmlUso(u, ia = "claude") {
 
 // as contas das outras IAs (uma IA com o login pelo MaiSim): uma seção cada. Cada uma pode dizer aqui a empresa, a
 // ferramenta, o comando de instalar (fora do Windows; instalaTexto: a chave do texto) e os textos do login; uma IA de chave de
-// API (modo_login "chave"), a página onde se cria a chave (chaveUrl, chaveSite) e o aviso de custo (custo). Getters: lidos na
+// API (modo_login "chave"), a página onde se cria a chave (chaveUrl, chaveSite), o texto de antes de conectar (chaveIntro), o
+// que ela precisa instalado (precisa) e o aviso de custo (custo). Getters: lidos na
 // hora de desenhar, no idioma de agora
-const IA_DE = {};
+const IA_DE = {
+  // a DeepSeek: o Claude Code deste computador com a chave de API da pessoa (ia/deepseek.py); sem o Claude Code, o mesmo
+  // instalador do Claude
+  deepseek: { empresa: "DeepSeek", ferramenta: "Claude Code", instala: "curl -fsSL https://claude.ai/install.sh | bash", instalaTexto: "ia.instalar_claude_terminal_html",
+    chaveUrl: "https://platform.deepseek.com/api_keys", chaveSite: "platform.deepseek.com → API keys", chavePh: "sk-…",
+    get chaveIntro() { return tr("ia.deepseek_intro"); }, get precisa() { return tr("ia.deepseek_precisa"); } },
+};
 // o "não instalado" de outra IA: o botão Instalar (quando o servidor tem o instalador dela) ou o comando para o terminal
 function htmlAusenteIA(a, d, win) {
   const i = instDe(a.id), ferr0 = d.ferramenta || a.nome, saida = i && i.saida ? `<pre class="cla-saida">${escT(i.saida)}</pre>` : "";
-  const h = `<p>${escT(tr("ia.outra_ausente", { ferr: ferr0 }))}`;
+  const h = `${d.precisa ? `<p>${escT(d.precisa)}</p>` : ""}<p>${escT(tr("ia.outra_ausente", { ferr: ferr0 }))}`;
   if (a.pode_instalar) {
     if (i && i.andamento) return `${h}</p><p class="cla-espera">${escT(tr("ia.outra_instalando", { ferr: ferr0 }))}</p>${saida}`;
     return `${h} ${escT(tr("ia.outra_pode_instalar"))}</p>` + (i && i.erro ? `<p class="cla-erro">${escT(i.erro)}</p>${saida}` : "");
@@ -280,7 +287,7 @@ function htmlAusenteIA(a, d, win) {
 // colada vai uma vez ao servidor e sai do campo; a página nunca a recebe de volta
 function htmlColaChave(a, d, env) {
   const id = a.id, url = d.chaveUrl && /^https:\/\//.test(d.chaveUrl) ? d.chaveUrl : "";
-  const link = url ? `<a class="cla-link" target="_blank" rel="noopener noreferrer" href="${escT(url)}">${escT(d.chaveSite || url)} ↗</a>` : "";
+  const link = url ? `<a class="iac-link" target="_blank" rel="noopener noreferrer" href="${escT(url)}">${escT(d.chaveSite || url)} ↗</a>` : "";
   return `<p>${escT(d.chaveIntro || tr("ia.chave_intro", { nome: a.nome }))}</p>
     ${link ? `<p class="iac-passo">1. ${trHtml("ia.chave_criar_html", {}, { link })}</p>` : ""}
     <div class="iac-passo"><label class="cla-cod"><span>${escT((link ? "2. " : "") + tr("ia.chave_cole_aqui"))}</span><input type="password" id="iac-chave-${id}" data-ia-chave="${id}"
@@ -324,7 +331,7 @@ function htmlContaIA(a) {
     andamento: bt("cancelar", tr("ia.cancelar")),
     deslogado: bt("entrar", env ? tr("ia.abrindo") : tr("ia.entrar"), ` class="primario"${env ? " disabled" : ""}`) }[modo];
   const situacao = modo === "logado" ? tr("ia.conectado") : modo === "chave" ? tr("ia.nao_conectado") : ferr0;
-  return `<section class="cla-ia" id="iac-${a.id}"><h4>${nome} <small>${[d.empresa, situacao].filter(Boolean).map(escT).join(" · ")}</small></h4>${corpo}${bts ? `<div class="cla-bts">${bts}</div>` : ""}</section>`;
+  return `<section class="cla-ia" id="iac-${a.id}"><h4>${nome} <small>${[d.empresa !== a.nome && d.empresa, situacao].filter(Boolean).map(escT).join(" · ")}</small></h4>${corpo}${bts ? `<div class="cla-bts">${bts}</div>` : ""}</section>`;
 }
 async function acaoIA(ia, acao) {
   const a = (cla.ias || []).find((x) => x.id === ia); if (!a) return;

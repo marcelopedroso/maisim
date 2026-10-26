@@ -7,7 +7,11 @@ O servidor passa ao filho só um ambiente de lista branca, então o cenário vem
   falso_cenario    o que fazer no pedido: ganho | metade | quebra | json_ruim | lento | anexo | erro | recusa | modulos | controladores | dois_donos | autonomo | limite | le_contexto | renova | trava | resumo_falha | le_conversa
                    (falso_resumo_lento: o resumo de um contexto demora N s)
                    (o pedido do resumo de um contexto salvo responde sempre com um resumo, sem mexer em arquivo)
-  falso_chamadas.jsonl   cada chamada (argumentos e pasta), para o teste conferir as opções
+  falso_chamadas.jsonl   cada chamada (argumentos e pasta), para o teste conferir as opções; do ambiente, só se havia
+                         ANTHROPIC_BASE_URL (e se é o da DeepSeek) e uma chave (ANTHROPIC_AUTH_TOKEN, ANTHROPIC_API_KEY) —
+                         sim ou não, nunca o valor da chave — e os modelos ANTHROPIC_DEFAULT_*_MODEL (nomes, não segredo)
+O modelo que o init informa: o apelido do --model levado pela ANTHROPIC_DEFAULT_<APELIDO>_MODEL, como o CLI faz (a
+DeepSeek), ou "claude-falso".
 Imita o stream-json do CLI 2.1.273: system/init, assistant (texto e tool_use), user (tool_result) e result."""
 import json
 import os
@@ -43,8 +47,16 @@ REAL = str(Path.home() / ".local" / "bin" / "claude")
 args = sys.argv[1:]
 conf = Path(os.environ.get("CLAUDE_CONFIG_DIR", "."))
 conf.mkdir(parents=True, exist_ok=True)
+PINOS = {a: f"ANTHROPIC_DEFAULT_{a.upper()}_MODEL" for a in ("opus", "sonnet", "haiku")}
+ambiente = {"base_url": "ANTHROPIC_BASE_URL" in os.environ,
+            "base_url_deepseek": os.environ.get("ANTHROPIC_BASE_URL") == "https://api.deepseek.com/anthropic",
+            "token": bool(os.environ.get("ANTHROPIC_AUTH_TOKEN")), "api_key": bool(os.environ.get("ANTHROPIC_API_KEY")),
+            "modelos": {a: os.environ[v] for a, v in PINOS.items() if v in os.environ},
+            "outras_anthropic": sorted(k for k in os.environ if k.startswith(("ANTHROPIC_", "CLAUDE_CODE_")))}   # só os nomes
 with open(conf / "falso_chamadas.jsonl", "a") as f:
-    f.write(json.dumps({"args": args, "cwd": os.getcwd()}) + "\n")
+    f.write(json.dumps({"args": args, "cwd": os.getcwd(), "ambiente": ambiente}) + "\n")
+APELIDO = args[args.index("--model") + 1] if "--model" in args else ""
+MODELO = os.environ.get(PINOS.get(APELIDO, ""), "") or "claude-falso"
 
 if args[:2] == ["auth", "status"] and (conf / "falso_logado").exists():
     print(json.dumps({"loggedIn": True, "authMethod": "claude.ai", "email": "teste@maisim.local", "subscriptionType": "max"}))
@@ -79,7 +91,7 @@ if eh("ia.resumo_pedido", prompt) or eh("ia.resumo_junta", prompt):   # o resumo
     junta = ""                                   # a junção: o pedido manda ler anterior.md (o contexto de onde continua)
     if eh("ia.resumo_junta", prompt) and Path("anterior.md").exists():
         junta = f" li anterior.md: {Path('anterior.md').read_text().splitlines()[0].lstrip('# ')}."
-    print(json.dumps({"type": "result", "subtype": "success", "is_error": False, "model": "claude-falso",
+    print(json.dumps({"type": "result", "subtype": "success", "is_error": False, "model": MODELO,
                       "result": f"## Objetivo\nControle (teste).\n\n## O que foi feito\nli conversa.md: {n} pedido(s).{junta}\n\n## Resultado\n$i_L$ em 10 A."}))
     sys.exit(0)
 # a sessão fica onde o CLI de verdade a guarda, gravada já no começo do pedido (antes de qualquer resposta)
@@ -110,7 +122,7 @@ def fala(txt):
     sai({"type": "assistant", "message": {"content": [{"type": "text", "text": txt}]}})
 
 
-sai({"type": "system", "subtype": "init", "session_id": sid, "model": "claude-falso", "tools": ["Read", "Edit", "Write", "Glob", "Grep"]})
+sai({"type": "system", "subtype": "init", "session_id": sid, "model": MODELO, "tools": ["Read", "Edit", "Write", "Glob", "Grep"]})
 usa("Read", file_path=str(Path.cwd() / "CONTEXTO.md"))
 ctx = Path("CONTEXTO.md").read_text()
 negados, resposta = [], "pronto"

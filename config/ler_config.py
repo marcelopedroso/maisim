@@ -124,6 +124,8 @@ def carrega(perfil=None):
         # .claude-maisim solta na pasta pessoal, o padrão do Linux); escrita na config pessoal ou no ambiente, vale a escrita
         if os.name == "nt" and "MAISIM_CLAUDE_DIR" not in proprios:
             v["MAISIM_CLAUDE_DIR"] = str(arquivo_pessoal().parent / "claude")
+        if os.name == "nt" and "MAISIM_DEEPSEEK_DIR" not in proprios:     # a da DeepSeek ao lado: %APPDATA%\MaiSim\deepseek
+            v["MAISIM_DEEPSEEK_DIR"] = str(arquivo_pessoal().parent / "deepseek")
     return v
 
 
