@@ -34,6 +34,7 @@
     "nav.lingua": { pt: "Idioma: português (clique: English)", en: "Language: English (click: português)" },
     // a versão sob a marca e a atualização automática (simu/atualizacao.py)
     "nav.versao_curta": { pt: "v{versao}", en: "v{versao}" },
+    "nav.versao_pre": { pt: "{pre}", en: "{pre}" },                  // o "rc1" de uma versão de teste, embaixo
     "nav.versao_dica": { pt: "MaiSim {versao} · {tipo}", en: "MaiSim {versao} · {tipo}" },
     "nav.versao_nova": { pt: "MaiSim {versao} · {tipo}\nHá a {nova} (clique)", en: "MaiSim {versao} · {tipo}\n{nova} is available (click)" },
     "nav.tipo_windows": { pt: "Windows (instalado)", en: "Windows (installed)" },
@@ -94,6 +95,7 @@
   #maisim-nav .marca svg { display:block; }
   #maisim-nav .versao { position:relative; margin:-8px 0 6px; padding:1px 4px; border:0; border-radius:5px; background:transparent; color:#8a94a0;
              font:500 9.5px/1.3 system-ui, sans-serif; font-variant-numeric:tabular-nums; cursor:pointer; }
+  #maisim-nav .versao .pre { display:block; font-size:8.5px; line-height:1.1; opacity:.85; }
   #maisim-nav .versao:hover { color:#fff; background:#232831; } #maisim-nav .versao[hidden] { display:none; }
   #maisim-nav .versao .ponto { position:absolute; right:-3px; top:-1px; width:6px; height:6px; border-radius:50%; background:#f59e0b; display:none; }
   #maisim-nav .versao.novidade .ponto { display:block; } #maisim-nav .versao.novidade { color:#fbbf24; }
@@ -293,7 +295,10 @@
   const tipoAtu = (e) => tr(`nav.tipo_${e && ["windows", "appimage", "fonte"].includes(e.tipo) ? e.tipo : "fonte"}`);
   function rotulaVersao() {
     const b = document.querySelector("#maisim-nav .versao"); if (!b || !ATU) return;
-    b.hidden = false; b.querySelector(".txt").textContent = tr("nav.versao_curta", { versao: ATU.versao });
+    // uma versão de teste (0.3.2-rc1) não cabe numa linha do trilho (52 px): "v0.3.2" e, embaixo, "rc1" menor
+    const [base, pre] = String(ATU.versao).split(/-(.+)/), t = b.querySelector(".txt");
+    b.hidden = false; t.textContent = tr("nav.versao_curta", { versao: base });
+    if (pre) { const s = document.createElement("small"); s.className = "pre"; s.textContent = tr("nav.versao_pre", { pre }); t.append(s); }
     b.classList.toggle("novidade", !!ATU.nova);
     const r = ATU.nova ? tr("nav.versao_nova", { versao: ATU.versao, tipo: tipoAtu(ATU), nova: ATU.nova.versao }) : tr("nav.versao_dica", { versao: ATU.versao, tipo: tipoAtu(ATU) });
     b.title = r; b.setAttribute("aria-label", r);
