@@ -136,6 +136,9 @@ maisimI18n.add({
   // a DeepSeek (pelo Claude Code, com a chave de API da pessoa)
   "ia.deepseek_intro": { pt: "A DeepSeek funciona com uma chave de API (cobrança por uso). O MaiSim a usa pelo Claude Code deste computador, numa pasta só dela: o seu login do Claude não muda.",
     en: "DeepSeek works with an API key (billed by usage). MaiSim uses it through this computer's Claude Code, in a folder of its own: your Claude sign-in doesn't change." },
+  "ia.deepseek_dados": { pt: "Segundo a DeepSeek, os dados enviados são processados e guardados na República Popular da China, e as entradas e saídas podem ser usadas, sem identificar ninguém, para melhorar o serviço.",
+    en: "According to DeepSeek, the data sent is processed and stored in the People's Republic of China, and inputs and outputs may be used, de-identified, to improve the service." },
+  "ia.privacidade_link": { pt: "política de privacidade", en: "privacy policy" },
   "ia.deepseek_precisa": { pt: "A DeepSeek roda pelo Claude Code (o mesmo programa do Claude), com a sua chave de API.", en: "DeepSeek runs through Claude Code (the same program as Claude), with your API key." },
   "ia.instalar_html": { pt: "Para instalar (Node 20 ou mais novo): <code>{cmd}</code>", en: "To install it (Node 20 or newer): <code>{cmd}</code>" },
   "ia.outra_deslogado_html": { pt: "O MaiSim usa o {ferr} deste computador, com {pasta}: o seu outro login do {nome} não muda.\n      A autenticação é na página do próprio {empresa}.",

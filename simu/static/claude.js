@@ -268,15 +268,18 @@ function htmlUso(u, ia = "claude") {
 // as contas das outras IAs (uma IA com o login pelo MaiSim): uma seção cada. Cada uma pode dizer aqui a empresa, a
 // ferramenta, o comando de instalar (fora do Windows; instalaTexto: a chave do texto) e os textos do login; uma IA de chave de
 // API (modo_login "chave"), a página onde se cria a chave (chaveUrl, chaveSite), o texto de antes de conectar (chaveIntro), o
-// que ela precisa instalado (precisa) e o aviso de custo (custo); e os termos de uso da empresa (termos: o link no título da
-// seção). Getters: lidos na
+// que ela precisa instalado (precisa) e o aviso de custo (custo); e os termos de uso da empresa (termos: o link no título
+// da seção) e o que ela diz dos dados enviados (dados, com o link da política de privacidade). Getters: lidos na
 // hora de desenhar, no idioma de agora
 const IA_DE = {
   // a DeepSeek: o Claude Code deste computador com a chave de API da pessoa (ia/deepseek.py); sem o Claude Code, o mesmo
   // instalador do Claude
   deepseek: { empresa: "DeepSeek", ferramenta: "Claude Code", instala: "curl -fsSL https://claude.ai/install.sh | bash", instalaTexto: "ia.instalar_claude_terminal_html",
     chaveUrl: "https://platform.deepseek.com/api_keys", chaveSite: "platform.deepseek.com → API keys", chavePh: "sk-…",
-    get chaveIntro() { return tr("ia.deepseek_intro"); }, get precisa() { return tr("ia.deepseek_precisa"); } },
+    // os termos da plataforma (API) e a política de privacidade, nos endereços que o deepseek.com usa (conferidos em 25/10)
+    termos: "https://cdn.deepseek.com/policies/en-US/deepseek-open-platform-terms-of-service.html",
+    privacidade: "https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html",
+    get chaveIntro() { return tr("ia.deepseek_intro"); }, get precisa() { return tr("ia.deepseek_precisa"); }, get dados() { return tr("ia.deepseek_dados"); } },
 };
 // o "não instalado" de outra IA: o botão Instalar (quando o servidor tem o instalador dela) ou o comando para o terminal
 function htmlAusenteIA(a, d, win) {
@@ -324,6 +327,8 @@ function htmlContaIA(a) {
     deslogado: `<p>${d.conta ? escT(d.conta) + " " : ""}${trHtml("ia.outra_deslogado_html", { ferr: ferr0, nome: a.nome, empresa: d.empresa || a.nome }, { pasta })}</p>
       ${l.erro ? `<p class="iac-erro">${escT(tr("ia.ultimo_login", { erro: l.erro }))}</p>` : ""}`,
   }[modo]
+    + (d.dados && (modo === "chave" || modo === "logado") ? `<p class="cla-alt iac-dados">${escT(d.dados)}${/^https:\/\//.test(d.privacidade || "")
+      ? ` <a class="iac-termos" target="_blank" rel="noopener noreferrer" href="${escT(d.privacidade)}">${escT(tr("ia.privacidade_link"))} ↗</a>` : ""}</p>` : "")
     + (av ? `<p class="iac-erro" role="alert">${escT(av)}</p>` : "");
   const i = instDe(a.id), bt = (acao, txt, extra = "") => `<button data-ia="${a.id}" data-ia-acao="${acao}"${extra}>${escT(txt)}</button>`;
   const bts = {

@@ -13,6 +13,8 @@ quick_start/agent_integrations/claude_code) e do Claude Code (code.claude.com/do
   mapeia sozinho claude-opus* → deepseek-v4-pro e os outros claude* → deepseek-flash). A tarefa de fundo (haiku) e um
   subagente vão para o Flash. Esforço: só o padrão.
 - CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1: sem a telemetria e a busca de versão nova para a Anthropic nestas chamadas.
+  CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1: sem os campos de recursos em teste da API da Anthropic, que um endpoint de fora
+  pode recusar (400 "Extra inputs are not permitted"; a página de gateways do Claude Code sugere isso).
 - O saldo: GET https://api.deepseek.com/user/balance (Bearer), guardado 60 s. A chave colada é conferida pela mesma
   chamada: 401/403 recusa; sem rede, ela fica (o pedido dirá depois). MAISIM_DEEPSEEK_SEM_REDE=1 (a instância de teste):
   nenhuma chamada à DeepSeek."""
@@ -54,7 +56,8 @@ class DeepSeek(ComChave, Claude):
         env = super().ambiente(**extra)
         env.update(ANTHROPIC_BASE_URL=URL_BASE, ANTHROPIC_DEFAULT_OPUS_MODEL=MODELO_DE["opus"],
                    ANTHROPIC_DEFAULT_SONNET_MODEL=MODELO_DE["sonnet"], ANTHROPIC_DEFAULT_HAIKU_MODEL=MODELO_DE["haiku"],
-                   CLAUDE_CODE_SUBAGENT_MODEL=MODELO_DE["sonnet"], CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC="1")
+                   CLAUDE_CODE_SUBAGENT_MODEL=MODELO_DE["sonnet"], CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC="1",
+                   CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS="1")
         k = self.le_chave()
         if k:                                            # sem a chave o pedido nem começa (ia_logada); o resumo também
             env["ANTHROPIC_AUTH_TOKEN"] = k
