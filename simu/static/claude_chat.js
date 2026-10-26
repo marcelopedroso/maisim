@@ -63,7 +63,9 @@ function tex(src, destaque) {
   // letras acentuadas (v_{braço}, P_{média}) no modo de equação somem ou trocam de glifo no KaTeX ("\c" literal): a palavra
   // inteira vai como texto, em pé, como um índice em palavra deve ficar — \text{braço}
   const fonte = src.replace(/(?<![\\A-Za-z])[A-Za-z]*[\u00C0-\u024F][A-Za-z\u00C0-\u024F]*/g, (m) => `\\text{${m}}`);
-  try { return katex.renderToString(fonte, { displayMode: destaque, throwOnError: false, output: "html", strict: "ignore", trust: false }); }
+  // sem as quebras de linha: o KaTeX desenha o √ (e chaves e setas largas) em SVG, com o caminho em várias linhas, e o
+  // markdown leve troca cada quebra por <br> — o caminho quebrado não desenha nada e "3√3/π" aparecia "3 3/π"
+  try { return katex.renderToString(fonte, { displayMode: destaque, throwOnError: false, output: "html", strict: "ignore", trust: false }).replace(/\n/g, " "); }
   catch (e) { return `<code>${escT(src)}</code>`; }
 }
 // um markdown leve (o que o Claude costuma usar): blocos de código, `código`, **negrito**, listas e parágrafos; tudo escapado.
