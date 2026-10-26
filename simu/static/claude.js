@@ -254,6 +254,8 @@ async function carregaUsoClaude(forca = false) {
 }
 function htmlUso(u, ia = "claude") {
   if (!u) return `<p class="cla-espera">${escT(tr("ia.lendo_uso"))}</p>`;
+  // a IA não informa o uso pela ferramenta (não é erro): o aviso neutro, com o painel da conta dela
+  if (u.sem_limites && !(u.itens && u.itens.length)) return `<p class="cla-alt">${u.painel ? tr("ia.uso_no_painel_html", { url: escT(u.painel) }) : escT(tr("ia.uso_nao_informa"))}</p>`;
   if (!u.itens || !u.itens.length) return `<p class="cla-erro">${escT(u.erro ? tr("ia.uso_falhou_erro", { erro: u.erro }) : tr("ia.uso_falhou"))}</p>`;
   const nivel = (p) => (p >= 90 ? "alto" : p >= 70 ? "medio" : "");
   const virgula = (0.5).toLocaleString(maisimI18n.local()).charAt(1);              // a vírgula decimal do idioma (pt "," · en ".")

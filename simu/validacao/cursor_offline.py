@@ -158,5 +158,20 @@ except ValueError:
 cfg = json.loads((casa / ".cursor" / "cli-config.json").read_text())
 ok(cfg["approvalMode"] == "allowlist" and cfg["sandbox"]["readBoundary"] == "workspace" and "Shell(ls)" not in json.dumps(cfg["permissions"]),
    "a configuração da casa: allowlist, leitura só na pasta, sem o Shell(ls) que o agent põe por padrão")
+# duas mensagens no mesmo pedido: o texto final as separa por parágrafo (o `result` do Cursor as colava: "…o PI.Sim — …")
+st2 = {}
+for txt in ("Vou ler o contexto para ver se dá para projetar o PI.", "Sim — o PI de corrente já está no código."):
+    a.traduz({"type": "assistant", "message": {"content": [{"type": "text", "text": txt}]}}, st2)
+r2 = a.traduz({"type": "result", "subtype": "success", "is_error": False, "session_id": "s2",
+               "result": "Vou ler o contexto para ver se dá para projetar o PI.Sim — o PI de corrente já está no código."}, st2)[0]
+ok(r2["texto"] == "Vou ler o contexto para ver se dá para projetar o PI.\n\nSim — o PI de corrente já está no código.",
+   f"as mensagens do Cursor separadas por parágrafo ({r2['texto']!r})")
+ok(a.painel_uso == "https://cursor.com/dashboard" and a.uso() is None, "sem uso pelo CLI: a tela aponta para o painel do Cursor")
+# a DeepSeek explica os erros da API dela (o 402 sem saldo, o 401 da chave), no lugar do texto cru
+from ia.deepseek import DeepSeek  # noqa: E402
+d = DeepSeek(str(T / "claude"), T / "ds")
+m402 = d.erro_conhecido("API Error: 402 Insufficient Balance (request_id: 3a5c)")
+ok(m402 and "Top up" in m402 and "402" not in m402, f"DeepSeek 402: {m402}")
+ok(d.erro_conhecido("API Error: 401 Authentication Fails, invalid api key") and d.erro_conhecido("outra coisa") is None, "DeepSeek 401: a chave recusada; o resto, sem tradução")
 shutil.rmtree(T, ignore_errors=True)
 raise SystemExit(1 if falhas else 0)

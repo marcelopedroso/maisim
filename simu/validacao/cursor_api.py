@@ -31,6 +31,8 @@ def api(rota, corpo=None):
 
 
 falhas = 0
+fim = lambda r: str(r or "").split("\n\n")[-1]   # a última mensagem do agent (a de antes da ferramenta vem antes, noutro parágrafo)
+
 def ok(c, t):
     global falhas; print(("OK   " if c else "FALHA"), t); falhas += (not c)
 def espera(seg=90):
@@ -126,7 +128,7 @@ try:
     p = e.get("proposta") or {}
     par = {q["nome"]: q["valor"] for q in p.get("parametros", [])}
     ok(p.get("mudou") and par.get("K2") == 7.5 and "Cursor falso" in str(p.get("codigo")), f"proposta: K2 = {par.get('K2')}, controle.py mudado")
-    ok(e.get("resposta") == "Dobrei o **Kp** e criei o `K2`.", f"a resposta ({e.get('resposta')!r})")
+    ok(e.get("resposta") == "Vou ler o CONTEXTO.md.\n\nDobrei o **Kp** e criei o `K2`.", f"a resposta: as duas mensagens do agent, um parágrafo cada ({e.get('resposta')!r})")
     ok(e.get("eventos", [])[:3] == ["lendo CONTEXTO.md", "editando parametros.json", "editando controle.py"], f"o que ele fez: {e.get('eventos')}")
     h = e["conversa"]["historico"][-1]
     ok(h.get("ia") == "cursor" and h.get("modelo") == "GPT Falso" and e["gasto"]["entrada"] == 3000 and e["gasto"]["saida"] == 240,
@@ -156,14 +158,14 @@ try:
     cenario("le_conversa")
     e = pede("dois")
     a_ = ultima()["args"]
-    ok("--resume" in a_ and a_[a_.index("--resume") + 1] == sid_cur and e.get("resposta") == "sem CONVERSA.md (com as regras do MaiSim)",
+    ok("--resume" in a_ and a_[a_.index("--resume") + 1] == sid_cur and fim(e.get("resposta")) == "sem CONVERSA.md (com as regras do MaiSim)",
        f"o 2º pedido retoma a sessão do agent (--resume), sem citar CONVERSA.md ({e.get('resposta')!r})")
     cenario("le_conversa", CONF)
     e = pede("três", ia="claude")
     ok(e.get("resposta") == "li a conversa: 2 pedido(s)", f"Cursor → Claude: o Claude lê CONVERSA.md ({e.get('resposta')!r})")
     e = pede("quatro")
     a_ = ultima()["args"]
-    ok(e.get("resposta") == "li a conversa: 3 pedido(s) (com as regras do MaiSim)" and a_[a_.index("--resume") + 1] == sid_cur,
+    ok(fim(e.get("resposta")) == "li a conversa: 3 pedido(s) (com as regras do MaiSim)" and a_[a_.index("--resume") + 1] == sid_cur,
        f"Claude → Cursor: retoma a sessão dele e lê CONVERSA.md ({e.get('resposta')!r})")
 
     # ---------------------------------------------------------------- as travas
@@ -176,7 +178,7 @@ try:
     fora.unlink(missing_ok=True)
     cenario("fora")
     e = pede("escreva fora da pasta")
-    ok(e.get("resposta") == "fora=False contexto=False anexo=False chave=False" and not fora.exists()
+    ok(fim(e.get("resposta")) == "fora=False contexto=False anexo=False chave=False" and not fora.exists()
        and sum(x.startswith("recusado:") for x in e.get("eventos", [])) == 4,
        f"fora da pasta, o CONTEXTO.md, uma subpasta e a casa (a chave): negados ({e.get('resposta')})")
     cenario("erro")

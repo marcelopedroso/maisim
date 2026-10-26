@@ -111,6 +111,7 @@ def _recusa(res):
 class Cursor(ComChave, IA):
     id = "cursor"
     nome = "Cursor"
+    painel_uso = "https://cursor.com/dashboard"     # o CLI não informa o uso: a tela aponta para o painel da conta
     variavel_pasta = "HOME"                      # o ambiente() troca também USERPROFILE/APPDATA (Windows) e as do Cursor
     esforcos = ("",)                             # o esforço vem no nome do modelo do Cursor (…[effort=high])
     tem_login = True
@@ -296,6 +297,7 @@ class Cursor(ComChave, IA):
             # ferramenta e a do fim): todas valem
             texto = "".join(b.get("text", "") for b in (ev.get("message") or {}).get("content") or [] if isinstance(b, dict) and b.get("type") == "text")
             if texto.strip():
+                st.setdefault("textos", []).append(texto.strip())
                 out.append({"tipo": "texto", "texto": texto.strip()})
         elif t == "tool_call":
             chamada = ev.get("tool_call") if isinstance(ev.get("tool_call"), dict) else {}
@@ -322,7 +324,8 @@ class Cursor(ComChave, IA):
     def _resultado(self, r, st):
         uso = r.get("usage") if isinstance(r.get("usage"), dict) else {}
         erro = bool(r.get("is_error")) or (r.get("subtype") not in (None, "success"))
-        texto = (str(r.get("result") or "").strip() or None)
+        # o `result` do Cursor cola as mensagens sem separar ("…o PI.Sim — …"): o texto é o das mensagens, um parágrafo cada
+        texto = ("\n\n".join(st.get("textos") or []) if not r.get("is_error") and st.get("textos") else str(r.get("result") or "").strip()) or None
         return {"tipo": "resultado", "erro": erro, "texto": texto, "erros": [], "subtipo": r.get("subtype"), "limite_passos": False,
                 "uso": {"entrada": sum(int(uso.get(k) or 0) for k in ("inputTokens", "cacheReadTokens", "cacheWriteTokens")),
                         "saida": int(uso.get("outputTokens") or 0)},

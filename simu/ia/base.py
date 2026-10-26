@@ -128,6 +128,8 @@ class IA:
         """Os nomes dos modelos para a tela ({apelido: nome}); vazio = a tela usa os apelidos."""
         return {}
 
+    painel_uso = None             # a página do uso na conta, quando a ferramenta não o informa (a tela aponta para ela)
+
     def uso(self, forca=False):
         """Os limites da conta ({"itens": [{rotulo, pct usado, renova}], "quando"}), se a ferramenta informar; None se não."""
         return None

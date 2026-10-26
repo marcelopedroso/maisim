@@ -652,6 +652,8 @@ T = {
                              "en": "{nome}: this does not look like an API key (check that you copied all of it, with no spaces)"},
     "ia_conta.chave_forma_inicio": {"pt": "{nome}: isso não parece uma chave de API (ela começa com “{inicio}”; confira se copiou inteira)",
                                     "en": "{nome}: this does not look like an API key (it starts with “{inicio}”; check that you copied all of it)"},
+    "ia_deepseek.sem_saldo": {"pt": "Sem saldo na DeepSeek: recarregue em platform.deepseek.com → Top up e peça de novo.",
+                              "en": "No balance on DeepSeek: top up at platform.deepseek.com → Top up and ask again."},
     "ia_conta.chave_recusada": {"pt": "{nome}: a chave foi recusada ({motivo}); confira se ela está ativa e copiada inteira",
                                 "en": "{nome}: the key was refused ({motivo}); check that it is active and copied in full"},
     "ia_conta.chave_nao_gravou": {"pt": "{nome}: não consegui guardar a chave ({erro})", "en": "{nome}: could not store the key ({erro})"},

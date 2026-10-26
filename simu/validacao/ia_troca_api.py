@@ -139,7 +139,7 @@ try:
     e = espera()
     c4, h = ultima(CUR), e["conversa"]["historico"]
     s_cur = next((v.get("sessoes", {}).get("cursor") for v in json.loads((CASA / "sessoes.json").read_text()).values() if v.get("id") == sid2), None)
-    ok("--resume" not in c4 and "CONVERSA.md" in c4[-1] and h[-1].get("resposta") == "li a conversa: 3 pedido(s) (com as regras do MaiSim)"
+    ok("--resume" not in c4 and "CONVERSA.md" in c4[-1] and str(h[-1].get("resposta")).split("\n\n")[-1] == "li a conversa: 3 pedido(s) (com as regras do MaiSim)"
        and h[-1].get("ia") == "cursor" and s_cur and s_cur not in (sid2, s_ds),
        f"troca para o Cursor: sessão própria (a que o agent deu, {str(s_cur)[:8]}…), lê CONVERSA.md, marcada \"cursor\" ({h[-1].get('resposta')!r})")
     api("claude/pedir", {"texto": "cinco", "dt": 1e-6, "tfim": 0.002, "ia": "claude"})
@@ -150,7 +150,7 @@ try:
     api("claude/pedir", {"texto": "seis", "dt": 1e-6, "tfim": 0.002, "ia": "cursor"})
     e = espera()
     c6 = ultima(CUR)
-    ok("--resume" in c6 and c6[c6.index("--resume") + 1] == s_cur and e["conversa"]["historico"][-1].get("resposta") == "li a conversa: 5 pedido(s) (com as regras do MaiSim)",
+    ok("--resume" in c6 and c6[c6.index("--resume") + 1] == s_cur and str(e["conversa"]["historico"][-1].get("resposta")).split("\n\n")[-1] == "li a conversa: 5 pedido(s) (com as regras do MaiSim)",
        "de volta ao Cursor: retoma a sessão DELE (--resume) e lê CONVERSA.md")
     api("claude/ia/sair", {"ia": "deepseek"})
     pasta_conv = CASA / "conversas"

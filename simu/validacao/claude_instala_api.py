@@ -1,6 +1,7 @@
 """A instalação do Claude Code pela janela das contas, na instância de teste (7201, Linux, sem MAISIM_INSTALA_CLAUDE_CMD): as
-rotas só para a página do MaiSim (X-MaiSim no POST; Host, Origin e Sec-Fetch de fora recusados) e, fora do Windows, nada a
-instalar (o estado diz o sistema e pode_instalar falso; o POST recusa). O fluxo inteiro (começa, acompanha, termina, acha o
+rotas só para a página do MaiSim (X-MaiSim no POST; Host, Origin e Sec-Fetch de fora recusados) e, no Linux, o botão também
+(pode_instalar: o instalador oficial com a casa na pasta de ferramentas do MaiSim); com o claude (de mentira) já instalado,
+o POST recusa sem rodar nada. O fluxo inteiro (começa, acompanha, termina, acha o
 claude novo) roda com um instalador de mentira em claude_instala_offline.py."""
 import json, subprocess, urllib.request
 from pathlib import Path
@@ -28,11 +29,11 @@ for nome, cab in (("Origin de fora", dict(Origin="https://evil.example", Sec_Fet
     c, j = pede("claude/instalacao", **cab)
     ok(c == 403, f"GET claude/instalacao, {nome}: {c}")
 c, e = pede("claude/estado")
-ok(c == 200 and e.get("sistema") == "linux" and e.get("pode_instalar") is False and "instalacao" not in e, f"estado: sistema {e.get('sistema')}, pode_instalar {e.get('pode_instalar')}")
+ok(c == 200 and e.get("sistema") == "linux" and e.get("pode_instalar") is True and "instalacao" not in e, f"estado: sistema {e.get('sistema')}, pode_instalar {e.get('pode_instalar')}")
 c, j = pede("claude/instalacao")
-ok(c == 200 and j.get("pode") is False and not j.get("andamento") and j.get("saida") == "", f"instalacao (GET local): {j}")
+ok(c == 200 and j.get("pode") is True and not j.get("andamento") and j.get("saida") == "", f"instalacao (GET local): {j}")
 c, j = pede("claude/instalar", {})
-ok(c == 409 and "Windows" in (j.get("erro") or ""), f"POST local fora do Windows: recusado ({c}: {j.get('erro')})")
+ok(c == 409 and "já está instalado" in (j.get("erro") or ""), f"POST local com o claude já instalado: recusado, nada roda ({c}: {j.get('erro')})")
 c2, j2 = pede("claude/instalacao")
 ok(not j2.get("andamento"), "nada começou")
 print("falhas:", falhas)

@@ -40,6 +40,16 @@ class DeepSeek(ComChave, Claude):
     modelos = ("opus", "sonnet")
     esforcos = ("",)
     inicio_chave = "sk-"
+    painel_uso = "https://platform.deepseek.com/usage"
+
+    def erro_conhecido(self, texto):
+        """Os erros da API da DeepSeek que a tela explica: sem saldo (402) e chave recusada (401)."""
+        t = (texto or "").lower()
+        if "402" in t and "insufficient balance" in t:
+            return lingua.tr("ia_deepseek.sem_saldo")
+        if "401" in t and ("authentication" in t or "invalid" in t or "api key" in t):
+            return lingua.tr("ia_conta.chave_recusada", nome=self.nome, motivo="HTTP 401")
+        return super().erro_conhecido(texto)
     forma_chave = re.compile(r"sk-[A-Za-z0-9_\-]{16,200}")
 
     def __init__(self, binario, pasta):

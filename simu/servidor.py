@@ -5171,14 +5171,16 @@ def _acompanha_claude(proc, antes, dt, chave, pasta, anexos, memoria="", ia="cla
         erro_txt = str(e)
     finally:
         prazo.cancel()
-    proposta, erro = None, None
+    proposta, erro, erro_no_texto = None, None, False
     if resultado is None:
         erro = a.erro_conhecido(erro_txt) or _linha_do_erro(erro_txt) or lingua.tr("pedido.ia_parou", ia=a.nome, saida=proc.returncode)
     elif not resultado["erro"] and not resultado.get("texto") and a.erro_conhecido(erro_txt):
         erro = a.erro_conhecido(erro_txt)               # terminou "bem" mas sem resposta: parou numa permissão negada
     else:
         if resultado["erro"]:                          # erros de execução vêm em "erros" (sem texto); erro da API, no texto
-            erro = str(resultado.get("texto") or "; ".join(resultado.get("erros") or []) or resultado.get("subtipo") or "erro")[:600]
+            bruto = str(resultado.get("texto") or "; ".join(resultado.get("erros") or []) or resultado.get("subtipo") or "erro")[:600]
+            erro = a.erro_conhecido(bruto) or bruto      # o que a IA sabe explicar (sem saldo, chave recusada…) em vez do cru
+            erro_no_texto = bool(resultado.get("texto"))  # o erro da API já é o texto falado: não aparece duas vezes
             if resultado.get("limite_passos"):
                 erro = lingua.tr("pedido.limite_passos", ia=a.nome, n=CLAUDE_PASSOS)
         try:
@@ -5205,7 +5207,7 @@ def _acompanha_claude(proc, antes, dt, chave, pasta, anexos, memoria="", ia="cla
             return
         h = historico(pasta.name)                            # a conversa, para a tela
         h.append({"quando": time.time(), "pedido": claude_pedido.get("pedido"), "anexos": anexos, "resposta": resposta,
-                  "fala": None if resposta else claude_pedido.get("fala"), "erro": erro, "gasto": gasto, "modelo": claude_pedido.get("modelo"),
+                  "fala": None if resposta or erro_no_texto else claude_pedido.get("fala"), "erro": erro, "gasto": gasto, "modelo": claude_pedido.get("modelo"),
                   "mudou": bool(proposta and proposta.get("mudou")), "aplicada": False, "ia": ia})
         grava_historico(pasta.name, h)
         if resultado is not None:                            # a conversa começou: os anexos de agora não são mais novos
@@ -5754,7 +5756,7 @@ class Manipulador(BaseHTTPRequestHandler):
                 return self._resposta(200, claude_instala_estado())
             q = {k: v[0] for k, v in parse_qs(u.query).items()}
             if rota == "/claude/ia/uso":               # os limites da conta de uma outra IA (se a peça informar)
-                return self._editor(lambda: ia_com_login(q.get("ia")).uso("forca" in q) or {"itens": [], "erro": lingua.tr("uso.ia_sem_limites")})
+                return self._editor(lambda: ia_com_login(q.get("ia")).uso("forca" in q) or {"itens": [], "sem_limites": True, "painel": ia_com_login(q.get("ia")).painel_uso})
             if rota == "/claude/contextos":            # os contextos salvos, os usados nesta conversa e as conversas anteriores
                 return self._editor(claude_contextos)
             if rota == "/claude/contexto":             # um contexto: meta, contexto.md, conversa.md e os arquivos
