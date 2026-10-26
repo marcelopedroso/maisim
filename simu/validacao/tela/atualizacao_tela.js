@@ -19,7 +19,7 @@ const post = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(`/maisim/simu/at
     await pg.waitForSelector("#maisim-nav .versao:not([hidden])", { timeout: 10000 });
     const r = await pg.evaluate(() => { const v = document.querySelector("#maisim-nav .versao"), m = document.querySelector("#maisim-nav .marca").getBoundingClientRect(), c = v.getBoundingClientRect();
       return { txt: v.textContent, nova: v.classList.contains("novidade"), ponto: getComputedStyle(v.querySelector(".ponto")).display, abaixo: c.top >= m.bottom - 9 && c.bottom < m.bottom + 30, larg: c.width }; });
-    ok(r.txt === `v${V}` && r.nova && r.ponto === "block" && r.abaixo && r.larg <= 52, `sob a marca: "${r.txt}", com o ponto (${r.ponto}), ${Math.round(r.larg)} px`);
+    ok(r.txt === `v${V.replace("-", "")}` && r.nova && r.ponto === "block" && r.abaixo && r.larg <= 52, `sob a marca: "${r.txt}", com o ponto (${r.ponto}), ${Math.round(r.larg)} px`);
     await pg.hover("#maisim-nav .versao"); await pg.waitForTimeout(700);
     const dica = await pg.evaluate(() => document.getElementById("dica-ui") && document.getElementById("dica-ui").textContent);
     ok(dica && dica.includes(`MaiSim ${V} · código-fonte`) && dica.includes("9.9.0"), `a dica do MaiSim: "${(dica || "").replace(/\n/g, " / ")}"`);
