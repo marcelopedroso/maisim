@@ -182,7 +182,7 @@ function desenhaJanelaClaude() {
   const algumaLogada = (e && e.logado) || outrasIAs().some((a) => a.estado.logado);
   // o aviso geral (Marcelo, 23/10): a IA é a da pessoa, no computador dela, e segue os termos de cada empresa
   m.innerHTML = `<h3>${escT(tr("ia.titulo"))}</h3><p class="cla-termos">${tr("ia.termos_html")}</p>
-    <section class="cla-ia"><h4>Claude <small>Anthropic · ${modo === "logado" ? escT(tr("ia.conectado")) : "Claude Code"}</small></h4>${corpo}
+    <section class="cla-ia"><h4>Claude <small>Anthropic · ${modo === "logado" ? escT(tr("ia.conectado")) : "Claude Code"} · ${linkTermos("Claude Code", "Anthropic", TERMOS_CLAUDE)}</small></h4>${corpo}
     ${botoes ? `<div class="cla-bts">${botoes}</div>` : ""}</section>${outrasIAs().map(htmlContaIA).join("")}
     <div class="modal-botoes"><button class="m-ok${algumaLogada ? "" : " primario"}">${escT(tr("ia.fechar"))}</button>${algumaLogada ? `<button id="cla-pedir" class="primario">${escT(tr("ia.pedir"))}</button>` : ""}</div>`;
   // os links vêm do CLI; entram pela propriedade href (nada de HTML), e só https
@@ -220,6 +220,10 @@ function desenhaJanelaClaude() {
     if (a.modo_login === "chave" && a.estado.logado && !cla.iaUso[a.id]) carregaUsoIA(a.id);
   if (cla.focaChave) { const x = m.querySelector(`#iac-chave-${cla.focaChave}`); cla.focaChave = null; if (x) x.focus(); }   // Trocar chave: o cursor no campo
 }
+// os termos da empresa de cada IA: um link discreto no título da seção dela (o aviso geral do topo vale para todas)
+const TERMOS_CLAUDE = "https://code.claude.com/docs/en/legal-and-compliance";
+const linkTermos = (nome, empresa, href) => (/^https:\/\//.test(href || "") ? `<a class="iac-termos" target="_blank" rel="noopener noreferrer" href="${escT(href)}"
+  title="${escT(tr("ia.t_termos_link", { nome, empresa: empresa || nome }))}">${escT(tr("ia.termos_link"))} ↗</a>` : "");
 const botaoDetalhes = (id) => `<button class="cla-mini cla-abre" data-abre="${id}" aria-expanded="${!!cla.aberta[id]}">${escT(cla.aberta[id] ? tr("ia.ocultar_det") : tr("ia.det"))}</button>`;
 // os limites de uma outra IA (se a peça informar, sem gastar o modelo)
 // (uma leitura por vez de cada IA; a conversa mostra o mesmo no topo quando ela é a escolhida)
@@ -264,14 +268,18 @@ function htmlUso(u, ia = "claude") {
 // as contas das outras IAs (uma IA com o login pelo MaiSim): uma seção cada. Cada uma pode dizer aqui a empresa, a
 // ferramenta, o comando de instalar (fora do Windows; instalaTexto: a chave do texto) e os textos do login; uma IA de chave de
 // API (modo_login "chave"), a página onde se cria a chave (chaveUrl, chaveSite), o texto de antes de conectar (chaveIntro), o
-// que ela precisa instalado (precisa) e o aviso de custo (custo). Getters: lidos na
+// que ela precisa instalado (precisa) e o aviso de custo (custo); e os termos de uso da empresa (termos: o link no título
+// da seção) e o que ela diz dos dados enviados (dados, com o link da política de privacidade). Getters: lidos na
 // hora de desenhar, no idioma de agora
 const IA_DE = {
   // a DeepSeek: o Claude Code deste computador com a chave de API da pessoa (ia/deepseek.py); sem o Claude Code, o mesmo
   // instalador do Claude
   deepseek: { empresa: "DeepSeek", ferramenta: "Claude Code", instala: "curl -fsSL https://claude.ai/install.sh | bash", instalaTexto: "ia.instalar_claude_terminal_html",
     chaveUrl: "https://platform.deepseek.com/api_keys", chaveSite: "platform.deepseek.com → API keys", chavePh: "sk-…",
-    get chaveIntro() { return tr("ia.deepseek_intro"); }, get precisa() { return tr("ia.deepseek_precisa"); } },
+    // os termos da plataforma (API) e a política de privacidade, nos endereços que o deepseek.com usa (conferidos em 25/10)
+    termos: "https://cdn.deepseek.com/policies/en-US/deepseek-open-platform-terms-of-service.html",
+    privacidade: "https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html",
+    get chaveIntro() { return tr("ia.deepseek_intro"); }, get precisa() { return tr("ia.deepseek_precisa"); }, get dados() { return tr("ia.deepseek_dados"); } },
 };
 // o "não instalado" de outra IA: o botão Instalar (quando o servidor tem o instalador dela) ou o comando para o terminal
 function htmlAusenteIA(a, d, win) {
@@ -319,6 +327,8 @@ function htmlContaIA(a) {
     deslogado: `<p>${d.conta ? escT(d.conta) + " " : ""}${trHtml("ia.outra_deslogado_html", { ferr: ferr0, nome: a.nome, empresa: d.empresa || a.nome }, { pasta })}</p>
       ${l.erro ? `<p class="iac-erro">${escT(tr("ia.ultimo_login", { erro: l.erro }))}</p>` : ""}`,
   }[modo]
+    + (d.dados && (modo === "chave" || modo === "logado") ? `<p class="cla-alt iac-dados">${escT(d.dados)}${/^https:\/\//.test(d.privacidade || "")
+      ? ` <a class="iac-termos" target="_blank" rel="noopener noreferrer" href="${escT(d.privacidade)}">${escT(tr("ia.privacidade_link"))} ↗</a>` : ""}</p>` : "")
     + (av ? `<p class="iac-erro" role="alert">${escT(av)}</p>` : "");
   const i = instDe(a.id), bt = (acao, txt, extra = "") => `<button data-ia="${a.id}" data-ia-acao="${acao}"${extra}>${escT(txt)}</button>`;
   const bts = {
@@ -331,7 +341,7 @@ function htmlContaIA(a) {
     andamento: bt("cancelar", tr("ia.cancelar")),
     deslogado: bt("entrar", env ? tr("ia.abrindo") : tr("ia.entrar"), ` class="primario"${env ? " disabled" : ""}`) }[modo];
   const situacao = modo === "logado" ? tr("ia.conectado") : modo === "chave" ? tr("ia.nao_conectado") : ferr0;
-  return `<section class="cla-ia" id="iac-${a.id}"><h4>${nome} <small>${[d.empresa !== a.nome && d.empresa, situacao].filter(Boolean).map(escT).join(" · ")}</small></h4>${corpo}${bts ? `<div class="cla-bts">${bts}</div>` : ""}</section>`;
+  return `<section class="cla-ia" id="iac-${a.id}"><h4>${nome} <small>${[d.empresa !== a.nome && d.empresa, situacao].filter(Boolean).map(escT).concat(d.termos ? [linkTermos(a.nome, d.empresa, d.termos)] : []).join(" · ")}</small></h4>${corpo}${bts ? `<div class="cla-bts">${bts}</div>` : ""}</section>`;
 }
 async function acaoIA(ia, acao) {
   const a = (cla.ias || []).find((x) => x.id === ia); if (!a) return;

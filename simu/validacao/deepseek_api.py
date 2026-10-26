@@ -84,8 +84,8 @@ try:
        and amb.get("modelos") == {"opus": "deepseek-v4-pro", "sonnet": "deepseek-flash", "haiku": "deepseek-flash"}
        and h.get("ia") == "deepseek" and h.get("modelo") == "deepseek-v4-pro" and "--effort" not in a,
        f"V4 Pro: --model opus, ANTHROPIC_BASE_URL da DeepSeek e a chave (ANTHROPIC_AUTH_TOKEN) só no ambiente dela, respondeu {h.get('modelo')}")
-    ok("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC" in amb.get("outras_anthropic", []) and "Você é a IA do MaiSim (DeepSeek)" in a[a.index("--append-system-prompt") + 1],
-       "sem o tráfego não essencial para a Anthropic; as regras com o nome dela")
+    ok({"CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS"} <= set(amb.get("outras_anthropic", [])) and "Você é a IA do MaiSim (DeepSeek)" in a[a.index("--append-system-prompt") + 1],
+       "sem o tráfego não essencial para a Anthropic e sem os campos em teste da API (os 400 \"Extra inputs\"); as regras com o nome dela")
     e = pede("dois", "deepseek", "sonnet")
     c = (chamadas(DS) or [{}])[-1]
     ok(c["args"][c["args"].index("--model") + 1] == "sonnet" and e["conversa"]["historico"][-1].get("modelo") == "deepseek-flash" and "--resume" in c["args"],
@@ -135,7 +135,8 @@ with tempfile.TemporaryDirectory() as t:
     resp[:] = [(401, None)]
     ok(d.uso(forca=True) is None, "saldo sem resposta boa: nada (a barra fica vazia)")
     env = d.ambiente()
-    ok(env.get("ANTHROPIC_AUTH_TOKEN") == CHAVE and env.get("ANTHROPIC_BASE_URL") == "https://api.deepseek.com/anthropic" and env.get("CLAUDE_CONFIG_DIR") == str(Path(t).resolve()),
+    ok(env.get("ANTHROPIC_AUTH_TOKEN") == CHAVE and env.get("ANTHROPIC_BASE_URL") == "https://api.deepseek.com/anthropic" and env.get("CLAUDE_CONFIG_DIR") == str(Path(t).resolve())
+       and env.get("CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS") == "1" and env.get("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC") == "1",
        "o ambiente da DeepSeek: a chave, o endpoint e a pasta dela")
     d.sai()
     ok("ANTHROPIC_AUTH_TOKEN" not in d.ambiente() and d.uso() is None, "depois de sair: sem a chave no ambiente e sem saldo")
