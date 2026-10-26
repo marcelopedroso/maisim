@@ -89,6 +89,11 @@ st = srv.claude_instala_inicia()
 pid = srv.claude_instala["proc"].pid
 st2 = srv.claude_instala_inicia()
 ok(st["andamento"] and st2["andamento"] and srv.claude_instala["proc"].pid == pid, "começa; um segundo clique não abre outro instalador")
+ok(st.get("ia") == "claude" and srv.CLAUDE.comando_instala() == srv.IAS["claude"].comando_instala(), "a instalação diz de qual IA é (o instalador é da peça: comando_instala)")
+try:
+    srv.claude_instala_inicia("nenhuma"); ok(False, "IA desconhecida deveria ser recusada")
+except srv.ErroMotor as x:
+    ok("nenhuma" in str(x), f"instalar uma IA desconhecida: recusa ({x})")
 ok(srv.claude_estado()["instalacao"]["andamento"], "o estado do Claude traz a instalação em andamento (a janela reaberta a vê)")
 st = espera_fim()
 ok(st["ok"] and st["erro"] is None and "Setting up Claude Code" in st["saida"] and "Installation complete" in st["saida"],
@@ -121,14 +126,14 @@ os.environ.pop("ESPERA", None); espera_fim()
 alvo.unlink(missing_ok=True)
 # fora do Windows, sem o instalador de mentira: nada a rodar (a tela mostra o comando); no Windows, o PowerShell oficial
 del os.environ["MAISIM_INSTALA_CLAUDE_CMD"]
-ok(srv.comando_instala_claude() is None and not srv.claude_estado()["pode_instalar"], "Linux: sem instalador (pode_instalar falso)")
+ok(srv.CLAUDE.comando_instala() is None and not srv.claude_estado()["pode_instalar"], "Linux: sem instalador (pode_instalar falso)")
 try:
     srv.claude_instala_inicia(); ok(False, "fora do Windows deveria recusar")
 except srv.ErroMotor as x:
     ok("só instala" in str(x), f"Linux: recusa ({x})")
 srv.processos.WIN = True
 try:
-    c = srv.comando_instala_claude()
+    c = srv.CLAUDE.comando_instala()
 finally:
     srv.processos.WIN = False
 ok(c and c[0].endswith("powershell.exe") and c[-1].endswith("irm https://claude.ai/install.ps1 | iex") and "-NoProfile" in c

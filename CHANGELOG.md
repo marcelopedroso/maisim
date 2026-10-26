@@ -6,6 +6,9 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Added
+- AI chat with several AIs (the base for DeepSeek and Cursor, no new AI yet): the **AI selector** in the chat appears only when more than one AI is signed in (not merely installed); with one, that one is used. Each answer says who answered (*Claude · model*), and switching AI mid-conversation adds a discreet line *from here on: <AI> · <model> (read the earlier conversation)*. The model and effort lists follow the chosen AI (effort hidden when it has only the default) and the usage bar shows that AI's usage or balance. The accounts window gains an **API key** mode for AIs that work with a key: a password field, **Save key**, a link to the provider's key page and the note that the key stays on this computer; once saved it shows only `sk-••••…` + the last 4, the balance, **Change key** and **Sign out**. The server keeps the key in a 0600 file in the AI's own folder (`<folder>/maisim/chave`) and never sends it back to the page, logs it or writes it to the chat history or the conversation folder. The install button is per AI (`comando_instala()` in `simu/ia/base.py`; Claude's is unchanged). The side-rail tooltip lists the connected AIs (*AIs connected: Claude, DeepSeek*). The test-only AI "Eco" now signs in by API key; new test `ia_contas_tela`, `ia_troca_api` extended (the key: 0600, masked, never in the page, history, calls or log; deleted on sign-out) (#PR).
+
 ### Fixed
 - Tests: `dicas_tela` waits for the keyboard (Tab) tooltip instead of a fixed 700 ms, which the slower CI machine sometimes missed in the full suite (#141).
 - Tests: `dicas_tela` moves the mouse to an empty corner before the Tab check: the buttons it adds push the page down, and the idle mouse ended up over a recent-circuit row whose tooltip won (#143).

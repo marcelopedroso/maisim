@@ -356,6 +356,8 @@ T = {
                               "en": "unknown AI (or no login through MaiSim): {ia}"},
     "login.entre_antes": {"pt": "entre com a conta do {ia} antes (o balão da IA no cabeçalho)",
                           "en": "sign in to your {ia} account first (the AI bubble in the header)"},
+    "login.chave_antes": {"pt": "conecte antes a chave de API do {ia} (o balão da IA no cabeçalho)",
+                          "en": "connect the {ia} API key first (the AI bubble in the header)"},
     "login.acao_indisponivel": {"pt": "{ia}: não dá para {acao}", "en": "{ia}: cannot {acao}"},
     # a ação, em palavras (em português, o nome de antes: entra, codigo, cancela, sai)
     "login.acao_entra": {"pt": "entra", "en": "sign in"},
@@ -644,6 +646,16 @@ T = {
     # as contas das IAs que não são o Claude (ia/base.py)
     "ia_conta.login_nao_existe": {"pt": "{nome}: o login pelo MaiSim ainda não existe", "en": "{nome}: signing in through MaiSim is not available yet"},
     "ia_conta.sem_login_andamento": {"pt": "{nome}: não há login em andamento", "en": "{nome}: no sign-in in progress"},
+    # o login por chave de API (ia/base.py, ComChave): as mensagens nunca repetem a chave
+    "ia_conta.chave_vazia": {"pt": "{nome}: cole a chave de API no campo", "en": "{nome}: paste the API key in the field"},
+    "ia_conta.chave_forma": {"pt": "{nome}: isso não parece uma chave de API (confira se copiou inteira, sem espaços)",
+                             "en": "{nome}: this does not look like an API key (check that you copied all of it, with no spaces)"},
+    "ia_conta.chave_forma_inicio": {"pt": "{nome}: isso não parece uma chave de API (ela começa com “{inicio}”; confira se copiou inteira)",
+                                    "en": "{nome}: this does not look like an API key (it starts with “{inicio}”; check that you copied all of it)"},
+    "ia_conta.chave_nao_gravou": {"pt": "{nome}: não consegui guardar a chave ({erro})", "en": "{nome}: could not store the key ({erro})"},
+    "ia_conta.chave_nao_apagou": {"pt": "{nome}: não consegui apagar a chave ({erro})", "en": "{nome}: could not delete the key ({erro})"},
+    "ia_conta.chave_cole": {"pt": "{nome}: o acesso é por chave de API; cole a chave na janela das contas",
+                            "en": "{nome}: access is by API key; paste the key in the accounts window"},
     # PR 10: fim
 
     # PR 11: o que a IA lê, no idioma do pedido. As regras (o prompt de sistema) ficam em ia/regras.pt.md e ia/regras.en.md.

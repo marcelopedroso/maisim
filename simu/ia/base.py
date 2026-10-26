@@ -17,6 +17,7 @@ Eventos comuns (traduz devolve uma lista):
    "modelo": str | None}
 """
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -42,6 +43,7 @@ class IA:
     modelos = ("",)               # "" = o padrão da conta
     esforcos = ("",)
     tem_login = False             # o login é pelo MaiSim (estado/entra/codigo/sai abaixo); o do Claude é o do servidor
+    modo_login = ""               # como a tela mostra o login: "" (link e código colado) ou "chave" (a chave de API colada: ComChave)
     acha = None                   # () → o caminho da ferramenta: procurado de novo enquanto ela não existe (instalada depois)
 
     def __init__(self, binario, pasta):
@@ -60,6 +62,11 @@ class IA:
         if self.acha and not Path(self.bin).exists():
             self.bin = str(self.acha())
         return Path(self.bin).exists()
+
+    def comando_instala(self):
+        """O comando do instalador oficial da ferramenta (o botão Instalar da janela das contas, que o servidor roda em segundo
+        plano), ou None: sem botão (a tela mostra o comando para o terminal)."""
+        return None
 
     # ---- o que cada IA define
     # pasta = a pasta de trabalho (cwd do processo): uma IA que recebe as regras ou a política por arquivo as
@@ -121,3 +128,86 @@ class IA:
 
     def sai(self):
         raise ValueError(lingua.tr("ia_conta.login_nao_existe", nome=self.nome))
+
+
+class ComChave:
+    """O login por chave de API (modo_login "chave"), para pôr antes da IA na herança: class X(ComChave, Claude). A pessoa cola
+    a chave na janela das contas; o MaiSim a guarda num arquivo só dela (0600) dentro da pasta de configuração da IA
+    (<pasta>/maisim/chave) e só a usa no ambiente do processo dessa IA. A chave nunca volta para a página (o estado só leva o
+    começo e os 4 últimos caracteres), nunca vai para um registro, para o histórico nem para a pasta da conversa, e nenhuma
+    mensagem de erro a repete."""
+    tem_login = True
+    modo_login = "chave"
+    forma_chave = re.compile(r"[A-Za-z0-9_.\-]{16,400}")   # a forma de uma chave (sem espaços); cada IA pode apertar
+    inicio_chave = ""                                      # o começo de toda chave dela ("sk-"), para a mensagem de erro
+
+    def arquivo_chave(self):
+        return self.pasta / "maisim" / "chave"
+
+    def le_chave(self):
+        """A chave guardada (só para o ambiente do processo da IA), ou None."""
+        try:
+            k = self.arquivo_chave().read_text().strip()
+        except OSError:
+            return None
+        return k or None
+
+    def mascara(self, k):
+        """O que a tela pode ver da chave: o começo ("sk-", se houver) e os 4 últimos caracteres."""
+        if not k:
+            return None
+        ini = k[:k.index("-") + 1] if "-" in k[:5] else ""
+        return f"{ini}{'•' * 10}{k[-4:]}"
+
+    def confere_chave(self, k):
+        """A forma da chave (sem rede); ValueError com a mensagem da tela, sem repetir a chave."""
+        if not self.forma_chave.fullmatch(k) or (self.inicio_chave and not k.startswith(self.inicio_chave)):
+            raise ValueError(lingua.tr("ia_conta.chave_forma_inicio", nome=self.nome, inicio=self.inicio_chave) if self.inicio_chave
+                             else lingua.tr("ia_conta.chave_forma", nome=self.nome))
+
+    def valida_chave(self, k):
+        """Confere se a chave vale (uma chamada barata ao serviço), se a IA souber; ValueError se não vale. Padrão: nada."""
+
+    def guarda_chave(self, k):
+        d = self.arquivo_chave().parent
+        tmp = d / ".chave.nova"
+        try:
+            d.mkdir(mode=0o700, parents=True, exist_ok=True)
+            os.chmod(d, 0o700)
+            tmp.unlink(missing_ok=True)
+            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)   # nasce 0600 (nunca legível por outros, nem um instante)
+            with os.fdopen(fd, "w") as f:
+                f.write(k + "\n")
+            os.replace(tmp, self.arquivo_chave())
+            os.chmod(self.arquivo_chave(), 0o600)
+        except OSError as e:                             # a mensagem do sistema (o caminho), nunca a chave
+            tmp.unlink(missing_ok=True)
+            raise ValueError(lingua.tr("ia_conta.chave_nao_gravou", nome=self.nome, erro=e.strerror or type(e).__name__))
+
+    def estado(self):
+        k = self.le_chave()
+        return {"instalado": self.instalado(), "logado": bool(k), "metodo": "chave", "chave": self.mascara(k),
+                "pasta": str(self.pasta).replace(str(Path.home()), "~", 1)}
+
+    def entra(self):                                     # não há o que abrir: a tela já mostra o campo da chave
+        raise ValueError(lingua.tr("ia_conta.chave_cole", nome=self.nome))
+
+    def codigo(self, codigo):
+        """A chave colada: confere a forma, confere com o serviço (se a IA souber) e guarda."""
+        k = re.sub(r"\s+", "", str(codigo or ""))
+        if not k:
+            raise ValueError(lingua.tr("ia_conta.chave_vazia", nome=self.nome))
+        self.confere_chave(k)
+        self.valida_chave(k)
+        self.guarda_chave(k)
+        return self.estado()
+
+    def cancela(self):
+        pass
+
+    def sai(self):
+        try:
+            self.arquivo_chave().unlink(missing_ok=True)
+        except OSError as e:
+            raise ValueError(lingua.tr("ia_conta.chave_nao_apagou", nome=self.nome, erro=e.strerror or type(e).__name__))
+        return self.estado()

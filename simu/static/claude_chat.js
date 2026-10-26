@@ -22,18 +22,19 @@ function iaLogada(ia = ccIA()) {
   return a ? (a.tem_login ? !!(a.estado && a.estado.logado) : !!(cla.estado && cla.estado.logado)) : false;   // o Eco (teste) usa o login do Claude
 }
 const nomeIA = (ia = ccIA()) => ((cc.ias || []).find((x) => x.id === ia) || {}).nome || (ia === "claude" ? "Claude" : ia);
-// monta o seletor de IA (as instaladas; com uma só, ele não aparece) e os modelos da escolhida; a escolha fica no navegador
+const textoTroca = (ia, modelo) => (modelo ? tr("cc.troca_ia", { ia: nomeIA(ia), modelo }) : tr("cc.troca_ia_so", { ia: nomeIA(ia) }));
+// monta o seletor de IA e os modelos da escolhida; a escolha fica no navegador. O seletor lista só as IAs conectadas
+// (instaladas e com login: Marcelo, 25/10 — "quando houver mais de uma conta logada"); com uma só, ele não aparece e vale
+// ela (a escolha guardada volta quando a outra conectar de novo); sem nenhuma, o Claude (a conversa pede para entrar)
 function ccMontaIA() {
   const s = $("cc-ia"); if (!s) return;
   let quer = s.value; try { quer = localStorage.getItem("maisim-simu-cc-ia") || quer; } catch (e) { /* padrão */ }
-  const lista = (cc.ias || []).filter((a) => a.instalado);
-  if (lista.length) {
-    const html = lista.map((a) => `<option value="${escT(a.id)}">${escT(a.nome)}</option>`).join("");
-    if (s.innerHTML !== html) s.innerHTML = html;
-  }
-  s.value = [...s.options].some((o) => o.value === quer) ? quer : "claude";
+  const lista = (cc.ias || []).filter((a) => a.instalado && iaLogada(a.id));
+  const html = (lista.length ? lista : [{ id: "claude", nome: nomeIA("claude") }]).map((a) => `<option value="${escT(a.id)}">${escT(a.nome)}</option>`).join("");
+  if (s.dataset.html !== html) { s.innerHTML = html; s.dataset.html = html; }
+  s.value = [...s.options].some((o) => o.value === quer) ? quer : s.options[0].value;
   s.style.display = s.options.length > 1 ? "" : "none";
-  ccModelos();
+  ccModelos(); desenhaUsoChat();
 }
 function ccModelos() {
   const ia = ccIA(), sm = $("cc-modelo"), se = $("cc-esforco"); if (!sm) return;
@@ -229,9 +230,12 @@ function ccAbre(on = !cc.aberto) {
   if (ctl.editor) setTimeout(() => ctl.editor.layout(), 30);
 }
 async function atualizaChat() {
+  const andava = !!(cc.estado && cc.estado.andamento);
   try { cc.estado = await apiClaude("pedido"); cc.aviso = cc.aviso && cc.aviso === cc.avisoRede ? "" : cc.aviso; }
   catch (e) { cc.aviso = cc.avisoRede = tr("cc.sem_resposta"); }
   if (cc.estado && cc.estado.uso) cla.uso = cc.uso = cc.estado.uso;
+  const quem = cc.estado && cc.estado.ia;                 // um pedido de outra IA terminou: o saldo dela mudou
+  if (andava && cc.estado && !cc.estado.andamento && quem && quem !== "claude" && cla.iaUso[quem]) carregaUsoIA(quem, true);
   desenhaChat(); acompanhaChat();
 }
 const editorPronto = () => !!(ctl.editor || ctl.texto);   // o Monaco ainda carregando: o código na tela seria ""
@@ -245,13 +249,25 @@ async function carregaUsoChat(forca = false) {
   desenhaUsoChat(); cla.uso = cc.uso; if (cla.janela) desenhaJanelaClaude();
 }
 function desenhaUsoChat() {
-  const u = cc.uso, el = $("cc-uso"); if (!el) return;
-  if (ccIA() !== "claude") { el.textContent = ""; el.title = ""; return; }   // o uso da conta é o do Claude (o /usage)
+  const el = $("cc-uso"); if (!el) return;
+  if (ccIA() !== "claude") return desenhaUsoOutraIA(el, ccIA());
+  const u = cc.uso;                                       // o do Claude: o /usage (sessão de 5 h e semana)
   if (!u) { el.textContent = ""; if (el.title) el.title = tr("cc.t_uso"); return; }   // o title do HTML (ou "" depois de outra IA)
   if (!u.itens || !u.itens.length) { el.textContent = tr("cc.uso_falhou"); el.title = u.erro || u.texto || ""; return; }
   const nivel = (p) => (p >= 90 ? "alto" : p >= 70 ? "medio" : "");
   el.innerHTML = u.itens.filter((i) => !/·/.test(i.rotulo)).map((i) => `<span class="${nivel(i.pct)}">${escT(i.rotulo.replace(" (5 h)", ""))} ${Math.round(i.pct)}%</span>`).join(" · ");
   el.title = tr("cc.t_uso_cab") + "\n" + u.itens.map((i) => `${i.rotulo}: ${Math.round(i.pct)}%${i.renova ? ` (${tr("ia.renova", { quando: i.renova })})` : ""}`).join("\n");
+}
+// o uso de outra IA no topo da conversa: o saldo (a chave de API) ou os limites, se a peça dela informar (o mesmo que a
+// janela das contas mostra: cla.iaUso, lido uma vez e de novo depois de cada pedido); sem nada, a barra fica vazia
+function desenhaUsoOutraIA(el, ia) {
+  const a = (cc.ias || []).find((x) => x.id === ia), u = cla.iaUso[ia];
+  if (a && a.tem_login && iaLogada(ia) && !u) carregaUsoIA(ia);
+  if (u && u.saldo) { el.textContent = tr("cc.saldo", { valor: fmtSaldo(u.saldo) }); el.title = tr("cc.t_saldo", { ia: nomeIA(ia) }); return; }
+  if (!u || !u.itens || !u.itens.length) { el.textContent = ""; el.title = ""; return; }
+  const nivel = (p) => (p >= 90 ? "alto" : p >= 70 ? "medio" : "");
+  el.innerHTML = u.itens.map((i) => `<span class="${nivel(i.pct)}">${escT(i.rotulo)} ${Math.round(i.pct)}%</span>`).join(" · ");
+  el.title = tr("cc.t_uso_ia", { ia: nomeIA(ia) }) + "\n" + u.itens.map((i) => `${i.rotulo}: ${Math.round(i.pct)}%${i.renova ? ` (${tr("ia.renova", { quando: i.renova })})` : ""}`).join("\n");
 }
 
 // ---------------------------------------------------------------- desenhar (só quando algo que aparece mudou)
@@ -269,7 +285,7 @@ function desenhaChat() {
   $("cc-nova").disabled = anda; $("cc-salvar").disabled = anda; $("cc-exportar").disabled = anda;
   $("cc-nota").textContent = ctl.dados && !ctl.dados.circuito ? tr("cc.nota_edicao") : "";
   const anexos = (e && e.conversa && e.conversa.anexos) || [];
-  const chave = JSON.stringify([logado, ccIA(), !!cla.estado, e && e.conversa, e && [e.andamento, e.eventos, e.fala, e.proposta, e.aplicada, e.erro, e.outro_circuito, e.pedido, e.auto],
+  const chave = JSON.stringify([logado, ccIA(), !!cla.estado, e && e.conversa, e && [e.andamento, e.eventos, e.fala, e.proposta, e.aplicada, e.erro, e.outro_circuito, e.pedido, e.auto, e.ia, e.modelo], (cc.ias || []).map((a) => a.nome),
     anda ? Math.floor((Date.now() / 1000 - e.desde) / 5) : 0, rodando, !!cc.antes, cc.voltou, cc.aviso, cc.avisoOk]);
   if (chave === cc.desenhado) return;
   cc.desenhado = chave;
@@ -283,12 +299,19 @@ function desenhaChat() {
     const hist = (e && e.conversa && e.conversa.historico) || [];
     if (!hist.length && !anda) h += `<div class="cc-vazio"><div class="cc-oi"><svg class="mascote" width="40" height="40" aria-hidden="true"><use href="#maisim-claude"/></svg><b>${escT(tr("cc.titulo"))}</b></div><p>${escT(tr("cc.oi"))}</p>
       <ul><li>${escT(tr("cc.ex_pi"))}</li><li>${escT(tr("cc.ex_artigo"))}</li></ul></div>`;   /* curto (Marcelo, 19/10: "nem precisa tanto") */
+    // a troca de IA no meio da conversa: antes do pedido em que outra IA responde, a linha "a partir daqui: <IA> · <modelo>"
+    // (a que chega lê a conversa anterior: o MaiSim passa CONVERSA.md); a anterior é a última que respondeu (a fala conta)
+    let antes = null;
+    const troca = (ia, modelo) => `<div class="cc-troca" role="separator" aria-label="${escT(textoTroca(ia, modelo))}"><span>${escT(textoTroca(ia, modelo))}</span></div>`;
     hist.forEach((m, k) => {
+      const quem = m.ia || "claude", respondeu = !!(m.resposta || m.fala);
+      if (respondeu && antes !== null && quem !== antes) h += troca(quem, m.modelo);
+      if (respondeu) antes = quem;
       h += `<div class="cc-eu">${escT(m.pedido || "")}${m.anexos && m.anexos.length ? `<small>${ICONE_CLIPE} ${escT(m.anexos.join(", "))}</small>` : ""}</div>`;
       const ultimo = k === hist.length - 1 && !anda;
       const corpo = m.resposta ? mdLeve(m.resposta) : m.fala ? mdLeve(m.fala) : "";
       const erro = m.erro ? `<p class="cc-erro">${m.erro === "parado" ? escT(tr("cc.parado")) : escT(m.erro)}</p>` : "";
-      const ia = m.ia && m.ia !== "claude" ? `${escT((cc.ias || []).find((x) => x.id === m.ia)?.nome || m.ia)} · ` : "";   // qual IA respondeu (hub de IA)
+      const ia = `${escT(nomeIA(m.ia || "claude"))} · `;   // quem respondeu: a IA e o modelo (hub de IA)
       const g = m.gasto, meta = g ? `<span class="cc-meta">${ia}${m.modelo ? `${escT(m.modelo)} · ` : ""}${escT(tr("cc.gasto", { s: g.segundos, n: g.turnos, mil: Math.round((g.entrada + g.saida) / 1000) }))}${m.aplicada ? ` · ${escT(m.desfeita ? tr("cc.marca_desfeita") : tr("cc.marca_aplicada"))}` : ""}</span>` : "";
       const r = m.aplicada && m.mudanca_resumo;               // o que mudou ao aplicar (guardado no histórico): para ver depois
       const na = (r && r.arquivos) || [];
@@ -301,6 +324,7 @@ function desenhaChat() {
     if (anda) {
       const seg = Math.max(0, Math.round(e.decorrido != null ? e.decorrido : Date.now() / 1000 - e.desde));   // medido no servidor (relógios diferentes)
       const trabalhando = e.auto ? tr("cc.trabalhando_auto", { s: seg, feitas: e.auto.feitas, max: e.auto.max }) : tr("cc.trabalhando", { s: seg });
+      if (antes !== null && (e.ia || "claude") !== antes) h += troca(e.ia || "claude", e.modelo);   // a outra IA já está respondendo
       h += `<div class="cc-eu">${escT(e.pedido || "")}</div><div class="cc-linha">${diodoIA(24)}<div class="cc-ele cc-andamento">${escT(trabalhando)}
         ${(e.eventos || []).length ? `<ol>${e.eventos.slice(-8).map((x) => `<li>${escT(x)}</li>`).join("")}</ol>` : ""}${e.fala ? `<div style="margin-top:6px">${mdLeve(e.fala)}</div>` : ""}</div></div>`;
     }
