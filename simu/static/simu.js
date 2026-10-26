@@ -394,8 +394,6 @@ const ehSinal = (e, fid) => fid === "0" ? e.dom === "CONTROL" && !["TERM", "GATE
   : MEDIDOR.has(e.tipo) || ehTag(e);
 const ehTag = (e) => e.tipo === "GAIN" && /^TAG\.\d+$/.test(e.nome);
 const TAG_ITEM = { enum: "MAISIM_TAG", dom: "CONTROL", typ: 7, classe: "ReglerGain", id: "TAG", get nome() { return tr("simu.tag_item"); }, criar: "GAIN" };
-// o conector de rótulo na paleta (o Label do PSIM): um na aba Circuito (potência), outro na Controle (ver poeConector)
-const CONECTOR_ITEM = (dom) => ({ id: `CONECTOR_${dom}`, dom, conector: true, get nome() { return tr("simu.conector_item"); } });
 function medicoes(f) {                                 // o que está sendo medido nesta folha: corrente de quem, tensão de que nós
   const I = new Map(), V = new Map();
   for (const e of f.elementos) {
@@ -1062,7 +1060,7 @@ function dica(ev, e) {
     if (ev.button !== 0) return;
     const g = ev.target.closest && ev.target.closest(".el");
     const e = g && dados ? dados.folhas[folhaAtual].elementos[+g.dataset.i] : null;
-    const livre = ed.ligado && !ed.colocar && !ed.fio.modo && !simulando();
+    const livre = ed.ligado && !ed.colocar && !ed.fio.modo && !ed.conector && !simulando();
     arrasto = { x: ev.clientX, y: ev.clientY, v: Object.assign({}, ver), moveu: false,
                 el: livre && e && !ev.shiftKey ? { e, g } : null, shift: livre && ev.shiftKey,
                 ret: livre && ev.shiftKey && !e && !(ev.target.closest && ev.target.closest(".fio, .conector-rot[data-k]")) ? grade(ev) : null,
@@ -1071,7 +1069,7 @@ function dica(ev, e) {
   });
   addEventListener("mousemove", (ev) => {
     if (ed.fio.modo && !(arrasto && arrasto.moveu) && ev.target.closest && ev.target.closest("#svg")) { ed.fio.mouse = grade(ev); previaFio(); }
-    if (ed.colocar && !ed.colocar.conector && ed.fantasma) {             // fantasma do componente a pôr, na grade (o conector vai num ponto)
+    if (ed.colocar && ed.fantasma) {                                     // fantasma do componente a pôr, na grade
       const [gx, gy] = grade(ev); ed.fantasma.style.display = ""; ed.fantasma.setAttribute("transform", `translate(${gx * G},${gy * G})`);
     }
     if (arrasto) {
@@ -1123,6 +1121,7 @@ function dica(ev, e) {
     if (a.el && a.moveu) { desenha(); return; }
     if (a.moveu) return;
     if (ed.ligado && ed.fio.modo) { cliqueFio(ev); return; }
+    if (ed.ligado && ed.conector) { poeConector(ev); return; }
     if (ed.ligado && ed.colocar) { coloca(ev); return; }
     const md = ed.ligado && ev.target.closest && ev.target.closest(".medido[data-medidor]");   // a marca de um medidor: abre o medidor
     if (md) { const m = dados.folhas[folhaAtual].elementos.find((x) => x.nome === md.dataset.medidor); if (m) { seleciona(m); return; } }
@@ -1160,9 +1159,11 @@ function dica(ev, e) {
   addEventListener("keydown", (ev) => {
     if (ev.target.closest && ev.target.closest("input, select, textarea, [contenteditable], #ctl-editor")) return;   // digitando (o controle.py também)
     if (document.querySelector(".modal-fundo")) return;
-    if (ed.ligado && simulando() && (["w", "W", "r", "R", "Delete", "Backspace"].includes(ev.key) && !ev.ctrlKey && !ev.metaKey
+    if (ed.ligado && simulando() && (["w", "W", "c", "C", "r", "R", "Delete", "Backspace"].includes(ev.key) && !ev.ctrlKey && !ev.metaKey
         || (ev.ctrlKey || ev.metaKey) && ["x", "X", "v", "V"].includes(ev.key))) { ev.preventDefault(); avisaTrava(); return; }
     if (ed.ligado && !ev.ctrlKey && !ev.metaKey && !ev.altKey && (ev.key === "w" || ev.key === "W")) { ev.preventDefault(); modoFio(!ed.fio.modo); return; }
+    if (ed.ligado && !ev.ctrlKey && !ev.metaKey && !ev.altKey && (ev.key === "c" || ev.key === "C")) { ev.preventDefault(); modoConector(!ed.conector); return; }
+    if (ed.conector && ev.key === "Escape") { modoConector(false); return; }
     if (ed.fio.modo && ed.fio.cantos.length) {
       if (ev.key === "Escape") { ed.fio.cantos = []; ed.fio.dom = null; previaFio(); msg(tr("simu.fio_desfeito")); return; }
       if (ev.key === "Enter" && !ev.ctrlKey && !ev.metaKey) { ev.preventDefault(); terminaFio(); return; }
@@ -1197,7 +1198,7 @@ function dica(ev, e) {
 // ---------------------------------------------------------------- editor: o Gecko do MaiSim aplica cada mudança e o desenho vem do estado dele
 const ed = { ligado: false, sel: null, colocar: null, catalogo: null, aba: 0, fantasma: null, fioSel: null, todos: true, lib: [], sujo: false,
   multi: new Set(), multiFios: new Set(),        // a seleção de vários (Shift): nomes dos componentes e chaves das conexões
-             fio: { modo: false, cantos: [], dom: null, mouse: null } };
+             fio: { modo: false, cantos: [], dom: null, mouse: null }, conector: false };
 function msg(t, tipo = "") { $("msg").textContent = t; $("msg").className = tipo; if (tipo) anota(t, tipo);
   if (VISTA_CODIGO && tipo === "erro" && typeof poeEstado === "function") poeEstado(t, "erro"); }   // sem o cabeçalho: o erro vai para a linha do editor
 // histórico: as últimas 20 mudanças e avisos (o que passa em verde ou vermelho no topo), embaixo do painel da direita
@@ -1454,6 +1455,7 @@ function poeCadeado(on) { $("bt-editar").classList.toggle("ativo", on); $("bt-ed
 async function liga(on) {
   ed.ligado = on; document.body.classList.toggle("editando", on); poeCadeado(on);
   if (ed.fio.modo) modoFio(false);
+  if (ed.conector) modoConector(false);
   seleciona(null); escolhe(null);
   if (!on) {
     if (ed.novo && !(await confirma(escT(tr("simu.novo_nao_salvo")), tr("simu.sair_descarta_html", { nome: ed.novo }), escT(tr("simu.sair_sem_salvar")), true))) {
@@ -1464,7 +1466,6 @@ async function liga(on) {
   }
   if (!ed.catalogo) { ed.catalogo = await (await fetch("static/catalogo.json")).json();
     const med = ed.catalogo.abas.find((a) => a.aba === "Measure"); if (med) med.itens.unshift(TAG_ITEM);   // a tag do MaiSim, junto dos medidores
-    for (const [aba, dom] of [["Circuit", "LK"], ["Control", "CONTROL"]]) { const a = ed.catalogo.abas.find((x) => x.aba === aba); if (a) a.itens.push(CONECTOR_ITEM(dom)); }
     // "rotulo" (catalogo_gecko.py, ROTULOS): o nome do MaiSim nos dois idiomas no lugar do do Gecko, como o da tag
     ed.catalogo.abas.forEach((a) => a.itens.forEach((i) => { if (i.rotulo) { i.gecko = i.nome; Object.defineProperty(i, "nome", { get: () => tr(i.rotulo) }); } }));   // gecko: na busca e na dica
     desenhaPaleta(); carregaBiblioteca(); }
@@ -1525,14 +1526,14 @@ function desenhaPaleta() {
                     : c.abas[ed.aba].itens).filter((i) => i.id !== "SCOPE" && !i.oculto);   // regra do MaiSim: medidor vai para o
   // /maisim/scope; "oculto": o que o MaiSim não oferece (catalogo_gecko.py, ESCONDIDOS) — um circuito que já o tem abre e roda
   $("itens").innerHTML = itens.map((i) => `<div class="item${ed.colocar && ed.colocar.id === i.id ? " ativo" : ""}${i.lib ? " lib" : ""}" data-id="${i.id}" draggable="true"
-    title="${escT(i.lib ? tr("simu.t_item_lib", { nome: i.nome, info: i.info }) : i.conector ? tr("simu.t_conector_item", { nome: i.nome }) : tituloItem(i))}">
+    title="${escT(i.lib ? tr("simu.t_item_lib", { nome: i.nome, info: i.info }) : tituloItem(i))}">
     ${icone(i)}<span>${i.nome}</span>${i.lib ? `<small>${i.info}</small>` : ""}</div>`).join("") ||
     (ed.aba === c.abas.length - 1 && !q ? `<div class="dica-paleta">${escT(tr("simu.lib_vazia"))}</div>` : `<i>${escT(tr("simu.nada"))}</i>`);
   const acha = (id) => c.abas.flatMap((a) => a.itens).find((i) => i.id === id);
   $("itens").querySelectorAll(".item").forEach((d) => {
     d.onclick = () => { const it = acha(d.dataset.id); escolhe(ed.colocar && ed.colocar.id === it.id ? null : it); };
     // arrastar: só marca o item (redesenhar a paleta aqui tiraria da página o item que está sendo arrastado e cancelaria o gesto)
-    d.addEventListener("dragstart", (ev) => { const it = acha(d.dataset.id); if (ed.fio.modo) modoFio(false);
+    d.addEventListener("dragstart", (ev) => { const it = acha(d.dataset.id); if (ed.fio.modo) modoFio(false); if (ed.conector) modoConector(false);
       ed.colocar = it; document.body.classList.add("colocando"); d.classList.add("ativo");
       ev.dataTransfer.setData("text/plain", it.id); ev.dataTransfer.effectAllowed = "copy"; });
     d.addEventListener("dragend", (ev) => { if (ev.dataTransfer.dropEffect === "none" && ed.colocar) escolhe(null); });
@@ -1540,7 +1541,7 @@ function desenhaPaleta() {
 }
 // arrastar da paleta para a folha (o mesmo que clicar no item e depois na folha)
 $("svg").addEventListener("dragover", (ev) => { if (!ed.ligado || !ed.colocar) return; ev.preventDefault(); ev.dataTransfer.dropEffect = "copy";
-  if (ed.fantasma && !ed.colocar.conector) { const [gx, gy] = grade(ev); ed.fantasma.style.display = ""; ed.fantasma.setAttribute("transform", `translate(${gx * G},${gy * G})`); } });
+  if (ed.fantasma) { const [gx, gy] = grade(ev); ed.fantasma.style.display = ""; ed.fantasma.setAttribute("transform", `translate(${gx * G},${gy * G})`); } });
 $("svg").addEventListener("drop", (ev) => { if (!ed.ligado || !ed.colocar) return; ev.preventDefault(); coloca(ev); });
 // a biblioteca de subcircuitos (simu/gecko/subcircuitos/): itens da aba "Biblioteca"
 async function carregaBiblioteca() {
@@ -1554,6 +1555,7 @@ async function carregaBiblioteca() {
 function escolhe(item) {
   if (item && simulando()) { avisaTrava(); return; }
   if (item && ed.fio.modo) modoFio(false);
+  if (item && ed.conector) modoConector(false);
   ed.colocar = item; document.body.classList.toggle("colocando", !!item);
   if (ed.fantasma) ed.fantasma.style.display = "none";
   if (ed.catalogo) desenhaPaleta();
@@ -1562,7 +1564,6 @@ function escolhe(item) {
 async function coloca(ev) {
   const [x, y] = grade(ev), base = (ed.colocar.id || "X").replace(/[^A-Za-z0-9_]/g, "_");
   if (foraDaFolha([x, y])) return;
-  if (ed.colocar.conector) { poeConector(ev, ed.colocar); return; }
   if (ed.colocar.lib) {                                 // subcircuito da biblioteca: o servidor copia para o circuito aberto
     const it = ed.colocar; escolhe(null); msg(tr("simu.trazendo_lib", { nome: it.nome }));
     const descr = tr("simu.d_lib", { nome: it.nome, x, y }) + (naFolhaPrincipal() ? "" : " " + tr("simu.so_no", { sm: nomeSM(folhaAtual) }));
@@ -1584,23 +1585,45 @@ async function coloca(ev) {
   }
   await pede("CREATE", [naFolhaPrincipal() ? nome : `${dados.folhas[folhaAtual].nome}#${nome}`, x, y, item.id], tr("simu.d_criado", { item: item.nome, nome, x, y }));
 }
-// o conector de rótulo da paleta (o Label do PSIM, Marcelo 26/10): clicar num borne ou num ponto de conexão abre ali mesmo
-// um campo para o nome; com ele, um pedaço curto de conexão (2 quadrados, ou 1 se só ele cabe) sai do ponto para o lado
-// livre, já com o nome: a outra ponta fica solta e a bandeirinha aparece sozinha. Um passo só no desfazer (editor/fio, a
-// conexão nova com o rótulo); o nome passa pela regra do rótulo (o servidor confere de novo); repetido é o que liga; Esc cancela
-async function poeConector(ev, item) {
-  const p = grade(ev), d = pontosDeLigacao().get(p.join(","));
-  if (!d) { msg(tr("simu.conector_onde"), "erro"); return; }
-  if (d !== item.dom) { msg(tr("simu.conector_dom", { lado: ladoDom(d), dom: nomeDom(item.dom) }), "erro"); return; }
+// a ferramenta conector (o label do PSIM, Marcelo 26/10; o botão "Conector" abaixo do "Fio", tecla C): clicar num borne ou num ponto
+// de conexão abre ali mesmo um campo para o nome; com ele, um pedaço curto de conexão (2 quadrados, ou 1 se só ele cabe) sai
+// do ponto para o lado livre, já com o nome, no domínio do ponto (potência, controle ou térmico): a outra ponta fica solta e a
+// bandeirinha aparece sozinha. Um passo só no desfazer (editor/fio, a conexão nova com o rótulo); o nome passa pela regra do
+// rótulo (o servidor confere de novo); repetido é o que liga. Esc no campo desiste do nome; fora dele, sai da ferramenta.
+// W e C se excluem (ligar um desliga o outro), como o W e o item da paleta
+function modoConector(on) {
+  if (on && simulando()) { avisaTrava(); return; }
+  if (on) { if (ed.fio.modo) modoFio(false); escolhe(null); ed.sel = null; ed.fioSel = null; mostraProps(); }
+  ed.conector = on; document.body.classList.toggle("modo-conector", on); $("bt-conector").classList.toggle("ativo", on);
+  if (!on) { const c = $("conector-nome"); if (c) c.remove(); }
+  msg(on ? tr("simu.modo_conector") : "");
+  desenha();
+}
+async function poeConector(ev) {
+  const p = grade(ev), dom = pontosDeLigacao().get(p.join(","));
+  if (foraDaFolha(p)) return;
+  if (!dom) { msg(tr("simu.conector_onde"), "erro"); return; }
   const cantos = caminhoConector(p);
   if (!cantos) { msg(tr("simu.conector_sem_lado"), "erro"); return; }
-  const nome = await nomeNoLugar(ev.clientX, ev.clientY, item.dom);
-  if (!nome) return;
-  escolhe(null);
+  const nome = await nomeNoLugar(ev.clientX, ev.clientY, dom, nomeDoPonto(p, dom));
+  if (!nome || !ed.conector) return;
   const fs = alvos(), descr = tr("simu.d_conector", { nome, x: p[0], y: p[1] }) + nosSMs(fs);
   msg(tr("simu.ligando"));
-  try { novoEstado(await api("editor/fio", { acao: "novo", cantos, dom: item.dom, rotulo: nome, folhas: fs, descr })); msg(descr, "ok"); }
+  try { novoEstado(await api("editor/fio", { acao: "novo", cantos, dom, rotulo: nome, folhas: fs, descr })); msg(descr, "ok"); }
   catch (e) { msg(e.message, "erro"); }
+}
+// o nome que o ponto p já tem no domínio dom: o da conexão clicada, o de outra conexão do mesmo nó ou o rótulo de um borne
+// nele ("" se nenhum). O nó pela regra do Gecko (a ponta de uma conexão em qualquer ponto de outra liga; cruzar sem ponta,
+// não), a partir das conexões que passam por p; os bornes em qualquer ponto delas (ou em p)
+function nomeDoPonto(p, dom) {
+  const f = dados.folhas[folhaAtual], q = p.join(","), fios = f.fios.filter((w) => w.dom === dom);
+  const pts = fios.map((w) => new Set(w.pts.map((r) => r.join(",")))), pontas = fios.map((w) => [w.pts[0].join(","), w.pts[w.pts.length - 1].join(",")]);
+  const no = fios.map((_, k) => k).filter((k) => pts[k].has(q)), fila = no.slice();
+  while (fila.length) { const k = fila.shift();
+    fios.forEach((_, u) => { if (!no.includes(u) && (pontas[u].some((x) => pts[k].has(x)) || pontas[k].some((x) => pts[u].has(x)))) { no.push(u); fila.push(u); } }); }
+  const lugar = new Set([q, ...no.flatMap((k) => [...pts[k]])]);
+  const borne = f.elementos.flatMap((e) => (e.terminais || []).filter((t) => t.rotulo && domTerm(e, t) === dom && lugar.has(`${t.x},${t.y}`)).map((t) => t.rotulo));
+  return [...no.map((k) => fios[k].rotulo).filter(Boolean), ...borne][0] || "";
 }
 // para onde sai o pedaço do conector, a partir do ponto p: o primeiro lado em que os passos não caem em conexão, borne,
 // corpo de componente (a caixa dele e dos bornes) nem fora da folha. Primeiro o lado de fora do que já está ali (o
@@ -1624,8 +1647,10 @@ function caminhoConector(p) {
   return null;
 }
 // o campo do nome do conector, junto do ponto clicado (cx, cy: na tela), com os nomes que já existem no domínio para
-// escolher; Enter devolve o nome (conferido como o do rótulo do nó), Esc cancela (e larga o item), sair do campo também cancela
-function nomeNoLugar(cx, cy, dom) {
+// escolher; já preenchido com o nome que o ponto tem (atual). Enter devolve o nome (conferido como o do rótulo do nó); outro
+// nome num ponto que já tem um junta os dois nós: o MaiSim pergunta antes (cancelar volta ao campo). Esc ou sair do campo
+// desiste (a ferramenta continua)
+function nomeNoLugar(cx, cy, dom, atual = "") {
   return new Promise((ok) => {
     const f = dados.folhas[folhaAtual];
     const nomes = [...new Set([...f.fios.filter((w) => w.dom === dom && w.rotulo).map((w) => w.rotulo),
@@ -1636,17 +1661,23 @@ function nomeNoLugar(cx, cy, dom) {
     caixa.innerHTML = `<input type="text" list="conector-nomes" autocomplete="off" spellcheck="false" placeholder="${escT(tr("simu.ph_conector"))}"
       title="${escT(tr("simu.t_conector_nome"))}" aria-label="${escT(tr("simu.t_conector_nome"))}"><datalist id="conector-nomes">${nomes.map((x) => `<option value="${escT(x)}">`).join("")}</datalist>`;
     document.body.appendChild(caixa);
-    const inp = caixa.querySelector("input"); let feito = false;
+    const inp = caixa.querySelector("input"); let feito = false, perguntando = false;
+    inp.value = atual;
     const fim = (v) => { if (feito) return; feito = true; caixa.remove(); ok(v); };
     inp.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); fim(null); escolhe(null); return; }
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); fim(null); return; }
       if (e.key !== "Enter") return;
       e.preventDefault(); const r = inp.value.trim(); if (!r) return;
       if (!/^[A-Za-z0-9_.+\-]+$/.test(r)) { msg(tr("simu.rotulo_invalido", { r }), "erro"); inp.select(); return; }
-      fim(r);
+      if (!atual || r === atual) { fim(r); return; }
+      perguntando = true;                              // o aviso tira o foco do campo: não é desistir
+      confirma(escT(tr("simu.m_conector_curto")), tr("simu.m_conector_curto_html", { a: atual, b: r }), escT(tr("simu.criar")), true).then((sim) => {
+        perguntando = false;
+        if (sim) fim(r); else if (!feito) { inp.focus(); inp.select(); }
+      });
     });
-    inp.addEventListener("blur", () => fim(null));
-    requestAnimationFrame(() => inp.focus());
+    inp.addEventListener("blur", () => { if (!perguntando) fim(null); });
+    requestAnimationFrame(() => { inp.focus(); inp.select(); });
   });
 }
 function seleciona(e) { ed.sel = e ? e.nome : null; ed.fioSel = null; ed.multi.clear(); ed.multiFios.clear(); desenha(); mostraProps(); }
@@ -1661,8 +1692,8 @@ function avisaTrava() {                                // fica 4 s (a barra de p
 function travaCircuito(on) {
   const mudou = document.body.classList.contains("circ-travado") !== on;
   document.body.classList.toggle("circ-travado", on);
-  for (const id of ["bt-modelo", "bt-novo", "bt-salvar", "bt-salvar-como", "bt-fio"]) if ($(id)) $(id).disabled = on;
-  if (on) { if (ed.fio.modo) modoFio(false); if (ed.colocar) escolhe(null); }
+  for (const id of ["bt-modelo", "bt-novo", "bt-salvar", "bt-salvar-como", "bt-fio", "bt-conector"]) if ($(id)) $(id).disabled = on;
+  if (on) { if (ed.fio.modo) modoFio(false); if (ed.conector) modoConector(false); if (ed.colocar) escolhe(null); }
   if (mudou && ed.ligado) mostraProps();
 }
 async function mostraProps() {
@@ -2358,7 +2389,7 @@ async function ligaTerminal(e, alvo, domAlvo) {
 }
 function modoFio(on) {
   if (on && simulando()) { avisaTrava(); return; }
-  if (on) { escolhe(null); ed.sel = null; ed.fioSel = null; mostraProps(); }
+  if (on) { if (ed.conector) modoConector(false); escolhe(null); ed.sel = null; ed.fioSel = null; mostraProps(); }
   Object.assign(ed.fio, { modo: on, cantos: [], dom: null });
   document.body.classList.toggle("modo-fio", on); $("bt-fio").classList.toggle("ativo", on);
   msg(on ? tr("simu.modo_fio") : "");
@@ -2419,6 +2450,7 @@ function previaFio() {                             // o fio sendo desenhado e o 
   }
 }
 $("bt-fio").onclick = () => ed.ligado && modoFio(!ed.fio.modo);
+$("bt-conector").onclick = () => ed.ligado && modoConector(!ed.conector);
 
 // ---------------------------------------------------------------- modal (no lugar dos avisos do navegador)
 // (os textos chegam prontos, em HTML; os botões padrão no idioma de agora: o padrão do parâmetro vale a cada chamada)
@@ -2837,7 +2869,6 @@ const IC = {
 function icone(it) {
   // a cor própria (SM roxo, controle verde) vai em --ic e o desenho usa currentColor: segue o tema e fica branca no item selecionado
   if (it.lib) return `<svg viewBox="0 0 30 18" fill="none" stroke="currentColor" style="--ic:${COR.sub}" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">${IC.SUBCIRCUIT}<circle cx="15" cy="9" r="1.6" fill="currentColor"/></svg>`;
-  if (it.conector) return `<svg viewBox="0 0 30 18" fill="none" stroke="currentColor"${it.dom === "CONTROL" ? ` style="--ic:${COR.ct}"` : ""} stroke-width="1.4" stroke-linejoin="round"><path d="M1 9h5"/><path d="M6 4h14l5 5-5 5H6z"/><text x="13" y="11.8" text-anchor="middle" font-size="8" font-style="italic" font-family="serif" fill="currentColor" stroke="none">a</text></svg>`;
   if (it.id === "TAG") return `<svg viewBox="0 0 30 18" fill="none" stroke="currentColor" style="--ic:${COR.ct}" stroke-width="1.4" stroke-linejoin="round"><path d="M1 9h4"/><path d="M5 3.5h15.5L27 9l-6.5 5.5H5z"/><circle cx="20.5" cy="9" r="1.5" fill="currentColor"/></svg>`;
   if (IC[it.id]) return `<svg viewBox="0 0 30 18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">${IC[it.id]}</svg>`;
   const s = SIMBOLO[it.id] || (it.id || "?").replace(/[^A-Za-z0-9]/g, "").slice(0, 4);   // o mesmo símbolo da folha

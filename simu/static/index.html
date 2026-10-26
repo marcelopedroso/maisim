@@ -115,14 +115,15 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   #hist li.erro { border-left-color:var(--erro-borda); color:var(--erro); } #hist time { color:var(--fraco); font-size:11px; margin-right:6px; font-variant-numeric:tabular-nums; }
   #props .botoes { display:flex; gap:6px; margin:8px 0; } #props .aviso { color:var(--aviso2); font-size:11px; margin:4px 0; }
   .el.sel .corpo, .el.sel rect.caixa { stroke:#e8a33d !important; stroke-width:3 !important; }
-  body.colocando #svg, body.modo-fio #svg { cursor:crosshair; }
-  #bt-fio { display:flex; align-items:center; gap:6px; width:100%; margin-bottom:8px; padding:5px 8px; }
-  #bt-fio svg { width:30px; height:18px; } #bt-fio kbd { margin-left:auto; } #bt-fio.ativo kbd { background:transparent; color:#ede9fe; border-color:#a78bfa; }
+  body.colocando #svg, body.modo-fio #svg, body.modo-conector #svg { cursor:crosshair; }
+  #bt-fio, #bt-conector { display:flex; align-items:center; gap:6px; width:100%; margin-bottom:8px; padding:5px 8px; } #bt-fio { margin-bottom:4px; }   /* o conector logo abaixo */
+  #bt-fio svg, #bt-conector svg { width:30px; height:18px; } #bt-fio kbd, #bt-conector kbd { margin-left:auto; }
+  #bt-fio.ativo kbd, #bt-conector.ativo kbd { background:transparent; color:#ede9fe; border-color:#a78bfa; }
   #faixa-sm { display:none; position:absolute; top:10px; left:50%; transform:translateX(-50%); max-width:calc(100% - 40px); background:var(--cartao);
               border:1px solid var(--acento-borda); border-left:4px solid var(--sm); border-radius:10px; padding:7px 12px; font-size:12.5px;
               box-shadow:0 6px 20px var(--sombra); z-index:5; }
   #faixa-sm label { margin-left:8px; font-weight:600; color:var(--sm); cursor:pointer; } #faixa-sm .sub-faixa { display:block; color:var(--sutil); font-size:11.5px; margin-top:2px; }
-  body.editando .fio { cursor:pointer; } body.modo-fio .fio { cursor:crosshair; }
+  body.editando .fio { cursor:pointer; } body.modo-fio .fio, body.modo-conector .fio, body.modo-conector #svg .conector-rot { cursor:crosshair; }
   /* os conectores de rótulo (a bandeirinha do PSIM): o realce acende os do mesmo nome e as conexões com ele, na cor do domínio (color) */
   body.editando #svg .conector-rot { cursor:pointer; } #svg .conector-rot { outline:none; }
   #svg .conector-rot.realce polygon, #svg .conector-rot:focus-visible polygon { stroke-width:2.6px; filter:drop-shadow(0 0 2.5px currentColor); }
@@ -715,8 +716,8 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   <span id="msg"></span>
   <span id="info"></span>
 </header>
-<div id="paleta"><button id="bt-fio" data-tr="simu.fio" title="conexão: clique num terminal, ponha os cantos e termine noutro terminal ou conexão (W liga e desliga)" data-tr-title="simu.t_fio"><svg viewBox="0 0 30 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="14" r="1.8" fill="currentColor"/><path d="M4 14h9V4h13"/><circle cx="26" cy="4" r="1.8" fill="currentColor"/></svg>conexão<kbd>W</kbd></button><div id="abas"></div><input id="busca" type="text" placeholder="procurar componente…" data-tr-ph="simu.ph_busca"><div id="itens"></div>
-  <div class="dica-paleta" data-tr="simu.dica_paleta">clique num componente e depois na folha · Esc cancela · W: conexão</div></div>
+<div id="paleta"><button id="bt-fio" data-tr="simu.bt_fio" title="conexão: clique num terminal, ponha os cantos e termine noutro terminal ou conexão (W liga e desliga)" data-tr-title="simu.t_fio"><svg viewBox="0 0 30 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="14" r="1.8" fill="currentColor"/><path d="M4 14h9V4h13"/><circle cx="26" cy="4" r="1.8" fill="currentColor"/></svg>Fio<kbd>W</kbd></button><button id="bt-conector" data-tr="simu.conector" title="Conector (rótulo) · clique num borne ou num ponto de conexão e dê o nome: pontos com o mesmo nome ficam ligados (C)" data-tr-title="simu.t_conector_bt"><svg viewBox="0 0 30 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M1 9h5"/><path d="M6 4h14l5 5-5 5H6z"/><path d="M9.5 9h7" stroke-width="1.3" stroke-linecap="round"/></svg>Conector<kbd>C</kbd></button><div id="abas"></div><input id="busca" type="text" placeholder="procurar componente…" data-tr-ph="simu.ph_busca"><div id="itens"></div>
+  <div class="dica-paleta" data-tr="simu.dica_paleta">clique num componente e depois na folha · Esc cancela · W: fio · C: conector</div></div>
 <button id="aba-paleta" data-tr-js class="aba-borda" title="recolher a paleta">‹</button>
 <button id="aba-props" data-tr-js class="aba-borda" title="recolher o painel da direita (componente e histórico)">›</button>
 <div id="tela"><svg id="svg"></svg><div id="faixa-sm"></div>

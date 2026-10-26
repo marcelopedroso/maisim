@@ -1,6 +1,8 @@
 // os conectores de rótulo, como o "label" do PSIM (instância de teste 7201): a bandeirinha nas pontas soltas com nome, a
 // seta para fora, a cor do domínio, a marca do voltímetro sem cobrir a bandeirinha, o realce do mesmo nome, o clique que
-// seleciona a conexão, o tema escuro e o zoom; e o item "Conector (rótulo)" da paleta (põe, liga ao nó do mesmo nome, desfaz, Esc)
+// seleciona a conexão, o tema escuro e o zoom; e a ferramenta conector (o botão "Conector" abaixo do "Fio", tecla C: liga e
+// desliga, exclui o W, põe no domínio do ponto clicado, liga ao nó do mesmo nome, desfaz, o nome que o ponto já tem no
+// campo e o aviso antes de juntar dois nós, Esc)
 const { chromium } = require("playwright");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
@@ -12,10 +14,10 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   // o circuito, montado aqui: R.1 e R.2 em pé, cada um com uma conexão "a" que sai do borne de cima e termina solta (a do
   // R.1 para a direita; a do R.2 para cima, começando na ponta solta: a marca automática do voltímetro vai nela); "p"
   // liga os dois bornes de baixo (ligada dos dois lados: fica o texto); "q" desce solta do R.3 (em pé: a casinha para baixo);
-  // "c", de controle, sai do CONST.1 e termina solta. O VOLT.1 mede a contra p
+  // "c", de controle, sai do CONST.1 e termina solta; o GAIN.1 (controle) com os bornes livres. O VOLT.1 mede a contra p
   const S = "http://localhost:7201/maisim/simu/", post = (r, c) => fetch(S + r, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(c) }).then((x) => x.json());
   await post("editor/novo", { modo: "descartar" });
-  for (const a of [["R.1", 10, 10, "R"], ["R.2", 30, 10, "R"], ["R.3", 20, 10, "R"], ["CONST.1", 10, 22, "CONST"], ["VOLT.1", 44, 10, "VOLT"]]) await post("editor/cmd", { op: "CREATE", args: a });
+  for (const a of [["R.1", 10, 10, "R"], ["R.2", 30, 10, "R"], ["R.3", 20, 10, "R"], ["CONST.1", 10, 22, "CONST"], ["GAIN.1", 30, 22, "GAIN"], ["VOLT.1", 44, 10, "VOLT"]]) await post("editor/cmd", { op: "CREATE", args: a });
   for (const [cantos, dom, rotulo] of [[[[14, 8], [10, 8]], "LK", "a"], [[[30, 5], [30, 8]], "LK", "a"], [[[10, 12], [10, 14], [30, 14], [30, 12]], "LK", "p"],
     [[[20, 12], [20, 15]], "LK", "q"], [[[12, 22], [16, 22]], "CONTROL", "c"]]) {
     const j = await post("editor/fio", { acao: "novo", cantos, dom, rotulo });
@@ -101,26 +103,35 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   ok(await pg.evaluate(() => !document.querySelector("#svg .conector-rot")), "rótulos escondidos: as bandeirinhas também somem");
   await pg.evaluate(() => { mostrar.rotulos = true; desenha(); });
 
-  // o item "Conector (rótulo)" da paleta: na aba Circuito (potência) e na Controle; no borne de cima do R.3 (livre), com o
-  // nome "a": um pedaço de conexão para cima (o lado de fora do borne), com o rótulo; a bandeirinha nova e o R.3 no nó "a"
-  const itens = await pg.evaluate(() => ed.catalogo.abas.filter((x) => x.itens.some((i) => i.conector)).map((x) => [x.aba, x.itens.find((i) => i.conector).dom]));
-  ok(JSON.stringify(itens) === JSON.stringify([["Circuit", "LK"], ["Control", "CONTROL"]]), `o conector na paleta: ${JSON.stringify(itens)}`);
-  await pg.evaluate(() => { ed.aba = ed.catalogo.abas.findIndex((x) => x.aba === "Circuit"); desenhaPaleta(); });
-  const item = await pg.$('#itens .item[data-id="CONECTOR_LK"]');
-  const dicaItem = item && await item.getAttribute("title");
-  ok(item && /Conector \(rótulo\)/.test(await item.textContent()) && /PSIM/.test(dicaItem), `o item na aba Circuito, com a dica: ${dicaItem}`);
+  // a ferramenta conector: fora das abas da paleta; um botão logo abaixo do "Fio" (W), com o ícone, "Conector" e o C
+  const semItem = await pg.evaluate(() => !ed.catalogo.abas.some((x) => x.itens.some((i) => /CONECTOR/.test(i.id || "") || i.conector)));
+  const bt = await pg.evaluate(() => { const b = $("bt-conector"), f = $("bt-fio"); return { txt: b.textContent.trim(), kbd: b.querySelector("kbd").textContent, svg: !!b.querySelector("svg"),
+    titulo: b.getAttribute("title"), logo: f.nextElementSibling === b, abaixo: b.getBoundingClientRect().top >= f.getBoundingClientRect().bottom - 1 }; });
+  ok(semItem && bt.txt === "ConectorC" && bt.kbd === "C" && bt.svg && bt.logo && bt.abaixo && /^Conector \(rótulo\) · clique num borne ou num ponto de conexão e dê o nome: pontos com o mesmo nome ficam ligados \(C\)$/.test(bt.titulo) && !/PSIM/.test(bt.titulo),
+     `o conector sai das abas e vira ferramenta abaixo do "conexão": ${JSON.stringify(bt)}`);
+  const modo = () => pg.evaluate(() => ({ c: ed.conector, w: ed.fio.modo, bc: $("bt-conector").classList.contains("ativo"), bw: $("bt-fio").classList.contains("ativo") }));
+  await pg.click("#bt-conector"); const m1 = await modo();
+  await pg.keyboard.press("c"); const m2 = await modo();
+  await pg.keyboard.press("C"); await pg.keyboard.press("w"); const m3 = await modo();      // C liga; W liga a conexão e desliga o conector
+  await pg.keyboard.press("c"); const m4 = await modo();                                     // C desliga a conexão
+  await pg.keyboard.press("Escape"); const m5 = await modo();
+  ok(m1.c && m1.bc && !m2.c && !m2.bc && m3.w && !m3.c && m3.bw && !m3.bc && m4.c && !m4.w && m4.bc && !m4.bw && !m5.c && !m5.w,
+     `o botão e o C ligam e desligam; W e C se excluem; Esc sai: ${JSON.stringify([m1, m2, m3, m4, m5])}`);
+  await pg.click("#bt-fio"); await pg.click("#bt-conector"); const m6 = await modo();
+  ok(m6.c && !m6.w, `o botão do conector também desliga a conexão: ${JSON.stringify(m6)}`);
   const ponto = (x, y) => pg.evaluate(([x, y]) => { const s = $("svg"), p = s.createSVGPoint(); p.x = x * G; p.y = y * G; const r = p.matrixTransform(s.getScreenCTM()); return [r.x, r.y]; }, [x, y]);
   const nFios = () => pg.evaluate(() => dados.folhas["0"].fios.length);
   const n0 = await nFios();
-  // Esc cancela: nada muda, o item sai
-  await item.click(); let pt = await ponto(20, 8); await pg.mouse.click(pt[0], pt[1]);
+  // Esc no campo do nome desiste do nome (nada muda; a ferramenta continua)
+  let pt = await ponto(20, 8); await pg.mouse.click(pt[0], pt[1]);
   await pg.waitForSelector("#conector-nome input", { timeout: 5000 }); await pg.waitForTimeout(100);
   await pg.keyboard.type("zz"); await pg.keyboard.press("Escape"); await pg.waitForTimeout(400);
-  ok(!(await pg.$("#conector-nome")) && await nFios() === n0 && await pg.evaluate(() => !ed.colocar), "Esc cancela: o campo some, nenhuma conexão nova, o item sai");
+  ok(!(await pg.$("#conector-nome")) && await nFios() === n0 && (await modo()).c, "Esc no campo: o campo some, nenhuma conexão nova, a ferramenta continua");
   // num ponto vazio: o aviso, nada muda
-  await (await pg.$('#itens .item[data-id="CONECTOR_LK"]')).click(); pt = await ponto(36, 18); await pg.mouse.click(pt[0], pt[1]); await pg.waitForTimeout(300);
-  ok(!(await pg.$("#conector-nome")) && await nFios() === n0, "num ponto sem borne nem conexão: não abre o campo");
-  // no borne de cima do R.3
+  pt = await ponto(36, 18); await pg.mouse.click(pt[0], pt[1]); await pg.waitForTimeout(300);
+  const aviso = await pg.evaluate(() => $("msg").textContent);
+  ok(!(await pg.$("#conector-nome")) && await nFios() === n0 && /borne ou num ponto de conexão/.test(aviso), `num ponto sem borne nem conexão: não abre o campo, avisa (${aviso})`);
+  // potência: no borne de cima do R.3, com o nome "a" (o domínio vem do ponto)
   pt = await ponto(20, 8); await pg.mouse.click(pt[0], pt[1]);
   await pg.waitForSelector("#conector-nome input", { timeout: 5000 }); await pg.waitForTimeout(100);
   const lista = await pg.evaluate(() => [...document.querySelectorAll("#conector-nomes option")].map((o) => o.value));
@@ -130,21 +141,48 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     return { w: w && [w.dom, w.rotulo, w.pts], noA: ((dados.nos_medidos || {})["0"] || {}).a.map((c) => c.nome) }; });
   bs = await band();
   ok(novo.w && novo.w[0] === "LK" && novo.w[1] === "a" && JSON.stringify(novo.w[2]) === "[[20,8],[20,7],[20,6]]" && novo.noA.includes("R.3")
-     && bs.filter((x) => x.rot === "a").length === 3 && bs.some((x) => x.rot === "a" && x.x === 20 && x.y === 6 && x.seta === "c") && lista.includes("a") && lista.includes("p"),
-     `o conector posto (o R.3 no nó "a", o do voltímetro): ${JSON.stringify(novo)}; três bandeirinhas "a" (a nova em (20,6), para cima); os nomes sugeridos ${JSON.stringify(lista)}`);
-  await pg.screenshot({ path: "conectores_paleta.png" });
+     && bs.filter((x) => x.rot === "a").length === 3 && bs.some((x) => x.rot === "a" && x.x === 20 && x.y === 6 && x.seta === "c" && x.dom === "LK") && lista.includes("a") && lista.includes("p") && !lista.includes("c"),
+     `o de potência no borne do R.3 (o R.3 no nó "a", o do voltímetro): ${JSON.stringify(novo)}; três bandeirinhas "a" (a nova em (20,6), para cima); os nomes sugeridos (só de potência) ${JSON.stringify(lista)}`);
+  await pg.screenshot({ path: "conectores_ferramenta.png" });
   // um passo só no desfazer
   await pg.keyboard.press("Control+z");
   await pg.waitForFunction((n) => dados.folhas["0"].fios.length === n, n0, { timeout: 20000 }).catch(() => {}); await pg.waitForTimeout(300);
   bs = await band();
   ok(await nFios() === n0 && bs.filter((x) => x.rot === "a").length === 2 && await pg.evaluate(() => !dados.nos_medidos["0"].a.some((c) => c.nome === "R.3")),
      "Ctrl+Z desfaz o conector inteiro (um passo)");
-  // o conector de controle não vai num ponto de potência
-  await pg.evaluate(() => { ed.aba = ed.catalogo.abas.findIndex((x) => x.aba === "Control"); desenhaPaleta(); });
-  await (await pg.$('#itens .item[data-id="CONECTOR_CONTROL"]')).click(); pt = await ponto(20, 8); await pg.mouse.click(pt[0], pt[1]); await pg.waitForTimeout(300);
-  const aviso = await pg.evaluate(() => $("msg") ? $("msg").textContent : "");
-  ok(!(await pg.$("#conector-nome")) && /lado de potência/.test(aviso), `o de controle num borne de potência: não põe, avisa (${aviso})`);
+  // controle: a mesma ferramenta, na entrada do GAIN.1 (28,22): a conexão de controle para a esquerda, a bandeirinha verde
+  if (!(await modo()).c) await pg.keyboard.press("c");
+  pt = await ponto(28, 22); await pg.mouse.click(pt[0], pt[1]);
+  await pg.waitForSelector("#conector-nome input", { timeout: 5000 }); await pg.waitForTimeout(100);
+  const listaC = await pg.evaluate(() => [...document.querySelectorAll("#conector-nomes option")].map((o) => o.value));
+  await pg.keyboard.type("c"); await pg.keyboard.press("Enter");
+  await pg.waitForFunction((n) => dados.folhas["0"].fios.length === n + 1, n0, { timeout: 20000 }); await pg.waitForTimeout(300);
+  const ctl = await pg.evaluate(() => { const w = dados.folhas["0"].fios.find((u) => u.pts.some((p) => p[0] === 28 && p[1] === 22)); return w && [w.dom, w.rotulo, w.pts]; });
+  bs = await band(); const cor2 = await pg.evaluate(() => COR.fioCT);
+  const verde = bs.find((x) => x.rot === "c" && x.x === 26 && x.y === 22);
+  ok(ctl && ctl[0] === "CONTROL" && ctl[1] === "c" && JSON.stringify(ctl[2]) === "[[28,22],[27,22],[26,22]]" && verde && verde.dom === "CONTROL" && verde.stroke === cor2 && verde.seta === "e"
+     && JSON.stringify(listaC) === JSON.stringify(["c"]), `o de controle na entrada do GAIN.1: ${JSON.stringify(ctl)}, a bandeirinha verde para a esquerda; sugeridos ${JSON.stringify(listaC)}`);
+  // num ponto que já tem nome (a ponta solta da conexão "a" do R.1, (14,8)): o campo vem com "a"; outro nome ("b") junta os
+  // dois nós: o aviso do MaiSim antes (cancelar volta ao campo, sem criar; confirmar cria)
+  const n1 = await nFios();
+  pt = await ponto(14, 8); await pg.mouse.click(pt[0], pt[1]);
+  await pg.waitForSelector("#conector-nome input", { timeout: 5000 }); await pg.waitForTimeout(150);
+  const pre = await pg.$eval("#conector-nome input", (i) => [i.value, i.selectionStart, i.selectionEnd]);
+  await pg.keyboard.type("b"); await pg.keyboard.press("Enter");
+  await pg.waitForSelector(".modal-fundo .modal", { timeout: 5000 });
+  const av = await pg.evaluate(() => ({ h: document.querySelector(".modal h3").textContent, p: document.querySelector(".modal p").textContent, ok: document.querySelector(".modal .m-ok").textContent }));
+  await pg.screenshot({ path: "conectores_aviso.png" });
+  ok(pre[0] === "a" && pre[1] === 0 && pre[2] === 1 && av.h === "Ligar dois nós?" && av.p === "Este ponto já é o nó 'a'; chamar de 'b' liga 'a' e 'b' (curto entre eles). Criar mesmo assim?" && av.ok === "Criar",
+     `o campo já vem com o nome do ponto ("${pre[0]}", selecionado); outro nome: o aviso "${av.h}" — "${av.p}"`);
+  await pg.click(".modal .m-cancela"); await pg.waitForTimeout(300);
+  const volta = await pg.evaluate(() => { const i = document.querySelector("#conector-nome input"); return i && [i.value, document.activeElement === i]; });
+  ok(volta && volta[0] === "b" && volta[1] && await nFios() === n1, `cancelar volta ao campo ("${volta && volta[0]}", com o foco), nada criado`);
+  await pg.keyboard.press("Enter"); await pg.waitForSelector(".modal-fundo .modal", { timeout: 5000 }); await pg.click(".modal .m-ok");
+  await pg.waitForFunction((n) => dados.folhas["0"].fios.length === n + 1, n1, { timeout: 20000 }).catch(() => {}); await pg.waitForTimeout(300);
+  const wb = await pg.evaluate(() => { const w = dados.folhas["0"].fios.find((u) => u.rotulo === "b"); return w && [w.dom, w.pts]; });
+  ok(wb && wb[0] === "LK" && JSON.stringify(wb[1]) === "[[14,8],[15,8],[16,8]]" && !(await pg.$("#conector-nome")), `confirmar cria: ${JSON.stringify(wb)}`);
   await pg.keyboard.press("Escape");
+  ok(!(await modo()).c && !(await pg.$("#conector-nome")), "Esc sai da ferramenta");
   ok(!erros.length, `sem erros de JS nem diálogos ${erros.join(" ; ")}`);
   await b.close(); process.exit(falhas ? 1 : 0);
 })();

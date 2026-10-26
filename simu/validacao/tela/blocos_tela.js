@@ -35,10 +35,9 @@ const SIMB = { INT: "∫", PI: "PI", PD: "d/dt", PT1: "PT1", PT2: "PT2", TF: "H(
     for (let k = 0; k < 10 && await pg.$(".modal-fundo"); k++) { await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }   // o nome do novo
     const espera = async (f, arg, ms = 30000) => { for (const t0 = Date.now(); Date.now() - t0 < ms;) { if (await pg.evaluate(f, arg)) return true; await pg.waitForTimeout(250); } return false; };
 
-    // 1. os blocos à vista, do catálogo da paleta; todos com nome e explicação nos dois idiomas (o conector de rótulo da aba
-    // Controle não é bloco: é um pedaço de conexão com nome — conectores_tela)
+    // 1. os blocos à vista, do catálogo da paleta; todos com nome e explicação nos dois idiomas
     const vis = await pg.evaluate((ABAS) => { const ids = [];
-      for (const a of ed.catalogo.abas) if (ABAS.includes(a.aba)) for (const i of a.itens) if (!i.oculto && !i.conector && !ids.some((x) => x.id === i.id)) ids.push({ id: i.id, rot: i.rotulo || "" });
+      for (const a of ed.catalogo.abas) if (ABAS.includes(a.aba)) for (const i of a.itens) if (!i.oculto && !ids.some((x) => x.id === i.id)) ids.push({ id: i.id, rot: i.rotulo || "" });
       return ids; }, ABAS);
     ok(vis.length >= 45, `${vis.length} blocos à vista nas abas ${ABAS.join(", ")}`);
     const semDic = await pg.evaluate((vis) => vis.filter(({ id, rot }) => !rot || !maisimI18n.tem(rot) || !maisimI18n.tem("simu.descr." + (id === "RANDOM" ? "RANDOM" : id))).map((x) => x.id), vis);
