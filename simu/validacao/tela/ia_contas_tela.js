@@ -35,7 +35,7 @@ const semChave = (pg) => pg.evaluate((k) => !document.documentElement.outerHTML.
     await pg.reload(); await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
     await pg.click("#bt-editar"); await pg.waitForTimeout(600); while (await pg.$(".modal-fundo")) { await pg.click(".modal .m-extra, .modal .m-ok"); await pg.waitForTimeout(800); }
     await pg.click("#bt-ctl"); await pg.waitForFunction(() => ctl.carregado && ctl.editor, null, { timeout: 30000 });
-    await pg.click("#ctl-claude-bt"); await pg.waitForFunction(() => cla.estado && cla.estado.logado && cc.ias.length === 2, null, { timeout: 20000 });
+    await pg.click("#ctl-claude-bt"); await pg.waitForFunction(() => cla.estado && cla.estado.logado && cc.ias.some((a) => a.id === "eco"), null, { timeout: 20000 });
     const sel = () => pg.evaluate(() => ({ visivel: getComputedStyle($("cc-ia")).display !== "none", ops: [...$("cc-ia").options].map((o) => o.textContent), ia: ccIA(),
       modelos: [...$("cc-modelo").options].map((o) => o.textContent), esforco: getComputedStyle($("cc-esforco")).display !== "none", uso: $("cc-uso").textContent }));
     const s0 = await sel();
@@ -54,6 +54,12 @@ const semChave = (pg) => pg.evaluate((k) => !document.documentElement.outerHTML.
     ok(/com a sua conta \(ou a sua chave\)/.test(topo.t) && /não é afiliado a nenhuma delas/.test(topo.t) && !/Anthropic/.test(topo.t) && topo.links === 0
       && topo.href === "https://code.claude.com/docs/en/legal-and-compliance" && topo.alvo === "_blank" && topo.txt === "termos ↗" && /Claude Code \(Anthropic\)/.test(topo.dica),
       `o topo genérico ("${topo.t.slice(0, 60)}…"), e os termos do Claude Code na seção do Claude`);
+    // a DeepSeek (sempre na lista, de chave): o texto dela, o link das chaves e o campo
+    const dsj = await pg.evaluate(() => { const s = $("iac-deepseek"); if (!s) return {}; const l = s.querySelector("a.iac-link");
+      return { txt: s.innerText, href: l && l.href, alvo: l && l.target, rel: l && l.rel, ph: s.querySelector("input[type=password]") && s.querySelector("input[type=password]").placeholder }; });
+    ok(/^DeepSeek\s+não conectado/.test(dsj.txt || "") && /A DeepSeek funciona com uma chave de API \(cobrança por uso\)/.test(dsj.txt) && /1\. Crie a chave em platform\.deepseek\.com → API keys ↗/.test(dsj.txt)
+      && dsj.href === "https://platform.deepseek.com/api_keys" && dsj.alvo === "_blank" && /noopener/.test(dsj.rel) && dsj.ph === "sk-…",
+      `a DeepSeek: "${(dsj.txt || "").split("\n").slice(0, 3).join(" | ")}", o link ${dsj.href}`);
     await pg.click("#iac-chave-eco"); await pg.keyboard.type("abc"); await pg.keyboard.press("Enter");
     await pg.waitForSelector("#iac-eco .iac-erro", { timeout: 10000 });
     ok(/começa com “sk-”/.test(await pg.textContent("#iac-eco .iac-erro")) && await pg.inputValue("#iac-chave-eco") === "abc", "chave mal formada (Enter): o motivo, e o que se colou fica para corrigir");

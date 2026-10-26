@@ -1,6 +1,7 @@
 """As IAs do MaiSim (etapa 2 do hub de IA): o registro. Cada IA é uma peça (ia/<nome>.py, subclasse de base.IA); o servidor
-pergunta aqui qual usar. Hoje só o Claude (as IAs do Google saíram na v0.3.0: o login da conta Google por
-programas de terceiros arrisca suspender a conta; outras IAs ficam para o roadmap). Na instância de teste
+pergunta aqui qual usar. O Claude e a DeepSeek (ia/deepseek.py: o mesmo Claude Code, com a chave de API da pessoa e uma
+pasta só dela); as IAs do Google saíram na v0.3.0 (o login da conta Google por programas de terceiros arrisca suspender a
+conta). Na instância de teste
 (MAISIM_IA_TESTE=1), também o "Eco": o mesmo claude de mentira com outra pasta de configuração (a troca de IA no meio da
 conversa) e o login por chave de API (base.ComChave: uma chave de mentira, "sk-…")."""
 import os
@@ -10,6 +11,7 @@ from pathlib import Path
 
 from .base import IA, ComChave  # noqa: F401
 from .claude import Claude
+from .deepseek import DeepSeek
 
 
 class Eco(ComChave, Claude):
@@ -48,6 +50,8 @@ def registro():
     bin_claude = acha_claude()
     ias = {"claude": Claude(bin_claude, os.environ.get("MAISIM_CLAUDE_DIR") or Path.home() / ".claude-maisim")}
     ias["claude"].acha = acha_claude                 # instalado depois (o botão Instalar, ou à mão): procura de novo, sem reiniciar
+    ias["deepseek"] = DeepSeek(bin_claude, os.environ.get("MAISIM_DEEPSEEK_DIR") or Path.home() / ".deepseek-maisim")
+    ias["deepseek"].acha = acha_claude               # o mesmo claude (instalar o Claude Code serve às duas)
     if teste:
         ias["eco"] = Eco(bin_claude, Path(os.environ.get("MAISIM_CLAUDE_DIR") or "/tmp/maisim-teste").with_name("eco-maisim"))
     return ias

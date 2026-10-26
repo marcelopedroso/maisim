@@ -267,14 +267,21 @@ function htmlUso(u, ia = "claude") {
 
 // as contas das outras IAs (uma IA com o login pelo MaiSim): uma seção cada. Cada uma pode dizer aqui a empresa, a
 // ferramenta, o comando de instalar (fora do Windows; instalaTexto: a chave do texto) e os textos do login; uma IA de chave de
-// API (modo_login "chave"), a página onde se cria a chave (chaveUrl, chaveSite) e o aviso de custo (custo); e os termos de uso
-// da empresa (termos: o link no título da seção). Getters: lidos na
+// API (modo_login "chave"), a página onde se cria a chave (chaveUrl, chaveSite), o texto de antes de conectar (chaveIntro), o
+// que ela precisa instalado (precisa) e o aviso de custo (custo); e os termos de uso da empresa (termos: o link no título da
+// seção). Getters: lidos na
 // hora de desenhar, no idioma de agora
-const IA_DE = {};
+const IA_DE = {
+  // a DeepSeek: o Claude Code deste computador com a chave de API da pessoa (ia/deepseek.py); sem o Claude Code, o mesmo
+  // instalador do Claude
+  deepseek: { empresa: "DeepSeek", ferramenta: "Claude Code", instala: "curl -fsSL https://claude.ai/install.sh | bash", instalaTexto: "ia.instalar_claude_terminal_html",
+    chaveUrl: "https://platform.deepseek.com/api_keys", chaveSite: "platform.deepseek.com → API keys", chavePh: "sk-…",
+    get chaveIntro() { return tr("ia.deepseek_intro"); }, get precisa() { return tr("ia.deepseek_precisa"); } },
+};
 // o "não instalado" de outra IA: o botão Instalar (quando o servidor tem o instalador dela) ou o comando para o terminal
 function htmlAusenteIA(a, d, win) {
   const i = instDe(a.id), ferr0 = d.ferramenta || a.nome, saida = i && i.saida ? `<pre class="cla-saida">${escT(i.saida)}</pre>` : "";
-  const h = `<p>${escT(tr("ia.outra_ausente", { ferr: ferr0 }))}`;
+  const h = `${d.precisa ? `<p>${escT(d.precisa)}</p>` : ""}<p>${escT(tr("ia.outra_ausente", { ferr: ferr0 }))}`;
   if (a.pode_instalar) {
     if (i && i.andamento) return `${h}</p><p class="cla-espera">${escT(tr("ia.outra_instalando", { ferr: ferr0 }))}</p>${saida}`;
     return `${h} ${escT(tr("ia.outra_pode_instalar"))}</p>` + (i && i.erro ? `<p class="cla-erro">${escT(i.erro)}</p>${saida}` : "");

@@ -133,6 +133,10 @@ maisimI18n.add({
   "ia.saldo": { pt: "saldo {valor}", en: "balance {valor}" },
   "ia.chave_custo": { pt: "Cobrança por uso, na sua chave.", en: "Billed by usage, on your key." },
   "ia.trocar_chave": { pt: "Trocar chave", en: "Change key" },
+  // a DeepSeek (pelo Claude Code, com a chave de API da pessoa)
+  "ia.deepseek_intro": { pt: "A DeepSeek funciona com uma chave de API (cobrança por uso). O MaiSim a usa pelo Claude Code deste computador, numa pasta só dela: o seu login do Claude não muda.",
+    en: "DeepSeek works with an API key (billed by usage). MaiSim uses it through this computer's Claude Code, in a folder of its own: your Claude sign-in doesn't change." },
+  "ia.deepseek_precisa": { pt: "A DeepSeek roda pelo Claude Code (o mesmo programa do Claude), com a sua chave de API.", en: "DeepSeek runs through Claude Code (the same program as Claude), with your API key." },
   "ia.instalar_html": { pt: "Para instalar (Node 20 ou mais novo): <code>{cmd}</code>", en: "To install it (Node 20 or newer): <code>{cmd}</code>" },
   "ia.outra_deslogado_html": { pt: "O MaiSim usa o {ferr} deste computador, com {pasta}: o seu outro login do {nome} não muda.\n      A autenticação é na página do próprio {empresa}.",
     en: "MaiSim uses this computer's {ferr}, with {pasta}: your other {nome} sign-in doesn't change.\n      Authentication happens on {empresa}'s own page." },
