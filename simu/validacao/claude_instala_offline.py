@@ -70,7 +70,7 @@ instalador.write_text("import sys, time, pathlib, os\n"
                       "    a = pathlib.Path(sys.argv[1]); a.parent.mkdir(parents=True, exist_ok=True)\n"
                       f"    a.write_text({falso_claude!r}); a.chmod(0o755)\n"
                       "print('Installation complete!', flush=True)\n")
-os.environ.update(MAISIM_PERFIL="teste", MAISIM_CLAUDE_BIN=str(alvo), MAISIM_CLAUDE_DIR=str(T / "claude-maisim"),
+os.environ.update(MAISIM_PERFIL="teste", MAISIM_CLAUDE_BIN=str(alvo), MAISIM_CLAUDE_DIR=str(T / "claude-maisim"), MAISIM_CURSOR_DIR=str(T / "cursor-maisim"),
                   MAISIM_SIMU_CACHE=str(T / "cache"), MAISIM_CACHE=str(T / "cache"))
 def cmd(modo):
     return f"{sys.executable} {instalador} {alvo} {modo}"

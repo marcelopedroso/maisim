@@ -126,6 +126,8 @@ def carrega(perfil=None):
             v["MAISIM_CLAUDE_DIR"] = str(arquivo_pessoal().parent / "claude")
         if os.name == "nt" and "MAISIM_DEEPSEEK_DIR" not in proprios:     # a da DeepSeek ao lado: %APPDATA%\MaiSim\deepseek
             v["MAISIM_DEEPSEEK_DIR"] = str(arquivo_pessoal().parent / "deepseek")
+        if os.name == "nt" and "MAISIM_CURSOR_DIR" not in proprios:   # a casa do Cursor do MaiSim, ao lado (a mesma regra)
+            v["MAISIM_CURSOR_DIR"] = str(arquivo_pessoal().parent / "cursor")
     return v
 
 

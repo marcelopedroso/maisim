@@ -17,7 +17,7 @@ const DADO = [".rodada .info", "#so-circ > span", "#maisim-nav .marca", "#maisim
 // código, os nomes dos produtos
 const LIVRE = new RegExp([/^[\s\d.,:;%·\-−+×…/()°ΩµkMGBVAHzs→‹›✕▾]*$/, /^(MaiSim|PT|EN|OK|Scope|Layout ▾|\?|Ts|i|[A-Z])$/,
   /^[\w.-]+\.py(:\d+)?$/, /^[A-Za-z]+_\w+$/, /^[mp]\["…"\]$/,
-  /^((Claude|Code|Anthropic|CLI|·)\s*)+$/].map((r) => r.source).join("|"));
+  /^((Claude|Code|Anthropic|Cursor|CLI|·)\s*)+$/].map((r) => r.source).join("|"));
 
 // o simu: o exemplo com controle aberto (um "descartar?" da instância de teste: aceita), a aba Controle, a 1ª tabela; depois a IA
 async function esperaCircuito(pg) {

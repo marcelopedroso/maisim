@@ -4,7 +4,7 @@
 // servidor o código que a página mostrou. Nada de credencial passa por aqui. Uma IA de chave de API (modo_login "chave"):
 // a chave colada vai uma vez ao servidor, que a guarda; a página nunca a recebe de volta (só o começo e os 4 últimos).
 const cla = { estado: null, falha: "", aviso: "", enviando: false, timer: null, janela: null, desenhado: "", uso: null,
-  ias: [], iaAviso: {}, iaEnviando: {}, iaTimer: null, aberta: {}, iaUso: {}, iaUsoLendo: {}, trocaChave: {}, inst: null, instTimer: null };   // trocaChave: o campo da chave aberto de novo (Trocar chave)   // inst: a instalação do Claude Code (o botão Instalar)   // aberta: os detalhes de cada conta (o botão)   // ias: /claude/ias (as outras IAs trazem o estado do login)
+  ias: [], iaAviso: {}, iaEnviando: {}, iaTimer: null, aberta: {}, iaUso: {}, iaUsoLendo: {}, trocaChave: {}, usaChave: {}, inst: null, instTimer: null };   // trocaChave: o campo da chave aberto de novo (Trocar chave)   // inst: a instalação do Claude Code (o botão Instalar)   // aberta: os detalhes de cada conta (o botão)   // ias: /claude/ias (as outras IAs trazem o estado do login)
 
 // o diodo com o brilho de IA, animado (o "carregando" do MaiSim): corrente passando, faíscas piscando, o brilho mudando de cor
 function diodoIA(px = 22) {
@@ -153,7 +153,7 @@ function desenhaJanelaClaude() {
   const modo = !e ? "falha" : !e.instalado ? "ausente" : e.logado ? "logado" : l.andamento ? "andamento" : "deslogado";
   const chave = JSON.stringify([modo, e && e.email, e && e.plano, e && e.erro, l.url_auto, l.url_manual, l.erro, cla.aviso, cla.falha, cla.enviando, cla.uso,
     e && e.pode_instalar, cla.inst, cla.instalando, cla.procurando,
-    outrasIAs().map((a) => a.estado), cla.iaAviso, cla.iaEnviando, cla.aberta, cla.iaUso, cla.trocaChave]);
+    outrasIAs().map((a) => a.estado), cla.iaAviso, cla.iaEnviando, cla.aberta, cla.iaUso, cla.trocaChave, cla.usaChave]);
   if (chave === cla.desenhado) return;
   cla.desenhado = chave;
   // o que se digita nos campos de código (o do Claude e os das outras IAs) sobrevive ao redesenho, com o foco
@@ -280,6 +280,14 @@ const IA_DE = {
     termos: "https://cdn.deepseek.com/policies/en-US/deepseek-open-platform-terms-of-service.html",
     privacidade: "https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html",
     get chaveIntro() { return tr("ia.deepseek_intro"); }, get precisa() { return tr("ia.deepseek_precisa"); }, get dados() { return tr("ia.deepseek_dados"); } },
+  // o Cursor: o Cursor CLI oficial (ia/cursor.py), com a conta (o login pela página: o CLI confere sozinho, nada para colar —
+  // semCodigo) ou com a chave de API dele; as duas entradas, na ordem do servidor (estado.entradas, MAISIM_CURSOR_ENTRADA)
+  cursor: { empresa: "Cursor", ferramenta: "Cursor CLI", instala: "curl https://cursor.com/install -fsS | bash", instalaTexto: "ia.instalar_terminal_html",
+    termos: "https://cursor.com/terms-of-service", semCodigo: true,
+    chaveUrl: "https://cursor.com/dashboard/api", chaveSite: "cursor.com/dashboard → API Keys",
+    get conta() { return tr("ia.cursor_conta"); }, get entrar() { return tr("ia.cursor_entrar"); }, get pagina() { return tr("ia.cursor_pagina"); },
+    get espera() { return tr("ia.cursor_espera"); }, get chaveIntro() { return tr("ia.cursor_chave_intro"); }, get chavePh() { return tr("ia.cursor_ph_chave"); },
+    get custo() { return tr("ia.cursor_custo"); } },
 };
 // o "não instalado" de outra IA: o botão Instalar (quando o servidor tem o instalador dela) ou o comando para o terminal
 function htmlAusenteIA(a, d, win) {
@@ -309,8 +317,12 @@ function htmlChaveConectada(a, d) {
 }
 function htmlContaIA(a) {
   const e = a.estado, l = e.login || {}, d = IA_DE[a.id] || {}, av = cla.iaAviso[a.id], env = cla.iaEnviando[a.id];
-  const deChave = a.modo_login === "chave", trocando = deChave && e.logado && !!cla.trocaChave[a.id];
-  const modo = !e.instalado ? "ausente" : e.logado && !trocando ? "logado" : deChave ? "chave" : l.andamento ? "andamento" : "deslogado";
+  // uma IA com as duas entradas (o login pela página e a chave: o Cursor): conectada, a que está valendo; senão, a 1ª da ordem
+  // dela (modo_login "chave": a chave primeiro) ou a chave, se a pessoa pediu ("Usar uma chave de API")
+  const duas = (e.entradas || []).length > 1;
+  const deChave = duas ? (e.logado ? e.modo === "chave" : a.modo_login === "chave" || !!cla.usaChave[a.id]) : a.modo_login === "chave";
+  const trocando = deChave && e.logado && !!cla.trocaChave[a.id];
+  const modo = !e.instalado ? "ausente" : e.logado && !trocando ? "logado" : l.andamento ? "andamento" : deChave ? "chave" : "deslogado";
   const win = !!(cla.estado && cla.estado.sistema === "windows");   // um comando de bash não serve lá
   const pasta = tr("ia.pasta_html", { pasta: e.pasta || "" }), ferr0 = d.ferramenta || a.nome, ferr = escT(ferr0), nome = escT(a.nome);
   const conectado = e.email ? (e.plano ? "ia.conectado_plano_html" : "ia.conectado_html") : e.plano ? "ia.conectado_so_plano_html" : "ia.conectado_so_html";
@@ -319,7 +331,9 @@ function htmlContaIA(a) {
     logado: deChave ? htmlChaveConectada(a, d) : `<p class="cla-ok">${tr(conectado, { email: e.email, plano: e.plano })}</p>
       ${cla.aberta[a.id] ? `<div class="cla-det">${htmlUso(cla.iaUso[a.id], a.id)}<p>${trHtml("ia.usa_pasta_html", { nome: a.nome }, { pasta })}${e.email ? ` ${escT(tr("ia.plano_nao_informa", { ferr: ferr0 }))}` : ""}</p></div>` : ""}`,
     chave: htmlColaChave(a, d, env),
-    andamento: `<p>1. ${escT(d.pagina || tr("ia.pagina_padrao"))}</p>
+    andamento: d.semCodigo ? `<p>${escT(d.pagina || tr("ia.pagina_padrao"))}</p>
+      <p><a class="cla-link" target="_blank" rel="noopener noreferrer" id="iac-link-${a.id}">${escT(tr("ia.abrir_login"))}</a></p>
+      <p class="cla-espera" role="status">${escT(d.espera || tr("ia.esperando_aut"))}</p>` : `<p>1. ${escT(d.pagina || tr("ia.pagina_padrao"))}</p>
       <p><a class="cla-link" target="_blank" rel="noopener noreferrer" id="iac-link-${a.id}">${escT(tr("ia.abrir_login"))}</a></p>
       <p class="cla-alt">2. ${escT(d.codigo || tr("ia.codigo_padrao"))}</p>
       <label class="cla-cod"><input id="iac-codigo-${a.id}" data-ia-codigo="${a.id}" placeholder="${escT(tr("ia.ph_codigo_aut"))}" autocomplete="off" spellcheck="false"><button data-ia="${a.id}" data-ia-acao="codigo"${env ? " disabled" : ""}>${escT(env ? tr("ia.conferindo") : tr("ia.enviar"))}</button></label>
@@ -337,9 +351,10 @@ function htmlContaIA(a) {
         ` class="primario"${cla.instalando || instAnda() ? " disabled" : ""}`) : ""),
     logado: deChave ? `${bt("trocar", tr("ia.trocar_chave"))}${bt("sair", tr("ia.sair"), ' class="perigo"')}`
       : `${botaoDetalhes(a.id)}${bt("sair", tr("ia.sair"), ' class="perigo"')}`,
-    chave: trocando ? bt("nao_trocar", tr("ia.cancelar")) : "",
+    chave: trocando ? bt("nao_trocar", tr("ia.cancelar")) : duas ? bt("entrar", env ? tr("ia.abrindo") : d.entrar || tr("ia.entrar"), env ? " disabled" : "") : "",
     andamento: bt("cancelar", tr("ia.cancelar")),
-    deslogado: bt("entrar", env ? tr("ia.abrindo") : tr("ia.entrar"), ` class="primario"${env ? " disabled" : ""}`) }[modo];
+    deslogado: bt("entrar", env ? tr("ia.abrindo") : d.entrar || tr("ia.entrar"), ` class="primario"${env ? " disabled" : ""}`)
+      + (duas ? bt("usar_chave", tr("ia.usar_chave")) : "") }[modo];
   const situacao = modo === "logado" ? tr("ia.conectado") : modo === "chave" ? tr("ia.nao_conectado") : ferr0;
   return `<section class="cla-ia" id="iac-${a.id}"><h4>${nome} <small>${[d.empresa !== a.nome && d.empresa, situacao].filter(Boolean).map(escT).concat(d.termos ? [linkTermos(a.nome, d.empresa, d.termos)] : []).join(" · ")}</small></h4>${corpo}${bts ? `<div class="cla-bts">${bts}</div>` : ""}</section>`;
 }
@@ -349,6 +364,10 @@ async function acaoIA(ia, acao) {
   if (acao === "chave") return enviaChaveIA(ia);
   if (acao === "instalar") return instalaClaude(ia);
   if (acao === "procurar") { cla.procurando = true; desenhaJanelaClaude(); try { await atualizaIAs(); } finally { cla.procurando = false; } desenhaJanelaClaude(); return; }
+  if (acao === "usar_chave") {                           // a outra entrada (o Cursor): o campo da chave em vez do login
+    cla.usaChave = { ...cla.usaChave, [ia]: true }; cla.iaAviso = { ...cla.iaAviso, [ia]: "" }; cla.focaChave = ia;
+    return desenhaJanelaClaude();
+  }
   if (acao === "trocar" || acao === "nao_trocar") {      // Trocar chave: o campo de novo (a chave de agora vale até salvar a nova)
     cla.trocaChave = { ...cla.trocaChave, [ia]: acao === "trocar" }; cla.iaAviso = { ...cla.iaAviso, [ia]: "" };
     if (acao === "trocar") cla.focaChave = ia;
@@ -359,7 +378,7 @@ async function acaoIA(ia, acao) {
   if (acao === "entrar") { cla.iaEnviando = { ...cla.iaEnviando, [ia]: true }; desenhaJanelaClaude(); }   // o CLI leva uns segundos para dar o link
   try { a.estado = await apiClaude(`ia/${acao}`, { ia }); } catch (err) { cla.iaAviso = { ...cla.iaAviso, [ia]: err.message }; }
   finally { if (acao === "entrar") cla.iaEnviando = { ...cla.iaEnviando, [ia]: false }; }
-  if (acao === "sair") { cla.iaUso = { ...cla.iaUso, [ia]: undefined }; cla.trocaChave = { ...cla.trocaChave, [ia]: false }; }
+  if (acao === "sair") { cla.iaUso = { ...cla.iaUso, [ia]: undefined }; cla.trocaChave = { ...cla.trocaChave, [ia]: false }; cla.usaChave = { ...cla.usaChave, [ia]: false }; }
   atualizaIAs();
 }
 // a chave colada: vai uma vez ao servidor (que confere a forma, guarda num arquivo só dele e devolve o estado com a chave

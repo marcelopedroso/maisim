@@ -4,7 +4,9 @@ volta; a que chega (ou que não viu o que a outra respondeu) recebe CONVERSA.md,
 cita; cada resposta guarda qual IA respondeu; /claude/ias lista as IAs. E a DeepSeek (ia/deepseek.py, o Claude Code com a
 chave de API, numa pasta só dela): Claude → DeepSeek → Claude, cada uma com a sua sessão, a que chega lendo CONVERSA.md. O Eco entra por chave de API (ia/base.py, ComChave):
 a chave fica num arquivo 0600 na pasta dele, a página só vê o começo e os 4 últimos caracteres, e ela não vai para a pasta
-da conversa, o histórico, as chamadas da IA nem o registro do servidor; sem a chave, o pedido ao Eco é recusado."""
+da conversa, o histórico, as chamadas da IA nem o registro do servidor; sem a chave, o pedido ao Eco é recusado. E o Cursor
+(o Cursor CLI de mentira, cursor_falso.py, numa casa descartável): Claude → DeepSeek → Claude → Cursor → Claude, com a
+sessão que o `agent` deu retomada quando o Cursor volta."""
 import json, os, stat, subprocess, time, urllib.request
 from pathlib import Path
 B = "http://localhost:7201/maisim/simu/"
@@ -14,6 +16,8 @@ assert ENV.get("MAISIM_CLAUDE_BIN", "").endswith("claude_falso.py") and ENV.get(
 CONF = Path(ENV["MAISIM_CLAUDE_DIR"])
 ECO = CONF.with_name("eco-maisim")
 DS = Path(ENV["MAISIM_DEEPSEEK_DIR"])
+CUR = Path(ENV["MAISIM_CURSOR_DIR"])
+TOKEN_CUR = CUR / ".config" / "cursor" / "auth.json"      # o login do Cursor de mentira (o arquivo dele na casa)
 SALVOS, CASA = Path(ENV["MAISIM_SALVOS"]), Path(ENV["MAISIM_SIMU_CACHE"]) / "claude"
 
 
@@ -49,18 +53,20 @@ def sessao(args):
 dados = Path(__file__).resolve().parent / "dados"
 for f in ("exemplo_controle_pwm.ipes", "exemplo_controle_pwm.controle.json"):
     (SALVOS / f).write_bytes((dados / f).read_bytes())
-for d in (CONF, ECO, DS):
+for d in (CONF, ECO, DS, CUR):
     d.mkdir(parents=True, exist_ok=True)
     (d / "falso_logado").write_text("")
     (d / "falso_cenario").write_text("le_conversa")
     (d / "falso_chamadas.jsonl").unlink(missing_ok=True)
 CHAVE = "sk-teste" + "0123456789abcdef" + "WXYZ"          # de mentira; o teste confere que ela não aparece em lugar nenhum
 ARQ_CHAVE = ECO / "maisim" / "chave"
+TOKEN_CUR.parent.mkdir(parents=True, exist_ok=True)
+TOKEN_CUR.write_text("falso")
 try:
     api("claude/ia/sair", {"ia": "eco"})
     ias = api("claude/ias")
     eco = next((a for a in ias if a["id"] == "eco"), {})
-    ok([a["id"] for a in ias] == ["claude", "deepseek", "eco"] and all(a["instalado"] for a in ias) and eco.get("modo_login") == "chave"
+    ok([a["id"] for a in ias] == ["claude", "deepseek", "cursor", "eco"] and all(a["instalado"] for a in ias) and eco.get("modo_login") == "chave"
        and eco.get("tem_login") and not eco["estado"]["logado"],
        f"/claude/ias: {[(a['id'], a['nome'], a['instalado'], a.get('modo_login')) for a in ias]} (o Eco, de chave, sem chave)")
     api("editor/abrir", {"arq": str(SALVOS / "exemplo_controle_pwm.ipes"), "modo": "descartar"})
@@ -129,6 +135,23 @@ try:
     a6 = ultima(CONF)
     ok(sessao(a6) == ("resume", sid2) and "CONVERSA.md" in prompt(a6) and e["conversa"]["historico"][-1].get("resposta") == "li a conversa: 2 pedido(s)",
        "de volta ao Claude: retoma a sessão dele e lê CONVERSA.md (o que a DeepSeek respondeu)")
+    api("claude/pedir", {"texto": "quatro", "dt": 1e-6, "tfim": 0.002, "ia": "cursor"})
+    e = espera()
+    c4, h = ultima(CUR), e["conversa"]["historico"]
+    s_cur = next((v.get("sessoes", {}).get("cursor") for v in json.loads((CASA / "sessoes.json").read_text()).values() if v.get("id") == sid2), None)
+    ok("--resume" not in c4 and "CONVERSA.md" in c4[-1] and h[-1].get("resposta") == "li a conversa: 3 pedido(s) (com as regras do MaiSim)"
+       and h[-1].get("ia") == "cursor" and s_cur and s_cur not in (sid2, s_ds),
+       f"troca para o Cursor: sessão própria (a que o agent deu, {str(s_cur)[:8]}…), lê CONVERSA.md, marcada \"cursor\" ({h[-1].get('resposta')!r})")
+    api("claude/pedir", {"texto": "cinco", "dt": 1e-6, "tfim": 0.002, "ia": "claude"})
+    e = espera()
+    a7 = ultima(CONF)
+    ok(sessao(a7) == ("resume", sid2) and "CONVERSA.md" in prompt(a7) and e["conversa"]["historico"][-1].get("resposta") == "li a conversa: 4 pedido(s)",
+       "Cursor → Claude: o Claude retoma a sessão dele e lê CONVERSA.md (o que o Cursor respondeu)")
+    api("claude/pedir", {"texto": "seis", "dt": 1e-6, "tfim": 0.002, "ia": "cursor"})
+    e = espera()
+    c6 = ultima(CUR)
+    ok("--resume" in c6 and c6[c6.index("--resume") + 1] == s_cur and e["conversa"]["historico"][-1].get("resposta") == "li a conversa: 5 pedido(s) (com as regras do MaiSim)",
+       "de volta ao Cursor: retoma a sessão DELE (--resume) e lê CONVERSA.md")
     api("claude/ia/sair", {"ia": "deepseek"})
     pasta_conv = CASA / "conversas"
     onde = [str(f) for f in [*pasta_conv.rglob("*"), CASA / "sessoes.json", CONF / "falso_chamadas.jsonl", ECO / "falso_chamadas.jsonl",
@@ -141,8 +164,9 @@ try:
     ok(not s_nova.get("sessoes"), "conversa nova: as sessões das IAs recomeçam")
 finally:
     api("claude/ia/sair", {"ia": "eco"}); api("claude/ia/sair", {"ia": "deepseek"})
-    for d in (CONF, ECO, DS):
+    for d in (CONF, ECO, DS, CUR):
         for f in ("falso_logado", "falso_cenario"):
             (d / f).unlink(missing_ok=True)
+    TOKEN_CUR.unlink(missing_ok=True)
     api("claude/descartar", {}); api("claude/nova", {})
 raise SystemExit(1 if falhas else 0)
