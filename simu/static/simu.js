@@ -507,7 +507,8 @@ function conector(g, x, y, nome, lado, dom, dica, at = {}) {
   const cor = corFio(dom), H = 0.3, A = 0.28, PAD = 0.2;   // 0,6 de altura: abaixo da etiqueta do scope de uma saída (y − 0,62)
   const gg = no("g", Object.assign({ class: "conector-rot", "data-rot": nome, "data-dom": dom, tabindex: 0, "aria-label": dica,
     style: `color:${cor}`, transform: `translate(${x * G},${y * G})` }, at), g);
-  no("title", {}, gg).textContent = dica;
+  // a dica no atributo title: a caixinha do MaiSim (maisim-dica.js) a mostra; um <title> dentro do SVG daria a do navegador
+  gg.setAttribute("title", dica);
   const pol = no("polygon", { fill: COR.cartao, stroke: cor, "stroke-width": 1.6, "stroke-linejoin": "round" }, gg);
   const t = textoMat(gg, 0, 0, nome, { fill: COR.texto, "font-size": 0.46 * G, "font-weight": 600, "text-anchor": "middle", "dominant-baseline": "middle" });
   const w = (t.getComputedTextLength() / G || 0.33 * largMat(nome)) + 2 * PAD;   // medido (fora da tela, 0: a conta do tagScope)

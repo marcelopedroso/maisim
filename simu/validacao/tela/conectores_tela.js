@@ -34,7 +34,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     const pts = pol.getAttribute("points").split(" ").map((p) => p.split(",").map(Number)), ponta = pts.reduce((m, p) => (Math.hypot(...p) > Math.hypot(...m) ? p : m));
     const r = pol.getBoundingClientRect();
     return { rot: c.dataset.rot, dom: c.dataset.dom, x: +tr_[1] / G, y: +tr_[2] / G, seta: Math.abs(ponta[0]) > Math.abs(ponta[1]) ? (ponta[0] > 0 ? "d" : "e") : (ponta[1] > 0 ? "b" : "c"),
-      stroke: pol.getAttribute("stroke"), fill: pol.getAttribute("fill"), titulo: c.querySelector("title").textContent, nome: c.querySelector("text").dataset.txt,
+      stroke: pol.getAttribute("stroke"), fill: pol.getAttribute("fill"), titulo: c.getAttribute("title") || c.dataset.dica || "", nome: c.querySelector("text").dataset.txt,
       tab: c.getAttribute("tabindex"), caixa: [r.left, r.right, r.top, r.bottom], w: r.width }; }));
   let bs = await band();
   const a = bs.filter((c) => c.rot === "a").sort((p, q) => p.x - q.x);
@@ -66,6 +66,11 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     filtro: getComputedStyle(document.querySelector('#svg .conector-rot.realce polygon')).filter, larg: getComputedStyle(document.querySelector('#svg .conector-rot.realce polygon')).strokeWidth }));
   ok(realce.a === 2 && realce.fios === 2 && realce.outros === 0 && /drop-shadow/.test(realce.filtro) && parseFloat(realce.larg) > 2,
      `o mouse num "a" realça os dois "a" e as duas conexões "a" (borda ${realce.larg}, brilho): ${JSON.stringify(realce)}`);
+  // a dica: a caixinha do MaiSim (o #dica-ui), não a do navegador (nenhum <title> dentro da bandeirinha)
+  await pg.waitForFunction(() => { const d = document.getElementById("dica-ui"); return d && d.classList.contains("vis"); }, null, { timeout: 3000 }).catch(() => {});
+  const dica = await pg.evaluate(() => { const d = document.getElementById("dica-ui");
+    return { vis: !!d && d.classList.contains("vis"), txt: d ? d.textContent : "", titulos: document.querySelectorAll("#svg .conector-rot title").length }; });
+  ok(dica.vis && /conectado pelo nome a/.test(dica.txt) && dica.titulos === 0, `a dica no estilo do MaiSim ("${dica.txt.slice(0, 50)}…"), sem a do navegador`);
   await pg.mouse.move(5, 300); await pg.waitForTimeout(150);
   ok(await pg.evaluate(() => !document.querySelector("#svg .realce")), "o mouse saiu: o realce apaga");
 
