@@ -34,6 +34,7 @@
     "nav.lingua": { pt: "Idioma: português (clique: English)", en: "Language: English (click: português)" },
     // a versão sob a marca e a atualização automática (simu/atualizacao.py)
     "nav.versao_curta": { pt: "v{versao}", en: "v{versao}" },
+    "nav.versao_pre": { pt: "{pre}", en: "{pre}" },                  // o "rc1" de uma versão de teste, embaixo
     "nav.versao_dica": { pt: "MaiSim {versao} · {tipo}", en: "MaiSim {versao} · {tipo}" },
     "nav.versao_nova": { pt: "MaiSim {versao} · {tipo}\nHá a {nova} (clique)", en: "MaiSim {versao} · {tipo}\n{nova} is available (click)" },
     "nav.tipo_windows": { pt: "Windows (instalado)", en: "Windows (installed)" },
@@ -297,7 +298,7 @@
     // uma versão de teste (0.3.2-rc1) não cabe numa linha do trilho (52 px): "v0.3.2" e, embaixo, "rc1" menor
     const [base, pre] = String(ATU.versao).split(/-(.+)/), t = b.querySelector(".txt");
     b.hidden = false; t.textContent = tr("nav.versao_curta", { versao: base });
-    if (pre) { const s = document.createElement("small"); s.className = "pre"; s.textContent = pre; t.append(s); }
+    if (pre) { const s = document.createElement("small"); s.className = "pre"; s.textContent = tr("nav.versao_pre", { pre }); t.append(s); }
     b.classList.toggle("novidade", !!ATU.nova);
     const r = ATU.nova ? tr("nav.versao_nova", { versao: ATU.versao, tipo: tipoAtu(ATU), nova: ATU.nova.versao }) : tr("nav.versao_dica", { versao: ATU.versao, tipo: tipoAtu(ATU) });
     b.title = r; b.setAttribute("aria-label", r);
