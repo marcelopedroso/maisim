@@ -1605,9 +1605,12 @@ async function poeConector(ev) {
   if (!dom) { msg(tr("simu.conector_onde"), "erro"); return; }
   const cantos = caminhoConector(p);
   if (!cantos) { msg(tr("simu.conector_sem_lado"), "erro"); return; }
-  const nome = await nomeNoLugar(ev.clientX, ev.clientY, dom, nomeDoPonto(p, dom));
+  // o nome do ponto em cada folha que vai receber o conector: num subcircuito com "os iguais juntos", outra folha igual
+  // pode ter outro nome ali, e o conector ligaria os dois nós dela sem aviso
+  const fs = alvos(), atuais = nomesNasFolhas(p, dom, fs);
+  const nome = await nomeNoLugar(ev.clientX, ev.clientY, dom, nomeDoPonto(p, dom) || atuais[0] || "", atuais);
   if (!nome || !ed.conector) return;
-  const fs = alvos(), descr = tr("simu.d_conector", { nome, x: p[0], y: p[1] }) + nosSMs(fs);
+  const descr = tr("simu.d_conector", { nome, x: p[0], y: p[1] }) + nosSMs(fs);
   msg(tr("simu.ligando"));
   try { novoEstado(await api("editor/fio", { acao: "novo", cantos, dom, rotulo: nome, folhas: fs, descr })); msg(descr, "ok"); }
   catch (e) { msg(e.message, "erro"); }
@@ -1615,8 +1618,10 @@ async function poeConector(ev) {
 // o nome que o ponto p já tem no domínio dom: o da conexão clicada, o de outra conexão do mesmo nó ou o rótulo de um borne
 // nele ("" se nenhum). O nó pela regra do Gecko (a ponta de uma conexão em qualquer ponto de outra liga; cruzar sem ponta,
 // não), a partir das conexões que passam por p; os bornes em qualquer ponto delas (ou em p)
-function nomeDoPonto(p, dom) {
-  const f = dados.folhas[folhaAtual], q = p.join(","), fios = f.fios.filter((w) => w.dom === dom);
+// os nomes que o ponto p já tem nas folhas fs (sem repetir; as que não têm nome ali não contam)
+const nomesNasFolhas = (p, dom, fs) => [...new Set(fs.map((f) => nomeDoPonto(p, dom, f)).filter(Boolean))];
+function nomeDoPonto(p, dom, folha = folhaAtual) {
+  const f = dados.folhas[folha] || { fios: [], elementos: [] }, q = p.join(","), fios = f.fios.filter((w) => w.dom === dom);
   const pts = fios.map((w) => new Set(w.pts.map((r) => r.join(",")))), pontas = fios.map((w) => [w.pts[0].join(","), w.pts[w.pts.length - 1].join(",")]);
   const no = fios.map((_, k) => k).filter((k) => pts[k].has(q)), fila = no.slice();
   while (fila.length) { const k = fila.shift();
@@ -1650,7 +1655,7 @@ function caminhoConector(p) {
 // escolher; já preenchido com o nome que o ponto tem (atual). Enter devolve o nome (conferido como o do rótulo do nó); outro
 // nome num ponto que já tem um junta os dois nós: o MaiSim pergunta antes (cancelar volta ao campo). Esc ou sair do campo
 // desiste (a ferramenta continua)
-function nomeNoLugar(cx, cy, dom, atual = "") {
+function nomeNoLugar(cx, cy, dom, atual = "", atuais = atual ? [atual] : []) {
   return new Promise((ok) => {
     const f = dados.folhas[folhaAtual];
     const nomes = [...new Set([...f.fios.filter((w) => w.dom === dom && w.rotulo).map((w) => w.rotulo),
@@ -1669,9 +1674,10 @@ function nomeNoLugar(cx, cy, dom, atual = "") {
       if (e.key !== "Enter") return;
       e.preventDefault(); const r = inp.value.trim(); if (!r) return;
       if (!/^[A-Za-z0-9_.+\-]+$/.test(r)) { msg(tr("simu.rotulo_invalido", { r }), "erro"); inp.select(); return; }
-      if (!atual || r === atual) { fim(r); return; }
+      const outros = atuais.filter((x) => x !== r);    // os nomes que o ponto já tem (aqui ou numa folha igual) e não são r
+      if (!outros.length) { fim(r); return; }
       perguntando = true;                              // o aviso tira o foco do campo: não é desistir
-      confirma(escT(tr("simu.m_conector_curto")), tr("simu.m_conector_curto_html", { a: atual, b: r }), escT(tr("simu.criar")), true).then((sim) => {
+      confirma(escT(tr("simu.m_conector_curto")), tr("simu.m_conector_curto_html", { a: outros.join(", "), b: r }), escT(tr("simu.criar")), true).then((sim) => {
         perguntando = false;
         if (sim) fim(r); else if (!feito) { inp.focus(); inp.select(); }
       });

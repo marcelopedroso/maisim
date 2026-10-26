@@ -163,6 +163,21 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   ok(ctl && ctl[0] === "CONTROL" && ctl[1] === "c" && JSON.stringify(ctl[2]) === "[[28,22],[27,22],[26,22]]" && verde && verde.dom === "CONTROL" && verde.stroke === cor2 && verde.seta === "e"
      && JSON.stringify(listaC) === JSON.stringify(["c"]), `o de controle na entrada do GAIN.1: ${JSON.stringify(ctl)}, a bandeirinha verde para a esquerda; sugeridos ${JSON.stringify(listaC)}`);
   // num ponto que já tem nome (a ponta solta da conexão "a" do R.1, (14,8)): o campo vem com "a"; outro nome ("b") junta os
+  // num subcircuito com "os iguais juntos", o conector vai para todas as folhas iguais: o nome do ponto é conferido em cada
+  // uma (Codex, #153) — uma folha igual com outro nome ali dá o aviso mesmo digitando o nome da folha aberta
+  const iguais = await pg.evaluate(() => { const f = dados.folhas[folhaAtual], w = f.fios.find((u) => u.rotulo === "a" && u.dom === "LK");
+    const p = w.pts[0], copia = JSON.parse(JSON.stringify(f)); copia.fios.find((u) => u.rotulo === "a" && u.dom === "LK" && u.pts[0].join() === p.join()).rotulo = "x";
+    dados.folhas.__igual = copia; const r = { p, nomes: nomesNasFolhas(p, "LK", [folhaAtual, "__igual"]), so: nomesNasFolhas(p, "LK", [folhaAtual]) };
+    window.__res = nomeNoLugar(200, 200, "LK", "a", r.nomes); return r; });
+  await pg.waitForSelector("#conector-nome input", { timeout: 5000 }); await pg.keyboard.press("Enter");
+  await pg.waitForSelector(".modal-fundo .modal", { timeout: 5000 }).catch(() => {});
+  const avIg = await pg.evaluate(() => { const m = document.querySelector(".modal-fundo .modal"); return m ? m.textContent : ""; });
+  if (avIg) { await pg.click(".modal .m-cancela"); await pg.waitForTimeout(200); }
+  await pg.keyboard.press("Escape"); await pg.waitForTimeout(150);
+  const res = await pg.evaluate(() => window.__res);
+  await pg.evaluate(() => { delete dados.folhas.__igual; });
+  ok(iguais.nomes.join() === "a,x" && iguais.so.join() === "a" && /'x'/.test(avIg) && /'a'/.test(avIg) && res === null,
+     `folhas iguais: os nomes do ponto em todas (${iguais.nomes.join(", ")}); digitar "a" ainda avisa do "x" da outra folha ("${avIg.slice(0, 70)}…")`);
   // dois nós: o aviso do MaiSim antes (cancelar volta ao campo, sem criar; confirmar cria)
   const n1 = await nFios();
   pt = await ponto(14, 8); await pg.mouse.click(pt[0], pt[1]);
