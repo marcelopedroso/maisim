@@ -3286,8 +3286,9 @@ COM_PERDA = CHAVES | {"D", "R"}                     # o que um Pv pode aquecer: 
 PERDAS = ("total", "conduction", "switching")       # o que o FLOW lê do Pv (LossComponent.getSaveString)
 COM_FLUXO = {"Pv", "Rth", "Cth", "HEAT-SOURCE", "DT"}   # onde um FLOW mede (o CurrentMeasurable térmico: ReglerFlowMeter);
                                                     # o losscomp só vale no Pv (nos outros, o fluxo de calor que passa)
-LACOS = ("novo", "antigo")                          # o laço da rodada sem controle em Python (ver laco_simples); "antigo",
-                                                    # uma amostra por vez, fica para a comparação (desempenho_api.py)
+LACOS = ("novo", "antigo")                          # o laço da rodada: sem controle em Python, em blocos (laco_simples, STEPS);
+                                                    # com ele, um Ts numa chamada (laco_controle, STEPC); "antigo", um STEP,
+                                                    # SETM e GETM por vez, fica para a comparação (desempenho_api.py)
 trava_rodada = threading.Lock()
 DEVOLVER = ESTADO.with_name("devolver.json")           # CONST de uma rodada em andamento (servidor caiu no meio: devolve na partida)
 
@@ -3592,7 +3593,7 @@ def _rodar(c, ctl_de_fora=None):
     rodada.clear()
     rodada.update(estado="rodando", nome=nome, t=0.0, tfim=tfim, dt=dt, passos=n, amostras=0, sinais=list(canais_scope),
                   arquivo=relativo(arq), modelo=relativo(pasta / (nome + ".ipes")), inicio=time.time(), avisos=avisos_rodada,
-                  laco="controle" if trab else laco)
+                  laco=laco, controle_py=bool(trab))
 
     def anda(k0, npassos, escritas):
         """Anda npassos a partir do passo k0, escrevendo (SETM) antes do passo k0 + o cada lista de escritas[o]."""
@@ -3615,9 +3616,57 @@ def _rodar(c, ctl_de_fora=None):
                 esc.setdefault(w - k0, []).extend(v)      # na mesma escrita, o acionamento vem depois (prevalece)
         return esc
 
+    stepc = dict(usa=laco == "novo", idx={b: i for i, b in enumerate(escritos)})   # o Ts numa chamada (PREP/STEPC, patch 0010)
+
+    def prepara_stepc():
+        """O PREP: os nomes lidos no fim de cada Ts (os sinais), os das médias (as perdas) e os CONST que a rodada escreve
+        (as atuações e os acionamentos), registrados uma vez no Gecko; sem o patch 0010 (SEM_STEPC), o caminho de antes."""
+        nomes = [el for el, _ in sinais]
+        try:
+            MOTOR.cmd(f"PREP {len(nomes)} {' '.join(nomes)} {len(els_media)} {' '.join(els_media)} {len(escritos)} {' '.join(escritos)}")
+        except ErroMotor as e:
+            if "SEM_STEPC" not in str(e):
+                raise
+            stepc["usa"] = False
+
+    def anda_stepc(npassos, escritas):
+        """Um Ts numa chamada (STEPC): os mesmos trechos, escritas e leituras do anda() + le_gecko() — cada escrita antes do
+        passo dela, na ordem da lista (o controle, depois o acionamento: o último prevalece); as médias das perdas pela mesma
+        conta (soma_trecho, trecho a trecho). Devolve (o tempo no fim, os valores), ou None se o Gecko não tem o patch."""
+        offs = sorted(x for x in escritas if 0 <= x < npassos)
+        ws, qs, feito = [], [], 0
+        for o in offs:
+            if o > feito:                                # os trechos do anda(): até cada escrita e o resto
+                qs.append(o - feito); feito = o
+            for e_ in escritas[o]:
+                b, _, v = e_.split(":", 2)               # "bloco:const:valor" (o mesmo texto do SETM)
+                ws.append(f"{o} {stepc['idx'][b]} {v}")
+        if npassos > feito:
+            qs.append(npassos - feito)
+        try:
+            v = MOTOR.cmd(f"STEPC {npassos} {len(ws)} {' '.join(ws)}".rstrip()).split()
+        except ErroMotor as e:
+            if "SEM_STEPC" not in str(e):
+                raise
+            stepc["usa"] = False                         # o Gecko não andou: este Ts e os seguintes pelo caminho de antes
+            return None
+        w = 2 + len(els_media)
+        if int(v[0]) != len(qs):
+            raise ErroMotor(f"STEPC: {v[0]} != {len(qs)}")   # i18n-ok (protocolo: o motor e o servidor discordam)
+        tt = None
+        for i, q in enumerate(qs):
+            reg = v[1 + i * w: 1 + (i + 1) * w]
+            tt = float(reg[0])
+            if els_media:
+                soma_trecho(q, tt, reg[2:])
+        return tt, valores_gecko(v[1 + len(qs) * w:])
+
     def laco_controle(pub):
         """A cada Ts: medidas → passo() do usuário → atuações nos CONST → Ts no Gecko. Publica a cada "cada" períodos."""
         k, j, tt, regs, avisados = 0, 0, 0.0, None, set()
+        if stepc["usa"]:
+            prepara_stepc()
+        rodada["stepc"] = stepc["usa"]                   # o Ts numa chamada valendo (a comparação confere)
         vals = dict(iniciais) if iniciais else le_gecko()       # t = 0: o estado inicial (INICIAL), não os zeros
         media(soma_ts)
         mts = {}                                         # as perdas do m[...]: a média do último Ts (em t = 0, o ponto)
@@ -3667,8 +3716,12 @@ def _rodar(c, ctl_de_fora=None):
                                      lingua.tr("rodada.scope_nome_tarde", x=x, t=f"{tt:g}"))
             if j % cada == 0:
                 pub.amostra(dict(t=tt, **ao_scope(dict(vals, **media())), **{col: sreg.get(x, float("nan")) for x, col in regs.items()}))
-            tt = anda(k, passo, escritas_do_trecho(k, passo)); k += passo; j += 1
-            vals = le_gecko()
+            esc = escritas_do_trecho(k, passo)
+            r_ = anda_stepc(passo, esc) if stepc["usa"] else None
+            if r_ is None:                               # o caminho de antes: STEP/SETM por trecho e o GETM no fim
+                r_ = anda(k, passo, esc), le_gecko()
+            tt, vals = r_
+            k += passo; j += 1
             mts = media(soma_ts)
             rodada.update(t=tt, amostras=rodada["amostras"] + (1 if j % cada == 0 else 0))
         pub.amostra(dict(t=tt, **ao_scope(dict(vals, **media())), **{col: float("nan") for col in (regs or {}).values()}))

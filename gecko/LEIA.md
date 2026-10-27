@@ -34,7 +34,12 @@ vão aos medidores, a máquina como começa, e os blocos de controle são calcul
 integrador dá y0, a portadora o valor de t = 0); um FLOW das perdas de um Pv dá 0 (o cálculo das perdas guarda o último
 valor da rodada anterior até o 1º passo) e um valor não finito (uma derivada em t = 0) dá 0. O estado mexido nessa conta
 some no `initSimulation` seguinte (o servidor inicializa de novo antes de andar). As chaves ainda não leram o GATE em t = 0
-(o Gecko as comanda no 1º passo): a tensão de uma chave aberta sai do divisor das resistências de bloqueio.
+(o Gecko as comanda no 1º passo): a tensão de uma chave aberta sai do divisor das resistências de bloqueio. `0010`:
+`prepareControlSteps` e `stepControl`, um período de amostragem do controle em Python numa chamada (o PREP e o STEPC do
+motor): o PREP registra uma vez os nomes lidos no fim, os das médias (perdas) e os CONST que a rodada escreve; o STEPC anda
+n passos com as escritas (deslocamento, índice, valor) antes dos passos certos e na ordem delas, os trechos entre duas
+escritas como o `simulateSteps`/`simulateStepsAveraged` e as escritas como o `setParameter(…, "const", …)` — devolve, por
+trecho, o tempo no fim, os passos feitos e as médias, e depois os valores lidos: os mesmos números das chamadas separadas.
 
 **Tudo de uma vez (recomendado):** em `app/`, `npm run maisim` sobe o scope, o simulador, este Gecko e a página, e o
 Ctrl+C derruba o que ele subiu (o Gecko só se não houver circuito sem salvar; ver `app/scripts/maisim.sh`).
