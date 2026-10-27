@@ -17,7 +17,9 @@ escolhidos por rodada ("laco": "novo" | "antigo" no editor/rodar; MAISIM_LACO d�
    sintético — o buck térmico com dois controladores que trocam mensagens, um CONST a mais, o padrão por Δt, os três modos
    de atraso (logo, amostra, tempo), acionamentos de CONST (no mesmo CONST da atuação: o acionamento prevalece) e de p[...],
    as perdas (FLOW) no m[...], e uma pausa no meio — idênticos pelos dois caminhos, inclusive o controle.log; e a medida
-   intercalada no motor CC (o limite LIMITE_PY, folgado: no CI a ida e volta já é barata).
+   intercalada no motor CC (o limite LIMITE_PY, folgado: no CI a ida e volta já é barata). Os processos dos controladores
+   conversam pela conexão do multiprocessing no laço novo (sem as threads leitoras; fora do Windows, por enquanto) e pelo
+   stdin/stdout no antigo: 13 controladores num anel de mensagens e um que trava ou morre (o mesmo erro) também batem.
    `python3 desempenho_api.py --tabela [exemplo…]` faz a tabela (3 de cada, intercaladas), sem conferir os limites;
    `--rodada PASTA [--tfim T] [--tabela]`: o circuito e o controle de uma rodada gravada (o .ipes, controle.json e os .py
    dela; a cópia vai para os circuitos de teste), comparado pelos dois caminhos (ou medido, com --tabela)."""
@@ -80,9 +82,11 @@ def meta(z):
 
 
 def log_de(r):
-    """O controle.log da rodada (vazio sem controle)."""
+    """O controle.log da rodada (vazio sem controle), linha a linha em ordem: com vários controladores, cada processo escreve
+    no mesmo arquivo quando calcula, e a ordem entre as linhas de processos diferentes muda de uma rodada para outra (nos
+    dois caminhos); o conteúdo, não."""
     f = Path(r.get("arquivo") or "").parent / "controle.log"
-    return f.read_text() if f.is_file() else ""
+    return "".join(sorted(f.read_text().splitlines(keepends=True))) if f.is_file() else ""
 
 
 def iguais(za, zb):
@@ -278,6 +282,48 @@ def passo(t, m, p, e):
            f"sintético com controle, atraso {atraso['modo']}: {len(zb.files) - 1} colunas × {len(zb['t'])} amostras, o meta, os avisos e o "
            f"controle.log ({la.count(chr(10))} linhas) idênticos pelos dois caminhos{' (com uma pausa no meio do novo)' if atraso['modo'] == 'logo' else ''}"
            f"{'' if cobre else ' — o sintético não exercitou tudo'}{'' if not dif else f' — DIFEREM: {dif[:6]}'}{'' if la == lb else ' — o controle.log difere'}")
+
+    # 5b. muitos controladores trocando mensagens (um anel de 12 e o central somando), os processos pela conexão do
+    # multiprocessing no laço novo (sem as threads leitoras) e pelo stdin/stdout no antigo: o mesmo, inclusive o controle.log
+    N = 12
+    NO = (f"N = {N}\n\n\n" + "def passo(t, m, p, e):\n"
+          "    v = 0.0\n"
+          "    for msg in recebe():\n"
+          "        v += msg['dados']['v']\n"
+          "    eu = int(p['id'][3:])\n"
+          "    print('no', eu, repr(v))\n"
+          "    envia(['no_%d' % ((eu + 1) % N), 'controle'], {'v': v * 0.5 + eu + t * 1e3})\n"
+          "    scope('v', v)\n")
+    CENTRAL = ("def passo(t, m, p, e):\n"
+               "    soma = sum(msg['dados']['v'] for msg in recebe())\n"
+               "    scope('soma', soma)\n"
+               "    print('soma', repr(soma))\n"
+               "    return {'d': 0.3 + 0.4 * ((int(soma) // 50) % 2)}\n")
+    muitos = {"ativo": True, "Ts": 5e-6, "atuacoes": ["d"], "codigo": CENTRAL, "parametros": [], "atraso": {"modo": "logo", "tempo": 0.0},
+              "rede": {"latencia": 0.0}, "acionamentos": [], "arquivos": {"no.py": NO},
+              "controladores": [{"nome": "controle", "arquivo": "controle.py", "medidas": [], "atuacoes": ["d"], "subcircuitos": []}] +
+                               [{"nome": f"no_{i}", "arquivo": "no.py", "medidas": [], "atuacoes": [], "subcircuitos": [], "p": {}} for i in range(N)]}
+    ra, za = roda(arq, "antigo", dt, "0.002", "100000", muitos)
+    rb, zb = roda(arq, "novo", dt, "0.002", "100000", muitos)
+    if za is None or zb is None:
+        ok(False, f"muitos controladores: {ra.get('estado')} {ra.get('erro', '')} / {rb.get('estado')} {rb.get('erro', '')}")
+    else:
+        dif, meta_igual = iguais(za, zb)
+        la, lb = log_de(ra), log_de(rb)
+        ok(not dif and meta_igual and ra.get("avisos") == rb.get("avisos") and la == lb and la.count("no ") > 1000 and float(np.nanmax(zb["soma"])) > 0,
+           f"{N + 1} controladores trocando mensagens: {len(zb.files) - 1} colunas, o meta, os avisos e o controle.log ({la.count(chr(10))} linhas) "
+           f"idênticos pelos dois caminhos{'' if not dif else f' — DIFEREM: {dif[:6]}'}{'' if la == lb else ' — o controle.log difere'}")
+
+    # 5c. um controlador que trava (laço infinito) e um que morre: a rodada para com o mesmo erro pelos dois caminhos
+    for caso, cod in (("trava", "    if e['n'] == 40:\n        while True:\n            pass\n"),
+                      ("morre", "    if e['n'] == 40:\n        raise SystemExit(3)\n")):
+        ruim = CTL.replace('    e["n"] += 1\n', '    e["n"] += 1\n' + cod)
+        cfg = dict(sintetico({"modo": "logo", "tempo": 0.0}), codigo=ruim, acionamentos=[])
+        ra, _ = roda(arq, "antigo", dt, tfim, "100000", cfg, prep=prep)
+        rb, _ = roda(arq, "novo", dt, tfim, "100000", cfg, prep=prep)
+        ok(ruim != CTL and ra.get("estado") == rb.get("estado") == "erro" and ra.get("erro") == rb.get("erro") and ra.get("t") == rb.get("t")
+           and log_de(ra) == log_de(rb),
+           f"o controlador que {caso}: a rodada para em t = {rb.get('t')} com o mesmo erro pelos dois caminhos ({rb.get('erro')!r})")
 
     # 6. a medida intercalada no motor CC (controle em Python): o Ts numa chamada mais rápido (medianas de 3)
     arq = "exemplos/exemplo_motor_cc.ipes"
