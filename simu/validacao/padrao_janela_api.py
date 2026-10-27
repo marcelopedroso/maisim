@@ -4,6 +4,7 @@ atuação pode vir como uma lista de Ts/Δt valores, um por Δt. Circuito: fonte
 é o valor da fonte, sem dinâmica), Δt = 1 µs, Ts = 8 µs.
 - lista com valores iguais = o mesmo número: a série é a mesma, nos modos de atraso "logo" e "amostra";
 - lista [f(k) + o]: o valor o é sentido o Δt depois do valor o − 1 (em "amostra": a janela inteira da amostra seguinte);
+  conferido Δt a Δt, porque a rodada grava dentro do Ts;
 - lista do tamanho errado: erro que diz Ts/Δt."""
 import json, time, urllib.request
 import numpy as np
@@ -57,10 +58,11 @@ finos = {"logo": roda("fino", "logo", 1)[0], "amostra": roda("fino8", "logo", 1)
 for modo in ("logo", "amostra"):
     fino = finos[modo]
     b, err = roda(f"padrao_{modo}", modo)
-    n = min(len(b), len(fino[::NTS])) if b is not None else 0
-    dif = float(np.abs(b[:n] - fino[::NTS][:n]).max()) if n else float("nan")
-    ok(n >= 8 and dif < 1e-9, f"{modo}: o padrão de 8 valores por amostra = um valor por Δt com Ts = Δt (V(S) irregular; diferença máx de i_L "
-       f"{dif:.2e} A em {n} amostras; i_L = {np.round(b[:5], 5) if b is not None else err})")
+    # a amostra pedida (0,64 ns) é mais fina que o Ts: a rodada grava a cada Δt dentro do Ts (patch 0011), e cada Δt bate
+    n = min(len(b), len(fino)) if b is not None else 0
+    dif = float(np.abs(b[:n] - fino[:n]).max()) if n else float("nan")
+    ok(n > 8 * NTS and dif < 1e-9, f"{modo}: o padrão de 8 valores por amostra = um valor por Δt com Ts = Δt, Δt a Δt (V(S) irregular; "
+       f"diferença máx de i_L {dif:.2e} A em {n} amostras; i_L = {np.round(b[:5], 5) if b is not None else err})")
 _, err = roda("errado", "amostra")
 ok(err and "7 valores" in str(err) and "Ts/Δt = 8" in str(err), f"tamanho errado: {str(err)[:160]}")
 api("editor/novo", {"modo": "descartar"})
