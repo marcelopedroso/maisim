@@ -9,14 +9,16 @@
    curta (o número de passos não é múltiplo do da amostra).
 3. Pausar, continuar e parar no caminho novo: a pausa não muda nada; o parar grava o começo da rodada inteira.
 4. A medida, intercalada (antigo, novo, antigo, novo, antigo, novo, para a carga da máquina pesar igual nos dois), com as
-   medianas: o novo tem de ser pelo menos LIMITE vezes mais rápido no buck (≈ 8× medido; o limite é folgado para o ruído).
+   medianas: o novo tem de ser pelo menos LIMITE vezes mais rápido no buck. O ganho depende da máquina: a ida e volta entre
+   os processos é cara no WSL (≈ 8× medido) e barata no servidor do CI (1,9×: o antigo já leva ~1,5 s ali); o limite pega a
+   regressão de verdade — o caminho novo deixar de ganhar — sem falhar por máquina.
    `python3 desempenho_api.py --tabela` faz a tabela dos exemplos todos (3 de cada, intercaladas), sem conferir o limite."""
 import gzip, json, re, statistics, sys, time, urllib.request
 from pathlib import Path
 import numpy as np
 B = "http://localhost:7201/maisim/simu/"
 RAIZ = Path(__file__).resolve().parents[2]
-LIMITE = 3.0
+LIMITE = 1.5
 
 
 def api(rota, corpo=None):
