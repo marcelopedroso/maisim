@@ -3159,15 +3159,60 @@ def confere_controle(c):
     return out
 
 
+# como o servidor conversa com os processos dos controladores: "conexao" (multiprocessing.connection — um socket Unix no
+# Linux, um pipe nomeado no Windows, com chave; o laço lê as respostas direto, na ordem dos controladores, sem threads) ou
+# "pipe" (o stdin/stdout de cada um, com uma thread leitora e uma fila por controlador: o de antes, e o do laço "antigo").
+# No Windows, "pipe" até a conexão ser conferida no .exe; MAISIM_CONTROLADORES escolhe
+CONEXAO_CONTROLADORES = os.environ.get("MAISIM_CONTROLADORES") or ("pipe" if os.name == "nt" else "conexao")
+
+
 class Trabalhador:
     """O processo de um controlador (controle_worker.py): manda um pedido e lê a resposta com prazo (separados, para os
-    controladores calcularem juntos)."""
-    def __init__(self, log):
+    controladores calcularem juntos). conexao: por multiprocessing.connection (o processo se liga ao endereço que recebe
+    no ambiente; conecta() espera por ele) em vez do stdin/stdout e da thread leitora."""
+    def __init__(self, log, conexao=False):
+        env = {**os.environ, "MAISIM_LINGUA": lingua.atual()}   # as mensagens do controle_worker no idioma do pedido
+        self.conn = self.ouvinte = None
+        if conexao:
+            from multiprocessing.connection import Listener
+            chave = os.urandom(32)
+            self.ouvinte = Listener(authkey=chave)       # o endereço: um socket Unix num arquivo temporário / um pipe nomeado
+            env.update(MAISIM_CTL_ENDERECO=self.ouvinte.address, MAISIM_CTL_CHAVE=chave.hex())
+            self.proc = subprocess.Popen([sys.executable, "-I", str(AQUI / "controle_worker.py")], stdin=subprocess.DEVNULL,
+                                         stdout=log, stderr=log, cwd=str(Path(log.name).parent), env=env)
+            return
         self.proc = subprocess.Popen([sys.executable, "-I", str(AQUI / "controle_worker.py")], stdin=subprocess.PIPE,
                                      stdout=subprocess.PIPE, stderr=log, text=True, bufsize=1, cwd=str(Path(log.name).parent),
-                                     env={**os.environ, "MAISIM_LINGUA": lingua.atual()})   # as mensagens do controle_worker no idioma do pedido
+                                     env=env)
         self.fila = queue.Queue()
         lingua.thread(self._le).start()
+
+    def conecta(self, prazo=20):
+        """conexao: espera o processo se ligar (até prazo s, ou até ele terminar antes disso)."""
+        if self.ouvinte is None:
+            return
+        aceito = {}
+
+        def aceita():
+            try:
+                aceito["c"] = self.ouvinte.accept()
+            except Exception:                         # o ouvinte fechado (o processo não veio) ou a chave errada
+                pass
+        th = lingua.thread(aceita, nome="controlador-conecta")
+        th.start()
+        fim = time.monotonic() + prazo
+        while th.is_alive() and time.monotonic() < fim and self.proc.poll() is None:
+            th.join(0.05)
+        th.join(0.5)                                 # o processo pode ter se ligado e saído logo depois
+        try:
+            self.ouvinte.close()
+        except OSError:
+            pass
+        self.ouvinte = None
+        if "c" not in aceito:
+            self.fecha()
+            raise ErroControle(lingua.tr("controle.processo_terminou"))
+        self.conn = aceito["c"]
 
     def _le(self):
         for linha in self.proc.stdout:
@@ -3176,19 +3221,32 @@ class Trabalhador:
 
     def manda(self, pedido):
         try:
+            if self.conn is not None:
+                self.conn.send_bytes(json.dumps(pedido).encode())
+                return
             self.proc.stdin.write(json.dumps(pedido) + "\n")
             self.proc.stdin.flush()
-        except (BrokenPipeError, OSError):
+        except (BrokenPipeError, OSError, EOFError):
             raise ErroControle(lingua.tr("controle.processo_terminou"))
 
     def resposta(self, prazo=5):
-        try:
-            linha = self.fila.get(timeout=prazo)
-        except queue.Empty:
-            self.fecha()
-            raise ErroControle(lingua.tr("controle.nao_respondeu", s=prazo))
-        if linha is None:
-            raise ErroControle(lingua.tr("controle.processo_terminou"))
+        if self.conn is not None:
+            try:
+                pronto = self.conn.poll(prazo)       # o processo que terminou também fica "pronto": o recv dá EOF
+                linha = self.conn.recv_bytes() if pronto else None
+            except (EOFError, OSError):
+                raise ErroControle(lingua.tr("controle.processo_terminou"))
+            if not pronto:
+                self.fecha()
+                raise ErroControle(lingua.tr("controle.nao_respondeu", s=prazo))
+        else:
+            try:
+                linha = self.fila.get(timeout=prazo)
+            except queue.Empty:
+                self.fecha()
+                raise ErroControle(lingua.tr("controle.nao_respondeu", s=prazo))
+            if linha is None:
+                raise ErroControle(lingua.tr("controle.processo_terminou"))
         r = json.loads(linha)
         if not r.get("ok"):
             raise ErroControle(r.get("erro", "erro"), r.get("linha"), r.get("traceback", ""), r.get("arquivo"), r.get("instancia"))
@@ -3204,9 +3262,10 @@ class Trabalhador:
             self.proc.wait(timeout=5)
         except (OSError, subprocess.TimeoutExpired):
             pass
-        for f in (self.proc.stdin, self.proc.stdout):
+        for f in (self.proc.stdin, self.proc.stdout, self.conn, self.ouvinte):
             try:
-                f.close()
+                if f is not None:
+                    f.close()
             except OSError:
                 pass
 
@@ -3217,15 +3276,18 @@ class Controladores:
     A rede entre eles leva as mensagens: enviada na amostra t, chega na 1ª amostra DEPOIS dela com t_k ≥ t + latência (com
     latência 0, na seguinte: eles calculam juntos, ninguém vê o que o outro mandou na mesma amostra).
     Sem lista de controladores, um só (o controle.py, com tudo): o de sempre."""
-    def __init__(self, insts, params, log, latencia=0.0):
+    def __init__(self, insts, params, log, latencia=0.0, conexao=None):
         if isinstance(insts, str):                       # só um código: o controle.py de sempre
             insts = [{"nome": "controle", "arquivo": "controle.py", "codigo": insts, "medidas": None, "atuacoes": None}]
         self.insts, self.latencia, self.fila, self.seq, self.trabs = insts, float(latencia), [], 0, []
         self.vistas = {}                                 # "de|para" → as chaves que foram nas mensagens, na ordem do código (mensagens_vistas)
         nomes, prefixar = [i["nome"] for i in insts], len(insts) > 1
         try:
-            for i in insts:
-                self.trabs.append(Trabalhador(log))
+            conexao = CONEXAO_CONTROLADORES == "conexao" if conexao is None else conexao
+            for i in insts:                              # os processos sobem juntos; depois, cada um se liga (conexao)
+                self.trabs.append(Trabalhador(log, conexao))
+            for tb in self.trabs:
+                tb.conecta()
             for i, tb in zip(insts, self.trabs):        # carregam juntos
                 # scope(): o nome da instância na frente quando há várias — menos o controle.py de sempre ("controle"), que
                 # fica com os nomes de antes (as colunas das rodadas não mudam só por existir outro controlador)
@@ -3478,7 +3540,7 @@ def _rodar(c, ctl_de_fora=None):
         params = {q["nome"]: q["valor"] for q in ctl["parametros"]}
         params["Ts"] = nTs * dt
         try:
-            trab = Controladores(insts, params, log, ctl["rede"]["latencia"])
+            trab = Controladores(insts, params, log, ctl["rede"]["latencia"], conexao=None if laco == "novo" else False)
         except ErroControle:
             log.close()
             raise

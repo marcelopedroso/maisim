@@ -132,9 +132,36 @@ if sys.path and sys.path[0] and Path_ok(sys.path[0]):           # a pasta do Mai
     sys.path.pop(0)
 
 
+# o canal com o servidor: o stdin/stdout (um pedido e uma resposta por linha) ou, com MAISIM_CTL_ENDERECO, uma conexão do
+# multiprocessing (socket Unix no Linux, pipe nomeado no Windows; a chave em MAISIM_CTL_CHAVE): uma mensagem por pedido e por
+# resposta, e o servidor lê as respostas direto, sem uma thread por controlador. O endereço e a chave saem do ambiente (o
+# código do usuário não os vê); o stdout, nesse caso, vai para o controle.log, como o stderr
+_ENDERECO = os.environ.pop("MAISIM_CTL_ENDERECO", None)
+_CHAVE = os.environ.pop("MAISIM_CTL_CHAVE", "")
+_conexao = None
+if _ENDERECO:
+    from multiprocessing.connection import Client
+    _conexao = Client(_ENDERECO, authkey=bytes.fromhex(_CHAVE))
+
+
 def responde(obj):
+    if _conexao is not None:
+        _conexao.send_bytes(json.dumps(obj).encode())
+        return
     saida.write(json.dumps(obj) + "\n")
     saida.flush()
+
+
+def pedidos():
+    """Os pedidos do servidor, um a um, até ele fechar o canal."""
+    if _conexao is None:
+        yield from sys.stdin
+        return
+    while True:
+        try:
+            yield _conexao.recv_bytes().decode()
+        except (EOFError, OSError):
+            return
 
 
 def erro(exc):
@@ -159,7 +186,7 @@ class Medidas(dict):
 
 
 with lingua.com(LINGUA):                          # os erros no idioma de quem começou a rodada
-    for pedido_txt in sys.stdin:
+    for pedido_txt in pedidos():
         try:
             pedido = json.loads(pedido_txt)
             if pedido["op"] == "carrega":
