@@ -46,9 +46,16 @@ const lanca = () => { const p = spawn("python3", ["app/lancador.py", "--abrir"],
     const l2 = lanca();
     ok(await ate(() => l2.fim !== null, 20) && l2.fim === 0 && /no ar \(sem abrir|running \(browser not opened/.test(l2.saida) && l.fim === null,
       `o ícone de novo só abre a janela no MaiSim que está no ar e sai (saída ${l2.fim}); o primeiro continua`);
-    // uma rodada longa, e a página fecha
-    let r = await json(URL0 + "/maisim/simu/editor/abrir", { arq: path.join(RAIZ, "exemplos", "exemplo_controle_pwm.ipes"), modo: "descartar" });
-    ok(!r.erro, `abre o exemplo (${r.erro || "ok"})`);
+    // uma rodada longa, e a página fecha: uma cópia do exemplo nos circuitos de quem usa, com o controle em Python a cada Δt
+    // (4,9 milhões de viagens; com a simulação rápida, o Ts de 2 µs do exemplo acabava antes dos 55 s no runner do CI); já
+    // salva, porque mudar o controle pela API deixaria o circuito por salvar, e aí o lançador, de propósito, deixa o Gecko
+    // no ar; a rodada é parada à mão no fim
+    const ex = path.join(T, "d", "circuitos"); fs.mkdirSync(ex, { recursive: true });
+    for (const f of ["exemplo_controle_pwm.ipes", "exemplo_controle_pwm.aparencia.json"]) fs.copyFileSync(path.join(RAIZ, "exemplos", f), path.join(ex, f));
+    const ctl = JSON.parse(fs.readFileSync(path.join(RAIZ, "exemplos", "exemplo_controle_pwm.controle.json"), "utf8"));
+    fs.writeFileSync(path.join(ex, "exemplo_controle_pwm.controle.json"), JSON.stringify({ ...ctl, Ts: 1e-7 }));
+    let r = await json(URL0 + "/maisim/simu/editor/abrir", { arq: path.join(ex, "exemplo_controle_pwm.ipes"), modo: "descartar" });
+    ok(!r.erro, `abre a cópia do exemplo (${r.erro || "ok"})`);
     r = await json(URL0 + "/maisim/simu/editor/rodar", { dt: "1e-07", tfim: "0.49", nome: "fecha_longa", amostras: "1000" });
     ok(await ate(async () => (await json(URL0 + "/maisim/simu/editor/rodada")).estado === "rodando", 30), `uma rodada longa em andamento (${r.estado || r.erro})`);
     // com mudança não salva, fechar a janela pergunta antes (só com o lançador vigiando: a página sabe pelo sinal de vida)
