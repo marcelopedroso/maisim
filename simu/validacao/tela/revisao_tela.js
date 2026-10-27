@@ -18,10 +18,10 @@ const rodadas = () => fs.readdirSync(os.homedir() + "/.cache/maisim_teste/rodada
   // (b) texto inválido no tempo de um acionamento: marcado, não grava, ▶ não roda com a configuração velha
   await pg.evaluate(() => mostraTabela("ac")); await pg.waitForTimeout(300);     // os acionamentos ficam numa tabela, numa aba (19/10)
   const campo = '#ctl-ac .ctl-ac:first-child [data-k="t"]';
-  await pg.fill(campo, "10m"); await pg.press(campo, "Tab"); await pg.waitForTimeout(900);
+  await pg.fill(campo, "10x"); await pg.press(campo, "Tab"); await pg.waitForTimeout(900);   // (o "10m" de antes agora vale: 10 ms, o prefixo)
   const b1 = await pg.evaluate((sel) => ({ marcado: document.querySelector(sel).classList.contains("invalido"), estado: $("ctl-estado").textContent }), campo);
   const srv = (await pg.evaluate(() => api("editor/controle"))).controle.acionamentos[0].t;
-  ok(b1.marcado && /valor inválido/.test(b1.estado) && srv === 0.012, `"10m" no tempo: campo marcado, "${b1.estado}", servidor continua com ${srv}`);
+  ok(b1.marcado && /valor inválido/.test(b1.estado) && srv === 0.012, `"10x" no tempo: campo marcado, "${b1.estado}", servidor continua com ${srv}`);
   const nAntes = rodadas();
   await pg.click("#bt-play"); await pg.waitForTimeout(1500);
   ok(rodadas() === nAntes && /não foi gravado/.test(await pg.textContent("#msg")), `▶ com valor inválido: não rodou (${(await pg.textContent("#msg")).trim()})`);

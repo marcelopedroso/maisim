@@ -120,12 +120,74 @@ const semPonto = (n) => String(n || "").replace(/\./g, "").replace(/[^A-Za-z0-9_
 const $ = (id) => document.getElementById(id);
 let dados = null, folhaAtual = "0", ver = { x: 0, y: 0, w: 100, h: 60 }, mostrar = { controle: true, rotulos: true, corrente: true, medicoes: true };
 
-function si(v, u) {
+const PREFIXOS_SI = [[1e9, "G"], [1e6, "M"], [1e3, "k"], [1, ""], [1e-3, "m"], [1e-6, "µ"], [1e-9, "n"], [1e-12, "p"]];
+function siPartes(v, dig = 4) {                       // [número, prefixo]: 0.00005 → ["50", "µ"]
+  const a = Math.abs(v); if (a === 0) return ["0", ""];
+  const [f, p] = PREFIXOS_SI.find(([f]) => a >= f * 0.9999) || PREFIXOS_SI[PREFIXOS_SI.length - 1];
+  return [String(+(v / f).toPrecision(dig)), p];
+}
+function si(v, u, dig = 4) {
   if (v == null || !isFinite(v)) return "–";
-  const a = Math.abs(v); if (a === 0) return `0 ${u || ""}`.trim();
-  const P = [[1e9, "G"], [1e6, "M"], [1e3, "k"], [1, ""], [1e-3, "m"], [1e-6, "µ"], [1e-9, "n"], [1e-12, "p"]];
-  const [f, p] = P.find(([f]) => a >= f * 0.9999) || P[P.length - 1];
-  return `${+(v / f).toPrecision(4)} ${p}${u || ""}`.trim();
+  const [x, p] = siPartes(v, dig);
+  return `${x} ${p}${u || ""}`.trim();
+}
+// os números digitados (Marcelo, 27/10): em todo campo de número, os prefixos de engenharia — p n u/µ/μ m k M G (maiúscula
+// e minúscula contam: m é mili, M é mega) — com a unidade depois do prefixo ignorada (50us, 20kHz, 1mF, 10Ω, 2 µs), a
+// vírgula ou o ponto decimal (0,5u) e as formas de sempre (5e-7, 0.00005). A unidade sozinha não é prefixo (1s, 5V, 2F);
+// o "m" sozinho é mili (não metro); o K maiúsculo (quilo ou kelvin?) não vale. NaN: não é número (o campo mostra o erro)
+const PREFIXO_EXP = { p: -12, n: -9, u: -6, "µ": -6, "μ": -6, m: -3, k: 3, M: 6, G: 9 };
+const UNIDADES_SI = new Set(["s", "Hz", "V", "A", "W", "\u03A9", "\u2126", "ohm", "Ohm", "F", "H", "S", "J", "N", "Nm", "T", "Wb", "rad", "rpm", "VA", "var", "VAr", "Wh", "C", "°C"]);
+function lerNumero(txt) {
+  let s = String(txt == null ? "" : txt).trim();
+  if (s.includes(",")) { if (s.includes(".") || s.indexOf(",") !== s.lastIndexOf(",")) return NaN; s = s.replace(",", "."); }
+  const m = s.match(/^([+-]?(?:\d+(?:\.\d*)?|\.\d+))(?:[eE]([+-]?\d+))?\s*(.*)$/);
+  if (!m) return NaN;
+  const [, base, e1, resto] = m;
+  let ex;
+  if (!resto || UNIDADES_SI.has(resto)) ex = 0;              // sem prefixo (a unidade sozinha)
+  else if (resto[0] in PREFIXO_EXP && (resto.length === 1 || UNIDADES_SI.has(resto.slice(1)))) ex = PREFIXO_EXP[resto[0]];
+  else return NaN;
+  const v = Number(`${base}e${(+e1 || 0) + ex}`);            // pelo texto: 50u dá 5e-5 exato (50 × 1e-6 daria 4.9999…e-5)
+  return Number.isFinite(v) ? v : NaN;
+}
+// o número de volta no campo, curto e com o prefixo (sem a unidade, que está no rótulo): 5e-7 → "500n", 0.04 → "40m"
+const numCampo = (v) => { const [x, p] = siPartes(Number(v), 6); return Number.isFinite(Number(v)) ? x + p : String(v ?? ""); };
+const unidadeVista = (u) => (/^ohms?$/i.test(u || "") ? "Ω" : u || "");   // o "ohm" dos parâmetros do Gecko
+// o que foi entendido, para a nota ao lado do campo: com a unidade, o prefixo (1 kΩ, 50 µs); sem unidade, o número como se
+// lê (0.5, 1000) e o prefixo só nos muito grandes ou pequenos
+function textoLido(v, u = "") {
+  u = unidadeVista(u);
+  if (!u && (v === 0 || (Math.abs(v) >= 1e-3 && Math.abs(v) < 1e6))) return [String(+v.toPrecision(6)), ""];
+  const [x, p] = siPartes(v, 6); return [`${x} ${p}${u}`.trim(), p];
+}
+// a nota do campo de número: "= 50 µs" (o que foi entendido) ou o erro, embaixo dele (aria-describedby; aria-live). Escondida
+// quando não acrescenta nada (um número simples, sem prefixo na leitura). op.un: a unidade (texto ou função: a da linha);
+// op.comVar: aceita $nome (fica como está: quem envia trata); op.positivo; op.extra(v): o que vem depois ("→ 10 000 amostras");
+// op.apos: o elemento depois do qual vai a nota. Devolve a função que confere (true: número válido, ou $nome); vazio, a nota
+// só aparece na hora de enviar (confere(true)): o campo vazio não começa com erro
+let notasNum = 0;
+function campoNumero(inp, op = {}) {
+  if (!inp) return () => true;
+  let n = inp._nota;
+  if (!n) {
+    n = document.createElement("small"); n.className = "num-lido"; n.id = `num-lido-${++notasNum}`; n.setAttribute("aria-live", "polite");
+    (op.apos || inp).insertAdjacentElement("afterend", n); inp._nota = n; n._campo = inp;
+    inp.setAttribute("aria-describedby", [inp.getAttribute("aria-describedby"), n.id].filter(Boolean).join(" "));
+    inp.addEventListener("input", () => inp._confere());
+  }
+  inp._confere = (envio = false) => {
+    const txt = inp.value.trim(), un = (typeof op.un === "function" ? op.un() : op.un) || "";
+    const poe = (t, erro) => { n.textContent = t; n.hidden = !t; n.classList.toggle("erro", erro); inp.classList.toggle("invalido", erro);
+      if (erro) inp.setAttribute("aria-invalid", "true"); else inp.removeAttribute("aria-invalid"); };
+    if (op.comVar && txt.startsWith("$")) { poe("", false); return true; }
+    if (!txt && !envio) { poe("", false); return false; }
+    const v = lerNumero(txt);
+    if (!Number.isFinite(v)) { poe(tr(op.comVar ? "simu.num_invalido_var" : "simu.num_invalido"), true); return false; }
+    if (op.positivo && !(v > 0)) { poe(tr("simu.num_positivo"), true); return false; }
+    const [lido, p] = textoLido(v, un), extra = op.extra ? op.extra(v) : "";
+    poe(/^[+-]?(\d+[.,]?\d*|[.,]\d+)$/.test(txt) && !p && !extra ? "" : extra ? tr("simu.num_lido_mais", { v: lido, extra }) : tr("simu.num_lido", { v: lido }), false); return true;
+  };
+  inp._confere(); return inp._confere;
 }
 function no(tag, at, pai) { const e = document.createElementNS(NS, tag); for (const k in at) e.setAttribute(k, at[k]); if (pai) pai.appendChild(e); return e; }
 let rotulosFeitos = new Set();                              // o mesmo rótulo no mesmo lugar só uma vez (fio e terminal)
@@ -1504,7 +1566,8 @@ const SOLVERS = ["0", "1", "2"];
 function usaSimulacaoDoArquivo(j) {
   const s = j && j.simulacao, comDt = !!s && s.dt > 0 && s.tfim > 0, comSolver = !!s && SOLVERS.includes(String(s.solver));
   if (!s || (!comDt && !comSolver) || sim.par.modelo === j.arq) return "";
-  if (comDt) { sim.par.dt = String(s.dt); sim.par.tfim = String(s.tfim); }
+  if (comDt) { const I = intervaloAmostra();             // a amostra do scope fica a cada o mesmo tempo (o número acompanha o tfim)
+    sim.par.dt = String(s.dt); sim.par.tfim = String(s.tfim); sim.par.amostra = String(I); sim.par.amostras = String(amostrasDe(s.tfim, I)); }
   sim.par.modelo = j.arq;
   try { localStorage.setItem("maisim-simu-sim", JSON.stringify(sim.par)); } catch (e) { /* ok */ }
   return [comDt ? tr("simu.sim_do_arquivo", { dt: si(s.dt, "s"), tfim: si(s.tfim, "s") }) : "",
@@ -1879,7 +1942,9 @@ async function montaProps() {
   };
   if (v("#p-juntos")) v("#p-juntos").onchange = (ev) => { ed.todos = ev.target.checked; mostraProps(); };
   if (v("#p-iguala")) v("#p-iguala").onclick = () => mudaTamanho(e, Object.keys(TAMANHO).map((p) => [p, TAMANHO[p](e)]), tr("simu.d_tamanho", { nome: nomeSub(e.nome), tam: txtTamanho(e) }), true);
-  P.querySelectorAll("[data-g]").forEach((i) => i.onchange = () => pede("SETG", [i.dataset.g, i.value], `${i.dataset.g} = ${i.value}`));
+  P.querySelectorAll("[data-g]").forEach((i) => { campoNumero(i);       // as variáveis que ele usa: o número (com prefixo) vai como número
+    i.onchange = () => { const v = lerNumero(i.value); if (!i._confere(true)) { msg(tr("simu.valor_numero", { k: i.dataset.g }), "erro"); return; }
+      pede("SETG", [i.dataset.g, v], `${i.dataset.g} = ${textoLido(v)[0]}`); }; });
   let ultimoMedido = null;
   const mede = async (corpo, ok, nomeAuto) => {
     msg(tr("simu.aplicando"));
@@ -1986,13 +2051,14 @@ async function montaProps() {
     v("#tf-modo").onchange = () => { v("#tf-pol").hidden = pz(); v("#tf-pz").hidden = !pz(); };
     const aplica = async () => {
       const bt = v("#tf-aplica"); if (bt.disabled) return;
-      const z = v("#tf-zeros").value.trim(), p = v("#tf-polos").value.trim(), k = v("#tf-ganho").value.trim(), n = v("#tf-num").value.trim(), d = v("#tf-den").value.trim();
+      const z = v("#tf-zeros").value.trim(), p = v("#tf-polos").value.trim(), n = v("#tf-num").value.trim(), d = v("#tf-den").value.trim();
+      const kt = v("#tf-ganho").value.trim(), kn = lerNumero(kt), k = Number.isFinite(kn) ? String(kn) : kt;   // o ganho com prefixo (2k); os polinômios, polos e zeros: como o tf.py lê
       bt.disabled = true;
       try { await (pz() ? mede({ tipo: "H", zeros: z, polos: p, ganho: k }, tr("simu.d_tf_pz", { nome: e.nome, z, p, k }))
         : mede({ tipo: "H", num: n, den: d }, tr("simu.d_tf", { nome: e.nome, num: n, den: d }))); }
       finally { bt.disabled = false; }
     };
-    v("#tf-aplica").onclick = aplica;
+    v("#tf-aplica").onclick = aplica; campoNumero(v("#tf-ganho"));
     for (const id of ["#tf-num", "#tf-den", "#tf-zeros", "#tf-polos", "#tf-ganho"]) v(id).onkeydown = (ev) => { if (ev.key === "Enter") { ev.preventDefault(); aplica(); } };
   }
   if (v("#p-sinal")) {                                   // rótulos de saída dos blocos de controle desta folha
@@ -2049,11 +2115,12 @@ async function montaProps() {
         const vis = ops.filter(([c, , , oculta]) => !oculta || (atual && atual[0] === c));
         return `<select data-p="${q.nome}">${vis.map(([c, , k]) => `<option value="${c}" ${atual && atual[0] === c ? "selected" : ""}>${escT(tr(k))}</option>`).join("")}${atual ? "" : `<option value="${q.valor}" selected>${q.valor}</option>`}</select>`; }
       if (q.tipo === "Boolean") return `<input type="checkbox" class="p-bool" data-p="${q.nome}" ${q.valor > 0.5 ? "checked" : ""}>`;
-      return ligada(q) ? `<span class="com-var"><input data-p="${q.nome}" value="${escT(ligada(q))}" class="var" autocomplete="off"><small title="${escT(tr("simu.t_valor_var", { v: ligada(q) }))}">= ${si(q.valor, q.unidade)}</small></span>`
+      return ligada(q) ? `<span class="com-var"><input data-p="${q.nome}" value="${escT(ligada(q))}" class="var" autocomplete="off"><small title="${escT(tr("simu.t_valor_var", { v: ligada(q) }))}">= ${si(q.valor, unidadeVista(q.unidade))}</small></span>`
         : `<input data-p="${q.nome}" value="${q.valor}"${q.pode_var ? ' autocomplete="off"' : ""}>`;
     };
     // nos blocos de controle, o nome legível e a unidade (simu.par.<tipo>.<nome>, PAR_CTL); o do Gecko fica na dica, entre parênteses
-    const linhaPar = (q) => { const aj = ctl ? ajudaPar(e.tipo, q.nome) : "", uc = ctl ? unidCtl(e.tipo, q.nome) : null, un = uc != null ? uc : q.unidade;
+    const unPar = (q) => { const uc = ctl ? unidCtl(e.tipo, q.nome) : null; return uc != null ? uc : q.unidade; };
+    const linhaPar = (q) => { const aj = ctl ? ajudaPar(e.tipo, q.nome) : "", un = unPar(q);
       const dica = aj ? `${aj} (${q.nome}${q.descricao && q.descricao !== q.nome ? ": " + q.descricao : ""})` : q.descricao;
       return `<label title="${escT(dica)}${q.pode_var && !(kpki && q.nome === "T") ? " · " + escT(tr("simu.t_pode_var")) : ""}"><span>${escT(ctl ? rotuloPar(e.tipo, q.nome) : q.nome)}${un ? ` [${escT(un)}]` : ""}</span>
       ${q.erro ? `<i>${q.erro}</i>` : campo(q)}</label>`; };
@@ -2068,7 +2135,9 @@ async function montaProps() {
       (perdas.length ? `<div class="sec-perdas"><h4>${escT(tr("simu.h_perdas"))}</h4><div class="aviso">${escT(tr("simu.perdas_modelo"))}</div>
         ${e.perda_modo === 2 ? `<div class="aviso perda-detalhada" style="color:${COR.erro}">${escT(tr("simu.perda_detalhada"))}</div>` : ""}${perdas.map(linhaPar).join("")}
         <div class="aviso ${pvs.length ? "com-pv" : "sem-pv"}"${pvs.length ? "" : ` style="color:${COR.erro}"`}>${escT(pvs.length ? tr("simu.aquecido_por", { pv: pvs.map((x) => x.nome).join(", ") }) : tr("simu.sem_pv"))}</div></div>` : "");
-    P.querySelectorAll("#p-params input[data-p]").forEach((i) => { const q = lst.find((x) => x.nome === i.dataset.p); if (q && q.pode_var) comVariaveis(i); });
+    P.querySelectorAll("#p-params input[data-p]").forEach((i) => { const q = lst.find((x) => x.nome === i.dataset.p); if (q && q.pode_var) comVariaveis(i);
+      // o número com prefixo (1k, 100µ, 20kHz): embaixo, o que foi entendido na unidade do parâmetro ("= 1 kΩ"); o $nome fica como está
+      if (q && i.type !== "checkbox") campoNumero(i, { un: unPar(q), comVar: !!q.pode_var, apos: i.closest(".com-var") || i }); });
     // useExternal (SIGNAL, LIMIT, HYS): os parâmetros que vêm das entradas, que o Gecko ignora aqui, ficam cinza, com a entrada
     // que dá cada um, o número dela no bloco (Marcelo, 24/10: pareciam editáveis); a caixinha muda na hora, antes do Gecko
     const tabExt = EXTERNA[e.tipo];
@@ -2089,21 +2158,26 @@ async function montaProps() {
         if (!NOME_VAR.test(txt)) { msg(tr("simu.nome_var_erro"), "erro"); i.value = ligada(q) || q.valor; return; }
         const nova = !(txt in (dados.globais || {}));
         await mudaGlobal({ acao: "liga", componente: e.nome, parametro: q.nome, nome: txt, valor: q.valor, folhas: fs },
-          (nova ? tr("simu.d_liga_nova", { nome: e.nome, par: q.nome, v: txt, val: si(q.valor, q.unidade) }) : `${e.nome}: ${q.nome} ← ${txt} = ${si(dados.globais[txt], q.unidade)}`) + onde);
+          (nova ? tr("simu.d_liga_nova", { nome: e.nome, par: q.nome, v: txt, val: si(q.valor, unidadeVista(q.unidade)) }) : `${e.nome}: ${q.nome} ← ${txt} = ${si(dados.globais[txt], unidadeVista(q.unidade))}`) + onde);
         mostraProps(); return;
       }
-      if (txt.startsWith("$")) { msg(tr("simu.par_sem_var", { p: q ? q.nome : i.dataset.p }), "erro"); i.value = q ? q.valor : ""; return; }
+      if (txt.startsWith("$")) { msg(tr("simu.par_sem_var", { p: q ? q.nome : i.dataset.p }), "erro"); i.value = q ? q.valor : ""; if (i._confere) i._confere(); return; }
+      // um número (com prefixo: 1k, 100µ) vai como número; o que não é número fica no campo, com o erro embaixo, e nada vai
+      const num = i.tagName === "INPUT" && i.type !== "checkbox" ? lerNumero(txt) : null;
+      if (num !== null && !Number.isFinite(num)) {
+        if (i._confere) i._confere(true);
+        msg(tr(q && q.pode_var ? "simu.par_numero_ou_var" : "simu.par_numero", { p: q ? q.nome : i.dataset.p }), "erro"); return;
+      }
       if (q && ligada(q)) {                                              // número no lugar da variável: desliga e fica com o número
-        if (txt === "" || !isFinite(Number(txt))) { msg(tr("simu.par_numero_ou_var", { p: q.nome }), "erro"); i.value = ligada(q); return; }
-        await mudaGlobal({ acao: "desliga", componente: e.nome, parametro: q.nome, valor: Number(txt), folhas: fs }, tr("simu.d_desliga_var", { nome: e.nome, par: q.nome, v: txt, var: ligada(q) }) + onde);
+        await mudaGlobal({ acao: "desliga", componente: e.nome, parametro: q.nome, valor: num, folhas: fs }, tr("simu.d_desliga_var", { nome: e.nome, par: q.nome, v: textoLido(num, unPar(q))[0], var: ligada(q) }) + onde);
         mostraProps(); return;
       }
       if (e.tipo === "SUBCIRCUIT" && TAMANHO[i.dataset.p]) {            // o tamanho: nos iguais também, com "mudar os N juntos"
         if (!/^\d+$/.test(txt)) { msg(tr("simu.par_inteiro", { p: i.dataset.p }), "erro"); i.value = q ? q.valor : ""; return; }
         await mudaTamanho(e, [[i.dataset.p, +txt]], `${e.nome}: ${i.dataset.p} = ${+txt}`); return;
       }
-      const rotulo = i.tagName === "SELECT" && i.selectedOptions[0] ? i.selectedOptions[0].textContent : txt;   // a forma pelo nome, no histórico
-      await pede("SETP", [qualificado(e), i.dataset.p, txt], `${e.nome}: ${i.dataset.p} = ${rotulo}`);
+      const rotulo = i.tagName === "SELECT" && i.selectedOptions[0] ? i.selectedOptions[0].textContent : num !== null ? textoLido(num, q ? unPar(q) : "")[0] : txt;   // a forma pelo nome, no histórico
+      await pede("SETP", [qualificado(e), i.dataset.p, num !== null ? num : txt], `${e.nome}: ${i.dataset.p} = ${rotulo}`);
     };
     P.querySelectorAll("[data-p]").forEach((i) => i.onchange = async () => {
       const q = lst.find((x) => x.nome === i.dataset.p), txt = i.type === "checkbox" ? (i.checked ? "1" : "0") : i.value.trim(), fs = alvos(), onde = nosSMs(fs);
@@ -2460,7 +2534,7 @@ $("bt-conector").onclick = () => ed.ligado && modoConector(!ed.conector);
 
 // ---------------------------------------------------------------- modal (no lugar dos avisos do navegador)
 // (os textos chegam prontos, em HTML; os botões padrão no idioma de agora: o padrão do parâmetro vale a cada chamada)
-function modal({ titulo, texto = "", campos = [], html = "", ok = escT(tr("simu.ok")), cancelar = escT(tr("simu.cancelar")), perigo = false, largo = false, extra = [], foco = null, monta = null }) {
+function modal({ titulo, texto = "", campos = [], html = "", ok = escT(tr("simu.ok")), cancelar = escT(tr("simu.cancelar")), perigo = false, largo = false, extra = [], foco = null, monta = null, valida = null }) {
   return new Promise((res) => {
     const fundo = document.createElement("div"); fundo.className = "modal-fundo";
     fundo.innerHTML = `<div class="modal${largo ? " largo" : ""}" role="dialog" aria-modal="true"><h3>${titulo}</h3>${texto ? `<p>${texto}</p>` : ""}${html}
@@ -2469,14 +2543,15 @@ function modal({ titulo, texto = "", campos = [], html = "", ok = escT(tr("simu.
     document.body.appendChild(fundo);
     const valores = () => Object.fromEntries([...fundo.querySelectorAll("input[name]")].map((i) => [i.name, i.value]));
     const fecha = (v) => { fundo.remove(); removeEventListener("keydown", tecla, true); res(v); };
+    const confirma = () => { const v = valores(); if (!valida || valida(v, fundo)) fecha(v); };   // valida: false fica aberto (o erro no campo)
     // Enter: num botão, aciona ESSE botão (num modal de conflito, Enter em "manter" não pode descartar); num campo, confirma
     const tecla = (e) => { const ca = document.activeElement;
       if (e.key === "Enter" && ca && ca.dataset && ca.dataset.enter === "proprio" && fundo.contains(ca)) return;   // o campo trata o Enter
       if (e.key === "Escape") { e.stopPropagation(); e.preventDefault(); fecha(null); }
       else if (e.key === "Enter") { e.stopPropagation(); e.preventDefault(); const a = document.activeElement;
-        if (a && a.tagName === "BUTTON" && fundo.contains(a)) a.click(); else fecha(valores()); } else e.stopPropagation(); };
+        if (a && a.tagName === "BUTTON" && fundo.contains(a)) a.click(); else confirma(); } else e.stopPropagation(); };
     addEventListener("keydown", tecla, true);
-    fundo.querySelector(".m-ok").onclick = () => fecha(valores());
+    fundo.querySelector(".m-ok").onclick = confirma;
     fundo.querySelectorAll(".m-extra").forEach((b) => { b.onclick = () => fecha({ _botao: extra[+b.dataset.i].valor }); });   // botões a mais: {_botao: valor}
     const c = fundo.querySelector(".m-cancela"); if (c) c.onclick = () => fecha(null);
     fundo.addEventListener("mousedown", (e) => { if (e.target === fundo) fecha(null); });
@@ -2635,17 +2710,32 @@ async function garanteEdicao() { if (!ed.ligado) await liga(true); return ed.lig
 
 // ---------------------------------------------------------------- simulação: parâmetros, iniciar, pausar, continuar, parar, progresso
 const solverAtual = () => (dados && dados.simulacao && SOLVERS.includes(String(dados.simulacao.solver)) ? String(dados.simulacao.solver) : "0");   // o que o Gecko tem
-const sim = { estado: "parada", timer: null, par: { dt: "1e-6", tfim: "0.04", nome: "rodada", amostras: "4000", por_cima: "1" } };   // por_cima: a nova substitui a anterior de mesmo nome
+const sim = { estado: "parada", timer: null, par: { dt: "1e-6", tfim: "0.04", nome: "rodada", amostras: "4000", amostra: "1e-5", por_cima: "1" } };   // por_cima: a nova substitui a anterior de mesmo nome
 try { Object.assign(sim.par, JSON.parse(localStorage.getItem("maisim-simu-sim") || "{}")); } catch (e) { /* ok */ }
 delete sim.par.solver;                                 // a escolha guardada no navegador (antes de ser do circuito) não vale mais
 // ⚙ Parâmetros da simulação, em duas abas: "simulação" (Δt, tempo final… — valem ao iniciar) e "variáveis globais ($)", como
 // o Tools > Parameters do Gecko: criar, mudar, apagar (cada mudança vale na hora; Ctrl+Z desfaz). O $x abre na segunda aba
 // o nome da próxima depois de guardar uma rodada: rodada_teste → rodada_teste_2 → rodada_teste_3
 const proximoNome = (n) => (/_(\d+)$/.test(n) ? n.replace(/_(\d+)$/, (_, k) => `_${+k + 1}`) : `${n}_2`).slice(0, 40);
+// a amostra do scope (Marcelo, 27/10: "amostras guardadas (até)" confundia): no ⚙ vai o INTERVALO (sim.par.amostra, em s) e o
+// servidor continua recebendo o número (sim.par.amostras = ⌈tfim/intervalo⌉, que ele limita a [10, passos]: o intervalo nunca
+// fica menor que o Δt). Guardado de antes só com o número (ou o número mudado direto): o intervalo é tfim/amostras
+const amostrasDe = (tfim, intervalo) => Math.ceil(tfim / intervalo - 1e-6);
+function intervaloAmostra() {
+  const tfim = lerNumero(sim.par.tfim), I = lerNumero(sim.par.amostra), n = parseInt(sim.par.amostras, 10);
+  if (I > 0 && tfim > 0 && (!(n > 0) || amostrasDe(tfim, I) === n)) return I;
+  return tfim > 0 && n > 0 ? tfim / n : 1e-5;
+}
+// a frequência da fonte de sinal mais rápida (a portadora do PWM): a mesma conta do f_sinais do servidor (o aviso do scope)
+const fPortadora = () => Math.max(0, ...Object.values((dados && dados.folhas) || {}).flatMap((f) => f.elementos
+  .filter((e) => e.tipo === "SIGNAL" && e.ativo !== false).map((e) => Number(e.par && e.par.frequenz) || 0)));
+const milhar = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, "\u202f");   // 10 000 (o espaço fino: nem ponto nem vírgula)
 async function parametrosSim(aba = "sim", op = {}) {
-  const SIM = [{ nome: "dt", rotulo: escT(tr("simu.m_dt")), valor: sim.par.dt }, { nome: "tfim", rotulo: escT(tr("simu.m_tfim")), valor: sim.par.tfim },
+  const intervalo = intervaloAmostra();
+  const SIM = [{ nome: "dt", rotulo: escT(tr("simu.m_dt")), valor: numCampo(sim.par.dt) }, { nome: "tfim", rotulo: escT(tr("simu.m_tfim")), valor: numCampo(sim.par.tfim) },
                { nome: "nome", rotulo: escT(tr("simu.m_nome_rodada")), valor: sim.par.nome, dica: escT(tr("simu.dica_nome")) },
-               { nome: "amostras", rotulo: escT(tr("simu.m_amostras")), valor: sim.par.amostras, dica: escT(tr("simu.dica_amostras")) }];
+               { nome: "amostra", rotulo: escT(tr("simu.m_amostra")), valor: numCampo(intervalo), dica: escT(tr("simu.dica_amostra")) }];
+  const inicial = Object.fromEntries(SIM.map((c) => [c.nome, c.valor])), conf = {};
   const comVars = !!(dados && dados.editor);
   // simulando: só para ver (Marcelo, 22/10) — as variáveis mexem no circuito na hora, e a rodada usa o do início; os
   // parâmetros da simulação travam junto (valeriam só para a próxima). Copiar o nome de uma variável continua
@@ -2657,6 +2747,7 @@ async function parametrosSim(aba = "sim", op = {}) {
       <div class="m-aba" data-aba="sim"><p>${escT(tr("simu.m_valem"))}</p>
         ${op.aviso ? `<p class="m-guardada">${escT(op.aviso)}</p>` : ""}
         ${SIM.map((c) => `<label><span>${c.rotulo}</span><input name="${c.nome}" value="${escT(c.valor ?? "")}" ${c.dica ? `title="${c.dica}"` : ""}${roda ? " disabled" : ""}></label>`).join("")}
+        <p class="m-aviso-amostra" role="status" hidden></p>
         <label><span>${escT(tr("simu.m_solver"))}<span class="ctl-i" tabindex="0" title="${escT(tr("simu.t_solver"))}">i</span></span><select class="m-solver"${roda ? " disabled" : ""}>
           ${SOLVERS.map((k) => `<option value="${k}"${k === solver ? " selected" : ""}>${escT(tr(`simu.solver_${k}`))}</option>`).join("")}</select></label>
         <label><span>${escT(tr("simu.m_rodada_nova"))}<span class="ctl-i" tabindex="0" title="${escT(tr("simu.t_porcima"))}">i</span></span><select class="m-porcima"${roda ? " disabled" : ""}>
@@ -2669,13 +2760,36 @@ async function parametrosSim(aba = "sim", op = {}) {
         const f = fundo.querySelector(`.m-aba[data-aba="${a}"] input`); if (f) setTimeout(() => f.focus(), 0); };
       fundo.querySelectorAll(".m-abas button").forEach((b) => b.onclick = () => mostra(b.dataset.aba));
       fundo.querySelector(".m-porcima").onchange = (ev) => { porCima = ev.target.value === "1"; };
+      // os números com prefixo (0,5u, 20m, 2µ): embaixo de cada um, o que foi entendido; o da amostra, quantas dá e o aviso da
+      // portadora (a amostra mais longa que meio período dela: os pulsos somem entre uma amostra e outra)
+      const campo = (k) => fundo.querySelector(`.m-aba[data-aba="sim"] input[name="${k}"]`), avAm = fundo.querySelector(".m-aviso-amostra"), fP = fPortadora();
+      const extraAmostra = (I) => {
+        const dt = lerNumero(campo("dt").value), tfim = lerNumero(campo("tfim").value), meio = fP > 0 ? 0.5 / fP : 0;
+        const ef = Math.max(I, dt > 0 ? dt : 0);
+        avAm.hidden = !(meio && ef > meio * (1 + 1e-9)); avAm.textContent = avAm.hidden ? "" : tr("simu.amostra_portadora", { T: si(1 / fP, "s"), f: si(fP, "Hz") });
+        if (!(dt > 0 && tfim > dt)) return "";
+        const N = Math.max(10, Math.min(Math.round(tfim / dt), amostrasDe(tfim, I)));
+        return tr(I < dt * (1 - 1e-9) ? "simu.amostras_cada_passo" : "simu.amostras_n", { n: milhar(N) });
+      };
+      conf.dt = campoNumero(campo("dt"), { un: "s", positivo: true }); conf.tfim = campoNumero(campo("tfim"), { un: "s", positivo: true });
+      conf.amostra = campoNumero(campo("amostra"), { un: "s", positivo: true, extra: extraAmostra });
+      const refaz = () => { if (!conf.amostra()) avAm.hidden = true; };
+      ["dt", "tfim", "amostra"].forEach((k) => campo(k).addEventListener("input", refaz)); refaz();
+      conf.aba = () => mostra("sim");
       fundo.querySelector(".m-solver").onchange = (ev) => { solver = ev.target.value; };
       if (comVars) listaGlobais(fundo.querySelector("#gv"), roda);
       mostra(comVars ? aba : "sim");
-    } });
+    },
+    // um número que não deu para entender: o ⚙ fica aberto, no campo (com o erro embaixo), e nada é guardado
+    valida: () => roda || ["dt", "tfim", "amostra"].every((k) => { if (conf[k](true)) return true;
+      conf.aba(); const i = document.querySelector(`.modal input[name="${k}"]`); if (i) setTimeout(() => i.focus(), 0); return false; }) });
   if (!r) return false;
   if (roda) return true;
   r.por_cima = porCima ? "1" : "0";
+  // o que vai ao servidor é o número (o texto que não mudou fica com o valor exato de antes: o campo o mostra arredondado)
+  const valor = (k, antes) => (r[k] === inicial[k] ? antes : lerNumero(r[k]));
+  const dtN = valor("dt", lerNumero(sim.par.dt)), tfimN = valor("tfim", lerNumero(sim.par.tfim)), I = valor("amostra", intervalo);
+  Object.assign(r, { dt: String(dtN), tfim: String(tfimN), amostra: String(I), amostras: String(amostrasDe(tfimN, I)) });
   const mudouSolver = solver !== solverAtual();
   if (mudouSolver) {                                     // vai já para o circuito (como uma variável global): Salvar grava, Ctrl+Z desfaz
     if (!(await garanteEdicao())) return false;
@@ -2683,13 +2797,14 @@ async function parametrosSim(aba = "sim", op = {}) {
     try { novoEstado(await api("editor/solver", { solver: +solver, descr: tr("simu.solver_escolhido", { nome: tr(`simu.solver_${solver}`) }) })); }
     catch (e) { msg(e.message, "erro"); return false; }
   }
-  if (["dt", "tfim", "nome", "amostras", "por_cima"].every((k) => r[k] === undefined || String(r[k]) === String(sim.par[k]))) {   // nada mais mudou
+  const igual = (k) => r[k] === undefined || String(r[k]) === String(sim.par[k]) || (["dt", "tfim", "amostra"].includes(k) && lerNumero(r[k]) === lerNumero(sim.par[k]));
+  if (["dt", "tfim", "nome", "amostras", "amostra", "por_cima"].every(igual)) {   // nada mais mudou
     if (mudouSolver) msg(tr("simu.solver_escolhido", { nome: tr(`simu.solver_${solver}`) }), "ok");
     return true;
   }
   Object.assign(sim.par, r); try { localStorage.setItem("maisim-simu-sim", JSON.stringify(sim.par)); } catch (e) { /* ok */ }
   if (typeof infoTs === "function" && $("ctl-ts")) { infoTs(); infoAtraso(); }   // Ts = n × Δt no painel do controle
-  msg(tr("simu.sim_par", { dt: r.dt, tfim: r.tfim }) + (mudouSolver ? ` · ${tr("simu.solver_escolhido", { nome: tr(`simu.solver_${solver}`) })}` : ""), "ok"); return true;
+  msg(tr("simu.sim_par", { dt: si(dtN, "s"), tfim: si(tfimN, "s"), amostra: si(I, "s") }) + (mudouSolver ? ` · ${tr("simu.solver_escolhido", { nome: tr(`simu.solver_${solver}`) })}` : ""), "ok"); return true;
 }
 async function iniciaSim() {
   if (VISTA_CODIGO) { msg(tr("simu.play_no_circuito"), "erro"); return; }
@@ -2806,9 +2921,10 @@ function listaGlobais(caixa, travada = false) {       // a aba "variáveis globa
   const relista = () => listaGlobais(caixa, travada);
   if (travada) caixa.querySelectorAll("input, button:not([data-copia])").forEach((x) => { x.disabled = true; });
   caixa.querySelectorAll("input[data-g]").forEach((i) => {
-    const vale = async () => { const k = i.dataset.g, v = i.value.trim(); if (v === "" || Number(v) === dados.globais[k]) return;
-      if (!isFinite(Number(v))) { msg(tr("simu.valor_numero", { k }), "erro"); return; }
-      await pede("SETG", [k, v], `${k} = ${v}`); };
+    campoNumero(i, { apos: i.parentElement.lastElementChild });   // o valor com prefixo (50m, 20k): o que foi entendido embaixo (no fim da linha: o "N usos" continua o 1º small)
+    const vale = async () => { const k = i.dataset.g, txt = i.value.trim(), v = lerNumero(txt); if (txt === "" || v === dados.globais[k]) return;
+      if (!i._confere(true)) { msg(tr("simu.valor_numero", { k }), "erro"); return; }
+      await pede("SETG", [k, v], `${k} = ${textoLido(v)[0]}`); };
     i.onchange = vale; i.onkeydown = (ev) => { if (ev.key === "Enter") { ev.preventDefault(); i.blur(); } };
   });
   // copiar o nome (Marcelo, 19/10): um clique e é só colar no parâmetro do componente; sem a área de transferência do
@@ -2827,12 +2943,13 @@ function listaGlobais(caixa, travada = false) {       // a aba "variáveis globa
     if (await mudaGlobal({ acao: "apaga", nome: k }, n ? tr("simu.d_var_apagada_usos", { k, n, v: dados.globais[k] }) : tr("simu.d_var_apagada", { k }))) relista();
   });
   const cria = async () => {
-    let k = caixa.querySelector("#gv-nome").value.trim(); const v = caixa.querySelector("#gv-valor").value.trim();
+    let k = caixa.querySelector("#gv-nome").value.trim(); const v = lerNumero(caixa.querySelector("#gv-valor").value);
     if (k && !k.startsWith("$")) k = "$" + k;
     if (!NOME_VAR.test(k)) { msg(tr("simu.nome_var_erro"), "erro"); caixa.querySelector("#gv-nome").focus(); return; }
-    if (v === "" || !isFinite(Number(v))) { msg(tr("simu.valor_numero", { k }), "erro"); caixa.querySelector("#gv-valor").focus(); return; }
-    if (await mudaGlobal({ acao: "nova", nome: k, valor: Number(v) }, tr("simu.d_var_criada", { k, v }))) { relista(); caixa.querySelector("#gv-nome").focus(); }
+    if (!confValor(true)) { msg(tr("simu.valor_numero", { k }), "erro"); caixa.querySelector("#gv-valor").focus(); return; }
+    if (await mudaGlobal({ acao: "nova", nome: k, valor: v }, tr("simu.d_var_criada", { k, v: textoLido(v)[0] }))) { relista(); caixa.querySelector("#gv-nome").focus(); }
   };
+  const confValor = campoNumero(caixa.querySelector("#gv-valor"), { apos: caixa.querySelector("#gv-cria") });
   caixa.querySelector("#gv-cria").onclick = cria;
   caixa.querySelector("#gv-nome").onkeydown = (ev) => { if (ev.key === "Enter") { ev.preventDefault(); caixa.querySelector("#gv-valor").focus(); } };
   caixa.querySelector("#gv-valor").onkeydown = (ev) => { if (ev.key === "Enter") { ev.preventDefault(); cria(); } };
@@ -3092,6 +3209,7 @@ addEventListener("storage", (ev) => {                   // Δt e tempo final mud
 // estático o aplica() já trocou). A linha de mensagens e o histórico ficam como foram escritos
 maisimI18n.aoMudar(() => {
   titulosCabecalho(); titulosPaineis(); estadoVer(); textosRede();
+  document.querySelectorAll(".num-lido").forEach((n) => { if (n._campo && n._campo._confere) n._campo._confere(); });   // as notas dos números
   if ($("divisoria").title) tituloDivisoria();            // só a que já tem título (o posicionaScope dá o primeiro)
   const op = $("sel-modelo").querySelector(`option[value="${NOVO}"]`);   // o circuito novo, na lista escondida e no botão do modelo
   if (op && ed.novo) { op.textContent = tr("simu.op_novo", { nome: ed.novo }); if (op.parentElement) op.parentElement.label = tr("simu.grupo_novo"); }

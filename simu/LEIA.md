@@ -35,7 +35,7 @@ As portas e as pastas ficam em [`config/padrao.env`](../config/padrao.env).
 
 ## Simular
 
-- **▶** (ou Ctrl+Enter) simula; **⚙** ao lado define Δt, tempo final, nome da rodada e amostras guardadas. Espaço pausa
+- **▶** (ou Ctrl+Enter) simula; **⚙** ao lado define Δt, tempo final, nome da rodada e a amostra do scope (o intervalo: a cada 2µ…; os números aceitam prefixo, 0,5u, 20m, 1k). Espaço pausa
   e continua. Enquanto roda, o circuito não aceita edição.
 - Os sinais são as saídas dos medidores e dos blocos de controle (nome = rótulo da saída; dentro de um subcircuito, com
   o nome dele na frente; um bloco de várias saídas, como abc>>dq, DEMUX ou Java, dá um sinal por saída, sem rótulo

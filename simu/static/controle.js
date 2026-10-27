@@ -348,6 +348,7 @@ function desenhaLigacoes() {
   const c = d.controle, dt = Number(sim.par.dt) || 1e-6;
   $("ctl-ativo").checked = !!c.ativo;
   if (document.activeElement !== $("ctl-ts")) $("ctl-ts").value = c.Ts;
+  campoNumero($("ctl-ts"), { un: "s", positivo: true, apos: $("ctl-ts-i") });   // o Ts com prefixo (50u): "= 50 µs" embaixo
   infoTs();
   const marcados = new Set(c.atuacoes), vazio = (n, txt) => `<tr><td colspan="${n}" class="vazio">${txt}</td></tr>`;
   const acDe = (n) => (c.acionamentos || []).filter((q) => q.alvo === `CONST:${n}`).map((q) => `t = ${q.t} s → ${q.valor}`).join(" · ");
@@ -372,6 +373,7 @@ function desenhaLigacoes() {
   const at = c.atraso || { modo: "logo", tempo: 0 };
   $("ctl-atraso").value = at.modo; $("ctl-atraso-tempo").style.display = at.modo === "tempo" ? "" : "none";
   if (document.activeElement !== $("ctl-atraso-t")) $("ctl-atraso-t").value = at.tempo || "";
+  campoNumero($("ctl-atraso-t"), { un: "s", apos: $("ctl-atraso-i") });
   infoAtraso();
   // acionamentos: alvo = um bloco CONST (qualquer um) ou um parâmetro do controle
   const alvos = d.atuadores.map((a) => [`CONST:${a.nome}`, `${a.nome} (${a.bloco})`]).concat(c.parametros.map((q) => [`p:${q.nome}`, `p["${q.nome}"]`]));
@@ -384,8 +386,23 @@ function desenhaLigacoes() {
         <td><select data-k="alvo">${alvos.some(([v]) => v === q.alvo) ? "" : `<option value="${escT(q.alvo)}">${escT(tr("ctl.nao_existe", { alvo: q.alvo }))}</option>`}${alvos.map(([v, r]) => `<option value="${escT(v)}" ${v === q.alvo ? "selected" : ""}>${escT(r)}</option>`).join("")}</select></td>
         <td><input data-k="valor" value="${q.valor}" placeholder="${escT(tr("ctl.ph_valor"))}"></td><td class="dest${escrito ? " alerta" : ""}">${escT(obs)}</td><td><button class="rm" data-rm-ac="${i}" title="${escT(tr("ctl.t_tirar"))}">×</button></td></tr>` }; });
   $("ctl-ac").innerHTML = ordenaLinhas(lAc, "ac").map((x) => x.html).join("") || vazio(5, escT(tr("ctl.sem_ac")));
+  notasDasTabelas();
   $("ctl-avisos").innerHTML = avisosDoPainel(d.avisos, d.compartilhados) + avisoSemEsquema();
   desenhaIndice(); filtraTabela();
+}
+// os números das tabelas com prefixo (Marcelo, 27/10: 1k, 50m, 2µ): embaixo de cada um, o que foi entendido — o valor do
+// parâmetro na unidade da linha; o instante do acionamento em s; o valor do acionamento na unidade do parâmetro que ele muda
+function notasDasTabelas() {
+  for (const r of document.querySelectorAll("#ctl-par .ctl-par")) {
+    const un = r.querySelector('[data-k="unidade"]'), v = r.querySelector('[data-k="valor"]');
+    campoNumero(v, { un: () => un.value.trim() }); un.oninput = () => v._confere();
+  }
+  const unDe = (alvo) => { const q = /^p:/.test(alvo) && ctl.dados ? ctl.dados.controle.parametros.find((x) => `p:${x.nome}` === alvo) : null; return (q && q.unidade) || ""; };
+  for (const r of document.querySelectorAll("#ctl-ac .ctl-ac")) {
+    const al = r.querySelector('[data-k="alvo"]'), v = r.querySelector('[data-k="valor"]');
+    campoNumero(r.querySelector('[data-k="t"]'), { un: "s" }); campoNumero(v, { un: () => unDe(al.value) });
+    al.addEventListener("change", () => v._confere());
+  }
 }
 // o índice da coluna "variáveis": cada tabela com o quanto tem (e um alerta: atuação escrita e não marcada, parâmetro sem uso)
 function desenhaIndice() {
@@ -543,6 +560,7 @@ function desenhaControladores() {
   if (ctl.tabela === "diag") desenhaDiagrama();
   $("ctl-rede").style.display = cs.length ? "" : "none";
   if (document.activeElement !== $("ctl-rede-lat")) $("ctl-rede-lat").value = (c.rede && c.rede.latencia) || 0;
+  campoNumero($("ctl-rede-lat"), { un: "s", apos: $("ctl-rede-i") });
   $("ctl-n-arq").textContent = ctl.lista.length > 1 || cs.length ? `${ctl.lista.length}` : "";
   infoRede();
 }
@@ -1130,8 +1148,8 @@ function mostraVista(v) {
   try { localStorage.setItem("maisim-simu-ctl-vista", v); } catch (e) { /* vale até recarregar */ }
 }
 function infoRede() {                                    // a latência da rede em amostras: chega na 1ª amostra depois do envio com t ≥ t + τ
-  const dt = Number(sim.par.dt) || 1e-6, Ts = Math.max(1, Math.round((Number(String($("ctl-ts").value).replace(",", ".")) || 0) / dt)) * dt;
-  const tau = Number(String($("ctl-rede-lat").value).replace(",", "."));
+  const dt = Number(sim.par.dt) || 1e-6, Ts = Math.max(1, Math.round((lerNumero($("ctl-ts").value) || 0) / dt)) * dt;
+  const tau = lerNumero($("ctl-rede-lat").value);
   if (!(tau >= 0)) { poeInfo("ctl-rede", [[tr("ctl.lat_invalida"), true]]); return; }
   const n = Math.max(1, Math.ceil(tau / Ts - 1e-9));
   poeInfo("ctl-rede", [[tr("ctl.rede_info", { n, t: si(n * Ts, "s") }), false]]);
@@ -1154,7 +1172,7 @@ function poeInfo(id, linhas) {
 function infoTs() {
   const dt = Number(sim.par.dt) || 1e-6, tfim = Number(sim.par.tfim) || 0, passos = Math.round(tfim / dt);
   const amPedidas = parseInt(sim.par.amostras, 10), am = Math.max(10, Math.min(passos, Number.isFinite(amPedidas) ? amPedidas : 4000));   // como em _rodar
-  const Ts = Number(String($("ctl-ts").value).replace(",", ".")) || 0;
+  const Ts = lerNumero($("ctl-ts").value) || 0;
   if (!(Ts > 0)) { poeInfo("ctl-ts", [[tr("ctl.ts_invalido"), true]]); return; }
   const n = Math.max(1, Math.round(Ts / dt)), N = Math.ceil(passos / n), cada = Math.max(1, Math.ceil(N / am));
   const virgula = maisimI18n.lingua() === "pt";        // o decimal: vírgula em português, ponto em inglês
@@ -1169,8 +1187,8 @@ function infoTs() {
 // o tipo de um destino (do servidor: chave | fonte | subcircuito) no idioma; um tipo novo aparece como veio
 const tipoDestino = (t) => (maisimI18n.tem(`ctl.tipo.${t}`) ? tr(`ctl.tipo.${t}`) : t);
 function infoAtraso() {
-  const dt = Number(sim.par.dt) || 1e-6, Ts = Number($("ctl-ts").value.replace(",", ".")) || 0, n = Math.max(1, Math.round(Ts / dt)), modo = $("ctl-atraso").value;
-  const d = modo === "amostra" ? n : modo === "tempo" ? Math.min(n, Math.max(1, Math.round((Number($("ctl-atraso-t").value.replace(",", ".")) || 0) / dt))) : 1;
+  const dt = Number(sim.par.dt) || 1e-6, Ts = lerNumero($("ctl-ts").value) || 0, n = Math.max(1, Math.round(Ts / dt)), modo = $("ctl-atraso").value;
+  const d = modo === "amostra" ? n : modo === "tempo" ? Math.min(n, Math.max(1, Math.round((lerNumero($("ctl-atraso-t").value) || 0) / dt))) : 1;
   const linhas = [[tr("ctl.atraso_info", { d, t: si(d * dt, "s") }), false]];
   // o servidor compensa o atraso próprio do Gecko (chave direto no GATE: no passo da escrita; fonte: um depois; bloco no
   // meio: mais um); o que não dá para compensar fica avisado aqui, com o mesmo motivo que a rodada dá (destinos_fora_do_passo)
@@ -1192,14 +1210,16 @@ function coleta() {
   const c = ctl.dados ? ctl.dados.controle : { atuacoes: [] };
   const porI = (sel) => [...document.querySelectorAll(sel)].sort((a, b) => a.dataset.i - b.dataset.i);   // a ordem do painel, não a da vista
   const pars = porI("#ctl-par .ctl-par").map((r) => ({ nome: r.querySelector('[data-k="nome"]').value.trim(),
-    valor: Number(r.querySelector('[data-k="valor"]').value.replace(",", ".")) || 0, unidade: r.querySelector('[data-k="unidade"]').value.trim() }));
-  // número digitado (vírgula ou ponto); texto que não é número marca o campo e a configuração não é gravada
+    valor: lerNumero(r.querySelector('[data-k="valor"]').value) || 0, unidade: r.querySelector('[data-k="unidade"]').value.trim() }));
+  // número digitado (vírgula ou ponto, com prefixo: 50µ, 20k — o lerNumero do simu.js); texto que não é número marca o campo
+  // (o erro embaixo dele) e a configuração não é gravada
   let invalido = null;
-  const num = (el, padrao = null) => { const txt = String(el.value).trim().replace(",", "."), v = txt === "" && padrao !== null ? padrao : Number(txt);
-    const ok = txt !== "" || padrao !== null ? Number.isFinite(v) : false; el.classList.toggle("invalido", !ok); if (!ok && !invalido) invalido = el; return v; };
+  const num = (el, padrao = null) => { const txt = String(el.value).trim(), v = txt === "" && padrao !== null ? padrao : lerNumero(txt);
+    const ok = Number.isFinite(v); el.classList.toggle("invalido", !ok); if (!ok && el._confere) el._confere(true);
+    if (!ok && !invalido) invalido = el; return v; };
   const acs = porI("#ctl-ac .ctl-ac").map((r) => ({ t: num(r.querySelector('[data-k="t"]')),
     alvo: r.querySelector('[data-k="alvo"]').value, valor: num(r.querySelector('[data-k="valor"]')) })).filter((q) => q.alvo);
-  const lat = $("ctl-atraso").value === "tempo" ? num($("ctl-atraso-t")) : (Number(String($("ctl-atraso-t").value).replace(",", ".")) || 0);
+  const lat = $("ctl-atraso").value === "tempo" ? num($("ctl-atraso-t")) : (lerNumero($("ctl-atraso-t").value) || 0);
   for (const r of porI("#ctl-par .ctl-par")) num(r.querySelector('[data-k="valor"]'), 0);
   const ts = num($("ctl-ts"));
   const latRede = $("ctl-rede").style.display === "none" ? ((c.rede && c.rede.latencia) || 0) : num($("ctl-rede-lat"), 0);
