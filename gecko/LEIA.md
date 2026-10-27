@@ -40,6 +40,9 @@ motor): o PREP registra uma vez os nomes lidos no fim, os das médias (perdas) e
 n passos com as escritas (deslocamento, índice, valor) antes dos passos certos e na ordem delas, os trechos entre duas
 escritas como o `simulateSteps`/`simulateStepsAveraged` e as escritas como o `setParameter(…, "const", …)` — devolve, por
 trecho, o tempo no fim, os passos feitos e as médias, e depois os valores lidos: os mesmos números das chamadas separadas.
+`0011`: `stepControlSampled`, o `stepControl` com as amostras de dentro do período (o STEPCS do motor): a cada k passos, o
+tempo, o passo, os valores lidos e as médias das perdas desde a amostra anterior, e no fim a cauda (as médias desde a última);
+os passos, as escritas e os números dos trechos são os do `stepControl` (as leituras a mais não mudam a simulação).
 
 **Tudo de uma vez (recomendado):** em `app/`, `npm run maisim` sobe o scope, o simulador, este Gecko e a página, e o
 Ctrl+C derruba o que ele subiu (o Gecko só se não houver circuito sem salvar; ver `app/scripts/maisim.sh`).

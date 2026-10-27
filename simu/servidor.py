@@ -3549,6 +3549,12 @@ def _rodar(c, ctl_de_fora=None):
                                     for (el, k), f in zip(sinais, fator) if k in canais_scope],
                 cores=cores_efetivas(r),
                 acionamentos=acionamentos_efetivos)
+    # a frequência da fonte de sinal mais rápida do circuito (o SIGNAL: a portadora de um PWM…): com a amostra mais longa que
+    # meio período dela, o scope avisa nos sinais digitais (0/1) que mudam — o chaveamento entre as amostras não aparece
+    f_sinais = max((float(e["par"].get("frequenz") or 0) for fl in r["folhas"].values()
+                    for e in fl["elementos"] if e["tipo"] == "SIGNAL" and e.get("ativo", True)), default=0.0)
+    if f_sinais > 0:
+        meta["f_sinais"] = f_sinais
     if trab:
         cada = max(1, math.ceil(math.ceil(n / nTs) / amostras))      # amostras publicadas: a cada "cada" períodos de controle
         meta.update(dt=dt * nTs * cada, Ts=dt * nTs * cada, controle=dict(Ts=nTs * dt, atuacoes=ctl["atuacoes"],
@@ -3679,6 +3685,29 @@ def _rodar(c, ctl_de_fora=None):
         return esc
 
     stepc = dict(usa=laco == "novo", idx={b: i for i, b in enumerate(escritos)})   # o Ts numa chamada (PREP/STEPC, patch 0010)
+    # as amostras de dentro do Ts (patch 0011, STEPCS): com controle em Python, o scope grava no intervalo pedido (m passos)
+    # mesmo menor que o Ts — a cada k passos, k o maior divisor de nTs que não passa de m (o intervalo uniforme e os
+    # instantes do Ts entre eles); o controle continua recebendo só o instante do Ts. k = 0: só o instante do Ts (o de antes)
+    dentro = dict(k=max(d for d in range(1, m + 1) if nTs % d == 0) if trab and m < nTs else 0)
+
+    def prepara_controle():
+        """Antes do 1º Ts (e antes do meta ir ao scope): o PREP e, para as amostras de dentro do Ts, se o Gecko tem o
+        STEPCS (uma chamada de 0 passos: nada anda); sem ele, o scope grava no instante do Ts, como antes."""
+        if stepc["usa"]:
+            prepara_stepc()
+        rodada["stepc"] = stepc["usa"]                   # o Ts numa chamada valendo (a comparação confere)
+        if dentro["k"] and stepc["usa"]:
+            try:
+                MOTOR.cmd(f"STEPCS {dentro['k']} 0 0")
+            except ErroMotor as e:
+                if "SEM_STEPCS" not in str(e):
+                    raise
+                dentro["k"] = 0
+        else:
+            dentro["k"] = 0
+        if dentro["k"]:
+            meta.update(dt=dt * dentro["k"], Ts=dt * dentro["k"])
+        rodada["amostra_dentro_ts"] = dentro["k"] * dt    # o intervalo de gravação dentro do Ts (0: só o instante do Ts)
 
     def prepara_stepc():
         """O PREP: os nomes lidos no fim de cada Ts (os sinais), os das médias (as perdas) e os CONST que a rodada escreve
@@ -3705,14 +3734,16 @@ def _rodar(c, ctl_de_fora=None):
                 ws.append(f"{o} {stepc['idx'][b]} {v}")
         if npassos > feito:
             qs.append(npassos - feito)
+        pedido = f"{npassos} {len(ws)} {' '.join(ws)}".rstrip()
         try:
-            v = MOTOR.cmd(f"STEPC {npassos} {len(ws)} {' '.join(ws)}".rstrip()).split()
+            v = MOTOR.cmd(f"STEPCS {dentro['k']} {pedido}" if dentro["k"] else f"STEPC {pedido}").split()
         except ErroMotor as e:
-            if "SEM_STEPC" not in str(e):
+            if "SEM_STEPC" not in str(e):                # SEM_STEPC ou SEM_STEPCS: o Gecko não andou
                 raise
-            stepc["usa"] = False                         # o Gecko não andou: este Ts e os seguintes pelo caminho de antes
+            stepc["usa"] = False                         # este Ts e os seguintes pelo caminho de antes (no instante do Ts)
+            dentro["k"] = 0
             return None
-        w = 2 + len(els_media)
+        w, np_, na = 2 + len(els_media), len(sinais), len(els_media)
         if int(v[0]) != len(qs):
             raise ErroMotor(f"STEPC: {v[0]} != {len(qs)}")   # i18n-ok (protocolo: o motor e o servidor discordam)
         tt = None
@@ -3721,14 +3752,27 @@ def _rodar(c, ctl_de_fora=None):
             tt = float(reg[0])
             if els_media:
                 soma_trecho(q, tt, reg[2:])
-        return tt, valores_gecko(v[1 + len(qs) * w:])
+        pos = 1 + len(qs) * w
+        vals_ = valores_gecko(v[pos:pos + np_])
+        if not dentro["k"]:
+            return tt, vals_, [], None
+        # as amostras de dentro do Ts: {t, passo, pontos, médias das perdas desde a anterior}; e a cauda (as médias desde a
+        # última até o fim do Ts: as perdas da amostra do instante do Ts)
+        pos += np_
+        ns, wa, subs = int(float(v[pos])), 2 + np_ + na, []
+        pos += 1
+        for i in range(ns):
+            reg = v[pos + i * wa: pos + (i + 1) * wa]
+            subs.append((float(reg[0]), valores_gecko(reg[2:2 + np_]),
+                         {k_: f * float(x) for (k_, f), x in zip(canal_media, reg[2 + np_:])}))
+        pos += ns * wa
+        cauda = {k_: f * float(x) for (k_, f), x in zip(canal_media, v[pos + 1:pos + 1 + na])} if int(float(v[pos])) else {}
+        return tt, vals_, subs, cauda
 
     def laco_controle(pub):
         """A cada Ts: medidas → passo() do usuário → atuações nos CONST → Ts no Gecko. Publica a cada "cada" períodos."""
         k, j, tt, regs, avisados = 0, 0, 0.0, None, set()
-        if stepc["usa"]:
-            prepara_stepc()
-        rodada["stepc"] = stepc["usa"]                   # o Ts numa chamada valendo (a comparação confere)
+        cauda = None                                     # amostras de dentro do Ts: as perdas da amostra do instante do Ts
         vals = dict(iniciais) if iniciais else le_gecko()       # t = 0: o estado inicial (INICIAL), não os zeros
         media(soma_ts)
         mts = {}                                         # as perdas do m[...]: a média do último Ts (em t = 0, o ponto)
@@ -3777,16 +3821,23 @@ def _rodar(c, ctl_de_fora=None):
                 avisos_rodada.append(lingua.tr("rodada.scope_nome_invalido", x=x) if not IDENT.match(x) else
                                      lingua.tr("rodada.scope_nome_tarde", x=x, t=f"{tt:g}"))
             if j % cada == 0:
-                pub.amostra(dict(t=tt, **ao_scope(dict(vals, **media())), **{col: sreg.get(x, float("nan")) for x, col in regs.items()}))
+                pub.amostra(dict(t=tt, **ao_scope(dict(vals, **(media() if cauda is None else cauda))),
+                                 **{col: sreg.get(x, float("nan")) for x, col in regs.items()}))
             esc = escritas_do_trecho(k, passo)
             r_ = anda_stepc(passo, esc) if stepc["usa"] else None
             if r_ is None:                               # o caminho de antes: STEP/SETM por trecho e o GETM no fim
-                r_ = anda(k, passo, esc), le_gecko()
-            tt, vals = r_
+                r_ = anda(k, passo, esc), le_gecko(), [], None
+            tt, vals, subs, cauda_ = r_
+            for ts, vs, fs in subs:                      # dentro do Ts: o circuito a cada k passos; o controle, o do instante do Ts
+                pub.amostra(dict(t=ts, **ao_scope(dict(vs, **fs)), **{col: sreg.get(x, float("nan")) for x, col in regs.items()}))
+            if cauda_ is not None:
+                media()                                  # as somas das perdas por trecho: o scope usa as médias de dentro do Ts
+                cauda = cauda_
             k += passo; j += 1
             mts = media(soma_ts)
-            rodada.update(t=tt, amostras=rodada["amostras"] + (1 if j % cada == 0 else 0))
-        pub.amostra(dict(t=tt, **ao_scope(dict(vals, **media())), **{col: float("nan") for col in (regs or {}).values()}))
+            rodada.update(t=tt, amostras=rodada["amostras"] + (1 if j % cada == 0 else 0) + len(subs))
+        pub.amostra(dict(t=tt, **ao_scope(dict(vals, **(media() if cauda is None else cauda))),
+                         **{col: float("nan") for col in (regs or {}).values()}))
         return k
 
     eventos = sorted(escritas_ev)                       # os passos com escrita de CONST (acionamentos): o bloco para antes
@@ -3852,8 +3903,16 @@ def _rodar(c, ctl_de_fora=None):
         return k
 
     def laco():
+        erro_prep = None
+        if trab:
+            try:
+                prepara_controle()                       # o PREP antes do meta ir ao scope (o intervalo de dentro do Ts)
+            except Exception as e:
+                erro_prep = e
         pub = PublicadorScope(SCOPE, meta)
         try:
+            if erro_prep is not None:
+                raise erro_prep
             k = laco_controle(pub) if trab else laco_simples(pub)
             final = dict(estado="fim" if k >= n else "parada")
         except ErroControle as e:                                # erro no código do usuário: linha e rastro para o editor

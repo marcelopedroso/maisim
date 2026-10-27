@@ -40,7 +40,8 @@ cfg = {"ativo": True, "Ts": Ts, "atuacoes": ["u_ctrl"], "codigo": codigo,
                       {"nome": "i_ref", "valor": iref, "unidade": "A"}, {"nome": "Vmax", "valor": Vmax, "unidade": "V"}]}
 r = api("editor/controle", {"controle": cfg})
 ok("ERRO" not in r and not r["erros"] and not r["avisos"], f"controle guardado: entradas {r.get('entradas')} · atuadores {[a['nome'] for a in r.get('atuadores', [])]} · erros {r.get('erros')} avisos {r.get('avisos')}")
-j = api("editor/rodar", {"dt": repr(dt), "tfim": repr(tfim), "nome": "teste_controle_pi", "amostras": "100000"})
+# uma amostra por Ts (a comparação é no instante do Ts; com a amostra pedida menor, o scope grava também dentro do Ts)
+j = api("editor/rodar", {"dt": repr(dt), "tfim": repr(tfim), "nome": "teste_controle_pi", "amostras": str(round(tfim / Ts))})
 while j.get("estado") in ("rodando", "pausada"): time.sleep(0.5); j = api("editor/rodada")
 ok(j.get("estado") == "fim", f"rodada com o controle: {j.get('estado')} {j.get('erro', '')} · {j.get('amostras')} amostras em {j.get('segundos')} s")
 print("   saída do controle:", (j.get("saida_controle") or "").strip()[:200])

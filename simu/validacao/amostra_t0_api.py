@@ -95,7 +95,7 @@ def roda_pwm(nome, ts, ativo=True, cod=COD):
     cmd("SETP", ["CONST.1", "const", 1.0])                # a chave fechada (o CONST do gate em 1)
     cfg = {"ativo": ativo, "Ts": ts, "atuacoes": ["g"], "parametros": [], "codigo": cod, "atraso": {"modo": "logo", "tempo": 0}, "acionamentos": []}
     r = api("editor/controle", {"controle": cfg}); assert "ERRO" not in r, r
-    return roda(nome, "1e-06", "0.0002", "100000")
+    return roda(nome, "1e-06", "0.0002", str(round(0.0002 / ts)))   # uma amostra por Ts (os instantes comuns de Ts = 2Δt e Δt)
 
 
 a = roda_pwm("t0_ts2", 2e-6)

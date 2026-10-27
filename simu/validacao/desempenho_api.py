@@ -20,6 +20,10 @@ escolhidos por rodada ("laco": "novo" | "antigo" no editor/rodar; MAISIM_LACO d�
    intercalada no motor CC (o limite LIMITE_PY, folgado: no CI a ida e volta já é barata). Os processos dos controladores
    conversam pela conexão do multiprocessing no laço novo (sem as threads leitoras; fora do Windows, por enquanto) e pelo
    stdin/stdout no antigo: 13 controladores num anel de mensagens e um que trava ou morre (o mesmo erro) também batem.
+7. O scope dentro do Ts (patch 0011, STEPCS): com controle em Python e a amostra pedida menor que o Ts, o novo grava no
+   intervalo pedido (o buck em malha fechada, Ts = 100 µs e amostra de 2 µs: os pulsos do PWM de 20 kHz), idêntico ao
+   antigo nos instantes do Ts e, dentro do Ts, idêntico à referência (um controle que só depende de t, com Ts = 2 µs pelo
+   caminho antigo: os mesmos passos e escritas); com a amostra ≥ Ts, o de antes; e o custo (uma ida e volta por Ts).
    `python3 desempenho_api.py --tabela [exemplo…]` faz a tabela (3 de cada, intercaladas), sem conferir os limites;
    `--rodada PASTA [--tfim T] [--tabela]`: o circuito e o controle de uma rodada gravada (o .ipes, controle.json e os .py
    dela; a cópia vai para os circuitos de teste), comparado pelos dois caminhos (ou medido, com --tabela)."""
@@ -89,11 +93,29 @@ def log_de(r):
     return "".join(sorted(f.read_text().splitlines(keepends=True))) if f.is_file() else ""
 
 
-def iguais(za, zb):
-    """As colunas que diferem (ou faltam num dos dois) e se o meta é o mesmo."""
-    dif = sorted(k for k in set(za.files) | set(zb.files) if k != "meta" and
-                 not (k in za.files and k in zb.files and np.array_equal(za[k], zb[k], equal_nan=True)))
-    return dif, meta(za) == meta(zb)
+def no_instante_do_ts(za, zb, rb):
+    """As colunas de zb nas amostras que za também tem. Com controle em Python e o intervalo pedido menor que o Ts, o caminho
+    novo grava também dentro do Ts (a cada k = rb["amostra_dentro_ts"]; patch 0011) e o antigo só no instante do Ts: as
+    deste ficam a cada Ts/k amostras do novo, e a última é a do fim. Sem isso, zb inteiro."""
+    k = (rb or {}).get("amostra_dentro_ts") or 0
+    if not k:
+        return {c: zb[c] for c in zb.files if c != "meta"}
+    passo = round(meta(zb)["controle"]["Ts"] / k)
+    idx = [i * passo for i in range(len(za["t"]) - 1)] + [len(zb["t"]) - 1]
+    return {c: zb[c][idx] for c in zb.files if c != "meta"}
+
+
+def iguais(za, zb, rb=None):
+    """As colunas que diferem (ou faltam num dos dois) e se o meta é o mesmo. Com as amostras de dentro do Ts no novo (rb),
+    nas amostras do antigo; ali as perdas (a média do intervalo) são a do intervalo novo, mais curto — conferidas contra a
+    referência no item 7 — e o meta muda só o intervalo (dt, Ts)."""
+    zb_ = no_instante_do_ts(za, zb, rb)
+    k = (rb or {}).get("amostra_dentro_ts") or 0
+    fora = set(meta(zb).get("media_intervalo") or []) if k else set()
+    dif = sorted(c for c in set(za.files) | set(zb_) if c != "meta" and c not in fora and
+                 not (c in za.files and c in zb_ and np.array_equal(za[c], zb_[c], equal_nan=True)))
+    sem = lambda m: {x: v for x, v in m.items() if not (k and x in ("dt", "Ts"))}
+    return dif, sem(meta(za)) == sem(meta(zb))
 
 
 exemplos = sorted(f"exemplos/{p.name}" for p in (RAIZ / "exemplos").glob("*.ipes"))
@@ -120,7 +142,7 @@ if "--rodada" in sys.argv and "--tabela" not in sys.argv:   # a comparação num
     am = str(int(float(tf) / 6e-5) + 1)
     ra, za = roda(arq, "antigo", "1e-06", tf, am, ctl)
     rb, zb = roda(arq, "novo", "1e-06", tf, am, ctl)
-    dif, meta_igual = iguais(za, zb)
+    dif, meta_igual = iguais(za, zb, rb)
     ok(not dif and meta_igual and ra.get("avisos") == rb.get("avisos") and log_de(ra) == log_de(rb) and rb.get("stepc") and not ra.get("stepc"),
        f"{Path(arq).stem} ({tf} s): {len(za.files) - 1} colunas × {len(za['t'])} amostras, o meta, os avisos e o controle.log idênticos "
        f"pelos dois caminhos; antigo {ra.get('segundos')} s, novo {rb.get('segundos')} s{'' if not dif else f' — DIFEREM: {dif[:6]}'}")
@@ -155,7 +177,7 @@ try:
         if za is None or zb is None:
             ok(False, f"{arq}: as duas rodadas terminam ({ra.get('estado')} {ra.get('erro', '')} / {rb.get('estado')} {rb.get('erro', '')})")
             continue
-        dif, meta_igual = iguais(za, zb)
+        dif, meta_igual = iguais(za, zb, rb)
         com_py = bool(ra.get("controle_py"))
         mesmo_log = log_de(ra) == log_de(rb)
         ok(not dif and meta_igual and ra.get("avisos") == rb.get("avisos") and mesmo_log and rb.get("laco") == "novo" and
@@ -174,7 +196,7 @@ try:
     rb, zb = roda(arq, "novo", dt, tfim, amostras, ctl)
     ok(za is not None and zb is not None, f"o sintético roda pelos dois caminhos ({ra.get('estado')} {ra.get('erro', '')} / {rb.get('estado')} {rb.get('erro', '')})")
     if za is not None and zb is not None:
-        dif, meta_igual = iguais(za, zb)
+        dif, meta_igual = iguais(za, zb, rb)
         m = meta(zb)
         d = zb["d"] if "d" in zb.files else None
         ok(len(m.get("media_intervalo") or []) > 0 and len(m.get("acionamentos") or []) == 4,
@@ -202,7 +224,7 @@ try:
     ok(estado["pausou"] and e == "pausada" and t1 == t2 and t1 is not None and t1 < float(tfim),
        f"pausada no meio (t = {t1} s), parada de verdade (t igual depois de 0,6 s: {t2}) e continuada")
     if za is not None and zb is not None:
-        dif, meta_igual = iguais(za, zb)
+        dif, meta_igual = iguais(za, zb, rb)
         ok(rb.get("estado") == "fim" and not dif and meta_igual, f"com a pausa, os mesmos números do caminho antigo ({len(zb['t'])} amostras){'' if not dif else f' — DIFEREM: {dif[:6]}'}")
     def para(r):
         if not estado["parado"] and r.get("estado") == "rodando" and (r.get("t") or 0) > 0.01:
@@ -273,7 +295,7 @@ def passo(t, m, p, e):
         if za is None or zb is None:
             ok(False, f"sintético com controle ({atraso['modo']}): {ra.get('estado')} {ra.get('erro', '')} / {rb.get('estado')} {rb.get('erro', '')}")
             continue
-        dif, meta_igual = iguais(za, zb)
+        dif, meta_igual = iguais(za, zb, rb)
         la, lb = log_de(ra), log_de(rb)
         cobre = (len({round(float(x), 6) for x in zb["d"]}) >= 4 and float(np.nanmax(zb["pv_visto"])) > 0 and
                  float(np.nanmax(zb["x_aux"])) > 0 and 0.5 in set(np.round(zb["kx"][~np.isnan(zb["kx"])], 6)) and la.count("passo") > 100)
@@ -308,7 +330,7 @@ def passo(t, m, p, e):
     if za is None or zb is None:
         ok(False, f"muitos controladores: {ra.get('estado')} {ra.get('erro', '')} / {rb.get('estado')} {rb.get('erro', '')}")
     else:
-        dif, meta_igual = iguais(za, zb)
+        dif, meta_igual = iguais(za, zb, rb)
         la, lb = log_de(ra), log_de(rb)
         ok(not dif and meta_igual and ra.get("avisos") == rb.get("avisos") and la == lb and la.count("no ") > 1000 and float(np.nanmax(zb["soma"])) > 0,
            f"{N + 1} controladores trocando mensagens: {len(zb.files) - 1} colunas, o meta, os avisos e o controle.log ({la.count(chr(10))} linhas) "
@@ -330,9 +352,69 @@ def passo(t, m, p, e):
     t = {"antigo": [], "novo": []}
     for _ in range(3):
         for laco in ("antigo", "novo"):
-            r, _ = roda(arq, laco, tfim="0.15")
+            r, _ = roda(arq, laco, tfim="0.15", amostras="3001")   # uma amostra por Ts (50 µs): o laço, sem as de dentro do Ts
             t[laco].append(r.get("segundos") or float("nan"))
     ma, mn = statistics.median(t["antigo"]), statistics.median(t["novo"])
     ok(ma / mn >= LIMITE_PY, f"o motor CC (controle em Python) pelo caminho novo {ma / mn:.1f}× mais rápido (medianas: antigo {ma:.2f} s {t['antigo']}, novo {mn:.2f} s {t['novo']}; limite {LIMITE_PY}×)")
+    # 7. o scope dentro do Ts (patch 0011, STEPCS): com controle em Python e a amostra pedida menor que o Ts, o novo grava
+    # no intervalo pedido — o buck em malha fechada com Ts = 100 µs e amostra de 2 µs mostra os pulsos do PWM de 20 kHz;
+    # nos instantes do Ts, os mesmos números do antigo (que grava só ali)
+    PI = ("def iniciar(p, e):\n    e['i'] = 0.0\n\n\n"
+          "def passo(t, m, p, e):\n"
+          "    erro = 24.0 - m['v_o']\n"
+          "    e['i'] += erro * p['Ts']\n"
+          "    d = min(0.95, max(0.05, 0.02 * erro + 20.0 * e['i']))\n"
+          "    scope('erro', erro)\n"
+          "    print('d', repr(d))\n"
+          "    return {'d': d}\n")
+    buck_pi = {"ativo": True, "Ts": 1e-4, "atuacoes": ["d"], "codigo": PI, "parametros": [], "atraso": {"modo": "logo", "tempo": 0.0},
+               "acionamentos": []}
+    arq = "exemplos/exemplo_buck.ipes"
+    ra, za = roda(arq, "antigo", "5e-07", "0.02", "10000", buck_pi)
+    rb, zb = roda(arq, "novo", "5e-07", "0.02", "10000", buck_pi)
+    dif, meta_igual = iguais(za, zb, rb)
+    trocas = int(np.count_nonzero(np.diff(zb["g"])))
+    ok(rb.get("amostra_dentro_ts") == 2e-6 and abs(meta(zb)["dt"] - 2e-6) < 1e-15 and len(zb["t"]) == 10001 and len(za["t"]) == 201
+       and trocas > 700 and not dif and meta_igual and log_de(ra) == log_de(rb),
+       f"buck em malha fechada (Ts = 100 µs, amostra pedida de 2 µs): o novo grava a cada 2 µs ({len(zb['t'])} amostras, o g com {trocas} "
+       f"trocas: o PWM de 20 kHz em 20 ms), o antigo a cada Ts ({len(za['t'])}); nos instantes do Ts, as colunas, o meta (fora o intervalo) "
+       f"e o controle.log idênticos{'' if not dif else f' — DIFEREM: {dif[:6]}'}")
+    # a referência das amostras de dentro do Ts: um controle que só depende de t (a mesma faixa de 100 µs) e atraso "logo"
+    # (a escrita 1 passo depois do instante, nos dois) dá os mesmos passos e as mesmas escritas com Ts = 2 µs pelo caminho
+    # antigo, que grava a cada 2 µs no instante do Ts dele; com as perdas (o buck térmico): tudo idêntico, inclusive a média
+    # do intervalo das perdas
+    FAIXA = ("def passo(t, m, p, e):\n"
+             "    k = int(t / 1e-4 + 1e-6)\n"
+             "    d = 0.3 + 0.4 * ((k // 3) % 2)\n"
+             "    scope('d_faixa', d)\n"
+             "    return {'d': d}\n")
+    faixa = lambda Ts: {"ativo": True, "Ts": Ts, "atuacoes": ["d"], "codigo": FAIXA, "parametros": [], "acionamentos": [],
+                        "atraso": {"modo": "logo", "tempo": 0.0}}
+    arq = "exemplos/exemplo_buck_termico.ipes"
+    rr, zr = roda(arq, "antigo", "5e-07", "0.004", "2000", faixa(2e-6))
+    rn, zn = roda(arq, "novo", "5e-07", "0.004", "2000", faixa(1e-4))
+    dif = sorted(c for c in set(zr.files) | set(zn.files) if c != "meta" and
+                 not (c in zr.files and c in zn.files and np.array_equal(zr[c], zn[c], equal_nan=True)))
+    ok(rn.get("amostra_dentro_ts") == 2e-6 and not rr.get("amostra_dentro_ts") and len(zr["t"]) == len(zn["t"]) == 2001 and not dif
+       and len(meta(zn).get("media_intervalo") or []) == 4,
+       f"as amostras de dentro do Ts contra a referência (o antigo com Ts = 2 µs, as mesmas escritas): {len(zn.files) - 1} colunas × "
+       f"{len(zn['t'])} amostras idênticas, inclusive as 4 perdas pela média do intervalo{'' if not dif else f' — DIFEREM: {dif[:6]}'}")
+    # a amostra pedida ≥ Ts: o de antes (só no instante do Ts)
+    rq, zq = roda("exemplos/exemplo_buck.ipes", "novo", "5e-07", "0.02", "201", buck_pi)
+    dif, meta_igual = iguais(za, zq, rq)
+    ok(not rq.get("amostra_dentro_ts") and len(zq["t"]) == 201 and not dif and meta_igual,
+       f"a amostra pedida igual ao Ts: o novo grava só no instante do Ts, idêntico ao antigo{'' if not dif else f' — DIFEREM: {dif[:6]}'}")
+    # o custo: uma ida e volta por Ts nos dois (com as amostras de dentro e só no instante), intercalados, medianas de 3
+    t = {"dentro": [], "instante": []}
+    for _ in range(3):
+        for nome_, am in (("dentro", "25000"), ("instante", "501")):
+            r_, _ = roda("exemplos/exemplo_buck.ipes", "novo", "5e-07", "0.05", am, buck_pi)
+            t[nome_].append(r_.get("segundos") or float("nan"))
+    md, mi = statistics.median(t["dentro"]), statistics.median(t["instante"])
+    # o limite separa uma ida e volta por Ts (o custo a mais é o Python de cada amostra: 1,2–2× medido) de uma por amostra
+    # (a referência acima, pelo caminho antigo com Ts = 2 µs: ~3–10×)
+    ok(md <= 3.0 * mi, f"o custo das amostras de dentro do Ts (buck, 50 ms, 500 Ts): {md:.2f} s com 25 000 amostras contra {mi:.2f} s "
+       f"só no instante do Ts ({t['dentro']} × {t['instante']}; limite 3×: uma ida e volta por Ts, não por amostra)")
+
 finally:
     print(f"{'OK' if not falhas else 'FALHA'}: desempenho, {falhas} falha(s)")

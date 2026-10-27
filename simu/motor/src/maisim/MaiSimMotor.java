@@ -239,6 +239,40 @@ public final class MaiSimMotor {
         return sb.toString();
     }
 
+    /** STEPCS k n nw (deslocamento índice valor)… → o STEPC com as amostras de dentro do Ts (patch 0011,
+     *  stepControlSampled): a cada k passos, o tempo, o passo, os pontos e as médias desde a amostra anterior. Resposta: a
+     *  do STEPC, depois "namostras", as amostras e "passos_da_cauda médias…" (o que veio depois da última). Sem o método,
+     *  "SEM_STEPCS" (o servidor grava só no instante do Ts, como antes). k = 0 e n = 0: só confere se o Gecko tem o patch. */
+    private boolean geckoSemStepcs = false;
+
+    private String passoControleAmostrado(String[] p) throws Exception {
+        int k = Integer.parseInt(p[1]), n = Integer.parseInt(p[2]), nw = Integer.parseInt(p[3]);
+        if (p.length != 4 + 3 * nw) throw new IllegalArgumentException("STEPCS k n nw (offset index value)…: wrong count");
+        int[] desl = new int[nw], idx = new int[nw];
+        double[] val = new double[nw];
+        for (int w = 0; w < nw; w++) {
+            desl[w] = Integer.parseInt(p[4 + 3 * w]);
+            idx[w] = Integer.parseInt(p[5 + 3 * w]);
+            val[w] = Double.parseDouble(p[6 + 3 * w]);
+        }
+        java.lang.reflect.Method mm = null;
+        if (!geckoSemStepcs) {
+            try { mm = GeckoRemoteInterface.class.getMethod("stepControlSampled", int.class, int[].class, int[].class, double[].class, int.class); }
+            catch (NoSuchMethodException semPatch) { }
+        }
+        if (mm == null) throw new IllegalStateException("SEM_STEPCS");
+        double[] r;
+        try { r = (double[]) mm.invoke(g, n, desl, idx, val, k); }
+        catch (java.lang.reflect.InvocationTargetException e) {
+            if (!metodoDesconhecido(e.getCause())) throw e.getCause() instanceof Exception ? (Exception) e.getCause() : e;
+            geckoSemStepcs = true;
+            throw new IllegalStateException("SEM_STEPCS");
+        }
+        StringBuilder sb = new StringBuilder(Integer.toString((int) r[0]));
+        for (int i = 1; i < r.length; i++) sb.append(' ').append(r[i]);   // Double.toString, como o STEPC
+        return sb.toString();
+    }
+
     private String trata(String linha) throws Exception {
         String[] p = linha.split("\\s+");
         switch (p[0]) {
@@ -273,6 +307,7 @@ public final class MaiSimMotor {
             case "INICIAL": return inicial(Arrays.copyOfRange(p, 1, p.length));      // INICIAL nome… → os valores em t = 0
             case "PREP": return prepara(p);                                          // PREP np ponto… na média… nc const…
             case "STEPC": return passoControle(p);                                   // STEPC n nw (desl. índice valor)… → trechos e pontos
+            case "STEPCS": return passoControleAmostrado(p);                         // STEPCS k n nw (desl. índice valor)… → o STEPC e as amostras de dentro
             case "TIME": return Double.toString(g.getSimulationTime());
             case "END": g.endSimulation(); return "";
             case "GET": return Double.toString(g.getOutput(p[1]));
@@ -317,7 +352,7 @@ public final class MaiSimMotor {
             }
             default: throw new IllegalArgumentException("unknown command: " + p[0] + " (commands: " + Arrays.toString(
                     new String[]{"PING", "OPEN", "SAVEAS", "CREATE", "DELETE", "MOVE", "POS", "ROTATE", "ORIENT", "RENAME", "PARAMS",
-                            "ACCPARAMS", "GETP", "SETP", "GETG", "SETG", "INNODE", "OUTNODE", "GETIN", "GETOUT", "LIST", "SHEET", "CLEAR", "INIT", "STEP", "STEPA", "STEPS", "INICIAL", "PREP", "STEPC", "TIME", "END", "GET", "GETM", "SETM", "QUIT"}) + ")");
+                            "ACCPARAMS", "GETP", "SETP", "GETG", "SETG", "INNODE", "OUTNODE", "GETIN", "GETOUT", "LIST", "SHEET", "CLEAR", "INIT", "STEP", "STEPA", "STEPS", "INICIAL", "PREP", "STEPC", "STEPCS", "TIME", "END", "GET", "GETM", "SETM", "QUIT"}) + ")");
         }
     }
 }

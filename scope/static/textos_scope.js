@@ -188,6 +188,8 @@ maisimI18n.add({
   "scope.p.vazio_sinais": { pt: "escolha os sinais em “Sinais ▾”", en: "choose the signals in “Signals ▾”" },
   "scope.p.aguardando": { pt: "aguardando dados", en: "waiting for data" },
   "scope.p.nao_existem": { pt: "estes sinais não existem nesta rodada", en: "these signals do not exist in this run" },
+  "scope.p.aviso_chaveia": { pt: "amostrado a cada {dt}; {sinais} chaveia mais rápido que isso — diminua o intervalo de amostra",
+                             en: "sampled every {dt}; {sinais} switches faster than that — reduce the sample interval" },
   "scope.p.t_arrasta": { pt: "arraste para mudar o painel de lugar", en: "drag to move the panel" },
   "scope.p.t_titulo": { pt: "clique para mudar o título", en: "click to change the title" },
   "scope.p.sinais": { pt: "Sinais ▾", en: "Signals ▾" },

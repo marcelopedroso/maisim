@@ -1,0 +1,166 @@
+diff --git a/src/main/java/ch/technokrat/gecko/GeckoRemoteInterface.java b/src/main/java/ch/technokrat/gecko/GeckoRemoteInterface.java
+index a9c2d225..18204b2c 100644
+--- a/src/main/java/ch/technokrat/gecko/GeckoRemoteInterface.java
++++ b/src/main/java/ch/technokrat/gecko/GeckoRemoteInterface.java
+@@ -250,6 +250,18 @@ public interface GeckoRemoteInterface extends Remote {
+     @Declaration("double[] stepControl(int steps, int[] offsets, int[] constIndex, double[] values)")
+     double[] stepControl(int steps, int[] offsets, int[] constIndex, double[] values) throws RemoteException;
+ 
++    /**
++     * stepControl that also samples inside the period: after every "every" steps (every > 0, before the last step), the
++     * simulation time, the step index, the outputs of pointNames and the means of averageNames over those "every" steps.
++     * Result: the result of stepControl, then the number of samples, the samples {time, step index, points…, means…}, and
++     * the steps after the last sample with the means of averageNames over them. The steps, writes and the stretches'
++     * numbers are those of stepControl (the extra readings do not change the simulation).
++     */
++    @Category(MethodCategory.SIMULATION_START)
++    @Documentation(I18nKeys.SIMULATE_STEPS_DOCUMENTATION)
++    @Declaration("double[] stepControlSampled(int steps, int[] offsets, int[] constIndex, double[] values, int every)")
++    double[] stepControlSampled(int steps, int[] offsets, int[] constIndex, double[] values, int every) throws RemoteException;
++
+     @Category(MethodCategory.SIMULATION_START)
+     @Documentation(I18nKeys.SIMULATE_TIME_DOCUMENTATION)
+     @Declaration("void simulateTime(double time)")
+diff --git a/src/main/java/ch/technokrat/gecko/GeckoRemoteTestingDummy.java b/src/main/java/ch/technokrat/gecko/GeckoRemoteTestingDummy.java
+index ad648094..d50a4bcf 100644
+--- a/src/main/java/ch/technokrat/gecko/GeckoRemoteTestingDummy.java
++++ b/src/main/java/ch/technokrat/gecko/GeckoRemoteTestingDummy.java
+@@ -174,6 +174,11 @@ public class GeckoRemoteTestingDummy implements GeckoRemoteInterface {
+         return new double[1];
+     }
+ 
++    @Override
++    public double[] stepControlSampled(int steps, int[] offsets, int[] constIndex, double[] values, int every) throws RemoteException {
++        return new double[3];
++    }
++
+     @Override
+     public double[] getOutputs(String[] elementNames) throws RemoteException {
+         return new double[elementNames.length];
+diff --git a/src/main/java/ch/technokrat/gecko/geckoscript/AbstractGeckoCustom.java b/src/main/java/ch/technokrat/gecko/geckoscript/AbstractGeckoCustom.java
+index 48115dba..a6a35889 100644
+--- a/src/main/java/ch/technokrat/gecko/geckoscript/AbstractGeckoCustom.java
++++ b/src/main/java/ch/technokrat/gecko/geckoscript/AbstractGeckoCustom.java
+@@ -319,6 +319,122 @@ public abstract class AbstractGeckoCustom implements GeckoRemoteInterface {
+         }
+     }
+ 
++    /**
++     * stepControl sampling inside the period (see GeckoRemoteInterface.stepControlSampled): the same stretches, writes and
++     * readings as stepControl, plus a sample after every "every" steps.
++     */
++    @Override
++    public final double[] stepControlSampled(final int steps, final int[] offsets, final int[] constIndex, final double[] values,
++            final int every) {
++        if (_ctlConsts == null) {
++            throw new IllegalStateException("stepControlSampled() before prepareControlSteps()");
++        }
++        if (!_simInited) {
++            initSimulation();
++            writeOutputLn("Warning: Simulation was not initialized prior to calling stepControlSampled(). "
++                    + "Simulation has been initialized to values specified in GeckoCIRCUITS.");
++        }
++        final int na = _ctlAverages.length, np = _ctlPoints.length, w = 2 + na, ws = 2 + np + na;
++        final double[] stretches = new double[(offsets.length + 1) * w];
++        final SubSamples sub = new SubSamples(steps, every, np, na);
++        int nStretches = 0, done = 0, k = 0;
++        try {
++            while (true) {
++                final int next = k < offsets.length ? offsets[k] : steps;
++                if (next > done) {
++                    controlStretchSampled(next - done, stretches, nStretches * w, sub);
++                    nStretches++;
++                    done = next;
++                }
++                if (k >= offsets.length) {
++                    break;
++                }
++                final int at = offsets[k];
++                for (; k < offsets.length && offsets[k] == at; k++) {
++                    _ctlConsts[constIndex[k]].setAccessibleParameter("const", values[k]);
++                }
++            }
++            final double[] result = new double[1 + nStretches * w + np + 1 + sub.n * ws + 1 + na];
++            int pos = 0;
++            result[pos++] = nStretches;
++            System.arraycopy(stretches, 0, result, pos, nStretches * w);
++            pos += nStretches * w;
++            readPoints(result, pos);
++            pos += np;
++            result[pos++] = sub.n;
++            System.arraycopy(sub.records, 0, result, pos, sub.n * ws);
++            pos += sub.n * ws;
++            result[pos++] = sub.count;
++            for (int i = 0; i < na; i++) {
++                result[pos++] = sub.count > 0 ? sub.sum[i] / sub.count : 0.0;
++            }
++            return result;
++        } catch (IllegalAccessException e) {
++            writerOutputErrorLn(e.getMessage());
++            throw new RuntimeException(e);
++        }
++    }
++
++    /** The samples inside a period (stepControlSampled): the step index, the averages since the last sample, the records. */
++    private static final class SubSamples {
++        final int steps, every;
++        final double[] sum, records;
++        int index, count, n;
++
++        SubSamples(final int steps, final int every, final int np, final int na) {
++            this.steps = steps;
++            this.every = every;
++            sum = new double[na];
++            records = new double[(every > 0 ? Math.max(0, (steps - 1) / every) : 0) * (2 + np + na)];
++        }
++    }
++
++    private void readPoints(final double[] out, final int base) throws IllegalAccessException {
++        for (int i = 0; i < _ctlPoints.length; i++) {
++            out[base + i] = _ctlPointOutputs[i] == null ? _ctlPoints[i].getOutput() : _ctlPoints[i].getOutput(_ctlPointOutputs[i]);
++        }
++    }
++
++    /** controlStretch, also feeding the samples inside the period (the same steps and the same averaged readings). */
++    private void controlStretchSampled(final int q, final double[] out, final int base, final SubSamples sub) throws IllegalAccessException {
++        final int na = _ctlAverages.length, np = _ctlPoints.length, ws = 2 + np + na;
++        final double[] sum = new double[na];
++        int done = 0;
++        try {
++            for (; done < q; done++) {
++                _circuit.simulateOneStep();
++                for (int i = 0; i < na; i++) {
++                    final double v = _ctlAverageOutputs[i] == null ? _ctlAverages[i].getOutput() : _ctlAverages[i].getOutput(_ctlAverageOutputs[i]);
++                    sum[i] += v;
++                    sub.sum[i] += v;
++                }
++                sub.index++;
++                sub.count++;
++                if (sub.every > 0 && sub.index % sub.every == 0 && sub.index < sub.steps) {
++                    final int r = sub.n * ws;
++                    sub.records[r] = getSimulationTime();
++                    sub.records[r + 1] = sub.index;
++                    readPoints(sub.records, r + 2);
++                    for (int i = 0; i < na; i++) {
++                        sub.records[r + 2 + np + i] = sub.sum[i] / sub.count;
++                        sub.sum[i] = 0.0;
++                    }
++                    sub.count = 0;
++                    sub.n++;
++                }
++            }
++        } catch (IllegalAccessException e) {
++            throw e;
++        } catch (Exception ex) {
++            writerOutputErrorLn((na > 0 ? "simulateStepsAveraged(): " : "simulateSteps(): ") + ex.getMessage());
++        }
++        out[base] = getSimulationTime();
++        out[base + 1] = done;
++        for (int i = 0; i < na; i++) {
++            out[base + 2 + i] = done > 0 ? sum[i] / done : 0.0;
++        }
++    }
++
+     /** q steps as simulateSteps (or simulateStepsAveraged, with averages): {time at the end, steps done, means} at base. */
+     private void controlStretch(final int q, final double[] out, final int base) throws IllegalAccessException {
+         final int na = _ctlAverages.length;

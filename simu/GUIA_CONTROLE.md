@@ -65,6 +65,8 @@ def passo(t, m, p, e):      # a cada Ts
   capacitor, o Temp(0) de uma Cth, o y0 de um integrador, a velocidade inicial da máquina) e, sem elas, o valor de partida
   (a corrente de um indutor 0, a máquina parada); as perdas (FLOW de um Pv) valem 0 — nada foi dissipado ainda.
 * `p`: parâmetros do painel, mais `p["Ts"]` (o efetivo).
+  O scope pode gravar mais fino que o Ts (a amostra pedida menor): dentro do Ts, o circuito a cada amostra, e as colunas do
+  `scope()` com o valor do instante do Ts; o `m` continua só no instante do Ts.
 * `e`: dicionário seu, que persiste entre amostras.
 * O retorno é um dicionário `{atuador: valor}` (ou `None`). Cada chave tem de ser uma atuação marcada no painel, e cada
   valor tem de virar `float` finito; senão a rodada para com erro.

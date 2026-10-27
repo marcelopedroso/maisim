@@ -117,6 +117,11 @@ continuam (quem publica rodadas de fora usa `/publicar`).
     ele aconteceu (`composedPath`).
   * Teste: `simu/validacao/tela/scope_cores_tela.js` 10/10, na instância isolada (`sobe_fila.sh`), só lendo duas
     gravações do simu.
+- **Sinais digitais** (27/10): um canal só com 0 e 1 (o gate, a saída de um comparador ou de um bloco lógico) é desenhado em
+  degrau, o valor mantido até a amostra seguinte (antes, uma reta entre um 0 e um 1 inventava rampas). Um aviso discreto
+  embaixo do gráfico ("amostrado a cada X; g chaveia mais rápido que isso — diminua o intervalo de amostra") quando um sinal
+  digital muda em mais de 40% das amostras, ou muda com a amostra mais longa que meio período da fonte de sinal mais rápida do
+  circuito (`meta.f_sinais`, que o simu grava: a portadora de um PWM). Teste: `simu/validacao/tela/scope_digital_tela.js`.
 - **+ Painel XY** (25/10, no lugar das janelas "Space Vector Diagram" e "U-Z*i Diagram" do Gecko, que o MaiSim não mostra):
   um painel de trajetória, configurado em **XY ▾** e explicado no **ⓘ**. *Livre*: Y contra X, quaisquer dois sinais da rodada.
   *Vetor espacial*: três fases a, b, c (achadas pelos nomes: `i_a`, `i_b`, `i_c`) → Clarke invariante em amplitude, a mesma do
