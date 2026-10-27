@@ -1,6 +1,7 @@
-"""O laço da rodada sem controle em Python em blocos de amostras (instância de teste 7201): o caminho novo (STEPS, patch
-0008 do Gecko: muitas amostras numa chamada) contra o antigo (um STEP e um GETM por amostra), escolhidos por rodada
-("laco": "novo" | "antigo" no editor/rodar; MAISIM_LACO dá o padrão).
+"""Os laços rápidos da rodada (instância de teste 7201): sem controle em Python, em blocos de amostras (STEPS, patch 0008
+do Gecko: muitas amostras numa chamada); com controle em Python, um Ts numa chamada (PREP/STEPC, patch 0010: as escritas
+nos CONST nos passos certos, os trechos e a leitura de uma vez) — contra o antigo (um STEP, SETM e GETM por vez),
+escolhidos por rodada ("laco": "novo" | "antigo" no editor/rodar; MAISIM_LACO dá o padrão).
 1. Os números IDÊNTICOS (bit a bit): cada exemplo de exemplos/ (com o Δt e o tempo final dele) roda pelos dois caminhos,
    cada rodada logo depois de abrir o circuito (a mesma posição: a 1ª rodada depois de abrir tem um t = 0 próprio no
    motor CC), e todas as colunas do .npz, o meta e os avisos têm de ser iguais (np.array_equal com equal_nan).
@@ -12,13 +13,22 @@
    medianas: o novo tem de ser pelo menos LIMITE vezes mais rápido no buck. O ganho depende da máquina: a ida e volta entre
    os processos é cara no WSL (≈ 8× medido) e barata no servidor do CI (1,9×: o antigo já leva ~1,5 s ali); o limite pega a
    regressão de verdade — o caminho novo deixar de ganhar — sem falhar por máquina.
-   `python3 desempenho_api.py --tabela` faz a tabela dos exemplos todos (3 de cada, intercaladas), sem conferir o limite."""
+5. Com controle em Python: os exemplos com Python (no item 1, também o controle.log igual e o STEPC valendo) e um
+   sintético — o buck térmico com dois controladores que trocam mensagens, um CONST a mais, o padrão por Δt, os três modos
+   de atraso (logo, amostra, tempo), acionamentos de CONST (no mesmo CONST da atuação: o acionamento prevalece) e de p[...],
+   as perdas (FLOW) no m[...], e uma pausa no meio — idênticos pelos dois caminhos, inclusive o controle.log; e a medida
+   intercalada no motor CC (o limite LIMITE_PY, folgado: no CI a ida e volta já é barata).
+   `python3 desempenho_api.py --tabela [exemplo…]` faz a tabela (3 de cada, intercaladas), sem conferir os limites;
+   `--rodada PASTA [--tfim T] [--tabela]`: o circuito e o controle de uma rodada gravada (o .ipes, controle.json e os .py
+   dela; a cópia vai para os circuitos de teste), comparado pelos dois caminhos (ou medido, com --tabela)."""
 import gzip, json, re, statistics, sys, time, urllib.request
 from pathlib import Path
 import numpy as np
 B = "http://localhost:7201/maisim/simu/"
 RAIZ = Path(__file__).resolve().parents[2]
 LIMITE = 1.5
+LIMITE_PY = 1.3
+T = Path.home() / ".cache/maisim_teste"
 
 
 def api(rota, corpo=None):
@@ -47,14 +57,17 @@ def espera(r, acao=None):
     return r
 
 
-def roda(arq, laco, dt=None, tfim=None, amostras="10000", controle=None, acao=None):
+def roda(arq, laco, dt=None, tfim=None, amostras="10000", controle=None, acao=None, prep=None):
     """Abre o circuito (descartando) e roda pelo laço pedido: (rodada no fim, .npz)."""
     j = api("editor/abrir", {"arq": arq, "modo": "descartar"})
     assert "ERRO" not in j, j
+    for op, args in prep or []:                         # mudanças no circuito antes de rodar (editor/cmd)
+        j = api("editor/cmd", {"op": op, "args": args})
+        assert "ERRO" not in j, (op, args, j)
     if controle is not None:
         j = api("editor/controle", {"controle": controle})
         assert "ERRO" not in j, j
-    d, t = simulacao(arq)
+    d, t = simulacao(arq) if not Path(arq).is_absolute() else (None, None)
     r = api("editor/rodar", {"dt": dt or d, "tfim": tfim or t, "nome": "desempenho", "amostras": amostras, "laco": laco})
     assert "ERRO" not in r, r
     r = espera(r, acao)
@@ -66,6 +79,12 @@ def meta(z):
     return {k: v for k, v in m.items() if k not in ("segundos", "inicio")}
 
 
+def log_de(r):
+    """O controle.log da rodada (vazio sem controle)."""
+    f = Path(r.get("arquivo") or "").parent / "controle.log"
+    return f.read_text() if f.is_file() else ""
+
+
 def iguais(za, zb):
     """As colunas que diferem (ou faltam num dos dois) e se o meta é o mesmo."""
     dif = sorted(k for k in set(za.files) | set(zb.files) if k != "meta" and
@@ -75,14 +94,48 @@ def iguais(za, zb):
 
 exemplos = sorted(f"exemplos/{p.name}" for p in (RAIZ / "exemplos").glob("*.ipes"))
 
+def rodada_gravada(pasta):
+    """O circuito e o controle de uma rodada gravada, copiados para os circuitos de teste: (arq, controle)."""
+    pasta = Path(pasta)
+    ipes = next(pasta.glob("*.ipes"))
+    (T / "circuitos").mkdir(parents=True, exist_ok=True)
+    arq = T / "circuitos" / ipes.name
+    arq.write_bytes(ipes.read_bytes())
+    ctl = json.loads((pasta / "controle.json").read_text())
+    ctl["codigo"] = (pasta / "controle.py").read_text()
+    return str(arq), ctl
+
+
+def argumento(nome, padrao=None):
+    return sys.argv[sys.argv.index(nome) + 1] if nome in sys.argv else padrao
+
+
+if "--rodada" in sys.argv and "--tabela" not in sys.argv:   # a comparação numa rodada gravada (o MMC do Marcelo, por exemplo)
+    arq, ctl = rodada_gravada(argumento("--rodada"))
+    tf = argumento("--tfim", "0.01")
+    am = str(int(float(tf) / 6e-5) + 1)
+    ra, za = roda(arq, "antigo", "1e-06", tf, am, ctl)
+    rb, zb = roda(arq, "novo", "1e-06", tf, am, ctl)
+    dif, meta_igual = iguais(za, zb)
+    ok(not dif and meta_igual and ra.get("avisos") == rb.get("avisos") and log_de(ra) == log_de(rb) and rb.get("stepc") and not ra.get("stepc"),
+       f"{Path(arq).stem} ({tf} s): {len(za.files) - 1} colunas × {len(za['t'])} amostras, o meta, os avisos e o controle.log idênticos "
+       f"pelos dois caminhos; antigo {ra.get('segundos')} s, novo {rb.get('segundos')} s{'' if not dif else f' — DIFEREM: {dif[:6]}'}")
+    sys.exit(1 if falhas else 0)
+
 if "--tabela" in sys.argv:                              # a tabela de antes e depois: 3 rodadas intercaladas de cada exemplo
     print("| exemplo | antigo (s) | novo (s) | mediana antigo | mediana novo | ganho |")
     print("|---|---|---|---|---|---|")
-    for arq in exemplos:
+    nomes = [x for x in sys.argv[sys.argv.index("--tabela") + 1:] if not x.startswith("--")]
+    casos = [(a, {}) for a in exemplos if not nomes or Path(a).stem.replace("exemplo_", "") in nomes]
+    if "--rodada" in sys.argv:
+        arq_, ctl_ = rodada_gravada(argumento("--rodada"))
+        tf_ = argumento("--tfim", "0.05")
+        casos.append((arq_, dict(dt="1e-06", tfim=tf_, amostras=str(int(float(tf_) / 6e-5) + 1), controle=ctl_)))
+    for arq, kw in casos:
         t = {"antigo": [], "novo": []}
         for _ in range(3):
             for laco in ("antigo", "novo"):
-                r, _ = roda(arq, laco)
+                r, _ = roda(arq, laco, **kw)
                 t[laco].append(r.get("segundos") or float("nan"))
         ma, mn = statistics.median(t["antigo"]), statistics.median(t["novo"])
         print(f"| {Path(arq).stem.replace('exemplo_', '')} | {' / '.join(f'{x:.2f}' for x in t['antigo'])} | "
@@ -99,11 +152,13 @@ try:
             ok(False, f"{arq}: as duas rodadas terminam ({ra.get('estado')} {ra.get('erro', '')} / {rb.get('estado')} {rb.get('erro', '')})")
             continue
         dif, meta_igual = iguais(za, zb)
-        com_py = ra.get("laco") == "controle"
-        ok(not dif and meta_igual and ra.get("avisos") == rb.get("avisos") and rb.get("laco") == ("controle" if com_py else "novo"),
+        com_py = bool(ra.get("controle_py"))
+        mesmo_log = log_de(ra) == log_de(rb)
+        ok(not dif and meta_igual and ra.get("avisos") == rb.get("avisos") and mesmo_log and rb.get("laco") == "novo" and
+           (not com_py or (rb.get("stepc") is True and ra.get("stepc") is False)),
            f"{Path(arq).stem}: {len(za.files) - 1} colunas × {len(za['t'])} amostras idênticas pelos dois caminhos"
-           f"{' (controle em Python: o mesmo laço nos dois)' if com_py else ''}; antigo {ra.get('segundos')} s, novo {rb.get('segundos')} s"
-           f"{'' if not dif else f' — DIFEREM: {dif[:6]}'}{'' if meta_igual else ' — o meta difere'}")
+           f"{' (controle em Python: STEPC × STEP/SETM/GETM, e o controle.log igual)' if com_py else ''}; antigo {ra.get('segundos')} s, novo {rb.get('segundos')} s"
+           f"{'' if not dif else f' — DIFEREM: {dif[:6]}'}{'' if meta_igual else ' — o meta difere'}{'' if mesmo_log else ' — o controle.log difere'}")
 
     # 2. o sintético: perdas (FLOW) + o CONST do ciclo de trabalho mudando no meio + a última amostra mais curta
     arq = "exemplos/exemplo_buck_termico.ipes"
@@ -166,5 +221,72 @@ try:
             t[laco].append(r.get("segundos") or float("nan"))
     ma, mn = statistics.median(t["antigo"]), statistics.median(t["novo"])
     ok(ma / mn >= LIMITE, f"o buck pelo caminho novo {ma / mn:.1f}× mais rápido (medianas: antigo {ma:.2f} s {t['antigo']}, novo {mn:.2f} s {t['novo']}; limite {LIMITE}×)")
+
+    # 5. o sintético com controle em Python: dois controladores (mensagens), um CONST a mais (aux), o padrão por Δt, as
+    # perdas no m[...], acionamentos de CONST (no d, que o controle também escreve: o acionamento prevalece) e de p[...],
+    # os três modos de atraso; no logo, uma pausa no meio da rodada nova
+    arq, dt, tfim = "exemplos/exemplo_buck_termico.ipes", "5e-07", "0.004"
+    prep = [("CREATE", ["CONST.9", 2, 2, "CONST"]), ("OUTNODE", ["CONST.9", 0, "aux"])]
+    CTL = """def iniciar(p, e):
+    e["n"] = 0
+    e["x"] = 0.0
+
+
+def passo(t, m, p, e):
+    e["n"] += 1
+    for msg in recebe():
+        e["x"] = msg["dados"]["x"]
+    scope("pv_visto", m["Pv_IGBT1"]); scope("tj_visto", m["Tj_IGBT1"]); scope("kx", p["Kx"]); scope("x_aux", e["x"])
+    print("passo", e["n"], repr(t), repr(m["Pv_IGBT1"]))
+    envia("aux", {"y": m["v_o"]})
+    base = 0.3 + 0.4 * ((e["n"] // 7) % 2)
+    if e["n"] % 3 == 0:                      # o padrão por Δt: 10 valores (Ts = 10 Δt), mudando no meio
+        return {"d": [base if i < 4 else base + 0.1 for i in range(10)]}
+    return {"d": base * p["Kx"]}
+"""
+    AUX = """def passo(t, m, p, e):
+    y = None
+    for msg in recebe():
+        y = msg["dados"]["y"]
+    envia("controle", {"x": 0.0 if y is None else y})
+    return {"aux": 0.0 if y is None else round(y, 4)}
+"""
+    def sintetico(atraso):
+        return {"ativo": True, "Ts": 5e-6, "atuacoes": ["d", "aux"], "codigo": CTL, "arquivos": {"aux.py": AUX},
+                "parametros": [{"nome": "Kx", "valor": 1.0, "unidade": ""}], "atraso": atraso, "rede": {"latencia": 0.0},
+                "controladores": [{"nome": "controle", "arquivo": "controle.py", "medidas": ["v_o", "Tj_IGBT1", "Pv_IGBT1"], "atuacoes": ["d"], "subcircuitos": []},
+                                  {"nome": "aux", "arquivo": "aux.py", "medidas": [], "atuacoes": ["aux"], "subcircuitos": []}],
+                "acionamentos": [{"alvo": "CONST:d", "t": 1.0e-3, "valor": 0.9}, {"alvo": "CONST:aux", "t": 2.0e-3, "valor": 5.0},
+                                 {"alvo": "p:Kx", "t": 1.5e-3, "valor": 0.5}]}
+    pausa_ = {"feita": False}
+    def pausa_no_meio(r):
+        if not pausa_["feita"] and r.get("estado") == "rodando" and (r.get("t") or 0) > 1e-3:
+            api("editor/pausar", {}); pausa_["feita"] = True
+            time.sleep(0.5); api("editor/continuar", {})
+    for atraso in ({"modo": "logo", "tempo": 0.0}, {"modo": "amostra", "tempo": 0.0}, {"modo": "tempo", "tempo": 2e-6}):
+        ra, za = roda(arq, "antigo", dt, tfim, "100000", sintetico(atraso), prep=prep)
+        rb, zb = roda(arq, "novo", dt, tfim, "100000", sintetico(atraso), prep=prep, acao=pausa_no_meio if atraso["modo"] == "logo" else None)
+        if za is None or zb is None:
+            ok(False, f"sintético com controle ({atraso['modo']}): {ra.get('estado')} {ra.get('erro', '')} / {rb.get('estado')} {rb.get('erro', '')}")
+            continue
+        dif, meta_igual = iguais(za, zb)
+        la, lb = log_de(ra), log_de(rb)
+        cobre = (len({round(float(x), 6) for x in zb["d"]}) >= 4 and float(np.nanmax(zb["pv_visto"])) > 0 and
+                 float(np.nanmax(zb["x_aux"])) > 0 and 0.5 in set(np.round(zb["kx"][~np.isnan(zb["kx"])], 6)) and la.count("passo") > 100)
+        ok(not dif and meta_igual and ra.get("avisos") == rb.get("avisos") and la == lb and cobre and rb.get("stepc") and not ra.get("stepc")
+           and (atraso["modo"] != "logo" or pausa_["feita"]),
+           f"sintético com controle, atraso {atraso['modo']}: {len(zb.files) - 1} colunas × {len(zb['t'])} amostras, o meta, os avisos e o "
+           f"controle.log ({la.count(chr(10))} linhas) idênticos pelos dois caminhos{' (com uma pausa no meio do novo)' if atraso['modo'] == 'logo' else ''}"
+           f"{'' if cobre else ' — o sintético não exercitou tudo'}{'' if not dif else f' — DIFEREM: {dif[:6]}'}{'' if la == lb else ' — o controle.log difere'}")
+
+    # 6. a medida intercalada no motor CC (controle em Python): o Ts numa chamada mais rápido (medianas de 3)
+    arq = "exemplos/exemplo_motor_cc.ipes"
+    t = {"antigo": [], "novo": []}
+    for _ in range(3):
+        for laco in ("antigo", "novo"):
+            r, _ = roda(arq, laco, tfim="0.15")
+            t[laco].append(r.get("segundos") or float("nan"))
+    ma, mn = statistics.median(t["antigo"]), statistics.median(t["novo"])
+    ok(ma / mn >= LIMITE_PY, f"o motor CC (controle em Python) pelo caminho novo {ma / mn:.1f}× mais rápido (medianas: antigo {ma:.2f} s {t['antigo']}, novo {mn:.2f} s {t['novo']}; limite {LIMITE_PY}×)")
 finally:
     print(f"{'OK' if not falhas else 'FALHA'}: desempenho, {falhas} falha(s)")

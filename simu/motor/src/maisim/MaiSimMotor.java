@@ -186,6 +186,57 @@ public final class MaiSimMotor {
         return sb.toString();
     }
 
+    /** PREP np ponto… na média… nc const… e STEPC n nw (deslocamento índice valor)… → um período de amostragem do controle em
+     *  Python numa chamada só (patch 0010: prepareControlSteps / stepControl): as escritas nos CONST (índices do PREP)
+     *  antes dos passos certos, os trechos entre elas como o STEP/STEPA, e a leitura do GETM no fim. Resposta do STEPC:
+     *  "ntrechos" e, para cada trecho, "t feitos média…", e depois os valores dos pontos. Sem os métodos (jar sem o patch ou
+     *  um Gecko ainda do jar velho), o erro "SEM_STEPC" e o servidor segue com STEP, SETM e GETM separados, como antes. */
+    private boolean geckoSemStepc = false;
+
+    private java.lang.reflect.Method metodoStepc(String nome, Class<?>... tipos) {
+        if (geckoSemStepc) return null;
+        try { return GeckoRemoteInterface.class.getMethod(nome, tipos); }
+        catch (NoSuchMethodException semPatch) { return null; }
+    }
+
+    private Object chamaStepc(java.lang.reflect.Method mm, Object... args) throws Exception {
+        if (mm == null) throw new IllegalStateException("SEM_STEPC");
+        try { return mm.invoke(g, args); }
+        catch (java.lang.reflect.InvocationTargetException e) {
+            if (!metodoDesconhecido(e.getCause())) throw e.getCause() instanceof Exception ? (Exception) e.getCause() : e;
+            geckoSemStepc = true;                                            // o Gecko não fez nada
+            throw new IllegalStateException("SEM_STEPC");
+        }
+    }
+
+    private String prepara(String[] p) throws Exception {
+        int np = Integer.parseInt(p[1]);
+        String[] pontos = Arrays.copyOfRange(p, 2, 2 + np);
+        int na = Integer.parseInt(p[2 + np]);
+        String[] medias = Arrays.copyOfRange(p, 3 + np, 3 + np + na);
+        int nc = Integer.parseInt(p[3 + np + na]);
+        String[] consts = Arrays.copyOfRange(p, 4 + np + na, 4 + np + na + nc);
+        if (p.length != 4 + np + na + nc) throw new IllegalArgumentException("PREP np point… na average… nc const…: wrong count");
+        chamaStepc(metodoStepc("prepareControlSteps", String[].class, String[].class, String[].class), (Object) pontos, (Object) medias, (Object) consts);
+        return "";
+    }
+
+    private String passoControle(String[] p) throws Exception {
+        int n = Integer.parseInt(p[1]), nw = Integer.parseInt(p[2]);
+        if (p.length != 3 + 3 * nw) throw new IllegalArgumentException("STEPC n nw (offset index value)…: wrong count");
+        int[] desl = new int[nw], idx = new int[nw];
+        double[] val = new double[nw];
+        for (int w = 0; w < nw; w++) {
+            desl[w] = Integer.parseInt(p[3 + 3 * w]);
+            idx[w] = Integer.parseInt(p[4 + 3 * w]);
+            val[w] = Double.parseDouble(p[5 + 3 * w]);                      // como o SETM
+        }
+        double[] r = (double[]) chamaStepc(metodoStepc("stepControl", int.class, int[].class, int[].class, double[].class), n, desl, idx, val);
+        StringBuilder sb = new StringBuilder(Integer.toString((int) r[0]));
+        for (int i = 1; i < r.length; i++) sb.append(' ').append(r[i]);   // Double.toString, como o STEP/STEPA/GETM
+        return sb.toString();
+    }
+
     private String trata(String linha) throws Exception {
         String[] p = linha.split("\\s+");
         switch (p[0]) {
@@ -218,6 +269,8 @@ public final class MaiSimMotor {
             case "STEPA": return stepMedia(Integer.parseInt(p[1]), Arrays.copyOfRange(p, 2, p.length));   // STEPA n nome… → t médias
             case "STEPS": return stepAmostras(p);                                    // STEPS m q np ponto… na média… → r registros
             case "INICIAL": return inicial(Arrays.copyOfRange(p, 1, p.length));      // INICIAL nome… → os valores em t = 0
+            case "PREP": return prepara(p);                                          // PREP np ponto… na média… nc const…
+            case "STEPC": return passoControle(p);                                   // STEPC n nw (desl. índice valor)… → trechos e pontos
             case "TIME": return Double.toString(g.getSimulationTime());
             case "END": g.endSimulation(); return "";
             case "GET": return Double.toString(g.getOutput(p[1]));
@@ -262,7 +315,7 @@ public final class MaiSimMotor {
             }
             default: throw new IllegalArgumentException("unknown command: " + p[0] + " (commands: " + Arrays.toString(
                     new String[]{"PING", "OPEN", "SAVEAS", "CREATE", "DELETE", "MOVE", "POS", "ROTATE", "ORIENT", "RENAME", "PARAMS",
-                            "ACCPARAMS", "GETP", "SETP", "GETG", "SETG", "INNODE", "OUTNODE", "GETIN", "GETOUT", "LIST", "SHEET", "CLEAR", "INIT", "STEP", "STEPA", "STEPS", "INICIAL", "TIME", "END", "GET", "GETM", "SETM", "QUIT"}) + ")");
+                            "ACCPARAMS", "GETP", "SETP", "GETG", "SETG", "INNODE", "OUTNODE", "GETIN", "GETOUT", "LIST", "SHEET", "CLEAR", "INIT", "STEP", "STEPA", "STEPS", "INICIAL", "PREP", "STEPC", "TIME", "END", "GET", "GETM", "SETM", "QUIT"}) + ")");
         }
     }
 }

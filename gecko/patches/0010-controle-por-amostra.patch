@@ -1,0 +1,156 @@
+diff --git a/src/main/java/ch/technokrat/gecko/GeckoRemoteInterface.java b/src/main/java/ch/technokrat/gecko/GeckoRemoteInterface.java
+index 375765b5..a9c2d225 100644
+--- a/src/main/java/ch/technokrat/gecko/GeckoRemoteInterface.java
++++ b/src/main/java/ch/technokrat/gecko/GeckoRemoteInterface.java
+@@ -228,6 +228,28 @@ public interface GeckoRemoteInterface extends Remote {
+     @Declaration("double[] initialOutputs(String[] elementNames)")
+     double[] initialOutputs(String[] elementNames) throws RemoteException;
+ 
++    /**
++     * Registers, for stepControl, the outputs read at the end of each call (pointNames, "block@output" for a named
++     * output), the outputs averaged over the steps of each stretch (averageNames, as simulateStepsAveraged) and the
++     * blocks whose "const" parameter stepControl writes (constNames, as setParameter(name, "const", value)).
++     */
++    @Category(MethodCategory.SIMULATION_START)
++    @Documentation(I18nKeys.SIMULATE_STEPS_DOCUMENTATION)
++    @Declaration("void prepareControlSteps(String[] pointNames, String[] averageNames, String[] constNames)")
++    void prepareControlSteps(String[] pointNames, String[] averageNames, String[] constNames) throws RemoteException;
++
++    /**
++     * One sample period in one call: steps steps, with the writes (constNames[constIndex[w]] := values[w]) applied before
++     * step offsets[w] (offsets ascending, 0 <= offset < steps; the writes of one offset in their order), the steps between
++     * two offsets being one stretch — exactly simulateSteps (or simulateStepsAveraged with averageNames) and
++     * setParameter as separate calls would do. Result: the number of stretches; for each, the simulation time at its end,
++     * the steps done and the means of averageNames over it; then the outputs of pointNames at the end.
++     */
++    @Category(MethodCategory.SIMULATION_START)
++    @Documentation(I18nKeys.SIMULATE_STEPS_DOCUMENTATION)
++    @Declaration("double[] stepControl(int steps, int[] offsets, int[] constIndex, double[] values)")
++    double[] stepControl(int steps, int[] offsets, int[] constIndex, double[] values) throws RemoteException;
++
+     @Category(MethodCategory.SIMULATION_START)
+     @Documentation(I18nKeys.SIMULATE_TIME_DOCUMENTATION)
+     @Declaration("void simulateTime(double time)")
+diff --git a/src/main/java/ch/technokrat/gecko/GeckoRemoteTestingDummy.java b/src/main/java/ch/technokrat/gecko/GeckoRemoteTestingDummy.java
+index 9e08c722..ad648094 100644
+--- a/src/main/java/ch/technokrat/gecko/GeckoRemoteTestingDummy.java
++++ b/src/main/java/ch/technokrat/gecko/GeckoRemoteTestingDummy.java
+@@ -165,6 +165,15 @@ public class GeckoRemoteTestingDummy implements GeckoRemoteInterface {
+         return new double[elementNames.length];
+     }
+ 
++    @Override
++    public void prepareControlSteps(String[] pointNames, String[] averageNames, String[] constNames) throws RemoteException {
++    }
++
++    @Override
++    public double[] stepControl(int steps, int[] offsets, int[] constIndex, double[] values) throws RemoteException {
++        return new double[1];
++    }
++
+     @Override
+     public double[] getOutputs(String[] elementNames) throws RemoteException {
+         return new double[elementNames.length];
+diff --git a/src/main/java/ch/technokrat/gecko/geckoscript/AbstractGeckoCustom.java b/src/main/java/ch/technokrat/gecko/geckoscript/AbstractGeckoCustom.java
+index 9a4f5550..48115dba 100644
+--- a/src/main/java/ch/technokrat/gecko/geckoscript/AbstractGeckoCustom.java
++++ b/src/main/java/ch/technokrat/gecko/geckoscript/AbstractGeckoCustom.java
+@@ -251,6 +251,98 @@ public abstract class AbstractGeckoCustom implements GeckoRemoteInterface {
+         return records * w == result.length ? result : java.util.Arrays.copyOf(result, records * w);
+     }
+ 
++    // MaiSim (patch 0010): the run with the control in Python, one remote call per sample period (stepControl)
++    private RegelBlock[] _ctlPoints, _ctlAverages;
++    private String[] _ctlPointOutputs, _ctlAverageOutputs;
++    private AbstractBlockInterface[] _ctlConsts;
++
++    /** The names stepControl reads, averages and writes, resolved once (see GeckoRemoteInterface.prepareControlSteps). */
++    @Override
++    public final void prepareControlSteps(final String[] pointNames, final String[] averageNames, final String[] constNames) {
++        final String[] pointOutputs = new String[pointNames.length], averageOutputs = new String[averageNames.length];
++        final RegelBlock[] points = controlBlocks(pointNames, pointOutputs);
++        final RegelBlock[] averages = controlBlocks(averageNames, averageOutputs);
++        final AbstractBlockInterface[] consts = new AbstractBlockInterface[constNames.length];
++        for (int i = 0; i < constNames.length; i++) {
++            consts[i] = IDStringDialog.getComponentByName(constNames[i]);
++        }
++        _ctlPoints = points;
++        _ctlPointOutputs = pointOutputs;
++        _ctlAverages = averages;
++        _ctlAverageOutputs = averageOutputs;
++        _ctlConsts = consts;
++    }
++
++    /**
++     * One sample period (see GeckoRemoteInterface.stepControl): the same steps, writes, means and readings as
++     * simulateSteps / simulateStepsAveraged, setParameter(…, "const", …) and getOutputs called one by one.
++     */
++    @Override
++    public final double[] stepControl(final int steps, final int[] offsets, final int[] constIndex, final double[] values) {
++        if (_ctlConsts == null) {
++            throw new IllegalStateException("stepControl() before prepareControlSteps()");
++        }
++        if (!_simInited) {
++            initSimulation();
++            writeOutputLn("Warning: Simulation was not initialized prior to calling stepControl(). "
++                    + "Simulation has been initialized to values specified in GeckoCIRCUITS.");
++        }
++        final int na = _ctlAverages.length, np = _ctlPoints.length, w = 2 + na;
++        final double[] stretches = new double[(offsets.length + 1) * w];
++        int nStretches = 0, done = 0, k = 0;
++        try {
++            while (true) {
++                final int next = k < offsets.length ? offsets[k] : steps;
++                if (next > done) {                    // the steps up to the next write (or to the end): one stretch
++                    controlStretch(next - done, stretches, nStretches * w);
++                    nStretches++;
++                    done = next;
++                }
++                if (k >= offsets.length) {
++                    break;
++                }
++                final int at = offsets[k];
++                for (; k < offsets.length && offsets[k] == at; k++) {   // the writes before step "at", in their order
++                    _ctlConsts[constIndex[k]].setAccessibleParameter("const", values[k]);
++                }
++            }
++            final double[] result = new double[1 + nStretches * w + np];
++            result[0] = nStretches;
++            System.arraycopy(stretches, 0, result, 1, nStretches * w);
++            for (int i = 0; i < np; i++) {
++                result[1 + nStretches * w + i] = _ctlPointOutputs[i] == null ? _ctlPoints[i].getOutput() : _ctlPoints[i].getOutput(_ctlPointOutputs[i]);
++            }
++            return result;
++        } catch (IllegalAccessException e) {
++            writerOutputErrorLn(e.getMessage());
++            throw new RuntimeException(e);
++        }
++    }
++
++    /** q steps as simulateSteps (or simulateStepsAveraged, with averages): {time at the end, steps done, means} at base. */
++    private void controlStretch(final int q, final double[] out, final int base) throws IllegalAccessException {
++        final int na = _ctlAverages.length;
++        final double[] sum = new double[na];
++        int done = 0;
++        try {
++            for (; done < q; done++) {
++                _circuit.simulateOneStep();
++                for (int i = 0; i < na; i++) {
++                    sum[i] += _ctlAverageOutputs[i] == null ? _ctlAverages[i].getOutput() : _ctlAverages[i].getOutput(_ctlAverageOutputs[i]);
++                }
++            }
++        } catch (IllegalAccessException e) {
++            throw e;
++        } catch (Exception ex) {                      // as simulateSteps / simulateStepsAveraged: reported, not thrown
++            writerOutputErrorLn((na > 0 ? "simulateStepsAveraged(): " : "simulateSteps(): ") + ex.getMessage());
++        }
++        out[base] = getSimulationTime();
++        out[base + 1] = done;
++        for (int i = 0; i < na; i++) {
++            out[base + 2 + i] = done > 0 ? sum[i] / done : 0.0;
++        }
++    }
++
+     /** A FLOW on the losses of a Pv: nothing has been dissipated before the first step (the loss calculation keeps the
+      *  last value of the previous run until then), so its value at t = 0 is 0. */
+     private static boolean isLossFlow(final RegelBlock block) {
