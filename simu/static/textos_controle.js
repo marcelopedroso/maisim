@@ -270,7 +270,7 @@ maisimI18n.add({
   "ctl.editando": { pt: "editando…", en: "editing…" },
   "ctl.um_campo": { pt: "um campo", en: "a field" },
   "ctl.valor_invalido": { pt: "valor inválido em {campo}", en: "invalid value in {campo}" },
-  "ctl.valor_invalido_corrija": { pt: "valor inválido em {campo}: corrija (número, com vírgula ou ponto)", en: "invalid value in {campo}: fix it (a number, with a comma or a point)" },
+  "ctl.valor_invalido_corrija": { pt: "valor inválido em {campo}: corrija (um número: 0,5 · 5e-7 · 50µ · 20k)", en: "invalid value in {campo}: fix it (a number: 0.5 · 5e-7 · 50µ · 20k)" },
   "ctl.trecho": { pt: "Trecho de {arq} (linhas {a}–{b}; ▶ a do erro):", en: "Excerpt of {arq} (lines {a}–{b}; ▶ the one with the error):" },
   "ctl.copiado": { pt: "copiado ✓", en: "copied ✓" },
   "ctl.nao_deu": { pt: "não deu", en: "failed" },
