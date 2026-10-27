@@ -154,7 +154,8 @@ cfg = dict(pn["controle"], ativo=True, codigo='def passo(t, m, p, e):\n    retur
 g = api("editor/controle", {"controle": cfg})
 insts = {i["nome"]: i["medidas"] for i in g.get("instancias", [])}
 ok(len(insts) == len(subs) and all("vCSm" in v for v in insts.values()), f"{len(subs)} subcircuitos → instâncias {list(insts)}, cada uma com vCSm entre as medidas")
-j = api("editor/rodar", {"dt": "1e-06", "tfim": "0.002", "nome": "sm_por_sub", "amostras": "100000"})
+# uma amostra por Ts: o m["vCSm"] do instante do Ts contra o canal (dentro do Ts, a coluna do controle fica no valor do instante)
+j = api("editor/rodar", {"dt": "1e-06", "tfim": "0.002", "nome": "sm_por_sub", "amostras": str(round(0.002 / cfg["Ts"]))})
 while j.get("estado") in ("rodando", "pausada", "preparando"): time.sleep(0.3); j = api("editor/rodada")
 d = dict(np.load(caminho(j), allow_pickle=True)) if j.get("estado") == "fim" else {}
 pares = [(f"{i}_v", f"{i[len('sm_'):]}_vCSm") for i in insts]          # instância sm_<prefixo>: o canal do circuito é <prefixo>_vCSm

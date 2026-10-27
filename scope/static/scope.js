@@ -144,6 +144,51 @@ function avisoSolver() {
 // canal: "f" = tem resolução do passo fino (pulsos, tensões PWM reconstruídas, formas medidas no Gecko)
 function tipo(canal) { return /^(s_|varm_|e_[abc]$|fino_)/.test(canal) ? "f" : "c"; }
 
+// um sinal digital (só 0 e 1, com algum 1: o gate, a saída de um comparador ou de um bloco lógico) é desenhado em degrau, o
+// valor mantido até a amostra seguinte — uma reta entre um 0 e um 1 inventaria uma rampa que o sinal não tem (Marcelo, 27/10)
+function digital(F, canal) {
+  const v = grossa(F, canal);
+  if (!v) return false;
+  let n = 0, um = false;
+  for (let k = 0; k < v.length; k++) {
+    const x = v[k];
+    if (x !== x) continue;
+    if (x !== 0 && x !== 1) return false;
+    n++; if (x === 1) um = true;
+  }
+  return n >= 2 && um;
+}
+// um sinal digital que a amostragem não acompanha: muda de valor em mais de 40% das amostras (das últimas 4000), ou muda (3
+// vezes ou mais) com a amostra mais longa que meio período da fonte de sinal mais rápida do circuito (meta.f_sinais, a
+// portadora de um PWM): o gate de um PWM de 20 kHz amostrado a cada 100 µs (2 períodos) parece um sinal lento, com uma ou
+// outra troca — pelas amostras não dá para ver o chaveamento perdido; pela portadora, sim
+function chaveiaDemais(F, canal) {
+  if (!digital(F, canal)) return false;
+  const v = grossa(F, canal);
+  let n = 0, trocas = 0, ant = null;
+  for (let k = Math.max(0, v.length - 4000); k < v.length; k++) {
+    const x = v[k];
+    if (x !== x) continue;
+    if (ant !== null) { n++; if (x !== ant) trocas++; }
+    ant = x;
+  }
+  const f = F.meta && F.meta.f_sinais;
+  return (n >= 20 && trocas > 0.4 * n) || (!!f && trocas >= 3 && intervalo(F) * f > 0.5);
+}
+// o aviso discreto, embaixo do gráfico, quando algum sinal do painel chaveia mais rápido que a amostragem
+function avisaAmostragem(p) {
+  if (!p.el) return;
+  let el = p.el.querySelector(".aviso-amostra");
+  // cada rodada à vista (a A e, comparando, a B) com o próprio intervalo: a B mal amostrada também avisa (Codex, #162)
+  const linhas = (p.xy ? [] : [["A", A], ["B", B]]).filter(([, F]) => F).map(([nome, F]) => {
+    const lista = p.sinais.filter((c) => chaveiaDemais(F, c));
+    return lista.length ? (B ? `${nome}: ` : "") + tr("scope.p.aviso_chaveia", { dt: fmtDt(intervalo(F)), sinais: lista.map(rotulo).join(", ") }) : "";
+  }).filter(Boolean);
+  if (!linhas.length) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement("div"); el.className = "aviso-amostra"; p.area.after(el); }
+  el.textContent = linhas.join(" · ");
+}
+
 // valor por janela de controle (média na janela para os canais finos)
 function grossa(F, canal) {
   if (!F) return null;
@@ -346,8 +391,8 @@ function seriesDe(p) {
     const rot = rotulo(canal) + (ganho !== 1 ? ` ×${ganho}` : "") + (desloc ? ` (+${desloc.toFixed(1)})` : "");
     const cor = corDoSinal(canal, idx), w = espessuraDoSinal(canal);
     const traco = TRACOS[tracoDoSinal(canal)];             // B (Comparar) tracejada; só com a A tracejada, B pontilhada
-    if (grossa(A, canal)) out.push({ F: A, canal, rot: B ? `${rot} · A` : rot, cor, largura: w, dash: traco || undefined, desloc, ganho, degrau: tipo(canal) === "f" });
-    if (B && grossa(B, canal)) out.push({ F: B, canal, rot: `${rot} · B`, cor: corClara(cor), dash: tracoDoSinal(canal) === "tracejada" ? TRACOS.pontilhada : [6, 4], largura: w * 0.92, desloc, ganho, degrau: tipo(canal) === "f" });
+    if (grossa(A, canal)) out.push({ F: A, canal, rot: B ? `${rot} · A` : rot, cor, largura: w, dash: traco || undefined, desloc, ganho, degrau: tipo(canal) === "f" || digital(A, canal) });
+    if (B && grossa(B, canal)) out.push({ F: B, canal, rot: `${rot} · B`, cor: corClara(cor), dash: tracoDoSinal(canal) === "tracejada" ? TRACOS.pontilhada : [6, 4], largura: w * 0.92, desloc, ganho, degrau: tipo(canal) === "f" || digital(B, canal) });
   });
   // com o Medir aberto, a curva Σ(t): a soma ponto a ponto dos sinais que estão no Σ da tabela (os mesmos: um clique no
   // nome tira/põe), com os valores reais; o valor no cursor vai para a legenda (Marcelo, 20/10: "a soma tem que ser dos
@@ -484,6 +529,7 @@ function atualiza(p) {
   sincronizando = true;
   p.u.setData(dados, false);
   p.u.setScale("x", fx);
+  if (!(p.avisoT > performance.now() - 1000)) { p.avisoT = performance.now(); avisaAmostragem(p); }   // ao vivo: no máximo 1 vez/s
   if (fy) p.u.setScale("y", fy);
   if (fp) p.u.setScale("p", fp);
   sincronizando = false;
@@ -1105,6 +1151,7 @@ function criaGrafico(p, manter) {
   if (p.xy) return criaGraficoXY(p);                    // o painel XY: o seu desenho (as trajetórias), mais abaixo
   if (p.u) { p.u.destroy(); p.u = null; }
   p.area.innerHTML = "";
+  avisaAmostragem(p);                                   // o aviso de amostragem lenta para um sinal digital (embaixo do gráfico)
   marcaComb(p);                                         // os sinais do painel mudaram: o Combinar acompanha
   if (!A || !p.sinais.length) { p.area.innerHTML = `<div class="vazio">${escH(tr(A ? "scope.p.vazio_sinais" : "scope.p.aguardando"))}</div>`; return; }
   p.series = seriesDe(p);

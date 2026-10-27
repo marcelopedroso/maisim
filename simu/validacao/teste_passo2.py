@@ -51,7 +51,10 @@ def referencia(d, j_dist, k_ref, iref0=5.0, iref1=8.0, malha=True, j_u=None, u_a
 
 def roda(nome, cfg):
     r = api("editor/controle", {"controle": cfg}); assert "ERRO" not in r and not r["erros"], r
-    j = api("editor/rodar", {"dt": repr(dt), "tfim": repr(tfim), "nome": nome, "amostras": "100000"})
+    # com controle, uma amostra por Ts (a comparação é no instante do Ts; com a amostra pedida menor, o scope grava também
+    # dentro do Ts); sem controle, a cada passo
+    am = str(round(tfim / Ts)) if cfg["ativo"] else "100000"
+    j = api("editor/rodar", {"dt": repr(dt), "tfim": repr(tfim), "nome": nome, "amostras": am})
     while j.get("estado") in ("rodando", "pausada"): time.sleep(0.3); j = api("editor/rodada")
     return j
 

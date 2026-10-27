@@ -6,6 +6,10 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Added
+- **The scope records inside the control period**: with Python control and a requested sample interval shorter than Ts, the run records at the requested interval (k steps, the largest divisor of Ts/Δt not above it) instead of once per Ts — the closed-loop buck with Ts = 100 µs and 2 µs samples shows the 20 kHz PWM pulses of g, which aliased before. Still one round trip per Ts: new Gecko patch `0011` (`stepControlSampled`, the motor's `STEPCS`) returns the inside samples with the same call; the control still gets only the Ts-instant measurements (same loss means in `m[...]`), and the `scope()` columns hold their Ts-instant value inside Ts. At the Ts instants the numbers are bit-identical to before (the loss channels, an interval average, use the new shorter interval); inside Ts they are bit-identical to a reference run that takes the same steps (a time-only controller with Ts = 2 µs through the old path), losses included. A requested interval ≥ Ts keeps the old behaviour; a Gecko without the patch records at the Ts instants. `desempenho_api` checks all of it and the cost (25 000 samples vs 500 in 50 ms: 1.2–2× the time — the Python work per recorded sample — against ~3–10× for a round trip per sample); `teste_controle`, `teste_passo2`, `controladores_api` and `amostra_t0_api`, which compare at the Ts instants, ask for one sample per Ts (#162).
+- **Digital signals in the scope**: a channel with only 0 and 1 (a gate, a comparator or logic output) is drawn as steps, holding the value until the next sample (no ramps between samples), and a discreet note under the plot, in pt/en, says when a digital signal switches faster than the sampling ("sampled every 100 µs; g switches faster than that — reduce the sample interval"): it changes in more than 40% of the samples, or it changes with the sample interval longer than half a period of the circuit's fastest signal source (`f_sinais` in the run's meta: a PWM carrier). New test `scope_digital_tela` (#162).
+
 ## [0.3.4] - 2026-10-27
 
 ### Changed

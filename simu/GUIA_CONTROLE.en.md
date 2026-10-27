@@ -68,6 +68,8 @@ def passo(t, m, p, e):      # every Ts
   capacitor's uC(0), a Cth's Temp(0), an integrator's y0, the machine's initial speed) and, without them, the starting value
   (an inductor current 0, the machine at rest); the losses (FLOW of a Pv) are 0 — nothing has been dissipated yet.
 * `p`: the panel's parameters, plus `p["Ts"]` (the effective one).
+  The scope may record finer than Ts (a smaller requested sample interval): inside Ts, the circuit at every sample, and the
+  `scope()` columns with the value of the Ts instant; `m` is still only at the Ts instant.
 * `e`: your own dictionary, which persists between samples.
 * The return value is a dictionary `{actuator: value}` (or `None`). Each key must be an actuation checked in the panel,
   and each value must convert to a finite `float`; otherwise the run stops with an error.
