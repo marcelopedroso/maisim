@@ -254,6 +254,8 @@ T = {
                        "en": "the simulation is running: stop it or wait for it to finish before changing the circuit"},
     "rodada.nome_invalido": {"pt": "nome da rodada: letras, números, _ e -, até 40",
                              "en": "run name: letters, digits, _ and -, up to 40"},
+    "rodada.laco_invalido": {"pt": "laço da rodada desconhecido: {v} (use {lista})",
+                             "en": "unknown run loop: {v} (use {lista})"},
     "rodada.passo_tfim_faixa": {"pt": "passo entre 1 ns e 10 ms e tempo final maior que o passo, até 10 s",
                                 "en": "step between 1 ns and 10 ms and end time greater than the step, up to 10 s"},
     "rodada.gecko_parou_trecho": {"pt": "o Gecko parou no meio de um trecho ({feitos} de {q} passos, em t = {t} s): um erro dele; as médias das perdas usam os passos feitos",

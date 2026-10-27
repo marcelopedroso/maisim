@@ -23,7 +23,11 @@ caía), e o resto da divisão de polinômios nunca mais longo que o denominador 
 µs dava 6,999… → 6 passos; agora 7); e a TF nova nasce 1/(1 + 1e-3 s) em modo polinômio (era 1/1, e o
 diálogo, no modo polos e zeros, a refazia com o polo 2 e o zero 1 de enfeite: (s − 1)/(s − 2), instável). Os circuitos
 salvos antes não mudam: o arquivo guarda os polinômios e o modo. O MaiSim escreve a TF pelo arquivo (`editor/mede` tipo H),
-como os medidores.
+como os medidores. `0008`: `simulateStepsSampled`, muitas amostras numa chamada — para cada uma, os passos dela, a leitura das
+saídas pedidas no fim e a média das de perda (FLOW) a cada passo, os mesmos números do `simulateSteps` + `getOutputs` (e do
+`simulateStepsAveraged`) amostra a amostra (o STEPS do motor: a rodada sem controle em Python vai em blocos, sem duas idas e
+voltas até o Gecko por amostra; ~0,3 ms cada, contra ~1 µs de cálculo por passo no buck). Um passo que falha encerra o bloco
+depois do registro daquela amostra, como o `simulateSteps` engole o erro e segue.
 
 **Tudo de uma vez (recomendado):** em `app/`, `npm run maisim` sobe o scope, o simulador, este Gecko e a página, e o
 Ctrl+C derruba o que ele subiu (o Gecko só se não houver circuito sem salvar; ver `app/scripts/maisim.sh`).
