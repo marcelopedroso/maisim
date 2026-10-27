@@ -1,0 +1,222 @@
+diff --git a/src/main/java/ch/technokrat/gecko/GeckoRemoteInterface.java b/src/main/java/ch/technokrat/gecko/GeckoRemoteInterface.java
+index d4a8ff35..375765b5 100644
+--- a/src/main/java/ch/technokrat/gecko/GeckoRemoteInterface.java
++++ b/src/main/java/ch/technokrat/gecko/GeckoRemoteInterface.java
+@@ -217,6 +217,17 @@ public interface GeckoRemoteInterface extends Remote {
+     @Declaration("double[] simulateStepsSampled(int stepsPerSample, int samples, String[] pointNames, String[] averageNames)")
+     double[] simulateStepsSampled(int stepsPerSample, int samples, String[] pointNames, String[] averageNames) throws RemoteException;
+ 
++    /**
++     * The outputs of elementNames at t = 0, after initSimulation and before any step: the initial state of the circuit
++     * with its initial conditions (see SimulationsKern.evaluateInitialState). Call initSimulation again before stepping.
++     * "block@output" reads that named output; a value that is not finite (a derivative at t = 0) comes back as 0, and a
++     * FLOW on the losses of a Pv as 0 (nothing dissipated yet).
++     */
++    @Category(MethodCategory.SIMULATION_START)
++    @Documentation(I18nKeys.SIMULATE_STEPS_DOCUMENTATION)
++    @Declaration("double[] initialOutputs(String[] elementNames)")
++    double[] initialOutputs(String[] elementNames) throws RemoteException;
++
+     @Category(MethodCategory.SIMULATION_START)
+     @Documentation(I18nKeys.SIMULATE_TIME_DOCUMENTATION)
+     @Declaration("void simulateTime(double time)")
+diff --git a/src/main/java/ch/technokrat/gecko/GeckoRemoteTestingDummy.java b/src/main/java/ch/technokrat/gecko/GeckoRemoteTestingDummy.java
+index 4837e6d9..9e08c722 100644
+--- a/src/main/java/ch/technokrat/gecko/GeckoRemoteTestingDummy.java
++++ b/src/main/java/ch/technokrat/gecko/GeckoRemoteTestingDummy.java
+@@ -160,6 +160,11 @@ public class GeckoRemoteTestingDummy implements GeckoRemoteInterface {
+         return new double[samples * (2 + pointNames.length + averageNames.length)];
+     }
+ 
++    @Override
++    public double[] initialOutputs(String[] elementNames) throws RemoteException {
++        return new double[elementNames.length];
++    }
++
+     @Override
+     public double[] getOutputs(String[] elementNames) throws RemoteException {
+         return new double[elementNames.length];
+diff --git a/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/LKMatrices.java b/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/LKMatrices.java
+index e1c7a709..1a2c4c30 100644
+--- a/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/LKMatrices.java
++++ b/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/LKMatrices.java
+@@ -587,6 +587,75 @@ public class LKMatrices {
+ //        System.out.println("time: " + t + " " + bHash);
+     }
+ 
++    private double[] _pInitMaiSim;          // MaiSim (patch 0009): Gecko's initial solution (C with uC(0) as a DC source)
++    private NetListLK _netzInitMaiSim;      // ... and its netlist
++
++    /**
++     * MaiSim (patch 0009): the branch currents at t = 0, from the initial potentials (the caller sets p = pALT), written
++     * only to the components' current (no matrix, switching or diode state is touched): resistive elements (R, Rth,
++     * switches, diodes, thyristors, IGBTs in their present state) by Ohm's law, inductors their initial current, voltage
++     * sources the current of the initial solution, current sources their value at t, capacitors the current of Gecko's
++     * initial solution (the DC source that stood for a capacitor with uC(0), or the capacitor itself in that 1 ns step).
++     */
++    public void setInitialCurrents(final double t) {
++        for (int i1 = 0; i1 < elementANZAHL; i1++) {
++            final int x = netzliste.knotenX[i1];
++            final int y = netzliste.knotenY[i1];
++            final double[] par = netzliste.parameter[i1];
++            final ch.technokrat.gecko.geckocircuits.circuit.circuitcomponents.AbstractCircuitBlockInterface e = netzliste.eLKneu[i1];
++            switch (netzliste.typ[i1]) {
++                case REL_RELUCTANCE:
++                case LK_R:
++                case TH_RTH:
++                case TH_AMBIENT:
++                case LK_S:
++                case LK_MOSFET:
++                    e._currentInAmps = (p[x] - p[y]) / (par[0] < FAST_NULL_R ? FAST_NULL_R : par[0]);
++                    break;
++                case LK_L:
++                case NONLIN_REL:
++                    e._currentInAmps = iALT[i1];
++                    break;
++                case LK_D:
++                case LK_THYR:
++                case LK_IGBT:
++                    e._currentInAmps = ((p[x] - p[y]) - par[1]) / par[0];
++                    break;
++                case LK_I:
++                case TH_FLOW:
++                    if ((int) par[0] == SourceType.QUELLE_SIN_NEW || (int) par[0] == SourceType.QUELLE_SIN) {
++                        e._currentInAmps = par[20] * Math.sin(2 * Math.PI * par[2] * t - Math.toRadians(par[4])) + par[3];
++                    } else if ((int) par[0] == SourceType.QUELLE_VOLTAGECONTROLLED_DIRECTLY_NEW
++                            || (int) par[0] == SourceType.QUELLE_VOLTAGECONTROLLED_DIRECTLY) {
++                        e._currentInAmps = 0;
++                    } else {
++                        e._currentInAmps = par[1];
++                    }
++                    break;
++                case LK_U:
++                case REL_MMF:
++                case TH_TEMP:
++                case LK_LKOP2:
++                    e._currentInAmps = p[netzliste.knotenMAX + netzliste.spgQuelleNr[i1]];
++                    break;
++                case LK_C:
++                case TH_CTH:
++                    if (_pInitMaiSim != null && _netzInitMaiSim != null && i1 < _netzInitMaiSim.typ.length) {
++                        if (_netzInitMaiSim.typ[i1] == ch.technokrat.gecko.geckocircuits.circuit.circuitcomponents.CircuitTyp.LK_U) {
++                            e._currentInAmps = _pInitMaiSim[_netzInitMaiSim.knotenMAX + _netzInitMaiSim.spgQuelleNr[i1]];
++                        } else {
++                            e._currentInAmps = par[0] / 1e-9 * (_pInitMaiSim[x] - _pInitMaiSim[y]);
++                        }
++                    } else {
++                        e._currentInAmps = 0;
++                    }
++                    break;
++                default:
++                    break;
++            }
++        }
++    }
++
+     public boolean berechneBauteilStroeme(double stoergroesse, double dt, double t, boolean isNewIteration,
+             int errorCounter) {
+ 
+@@ -1391,6 +1460,8 @@ public class LKMatrices {
+              */
+             //-------------
+             // Abschluss:
++            _pInitMaiSim = lkmInit.p.clone();                  // MaiSim (patch 0009): the initial solution, for the currents at t = 0
++            _netzInitMaiSim = lkmInit.netzliste;
+             lkmInit.aktualisiereKnotenpotentiale(1e-9, 0);     // pALT=p;
+ 
+             for (int i1 = 0; i1 < pALT.length; i1++) {
+diff --git a/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/SimulationsKern.java b/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/SimulationsKern.java
+index 2f6c7298..fce8f937 100644
+--- a/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/SimulationsKern.java
++++ b/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/SimulationsKern.java
+@@ -153,6 +153,35 @@ public class SimulationsKern {
+         }
+     }
+ 
++    /**
++     * MaiSim: the outputs at t = 0, before any step — the initial state with the circuit's initial conditions (the node
++     * potentials and temperatures Gecko solves at initSimulation from uC(0), Temp(0)…, the machine quantities as
++     * initialized) and the branch currents from it (LKMatrices.setInitialCurrents), passed to the measurement blocks, and
++     * the control blocks evaluated once at t = 0 with a zero step (an
++     * integrator gives y0, a source its value at 0). Not a simulation step: the state it touches is thrown away by the
++     * initSimulation that follows (the caller initializes again before stepping).
++     */
++    public void evaluateInitialState() {
++        if (simuliereLeistungskreis) {
++            System.arraycopy(lkmLK.pALT, 0, lkmLK.p, 0, Math.min(lkmLK.p.length, lkmLK.pALT.length));
++            lkmLK.setInitialCurrents(t);
++            dataTransferLK_Control();
++        }
++        if (simuliereThermKreis) {
++            System.arraycopy(lkmTHERM.pALT, 0, lkmTHERM.p, 0, Math.min(lkmTHERM.p.length, lkmTHERM.pALT.length));
++            lkmTHERM.setInitialCurrents(t);
++            dataTransferTherm();
++        }
++        if (simuliereRegelkreis) {
++            try {
++                controlNL.berechneZeitschritt(0.0, t);
++            } catch (Exception ex) {  // as simulateSteps: not thrown here; a block that cannot be calculated (a Data
++                // from File without data) fails again when its output is read, and the caller leaves that signal out
++                System.err.println("evaluateInitialState(): " + ex.getMessage());
++            }
++        }
++    }
++
+     private void doDiodeErrorsRecalculations() {
+         int switchingErrorCounter = 0;   // 'stoergroesse<1.0' verhindert, dass der Algorithmus beim Dioden-Umschalten zwischen Zustaenden haengen bleibt
+         double stoergroesse = 1;//0.9999999;
+diff --git a/src/main/java/ch/technokrat/gecko/geckoscript/AbstractGeckoCustom.java b/src/main/java/ch/technokrat/gecko/geckoscript/AbstractGeckoCustom.java
+index 7c228a30..9a4f5550 100644
+--- a/src/main/java/ch/technokrat/gecko/geckoscript/AbstractGeckoCustom.java
++++ b/src/main/java/ch/technokrat/gecko/geckoscript/AbstractGeckoCustom.java
+@@ -251,6 +251,35 @@ public abstract class AbstractGeckoCustom implements GeckoRemoteInterface {
+         return records * w == result.length ? result : java.util.Arrays.copyOf(result, records * w);
+     }
+ 
++    /** A FLOW on the losses of a Pv: nothing has been dissipated before the first step (the loss calculation keeps the
++     *  last value of the previous run until then), so its value at t = 0 is 0. */
++    private static boolean isLossFlow(final RegelBlock block) {
++        return block instanceof ReglerFlowMeter && ((ReglerFlowMeter) block).getComponentCoupling()._coupledElements[0]
++                instanceof ch.technokrat.gecko.geckocircuits.circuit.circuitcomponents.ThermPvChip;
++    }
++
++    /** The outputs at t = 0 (see GeckoRemoteInterface.initialOutputs): after initSimulation, without a step. */
++    @Override
++    public final double[] initialOutputs(final String[] elementNames) {
++        if (!_simInited) {
++            initSimulation();
++        }
++        final String[] outputs = new String[elementNames.length];
++        final RegelBlock[] blocks = controlBlocks(elementNames, outputs);
++        _circuit.evaluateInitialState();
++        final double[] result = new double[elementNames.length];
++        try {
++            for (int i = 0; i < blocks.length; i++) {
++                final double v = isLossFlow(blocks[i]) ? 0.0 : outputs[i] == null ? blocks[i].getOutput() : blocks[i].getOutput(outputs[i]);
++                result[i] = Double.isFinite(v) ? v : 0.0;
++            }
++        } catch (IllegalAccessException e) {
++            writerOutputErrorLn(e.getMessage());
++            throw new RuntimeException(e);
++        }
++        return result;
++    }
++
+     @Override
+     public final void simulateTime(final double time) {
+         if (!_simInited) {
+diff --git a/src/main/java/ch/technokrat/gecko/geckoscript/SimulationAccess.java b/src/main/java/ch/technokrat/gecko/geckoscript/SimulationAccess.java
+index 0f4378b2..ba8ce739 100644
+--- a/src/main/java/ch/technokrat/gecko/geckoscript/SimulationAccess.java
++++ b/src/main/java/ch/technokrat/gecko/geckoscript/SimulationAccess.java
+@@ -105,6 +105,10 @@ public class SimulationAccess implements GeckoFileable {
+         }
+     }
+ 
++    public void evaluateInitialState() {
++        mainWindow._simRunner.simKern.evaluateInitialState();
++    }
++
+     public void simulateOneStep() throws Exception {
+         mainWindow._simRunner.simKern.simulateOneStep();
+     }
