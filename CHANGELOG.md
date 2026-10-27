@@ -7,7 +7,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Fixed
-- Tests: `desempenho_api` asks the new loop to be ≥ 1.5× faster than the old one on the buck (it was 3×): the gain depends on the machine — about 8× in WSL, 1.9× on the CI runner, where the old loop already takes ~1.5 s (#PR).
+- Tests: `desempenho_api` asks the new loop to be ≥ 1.5× faster than the old one on the buck (it was 3×): the gain depends on the machine — about 8× in WSL, 1.9× on the CI runner, where the old loop already takes ~1.5 s (#158).
 
 ## [0.3.3] - 2026-10-27
 
