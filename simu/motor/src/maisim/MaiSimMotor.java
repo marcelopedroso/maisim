@@ -38,9 +38,9 @@ public final class MaiSimMotor {
             GeckoRemoteInterface n = (GeckoRemoteInterface) LocateRegistry.getRegistry("localhost", portaGecko).lookup("GeckoRemoteInterface");
             n.connect();
             g = n;
-            // um Gecko novo: talvez já com o jar dos patches (0005 média, 0008 lote, 0009 estado inicial, 0010 STEPC):
+            // um Gecko novo: talvez já com o jar dos patches (0005 média, 0008 lote, 0009 estado inicial, 0010 STEPC, 0011 STEPCS):
             // as marcas de "sem o patch" do Gecko anterior não valem mais
-            geckoSemMedia = false; geckoSemLote = false; geckoSemInicial = false; geckoSemStepc = false;
+            geckoSemMedia = false; geckoSemLote = false; geckoSemInicial = false; geckoSemStepc = false; geckoSemStepcs = false;
         } catch (Exception e) { System.out.println("reconectar ao Gecko: " + e); }
     }
 

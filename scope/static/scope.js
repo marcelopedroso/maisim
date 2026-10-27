@@ -179,10 +179,14 @@ function chaveiaDemais(F, canal) {
 function avisaAmostragem(p) {
   if (!p.el) return;
   let el = p.el.querySelector(".aviso-amostra");
-  const lista = A && !p.xy ? p.sinais.filter((c) => chaveiaDemais(A, c)) : [];
-  if (!lista.length) { if (el) el.remove(); return; }
+  // cada rodada à vista (a A e, comparando, a B) com o próprio intervalo: a B mal amostrada também avisa (Codex, #162)
+  const linhas = (p.xy ? [] : [["A", A], ["B", B]]).filter(([, F]) => F).map(([nome, F]) => {
+    const lista = p.sinais.filter((c) => chaveiaDemais(F, c));
+    return lista.length ? (B ? `${nome}: ` : "") + tr("scope.p.aviso_chaveia", { dt: fmtDt(intervalo(F)), sinais: lista.map(rotulo).join(", ") }) : "";
+  }).filter(Boolean);
+  if (!linhas.length) { if (el) el.remove(); return; }
   if (!el) { el = document.createElement("div"); el.className = "aviso-amostra"; p.area.after(el); }
-  el.textContent = tr("scope.p.aviso_chaveia", { dt: fmtDt(intervalo(A)), sinais: lista.map(rotulo).join(", ") });
+  el.textContent = linhas.join(" · ");
 }
 
 // valor por janela de controle (média na janela para os canais finos)

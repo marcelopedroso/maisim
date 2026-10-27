@@ -56,6 +56,13 @@ const roda = async (nome, amostras, laco) => {
     P = await painel();
     ok(P.degrau.g === true && P.aviso === "amostrado a cada 100 µs; g chaveia mais rápido que isso — diminua o intervalo de amostra",
        `amostra de 100 µs: o aviso embaixo do gráfico ("${P.aviso}")`);
+    // 2b. comparando: a A fina e a B de 100 µs — o aviso só para a B, com o nome dela (Codex, #162)
+    await pg.goto(SCOPE + "?a=" + encodeURIComponent(acha(fino).arq) + "&b=" + encodeURIComponent(acha(grosso).arq));
+    await pg.waitForFunction(() => typeof A !== "undefined" && A && B && B.dados && itens.length && paineis().some((p) => p.u), null, { timeout: 30000 });
+    await pg.waitForTimeout(500);
+    P = await painel();
+    ok(P.aviso === "B: amostrado a cada 100 µs; g chaveia mais rápido que isso — diminua o intervalo de amostra",
+       `comparando A (2 µs) com B (100 µs): o aviso só da B ("${P.aviso}")`);
     // 3. as regras nos números
     const R = await pg.evaluate(() => {
       const F = (x, meta, dt) => ({ dados: { t: x.map((_, k) => k * (dt || 1e-6)), x }, meta: meta || {}, cache: {} });
