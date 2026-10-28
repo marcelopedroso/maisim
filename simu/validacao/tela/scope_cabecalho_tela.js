@@ -34,6 +34,11 @@ const olha = (pg) => pg.evaluate(([P, Rr]) => {
        `recolhido: numa linha (${r.alt} px), só ${r.principais.join(", ")}; escondidos: ${r.resto.join(", ") || "todos os outros"}`);
     ok(r.alt < a.alt * 0.75 && r.cabH === `${r.alt}px` && /mostrar o cabeçalho inteiro/.test(r.dica),
        `mais baixo (${a.alt} → ${r.alt} px), o --cab-h do índice acompanha (${r.cabH}); a dica: "${r.dica.slice(0, 40)}…"`);
+    // na largura da doca do simu (46% de uma tela de ~1350 px; Codex, #173): ainda numa linha só
+    await pg.setViewportSize({ width: 620, height: 800 }); await pg.waitForTimeout(300);
+    const d = await olha(pg);
+    ok(d.umaLinha && d.principais.length === PRINCIPAIS.length && d.alt <= r.alt + 2, `na largura da doca (620 px): numa linha (${d.alt} px), com ${d.principais.length} itens à vista`);
+    await pg.setViewportSize({ width: 1300, height: 800 }); await pg.waitForTimeout(300);
     await pg.click("#bt-painel"); await pg.waitForTimeout(300);
     ok(await pg.evaluate(() => document.querySelector("header").classList.contains("recolhido")), "+ Painel funciona com o cabeçalho recolhido (e ele continua recolhido)");
     await pg.reload(); await pg.waitForSelector("#bt-cab"); await pg.waitForTimeout(500);

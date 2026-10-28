@@ -47,10 +47,14 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
   #status { color:var(--sutil); }
   /* o cabeçalho recolhido (o ▴/▾ no fim): numa linha só, com a rodada e os botões que mais se usam depois de carregá-la */
   #bt-cab { margin-left:auto; padding:1px 8px; line-height:1.2; }
-  header.recolhido { flex-direction:row; flex-wrap:wrap; align-items:center; gap:6px 10px; padding:5px 16px; }
-  header.recolhido .linha { display:contents; }
+  /* (uma linha também na doca do simu, 46% da tela: os botões não quebram; quem encolhe é a rodada, com "…"; mais estreito que os
+     botões, a linha rola de lado) */
+  header.recolhido { flex-direction:row; flex-wrap:nowrap; align-items:center; gap:6px 8px; padding:5px 12px; overflow-x:auto; }
+  header.recolhido .linha, header.recolhido .linha > .grupo { display:contents; }
   header.recolhido .so-aberto { display:none !important; }
-  header.recolhido #status { flex:1 1 140px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; }
+  header.recolhido h1 { margin:0; font-size:14px; flex:none; }
+  header.recolhido button { flex:none; white-space:nowrap; padding:2px 7px; }
+  header.recolhido #status { flex:1 1 0; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; }
   .sel-rodada { max-width: 360px; }
   main { padding:10px 16px 40px; flex:1; min-width:0; }
   #corpo { display:flex; align-items:flex-start; }
