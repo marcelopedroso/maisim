@@ -6,6 +6,12 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Added
+- **Update button in the developer version** (a git clone opened by the launcher): the trilho's version shows the commits after the release and the commit itself ("v0.3.5" with "+2" under it; the hint and "About" say "MaiSim 0.3.5 +2 (a7dffe1)"), since the version number only changes in the release PR. The dot lights up when GitHub has a commit this clone does not: the **testing** channel follows `main` (everything merged so far), **stable** the latest `vX.Y.Z` tag. **Update** refuses with hand-edited source files, another branch than `main` or a local `main` that diverged; otherwise it moves `main` forward (or a detached checkout to the new commit), rebuilds Gecko only if its patches changed (the code goes back if the build fails) and restarts through the launcher in the same mode (`--abrir` kept, no second window: the open page reloads itself). `MAISIM_ATUALIZA_GIT` is the remote (`origin`; empty in the test profile, which keeps the old "git pull" hint). `gecko/construir.sh` now swaps the jar atomically, so a running Gecko keeps the old one. New end-to-end test `atualizacao_git_api` (a throwaway clone, a fake remote, the launcher on ports 7400–7406) (#PR).
+
+### Fixed
+- The update dialog's status line ("MaiSim … is the latest version on this channel", the update in progress, errors) was written into the hidden "git pull" paragraph and never showed (#PR).
+
 ## [0.3.5] - 2026-10-27
 
 ### Added
