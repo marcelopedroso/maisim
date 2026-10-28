@@ -198,6 +198,31 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   ok(wb && wb[0] === "LK" && JSON.stringify(wb[1]) === "[[14,8],[15,8],[16,8]]" && !(await pg.$("#conector-nome")), `confirmar cria: ${JSON.stringify(wb)}`);
   await pg.keyboard.press("Escape");
   ok(!(await modo()).c && !(await pg.$("#conector-nome")), "Esc sai da ferramenta");
+  // por domínio (Codex, #172): a bandeirinha de controle "x" (a saída do CONST.1) não cala o "x" de uma conexão do circuito
+  // que passa no mesmo ponto (R.2 → R.1, ligada dos dois lados: fica o texto) — redes de domínios diferentes, como no juncoes()
+  await post("editor/novo", { modo: "descartar" });
+  for (const a of [["CONST.1", 10, 10, "CONST"], ["R.1", 12, 12, "R"], ["R.2", 12, 4, "R"]]) await post("editor/cmd", { op: "CREATE", args: a });
+  for (const [cantos, dom] of [[[[12, 10], [15, 10]], "CONTROL"], [[[12, 6], [12, 10]], "LK"]]) await post("editor/fio", { acao: "novo", cantos, dom, rotulo: "x" });
+  await post("editor/salvar", { nome: "conectores_dominio", pasta: "circuitos", sobrescrever: true });
+  const pg3 = await pg.context().newPage(); pg3.on("pageerror", (e) => erros.push(e.message));
+  await pg3.goto(`http://localhost:7201/maisim/simu/?modelo=${encodeURIComponent(ARQ.replace("conectores_teste", "conectores_dominio"))}`);
+  await pg3.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas && dados.folhas["0"].fios.length === 2 && document.querySelector("#svg .conector-rot"), null, { timeout: 30000 }).catch(() => {});
+  const dm = await pg3.evaluate(() => ({ band: [...document.querySelectorAll("#svg .conector-rot")].map((c) => `${c.dataset.rot}:${c.dataset.dom}`),
+    texto: [...document.querySelectorAll("#svg text")].filter((t) => !t.closest(".conector-rot") && t.textContent === "x").length }));
+  ok(dm.band.join() === "x:CONTROL" && dm.texto >= 1, `por domínio: a bandeirinha de controle (${dm.band.join()}) não esconde o "x" da conexão do circuito no mesmo ponto (${dm.texto} texto)`);
+  await pg3.close();
+  // num exemplo, o retificador trifásico (Marcelo, 28/10: "nível didático"): a bandeirinha a da fonte e a da ponte (o nó do
+  // meio da perna com um toco), e o nome não se repete em texto nos fios e bornes ligados a uma bandeirinha; o "p" (ligado
+  // dos dois lados, sem bandeirinha) continua em texto. Numa página nova (a de cima tem mudanças: fechar perguntaria)
+  await post("editor/abrir", { arq: "exemplos/exemplo_retificador_trifasico.ipes", modo: "descartar" });
+  const pg2 = await pg.context().newPage(); pg2.on("pageerror", (e) => erros.push(e.message));
+  await pg2.goto(`http://localhost:7201/maisim/simu/?modelo=${encodeURIComponent("exemplos/exemplo_retificador_trifasico.ipes")}`);
+  await pg2.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas && document.querySelectorAll("#svg .conector-rot").length >= 6, null, { timeout: 30000 }).catch(() => {});
+  const ex = await pg2.evaluate(() => { const txt = [...document.querySelectorAll("#svg text")].filter((t) => !t.closest(".conector-rot"));
+    return { band: [...document.querySelectorAll("#svg .conector-rot")].map((c) => c.dataset.rot).sort().join(""),
+      soltos: txt.filter((t) => ["a", "b", "c"].includes(t.textContent)).length, p: txt.some((t) => t.textContent === "p") }; });
+  ok(ex.band === "aabbcc" && ex.soltos === 0 && ex.p, `o retificador trifásico: bandeirinhas ${ex.band} (fonte e ponte), ${ex.soltos} "a/b/c" em texto, "p" em texto ${ex.p}`);
+  await pg2.close();
   ok(!erros.length, `sem erros de JS nem diálogos ${erros.join(" ; ")}`);
   await b.close(); process.exit(falhas ? 1 : 0);
 })();
