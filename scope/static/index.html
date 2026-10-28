@@ -45,6 +45,16 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
            border-radius:6px; background:var(--campo); color:var(--texto); }
   button { cursor:pointer; } button.ativo { background:var(--acento); color:#fff; border-color:var(--acento); }
   #status { color:var(--sutil); }
+  /* o cabeçalho recolhido (o ▴/▾ no fim): numa linha só, com a rodada e os botões que mais se usam depois de carregá-la */
+  #bt-cab { margin-left:auto; padding:1px 8px; line-height:1.2; }
+  /* (uma linha também na doca do simu, 46% da tela: os botões não quebram; quem encolhe é a rodada, com "…"; mais estreito que os
+     botões, a linha rola de lado) */
+  header.recolhido { flex-direction:row; flex-wrap:nowrap; align-items:center; gap:6px 8px; padding:5px 12px; overflow-x:auto; }
+  header.recolhido .linha, header.recolhido .linha > .grupo { display:contents; }
+  header.recolhido .so-aberto { display:none !important; }
+  header.recolhido h1 { margin:0; font-size:14px; flex:none; }
+  header.recolhido button { flex:none; white-space:nowrap; padding:2px 7px; }
+  header.recolhido #status { flex:1 1 0; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; }
   .sel-rodada { max-width: 360px; }
   main { padding:10px 16px 40px; flex:1; min-width:0; }
   #corpo { display:flex; align-items:flex-start; }
@@ -287,31 +297,31 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
 <header>
   <div class="linha">
     <h1>Scope</h1>
-    <div class="grupo"><button id="bt-vivo" class="ativo" data-tr="scope.h.vivo">Ao vivo</button><button id="bt-comparar" data-tr="scope.h.comparar">Comparar</button></div>
-    <div class="grupo"><label>A <select id="sel-a" class="sel-rodada"></select></label>
+    <div class="grupo so-aberto"><button id="bt-vivo" class="ativo" data-tr="scope.h.vivo">Ao vivo</button><button id="bt-comparar" data-tr="scope.h.comparar">Comparar</button></div>
+    <div class="grupo so-aberto"><label>A <select id="sel-a" class="sel-rodada"></select></label>
       <label>B <select id="sel-b" class="sel-rodada"></select></label><button id="bt-carregar" data-tr="scope.h.carregar">Carregar</button></div>
     <span id="status">aguardando…</span>   <!-- o scope.js escreve (no idioma) -->
   </div>
   <div class="linha">
     <button id="bt-indice" title="índice das seções e painéis, ao lado (clique para ir direto a um gráfico)" data-tr-title="scope.h.t_indice" data-tr="scope.h.indice">☰ Índice</button>
-    <label title="durante a rodada ao vivo, não reajusta as escalas" data-tr-title="scope.h.t_fixar" data-tr="scope.h.fixar"><input type="checkbox" id="ck-fixar"> Fixar eixos</label>
-    <label title="para de redesenhar (os dados continuam chegando)" data-tr-title="scope.h.t_pausar" data-tr="scope.h.pausar"><input type="checkbox" id="ck-pausar"> Pausar</label>
+    <label class="so-aberto" title="durante a rodada ao vivo, não reajusta as escalas" data-tr-title="scope.h.t_fixar" data-tr="scope.h.fixar"><input type="checkbox" id="ck-fixar"> Fixar eixos</label>
+    <label class="so-aberto" title="para de redesenhar (os dados continuam chegando)" data-tr-title="scope.h.t_pausar" data-tr="scope.h.pausar"><input type="checkbox" id="ck-pausar"> Pausar</label>
     <div class="grupo">
       <button id="bt-painel" data-tr="scope.h.painel">+ Painel</button>
       <button id="bt-painel-xy" title="painel XY: um sinal contra outro, o vetor espacial (αβ, dq) de três fases ou o diagrama U–Z·i do Gecko" data-tr-title="scope.h.t_painel_xy" data-tr="scope.h.painel_xy">+ Painel XY</button>
       <button id="bt-secao" title="novo título de seção no fim" data-tr-title="scope.h.t_secao" data-tr="scope.h.secao">+ Seção</button>
       <button id="bt-porlinha" title="quantos painéis por linha, para todos (cada painel muda o seu no menu ⋯)" data-tr-title="scope.h.t_porlinha" data-tr-js>Por linha: 2</button>
-      <span class="menu-layout"><button id="bt-layout" title="o layout deste circuito: guardar como padrão, voltar ao padrão, ou o automático" data-tr-title="scope.h.t_layout">Layout ▾</button>
+      <span class="menu-layout so-aberto"><button id="bt-layout" title="o layout deste circuito: guardar como padrão, voltar ao padrão, ou o automático" data-tr-title="scope.h.t_layout">Layout ▾</button>
         <span id="menu-layout" hidden><button id="ml-guardar" title="guarda o layout de agora como o padrão do circuito, ao lado dele (vai junto com o circuito)" data-tr-title="scope.h.t_ml_guardar" data-tr="scope.h.ml_guardar">Guardar como padrão deste circuito</button>
         <button id="ml-padrao" title="volta ao padrão guardado do circuito (o que você mexeu depois sai)" data-tr-title="scope.h.t_ml_padrao" data-tr="scope.h.ml_padrao">Voltar ao padrão</button>
         <button id="bt-padrao" title="o layout automático: um painel com os sinais da rodada (o dos outros circuitos fica)" data-tr-title="scope.h.t_bt_padrao" data-tr="scope.h.bt_padrao">Automático (os sinais da rodada)</button></span></span>
-      <button id="bt-exportar" title="baixa um arquivo com os painéis, as seções e as cores dos sinais (para outro MaiSim ou um colega)" data-tr-title="scope.h.t_exportar" data-tr="scope.h.exportar">Exportar visões</button>
-      <button id="bt-importar" title="troca os painéis, as seções e as cores pelos de um arquivo exportado (do MaiSim ou do PEW)" data-tr-title="scope.h.t_importar" data-tr="scope.h.importar">Importar visões…</button>
+      <button id="bt-exportar" class="so-aberto" title="baixa um arquivo com os painéis, as seções e as cores dos sinais (para outro MaiSim ou um colega)" data-tr-title="scope.h.t_exportar" data-tr="scope.h.exportar">Exportar visões</button>
+      <button id="bt-importar" class="so-aberto" title="troca os painéis, as seções e as cores pelos de um arquivo exportado (do MaiSim ou do PEW)" data-tr-title="scope.h.t_importar" data-tr="scope.h.importar">Importar visões…</button>
       <input type="file" id="arq-visoes" accept=".json,application/json" hidden>
-      <button id="bt-salvar" title="salva todos os painéis numa imagem PNG" data-tr-title="scope.h.t_salvar" data-tr="scope.h.salvar">Salvar figura</button>
-      <button id="bt-apagar" title="escolher gravações (scope_*.npz) para apagar do disco" data-tr-title="scope.h.t_apagar" data-tr="scope.h.apagar">Apagar gravações…</button>
+      <button id="bt-salvar" class="so-aberto" title="salva todos os painéis numa imagem PNG" data-tr-title="scope.h.t_salvar" data-tr="scope.h.salvar">Salvar figura</button>
+      <button id="bt-apagar" class="so-aberto" title="escolher gravações (scope_*.npz) para apagar do disco" data-tr-title="scope.h.t_apagar" data-tr="scope.h.apagar">Apagar gravações…</button>
     </div>
-    <button id="bt-ajuda" data-tr-title="scope.h.t_ajuda" title="Zoom em cada painel: escolha X (tempo), Y (vertical) ou área e arraste no gráfico; o enquadrar (os quatro cantos) ou duplo clique volta a ver tudo naquele painel.
+    <button id="bt-ajuda" class="so-aberto" data-tr-title="scope.h.t_ajuda" title="Zoom em cada painel: escolha X (tempo), Y (vertical) ou área e arraste no gráfico; o enquadrar (os quatro cantos) ou duplo clique volta a ver tudo naquele painel.
 Ctrl + roda: zoom no tempo. Ctrl + Shift + roda: vertical.
 O tempo é comum aos painéis ligados (corrente); clique na corrente para dar a um painel o seu próprio tempo (corrente partida, laranja).
 Medir: média, série de Fourier, THD e espectro num intervalo; Shift + arrastar no gráfico escolhe o intervalo.
@@ -321,6 +331,7 @@ A seta ▾ recolhe a seção (os painéis somem até abrir de novo) ou o painel 
 ⤢ expande o painel para a janela inteira; Esc, ⤡ ou um clique fora volta.
 Sinais de passo fino (pulsos, tensões PWM, medidas do Gecko) aparecem a cada 1 µs com zoom abaixo de 40 ms; com zoom maior, como média em cada janela de 20 µs.
 A em cores; B em preto tracejado.">?</button>
+    <button id="bt-cab" aria-expanded="true" title="recolher o cabeçalho: numa linha, só a rodada e + Painel, + Painel XY, + Seção, Por linha" data-tr-title="scope.h.t_cab_recolher">▴</button>
   </div>
 </header>
 <div id="corpo">
