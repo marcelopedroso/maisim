@@ -1,7 +1,8 @@
 // a versão no trilho e a janela da atualização (instância de teste 7200 → 7201; as releases de mentira do config/teste.env):
 // "v0.3.0" sob a marca, com o ponto da release nova; a dica "MaiSim 0.3.0 · código-fonte"; o clique abre a janela com a
 // 9.9.0, as notas em markdown (sem o link javascript: e sem a imagem), o "git pull" (a versão de programador não baixa), o
-// canal teste (a 9.9.1-rc1) e de volta; Depois fecha; em inglês; e a versão no "Sobre e créditos" da página inicial
+// canal teste (a 9.9.1-rc1) e de volta; Depois fecha; em inglês; e a versão no "Sobre e créditos" da página inicial.
+// Na versão de programador, com os commits depois da tag e o commit ("0.3.5 +2 (a7dffe1)"; o "+2" também sob a marca)
 const { chromium } = require("playwright");
 const fs = require("fs"), path = require("path");
 let falhas = 0;
@@ -14,15 +15,17 @@ const post = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(`/maisim/simu/at
     b = await chromium.launch(); pg = await (await b.newContext({ viewport: { width: 1300, height: 800 } })).newPage();
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message));
     await pg.goto("http://localhost:7200/"); await pg.waitForSelector("#maisim-nav");
-    await post(pg, "canal", { canal: "estavel" }); await post(pg, "verificar", {});
+    const E = await post(pg, "verificar", {}).then(() => post(pg, "canal", { canal: "estavel" }));
+    const VX = `${V}${E.depois ? ` +${E.depois}` : ""}${E.commit ? ` (${E.commit})` : ""}`;   // a versão por extenso
+    ok(E.tipo === "fonte" && !E.git && /^[0-9a-f]{7,}$/.test(E.commit || ""), `a versão de programador, sem o Atualizar pelo git no perfil de teste: commit ${E.commit}, ${E.depois} depois da v${V}`);
     await pg.evaluate(() => window.maisimNav.situacaoVersao());
     await pg.waitForSelector("#maisim-nav .versao:not([hidden])", { timeout: 10000 });
     const r = await pg.evaluate(() => { const v = document.querySelector("#maisim-nav .versao"), m = document.querySelector("#maisim-nav .marca").getBoundingClientRect(), c = v.getBoundingClientRect();
       return { txt: v.textContent, nova: v.classList.contains("novidade"), ponto: getComputedStyle(v.querySelector(".ponto")).display, abaixo: c.top >= m.bottom - 9 && c.bottom < m.bottom + 30, larg: c.width }; });
-    ok(r.txt === `v${V.replace("-", "")}` && r.nova && r.ponto === "block" && r.abaixo && r.larg <= 52, `sob a marca: "${r.txt}", com o ponto (${r.ponto}), ${Math.round(r.larg)} px`);
+    ok(r.txt === `v${V.replace("-", "")}${E.depois ? `${V.includes("-") ? " " : ""}+${E.depois}` : ""}` && r.nova && r.ponto === "block" && r.abaixo && r.larg <= 52, `sob a marca: "${r.txt}", com o ponto (${r.ponto}), ${Math.round(r.larg)} px`);
     await pg.hover("#maisim-nav .versao"); await pg.waitForTimeout(700);
     const dica = await pg.evaluate(() => document.getElementById("dica-ui") && document.getElementById("dica-ui").textContent);
-    ok(dica && dica.includes(`MaiSim ${V} · código-fonte`) && dica.includes("9.9.0"), `a dica do MaiSim: "${(dica || "").replace(/\n/g, " / ")}"`);
+    ok(dica && dica.includes(`MaiSim ${VX} · código-fonte`) && dica.includes("9.9.0"), `a dica do MaiSim: "${(dica || "").replace(/\n/g, " / ")}"`);
     await pg.click("#maisim-nav .versao"); await pg.waitForSelector("#maisim-atu .notas strong", { timeout: 10000 });
     const j = await pg.evaluate(() => { const q = (s) => document.querySelector(`#maisim-atu ${s}`);
       const links = [...document.querySelectorAll("#maisim-atu .notas a")].map((a) => [a.textContent, a.getAttribute("href"), a.target]);
@@ -43,7 +46,7 @@ const post = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(`/maisim/simu/at
     // no "Sobre e créditos" da página inicial
     await pg.click("#bt-creditos"); await pg.waitForFunction(() => /MaiSim/.test(document.getElementById("sobre-versao").textContent), null, { timeout: 8000 }).catch(() => {});
     const sobre = await pg.textContent("#sobre-versao");
-    ok(sobre.includes(`MaiSim ${V} · código-fonte`) && sobre.includes("9.9.0"), `no Sobre e créditos: "${sobre}"`);
+    ok(sobre.includes(`MaiSim ${VX} · código-fonte`) && sobre.includes("9.9.0"), `no Sobre e créditos: "${sobre}"`);
     await pg.click("#sobre-versao a"); ok(!!(await pg.waitForSelector("#maisim-atu", { timeout: 5000 }).catch(() => null)), "o link de lá abre a janela da atualização");
     await pg.keyboard.press("Escape");
     // em inglês (o trilho numa página do simu)

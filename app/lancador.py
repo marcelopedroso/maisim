@@ -215,6 +215,7 @@ class Lancador:
         self.parando = False                             # já derrubando: o ícone de novo espera e sobe outro
         self.pronto = False                              # o Gecko e o motor no ar: a página "Abrindo o MaiSim…" segue (/maisim/pronto)
         self.sem_gecko = sem_gecko
+        self.abrir = False                               # aberto com --abrir (a atualização da versão de programador reabre igual)
         # o Java: o do pacote (a pasta jre ao lado do código, no instalador do Windows), o de MAISIM_JAVA (o AppRun do
         # AppImage) ou o do sistema (a versão de programador)
         junto = RAIZ.parent / "jre" / "bin" / ("java.exe" if WIN else "java")
@@ -236,7 +237,7 @@ class Lancador:
 
     def grava(self):
         try:
-            self.estado.write_text(json.dumps({"lancador": os.getpid(), "parando": self.parando, "pronto": self.pronto, "processos": {n: p.pid for n, p in self.subiu.items()}}))
+            self.estado.write_text(json.dumps({"lancador": os.getpid(), "abrir": self.abrir, "parando": self.parando, "pronto": self.pronto, "processos": {n: p.pid for n, p in self.subiu.items()}}))
         except OSError:
             pass
 
@@ -533,6 +534,7 @@ def main():
     except (OSError, ValueError):
         anterior = {}
     lc = Lancador(a.sem_gecko)
+    lc.abrir = a.abrir
     if a.abrir and vivo(anterior.get("lancador")) and no_ar(lc.porta("PAGINA")):
         if not anterior.get("parando") and lc.segura():   # o ícone de novo, com o MaiSim no ar: só a janela
             lc.abre()
