@@ -350,7 +350,7 @@
     else if (ap && ap.fase === "baixando") msg = tr("atu.baixando", { versao: ap.versao, pct: ap.total ? `${Math.min(100, Math.round(100 * ap.feito / ap.total))}%` : "" });
     else if (ap) msg = tr({ instalando: "atu.instalando", atualizando: "atu.atualizando", construindo: "atu.construindo" }[ap.fase] || "atu.reiniciando", { versao: ap.versao });
     else if (!n) msg = ATU.sem_rede ? tr("atu.sem_rede") : ATU.verificado ? tr("atu.em_dia", { versao: ATU.versao }) : tr("atu.nunca");
-    const m = j.querySelector(".msg"); m.textContent = msg; m.classList.toggle("falha", erro);
+    const m = j.querySelector(".situacao"); m.textContent = msg; m.classList.toggle("falha", erro);   // (não o 1º .msg: o do git pull, escondido)
     const f = j.querySelector(".fonte");
     f.hidden = !(n && fonte && !git); f.innerHTML = n && fonte && !git ? `${esc(tr("atu.fonte"))} <code>git pull</code> (${esc(n.versao)})` : "";
     const av = j.querySelector(".aviso"); av.hidden = !(n && (!fonte || git) && !ap); av.textContent = tr(git ? "atu.aviso_git" : "atu.aviso");
@@ -376,7 +376,7 @@
     if (document.getElementById("maisim-atu")) return;
     const j = document.createElement("div"); j.id = "maisim-atu";
     j.innerHTML = `<div class="caixa" role="dialog" aria-modal="true" aria-labelledby="maisim-atu-t"><h2 id="maisim-atu-t"></h2><p class="sub"></p>
-      <div class="notas"></div><p class="fonte msg" hidden></p><p class="aviso msg" hidden>${esc(tr("atu.aviso"))}</p><p class="msg"></p>
+      <div class="notas"></div><p class="fonte msg" hidden></p><p class="aviso msg" hidden>${esc(tr("atu.aviso"))}</p><p class="msg situacao"></p>
       <div class="pe"><label>${esc(tr("atu.canal"))} <select><option value="estavel">${esc(tr("atu.canal_estavel"))}</option><option value="teste">${esc(tr("atu.canal_teste"))}</option></select></label>
       <a class="github" target="_blank" rel="noopener" hidden>${esc(tr("atu.github"))}</a>
       <button type="button" class="procurar">${esc(tr("atu.procurar"))}</button><button type="button" class="depois"></button><button type="button" class="atualizar prim">${esc(tr("atu.atualizar"))}</button></div></div>`;

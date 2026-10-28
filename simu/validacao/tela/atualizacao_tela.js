@@ -43,6 +43,12 @@ const post = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(`/maisim/simu/at
     ok(/9\.9\.1-rc1/.test(h2t) && /9\.9\.0/.test(await pg.textContent("#maisim-atu h2")), `o canal teste: "${h2t}"; de volta ao estável`);
     await pg.click("#maisim-atu .depois");
     ok(!(await pg.$("#maisim-atu")), "Depois fecha a janela");
+    // a linha da situação (em dia; a atualização em andamento): à vista, não no parágrafo escondido do "git pull"
+    await pg.route("**/maisim/simu/atualizacao", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ ...E, nova: null, verificado: 1, sem_rede: false }) }));
+    await pg.evaluate(() => window.maisimNav.situacaoVersao()); await pg.click("#maisim-nav .versao"); await pg.waitForSelector("#maisim-atu"); await pg.waitForTimeout(400);
+    const sit = await pg.evaluate(() => { const m = document.querySelector("#maisim-atu .situacao"); return m && m.offsetParent ? m.textContent : null; });
+    ok(sit === `O MaiSim ${V} é a versão mais recente neste canal.`, `a situação à vista: "${sit}"`);
+    await pg.keyboard.press("Escape"); await pg.unroute("**/maisim/simu/atualizacao"); await pg.evaluate(() => window.maisimNav.situacaoVersao());
     // no "Sobre e créditos" da página inicial
     await pg.click("#bt-creditos"); await pg.waitForFunction(() => /MaiSim/.test(document.getElementById("sobre-versao").textContent), null, { timeout: 8000 }).catch(() => {});
     const sobre = await pg.textContent("#sobre-versao");
