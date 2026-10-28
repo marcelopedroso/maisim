@@ -8,7 +8,7 @@ commit), o clone do MaiSim aberto pelo lançador (--abrir, sem navegador) nas po
 - um arquivo do código mudado à mão: o Atualizar recusa (git status) e nada muda;
 - Atualizar (o main local avança): o MaiSim cai e volta sozinho (o lançador de novo, ainda com --abrir), já no commit novo (+1), sem novidade;
 - no fim, o lançador --parar (com a pasta do clone) e as portas livres."""
-import json, os, shutil, socket, subprocess, sys, tempfile, time, urllib.request
+import json, os, shutil, socket, subprocess, sys, tempfile, threading, time, urllib.request
 from pathlib import Path
 R = Path(__file__).resolve().parents[2]
 B = 7400
@@ -79,6 +79,7 @@ try:
     antes = git("rev-parse", "--short", "HEAD", cwd=C)
     log = open(T / "lancador.log", "w")
     lanc = subprocess.Popen([sys.executable, "app/lancador.py", "--abrir"], cwd=C, env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+    threading.Thread(target=lanc.wait, daemon=True).start()   # recolhido assim que sair (um zumbi pareceria vivo ao --parar)
     subiu = ate(lambda: json.loads((T / "c" / "lancador.json").read_text()).get("pronto") and no_ar(B + 1), 240)
     ok(subiu, f"o clone no ar pelo lançador (portas {B}–{B + 4})")
     e = api("atualizacao/verificar", {})
