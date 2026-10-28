@@ -65,14 +65,15 @@ for k, nome in enumerate(("PAGINA", "SIMU", "SCOPE", "GECKO", "MOTOR", "TELA", "
 lanc = None
 try:
     # o remoto (o main = o commit daqui) e o clone, com a tag da versão no commit (0 depois dela) e o jar do Gecko daqui
-    git("init", "-q", "--bare", "-b", "main", str(REM), cwd=T)
     git("clone", "-q", "--no-hardlinks", str(R), str(C), cwd=T)
     git("config", "user.email", "teste@maisim", cwd=C); git("config", "user.name", "teste", cwd=C)
     git("checkout", "-q", "-B", "main", cwd=C)              # no main local (o caso de quem clonou): o Atualizar o avança
     for t in git("tag", "-l", cwd=C).split():           # as tags daqui não valem: a v<versão> neste commit
         git("tag", "-d", t, cwd=C)
     git("tag", f"v{V}", cwd=C)
-    git("push", "-q", str(REM), "HEAD:refs/heads/main", f"refs/tags/v{V}", cwd=C)
+    # o remoto: um clone bare do clone (o main e a tag), não um push — no CI o checkout é raso, e um push dele para um
+    # repositório vazio é recusado ("shallow update not allowed")
+    git("clone", "-q", "--bare", "--no-hardlinks", str(C), str(REM), cwd=T)
     (C / "gecko" / "build").mkdir(parents=True, exist_ok=True)
     for f in ("gecko-lote.jar", ".patches"):
         shutil.copy2(R / "gecko" / "build" / f, C / "gecko" / "build" / f)
