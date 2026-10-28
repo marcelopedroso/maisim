@@ -15,7 +15,7 @@ const DADO = [".rodada .info", "#so-circ > span", "#maisim-nav .marca", "#maisim
   "#abas", "#bt-modelo", "#bt-globais", ".mat"];   // as abas da paleta (os grupos do catálogo do Gecko), o arquivo aberto, o $x; .mat: um sinal em notação (htmlMat)
 // iguais nos dois idiomas: números e símbolos, uma letra (atalho), nomes de arquivo .py, sinais (com _), m["…"] e p["…"] do
 // código, os nomes dos produtos
-const LIVRE = new RegExp([/^[\s\d.,:;%·\-−+×…/()°ΩµkMGBVAHzs→‹›✕▾]*$/, /^(MaiSim|PT|EN|OK|Scope|Layout ▾|\?|Ts|i|[A-Z])$/,
+const LIVRE = new RegExp([/^[\s\d.,:;%·\-−+×…/()°ΩµkMGBVAHzs→‹›✕▾▴]*$/, /^(MaiSim|PT|EN|OK|Scope|Layout ▾|\?|Ts|i|[A-Z])$/,
   /^[\w.-]+\.py(:\d+)?$/, /^[A-Za-z]+_\w+$/, /^[mp]\["…"\]$/,
   /^((Claude|Code|Anthropic|Cursor|CLI|·)\s*)+$/].map((r) => r.source).join("|"));
 

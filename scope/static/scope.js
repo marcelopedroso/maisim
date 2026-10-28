@@ -1722,6 +1722,25 @@ function vaiPara(el) {
   if (el.classList.contains("cartao")) { el.classList.add("realce"); setTimeout(() => el.classList.remove("realce"), 1200); }
 }
 function medeCab() { document.documentElement.style.setProperty("--cab-h", `${document.querySelector("header").offsetHeight}px`); }
+// o cabeçalho recolhido (Marcelo, 28/10: depois de carregar a rodada, o cabeçalho inteiro toma espaço): numa linha, a rodada e
+// os botões que mais se usam (☰ Índice, + Painel, + Painel XY, + Seção, Por linha); o ▾ mostra tudo de novo. Guardado neste navegador
+const cabecalho = (() => {
+  const cab = document.querySelector("header"), bt = document.getElementById("bt-cab");
+  let recolhido = false;
+  try { recolhido = localStorage.getItem("maisim-scope-cab") === "recolhido"; } catch (e) { /* sem armazenamento: aberto */ }
+  const aplica = () => {
+    cab.classList.toggle("recolhido", recolhido); bt.textContent = recolhido ? "▾" : "▴"; bt.setAttribute("aria-expanded", String(!recolhido));
+    const k = recolhido ? "scope.h.t_cab_mostrar" : "scope.h.t_cab_recolher";
+    bt.dataset.trTitle = k; bt.title = tr(k); bt.setAttribute("aria-label", tr(k)); medeCab();
+  };
+  bt.addEventListener("click", () => {
+    recolhido = !recolhido;
+    try { localStorage.setItem("maisim-scope-cab", recolhido ? "recolhido" : "aberto"); } catch (e) { /* só nesta página */ }
+    aplica();
+  });
+  aplica();
+  return { aplica };
+})();
 (() => {
   const lista = document.querySelector("#indice .lista");
   lista.addEventListener("click", (e) => {
@@ -2477,6 +2496,7 @@ try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", acom
 // que mudam, o índice, a linha de estado, as listas de rodadas e a janela de apagar, se aberta. Um menu aberto fecha
 maisimI18n.aoMudar(() => {
   document.querySelectorAll(".menu").forEach((m) => m.remove());
+  cabecalho.aplica();                                  // a dica do ▴/▾ no idioma
   poePorLinha();
   for (const x of itens) if (x.tipo === "secao") marcaRecolhida(x);
   for (const p of paineis()) {
