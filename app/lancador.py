@@ -237,7 +237,7 @@ class Lancador:
 
     def grava(self):
         try:
-            self.estado.write_text(json.dumps({"lancador": os.getpid(), "abrir": self.abrir, "parando": self.parando, "pronto": self.pronto, "processos": {n: p.pid for n, p in self.subiu.items()}}))
+            self.estado.write_text(json.dumps({"lancador": os.getpid(), "abrir": self.abrir, "sem_gecko": self.sem_gecko, "parando": self.parando, "pronto": self.pronto, "processos": {n: p.pid for n, p in self.subiu.items()}}))
         except OSError:
             pass
 

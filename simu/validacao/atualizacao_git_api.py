@@ -114,7 +114,7 @@ try:
     e = api("atualizacao") if voltou else {}
     est = json.loads((T / "c" / "lancador.json").read_text())
     ok(voltou and git("rev-parse", "--short", "HEAD", cwd=C) == novo and (C / "novidade_teste.txt").is_file(), f"de volta em {round(time.time() - t0)} s, no commit novo ({e.get('commit')})")
-    ok(e.get("depois") == 1 and not e.get("nova") and not e.get("aplicando") and est.get("lancador") != pid1 and est.get("abrir"),
+    ok(e.get("depois") == 1 and not e.get("nova") and not e.get("aplicando") and est.get("lancador") != pid1 and est.get("abrir") and not est.get("sem_gecko"),
        f"a versão {e.get('versao')} +{e.get('depois')}, sem novidade; outro lançador ({pid1} → {est.get('lancador')}), ainda com --abrir")
     ok(ate(lambda: json.loads((T / "c" / "lancador.json").read_text()).get("pronto") and no_ar(B + 3) and no_ar(B + 4), 120), "o Gecko e o motor no ar de novo")
 except Exception as x:                                   # noqa: BLE001

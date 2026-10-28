@@ -378,19 +378,22 @@ class Atualizacao:
             raise ValueError(lingua.tr("atualiza.sem_lancador"))
         patches = bool(git("diff", "--name-only", "HEAD", alvo, "--", "gecko/patches", "gecko/construir.sh"))
         gecko = patches or bool(git("diff", "--name-only", "HEAD", alvo, "--", "simu/motor"))
-        if gecko and not all(lanc.get("processos", {}).get(k) for k in ("gecko", "motor")):
+        if gecko and not lanc.get("sem_gecko") and not all(lanc.get("processos", {}).get(k) for k in ("gecko", "motor")):
             raise ValueError(lingua.tr("atualiza.gecko_alheio"))
         with self.trava:
             self.aplicando = {"fase": "atualizando", "versao": nova["versao"], "feito": 0, "total": 0}
-        lingua.thread(self._aplica_git, alvo, ramo, bool(lanc.get("abrir")), patches, nome="atualizacao-git").start()
+        modo = [x for x, k in (("--abrir", "abrir"), ("--sem-gecko", "sem_gecko")) if lanc.get(k)]   # o lançador de novo, igual
+        lingua.thread(self._aplica_git, alvo, ramo, modo, patches, nome="atualizacao-git").start()
         return self.estado()
 
-    def _aplica_git(self, alvo, ramo, abrir, patches, reinicia=True):
+    def _aplica_git(self, alvo, ramo, modo, patches, reinicia=True):
         log = Path(os.environ.get("MAISIM_CACHE") or "/tmp") / "logs" / "atualizacao.log"
         antes = git("rev-parse", "HEAD")
         try:
             with open(log, "a") as f:
                 f.write(f"\n{time.strftime('%F %T')} atualizar pelo git: {antes} → {alvo}\n")
+            if git("status", "--porcelain", "--untracked-files=no"):   # de novo: mexido à mão depois do clique (o git manteria a mudança)
+                raise ValueError(lingua.tr("atualiza.git_sujo"))
             if ramo:
                 git("merge", "-q", "--ff-only", alvo)
             else:
@@ -412,7 +415,7 @@ class Atualizacao:
                 raise
             self._fase(fase="reiniciando")
             if reinicia:
-                reinicia_fonte(abrir, log)
+                reinicia_fonte(modo, log)
         except Exception as e:
             self._fase(fase="erro", erro=str(e))
 
@@ -487,13 +490,13 @@ def lancador_no_ar():
     return e if pid else None
 
 
-def reinicia_fonte(abrir, log):
+def reinicia_fonte(modo, log):
     """A versão de programador: o lançador para (--parar: o que ele subiu, o Gecko também) e sobe de novo, do código novo,
-    no mesmo modo (--abrir: fechar a janela desliga); numa sessão própria (o --parar derruba o simu, não ela). Sem abrir
-    outra janela: a página aberta recarrega sozinha (MAISIM_NAVEGADOR=nenhum)."""
+    no mesmo modo (modo: --abrir, em que fechar a janela desliga; --sem-gecko); numa sessão própria (o --parar derruba o
+    simu, não ela). Sem abrir outra janela: a página aberta recarrega sozinha (MAISIM_NAVEGADOR=nenhum)."""
     lanc = str(RAIZ / "app" / "lancador.py")
-    env = {**os.environ, **({"MAISIM_NAVEGADOR": "nenhum"} if abrir else {})}
-    subprocess.Popen(["/bin/sh", "-c", 'sleep 1; "$0" "$1" --parar; exec "$0" "$@"', sys.executable, lanc, *(["--abrir"] if abrir else [])],
+    env = {**os.environ, **({"MAISIM_NAVEGADOR": "nenhum"} if "--abrir" in modo else {})}
+    subprocess.Popen(["/bin/sh", "-c", 'sleep 1; "$0" "$1" --parar; exec "$0" "$@"', sys.executable, lanc, *modo],
                      cwd=str(RAIZ), env=env, stdin=subprocess.DEVNULL, stdout=open(log, "a"), stderr=subprocess.STDOUT, start_new_session=True)
 
 
