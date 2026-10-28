@@ -834,15 +834,16 @@ function desenha() {
   const nFios = new Map(); for (const w of f.fios) for (const q of new Set(w.pts.map((p) => p.join(",")))) nFios.set(q, (nFios.get(q) || 0) + 1);
   const solta = (p) => { const q = p.join(","); return !ptsTerm.has(q) && nFios.get(q) === 1; };
   const pai = new Map(), raiz = (q) => { let r = q; while (pai.has(r) && pai.get(r) !== r) r = pai.get(r); return r; };   // a rede de cada ponto
-  for (const w of f.fios) { const qs = w.pts.map((p) => p.join(",")); qs.forEach((q) => { if (!pai.has(q)) pai.set(q, q); }); qs.forEach((q) => pai.set(raiz(q), raiz(qs[0]))); }
+  // (por domínio, como o juncoes(): uma conexão de controle no mesmo ponto de uma do circuito é outra rede)
+  for (const w of f.fios) { const qs = w.pts.map((p) => `${w.dom}@${p.join(",")}`); qs.forEach((q) => { if (!pai.has(q)) pai.set(q, q); }); qs.forEach((q) => pai.set(raiz(q), raiz(qs[0]))); }
   const comBandeira = new Set(f.fios.filter((w) => mostrar.rotulos && w.rotulo && (w.dom !== "CONTROL" || mostrar.controle)
-    && [w.pts[0], w.pts[w.pts.length - 1]].some(solta)).map((w) => `${raiz(w.pts[0].join(","))}|${w.rotulo}`));
-  const naBandeira = (q, nome) => comBandeira.has(`${raiz(q)}|${nome}`);
+    && [w.pts[0], w.pts[w.pts.length - 1]].some(solta)).map((w) => `${raiz(`${w.dom}@${w.pts[0].join(",")}`)}|${w.rotulo}`));
+  const naBandeira = (dom, q, nome) => comBandeira.has(`${raiz(`${dom}@${q}`)}|${nome}`);
   const bandeiras = [];
   const rotBorne = (e, i, t, nome, x, y, at, lado) => {   // o nome de um borne: bandeirinha (solto), nada (já na bandeirinha) ou texto
     const q = `${t.x},${t.y}`;
     if (!ptsFio.has(q) && ptsTerm.get(q) < 2) bandeiras.push({ x: t.x, y: t.y, nome, lado, dom: domTerm(e, t), at: { "data-i": i } });
-    else if (!naBandeira(q, nome)) rotulo(camRot, x, y, nome, at);
+    else if (!naBandeira(domTerm(e, t), q, nome)) rotulo(camRot, x, y, nome, at);
   };
   f.fios.forEach((w, k) => {
     if (w.dom === "CONTROL" && !mostrar.controle) return;
@@ -854,7 +855,7 @@ function desenha() {
       const pontas = w.pts.length > 1 ? [false, true] : [false], soltas = pontas.filter((fim) => solta(fim ? w.pts[w.pts.length - 1] : w.pts[0]));
       soltas.forEach((fim) => { const p = fim ? w.pts[w.pts.length - 1] : w.pts[0];
         bandeiras.push({ x: p[0], y: p[1], nome: w.rotulo, lado: ladoPonta(w.pts, fim), dom: w.dom, at: { "data-k": k } }); });
-      if (!soltas.length && !naBandeira(w.pts[0].join(","), w.rotulo))                 // ligada dos dois lados (e sem bandeirinha na rede): o texto
+      if (!soltas.length && !naBandeira(w.dom, w.pts[0].join(","), w.rotulo))                 // ligada dos dois lados (e sem bandeirinha na rede): o texto
         rotulo(camRot, w.pts[0][0] + 0.2, w.pts[0][1] - 0.45, w.rotulo, { fill: COR.rot, "font-size": 0.55 * G });
     }
     if (mostrar.medicoes && w.rotulo && medidos.V.has(w.rotulo) && !nosMarcados.has(w.rotulo)) { nosMarcados.add(w.rotulo); marcas.push([w.pts[0][0], w.pts[0][1] - 0.5, medidos.V.get(w.rotulo)]); }
