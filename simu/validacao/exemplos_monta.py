@@ -192,18 +192,18 @@ def buck_boost():
 def retificador():
     """Retificador trifásico a diodos (ponte de 6 pulsos): 127/220 V, 60 Hz, carga RL (20 Ω, 50 mH): V_dc ≈ 1,35·220 ≈ 297 V."""
     for k, (f, fase) in enumerate((("a", 0.0), ("b", -120.0), ("c", 120.0))):
-        x = 4 + 4 * k
+        x = 4 + 8 * k                                      # a cada 8: o valor de uma fonte não cobre a do lado
         poe(f"U.{k + 1}", x, 6, "U", 503, type=402, uMAX=179.6, f=60.0, phase=fase)
         fio(f, (x, 4), (x, 2))                             # o + de cada fase: o rótulo a, b, c (ligado à ponte pelo nome)
-    fio("n", (4, 8), (4, 10), (12, 10), (12, 8)); fio("", (8, 8), (8, 10))     # o neutro
+    fio("n", (4, 8), (4, 10), (20, 10), (20, 8)); fio("", (12, 8), (12, 10))     # o neutro
     for k, f in enumerate("abc"):                          # as pernas: diodo de cima (anodo na fase) e de baixo (catodo na fase)
-        x = 20 + 4 * k
+        x = 28 + 6 * k                                     # a cada 6: a bandeirinha do nó cabe entre as pernas
         poe(f"D.{k + 1}", x, 6, "D", 501); poe(f"D.{k + 4}", x, 12, "D", 501)
-        fio(f, (x, 8), (x, 10))
-    poe("R.1", 36, 6, "R", 503, R=20.0); poe("L.1", 36, 12, "L", 503, L=50e-3)
-    fio("p", (20, 4), (36, 4)); fio("neg", (20, 14), (36, 14)); fio("", (36, 8), (36, 10))
-    mede("VOLT.1", 42, 4, "v_dc", no1="p", no2="neg"); mede("AMP.1", 42, 8, "i_dc", componente="L.1")
-    mede("AMP.2", 42, 12, "i_a", componente="U.1"); mede("VOLT.2", 42, 16, "v_an", no1="a", no2="n"); mede("VOLT.3", 42, 20, "v_ab", no1="a", no2="b")
+        no_meio(f, x)
+    poe("R.1", 48, 6, "R", 503, R=20.0); poe("L.1", 48, 12, "L", 503, L=50e-3)
+    fio("p", (28, 4), (48, 4)); fio("neg", (28, 14), (48, 14)); fio("", (48, 8), (48, 10))
+    mede("VOLT.1", 54, 4, "v_dc", no1="p", no2="neg"); mede("AMP.1", 54, 8, "i_dc", componente="L.1")
+    mede("AMP.2", 54, 12, "i_a", componente="U.1"); mede("VOLT.2", 54, 16, "v_an", no1="a", no2="n"); mede("VOLT.3", 54, 20, "v_ab", no1="a", no2="b")
     return dict(dt=1e-6, tfim=0.05, amostras=10000)
 
 
@@ -214,7 +214,7 @@ def inversor():
     for nome, x, y in (("S.1", 12, 6), ("S.2", 12, 12), ("S.3", 20, 6), ("S.4", 20, 12)):
         poe(nome, x, y, "S", 503)
     fio("p", (4, 8), (4, 4), (20, 4)); fio("neg", (4, 12), (4, 14), (20, 14))
-    fio("a", (12, 8), (12, 10)); fio("b", (20, 8), (20, 10))
+    no_meio("a", 12); no_meio("b", 20)
     poe("R.1", 14, 18, "R", 502, R=10.0); poe("L.1", 18, 18, "L", 502, L=10e-3)
     fio("a", (12, 18), (10, 18)); fio("b", (20, 18), (22, 18))   # a carga: ligada às pernas pelos rótulos a e b
     sinal("SIGNAL.1", 4, 24, "SIGNAL", saida="ref", type=402, amplMAX=0.8, offset=0.0, f=60.0)
@@ -244,10 +244,18 @@ def pontes_spwm(fases, m, fsw, f=60.0, y=30):
     return out
 
 
+def no_meio(no, x, y0=8, y1=10, toco=1):
+    """O nó do meio de uma perna (de y0 a y1, na coluna x), ligado a outro lugar pelo nome: o fio sem rótulo e um toco para
+    o lado (toco: +1 direita, −1 esquerda) com o rótulo na ponta solta — a bandeirinha do conector, dos dois lados do nó
+    (Marcelo, 28/10: "nível didático": a bandeirinha a da fonte e a bandeirinha a da ponte)."""
+    m = (y0 + y1) // 2
+    fio("", (x, y0), (x, m)); fio("", (x, m), (x, y1)); fio(no, (x, m), (x + toco, m))
+
+
 def perna(x, no, sup, inf):
-    """Uma perna: a chave de cima (de p ao nó) e a de baixo (do nó a neg), o nó com o rótulo."""
+    """Uma perna: a chave de cima (de p ao nó) e a de baixo (do nó a neg), o nó com o rótulo (a bandeirinha)."""
     poe(sup, x, 6, "S", 503); poe(inf, x, 12, "S", 503)
-    fio(no, (x, 8), (x, 10))
+    no_meio(no, x)
 
 
 def inversor_trifasico():
@@ -275,7 +283,7 @@ def inversor_meia_ponte():
     """Inversor monofásico em meia ponte, SPWM: 2 × 100 V (o ponto médio m), m = 0,8 (fundamental de v_am ≈ 80 V de pico),
     60 Hz, portadora de 5 kHz, carga RL (10 Ω, 10 mH) entre a perna e o ponto médio."""
     poe("U.1", 4, 6, "U", 503, type=401, uDC=100.0); poe("U.2", 4, 12, "U", 503, type=401, uDC=100.0)
-    fio("m", (4, 8), (4, 10))
+    no_meio("m", 4)
     perna(12, "a", "S.1", "S.2")
     fio("p", (4, 4), (12, 4)); fio("neg", (4, 14), (12, 14))
     poe("R.1", 18, 18, "R", 502, R=10.0); poe("L.1", 22, 18, "L", 502, L=10e-3)
@@ -310,7 +318,7 @@ def retificador_monofasico():
     fio("s", (4, 8), (4, 4), (6, 4)); fio("a", (10, 4), (12, 4)); fio("b", (4, 12), (4, 14), (6, 14))
     for k, (x, f) in enumerate(((16, "a"), (20, "b"))):
         poe(f"D.{k + 1}", x, 6, "D", 501); poe(f"D.{k + 3}", x, 12, "D", 501)
-        fio(f, (x, 8), (x, 10))
+        no_meio(f, x)
     poe("C.1", 26, 6, "C", 503, C=1e-3); poe("R.2", 32, 6, "R", 503, R=100.0)
     fio("p", (16, 4), (32, 4)); fio("neg", (16, 14), (32, 14)); fio("", (26, 8), (26, 14)); fio("", (32, 8), (32, 14))
     mede("VOLT.1", 38, 4, "v_s", no1="s", no2="b"); mede("AMP.1", 38, 8, "i_s", componente="R.1")
@@ -323,16 +331,16 @@ def retificador_controlado():
     V_dc ≈ 1,35·220·cos α ≈ 257 V. Cada tiristor conduz numa janela de 120° (a referência senoidal dele ≥ 0,5) atrasada
     de α: o atraso é $t_alfa = α/(360·f) — mude-o para mudar α (30° a 60 Hz: 1,389 ms)."""
     for k, (f, fase) in enumerate((("a", 0.0), ("b", -120.0), ("c", 120.0))):
-        x = 4 + 4 * k
+        x = 4 + 8 * k                                      # a cada 8: o valor de uma fonte não cobre a do lado
         poe(f"U.{k + 1}", x, 6, "U", 503, type=402, uMAX=179.6, f=60.0, phase=fase)
         fio(f, (x, 4), (x, 2))
-    fio("n", (4, 8), (4, 10), (12, 10), (12, 8)); fio("", (8, 8), (8, 10))
+    fio("n", (4, 8), (4, 10), (20, 10), (20, 8)); fio("", (12, 8), (12, 10))
     for k, f in enumerate("abc"):                          # T1, T2, T3 em cima (a, b, c); T4, T5, T6 embaixo
-        x = 20 + 4 * k
+        x = 28 + 6 * k
         poe(f"THYR.{k + 1}", x, 6, "THYR", 501); poe(f"THYR.{k + 4}", x, 12, "THYR", 501)
-        fio(f, (x, 8), (x, 10))
-    poe("R.1", 36, 6, "R", 503, R=20.0); poe("L.1", 36, 12, "L", 503, L=50e-3)
-    fio("p", (20, 4), (36, 4)); fio("neg", (20, 14), (36, 14)); fio("", (36, 8), (36, 10))
+        no_meio(f, x)
+    poe("R.1", 48, 6, "R", 503, R=20.0); poe("L.1", 48, 12, "L", 503, L=50e-3)
+    fio("p", (28, 4), (48, 4)); fio("neg", (28, 14), (48, 14)); fio("", (48, 8), (48, 10))
     sinal("CONST.1", 4, 30, "CONST", saida="limiar", const=0.5)
     # a janela de cada um: a fase da referência (o de cima conduz no pico da fase; o de baixo, no vale)
     for k, (t, fase) in enumerate((("T1", 0.0), ("T2", -120.0), ("T3", 120.0), ("T4", 180.0), ("T5", 60.0), ("T6", -60.0))):
@@ -342,8 +350,8 @@ def retificador_controlado():
         liga_var(f"DELAY.{k + 1}", "T", "$t_alfa", 30.0 / (360 * 60))
         sinal(f"GE.{k + 1}", 18, yy, "GE", saida=f"g_{t}", entradas=(f"atr_{t}", "limiar"))
         gate(f"GATE.{k + 1}", 26, yy, f"g_{t}", f"THYR.{k + 1}")
-    mede("VOLT.1", 42, 4, "v_dc", no1="p", no2="neg"); mede("AMP.1", 42, 8, "i_dc", componente="L.1")
-    mede("VOLT.2", 42, 12, "v_an", no1="a", no2="n"); mede("AMP.2", 42, 16, "i_a", componente="U.1")
+    mede("VOLT.1", 54, 4, "v_dc", no1="p", no2="neg"); mede("AMP.1", 54, 8, "i_dc", componente="L.1")
+    mede("VOLT.2", 54, 12, "v_an", no1="a", no2="n"); mede("AMP.2", 54, 16, "i_a", componente="U.1")
     return dict(dt=1e-6, tfim=0.05, amostras=10000)
 
 

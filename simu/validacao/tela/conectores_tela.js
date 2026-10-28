@@ -198,6 +198,18 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   ok(wb && wb[0] === "LK" && JSON.stringify(wb[1]) === "[[14,8],[15,8],[16,8]]" && !(await pg.$("#conector-nome")), `confirmar cria: ${JSON.stringify(wb)}`);
   await pg.keyboard.press("Escape");
   ok(!(await modo()).c && !(await pg.$("#conector-nome")), "Esc sai da ferramenta");
+  // num exemplo, o retificador trifásico (Marcelo, 28/10: "nível didático"): a bandeirinha a da fonte e a da ponte (o nó do
+  // meio da perna com um toco), e o nome não se repete em texto nos fios e bornes ligados a uma bandeirinha; o "p" (ligado
+  // dos dois lados, sem bandeirinha) continua em texto. Numa página nova (a de cima tem mudanças: fechar perguntaria)
+  await post("editor/abrir", { arq: "exemplos/exemplo_retificador_trifasico.ipes", modo: "descartar" });
+  const pg2 = await pg.context().newPage(); pg2.on("pageerror", (e) => erros.push(e.message));
+  await pg2.goto(`http://localhost:7201/maisim/simu/?modelo=${encodeURIComponent("exemplos/exemplo_retificador_trifasico.ipes")}`);
+  await pg2.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas && document.querySelectorAll("#svg .conector-rot").length >= 6, null, { timeout: 30000 }).catch(() => {});
+  const ex = await pg2.evaluate(() => { const txt = [...document.querySelectorAll("#svg text")].filter((t) => !t.closest(".conector-rot"));
+    return { band: [...document.querySelectorAll("#svg .conector-rot")].map((c) => c.dataset.rot).sort().join(""),
+      soltos: txt.filter((t) => ["a", "b", "c"].includes(t.textContent)).length, p: txt.some((t) => t.textContent === "p") }; });
+  ok(ex.band === "aabbcc" && ex.soltos === 0 && ex.p, `o retificador trifásico: bandeirinhas ${ex.band} (fonte e ponte), ${ex.soltos} "a/b/c" em texto, "p" em texto ${ex.p}`);
+  await pg2.close();
   ok(!erros.length, `sem erros de JS nem diálogos ${erros.join(" ; ")}`);
   await b.close(); process.exit(falhas ? 1 : 0);
 })();
