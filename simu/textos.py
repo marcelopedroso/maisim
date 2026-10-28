@@ -956,6 +956,19 @@ T = {
     "atualiza.sem_salvar": {"pt": "salve antes de atualizar: {itens} sem salvar (o MaiSim fecha para atualizar)",
                             "en": "save before updating: {itens} not saved (MaiSim closes to update)"},
     "atualiza.rodando": {"pt": "espere a rodada acabar (ou pare) antes de atualizar", "en": "wait for the run to finish (or stop it) before updating"},
+    # a versão de programador, pelo git
+    "atualiza.git_sujo": {"pt": "há arquivos do código mudados à mão (git status): guarde ou desfaça antes, ou atualize pelo git",
+                          "en": "there are hand-edited source files (git status): commit/stash or undo them first, or update with git"},
+    "atualiza.git_ramo": {"pt": "o código está na branch {ramo}: o botão só atualiza o main (ou um commit solto); mude pelo git",
+                          "en": "the code is on branch {ramo}: the button only updates main (or a detached commit); switch with git"},
+    "atualiza.git_divergiu": {"pt": "o main daqui tem commits que o do GitHub não tem: atualize pelo git",
+                              "en": "the local main has commits that GitHub's does not: update with git"},
+    "atualiza.sem_lancador": {"pt": "este MaiSim não foi aberto pelo lançador (app/lancador.py): atualize pelo git e reinicie à mão",
+                              "en": "this MaiSim was not opened by the launcher (app/lancador.py): update with git and restart it by hand"},
+    "atualiza.gecko_alheio": {"pt": "o Gecko muda nesta atualização, mas o que está no ar não foi aberto por este lançador: feche o MaiSim, abra de novo e atualize",
+                              "en": "Gecko changes in this update, but the running one was not started by this launcher: close MaiSim, open it again and update"},
+    "atualiza.gecko_falhou": {"pt": "não deu para montar o Gecko novo (veja {log}); o código voltou ao {commit}",
+                              "en": "could not build the new Gecko (see {log}); the code went back to {commit}"},
 }
 
 lingua.registra(T)

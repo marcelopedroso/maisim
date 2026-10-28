@@ -32,6 +32,6 @@ for p in "$AQUI"/patches/*.patch; do
 done
 fala "gecko: compilando (mvn package; a 1ª vez baixa as dependências)…" "gecko: building (mvn package; the first time downloads the dependencies)…"
 mvn -q -DskipTests package
-cp target/gecko-1.0-jar-with-dependencies.jar "$JAR"
+cp target/gecko-1.0-jar-with-dependencies.jar "$JAR.novo" && mv -f "$JAR.novo" "$JAR"   # trocado de uma vez: um Gecko no ar segue com o jar de antes
 echo "$assinatura" > "$MARCA"
 fala "gecko: pronto → $JAR ($(du -h "$JAR" | cut -f1))" "gecko: done → $JAR ($(du -h "$JAR" | cut -f1))"

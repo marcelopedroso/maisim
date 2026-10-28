@@ -40,6 +40,11 @@
     "nav.tipo_windows": { pt: "Windows (instalado)", en: "Windows (installed)" },
     "nav.tipo_appimage": { pt: "Linux (AppImage)", en: "Linux (AppImage)" },
     "nav.tipo_fonte": { pt: "código-fonte", en: "source code" },
+    // a versão de programador (pelo git): "0.3.5 +2" = dois commits depois da v0.3.5 (o número só muda na release)
+    "nav.versao_depois": { pt: "+{n}", en: "+{n}" },
+    "nav.versao_commit": { pt: "{versao} ({commit})", en: "{versao} ({commit})" },
+    "nav.versao_nova_git": { pt: { one: "MaiSim {versao} · {tipo}\n1 novidade no GitHub (clique)", other: "MaiSim {versao} · {tipo}\n{n} novidades no GitHub (clique)" },
+      en: { one: "MaiSim {versao} · {tipo}\n1 new commit on GitHub (click)", other: "MaiSim {versao} · {tipo}\n{n} new commits on GitHub (click)" } },
     "atu.titulo": { pt: "MaiSim {versao} disponível", en: "MaiSim {versao} available" },
     "atu.titulo_em_dia": { pt: "Atualizações do MaiSim", en: "MaiSim updates" },
     "atu.de": { pt: "Você está na {versao} ({tipo}).", en: "You have {versao} ({tipo})." },
@@ -61,6 +66,13 @@
     "atu.reiniciando": { pt: "A {versao} está no lugar: o MaiSim fecha e abre de novo sozinho.", en: "{versao} is in place: MaiSim closes and opens again by itself." },
     "atu.erro": { pt: "Não deu para atualizar: {erro}", en: "Could not update: {erro}" },
     "atu.github": { pt: "ver no GitHub", en: "see on GitHub" },
+    "atu.titulo_git": { pt: { one: "1 novidade no GitHub ({versao})", other: "{n} novidades no GitHub ({versao})" },
+      en: { one: "1 new commit on GitHub ({versao})", other: "{n} new commits on GitHub ({versao})" } },
+    "atu.aviso_git": { pt: "O MaiSim fecha, vai para o commit novo (git) e abre de novo sozinho (salve antes). Se os patches do Gecko mudaram, ele é montado de novo (alguns minutos).",
+      en: "MaiSim closes, moves to the new commit (git) and opens again by itself (save first). If the Gecko patches changed, it is rebuilt (a few minutes)." },
+    "atu.canal_teste_git": { pt: "teste (o main: tudo o que já entrou)", en: "testing (main: everything merged so far)" },
+    "atu.atualizando": { pt: "Indo para a {versao} (git)…", en: "Moving to {versao} (git)…" },
+    "atu.construindo": { pt: "Montando o Gecko da {versao} (os patches mudaram; alguns minutos)…", en: "Building the Gecko of {versao} (the patches changed; a few minutes)…" },
   };
   if (I()) I().add(TXT);
   const tr = (k, p) => { if (I()) return I().tr(k, p);
@@ -293,14 +305,21 @@
   const postAtu = (rota, corpo) => fetch(`/maisim/simu/atualizacao/${rota}`, { method: "POST", headers: { "Content-Type": "application/json", "X-MaiSim": "1" },
     body: JSON.stringify(corpo || {}) }).then((r) => r.json());
   const tipoAtu = (e) => tr(`nav.tipo_${e && ["windows", "appimage", "fonte"].includes(e.tipo) ? e.tipo : "fonte"}`);
+  // a versão por extenso: na de programador, os commits depois da tag e o commit ("0.3.5 +2 (a7dffe1)")
+  const versaoAtu = (e) => { const v = e.depois ? `${e.versao} ${tr("nav.versao_depois", { n: e.depois })}` : e.versao;
+    return e.commit ? tr("nav.versao_commit", { versao: v, commit: e.commit }) : v; };
+  const marcaAtu = (e) => (e ? `${e.versao}|${e.commit || ""}` : "");
   function rotulaVersao() {
     const b = document.querySelector("#maisim-nav .versao"); if (!b || !ATU) return;
     // uma versão de teste (0.3.2-rc1) não cabe numa linha do trilho (52 px): "v0.3.2" e, embaixo, "rc1" menor
     const [base, pre] = String(ATU.versao).split(/-(.+)/), t = b.querySelector(".txt");
     b.hidden = false; t.textContent = tr("nav.versao_curta", { versao: base });
-    if (pre) { const s = document.createElement("small"); s.className = "pre"; s.textContent = tr("nav.versao_pre", { pre }); t.append(s); }
+    const embaixo = [pre ? tr("nav.versao_pre", { pre }) : "", ATU.depois ? tr("nav.versao_depois", { n: ATU.depois }) : ""].filter(Boolean).join(" ");
+    if (embaixo) { const s = document.createElement("small"); s.className = "pre"; s.textContent = embaixo; t.append(s); }
     b.classList.toggle("novidade", !!ATU.nova);
-    const r = ATU.nova ? tr("nav.versao_nova", { versao: ATU.versao, tipo: tipoAtu(ATU), nova: ATU.nova.versao }) : tr("nav.versao_dica", { versao: ATU.versao, tipo: tipoAtu(ATU) });
+    const v = versaoAtu(ATU), r = !ATU.nova ? tr("nav.versao_dica", { versao: v, tipo: tipoAtu(ATU) })
+      : ATU.git ? tr("nav.versao_nova_git", { versao: v, tipo: tipoAtu(ATU), n: ATU.nova.commits || 1 })
+      : tr("nav.versao_nova", { versao: v, tipo: tipoAtu(ATU), nova: ATU.nova.versao });
     b.title = r; b.setAttribute("aria-label", r);
     if (document.getElementById("maisim-atu")) pintaAtualizacao();
   }
@@ -321,33 +340,34 @@
   let notasDe = null, acompanha = null;
   function pintaAtualizacao() {
     const j = document.getElementById("maisim-atu"); if (!j || !ATU) return;
-    const n = ATU.nova, ap = ATU.aplicando, fonte = ATU.tipo === "fonte";
-    j.querySelector("h2").textContent = n ? tr("atu.titulo", { versao: n.versao }) : tr("atu.titulo_em_dia");
-    j.querySelector(".sub").textContent = tr("atu.de", { versao: ATU.versao, tipo: tipoAtu(ATU) });
+    const n = ATU.nova, ap = ATU.aplicando, fonte = ATU.tipo === "fonte", git = fonte && ATU.git;   // git: o Atualizar da versão de programador
+    j.querySelector("h2").textContent = !n ? tr("atu.titulo_em_dia") : git ? tr("atu.titulo_git", { n: n.commits || 1, versao: n.versao }) : tr("atu.titulo", { versao: n.versao });
+    j.querySelector(".sub").textContent = tr("atu.de", { versao: versaoAtu(ATU), tipo: tipoAtu(ATU) });
     const notas = j.querySelector(".notas");
     if (!n) { notas.innerHTML = ""; notasDe = null; } else if (notasDe !== n.versao) { notasDe = n.versao; notasHTML(n.notas, notas); }
     let msg = "", erro = false;
     if (ap && ap.fase === "erro") { msg = tr("atu.erro", { erro: ap.erro || "" }); erro = true; }
     else if (ap && ap.fase === "baixando") msg = tr("atu.baixando", { versao: ap.versao, pct: ap.total ? `${Math.min(100, Math.round(100 * ap.feito / ap.total))}%` : "" });
-    else if (ap) msg = tr(ap.fase === "instalando" ? "atu.instalando" : "atu.reiniciando", { versao: ap.versao });
+    else if (ap) msg = tr({ instalando: "atu.instalando", atualizando: "atu.atualizando", construindo: "atu.construindo" }[ap.fase] || "atu.reiniciando", { versao: ap.versao });
     else if (!n) msg = ATU.sem_rede ? tr("atu.sem_rede") : ATU.verificado ? tr("atu.em_dia", { versao: ATU.versao }) : tr("atu.nunca");
-    const m = j.querySelector(".msg"); m.textContent = msg; m.classList.toggle("falha", erro);
+    const m = j.querySelector(".situacao"); m.textContent = msg; m.classList.toggle("falha", erro);   // (não o 1º .msg: o do git pull, escondido)
     const f = j.querySelector(".fonte");
-    f.hidden = !(n && fonte); f.innerHTML = n && fonte ? `${esc(tr("atu.fonte"))} <code>git pull</code> (${esc(n.versao)})` : "";
-    j.querySelector(".aviso").hidden = !(n && !fonte && !ap);
+    f.hidden = !(n && fonte && !git); f.innerHTML = n && fonte && !git ? `${esc(tr("atu.fonte"))} <code>git pull</code> (${esc(n.versao)})` : "";
+    const av = j.querySelector(".aviso"); av.hidden = !(n && (!fonte || git) && !ap); av.textContent = tr(git ? "atu.aviso_git" : "atu.aviso");
     const g = j.querySelector(".github"); g.hidden = !(n && n.pagina && /^https?:\/\//.test(n.pagina)); if (!g.hidden) g.href = n.pagina;
     const em = ap && ap.fase !== "erro";
-    j.querySelector(".atualizar").hidden = !n || fonte; j.querySelector(".atualizar").disabled = !!em;
+    j.querySelector(".atualizar").hidden = !n || (fonte && !git); j.querySelector(".atualizar").disabled = !!em;
+    j.querySelector("option[value=teste]").textContent = tr(git ? "atu.canal_teste_git" : "atu.canal_teste");
     j.querySelector(".depois").textContent = tr(n ? "atu.depois" : "atu.fechar");
     j.querySelector(".procurar").hidden = !!n; j.querySelector(".depois").style.marginLeft = n ? "auto" : ""; j.querySelector("select").value = ATU.canal; j.querySelector("select").disabled = !!em;
   }
   function fechaAtualizacao() { const j = document.getElementById("maisim-atu"); if (j) j.remove(); clearInterval(acompanha); acompanha = null; notasDe = null; }
   // durante o atualizar: a situação a cada segundo; o MaiSim cai e volta (outro processo, a versão nova): a página recarrega
   function acompanhaAtualizacao() {
-    if (acompanha) return; const de = ATU && ATU.versao;
+    if (acompanha) return; const de = marcaAtu(ATU);
     acompanha = setInterval(async () => {
       try { const e = await fetch("/maisim/simu/atualizacao", { cache: "no-store" }).then((r) => r.json());
-        if (e.versao !== de) { location.reload(); return; }
+        if (marcaAtu(e) !== de) { location.reload(); return; }   // a versão nova (ou, pelo git, o commit novo) no ar
         ATU = e; rotulaVersao(); if (!e.aplicando || e.aplicando.fase === "erro") { clearInterval(acompanha); acompanha = null; }
       } catch (err) { /* desligado para atualizar: espera voltar */ }
     }, 1000);
@@ -356,7 +376,7 @@
     if (document.getElementById("maisim-atu")) return;
     const j = document.createElement("div"); j.id = "maisim-atu";
     j.innerHTML = `<div class="caixa" role="dialog" aria-modal="true" aria-labelledby="maisim-atu-t"><h2 id="maisim-atu-t"></h2><p class="sub"></p>
-      <div class="notas"></div><p class="fonte msg" hidden></p><p class="aviso msg" hidden>${esc(tr("atu.aviso"))}</p><p class="msg"></p>
+      <div class="notas"></div><p class="fonte msg" hidden></p><p class="aviso msg" hidden>${esc(tr("atu.aviso"))}</p><p class="msg situacao"></p>
       <div class="pe"><label>${esc(tr("atu.canal"))} <select><option value="estavel">${esc(tr("atu.canal_estavel"))}</option><option value="teste">${esc(tr("atu.canal_teste"))}</option></select></label>
       <a class="github" target="_blank" rel="noopener" hidden>${esc(tr("atu.github"))}</a>
       <button type="button" class="procurar">${esc(tr("atu.procurar"))}</button><button type="button" class="depois"></button><button type="button" class="atualizar prim">${esc(tr("atu.atualizar"))}</button></div></div>`;
