@@ -85,6 +85,13 @@ rodar de novo com o MaiSim no ar só abre a janela outra vez. No WSL a janela ab
 em segundo plano) o MaiSim fica no ar até o Ctrl+C (ou `app/scripts/para_fundo.sh`), com a janela aberta ou não;
 `MAISIM_PAGINA=vite` serve a página pelo Vite nesse modo.
 
+**No Windows com o WSL, um atalho na área de trabalho:** `app/scripts/atalho_windows.sh` (rodado uma vez no WSL) cria o
+**MaiSim (dev)** na área de trabalho do Windows. Dois cliques ligam o MaiSim no WSL com o `--abrir` e abrem a janela,
+sem janela de console. Para a janela com o ícone grande na barra de tarefas, instale o MaiSim como app no Chrome ou no
+Edge uma vez (⋮ → Transmitir, salvar e compartilhar → Instalar página como app) e ponha o id do app (aparece em
+`chrome://web-app-internals`) no `.env` como `MAISIM_APP_ID=…`: o lançador passa a abrir o app instalado em vez de uma
+janela `--app` comum. `--remover` apaga o atalho.
+
 Abra **http://localhost:7100**. Para usar outra porta, passe com `-p`: `npm run maisim -- -p 8100` serve a página na 8100
 e os outros serviços nas portas logo depois (8101–8106). Para ficar de vez com outra porta, uma linha num `.env` na raiz:
 `MAISIM_PORTA=8100` (útil quando a 7100 já está em uso na sua máquina). As portas (7100–7106 por padrão, só `localhost`) e as pastas ficam

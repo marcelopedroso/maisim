@@ -85,6 +85,13 @@ picks another browser, options allowed). Without `--abrir` (`npm run maisim`, or
 background) MaiSim stays up until Ctrl+C (or `app/scripts/para_fundo.sh`), whether the window is open or not;
 `MAISIM_PAGINA=vite` serves the page with Vite in that mode.
 
+**On Windows with WSL, a desktop shortcut:** `app/scripts/atalho_windows.sh` (run once in WSL) creates **MaiSim (dev)**
+on the Windows desktop. A double click starts MaiSim in WSL with `--abrir` and opens the window, with no console
+window. For the window with the large taskbar icon, install MaiSim as an app in Chrome or Edge once (⋮ → Cast, save, and
+share → Install page as app), then put the app's id (shown in `chrome://web-app-internals`) in `.env` as
+`MAISIM_APP_ID=…`: the launcher then opens the installed app instead of a plain `--app` window. `--remover` deletes the
+shortcut.
+
 Open **http://localhost:7100**. To use another port, pass it with `-p`: `npm run maisim -- -p 8100` serves the page on
 8100 and the other services on the ports right after it (8101–8106). To keep another port for good, put one line in a
 `.env` at the root: `MAISIM_PORTA=8100` (handy when 7100 is already taken on your machine). Ports (7100–7106 by default, `localhost` only) and

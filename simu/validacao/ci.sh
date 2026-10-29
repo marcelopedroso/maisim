@@ -13,7 +13,7 @@ unset $(compgen -v MAISIM_); eval "$(python3 "$V/../../config/ler_config.py" --s
 L="$MAISIM_DADOS/bateria"; mkdir -p "$L"; : > "$L/resumo.txt"
 export NODE_PATH=${NODE_PATH:-$HOME/ns-test/node_modules}
 
-OFFLINE="validador_offline casos_tracado claude_offline claude_instala_offline lingua_offline config_offline msd_offline atualizacao_offline cursor_offline icones_offline"
+OFFLINE="validador_offline casos_tracado claude_offline claude_instala_offline lingua_offline config_offline msd_offline atualizacao_offline cursor_offline icones_offline lancador_app_offline"
 TELA="largura_tela scope_menu_tela contextos_tela erro_copia_tela claude_tex_tela scope_soma_tela scope_potencia_tela scope_tema_tela scope_visoes_tela scope_xy_tela scope_digital_tela scope_cabecalho_tela
   diagrama_zoom_tela envia_for_tela sem_esquema_tela renomear_tela sub_iguais_tela desativar_tela diagrama_tela escolha_tela mensagens_tela
   claude_controladores_tela arvore_tela tabelas_tela saida_tela giro_tela claude_modulos_tela modulos_tela divisor_tela beira_tela
