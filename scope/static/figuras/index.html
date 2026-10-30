@@ -49,6 +49,9 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
   .campo > label:first-child, .campo > span:first-child { min-width:92px; color:var(--sutil); }
   .campo select, .campo input[type=text] { flex:1 1 120px; min-width:0; }
   .campo input.curto { flex:0 0 76px; } #t0, #t1 { flex:0 0 104px; }
+  .comparacao { display:grid; grid-template-columns:22px 1fr 96px auto; gap:6px; align-items:center; margin:6px 0; }
+  .comparacao .letra { color:var(--sutil); font-weight:600; text-align:center; }
+  .comparacao select { min-width:0; } .comparacao button { padding:1px 7px; }
   .info { color:var(--sutil); font-size:12px; margin-top:4px; }
   .erro { color:var(--erro); background:var(--erro-bg); border-radius:6px; padding:6px 8px; margin-top:6px; }
   .painel { border:1px solid var(--borda); border-radius:8px; padding:8px; margin:8px 0; background:var(--fundo); }
@@ -101,7 +104,9 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
     <section class="cartao">
       <h2 data-tr="fig.rodada.titulo">Rodada</h2>
       <div class="campo"><label for="sel-a">A</label><select id="sel-a"></select></div>
-      <div class="campo"><label for="sel-b" data-tr="fig.rodada.comparar">Comparar com</label><select id="sel-b"></select></div>
+      <div class="campo"><label for="rot-a" data-tr="fig.rodada.rotulo">Rótulo</label><input type="text" id="rot-a" placeholder="A" data-tr-placeholder="fig.rodada.rot_a"></div>
+      <div id="comparacoes"></div>
+      <div class="botoes"><button type="button" id="bt-comparar" data-tr="fig.rodada.mais_comparar">+ Comparar com outra rodada</button></div>
       <div class="info" id="info-rodada"></div>
     </section>
     <section class="cartao">

@@ -37,6 +37,8 @@ ESTILOS = {
 FORMATOS = {"previa": ("png", "image/png"), "png": ("png", "image/png"), "tiff": ("tiff", "image/tiff"),
             "pdf": ("pdf", "application/pdf"), "svg": ("svg", "image/svg+xml"), "eps": ("eps", "application/postscript")}
 TRACOS = {"continua": "-", "tracejada": "--", "pontilhada": ":", "traco_ponto": "-."}
+TRACOS_COMP = ["--", ":", "-.", (0, (5, 1, 1, 1, 1, 1)), (0, (8, 2))]   # as rodadas comparadas: B, C, D…
+CLARO = [0.35, 0.5, 0.62, 0.72, 0.8]
 PB = [("#000000", "-"), ("#000000", "--"), ("#555555", "-"), ("#000000", ":"), ("#555555", "--"), ("#000000", "-.")]
 GREGAS = {"theta", "omega", "alpha", "beta", "gamma", "delta", "phi", "psi", "tau", "lambda", "mu", "sigma", "eta", "rho"}
 TEXTOS = {"pt": {"tempo": "Tempo", "V": "Tensão", "A": "Corrente", "W": "Potência", "°C": "Temperatura", "rpm": "Velocidade",
@@ -137,7 +139,7 @@ def _unidade_tempo(t0, t1):
 
 
 def figura(pedido, resolve=lambda rel: Path(rel)):
-    """O arquivo da figura (bytes, tipo MIME). pedido: {arq, arqB?, t0?, t1?, paineis: [{sinais: [{canal, cor?, esp?, traco?,
+    """O arquivo da figura (bytes, tipo MIME). pedido: {arq, rotuloA?, comparar?: [{arq, rotulo?}], t0?, t1?, paineis: [{sinais: [{canal, cor?, esp?, traco?,
     ganho?, desloc?}], ylabel?, ymin?, ymax?}], estilo: {preset, largura?, altura?, fonte?, corpo?, grade?, legenda?, pb?,
     letras?, lingua?}, formato}. resolve: o caminho de uma rodada (o servidor confere que é uma gravação permitida)."""
     try:
@@ -156,7 +158,10 @@ def figura(pedido, resolve=lambda rel: Path(rel)):
     est.update({k: v for k, v in (pedido.get("estilo") or {}).items() if v not in (None, "") and k != "preset"})
     lg = est.get("lingua") if est.get("lingua") in TEXTOS else lingua.atual() if lingua.atual() in TEXTOS else "pt"
     A, meta = le_rodada(resolve(pedido["arq"]))
-    B = le_rodada(resolve(pedido["arqB"]))[0] if pedido.get("arqB") else {}
+    # as rodadas comparadas (Marcelo, 30/10: "um + para comparar mais de 2 casos"), cada uma com o rótulo da legenda (B, C… sem um)
+    comp = [c for c in (pedido.get("comparar") or ([{"arq": pedido["arqB"]}] if pedido.get("arqB") else [])) if c and c.get("arq")]
+    RODADAS = [(A, str(pedido.get("rotuloA") or ("A" if comp else "")), 0)] + \
+              [(le_rodada(resolve(c["arq"]))[0], str(c.get("rotulo") or chr(66 + i)), i + 1) for i, c in enumerate(comp[:8])]
     tudo = [v[0] for v in A.values()]
     t_ini = min(float(x[0]) for x in tudo) if tudo else 0.0
     t_fim = max(float(x[-1]) for x in tudo) if tudo else 1.0
@@ -197,14 +202,15 @@ def figura(pedido, resolve=lambda rel: Path(rel)):
                 cor, traco = (PB[j % len(PB)] if est.get("pb") else (s.get("cor") or f"C{j}", TRACOS.get(s.get("traco"), "-")))
                 larg = float(est["linha"]) * float(s.get("esp") or 1.3) / 1.3
                 ganho, desloc = float(s.get("ganho") or 1), float(s.get("desloc") or 0)
-                for F, sufixo, clara in ((A, "", False), (B, " (B)", True)):
+                for F, rot, i in RODADAS:                    # a A como escolhida; as outras na mesma cor, mais claras e com outro traço
                     if canal not in F:
                         continue
                     t, y = F[canal]
                     sel = (t >= t0) & (t <= t1)
                     tt, yy = envelope(t[sel], y[sel] * ganho + desloc)
-                    ax.plot(tt * esc, yy, color=_clareia(cor) if clara else cor, linestyle="--" if clara else traco,
-                            linewidth=larg, label=nome_mat(canal) + sufixo)
+                    ax.plot(tt * esc, yy, color=_clareia(cor, CLARO[(i - 1) % len(CLARO)]) if i else cor,
+                            linestyle=TRACOS_COMP[(i - 1) % len(TRACOS_COMP)] if i else traco, linewidth=larg,
+                            label=nome_mat(canal) + (f" ({rot.replace('$', chr(92) + '$')})" if rot else ""))
             ax.set_xlim(t0 * esc, t1 * esc)
             if p.get("ymin") is not None or p.get("ymax") is not None:
                 ax.set_ylim(p.get("ymin"), p.get("ymax"))
@@ -218,7 +224,7 @@ def figura(pedido, resolve=lambda rel: Path(rel)):
                     ax.text(0.012, 0.96, f"({chr(97 + k)})", transform=ax.transAxes, va="top", ha="left")
                 else:
                     ax.set_title(f"({chr(97 + k)})", loc="left", fontsize=corpo, pad=2)
-            if leg != "nenhuma" and (len(nomes) > 1 or B):
+            if leg != "nenhuma" and (len(nomes) > 1 or len(RODADAS) > 1):
                 if leg == "acima":
                     ax.legend(loc="lower left", bbox_to_anchor=(0, 1.0, 1, 0.2), mode="expand", ncol=min(4, max(1, len(ax.lines))),
                               frameon=False, borderaxespad=0.2, handlelength=1.8)

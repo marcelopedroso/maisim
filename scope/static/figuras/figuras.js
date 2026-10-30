@@ -39,7 +39,7 @@ function fmtTempo(s) {
 
 let ESTILOS = {}, RODADAS = [];
 const R = { arq: "", meta: {}, canais: [], t0: 0, t1: 0 };   // a rodada A
-let arqB = "", paineis = [], estilo = {}, janela = { t0: null, t1: null };
+let comparar = [], rotuloA = "", paineis = [], estilo = {}, janela = { t0: null, t1: null };   // comparar: [{arq, rotulo}]
 const PADRAO_ESTILO = { preset: "ieee1", largura: null, altura: null, fonte: null, corpo: null, colunas: 1, legenda: "melhor", lingua: "", grade: true, letras: false, pb: false };
 const dono = (meta) => String((meta && (meta.chave_layout || meta.modelo || meta.planta)) || "");
 const chave = () => (dono(R.meta) ? `maisim-figuras-v1:${dono(R.meta)}` : "");
@@ -201,8 +201,25 @@ $("bt-inteira").onclick = () => { janela = { t0: null, t1: null }; desenhaJanela
 function desenhaRodadas() {
   const op = (r) => `<option value="${escH(r.arq)}">${escH(r.rotulo || r.arq)}</option>`;
   $("sel-a").innerHTML = (RODADAS.length ? "" : `<option value="">${escH(tr("fig.rodada.nenhuma_gravada"))}</option>`) + RODADAS.map(op).join("");
-  $("sel-b").innerHTML = `<option value="">${escH(tr("fig.rodada.nenhuma"))}</option>` + RODADAS.map(op).join("");
-  $("sel-a").value = R.arq; $("sel-b").value = arqB;
+  $("sel-a").value = R.arq; $("rot-a").value = rotuloA;
+  desenhaComparacoes();
+}
+// as rodadas comparadas (B, C, D…): cada uma com a lista, o rótulo da legenda e o ✕; o "+" põe mais uma
+function desenhaComparacoes() {
+  const box = $("comparacoes"); box.innerHTML = "";
+  const op = (r) => `<option value="${escH(r.arq)}">${escH(r.rotulo || r.arq)}</option>`;
+  comparar.forEach((c, i) => {
+    const d = document.createElement("div"); d.className = "comparacao";
+    d.innerHTML = `<span class="letra">${String.fromCharCode(66 + i)}</span><select aria-label="${escH(tr("fig.rodada.comparar"))}">${RODADAS.map(op).join("")}</select>
+      <input type="text" placeholder="${escH(tr("fig.rodada.rot_comp", { letra: String.fromCharCode(66 + i) }))}" value="${escH(c.rotulo || "")}" aria-label="${escH(tr("fig.rodada.rotulo"))}">
+      <button type="button" title="${escH(tr("fig.rodada.tira_comp"))}" aria-label="${escH(tr("fig.rodada.tira_comp"))}">✕</button>`;
+    const sel = d.querySelector("select"); sel.value = c.arq;
+    sel.addEventListener("change", () => { c.arq = sel.value; mudou(); });
+    d.querySelector("input").addEventListener("input", (e) => { c.rotulo = e.target.value; mudou(); });
+    d.querySelector("button").onclick = () => { comparar.splice(i, 1); desenhaComparacoes(); mudou(); };
+    box.appendChild(d);
+  });
+  $("bt-comparar").disabled = comparar.length >= 8 || RODADAS.length < 2;
 }
 async function abreRodada(arq, de = null) {
   if (!arq) return;
@@ -210,7 +227,7 @@ async function abreRodada(arq, de = null) {
   if (!r || r.erro) { estado((r && r.erro) || tr("fig.rodada.erro"), true); return; }
   Object.assign(R, { arq, meta: r.meta || {}, canais: r.canais || [], t0: r.t0, t1: r.t1 });
   const salvo = lerJSON(chave(), null);
-  if (de) { paineis = de.paineis; janela = { t0: de.t0 ?? null, t1: de.t1 ?? null }; arqB = de.arqB || ""; }
+  if (de) { paineis = de.paineis; janela = { t0: de.t0 ?? null, t1: de.t1 ?? null }; comparar = de.arqB ? [{ arq: de.arqB, rotulo: "" }] : []; }
   else if (salvo && Array.isArray(salvo.paineis)) {
     paineis = salvo.paineis.map((p) => ({ ...p, sinais: (p.sinais || []).filter((c) => R.canais.includes(c)) }));
     janela = salvo.janela || { t0: null, t1: null };
@@ -223,7 +240,11 @@ async function abreRodada(arq, de = null) {
   desenhaRodadas(); desenhaPaineis(); desenhaJanela(); desenhaEstilo(); mudou(false, true);
 }
 $("sel-a").addEventListener("change", (e) => abreRodada(e.target.value));
-$("sel-b").addEventListener("change", (e) => { arqB = e.target.value; mudou(); });
+$("rot-a").addEventListener("input", (e) => { rotuloA = e.target.value; mudou(); });
+$("bt-comparar").onclick = () => {                     // a próxima rodada da lista (a mais recente que ainda não está na figura)
+  const usadas = new Set([R.arq, ...comparar.map((c) => c.arq)]), prox = RODADAS.find((r) => !usadas.has(r.arq)) || RODADAS[0];
+  comparar.push({ arq: prox.arq, rotulo: "" }); desenhaComparacoes(); mudou();
+};
 $("bt-painel").onclick = () => { paineis.push({ sinais: [], ylabel: null, ymin: null, ymax: null }); mudou(true); };
 $("bt-do-scope").onclick = () => { const p = doScope(); if (p) { paineis = p; mudou(true); } else estado(tr("fig.paineis.sem_scope"), true); };
 $("bt-tudo").onclick = () => { paineis = tudo(); mudou(true); };
@@ -233,7 +254,7 @@ $("bt-grandeza").onclick = () => { paineis = porGrandeza(); mudou(true); };
 function pedido(formato) {
   const ps = paineis.filter((p) => p.sinais.length).map((p) => ({ sinais: p.sinais.map((c) => estiloSinal(c, p)), ylabel: p.ylabel, ymin: p.ymin, ymax: p.ymax }));
   const lg = estilo.lingua || (maisimI18n.lingua() === "en" ? "en" : "pt");
-  return { arq: R.arq, arqB: arqB || null, t0: janela.t0, t1: janela.t1, paineis: ps, estilo: { ...estilo, lingua: lg }, formato };
+  return { arq: R.arq, rotuloA, comparar: comparar.filter((c) => c.arq), t0: janela.t0, t1: janela.t1, paineis: ps, estilo: { ...estilo, lingua: lg }, formato };
 }
 async function gera(formato) {
   const r = await fetch("figura", { method: "POST", headers: { "Content-Type": "application/json", "X-MaiSim": "1" }, body: JSON.stringify(pedido(formato)) });
