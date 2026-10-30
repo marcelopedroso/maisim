@@ -167,7 +167,9 @@ def figura(pedido, resolve=lambda rel: Path(rel)):
     esc, ut = _unidade_tempo(t0, t1)
     largura = float(est["largura"])
     n = len(paineis)
-    altura = float(est.get("altura") or min(24.0, 1.2 + est["painel"] * n))
+    cols = max(1, min(3, int(est.get("colunas") or 1), n))     # gráficos por linha (Marcelo, 30/10: "2 ou 3 por linha")
+    linhas = -(-n // cols)
+    altura = float(est.get("altura") or min(24.0, 1.2 + est["painel"] * linhas))
     serif = est.get("fonte") != "sans"
     corpo = float(est.get("corpo") or 8)
     rc = {"font.family": "serif" if serif else "sans-serif", "font.serif": ["STIXGeneral", "DejaVu Serif"],
@@ -180,7 +182,10 @@ def figura(pedido, resolve=lambda rel: Path(rel)):
           "figure.facecolor": "white", "axes.facecolor": "white", "savefig.facecolor": "white"}
     with trava, matplotlib.rc_context(rc):
         fig = Figure(figsize=(largura * CM, altura * CM), layout="constrained")
-        axs = fig.subplots(n, 1, sharex=True, squeeze=False)[:, 0]
+        grade = fig.subplots(linhas, cols, sharex=True, squeeze=False)
+        axs = grade.ravel()[:n]                              # na ordem da lista, linha a linha
+        for ax in grade.ravel()[n:]:                         # a grade incompleta: as casas vazias somem
+            ax.set_visible(False)
         for k, (ax, p) in enumerate(zip(axs, paineis)):
             nomes = []
             for j, s in enumerate(p["sinais"]):
@@ -219,7 +224,10 @@ def figura(pedido, resolve=lambda rel: Path(rel)):
                               frameon=False, borderaxespad=0.2, handlelength=1.8)
                 else:
                     ax.legend(loc="best", frameon=True, framealpha=1.0, edgecolor="#bbbbbb", fancybox=False, handlelength=1.8)
-        axs[-1].set_xlabel(f"{TEXTOS[lg]['tempo']} ({ut})")
+        for k, ax in enumerate(axs):                         # o tempo embaixo de cada coluna (o último painel dela)
+            if k + cols >= n:
+                ax.set_xlabel(f"{TEXTOS[lg]['tempo']} ({ut})")
+                ax.xaxis.set_tick_params(labelbottom=True)
         ext, tipo = FORMATOS[formato]
         buf = io.BytesIO()
         extra = {"dpi": 600} if formato in ("png", "tiff") else {"dpi": 150} if formato == "previa" else {}

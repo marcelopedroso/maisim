@@ -40,7 +40,7 @@ function fmtTempo(s) {
 let ESTILOS = {}, RODADAS = [];
 const R = { arq: "", meta: {}, canais: [], t0: 0, t1: 0 };   // a rodada A
 let arqB = "", paineis = [], estilo = {}, janela = { t0: null, t1: null };
-const PADRAO_ESTILO = { preset: "ieee1", largura: null, altura: null, fonte: null, corpo: null, legenda: "melhor", lingua: "", grade: true, letras: false, pb: false };
+const PADRAO_ESTILO = { preset: "ieee1", largura: null, altura: null, fonte: null, corpo: null, colunas: 1, legenda: "melhor", lingua: "", grade: true, letras: false, pb: false };
 const dono = (meta) => String((meta && (meta.chave_layout || meta.modelo || meta.planta)) || "");
 const chave = () => (dono(R.meta) ? `maisim-figuras-v1:${dono(R.meta)}` : "");
 const guarda = () => { if (chave()) guardaJSON(chave(), { paineis, estilo, janela }); };
@@ -165,6 +165,7 @@ function desenhaEstilo() {
   const e = ESTILOS[estilo.preset] || ESTILOS.ieee1 || {};
   opcoes($("sel-estilo"), Object.keys(ESTILOS).map((k) => [k, tr(`fig.est.${k}`)]), estilo.preset);
   opcoes($("sel-fonte"), [["serif", tr("fig.fonte.serif")], ["sans", tr("fig.fonte.sans")]], estilo.fonte || e.fonte || "serif");
+  opcoes($("sel-colunas"), [["1", "1"], ["2", "2"], ["3", "3"]], String(estilo.colunas || 1));
   opcoes($("sel-legenda"), [["melhor", tr("fig.leg.melhor")], ["acima", tr("fig.leg.acima")], ["nenhuma", tr("fig.leg.nenhuma")]], estilo.legenda);
   opcoes($("sel-lingua"), [["", tr("fig.ling.pagina")], ["pt", tr("fig.ling.pt")], ["en", tr("fig.ling.en")]], estilo.lingua || "");
   $("larg").value = String(estilo.largura ?? e.largura ?? "").replace(".", maisimI18n.lingua() === "en" ? "." : ",");
@@ -176,6 +177,7 @@ const num = (v) => { const x = parseFloat(String(v).replace(",", ".")); return N
 $("sel-estilo").addEventListener("change", (e) => { estilo = { ...estilo, preset: e.target.value, largura: null, altura: null, fonte: null, corpo: null }; desenhaEstilo(); mudou(); });
 $("sel-fonte").addEventListener("change", (e) => { estilo.fonte = e.target.value; mudou(); });
 $("sel-legenda").addEventListener("change", (e) => { estilo.legenda = e.target.value; mudou(); });
+$("sel-colunas").addEventListener("change", (e) => { estilo.colunas = parseInt(e.target.value, 10) || 1; mudou(); });
 $("sel-lingua").addEventListener("change", (e) => { estilo.lingua = e.target.value; mudou(); });
 $("larg").addEventListener("input", (e) => { estilo.largura = num(e.target.value); mudou(); });
 $("alt").addEventListener("input", (e) => { estilo.altura = num(e.target.value); mudou(); });
