@@ -45,11 +45,18 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
   @media (max-width: 860px) { main { grid-template-columns:1fr; } }
   .cartao { background:var(--cartao); border:1px solid var(--borda); border-radius:10px; padding:10px 12px; margin-bottom:12px; }
   .cartao h2 { font-size:13px; margin:0 0 8px; text-transform:uppercase; letter-spacing:.04em; color:var(--sutil); }
+  /* os cartões que recolhem (o título é o botão; guardado no navegador) */
+  .dobra { all:unset; cursor:pointer; display:inline-flex; align-items:center; gap:4px; }
+  .dobra:focus-visible { outline:2px solid var(--acento); outline-offset:2px; border-radius:4px; }
+  .dobra .seta { display:inline-block; transition:transform .15s; font-size:11px; }
+  .dobravel.recolhida .dobra .seta { transform:rotate(-90deg); }
+  .dobravel.recolhida h2 { margin:0; } .dobravel.recolhida .corpo { display:none; }
   .campo { display:flex; align-items:center; gap:8px; margin:6px 0; flex-wrap:wrap; }
   .campo > label:first-child, .campo > span:first-child { min-width:92px; color:var(--sutil); }
   .campo select, .campo input[type=text] { flex:1 1 120px; min-width:0; }
   .campo input.curto { flex:0 0 76px; } #t0, #t1 { flex:0 0 104px; }
-  .comparacao { display:grid; grid-template-columns:22px 1fr 96px auto; gap:6px; align-items:center; margin:6px 0; }
+  .comparacao { display:grid; grid-template-columns:22px 1fr auto; gap:4px 6px; align-items:center; margin:8px 0; }
+  .comparacao input { grid-column:2 / 4; }   /* o rótulo sempre embaixo, na largura toda */
   .comparacao .letra { color:var(--sutil); font-weight:600; text-align:center; }
   .comparacao select { min-width:0; } .comparacao button { padding:1px 7px; }
   .info { color:var(--sutil); font-size:12px; margin-top:4px; }
@@ -101,34 +108,41 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
 </header>
 <main>
   <div id="lado-ajustes">
-    <section class="cartao">
-      <h2 data-tr="fig.rodada.titulo">Rodada</h2>
-      <div class="campo"><label for="sel-a">A</label><select id="sel-a"></select></div>
-      <div class="campo"><label for="rot-a" data-tr="fig.rodada.rotulo">Rótulo</label><input type="text" id="rot-a" placeholder="A" data-tr-placeholder="fig.rodada.rot_a"></div>
+    <section class="cartao dobravel" data-sec="dados">
+      <h2><button type="button" class="dobra" aria-expanded="true"><span class="seta" aria-hidden="true">▾</span> <span data-tr="fig.rodada.titulo">Dados</span></button></h2>
+      <div class="corpo">
+      <div class="comparacao"><span class="letra">A</span><select id="sel-a" aria-label="A"></select><span></span>
+        <input type="text" id="rot-a" placeholder="A (na legenda, ao comparar)" data-tr-ph="fig.rodada.rot_a" title="rótulo" data-tr-title="fig.rodada.rotulo"></div>
       <div id="comparacoes"></div>
       <div class="botoes"><button type="button" id="bt-comparar" data-tr="fig.rodada.mais_comparar">+ Comparar com outra rodada</button></div>
       <div class="info" id="info-rodada"></div>
+      </div>
     </section>
-    <section class="cartao">
-      <h2 data-tr="fig.janela.titulo">Janela de tempo</h2>
+    <section class="cartao dobravel" data-sec="janela">
+      <h2><button type="button" class="dobra" aria-expanded="true"><span class="seta" aria-hidden="true">▾</span> <span data-tr="fig.janela.titulo">Janela de tempo</span></button></h2>
+      <div class="corpo">
       <div class="campo"><label for="t0" data-tr="fig.janela.de">De</label><input type="text" id="t0" class="curto" placeholder="0">
         <label for="t1" data-tr="fig.janela.ate">até</label><input type="text" id="t1" class="curto">
         <button type="button" id="bt-inteira" data-tr="fig.janela.inteira">Rodada inteira</button></div>
       <div class="info" id="info-janela"></div>
+      </div>
     </section>
-    <section class="cartao">
-      <h2 data-tr="fig.paineis.titulo">Painéis</h2>
+    <section class="cartao dobravel" data-sec="graficos">
+      <h2><button type="button" class="dobra" aria-expanded="true"><span class="seta" aria-hidden="true">▾</span> <span data-tr="fig.paineis.titulo">Gráficos</span></button></h2>
+      <div class="corpo">
       <div id="paineis"></div>
       <div class="botoes"><button type="button" id="bt-painel" data-tr="fig.paineis.mais">+ Painel</button>
         <button type="button" id="bt-do-scope" data-tr="fig.paineis.do_scope" title="os painéis desta rodada no scope (o layout do circuito)" data-tr-title="fig.paineis.t_do_scope">Do scope</button>
         <button type="button" id="bt-grandeza" data-tr="fig.paineis.por_grandeza" title="um painel por grandeza: as tensões juntas, as correntes juntas…" data-tr-title="fig.paineis.t_por_grandeza">Por grandeza</button>
         <button type="button" id="bt-tudo" data-tr="fig.paineis.tudo">Um painel com tudo</button></div>
+      </div>
     </section>
-    <section class="cartao">
-      <h2 data-tr="fig.estilo.titulo">Estilo</h2>
+    <section class="cartao dobravel" data-sec="estilo">
+      <h2><button type="button" class="dobra" aria-expanded="true"><span class="seta" aria-hidden="true">▾</span> <span data-tr="fig.estilo.titulo">Estilo</span></button></h2>
+      <div class="corpo">
       <div class="campo"><label for="sel-estilo" data-tr="fig.estilo.pronto">Estilo</label><select id="sel-estilo"></select></div>
       <div class="campo"><label for="larg" data-tr="fig.estilo.tamanho">Tamanho (cm)</label><input type="text" id="larg" class="curto">
-        <span>×</span><input type="text" id="alt" class="curto" placeholder="auto" data-tr-placeholder="fig.estilo.auto"></div>
+        <span>×</span><input type="text" id="alt" class="curto" placeholder="auto" data-tr-ph="fig.estilo.auto"></div>
       <div class="campo"><label for="sel-fonte" data-tr="fig.estilo.fonte">Fonte</label><select id="sel-fonte"></select>
         <input type="text" id="corpo" class="curto" title="corpo da fonte, em pt" data-tr-title="fig.estilo.t_corpo"><span>pt</span></div>
       <div class="campo"><label for="sel-colunas" data-tr="fig.estilo.por_linha">Gráficos por linha</label><select id="sel-colunas"></select></div>
@@ -137,6 +151,7 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
       <div class="campo"><span></span><label><input type="checkbox" id="ck-grade" checked> <span data-tr="fig.estilo.grade">grade</span></label>
         <label><input type="checkbox" id="ck-letras"> <span data-tr="fig.estilo.letras">(a), (b)…</span></label>
         <label><input type="checkbox" id="ck-pb"> <span data-tr="fig.estilo.pb">preto e branco</span></label></div>
+      </div>
     </section>
   </div>
   <div id="lado-previa">

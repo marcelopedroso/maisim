@@ -211,8 +211,8 @@ function desenhaComparacoes() {
   comparar.forEach((c, i) => {
     const d = document.createElement("div"); d.className = "comparacao";
     d.innerHTML = `<span class="letra">${String.fromCharCode(66 + i)}</span><select aria-label="${escH(tr("fig.rodada.comparar"))}">${RODADAS.map(op).join("")}</select>
-      <input type="text" placeholder="${escH(tr("fig.rodada.rot_comp", { letra: String.fromCharCode(66 + i) }))}" value="${escH(c.rotulo || "")}" aria-label="${escH(tr("fig.rodada.rotulo"))}">
-      <button type="button" title="${escH(tr("fig.rodada.tira_comp"))}" aria-label="${escH(tr("fig.rodada.tira_comp"))}">✕</button>`;
+      <button type="button" title="${escH(tr("fig.rodada.tira_comp"))}" aria-label="${escH(tr("fig.rodada.tira_comp"))}">✕</button>
+      <input type="text" placeholder="${escH(tr("fig.rodada.rot_comp", { letra: String.fromCharCode(66 + i) }))}" value="${escH(c.rotulo || "")}" aria-label="${escH(tr("fig.rodada.rotulo"))}">`;
     const sel = d.querySelector("select"); sel.value = c.arq;
     sel.addEventListener("change", () => { c.arq = sel.value; mudou(); });
     d.querySelector("input").addEventListener("input", (e) => { c.rotulo = e.target.value; mudou(); });
@@ -307,6 +307,17 @@ window.addEventListener("maisim-tema", acompanhaTema);
 try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", acompanhaTema); } catch (e) { /* ok */ }
 maisimI18n.aoMudar(() => { desenhaRodadas(); desenhaPaineis(); desenhaEstilo(); desenhaJanela();
   if (R.arq) $("info-rodada").textContent = tr("fig.rodada.info", { n: R.canais.length, dur: fmtTempo(R.t1 - R.t0) }); mudou(); });
+
+// ---- os cartões que recolhem (Marcelo, 30/10): o título abre e fecha; guardado neste navegador
+(() => {
+  const fechados = new Set(lerJSON("maisim-figuras-recolhidos", []));
+  document.querySelectorAll(".dobravel").forEach((c) => {
+    const bt = c.querySelector(".dobra"), poe = (r) => { c.classList.toggle("recolhida", r); bt.setAttribute("aria-expanded", String(!r)); };
+    poe(fechados.has(c.dataset.sec));
+    bt.addEventListener("click", () => { const r = !c.classList.contains("recolhida"); poe(r);
+      if (r) fechados.add(c.dataset.sec); else fechados.delete(c.dataset.sec); guardaJSON("maisim-figuras-recolhidos", [...fechados]); });
+  });
+})();
 
 // ---- a partida: os estilos, as rodadas e a escolhida (?a=, ou a que veio do scope: "Abrir no Figuras")
 (async () => {
