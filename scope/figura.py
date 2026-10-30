@@ -41,10 +41,15 @@ TRACOS_COMP = ["--", ":", "-.", (0, (5, 1, 1, 1, 1, 1)), (0, (8, 2))]   # as rod
 CLARO = [0.35, 0.5, 0.62, 0.72, 0.8]
 PB = [("#000000", "-"), ("#000000", "--"), ("#555555", "-"), ("#000000", ":"), ("#555555", "--"), ("#000000", "-.")]
 GREGAS = {"theta", "omega", "alpha", "beta", "gamma", "delta", "phi", "psi", "tau", "lambda", "mu", "sigma", "eta", "rho"}
-TEXTOS = {"pt": {"tempo": "Tempo", "V": "Tensão", "A": "Corrente", "W": "Potência", "°C": "Temperatura", "rpm": "Velocidade",
-                 "rad": "Ângulo", "rad/s": "Velocidade angular", "N·m": "Torque"},
-          "en": {"tempo": "Time", "V": "Voltage", "A": "Current", "W": "Power", "°C": "Temperature", "rpm": "Speed",
-                 "rad": "Angle", "rad/s": "Angular speed", "N·m": "Torque"}}
+TEXTOS = ("pt", "en")                                 # os idiomas da figura; os rótulos (figura.eixo.*) no textos_scope.py
+GRANDEZAS = {"V": "tensao", "A": "corrente", "W": "potencia", "°C": "temperatura", "rpm": "velocidade", "rad": "angulo",
+             "rad/s": "vel_angular", "N·m": "torque"}
+
+
+def rotulo(chave, lg):
+    """Um rótulo da figura (o tempo, a grandeza do eixo Y) no idioma dela, não no do pedido."""
+    with lingua.com(lg):
+        return lingua.tr(f"figura.eixo.{chave}")
 RE_NOME = re.compile(r"^([A-Za-z]{1,6})((?:_[A-Za-z0-9]+)*)$")
 trava = threading.Lock()                                 # o rcParams do matplotlib é global: uma figura por vez
 
@@ -125,7 +130,7 @@ def rotulo_y(sinais, lingua_fig):
     u = us.pop() if len(us) == 1 else ""
     if len(sinais) == 1:
         return f"{nome_mat(sinais[0])} ({u})" if u else nome_mat(sinais[0])
-    return f"{TEXTOS[lingua_fig].get(u, '')} ({u})".strip() if u else ""
+    return f"{rotulo(GRANDEZAS[u], lingua_fig)} ({u})" if u in GRANDEZAS else ""
 
 
 def envelope(t, y, max_pontos=MAX_PONTOS):
@@ -279,7 +284,7 @@ def figura(pedido, resolve=lambda rel: Path(rel)):
         for k, ax in enumerate(axs):                         # o tempo embaixo de cada coluna (o último gráfico dela); a letra
             embaixo = f"({chr(97 + k)})" if letras == "embaixo" and n > 1 else ""   # (a), (b)… embaixo de cada um, no centro
             if k + cols >= n:                                # (o padrão IEEE; no último, logo abaixo do tempo)
-                ax.set_xlabel(f"{TEXTOS[lg]['tempo']} ({ut})" + (f"\n{embaixo}" if embaixo else ""), linespacing=1.6)
+                ax.set_xlabel(f"{rotulo('tempo', lg)} ({ut})" + (f"\n{embaixo}" if embaixo else ""), linespacing=1.6)
                 ax.xaxis.set_tick_params(labelbottom=True)
             elif embaixo:
                 ax.set_xlabel(embaixo)

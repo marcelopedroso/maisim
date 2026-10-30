@@ -12,10 +12,11 @@ const B = "http://localhost:7200";
 const DADO = [".rodada .info", "#so-circ > span", "#maisim-nav .marca", "#maisim-nav .pct", '[lang="en"]',   // [lang=en]: inglês de propósito (o slogan)
   // o simu: o circuito (nomes, rótulos, sinais), o código, os nomes da paleta, o histórico, a conversa, o nome do arquivo
   "#svg", "#ctl-editor", "#ctl-diag-svg", "#itens .item", "#hist li", "#cc-msgs", "#trilha", "#titulo-pagina", "#sel-modelo", "#info",
-  "#abas", "#bt-modelo", "#bt-globais", ".mat"];   // as abas da paleta (os grupos do catálogo do Gecko), o arquivo aberto, o $x; .mat: um sinal em notação (htmlMat)
+  "#abas", "#bt-modelo", "#bt-globais", ".mat",
+  ".chip .nome-sinal", "#lista-sinais .itens", "#estilo-sinal .titulo", "#info-rodada"];   // o Figuras: os nomes dos sinais e a rodada   // as abas da paleta (os grupos do catálogo do Gecko), o arquivo aberto, o $x; .mat: um sinal em notação (htmlMat)
 // iguais nos dois idiomas: números e símbolos, uma letra (atalho), nomes de arquivo .py, sinais (com _), m["…"] e p["…"] do
 // código, os nomes dos produtos
-const LIVRE = new RegExp([/^[\s\d.,:;%·\-−+×…/()°ΩµkMGBVAHzs→‹›✕▾▴]*$/, /^(MaiSim|PT|EN|OK|Scope|Layout ▾|\?|Ts|i|[A-Z])$/,
+const LIVRE = new RegExp([/^[\s\d.,:;%·\-−+×…/()°ΩµkMGBVAHzs→‹›✕▾▴↑↓]*$/, /^(MaiSim|PT|EN|OK|Scope|Layout ▾|\?|Ts|i|[A-Z]|PDF|SVG|EPS|pt)$/,
   /^[\w.-]+\.py(:\d+)?$/, /^[A-Za-z]+_\w+$/, /^[mp]\["…"\]$/,
   /^((Claude|Code|Anthropic|Cursor|CLI|·)\s*)+$/].map((r) => r.source).join("|"));
 
@@ -32,7 +33,7 @@ async function preparaSimu(pg) {
 }
 async function abreIA(pg) { await pg.click("#bt-claude", { timeout: 3000 }).catch(() => {}); await pg.waitForTimeout(1500); }
 // as páginas prontas (cada PR de tradução põe a sua aqui): [nome, endereço, [[o que abrir antes de varrer, função]…]]
-const PRONTAS = [["página inicial", "/"], ["scope", "/maisim/scope/"],
+const PRONTAS = [["página inicial", "/"], ["scope", "/maisim/scope/"], ["figuras", "/maisim/figuras/"],
   ["simu", "/maisim/simu/?modelo=exemplos/exemplo_controle_pi.ipes", [["a aba Controle e uma tabela", preparaSimu], ["a janela da IA", abreIA]]]];
 // a casca do simu (o HTML traduzido) e os títulos que o código troca: ida ao inglês e volta devolvem o mesmo português
 const fotoCasca = () => [...document.querySelectorAll("[data-tr],[data-tr-html],[data-tr-title],[data-tr-ph],[data-tr-aria],[data-tr-msg],#ctl-lado-bt,th[data-col]")]

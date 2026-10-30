@@ -86,8 +86,8 @@ function desenhaPaineis() {
       <div class="sinais">${p.sinais.map((c) => `<span class="chip" data-c="${escH(c)}" style="--cor:${escH(estiloSinal(c, p).cor)}"><button type="button" class="nome-sinal" title="${escH(tr("fig.sinal.t_estilo"))}">${htmlMat(c)}</button><button type="button" class="tira-sinal" title="${escH(tr("fig.painel.tira_sinal"))}" aria-label="${escH(tr("fig.painel.tira_sinal"))}">✕</button></span>`).join("")}
         <button type="button" class="mais-sinais">${escH(tr("fig.painel.mais_sinais"))} ▾</button></div>
       <div class="campo"><label>${escH(tr("fig.painel.ylabel"))}</label><input type="text" class="ylabel" placeholder="${escH(tr("fig.painel.auto"))}" value="${escH(p.ylabel ?? "")}"></div>
-      <div class="campo"><label>${escH(tr("fig.painel.y"))}</label><input type="text" class="curto ymin" placeholder="auto" value="${p.ymin ?? ""}">
-        <span>${escH(tr("fig.janela.ate"))}</span><input type="text" class="curto ymax" placeholder="auto" value="${p.ymax ?? ""}"></div>
+      <div class="campo"><label>${escH(tr("fig.painel.y"))}</label><input type="text" class="curto ymin" placeholder="${escH(tr("fig.estilo.auto"))}" value="${p.ymin ?? ""}">
+        <span>${escH(tr("fig.janela.ate"))}</span><input type="text" class="curto ymax" placeholder="${escH(tr("fig.estilo.auto"))}" value="${p.ymax ?? ""}"></div>
       ${p.sinais.length ? "" : `<div class="info">${escH(tr("fig.painel.vazio"))}</div>`}`;
     d.querySelectorAll(".tira-sinal").forEach((bt) => bt.addEventListener("click", () => {
       p.sinais = p.sinais.filter((c) => c !== bt.parentElement.dataset.c); mudou(true); }));
@@ -231,7 +231,7 @@ async function abreRodada(arq, de = null) {
   if (!r || r.erro) { estado((r && r.erro) || tr("fig.rodada.erro"), true); return; }
   Object.assign(R, { arq, meta: r.meta || {}, canais: r.canais || [], t0: r.t0, t1: r.t1 });
   const salvo = lerJSON(chave(), null);
-  if (de) { paineis = de.paineis; janela = { t0: de.t0 ?? null, t1: de.t1 ?? null }; comparar = de.arqB ? [{ arq: de.arqB, rotulo: "" }] : []; }
+  if (de) { paineis = (de.paineis || []).length ? de.paineis : (doScope() || porGrandeza()); janela = { t0: de.t0 ?? null, t1: de.t1 ?? null }; comparar = de.arqB ? [{ arq: de.arqB, rotulo: "" }] : []; }
   else if (salvo && Array.isArray(salvo.paineis)) {
     paineis = salvo.paineis.map((p) => ({ ...p, sinais: (p.sinais || []).filter((c) => R.canais.includes(c)) }));
     janela = salvo.janela || { t0: null, t1: null };

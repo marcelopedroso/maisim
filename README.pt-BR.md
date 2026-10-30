@@ -19,6 +19,7 @@ um assistente de IA (Claude Code) que vê o circuito, o código de controle e as
 |---|---|---|
 | **simu** (`/maisim/simu`) | o editor de circuitos (paleta, fios, subcircuitos, variáveis globais), o controle em Python amostrado a cada Ts, as rodadas e a conversa com a IA | [`simu/LEIA.md`](simu/LEIA.md), [`simu/GUIA_CONTROLE.md`](simu/GUIA_CONTROLE.md) |
 | **scope** (`/maisim/scope`) | os gráficos das rodadas: ao vivo, comparar duas rodadas, seções e painéis, vistas exportáveis | [`scope/LEIA.md`](scope/LEIA.md) |
+| **figuras** (`/maisim/figuras`) | figuras para artigo a partir das rodadas gravadas: gráficos empilhados ou lado a lado, estilos de revista (IEEE, Elsevier, MDPI, tese, slides), Times New Roman/STIX/Arial, PDF, SVG e EPS (vetoriais, as fontes embutidas) e PNG/TIFF a 600 dpi, comparando quantas rodadas quiser (matplotlib) | [`scope/figura.py`](scope/figura.py) |
 | **gecko** (`/maisim/gecko`) | a janela do GeckoCIRCUITS de verdade, numa tela virtual, aberta no navegador (noVNC) | [`gecko/LEIA.md`](gecko/LEIA.md) |
 | **app** | a página inicial e o menu lateral (servidos pelo Python, `app/pagina.py`), que levam aos outros módulos; instalável como aplicativo (PWA) | [`app/public/marca/LEIA.md`](app/public/marca/LEIA.md) |
 
@@ -55,7 +56,7 @@ Para mexer no código, rode a partir do código-fonte (abaixo).
 
 Linux (testado no Ubuntu 22.04 e no WSL2):
 
-- **Python 3** com **numpy**;
+- **Python 3** com **numpy** (e o **matplotlib**, para o módulo Figuras: `pip install matplotlib`);
 - **Java 11 (JDK)**, **Maven** e **git**, para construir o GeckoCIRCUITS;
 - **Node.js 22** só para rodar os testes de tela (a página é servida pelo Python, `app/pagina.py`);
 - a tela virtual e o noVNC: `xvfb x11vnc novnc websockify x11-utils libxtst6` (mais o `openbox`, opcional, para as

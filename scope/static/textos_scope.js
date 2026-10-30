@@ -236,6 +236,11 @@ maisimI18n.add({
   "scope.p.h_alta": { pt: "alta", en: "tall" },
   "scope.p.img": { pt: "Imagem", en: "Image" },
   "scope.p.png": { pt: "Salvar PNG deste painel", en: "Save this panel as PNG" },
+  "scope.p.figuras": { pt: "Abrir no Figuras (para artigo)", en: "Open in Figures (for papers)" },
+  "scope.p.t_figuras": { pt: "o módulo Figuras, com esta gravação, os painéis à vista e o zoom: PDF, SVG, EPS e 600 dpi",
+    en: "the Figures module, with this recording, the visible panels and the zoom: PDF, SVG, EPS and 600 dpi" },
+  "scope.p.t_figuras_vivo": { pt: "ao vivo ainda não há gravação: espere a rodada acabar (ou escolha uma no Comparar)",
+    en: "live, there is no recording yet: wait for the run to finish (or pick one in Compare)" },
   "scope.novo_painel": { pt: "Novo painel", en: "New panel" },
   "scope.painel_rodada": { pt: "Sinais da rodada {rotulo}", en: "Run signals {rotulo}" },
 

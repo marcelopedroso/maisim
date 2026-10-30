@@ -1522,14 +1522,29 @@ function alcaEstica(p) {
   h.ondblclick = (ev) => { ev.stopPropagation(); p.largura = larguraPadrao; p.altura = 220; aplicaLargura(p); guardaLayout(); criaGrafico(p); setTimeout(redimensiona, 0); };
 }
 function aplicaLargura(p) { p.el.style.setProperty("--span", String(6 / p.largura)); }
+// "Abrir no Figuras" (o módulo das figuras para artigo): leva a gravação, os painéis à vista (este primeiro) e o zoom atual;
+// pelo localStorage (a página nova é outra janela), lido uma vez e só nos 60 s seguintes
+function abreNoFiguras(p, m) {
+  if (!(A && A.arq)) return;
+  const vis = paineis().filter((q) => !q.xy && q.el && q.el.offsetParent && q.sinais.length);
+  const ordem = [p, ...vis.filter((q) => q !== p)].filter((q) => !q.xy && q.sinais.length);
+  const f = faixaX(p), de = { quando: Date.now(), arq: A.arq, arqB: (B && B.arq) || "",
+    paineis: ordem.map((q) => ({ sinais: q.sinais.filter((c) => A.dados && c in A.dados), ylabel: null, ymin: null, ymax: null })).filter((q) => q.sinais.length),
+    t0: f ? f[0] / 1e3 : null, t1: f ? f[1] / 1e3 : null };
+  try { localStorage.setItem("maisim-figuras-do-scope", JSON.stringify(de)); } catch (e) { /* sem armazenamento: abre só com a gravação */ }
+  window.open(`/maisim/figuras/?a=${encodeURIComponent(A.arq)}`, "maisim-figuras");
+  if (m) m.remove();
+}
 function menuOpc(p) {
   const m = document.createElement("div"); m.className = "menu menu-opc";
   m.innerHTML = `<h4>${escH(tr("scope.p.l_titulo"))}</h4><div class="seg">${LARGURAS.map(([n, r]) => `<button data-l="${n}" class="${p.largura === n ? "ativo" : ""}">${r || escH(tr("scope.p.l_inteira"))}</button>`).join("")}</div>
     <h4>${escH(tr("scope.p.h_titulo"))}</h4><div class="seg">${ALTURAS.map(([h, r]) => `<button data-h="${h}" class="${p.altura === h ? "ativo" : ""}">${escH(tr(`scope.p.h_${r}`))}</button>`).join("")}</div>
-    <h4>${escH(tr("scope.p.img"))}</h4><button class="o-png">${escH(tr("scope.p.png"))}</button>`;
+    <h4>${escH(tr("scope.p.img"))}</h4><button class="o-png">${escH(tr("scope.p.png"))}</button>
+    <button class="o-figuras" ${A && A.arq ? "" : "disabled"} title="${escH(tr(A && A.arq ? "scope.p.t_figuras" : "scope.p.t_figuras_vivo"))}">${escH(tr("scope.p.figuras"))}</button>`;
   m.querySelectorAll("[data-l]").forEach((b) => b.onclick = () => { p.largura = +b.dataset.l; aplicaLargura(p); guardaLayout(); m.remove(); setTimeout(redimensiona, 0); });
   m.querySelectorAll("[data-h]").forEach((b) => b.onclick = () => { p.altura = +b.dataset.h; guardaLayout(); criaGrafico(p); m.remove(); });
   m.querySelector(".o-png").onclick = () => { baixa(canvasPainel(p), `${nomeArq(p.titulo)}.png`); m.remove(); };
+  m.querySelector(".o-figuras").onclick = () => abreNoFiguras(p, m);
   return m;
 }
 function adicionaPainel(cfg, posicao) {
@@ -2248,7 +2263,7 @@ async function carrega(arq) {
         const H = dv.getUint32(4, true), cab = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 8, H)));
         const base = Math.ceil((8 + H) / 8) * 8, dados = {};
         for (const k of cab.canais) dados[k.nome] = new TIPOS_BIN[k.tipo](buf, base + k.desloc, k.n);
-        return { meta: cab.meta, dados };
+        return { meta: cab.meta, dados, arq };          // (o arq: o "Abrir no Figuras" leva a gravação)
       }
     }
   } catch (e) { /* servidor antigo ou resposta estranha: cai no JSON */ }
@@ -2258,7 +2273,7 @@ async function carrega(arq) {
     const nome = arq.split("/").pop(), erro = j && j.erro;
     status(() => tr("scope.st.nao_abriu", { arq: nome, erro: erro || tr("scope.st.nao_existe") })); return null;
   }
-  return j;
+  return { ...j, arq };
 }
 function entraComparar() {
   modo = "comparar"; $("bt-comparar").classList.add("ativo"); $("bt-vivo").classList.remove("ativo"); avisaSimu();
