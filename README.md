@@ -20,6 +20,7 @@ AI assistant (Claude Code) that sees the circuit, the control code and the runs.
 |---|---|---|
 | **simu** (`/maisim/simu`) | the circuit editor (palette, wires, subcircuits, global variables), Python control sampled every Ts, runs, and the AI chat | [`simu/LEIA.md`](simu/LEIA.md), [`simu/GUIA_CONTROLE.en.md`](simu/GUIA_CONTROLE.en.md) |
 | **scope** (`/maisim/scope`) | plots of the runs: live, compare two runs, sections and panels, exportable views | [`scope/LEIA.md`](scope/LEIA.md) |
+| **figures** (`/maisim/figuras`) | paper figures from the saved runs: stacked or side-by-side plots, journal styles (IEEE, Elsevier, MDPI, thesis, slides), Times New Roman/STIX/Arial, PDF, SVG and EPS (vector, fonts embedded) and PNG/TIFF at 600 dpi, compare any number of runs (matplotlib) | [`scope/figura.py`](scope/figura.py) |
 | **gecko** (`/maisim/gecko`) | the real GeckoCIRCUITS window on a virtual display, opened in the browser (noVNC) | [`gecko/LEIA.md`](gecko/LEIA.md) |
 | **app** | the home page and side menu (served by Python, `app/pagina.py`), which routes to the other modules; installable as an app (PWA) | [`app/public/marca/LEIA.md`](app/public/marca/LEIA.md) |
 
@@ -55,7 +56,7 @@ To change the code, run it from source (below).
 
 Linux (tested on Ubuntu 22.04 and WSL2):
 
-- **Python 3** with **numpy**;
+- **Python 3** with **numpy** (and **matplotlib**, for the Figures module: `pip install matplotlib`);
 - **Java 11 (JDK)**, **Maven** and **git**, to build GeckoCIRCUITS;
 - **Node.js 22** only to run the screen tests (the page itself is served by Python, `app/pagina.py`);
 - the virtual display and noVNC: `xvfb x11vnc novnc websockify x11-utils libxtst6` (plus `openbox`, optional, so the

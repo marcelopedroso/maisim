@@ -78,6 +78,7 @@ def vida():
 
 # para onde vai cada caminho: (prefixo, porta, tira o prefixo?)
 ROTAS = (("/maisim/simu", "MAISIM_PORTA_SIMU", False), ("/maisim/scope", "MAISIM_PORTA_SCOPE", False),
+         ("/maisim/figuras", "MAISIM_PORTA_SCOPE", False),          # o módulo Figuras: servido pelo scope (as rodadas são dele)
          ("/maisim/gecko", "MAISIM_PORTA_TELA", True))
 
 

@@ -30,6 +30,7 @@ import ler_config  # noqa: E402
 ler_config.aplica()                          # as portas e as pastas (config/padrao.env, o perfil, o .env)
 import lingua  # noqa: E402                    o idioma de cada pedido (português e inglês)
 import textos_scope  # noqa: E402,F401         os textos do scope nos dois idiomas (registra o catálogo)
+import figura  # noqa: E402                     as figuras para artigo (o módulo Figuras; o matplotlib só ao gerar)
 
 AQUI = Path(__file__).parent
 RAIZ = AQUI.parent                          # a raiz do projeto
@@ -59,6 +60,7 @@ def permitido(arq):
 TIPOS = {".html": "text/html; charset=utf-8", ".js": "application/javascript", ".css": "text/css"}
 
 PREFIXO = "/maisim/scope"
+FIGURAS = "/maisim/figuras"                 # o módulo Figuras (figuras para artigo): a página e a figura, com as rodadas daqui
 vivo = {"meta": None, "dados": {}, "fim": False, "n": 0}
 PARTIDA = time.strftime("%Y%m%d%H%M%S")   # com o número da rodada, identifica cada rodada publicada (mesmo depois de reiniciar)
 clientes = []
@@ -237,9 +239,12 @@ class Manipulador(BaseHTTPRequestHandler):
         self.wfile.write(corpo)
 
     def _rota(self):
-        """(url, rota sem o prefixo /maisim/scope): /maisim/scope/eventos e /eventos dão a mesma rota."""
+        """(url, rota sem o prefixo /maisim/scope ou /maisim/figuras): /maisim/scope/eventos e /eventos dão a mesma rota."""
         u = urlparse(self.path)
-        return u, (u.path[len(PREFIXO):] if u.path.startswith(PREFIXO + "/") else u.path)
+        for pre in (PREFIXO, FIGURAS):
+            if u.path.startswith(pre + "/"):
+                return u, u.path[len(pre):]
+        return u, u.path
 
     def do_GET(self):
         lingua.do_pedido(self.headers)
@@ -251,8 +256,17 @@ class Manipulador(BaseHTTPRequestHandler):
             return
         if u.path == PREFIXO + "/":
             return self._resposta(200, (AQUI / "static" / "index.html").read_bytes(), TIPOS[".html"])
+        if u.path == FIGURAS:
+            self.send_response(302)
+            self.send_header("Location", FIGURAS + "/" + (("?" + u.query) if u.query else ""))
+            self.end_headers()
+            return
+        if u.path == FIGURAS + "/":
+            return self._resposta(200, (AQUI / "static" / "figuras" / "index.html").read_bytes(), TIPOS[".html"])
         if rota.startswith("/static/"):
             arq = (AQUI / "static" / Path(rota).name)
+            if u.path.startswith(FIGURAS + "/") and (AQUI / "static" / "figuras" / Path(rota).name).is_file():
+                arq = AQUI / "static" / "figuras" / Path(rota).name                 # os do Figuras; o resto, os do scope
             if rota in ("/static/maisim-i18n.js", "/static/maisim-dica.js"):   # as traduções e as dicas: um arquivo só, o da
                 arq = RAIZ / "app" / "public" / Path(rota).name                   # página inicial (app/public)
             if arq.is_file():
@@ -270,6 +284,21 @@ class Manipulador(BaseHTTPRequestHandler):
                                 "pasta": bool(d), "pasta_tam": tamanho_pasta(d) if d else st.st_size,
                                 "guardada": bool(d and (d / GUARDADA).exists()), **resumo_meta(f, meta)})
             return self._resposta(200, sorted(lst, key=lambda x: -x["mtime"]))
+        if rota == "/estilos":                         # o Figuras: os estilos prontos (largura, fonte, corpo) e as fontes instaladas
+            try:
+                fs = figura.fontes()
+            except ImportError:                        # sem o matplotlib: a página mostra o aviso ao gerar
+                fs = {k: not f.get("precisa") for k, f in figura.FONTES.items()}
+            return self._resposta(200, {"estilos": figura.ESTILOS, "fontes": fs})
+        if rota == "/canais":                          # o Figuras: os sinais, a meta e o começo e o fim do tempo de uma rodada
+            arq = caminho(parse_qs(u.query).get("arq", [""])[0])
+            if not permitido(arq) or not arq.name.startswith("scope_") or not arq.is_file():
+                return self._resposta(400, {"erro": lingua.tr("scope_srv.arquivo_invalido")})
+            d = np.load(arq, allow_pickle=False)
+            t = d["t"] if "t" in d.files else np.zeros(1)
+            return self._resposta(200, {"meta": json.loads(str(d["meta"])) if "meta" in d.files else {},
+                                        "canais": [k for k in d.files if k not in ("meta", "t")],
+                                        "t0": float(t[0]) if len(t) else 0.0, "t1": float(t[-1]) if len(t) else 0.0})
         if rota == "/orfas":                           # as pastas de rodada sem gravação (para apagar junto)
             ps = pastas_orfas()
             return self._resposta(200, {"n": len(ps), "tamanho": sum(tamanho_pasta(d) for d in ps)})
@@ -337,6 +366,8 @@ class Manipulador(BaseHTTPRequestHandler):
         rota = self._rota()[1]
         if rota == "/apagar":
             return self._apagar()
+        if rota == "/figura":
+            return self._figura()
         if rota != "/publicar":
             return self._resposta(404, {"erro": lingua.tr("scope_srv.rota_desconhecida")})
         corpo = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
@@ -358,6 +389,26 @@ class Manipulador(BaseHTTPRequestHandler):
                 vivo["fim"] = True
             difunde("fim", {})
         return self._resposta(200, {"ok": True})
+
+    def _figura(self):
+        """A figura para artigo (figura.py): o arquivo no formato pedido, ou a prévia em PNG. Só a página do MaiSim
+        (X-MaiSim): gera arquivo a partir das gravações daqui."""
+        if self.headers.get("X-MaiSim") != "1":
+            return self._resposta(403, {"erro": lingua.tr("figura.so_maisim")})
+        try:
+            corpo = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+        except ValueError:
+            return self._resposta(400, {"erro": lingua.tr("scope_srv.arquivo_invalido")})
+        def resolve(rel):
+            arq = caminho(str(rel or ""))
+            if not permitido(arq) or not arq.name.startswith("scope_") or not arq.is_file():
+                raise figura.ErroFigura(lingua.tr("scope_srv.arquivo_invalido"))
+            return arq
+        try:
+            dados, tipo = figura.figura(corpo, resolve)
+        except figura.ErroFigura as e:
+            return self._resposta(503 if "matplotlib" in str(e) else 400, {"erro": str(e)})
+        return self._resposta(200, dados, tipo)
 
     def _apagar(self):
         """Apaga gravações pedidas pela tela: só scope_*.npz das pastas do scope; de uma rodada do simu, a pasta inteira

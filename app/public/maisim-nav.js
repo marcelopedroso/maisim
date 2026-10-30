@@ -20,6 +20,7 @@
     "nav.simu": { pt: "Simu · monte e simule", en: "Simu · build and simulate" },
     "nav.codigo": { pt: "Código · o controle em outra janela", en: "Code · the control in its own window" },
     "nav.scope": { pt: "Scope · rodadas e medição", en: "Scope · runs and measurement" },
+    "nav.figuras": { pt: "Figuras · figuras para artigo", en: "Figures · paper figures" },
     "nav.ia": { pt: "IA do MaiSim: as contas", en: "MaiSim AI: the accounts" },
     "nav.ia_conectadas": { pt: { one: "IA: {nomes} conectado (clique: as contas)", other: "IAs conectadas: {nomes} (clique: as contas)" },
       en: { one: "AI: {nomes} connected (click: the accounts)", other: "AIs connected: {nomes} (click: the accounts)" } },
@@ -93,6 +94,9 @@
     // o scope também numa janela só dele (para outro monitor, ao vivo enquanto o circuito roda)
     { href: "/maisim/scope/", chave: "nav.scope", janela: "maisim-scope", ativo: (p) => p.startsWith("/maisim/scope"),
       icone: svg('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M5 14c2-6 3-6 4 0s2 6 4 0 3-6 4 0 2 4 2 4"/>') },
+    // as figuras para artigo (Marcelo, 29/10): um módulo à parte do scope, a partir das rodadas gravadas
+    { href: "/maisim/figuras/", chave: "nav.figuras", ativo: (p) => p.startsWith("/maisim/figuras"),
+      icone: svg('<path d="M6 2.8h8.6L19 7.2V21.2H6z"/><path d="M14.6 2.8v4.4H19"/><path d="M8.6 17.2l2.7-3.6 2.3 2.2 3-4.6"/>') },   // uma folha com um gráfico
   ];
   // a marca do MaiSim: o diodo com o brilho de IA (public/marca/)
   const MARCA = '<path d="M1 14H4.2M18.6 14H23" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4.2 7L17.2 14L4.2 21Z" fill="#2b2440" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M18.6 7V21" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M10.6 0.6C11 3.3 11.7 4 14.4 4.4 11.7 4.8 11 5.5 10.6 8.2 10.2 5.5 9.5 4.8 6.8 4.4 9.5 4 10.2 3.3 10.6 0.6Z" fill="currentColor"/><path d="M15.6 1C15.75 2 16 2.25 17 2.4 16 2.55 15.75 2.8 15.6 3.8 15.45 2.8 15.2 2.55 14.2 2.4 15.2 2.25 15.45 2 15.6 1Z" fill="currentColor"/>';

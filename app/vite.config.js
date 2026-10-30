@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 // A página inicial (index.html, o menu public/maisim-nav.js) e os módulos do MaiSim encaminhados por aqui, para tudo ficar numa porta só:
 //   /maisim/simu   → monte e simule circuitos, com o Gecko como cérebro (simu/servidor.py, MAISIM_PORTA_SIMU)
 //   /maisim/scope  → o scope (scope/servidor.py, MAISIM_PORTA_SCOPE)
+//   /maisim/figuras → o módulo Figuras (o mesmo servidor do scope)
 //   /maisim/gecko  → a tela do GeckoCIRCUITS no navegador: noVNC + websockify (MAISIM_PORTA_TELA) sobre um Xvfb com o Gecko
 //                    (gecko/sobe.sh); o websocket do VNC passa por aqui também (ws: true)
 // As portas vêm de config/ (padrao.env, o perfil de MAISIM_PERFIL, o .env da raiz e o ambiente), pelo mesmo leitor dos
@@ -17,6 +18,7 @@ const local = (porta) => `http://localhost:${CFG[porta]}`
 const fecha = (proxy) => proxy.on('proxyRes', (proxyRes) => { proxyRes.headers.connection = 'close' })
 const proxy = {
     '/maisim/scope': { target: local('MAISIM_PORTA_SCOPE'), changeOrigin: true, configure: fecha },
+    '/maisim/figuras': { target: local('MAISIM_PORTA_SCOPE'), changeOrigin: true, configure: fecha },   // o módulo Figuras (servido pelo scope)
     '/maisim/simu': { target: local('MAISIM_PORTA_SIMU'), changeOrigin: true, configure: fecha },
     '/maisim/gecko': { target: local('MAISIM_PORTA_TELA'), changeOrigin: true, ws: true, rewrite: (p) => p.replace(/^\/maisim\/gecko/, '') },
 }
