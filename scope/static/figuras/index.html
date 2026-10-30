@@ -22,6 +22,7 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
 </script>
 <script src="static/maisim-i18n.js"></script>
 <script data-src="static/maisim-i18n.js">/* reserva: sem o maisim-i18n.js (a conexão caiu), o português; tenta de novo e o de verdade assume */window.maisimI18n||(function(){var d={},o=[],h=function(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]})},f=function(k,p){var e=d[k],v=e?e.pt:k;if(v&&typeof v==="object")v=p&&p.n===1?v.one:v.other;return p?String(v).replace(/\{(\w+)\}/g,function(m,x){return x in p?(/_html$/.test(k)?h(p[x]):String(p[x])):m}):v};window.maisimI18n={reserva:true,add:function(x){for(var k in x)d[k]=x[k]},dicionario:function(){return d},tr:f,tem:function(k){return k in d},lingua:function(){return"pt"},local:function(){return"pt-BR"},muda:function(){},aoMudar:function(g){o.push(g)},ouvintes:function(){return o},aplica:function(){},data:function(x,o){return new Date(x).toLocaleString("pt-BR",o)},hora:function(x,o){return new Date(x).toLocaleTimeString("pt-BR",o||{hour:"2-digit",minute:"2-digit"})},num:function(x,o){return Number(x).toLocaleString("pt-BR",o)},escH:function(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]})}};window.tr=f;var s=document.createElement("script");s.src=document.currentScript.getAttribute("data-src");s.async=false;document.head.appendChild(s)})()</script>  <!-- português e inglês (o idioma do trilho), antes de pintar -->
+<script src="static/textos_scope.js"></script>   <!-- os nomes das cores clássicas (scope.cor.*) -->
 <script src="static/textos_figuras.js"></script>  <!-- os textos do Figuras (pt e en) -->
 <style>
   /* o tema (claro e escuro), as mesmas variáveis do scope; a figura fica numa "folha" branca nos dois (é o que vai para o artigo) */
@@ -67,6 +68,16 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
   .lista-sinais .itens { overflow:auto; padding:0 8px 6px; flex:1 1 auto; }
   .lista-sinais label { display:flex; align-items:center; gap:6px; padding:3px 2px; cursor:pointer; }
   .lista-sinais label[hidden] { display:none; }
+  .chip .nome-sinal { border:0; background:transparent; padding:0; color:inherit; font:inherit; cursor:pointer; }
+  .chip .nome-sinal:hover { text-decoration:underline dotted; }
+  .estilo-sinal { width:236px; padding:8px; gap:6px; }
+  .estilo-sinal .titulo { font-weight:600; }
+  .estilo-sinal .cores { display:grid; grid-template-columns:repeat(8, 22px); gap:5px; align-items:center; }
+  .estilo-sinal .cor { width:22px; height:22px; border-radius:50%; border:2px solid var(--cartao); box-shadow:0 0 0 1px var(--borda); padding:0; }
+  .estilo-sinal .cor.atual { box-shadow:0 0 0 2px var(--texto); }
+  .estilo-sinal .cor-livre { width:22px; height:22px; padding:0; border:0; background:transparent; }
+  .estilo-sinal .campo > label:first-child { min-width:70px; }
+  .estilo-sinal .pe { padding:4px 0 0; border:0; }
   .lista-sinais .pe { display:flex; gap:6px; padding:6px 8px; border-top:1px solid var(--borda); }
   .mat { font-family:KaTeX_Main, "Latin Modern Roman", "Times New Roman", serif; font-size:1.08em; }
   .mat .mb { font-style:italic; } .mat sub { font-size:.78em; }

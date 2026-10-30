@@ -36,7 +36,7 @@ ESTILOS = {
 }
 FORMATOS = {"previa": ("png", "image/png"), "png": ("png", "image/png"), "tiff": ("tiff", "image/tiff"),
             "pdf": ("pdf", "application/pdf"), "svg": ("svg", "image/svg+xml"), "eps": ("eps", "application/postscript")}
-TRACOS = {"continua": "-", "tracejada": "--", "pontilhada": ":"}
+TRACOS = {"continua": "-", "tracejada": "--", "pontilhada": ":", "traco_ponto": "-."}
 PB = [("#000000", "-"), ("#000000", "--"), ("#555555", "-"), ("#000000", ":"), ("#555555", "--"), ("#000000", "-.")]
 GREGAS = {"theta", "omega", "alpha", "beta", "gamma", "delta", "phi", "psi", "tau", "lambda", "mu", "sigma", "eta", "rho"}
 TEXTOS = {"pt": {"tempo": "Tempo", "V": "Tensão", "A": "Corrente", "W": "Potência", "°C": "Temperatura", "rpm": "Velocidade",

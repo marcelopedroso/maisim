@@ -5,6 +5,12 @@
 "use strict";
 const $ = (id) => document.getElementById(id);
 const escH = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+// as cores clássicas do scope (os nomes: scope.cor.*, do textos_scope.js) e as espessuras dele
+const CLASSICAS = [["vermelho", "#e41a1c"], ["vermelho_escuro", "#8b0000"], ["laranja", "#ff7f0e"], ["marrom", "#8c564b"], ["ouro", "#b8860b"],
+  ["verde", "#2ca02c"], ["verde_escuro", "#006400"], ["ciano", "#17becf"], ["azul", "#1f77b4"], ["azul_escuro", "#0b3d91"], ["roxo", "#9467bd"],
+  ["magenta", "#d62ab0"], ["cinza", "#7f7f7f"], ["preto", "#111111"]];
+const ESPESSURAS = [[0.8, "fina"], [1.3, "media"], [2, "grossa"], [3, "bem_grossa"]];
+const TRACOS = ["continua", "tracejada", "pontilhada", "traco_ponto"];
 const PALETA = ["#1f77b4", "#d62728", "#2ca02c", "#ff7f0e", "#9467bd", "#8c564b", "#e377c2", "#17becf", "#bcbd22", "#7f7f7f"];   // a do scope
 // a notação dos nomes (a regra do scope, partesMat: v_o → v com índice o)
 const RE_MAT = /(^|[^\p{L}\p{N}_])([A-Za-z]{1,4})_([A-Za-z0-9]+(?:_[A-Za-z0-9]+)*)(?![\p{L}\p{N}_])/gu;
@@ -40,10 +46,12 @@ const chave = () => (dono(R.meta) ? `maisim-figuras-v1:${dono(R.meta)}` : "");
 const guarda = () => { if (chave()) guardaJSON(chave(), { paineis, estilo, janela }); };
 
 // ---- os sinais e os painéis
-function estiloSinal(canal) {
+// a cor, a espessura e o traço de um sinal: os do scope, com o que se escolheu para esta figura por cima (p.estilos, por painel)
+function estiloSinal(canal, p) {
   const cores = lerJSON("maisim-scope-cores", {}), esp = lerJSON("maisim-scope-espessuras", {}), tr_ = lerJSON("maisim-scope-tracos", {});
   const idx = Math.max(0, R.canais.indexOf(canal));
-  return { canal, cor: /^#[0-9a-f]{6}$/i.test(cores[canal] || "") ? cores[canal] : PALETA[idx % PALETA.length], esp: esp[canal] || 1.3, traco: tr_[canal] || "continua" };
+  const base = { canal, cor: /^#[0-9a-f]{6}$/i.test(cores[canal] || "") ? cores[canal] : PALETA[idx % PALETA.length], esp: esp[canal] || 1.3, traco: tr_[canal] || "continua" };
+  return { ...base, ...((p && p.estilos && p.estilos[canal]) || {}) };
 }
 function doScope() {                                    // os painéis desta rodada no scope (o layout guardado do circuito)
   const L = lerJSON(`maisim-scope-layout-v5:${dono(R.meta)}`, null);
@@ -75,7 +83,7 @@ function desenhaPaineis() {
       <button type="button" class="sobe" title="${escH(tr("fig.painel.sobe"))}" ${k ? "" : "disabled"}>↑</button>
       <button type="button" class="desce" title="${escH(tr("fig.painel.desce"))}" ${k < paineis.length - 1 ? "" : "disabled"}>↓</button>
       <button type="button" class="tira" title="${escH(tr("fig.painel.tira"))}">✕</button></div>
-      <div class="sinais">${p.sinais.map((c) => `<span class="chip" data-c="${escH(c)}" style="--cor:${escH(estiloSinal(c).cor)}">${htmlMat(c)}<button type="button" class="tira-sinal" title="${escH(tr("fig.painel.tira_sinal"))}" aria-label="${escH(tr("fig.painel.tira_sinal"))}">✕</button></span>`).join("")}
+      <div class="sinais">${p.sinais.map((c) => `<span class="chip" data-c="${escH(c)}" style="--cor:${escH(estiloSinal(c, p).cor)}"><button type="button" class="nome-sinal" title="${escH(tr("fig.sinal.t_estilo"))}">${htmlMat(c)}</button><button type="button" class="tira-sinal" title="${escH(tr("fig.painel.tira_sinal"))}" aria-label="${escH(tr("fig.painel.tira_sinal"))}">✕</button></span>`).join("")}
         <button type="button" class="mais-sinais">${escH(tr("fig.painel.mais_sinais"))} ▾</button></div>
       <div class="campo"><label>${escH(tr("fig.painel.ylabel"))}</label><input type="text" class="ylabel" placeholder="${escH(tr("fig.painel.auto"))}" value="${escH(p.ylabel ?? "")}"></div>
       <div class="campo"><label>${escH(tr("fig.painel.y"))}</label><input type="text" class="curto ymin" placeholder="auto" value="${p.ymin ?? ""}">
@@ -84,6 +92,7 @@ function desenhaPaineis() {
     d.querySelectorAll(".tira-sinal").forEach((bt) => bt.addEventListener("click", () => {
       p.sinais = p.sinais.filter((c) => c !== bt.parentElement.dataset.c); mudou(true); }));
     d.querySelector(".mais-sinais").addEventListener("click", (e) => abreLista(e.currentTarget, p));
+    d.querySelectorAll(".nome-sinal").forEach((bt) => bt.addEventListener("click", () => abreEstilo(bt, p, bt.parentElement.dataset.c)));
     d.querySelector(".ylabel").addEventListener("input", (e) => { p.ylabel = e.target.value === "" ? null : e.target.value; mudou(); });
     for (const k2 of ["ymin", "ymax"]) d.querySelector("." + k2).addEventListener("input", (e) => {
       const v = parseFloat(String(e.target.value).replace(",", ".")); p[k2] = Number.isFinite(v) ? v : null; mudou(); });
@@ -96,7 +105,35 @@ function desenhaPaineis() {
 
 // a lista dos sinais de um painel (Marcelo, 30/10: "com muitos sinais, tem que ser dropdown, que só mostra os selecionados"):
 // um filtro em cima e uma caixa por sinal; marcar e desmarcar muda o painel na hora; Esc, clicar fora ou o botão de novo fecha
-function fechaLista() { const m = document.getElementById("lista-sinais"); if (m) { m.remove(); return true; } return false; }
+function fechaLista() { let f = false; for (const id of ["lista-sinais", "estilo-sinal"]) { const m = document.getElementById(id); if (m) { m.remove(); f = true; } } return f; }
+const poeAbaixo = (m, bt) => { const r = bt.getBoundingClientRect();
+  m.style.left = `${Math.max(8, Math.min(r.left, innerWidth - m.offsetWidth - 8))}px`; m.style.top = `${r.bottom + 4 + scrollY}px`; };
+// o estilo de um sinal nesta figura (clique no nome): a cor (as clássicas do scope ou uma qualquer), o traço e a espessura;
+// "Como no scope" volta aos do scope. Só a figura muda (o scope continua com os dele)
+function abreEstilo(bt, p, canal) {
+  const aberta = document.getElementById("estilo-sinal"), mesma = aberta && aberta.dataset.de === `${paineis.indexOf(p)}|${canal}`;
+  fechaLista(); if (mesma) return;
+  const e = estiloSinal(canal, p), m = document.createElement("div");
+  m.id = "estilo-sinal"; m.className = "lista-sinais estilo-sinal"; m.dataset.de = `${paineis.indexOf(p)}|${canal}`;
+  m.innerHTML = `<div class="titulo">${htmlMat(canal)}</div>
+    <div class="cores">${CLASSICAS.map(([n, c]) => `<button type="button" class="cor${c === e.cor ? " atual" : ""}" data-cor="${c}" style="background:${c}" title="${escH(tr(`scope.cor.${n}`))}" aria-label="${escH(tr(`scope.cor.${n}`))}"></button>`).join("")}
+      <input type="color" class="cor-livre" value="${escH(e.cor)}" title="${escH(tr("fig.sinal.outra_cor"))}" aria-label="${escH(tr("fig.sinal.outra_cor"))}"></div>
+    <div class="campo"><label>${escH(tr("fig.sinal.traco"))}</label><select class="traco">${TRACOS.map((t) => `<option value="${t}">${escH(tr(`fig.traco.${t}`))}</option>`).join("")}</select></div>
+    <div class="campo"><label>${escH(tr("fig.sinal.espessura"))}</label><select class="esp">${ESPESSURAS.map(([v, n]) => `<option value="${v}">${escH(tr(`fig.esp.${n}`))}</option>`).join("")}</select></div>
+    <div class="pe"><button type="button" class="volta">${escH(tr("fig.sinal.como_scope"))}</button></div>`;
+  document.body.appendChild(m); poeAbaixo(m, bt);
+  m.querySelector(".traco").value = TRACOS.includes(e.traco) ? e.traco : "continua";
+  m.querySelector(".esp").value = String(ESPESSURAS.reduce((a, [v]) => (Math.abs(v - e.esp) < Math.abs(a - e.esp) ? v : a), 1.3));
+  const muda = (x) => { p.estilos = { ...(p.estilos || {}), [canal]: { ...((p.estilos || {})[canal] || {}), ...x } }; mudou(true);
+    const novo = [...document.querySelectorAll("#paineis .painel")][paineis.indexOf(p)];
+    const b2 = novo && [...novo.querySelectorAll(".chip")].find((c) => c.dataset.c === canal); if (b2) poeAbaixo(m, b2);
+    m.querySelectorAll(".cor").forEach((c) => c.classList.toggle("atual", c.dataset.cor === estiloSinal(canal, p).cor)); };
+  m.querySelectorAll(".cor").forEach((c) => c.addEventListener("click", () => muda({ cor: c.dataset.cor })));
+  m.querySelector(".cor-livre").addEventListener("input", (ev) => muda({ cor: ev.target.value }));
+  m.querySelector(".traco").addEventListener("change", (ev) => muda({ traco: ev.target.value }));
+  m.querySelector(".esp").addEventListener("change", (ev) => muda({ esp: parseFloat(ev.target.value) }));
+  m.querySelector(".volta").onclick = () => { if (p.estilos) delete p.estilos[canal]; fechaLista(); mudou(true); };
+}
 function abreLista(bt, p) {
   const aberta = document.getElementById("lista-sinais"), mesma = aberta && aberta.dataset.de === String(paineis.indexOf(p));
   fechaLista(); if (mesma) return;
@@ -117,7 +154,7 @@ function abreLista(bt, p) {
   m.querySelector(".nenhum").onclick = () => { m.querySelectorAll(".itens label:not([hidden]) input").forEach((ck) => { ck.checked = false; }); aplica(); };
   m.querySelector(".filtro").focus();
 }
-document.addEventListener("mousedown", (e) => { if (!e.target.closest("#lista-sinais, .mais-sinais")) fechaLista(); });
+document.addEventListener("mousedown", (e) => { if (!e.target.closest("#lista-sinais, #estilo-sinal, .mais-sinais, .nome-sinal, #maisim-lista")) fechaLista(); });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") fechaLista(); });
 
 // ---- o estilo
@@ -192,7 +229,7 @@ $("bt-grandeza").onclick = () => { paineis = porGrandeza(); mudou(true); };
 
 // ---- a prévia e os arquivos
 function pedido(formato) {
-  const ps = paineis.filter((p) => p.sinais.length).map((p) => ({ sinais: p.sinais.map(estiloSinal), ylabel: p.ylabel, ymin: p.ymin, ymax: p.ymax }));
+  const ps = paineis.filter((p) => p.sinais.length).map((p) => ({ sinais: p.sinais.map((c) => estiloSinal(c, p)), ylabel: p.ylabel, ymin: p.ymin, ymax: p.ymax }));
   const lg = estilo.lingua || (maisimI18n.lingua() === "en" ? "en" : "pt");
   return { arq: R.arq, arqB: arqB || null, t0: janela.t0, t1: janela.t1, paineis: ps, estilo: { ...estilo, lingua: lg }, formato };
 }
