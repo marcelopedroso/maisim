@@ -34,7 +34,8 @@ ok(abre("/bin/true", "  ") == ["/bin/true", f"--app={URL}"], "MAISIM_APP_ID só 
 ok(abre("nenhum", "kloknaljbhbdmmnembbaklkjdkcbfkgk") is None, "MAISIM_NAVEGADOR=nenhum: não abre nada")
 subprocess.Popen = POPEN
 # o atalho (o --mostrar não cria nada; fora do WSL, com as pastas do Windows por extenso)
-env = {k: v for k, v in os.environ.items() if not k.startswith("MAISIM_")}
+env = {k: v for k, v in os.environ.items() if not k.startswith("MAISIM_") and k not in ("LC_ALL", "LC_MESSAGES")}
+env["LANG"] = "pt_BR.UTF-8"                              # as linhas do --mostrar em português (o fala.sh segue o idioma do terminal)
 def mostra(**e):
     r = subprocess.run(["bash", str(R / "app/scripts/atalho_windows.sh"), "--mostrar"], capture_output=True, text=True, env={**env, **e}, timeout=60)
     return r.returncode, r.stdout
@@ -47,5 +48,8 @@ ok(linhas.get("abrir.vbs roda, escondido") == f'wsl.exe -d Ubuntu-22.04 --cd "{R
 ok(linhas.get("janela", "").startswith("a do --app"), f"sem MAISIM_APP_ID: {linhas.get('janela')}")
 cod, out = mostra(WSL_DISTRO_NAME="Ubuntu-22.04", MAISIM_APP_ID="kloknaljbhbdmmnembbaklkjdkcbfkgk")
 ok(cod == 0 and "janela: o app instalado (MAISIM_APP_ID)" in out, "com MAISIM_APP_ID: a janela do app instalado")
+cod, out = mostra(WSL_DISTRO_NAME="Ubuntu-22.04", LANG="C.UTF-8")
+ok(cod == 0 and "shortcut: " in out and "abrir.vbs runs, hidden: wsl.exe -d Ubuntu-22.04" in out and "window: the --app one" in out,
+   "em inglês (LANG=C): shortcut, target, icon, abrir.vbs runs, window")
 ok(subprocess.run(["bash", str(R / "app/scripts/atalho_windows.sh"), "--outra"], capture_output=True, env=env).returncode == 2, "opção desconhecida: recusada (saída 2)")
 sys.exit(1 if falhas else 0)

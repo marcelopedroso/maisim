@@ -28,12 +28,13 @@ LOCAL=${LOCAL:-"%LOCALAPPDATA%"}; MESA=${MESA:-"%USERPROFILE%\\Desktop"}
 PASTA_W="$LOCAL\\MaiSim-dev"; LNK_W="$MESA\\MaiSim (dev).lnk"
 CMD="wsl.exe -d $DISTRO --cd \"$RAIZ\" -- bash -lc \"exec app/scripts/maisim.sh --abrir\""
 if [ "$MODO" = --mostrar ]; then
-  echo "atalho: $LNK_W"
-  echo "alvo: %WINDIR%\\System32\\wscript.exe \"$PASTA_W\\abrir.vbs\""
-  echo "ícone: $PASTA_W\\maisim.ico"
-  echo "abrir.vbs roda, escondido: $CMD"
-  [ -n "$(cd "$RAIZ" && python3 config/ler_config.py --shell 2>/dev/null | grep -E "^export MAISIM_APP_ID='?[a-p]{32}")" ] \
-    && echo "janela: o app instalado (MAISIM_APP_ID)" || echo "janela: a do --app (sem MAISIM_APP_ID no .env)"
+  fala "atalho: $LNK_W" "shortcut: $LNK_W"
+  fala "alvo: %WINDIR%\\System32\\wscript.exe \"$PASTA_W\\abrir.vbs\"" "target: %WINDIR%\\System32\\wscript.exe \"$PASTA_W\\abrir.vbs\""
+  fala "ícone: $PASTA_W\\maisim.ico" "icon: $PASTA_W\\maisim.ico"
+  fala "abrir.vbs roda, escondido: $CMD" "abrir.vbs runs, hidden: $CMD"
+  if [ -n "$(cd "$RAIZ" && python3 config/ler_config.py --shell 2>/dev/null | grep -E "^export MAISIM_APP_ID='?[a-p]{32}")" ]; then
+    fala "janela: o app instalado (MAISIM_APP_ID)" "window: the installed app (MAISIM_APP_ID)"
+  else fala "janela: a do --app (sem MAISIM_APP_ID no .env)" "window: the --app one (no MAISIM_APP_ID in .env)"; fi
   exit 0
 fi
 PASTA=$(wslpath -u "$PASTA_W"); LNK=$(wslpath -u "$LNK_W")
