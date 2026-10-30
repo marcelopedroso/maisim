@@ -87,6 +87,7 @@ maisimI18n.add({
   "fig.previa.gerando": { pt: "gerando a prévia…", en: "making the preview…" },
   "fig.previa.tam": { pt: "{l} × {a} cm", en: "{l} × {a} cm" },
   "fig.previa.vazia": { pt: "escolha uma rodada e marque os sinais", en: "pick a run and tick the signals" },
+  "fig.exp.baixar": { pt: "Baixar:", en: "Download:" },
   "fig.exp.png": { pt: "PNG 600 dpi", en: "PNG 600 dpi" },
   "fig.exp.tiff": { pt: "TIFF 600 dpi", en: "TIFF 600 dpi" },
   "fig.exp.info": { pt: "PDF, SVG e EPS são vetoriais, com as fontes embutidas; PNG e TIFF a 600 dpi.",

@@ -87,6 +87,7 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
            justify-content:center; align-items:center; min-height:260px; }
   .folha { background:#fff; box-shadow:0 1px 6px rgba(0,0,0,.18); max-width:100%; display:block; }
   .folha[hidden] { display:none; }
+  #exportar { align-items:center; } .rot-baixar { color:var(--sutil); margin-right:2px; }   /* os formatos: ações iguais, nenhum "escolhido" */
   #estado { color:var(--sutil); margin-top:6px; min-height:1.3em; }
 </style>
 </head>
@@ -137,8 +138,8 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
       <h2 data-tr="fig.previa.titulo">Prévia</h2>
       <div class="folha-moldura"><img id="previa" class="folha" alt="" hidden></div>
       <div id="estado"></div>
-      <div class="botoes" id="exportar">
-        <button type="button" class="prim" data-formato="pdf">PDF</button>
+      <div class="botoes" id="exportar"><span class="rot-baixar" data-tr="fig.exp.baixar">Baixar:</span>
+        <button type="button" data-formato="pdf">PDF</button>
         <button type="button" data-formato="svg">SVG</button>
         <button type="button" data-formato="eps">EPS</button>
         <button type="button" data-formato="png" data-tr="fig.exp.png">PNG 600 dpi</button>
