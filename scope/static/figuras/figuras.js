@@ -256,7 +256,8 @@ $("bt-grandeza").onclick = () => { paineis = porGrandeza(); mudou(true); };
 function pedido(formato) {
   const ps = paineis.filter((p) => p.sinais.length).map((p) => ({ sinais: p.sinais.map((c) => estiloSinal(c, p)), ylabel: p.ylabel, ymin: p.ymin, ymax: p.ymax }));
   const lg = estilo.lingua || (maisimI18n.lingua() === "en" ? "en" : "pt");
-  return { arq: R.arq, rotuloA, comparar: comparar.filter((c) => c.arq), t0: janela.t0, t1: janela.t1, paineis: ps, estilo: { ...estilo, lingua: lg }, formato };
+  return { arq: R.arq, rotuloA, comparar: comparar.filter((c) => c.arq), t0: janela.t0, t1: janela.t1, paineis: ps,
+    estilo: { ...estilo, lingua: lg, fonte: $("sel-fonte").value || estilo.fonte }, formato };   // a fonte que a lista mostra
 }
 async function gera(formato) {
   const r = await fetch("figura", { method: "POST", headers: { "Content-Type": "application/json", "X-MaiSim": "1" }, body: JSON.stringify(pedido(formato)) });
