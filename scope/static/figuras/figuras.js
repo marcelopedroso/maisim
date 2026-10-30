@@ -164,9 +164,9 @@ function opcoes(sel, lista, valor) {
 function desenhaEstilo() {
   const e = ESTILOS[estilo.preset] || ESTILOS.ieee1 || {};
   opcoes($("sel-estilo"), Object.keys(ESTILOS).map((k) => [k, tr(`fig.est.${k}`)]), estilo.preset);
-  // as fontes: a Times e a Arial se estão instaladas (senão, a parecida que vem junto); o estilo pronto diz serifada ou não
-  const fid = { serif: "times", sans: "arial" }[estilo.fonte || e.fonte] || estilo.fonte || "times";
-  opcoes($("sel-fonte"), ["times", "arial", "stix", "dejavu"].map((k) => [k, tr(`fig.fonte.${k}`) + (FONTES[k] === false ? ` (${tr("fig.fonte.nao_instalada")})` : "")]), fid);
+  // as fontes: a STIX é a padrão dos serifados (Marcelo, 30/10); a Times e a Arial se estão instaladas (senão, a parecida)
+  const fid = { serif: "stix", sans: "arial" }[estilo.fonte || e.fonte] || estilo.fonte || "stix";
+  opcoes($("sel-fonte"), ["stix", "times", "arial", "dejavu"].map((k) => [k, tr(`fig.fonte.${k}`) + (FONTES[k] === false ? ` (${tr("fig.fonte.nao_instalada")})` : "")]), fid);
   opcoes($("sel-colunas"), [["1", "1"], ["2", "2"], ["3", "3"]], String(estilo.colunas || 1));
   opcoes($("sel-legenda"), ["auto", "sd", "se", "id", "ie", "acima", "nenhuma"].map((k) => [k, tr(`fig.leg.${k}`)]), estilo.legenda === "melhor" ? "auto" : estilo.legenda);
   opcoes($("sel-lingua"), [["", tr("fig.ling.pagina")], ["pt", tr("fig.ling.pt")], ["en", tr("fig.ling.en")]], estilo.lingua || "");

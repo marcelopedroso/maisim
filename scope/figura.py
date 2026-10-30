@@ -58,7 +58,7 @@ FONTES = {
     "stix": dict(familia="serif", lista=["STIXGeneral"], mat="stix"),
     "dejavu": dict(familia="sans-serif", lista=["DejaVu Sans"], mat="dejavusans"),
 }
-_ANTIGAS = {"serif": "times", "sans": "arial"}            # os estilos e os ajustes guardados de antes
+_ANTIGAS = {"serif": "stix", "sans": "arial"}             # o que o estilo pronto diz (serifada: a STIX é a padrão) e os ajustes de antes
 _registradas = []
 
 
@@ -216,7 +216,7 @@ def figura(pedido, resolve=lambda rel: Path(rel)):
     altura = float(est.get("altura") or min(24.0, 1.2 + est["painel"] * linhas))
     registra_fontes()
     fid = _ANTIGAS.get(est.get("fonte"), est.get("fonte"))
-    fonte = FONTES.get(fid, FONTES["times"])
+    fonte = FONTES.get(fid, FONTES["stix"])
     if fonte.get("precisa") and not fontes().get(fid, True):  # sem a Times (ou a Arial) instalada: a que vem com o matplotlib
         fonte = FONTES["stix" if fonte["familia"] == "serif" else "dejavu"]
     corpo = float(est.get("corpo") or 8)
