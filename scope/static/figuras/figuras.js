@@ -173,7 +173,8 @@ function desenhaEstilo() {
   $("larg").value = String(estilo.largura ?? e.largura ?? "").replace(".", maisimI18n.lingua() === "en" ? "." : ",");
   $("alt").value = estilo.altura == null ? "" : String(estilo.altura);
   $("corpo").value = String(estilo.corpo ?? e.corpo ?? "");
-  $("ck-grade").checked = estilo.grade !== false; $("ck-letras").checked = !!estilo.letras; $("ck-pb").checked = !!estilo.pb;
+  $("ck-grade").checked = estilo.grade !== false; $("ck-pb").checked = !!estilo.pb;
+  opcoes($("sel-letras"), ["", "embaixo", "em_cima"].map((k) => [k, tr(`fig.letras.${k || "nao"}`)]), estilo.letras === true ? "embaixo" : estilo.letras || "");
 }
 const num = (v) => { const x = parseFloat(String(v).replace(",", ".")); return Number.isFinite(x) && x > 0 ? x : null; };
 $("sel-estilo").addEventListener("change", (e) => { estilo = { ...estilo, preset: e.target.value, largura: null, altura: null, fonte: null, corpo: null }; desenhaEstilo(); mudou(); });
@@ -184,7 +185,8 @@ $("sel-lingua").addEventListener("change", (e) => { estilo.lingua = e.target.val
 $("larg").addEventListener("input", (e) => { estilo.largura = num(e.target.value); mudou(); });
 $("alt").addEventListener("input", (e) => { estilo.altura = num(e.target.value); mudou(); });
 $("corpo").addEventListener("input", (e) => { estilo.corpo = num(e.target.value); mudou(); });
-for (const [id, k] of [["ck-grade", "grade"], ["ck-letras", "letras"], ["ck-pb", "pb"]]) $(id).addEventListener("change", (e) => { estilo[k] = e.target.checked; mudou(); });
+$("sel-letras").addEventListener("change", (e) => { estilo.letras = e.target.value; mudou(); });
+for (const [id, k] of [["ck-grade", "grade"], ["ck-pb", "pb"]]) $(id).addEventListener("change", (e) => { estilo[k] = e.target.checked; mudou(); });
 
 // ---- a janela de tempo
 function desenhaJanela() {

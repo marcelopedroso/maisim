@@ -262,7 +262,8 @@ def figura(pedido, resolve=lambda rel: Path(rel)):
             if est.get("grade", True):
                 ax.grid(True)
             leg = {"melhor": "auto"}.get(est.get("legenda"), est.get("legenda") or "auto")
-            if est.get("letras") and n > 1:                   # em cima do painel, à esquerda (a legenda "no melhor lugar" não a cobre);
+            letras = {True: "embaixo", False: "", None: ""}.get(est.get("letras"), est.get("letras"))
+            if letras == "em_cima" and n > 1:                # em cima do gráfico, à esquerda (a legenda automática não a cobre);
                 if leg == "acima":                            # com a legenda acima, dentro, no canto
                     ax.text(0.012, 0.96, f"({chr(97 + k)})", transform=ax.transAxes, va="top", ha="left")
                 else:
@@ -274,10 +275,14 @@ def figura(pedido, resolve=lambda rel: Path(rel)):
                 else:                                        # automático (o canto mais livre) ou um dos quatro cantos
                     loc = {"sd": "upper right", "se": "upper left", "id": "lower right", "ie": "lower left"}.get(leg, "best")
                     ax.legend(loc=loc, frameon=True, framealpha=1.0, edgecolor="#bbbbbb", fancybox=False, handlelength=1.8)
-        for k, ax in enumerate(axs):                         # o tempo embaixo de cada coluna (o último painel dela)
-            if k + cols >= n:
-                ax.set_xlabel(f"{TEXTOS[lg]['tempo']} ({ut})")
+        letras = {True: "embaixo", False: "", None: ""}.get(est.get("letras"), est.get("letras"))
+        for k, ax in enumerate(axs):                         # o tempo embaixo de cada coluna (o último gráfico dela); a letra
+            embaixo = f"({chr(97 + k)})" if letras == "embaixo" and n > 1 else ""   # (a), (b)… embaixo de cada um, no centro
+            if k + cols >= n:                                # (o padrão IEEE; no último, logo abaixo do tempo)
+                ax.set_xlabel(f"{TEXTOS[lg]['tempo']} ({ut})" + (f"\n{embaixo}" if embaixo else ""), linespacing=1.6)
                 ax.xaxis.set_tick_params(labelbottom=True)
+            elif embaixo:
+                ax.set_xlabel(embaixo)
         ext, tipo = FORMATOS[formato]
         buf = io.BytesIO()
         extra = {"dpi": 600} if formato in ("png", "tiff") else {"dpi": 150} if formato == "previa" else {}
