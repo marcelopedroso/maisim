@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # O MaiSim para Linux num arquivo só (AppImage): baixa, marca como executável e abre, sem instalar nada além da tela virtual
-# (Xvfb, do sistema). Leva dentro: um Python portátil (python-build-standalone) com o NumPy, um Java (JRE Temurin 11), o
+# (Xvfb, do sistema). Leva dentro: um Python portátil (python-build-standalone) com o NumPy e o matplotlib, um Java (JRE Temurin 11), o
 # Gecko com os patches (gecko/construir.sh), o motor do editor compilado, o Monaco local (simu/vendor.sh) e o código do
 # MaiSim desta versão (git archive). O AppRun chama app/lancador.py --produto --abrir (os dados em ~/MaiSim).
 #
@@ -17,6 +17,8 @@ mkdir -p "$C" "$OUT"; rm -rf "$A"; mkdir -p "$A"
 PY_URL=https://github.com/astral-sh/python-build-standalone/releases/download/20261021/cpython-3.11.17+20261021-x86_64-unknown-linux-gnu-install_only.tar.gz
 JRE_URL=https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.32.1%2B1/OpenJDK11U-jre_x64_linux_hotspot_11.0.32.1_1.tar.gz
 NUMPY=2.2.6
+# o matplotlib (as figuras para artigo, o módulo Figuras) e as dependências dele, nas versões do CI e do instalador do Windows
+MPL="matplotlib==3.10.8 contourpy==1.3.2 cycler==0.12.1 fonttools==4.62.0 kiwisolver==1.5.0 packaging==21.3 pillow==12.1.1 pyparsing==3.3.2 python-dateutil==2.9.0.post0 six==1.16.0"
 baixa() {   # baixa uma vez (fica no cache) e confere o SHA-256 guardado em pacote/linux/sha256.txt
   local url=$1 arq=$C/$(basename "${1//%2B/+}")
   [ -f "$arq" ] || curl -fsSL -o "$arq" "$url"
@@ -28,7 +30,9 @@ baixa() {   # baixa uma vez (fica no cache) e confere o SHA-256 guardado em paco
 
 fala "pacote: MaiSim $V para Linux (AppImage)" "package: MaiSim $V for Linux (AppImage)"
 tar xzf "$(baixa "$PY_URL")" -C "$A"                                  # → $A/python
-"$A/python/bin/python3" -m pip install --quiet --no-cache-dir --disable-pip-version-check "numpy==$NUMPY"
+"$A/python/bin/python3" -m pip install --quiet --no-cache-dir --disable-pip-version-check "numpy==$NUMPY" $MPL
+"$A/python/bin/python3" -c "import io, matplotlib; matplotlib.use('Agg'); from matplotlib.figure import Figure; Figure().savefig(io.BytesIO(), format='pdf')" \
+  || { fala "pacote: o matplotlib do AppImage não gera figura" "package: the AppImage's matplotlib does not make a figure" >&2; exit 1; }
 mkdir -p "$A/jre"; tar xzf "$(baixa "$JRE_URL")" -C "$A/jre" --strip-components=1
 mkdir -p "$A/maisim"; (cd "$R" && git archive HEAD) | tar x -C "$A/maisim"   # o código desta versão (sem o que não está no git)
 bash "$R/gecko/construir.sh" > /dev/null

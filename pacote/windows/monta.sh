@@ -2,7 +2,8 @@
 # O instalador do MaiSim para Windows (MaiSim-Setup-<versão>.exe), montado no Linux/WSL: baixa os runtimes oficiais do
 # Windows em versões fixas (conferidos pelo SHA-256 de pacote/windows/sha256.txt), monta a pasta do programa e compila o
 # MaiSim.iss com o Inno Setup num container (amake/innosetup), como o instalador do tos-portable.
-#   python/  o Python embutível 3.11 (python.org) + o NumPy (a wheel win_amd64), com o ._pth apontando para o MaiSim
+#   python/  o Python embutível 3.11 (python.org) + o NumPy e o matplotlib (as wheels win_amd64; o matplotlib: o módulo
+#            Figuras), com o ._pth apontando para o MaiSim
 #   jre/     o Java (JRE Temurin 11 para Windows)
 #   maisim/  o código desta versão (git archive), o Gecko com os patches, o motor compilado, o Monaco local
 # Precisa: git, curl, unzip, Java/javac 11 e Maven (o Gecko e o motor), Python 3 com Pillow (as imagens) e docker.
@@ -17,6 +18,19 @@ mkdir -p "$C" "$OUT"; rm -rf "$B"; mkdir -p "$P"
 PY_URL=https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip
 NP_URL=https://files.pythonhosted.org/packages/31/0a/f354fb7176b81747d870f7991dc763e157a934c717b67b58456bc63da3df/numpy-2.2.6-cp311-cp311-win_amd64.whl
 JRE_URL=https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.32.1%2B1/OpenJDK11U-jre_x64_windows_hotspot_11.0.32.1_1.zip
+# o matplotlib (as figuras para artigo, o módulo Figuras) e as dependências dele, em versões fixas (as do CI)
+MPL_URLS=(
+  https://files.pythonhosted.org/packages/6f/d3/a4bbc01c237ab710a1f22b4da72f4ff6d77eb4c7735ea9811a94ae239067/matplotlib-3.10.8-cp311-cp311-win_amd64.whl
+  https://files.pythonhosted.org/packages/5e/fe/4029038b4e1c4485cef18e480b0e2cd2d755448bb071eb9977caac80b77b/contourpy-1.3.2-cp311-cp311-win_amd64.whl
+  https://files.pythonhosted.org/packages/e7/05/c19819d5e3d95294a6f5947fb9b9629efb316b96de511b418c53d245aae6/cycler-0.12.1-py3-none-any.whl
+  https://files.pythonhosted.org/packages/77/ce/f5a4c42c117f8113ce04048053c128d17426751a508f26398110c993a074/fonttools-4.62.0-cp311-cp311-win_amd64.whl
+  https://files.pythonhosted.org/packages/be/6c/28f17390b62b8f2f520e2915095b3c94d88681ecf0041e75389d9667f202/kiwisolver-1.5.0-cp311-cp311-win_amd64.whl
+  https://files.pythonhosted.org/packages/05/8e/8de486cbd03baba4deef4142bd643a3e7bbe954a784dc1bb17142572d127/packaging-21.3-py3-none-any.whl
+  https://files.pythonhosted.org/packages/31/03/bef822e4f2d8f9d7448c133d0a18185d3cce3e70472774fffefe8b0ed562/pillow-12.1.1-cp311-cp311-win_amd64.whl
+  https://files.pythonhosted.org/packages/10/bd/c038d7cc38edc1aa5bf91ab8068b63d4308c66c4c8bb3cbba7dfbc049f9c/pyparsing-3.3.2-py3-none-any.whl
+  https://files.pythonhosted.org/packages/ec/57/56b9bcc3c9c6a792fcbaf139543cee77261f3651ca9da0c93f5c1221264b/python_dateutil-2.9.0.post0-py2.py3-none-any.whl
+  https://files.pythonhosted.org/packages/d9/5a/e7c31adbe875f2abbb91bd84cf2dc52d792b5a01506781dbcf25c91daf11/six-1.16.0-py2.py3-none-any.whl
+)
 baixa() {   # baixa uma vez (fica no cache) e confere o SHA-256 guardado
   local url=$1 arq=$C/$(basename "${1//%2B/+}")
   [ -f "$arq" ] || curl -fsSL -o "$arq" "$url"
@@ -30,6 +44,9 @@ fala "pacote: MaiSim $V para Windows (instalador)" "package: MaiSim $V for Windo
 mkdir -p "$P/python/Lib/site-packages"
 unzip -q "$(baixa "$PY_URL")" -d "$P/python"
 unzip -q "$(baixa "$NP_URL")" -d "$P/python/Lib/site-packages"
+for u in "${MPL_URLS[@]}"; do unzip -qo "$(baixa "$u")" -d "$P/python/Lib/site-packages"; done
+ls "$P"/python/Lib/site-packages/matplotlib/ft2font*.pyd > /dev/null 2>&1 \
+  || { fala "pacote: o matplotlib não ficou no Python do instalador" "package: matplotlib did not land in the installer's Python" >&2; exit 1; }
 # o Python embutível só enxerga o que o ._pth diz: o stdlib, o NumPy e as pastas do MaiSim (os servidores importam os vizinhos)
 printf '%s\r\n' python311.zip . 'Lib\site-packages' '..\maisim\simu' '..\maisim\scope' '..\maisim\config' '..\maisim\app' 'import site' > "$P/python/python311._pth"
 T=$(mktemp -d); unzip -q "$(baixa "$JRE_URL")" -d "$T"; mv "$T"/*/ "$P/jre"; rm -rf "$T"
