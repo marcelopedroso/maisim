@@ -15,6 +15,14 @@ T = {
     # o nome de uma rodada gravada na lista (planta · circuito · pasta · data e hora · intervalo)
     "scope_srv.planta_python": {"pt": "planta Python", "en": "Python plant"},
     "scope_srv.quando": {"pt": "{dia}/{mes} {hora}:{min}", "en": "{mes}/{dia} {hora}:{min}"},
+    # o módulo Figuras (figura.py)
+    "figura.sem_matplotlib": {"pt": "as figuras para artigo usam o matplotlib, que não está instalado (na versão de programador: pip install matplotlib)",
+                              "en": "the paper figures use matplotlib, which is not installed (in the developer version: pip install matplotlib)"},
+    "figura.formato": {"pt": "formato desconhecido: {formato}", "en": "unknown format: {formato}"},
+    "figura.sem_sinais": {"pt": "escolha pelo menos um sinal num painel", "en": "choose at least one signal in a panel"},
+    "figura.janela": {"pt": "a janela de tempo está vazia (o fim tem de vir depois do começo)", "en": "the time window is empty (the end must come after the start)"},
+    "figura.sem_tempo": {"pt": "a gravação não tem o tempo (t)", "en": "the recording has no time (t)"},
+    "figura.so_maisim": {"pt": "só a página do MaiSim gera figuras", "en": "only the MaiSim page makes figures"},
 }
 
 lingua.registra(T)

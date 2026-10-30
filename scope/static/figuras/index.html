@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<!-- PNGs em vários tamanhos: a janela do navegador como app (sem PWA instalado) e a barra de tarefas do Windows usam o
+     favicon, e só com o SVG o ícone saía pequeno e esticado -->
+<link rel="icon" href="/favicon.ico?v=2" sizes="16x16 32x32 48x48 256x256"><link rel="icon" type="image/png" sizes="32x32" href="/marca/maisim-app-32.png?v=2"><link rel="icon" type="image/png" sizes="48x48" href="/marca/maisim-app-48.png?v=2"><link rel="icon" type="image/png" sizes="64x64" href="/marca/maisim-app-64.png?v=2"><link rel="icon" type="image/png" sizes="192x192" href="/marca/maisim-app-192.png?v=2">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#6d28d9" data-claro="#ffffff" data-escuro="#171a21">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MaiSim · Figuras</title>
+<script>
+// o tamanho do MaiSim (+ e − no trilho, localStorage "maisim-escala"), antes de pintar; embutido no simu (iframe), não: o simu já escala
+try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.top === window.self && [0.8, 0.9, 1.1, 1.25, 1.4].includes(z)) document.documentElement.style.zoom = z; } catch (e) { /* 100 % */ }
+// o tema do MaiSim (o trilho escolhe e guarda em localStorage "maisim-tema": sistema, claro ou escuro), antes de pintar; também
+// embutido no simu (Marcelo, 20/10: "a aba scope não está respeitando os temas"); o scope.js acompanha as trocas
+try { const t = localStorage.getItem("maisim-tema") || "sistema";
+  document.documentElement.dataset.tema = t === "escuro" || (t === "sistema" && matchMedia("(prefers-color-scheme: dark)").matches) ? "escuro" : "claro"; }
+catch (e) { document.documentElement.dataset.tema = "claro"; }
+// a barra da janela do app (o MaiSim instalado) segue o tema: a cor do cabeçalho, clara ou escura
+(function (m) { if (m) m.setAttribute("content", m.dataset[document.documentElement.dataset.tema === "escuro" ? "escuro" : "claro"]); })(document.querySelector('meta[name="theme-color"]'));
+</script>
+<script src="static/maisim-i18n.js"></script>
+<script data-src="static/maisim-i18n.js">/* reserva: sem o maisim-i18n.js (a conexão caiu), o português; tenta de novo e o de verdade assume */window.maisimI18n||(function(){var d={},o=[],h=function(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]})},f=function(k,p){var e=d[k],v=e?e.pt:k;if(v&&typeof v==="object")v=p&&p.n===1?v.one:v.other;return p?String(v).replace(/\{(\w+)\}/g,function(m,x){return x in p?(/_html$/.test(k)?h(p[x]):String(p[x])):m}):v};window.maisimI18n={reserva:true,add:function(x){for(var k in x)d[k]=x[k]},dicionario:function(){return d},tr:f,tem:function(k){return k in d},lingua:function(){return"pt"},local:function(){return"pt-BR"},muda:function(){},aoMudar:function(g){o.push(g)},ouvintes:function(){return o},aplica:function(){},data:function(x,o){return new Date(x).toLocaleString("pt-BR",o)},hora:function(x,o){return new Date(x).toLocaleTimeString("pt-BR",o||{hour:"2-digit",minute:"2-digit"})},num:function(x,o){return Number(x).toLocaleString("pt-BR",o)},escH:function(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]})}};window.tr=f;var s=document.createElement("script");s.src=document.currentScript.getAttribute("data-src");s.async=false;document.head.appendChild(s)})()</script>  <!-- português e inglês (o idioma do trilho), antes de pintar -->
+<script src="static/textos_figuras.js"></script>  <!-- os textos do Figuras (pt e en) -->
+<style>
+  /* o tema (claro e escuro), as mesmas variáveis do scope; a figura fica numa "folha" branca nos dois (é o que vai para o artigo) */
+  :root { --fundo:#f7f8fa; --cartao:#fff; --texto:#1b1f24; --sutil:#5b6470; --borda:#d9dde3; --acento:#6d28d9; --campo:#fff;
+          --suave:#eef2f6; --erro:#b42318; --erro-bg:#fef2f2; color-scheme:light; }
+  :root[data-tema="escuro"] { --fundo:#0f1115; --cartao:#171a21; --texto:#e6e8ec; --sutil:#9aa3ae; --borda:#2c323c; --acento:#8b5cf6;
+          --campo:#1d212a; --suave:#232833; --erro:#f87171; --erro-bg:#3a1416; color-scheme:dark; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--fundo); color:var(--texto); font-size:13px; }
+  header { position:sticky; top:0; z-index:20; background:var(--cartao); border-bottom:1px solid var(--borda); padding:8px 16px;
+           display:flex; flex-wrap:wrap; gap:6px 14px; align-items:baseline; }
+  header h1 { font-size:16px; margin:0; color:var(--acento); }
+  header .sub { color:var(--sutil); }
+  select, button, input { font:inherit; font-size:13px; padding:3px 8px; border:1px solid var(--borda); border-radius:6px;
+           background:var(--campo); color:var(--texto); }
+  input[type=checkbox] { padding:0; }
+  button { cursor:pointer; } button.prim { background:var(--acento); color:#fff; border-color:var(--acento); }
+  button:disabled { opacity:.5; cursor:default; }
+  main { display:grid; grid-template-columns:minmax(300px, 420px) 1fr; gap:16px; padding:14px 16px 40px; align-items:start; }
+  @media (max-width: 860px) { main { grid-template-columns:1fr; } }
+  .cartao { background:var(--cartao); border:1px solid var(--borda); border-radius:10px; padding:10px 12px; margin-bottom:12px; }
+  .cartao h2 { font-size:13px; margin:0 0 8px; text-transform:uppercase; letter-spacing:.04em; color:var(--sutil); }
+  .campo { display:flex; align-items:center; gap:8px; margin:6px 0; flex-wrap:wrap; }
+  .campo > label:first-child, .campo > span:first-child { min-width:92px; color:var(--sutil); }
+  .campo select, .campo input[type=text] { flex:1 1 120px; min-width:0; }
+  .campo input.curto { flex:0 0 76px; } #t0, #t1 { flex:0 0 104px; }
+  .info { color:var(--sutil); font-size:12px; margin-top:4px; }
+  .erro { color:var(--erro); background:var(--erro-bg); border-radius:6px; padding:6px 8px; margin-top:6px; }
+  .painel { border:1px solid var(--borda); border-radius:8px; padding:8px; margin:8px 0; background:var(--fundo); }
+  .painel .topo { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+  .painel .topo b { flex:1; }
+  .painel .topo button { padding:1px 7px; }
+  .sinais { display:flex; flex-wrap:wrap; gap:4px 12px; }
+  .sinais { align-items:center; }
+  .chip { display:inline-flex; align-items:center; gap:4px; border:1px solid var(--borda); border-left:3px solid var(--cor, var(--acento));
+          border-radius:12px; padding:1px 4px 1px 8px; background:var(--cartao); white-space:nowrap; }
+  .chip .tira-sinal { border:0; background:transparent; padding:0 3px; color:var(--sutil); font-size:11px; }
+  .chip .tira-sinal:hover { color:var(--erro); }
+  .mais-sinais { padding:1px 8px; border-radius:12px; }
+  .lista-sinais { position:absolute; z-index:60; width:260px; max-height:340px; display:flex; flex-direction:column; background:var(--cartao);
+          border:1px solid var(--borda); border-radius:8px; box-shadow:0 6px 24px rgba(0,0,0,.2); }
+  .lista-sinais .filtro { margin:8px; }
+  .lista-sinais .itens { overflow:auto; padding:0 8px 6px; flex:1 1 auto; }
+  .lista-sinais label { display:flex; align-items:center; gap:6px; padding:3px 2px; cursor:pointer; }
+  .lista-sinais label[hidden] { display:none; }
+  .lista-sinais .pe { display:flex; gap:6px; padding:6px 8px; border-top:1px solid var(--borda); }
+  .mat { font-family:KaTeX_Main, "Latin Modern Roman", "Times New Roman", serif; font-size:1.08em; }
+  .mat .mb { font-style:italic; } .mat sub { font-size:.78em; }
+  .botoes { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  #lado-previa { position:sticky; top:52px; }
+  .folha-moldura { background:var(--suave); border:1px solid var(--borda); border-radius:10px; padding:16px; display:flex;
+           justify-content:center; align-items:center; min-height:260px; }
+  .folha { background:#fff; box-shadow:0 1px 6px rgba(0,0,0,.18); max-width:100%; display:block; }
+  .folha[hidden] { display:none; }
+  #estado { color:var(--sutil); margin-top:6px; min-height:1.3em; }
+</style>
+</head>
+<body>
+<header>
+  <h1 data-tr="fig.h.titulo">Figuras</h1>
+  <span class="sub" data-tr="fig.h.sub">figuras para artigo a partir das rodadas</span>
+</header>
+<main>
+  <div id="lado-ajustes">
+    <section class="cartao">
+      <h2 data-tr="fig.rodada.titulo">Rodada</h2>
+      <div class="campo"><label for="sel-a">A</label><select id="sel-a"></select></div>
+      <div class="campo"><label for="sel-b" data-tr="fig.rodada.comparar">Comparar com</label><select id="sel-b"></select></div>
+      <div class="info" id="info-rodada"></div>
+    </section>
+    <section class="cartao">
+      <h2 data-tr="fig.janela.titulo">Janela de tempo</h2>
+      <div class="campo"><label for="t0" data-tr="fig.janela.de">De</label><input type="text" id="t0" class="curto" placeholder="0">
+        <label for="t1" data-tr="fig.janela.ate">até</label><input type="text" id="t1" class="curto">
+        <button type="button" id="bt-inteira" data-tr="fig.janela.inteira">Rodada inteira</button></div>
+      <div class="info" id="info-janela"></div>
+    </section>
+    <section class="cartao">
+      <h2 data-tr="fig.paineis.titulo">Painéis</h2>
+      <div id="paineis"></div>
+      <div class="botoes"><button type="button" id="bt-painel" data-tr="fig.paineis.mais">+ Painel</button>
+        <button type="button" id="bt-do-scope" data-tr="fig.paineis.do_scope" title="os painéis desta rodada no scope (o layout do circuito)" data-tr-title="fig.paineis.t_do_scope">Do scope</button>
+        <button type="button" id="bt-grandeza" data-tr="fig.paineis.por_grandeza" title="um painel por grandeza: as tensões juntas, as correntes juntas…" data-tr-title="fig.paineis.t_por_grandeza">Por grandeza</button>
+        <button type="button" id="bt-tudo" data-tr="fig.paineis.tudo">Um painel com tudo</button></div>
+    </section>
+    <section class="cartao">
+      <h2 data-tr="fig.estilo.titulo">Estilo</h2>
+      <div class="campo"><label for="sel-estilo" data-tr="fig.estilo.pronto">Estilo</label><select id="sel-estilo"></select></div>
+      <div class="campo"><label for="larg" data-tr="fig.estilo.tamanho">Tamanho (cm)</label><input type="text" id="larg" class="curto">
+        <span>×</span><input type="text" id="alt" class="curto" placeholder="auto" data-tr-placeholder="fig.estilo.auto"></div>
+      <div class="campo"><label for="sel-fonte" data-tr="fig.estilo.fonte">Fonte</label><select id="sel-fonte"></select>
+        <input type="text" id="corpo" class="curto" title="corpo da fonte, em pt" data-tr-title="fig.estilo.t_corpo"><span>pt</span></div>
+      <div class="campo"><label for="sel-legenda" data-tr="fig.estilo.legenda">Legenda</label><select id="sel-legenda"></select></div>
+      <div class="campo"><label for="sel-lingua" data-tr="fig.estilo.lingua">Textos da figura</label><select id="sel-lingua"></select></div>
+      <div class="campo"><span></span><label><input type="checkbox" id="ck-grade" checked> <span data-tr="fig.estilo.grade">grade</span></label>
+        <label><input type="checkbox" id="ck-letras"> <span data-tr="fig.estilo.letras">(a), (b)…</span></label>
+        <label><input type="checkbox" id="ck-pb"> <span data-tr="fig.estilo.pb">preto e branco</span></label></div>
+    </section>
+  </div>
+  <div id="lado-previa">
+    <section class="cartao">
+      <h2 data-tr="fig.previa.titulo">Prévia</h2>
+      <div class="folha-moldura"><img id="previa" class="folha" alt="" hidden></div>
+      <div id="estado"></div>
+      <div class="botoes" id="exportar">
+        <button type="button" class="prim" data-formato="pdf">PDF</button>
+        <button type="button" data-formato="svg">SVG</button>
+        <button type="button" data-formato="eps">EPS</button>
+        <button type="button" data-formato="png" data-tr="fig.exp.png">PNG 600 dpi</button>
+        <button type="button" data-formato="tiff" data-tr="fig.exp.tiff">TIFF 600 dpi</button>
+      </div>
+      <div class="info" data-tr="fig.exp.info">PDF, SVG e EPS são vetoriais, com as fontes embutidas; PNG e TIFF a 600 dpi.</div>
+    </section>
+  </div>
+</main>
+<script src="static/figuras.js"></script>
+<script src="static/maisim-dica.js"></script>   <!-- as dicas e as listas do MaiSim (app/public: as mesmas em todas as páginas) -->
+<script src="/maisim-nav.js" onerror="this.remove()"></script>
+</body>
+</html>
