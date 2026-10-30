@@ -49,6 +49,45 @@ RE_NOME = re.compile(r"^([A-Za-z]{1,6})((?:_[A-Za-z0-9]+)*)$")
 trava = threading.Lock()                                 # o rcParams do matplotlib é global: uma figura por vez
 
 
+# as fontes (Marcelo, 30/10: "Times New Roman, por exemplo"): a família, as da lista em ordem e a matemática que combina;
+# "precisa": a que tem de estar instalada (senão a seguinte da lista, que vem com o matplotlib). As do Windows são lidas da
+# pasta de fontes dele (no WSL, /mnt/c/Windows/Fonts)
+FONTES = {
+    "times": dict(familia="serif", lista=["Times New Roman", "STIXGeneral"], mat="stix", precisa="Times New Roman"),
+    "arial": dict(familia="sans-serif", lista=["Arial", "DejaVu Sans"], mat="stixsans", precisa="Arial"),
+    "stix": dict(familia="serif", lista=["STIXGeneral"], mat="stix"),
+    "dejavu": dict(familia="sans-serif", lista=["DejaVu Sans"], mat="dejavusans"),
+}
+_ANTIGAS = {"serif": "times", "sans": "arial"}            # os estilos e os ajustes guardados de antes
+_registradas = []
+
+
+def registra_fontes():
+    """As fontes do Windows que a lista usa (Times New Roman, Arial), uma vez; sem a pasta, nada."""
+    if _registradas:
+        return
+    import os
+    from matplotlib import font_manager
+    pastas = [Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts"] if os.name == "nt" else [Path("/mnt/c/Windows/Fonts")]
+    for pasta in pastas:
+        for nome in ("times.ttf", "timesbd.ttf", "timesi.ttf", "timesbi.ttf", "arial.ttf", "arialbd.ttf", "ariali.ttf", "arialbi.ttf"):
+            arq = pasta / nome
+            if arq.is_file():
+                try:
+                    font_manager.fontManager.addfont(str(arq))
+                except (OSError, RuntimeError):
+                    pass
+    _registradas.append(True)
+
+
+def fontes():
+    """{id: instalada?} (as que não precisam de nada, sempre)."""
+    from matplotlib import font_manager
+    registra_fontes()
+    nomes = {f.name for f in font_manager.fontManager.ttflist}
+    return {k: (f.get("precisa") in nomes if f.get("precisa") else True) for k, f in FONTES.items()}
+
+
 class ErroFigura(ValueError):
     pass
 
@@ -175,10 +214,14 @@ def figura(pedido, resolve=lambda rel: Path(rel)):
     cols = max(1, min(3, int(est.get("colunas") or 1), n))     # gráficos por linha (Marcelo, 30/10: "2 ou 3 por linha")
     linhas = -(-n // cols)
     altura = float(est.get("altura") or min(24.0, 1.2 + est["painel"] * linhas))
-    serif = est.get("fonte") != "sans"
+    registra_fontes()
+    fid = _ANTIGAS.get(est.get("fonte"), est.get("fonte"))
+    fonte = FONTES.get(fid, FONTES["times"])
+    if fonte.get("precisa") and not fontes().get(fid, True):  # sem a Times (ou a Arial) instalada: a que vem com o matplotlib
+        fonte = FONTES["stix" if fonte["familia"] == "serif" else "dejavu"]
     corpo = float(est.get("corpo") or 8)
-    rc = {"font.family": "serif" if serif else "sans-serif", "font.serif": ["STIXGeneral", "DejaVu Serif"],
-          "font.sans-serif": ["DejaVu Sans"], "mathtext.fontset": "stix" if serif else "dejavusans",
+    rc = {"font.family": fonte["familia"], "font.serif": fonte["lista"] + ["DejaVu Serif"], "font.sans-serif": fonte["lista"] + ["DejaVu Sans"],
+          "mathtext.fontset": fonte["mat"],
           "font.size": corpo, "axes.labelsize": corpo, "xtick.labelsize": corpo * 0.92, "ytick.labelsize": corpo * 0.92,
           "legend.fontsize": corpo * 0.88, "axes.linewidth": 0.6 * corpo / 8, "xtick.major.width": 0.6 * corpo / 8,
           "ytick.major.width": 0.6 * corpo / 8, "xtick.direction": "in", "ytick.direction": "in", "xtick.top": True,
@@ -218,7 +261,7 @@ def figura(pedido, resolve=lambda rel: Path(rel)):
             ax.set_ylabel(rotulo_y(nomes, lg) if yl is None else yl)
             if est.get("grade", True):
                 ax.grid(True)
-            leg = est.get("legenda", "melhor")
+            leg = {"melhor": "auto"}.get(est.get("legenda"), est.get("legenda") or "auto")
             if est.get("letras") and n > 1:                   # em cima do painel, à esquerda (a legenda "no melhor lugar" não a cobre);
                 if leg == "acima":                            # com a legenda acima, dentro, no canto
                     ax.text(0.012, 0.96, f"({chr(97 + k)})", transform=ax.transAxes, va="top", ha="left")
@@ -228,8 +271,9 @@ def figura(pedido, resolve=lambda rel: Path(rel)):
                 if leg == "acima":
                     ax.legend(loc="lower left", bbox_to_anchor=(0, 1.0, 1, 0.2), mode="expand", ncol=min(4, max(1, len(ax.lines))),
                               frameon=False, borderaxespad=0.2, handlelength=1.8)
-                else:
-                    ax.legend(loc="best", frameon=True, framealpha=1.0, edgecolor="#bbbbbb", fancybox=False, handlelength=1.8)
+                else:                                        # automático (o canto mais livre) ou um dos quatro cantos
+                    loc = {"sd": "upper right", "se": "upper left", "id": "lower right", "ie": "lower left"}.get(leg, "best")
+                    ax.legend(loc=loc, frameon=True, framealpha=1.0, edgecolor="#bbbbbb", fancybox=False, handlelength=1.8)
         for k, ax in enumerate(axs):                         # o tempo embaixo de cada coluna (o último painel dela)
             if k + cols >= n:
                 ax.set_xlabel(f"{TEXTOS[lg]['tempo']} ({ut})")

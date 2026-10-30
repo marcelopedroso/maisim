@@ -284,8 +284,12 @@ class Manipulador(BaseHTTPRequestHandler):
                                 "pasta": bool(d), "pasta_tam": tamanho_pasta(d) if d else st.st_size,
                                 "guardada": bool(d and (d / GUARDADA).exists()), **resumo_meta(f, meta)})
             return self._resposta(200, sorted(lst, key=lambda x: -x["mtime"]))
-        if rota == "/estilos":                         # o Figuras: os estilos prontos (largura, fonte, corpo), os de figura.py
-            return self._resposta(200, figura.ESTILOS)
+        if rota == "/estilos":                         # o Figuras: os estilos prontos (largura, fonte, corpo) e as fontes instaladas
+            try:
+                fs = figura.fontes()
+            except ImportError:                        # sem o matplotlib: a página mostra o aviso ao gerar
+                fs = {k: not f.get("precisa") for k, f in figura.FONTES.items()}
+            return self._resposta(200, {"estilos": figura.ESTILOS, "fontes": fs})
         if rota == "/canais":                          # o Figuras: os sinais, a meta e o começo e o fim do tempo de uma rodada
             arq = caminho(parse_qs(u.query).get("arq", [""])[0])
             if not permitido(arq) or not arq.name.startswith("scope_") or not arq.is_file():

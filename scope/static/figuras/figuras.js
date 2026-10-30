@@ -37,10 +37,10 @@ function fmtTempo(s) {
   return `${+(s * f).toPrecision(6)} ${u}`;
 }
 
-let ESTILOS = {}, RODADAS = [];
+let ESTILOS = {}, FONTES = {}, RODADAS = [];
 const R = { arq: "", meta: {}, canais: [], t0: 0, t1: 0 };   // a rodada A
 let comparar = [], rotuloA = "", paineis = [], estilo = {}, janela = { t0: null, t1: null };   // comparar: [{arq, rotulo}]
-const PADRAO_ESTILO = { preset: "ieee1", largura: null, altura: null, fonte: null, corpo: null, colunas: 1, legenda: "melhor", lingua: "", grade: true, letras: false, pb: false };
+const PADRAO_ESTILO = { preset: "ieee1", largura: null, altura: null, fonte: null, corpo: null, colunas: 1, legenda: "auto", lingua: "", grade: true, letras: false, pb: false };
 const dono = (meta) => String((meta && (meta.chave_layout || meta.modelo || meta.planta)) || "");
 const chave = () => (dono(R.meta) ? `maisim-figuras-v1:${dono(R.meta)}` : "");
 const guarda = () => { if (chave()) guardaJSON(chave(), { paineis, estilo, janela }); };
@@ -164,9 +164,11 @@ function opcoes(sel, lista, valor) {
 function desenhaEstilo() {
   const e = ESTILOS[estilo.preset] || ESTILOS.ieee1 || {};
   opcoes($("sel-estilo"), Object.keys(ESTILOS).map((k) => [k, tr(`fig.est.${k}`)]), estilo.preset);
-  opcoes($("sel-fonte"), [["serif", tr("fig.fonte.serif")], ["sans", tr("fig.fonte.sans")]], estilo.fonte || e.fonte || "serif");
+  // as fontes: a Times e a Arial se estão instaladas (senão, a parecida que vem junto); o estilo pronto diz serifada ou não
+  const fid = { serif: "times", sans: "arial" }[estilo.fonte || e.fonte] || estilo.fonte || "times";
+  opcoes($("sel-fonte"), ["times", "arial", "stix", "dejavu"].map((k) => [k, tr(`fig.fonte.${k}`) + (FONTES[k] === false ? ` (${tr("fig.fonte.nao_instalada")})` : "")]), fid);
   opcoes($("sel-colunas"), [["1", "1"], ["2", "2"], ["3", "3"]], String(estilo.colunas || 1));
-  opcoes($("sel-legenda"), [["melhor", tr("fig.leg.melhor")], ["acima", tr("fig.leg.acima")], ["nenhuma", tr("fig.leg.nenhuma")]], estilo.legenda);
+  opcoes($("sel-legenda"), ["auto", "sd", "se", "id", "ie", "acima", "nenhuma"].map((k) => [k, tr(`fig.leg.${k}`)]), estilo.legenda === "melhor" ? "auto" : estilo.legenda);
   opcoes($("sel-lingua"), [["", tr("fig.ling.pagina")], ["pt", tr("fig.ling.pt")], ["en", tr("fig.ling.en")]], estilo.lingua || "");
   $("larg").value = String(estilo.largura ?? e.largura ?? "").replace(".", maisimI18n.lingua() === "en" ? "." : ",");
   $("alt").value = estilo.altura == null ? "" : String(estilo.altura);
@@ -321,7 +323,9 @@ maisimI18n.aoMudar(() => { desenhaRodadas(); desenhaPaineis(); desenhaEstilo(); 
 
 // ---- a partida: os estilos, as rodadas e a escolhida (?a=, ou a que veio do scope: "Abrir no Figuras")
 (async () => {
-  [ESTILOS, RODADAS] = await Promise.all([fetch("estilos").then((r) => r.json()).catch(() => ({})), fetch("rodadas").then((r) => r.json()).catch(() => [])]);
+  let est_;
+  [est_, RODADAS] = await Promise.all([fetch("estilos").then((r) => r.json()).catch(() => ({})), fetch("rodadas").then((r) => r.json()).catch(() => [])]);
+  ESTILOS = (est_ && est_.estilos) || {}; FONTES = (est_ && est_.fontes) || {};
   estilo = { ...PADRAO_ESTILO };
   let de = lerJSON("maisim-figuras-do-scope", null);
   try { localStorage.removeItem("maisim-figuras-do-scope"); } catch (e) { /* ok */ }
