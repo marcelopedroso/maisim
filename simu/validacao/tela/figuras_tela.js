@@ -77,8 +77,9 @@ const espera = (pg, f, arg) => pg.waitForFunction(f, arg ?? null, { timeout: 600
     const sc = await ctx.newPage();
     await sc.goto(`${B}/maisim/scope/?a=${encodeURIComponent(REL)}`);
     await sc.waitForFunction(() => typeof A !== "undefined" && A && A.arq && paineis().some((p) => p.u), null, { timeout: 30000 });
-    await sc.evaluate(() => { const p = paineis().find((q) => q.u); p.sinais = ["i_L"]; refazGrafico(p); guardaLayout(); xFaixa = [2, 3]; });
-    const [fig] = await Promise.all([ctx.waitForEvent("page", { timeout: 15000 }), sc.evaluate(() => abreNoFiguras(paineis().find((q) => q.u)))]);
+    // (um painel só com o i_L, o primeiro da lista que vai; sem depender da montagem do layout do scope, que pode chegar depois)
+    await sc.evaluate(() => { xFaixa = [2, 3]; });
+    const [fig] = await Promise.all([ctx.waitForEvent("page", { timeout: 15000 }), sc.evaluate(() => abreNoFiguras({ sinais: ["i_L"], el: null, xy: false }))]);
     await fig.waitForFunction(() => document.querySelectorAll("#paineis .painel").length && !document.getElementById("previa").hidden, null, { timeout: 60000 }).catch(() => {});
     const veio = await fig.evaluate(() => ({ g1: [...document.querySelectorAll("#paineis .painel:first-child .chip")].map((c) => c.dataset.c).join(","), t0: document.getElementById("t0").value, t1: document.getElementById("t1").value }));
     ok(veio.g1 === "i_L" && /^2 ms$/.test(veio.t0) && /^3 ms$/.test(veio.t1), `o "Abrir no Figuras" do scope: o painel e o zoom (${JSON.stringify(veio)})`);

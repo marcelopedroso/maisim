@@ -22,7 +22,10 @@ runs:
         sudo apt-get install -y -qq xvfb x11-utils libxtst6 python3-numpy > /dev/null
     - name: matplotlib (the Figures module; pinned like the packages, with its own STIX fonts)
       shell: bash
-      run: python3 -m pip install --quiet --user --break-system-packages "matplotlib==3.10.8"
+      # (o numpy das releases junto: o do apt é antigo para o matplotlib 3.10; o --break-system-packages só onde o pip o pede)
+      run: |
+        python3 -m pip install --quiet --user "numpy==2.2.6" "matplotlib==3.10.8" 2>/dev/null \
+          || python3 -m pip install --quiet --user --break-system-packages "numpy==2.2.6" "matplotlib==3.10.8"
     - name: cache the built GeckoCIRCUITS
       uses: actions/cache@v6
       with:

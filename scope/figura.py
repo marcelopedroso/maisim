@@ -231,7 +231,7 @@ def figura(pedido, resolve=lambda rel: Path(rel)):
           "legend.fontsize": corpo * 0.88, "axes.linewidth": 0.6 * corpo / 8, "xtick.major.width": 0.6 * corpo / 8,
           "ytick.major.width": 0.6 * corpo / 8, "xtick.direction": "in", "ytick.direction": "in", "xtick.top": True,
           "ytick.right": True, "grid.color": "#c8c8c8", "grid.linewidth": 0.4 * corpo / 8, "lines.linewidth": float(est["linha"]),
-          "pdf.fonttype": 42, "ps.fonttype": 42, "svg.fonttype": "none", "axes.unicode_minus": True,
+          "pdf.fonttype": 42, "ps.fonttype": 42, "svg.fonttype": "path",   # (SVG: o texto em contornos, igual em qualquer máquina) "axes.unicode_minus": True,
           "figure.facecolor": "white", "axes.facecolor": "white", "savefig.facecolor": "white"}
     with trava, matplotlib.rc_context(rc):
         fig = Figure(figsize=(largura * CM, altura * CM), layout="constrained")
