@@ -264,7 +264,9 @@ document.querySelectorAll("#exportar button").forEach((bt) => bt.addEventListene
   bt.disabled = true; estado(tr("fig.exp.gerando", { formato: bt.textContent }));
   try {
     const b = await gera(f), d = new Date();
-    const nome = `figura_${String(R.meta.planta || "maisim").replace(/[^\w-]+/g, "_")}_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.${f === "tiff" ? "tif" : f}`;
+    // figura_maisim_<circuito>_<data> (o circuito pelo arquivo do modelo; a "planta" das rodadas do Gecko é "gecko": fora, Marcelo 30/10)
+    const circ = String(R.meta.modelo || "").split(/[\\/]/).pop().replace(/\.ipes$/i, "").replace(/[^\w-]+/g, "_");
+    const nome = `figura_maisim${circ ? "_" + circ : ""}_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.${f === "tiff" ? "tif" : f}`;
     const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = nome; document.body.appendChild(a); a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
     estado(tr("fig.exp.baixado", { arq: nome }));
