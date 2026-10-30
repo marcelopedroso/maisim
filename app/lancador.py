@@ -408,8 +408,12 @@ class Lancador:
         # no Linux, MAISIM_NAVEGADOR pode trazer opções depois do programa ('"/mnt/c/…/chrome.exe" --profile-directory="Profile 1"');
         # no Windows, é só o caminho (com espaços e barras invertidas, como antes)
         cmd = [nav] if nav and (not escolhido or WIN or Path(escolhido).is_file()) else shlex.split(nav or "")
+        # com o MaiSim instalado como app no Chrome/Edge (MAISIM_APP_ID, o id dele): abre o app, já nesta página — a janela
+        # dele tem o ícone grande do manifest; a do --app usa o favicon pequeno na barra de tarefas (Marcelo, 28/10)
+        app_id = (os.environ.get("MAISIM_APP_ID") or "").strip()
+        janela = [f"--app-id={app_id}", f"--app-launch-url-for-shortcuts-menu-item={url}"] if app_id else [f"--app={url}"]
         if cmd:
-            subprocess.Popen(cmd + [f"--app={url}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.Popen(cmd + janela, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         else:
             import webbrowser
             webbrowser.open(url)
