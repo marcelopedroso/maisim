@@ -824,6 +824,47 @@ def tem_fio(r, pts, folha="0"):
     return bool(fl) and any([tuple(p) for p in f["pts"]] in (alvo, alvo[::-1]) for f in fl["fios"])
 
 
+def _xy_bloco(corpo):
+    d = dict(l.split(" ", 1) for l in corpo.split("\n") if " " in l)
+    return list(zip(map(int, d.get("x[]", "").split()), map(int, d.get("y[]", "").split()))), d.get("parentSheetIdentifier", "0").strip()
+
+
+def _com_xy(corpo, xy):
+    corpo = re.sub(r"(?m)^x\[\] [^\n]*", "x[] " + " ".join(str(x) for x, _ in xy) + " ", corpo, count=1)
+    return re.sub(r"(?m)^y\[\] [^\n]*", "y[] " + " ".join(str(y) for _, y in xy) + " ", corpo, count=1)
+
+
+def divide_nas_juntas(t, pts, dom, folha):
+    """O Gecko liga dois fios pelas pontas; uma ponta encostada no MEIO de outro fio (um canto ou um ponto qualquer dele)
+    só conduz se o fio que encosta vai a um terminal: um toco solto ali (o do conector) fica de fora, e um voltímetro que
+    mede no nome dele zera a rodada inteira, sem erro (Marcelo, 30/10). Então a junção vira ponta com ponta: cada fio
+    desta folha e deste domínio com uma ponta do fio novo no meio é dividido ali (os dois pedaços com o mesmo rótulo).
+    Devolve o texto e os pedaços do fio novo, dividido nas pontas dos fios que encostam no meio dele."""
+    pontas = {pts[0], pts[-1]}
+    cortes_novo, saida, fim = set(), [], 0
+    for m in BLOCO_FIO.finditer(t):
+        if m.group(1) != dom:
+            continue
+        xy, fl = _xy_bloco(m.group(2))
+        if fl != folha or len(xy) < 2:
+            continue
+        cortes_novo.update(p for p in (xy[0], xy[-1]) if p in pts[1:-1])
+        meio = [i for i in range(1, len(xy) - 1) if xy[i] in pontas]
+        if not meio:
+            continue
+        idx = [0] + meio + [len(xy) - 1]
+        pedacos = [xy[a:b + 1] for a, b in zip(idx, idx[1:])]
+        cab = t[m.start():m.start(2)]
+        novos = "".join(cab + _com_xy(m.group(2), p) + "<\\Verbindung>" for p in pedacos)
+        saida.append(t[fim:m.start()] + novos); fim = m.end()
+    t = "".join(saida) + t[fim:]
+    if saida:                                        # os blocos deste domínio numerados de novo, em sequência
+        n = iter(range(10 ** 6))
+        t = re.sub(r"\nverbindung" + dom + r"\s+\(\d+\)\n", lambda _: f"\nverbindung{dom}  ({next(n)})\n", t)
+    idx = [0] + sorted(pts.index(p) for p in cortes_novo) + [len(pts) - 1]
+    return t, [pts[a:b + 1] for a, b in zip(idx, idx[1:])]
+
+
 def fio_novo(cantos, dom, rotulo="", folhas=None):
     if dom not in TIPO_FIO:
         raise ErroMotor(lingua.tr("editor.dominio_conexao", dominios=", ".join(TIPO_FIO)))
@@ -833,12 +874,21 @@ def fio_novo(cantos, dom, rotulo="", folhas=None):
     MOTOR.cmd(f"SAVEAS {ESTADO}")
     t, gz = _texto(ESTADO)
     folhas = folhas_ok(folhas, t)
+    novos = []
+    for f in folhas:
+        t, pedacos = divide_nas_juntas(t, pts, dom, f)
+        novos += [(f, p) for p in pedacos]
     k = len(re.findall(r"\nverbindung" + dom + r"\s+\(", t))
     blocos = "".join(f"\nverbindung{dom}  ({k + i})\n<Verbindung>\nlabel {rotulo or 'NIX_NIX_NIX'}\n"
-                     f"x[] {' '.join(str(x) for x, _ in pts)} \ny[] {' '.join(str(y) for _, y in pts)} \n"
+                     f"x[] {' '.join(str(x) for x, _ in p)} \ny[] {' '.join(str(y) for _, y in p)} \n"
                      f"enabledShorted 1\nparentSheetIdentifier {f}\nconnectorType {TIPO_FIO[dom]}\n<\\Verbindung>\n"
-                     for i, f in enumerate(folhas))
+                     for i, (f, p) in enumerate(novos))
     r = reabre(blocos + t, gz)
+    if len(novos) > len(folhas):                     # o fio novo foi em pedaços: confere cada um
+        faltam = [f for f, p in novos if not tem_fio(r, p, f)]
+        if faltam:
+            raise ErroMotor(lingua.tr("editor.gecko_recusou_conexao", n=len(set(faltam)), total=len(folhas)))
+        return r
     faltam = [f for f in folhas if not tem_fio(r, pts, f)]
     if faltam:
         raise ErroMotor(lingua.tr("editor.gecko_recusou_conexao", n=len(faltam), total=len(folhas)))
