@@ -2717,7 +2717,7 @@ async function garanteEdicao() { if (!ed.ligado) await liga(true); return ed.lig
 
 // ---------------------------------------------------------------- simulação: parâmetros, iniciar, pausar, continuar, parar, progresso
 const solverAtual = () => (dados && dados.simulacao && SOLVERS.includes(String(dados.simulacao.solver)) ? String(dados.simulacao.solver) : "0");   // o que o Gecko tem
-const sim = { estado: "parada", timer: null, par: { dt: "1e-6", tfim: "0.04", nome: "rodada", amostras: "4000", amostra: "1e-5", por_cima: "1" } };   // por_cima: a nova substitui a anterior de mesmo nome
+const sim = { estado: "parada", timer: null, par: { dt: "1e-6", tfim: "0.04", nome: tr("simu.nome_rodada_padrao"), amostras: "4000", amostra: "1e-5", por_cima: "1" } };   // por_cima: a nova substitui a anterior de mesmo nome
 try { Object.assign(sim.par, JSON.parse(localStorage.getItem("maisim-simu-sim") || "{}")); } catch (e) { /* ok */ }
 delete sim.par.solver;                                 // a escolha guardada no navegador (antes de ser do circuito) não vale mais
 // ⚙ Parâmetros da simulação, em duas abas: "simulação" (Δt, tempo final… — valem ao iniciar) e "variáveis globais ($)", como

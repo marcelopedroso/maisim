@@ -20,6 +20,7 @@ T = {
     "editor.aberto_fora_da_pasta": {"pt": "o modelo aberto não está na pasta do MaiSim: use Salvar como",
                                     "en": "the open circuit is not in the MaiSim folder: use Save as"},
     "editor.circuito_novo_sem_arquivo": {"pt": "o circuito novo (sem arquivo)", "en": "the new circuit (no file)"},
+    "editor.nome_rodada_padrao": {"pt": "rodada", "en": "run"},
     "editor.janelas_gecko_fechadas": {"pt": {"one": "o Gecko abriu uma janela de erro ({titulos}) na tela dele, que você não vê, e ficou esperando o OK; o MaiSim fechou. Confira o desenho (Ctrl+Z volta)", "other": "o Gecko abriu {n} janelas de erro ({titulos}) na tela dele, que você não vê, e ficou esperando o OK; o MaiSim fechou. Confira o desenho (Ctrl+Z volta)"},
                                     "en": {"one": "Gecko opened an error window ({titulos}) on its own screen, which you cannot see, and was waiting for OK; MaiSim closed it. Check the drawing (Ctrl+Z goes back)", "other": "Gecko opened {n} error windows ({titulos}) on its own screen, which you cannot see, and was waiting for OK; MaiSim closed them. Check the drawing (Ctrl+Z goes back)"}},
     "editor.gecko_novo_reaberto": {"pt": "o Gecko foi reiniciado (é outro Gecko, sem o que estava no de antes): o MaiSim reabriu {nome} do arquivo salvo",

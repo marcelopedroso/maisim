@@ -3452,7 +3452,7 @@ def _rodar(c, ctl_de_fora=None):
     (Comparar), com o .ipes exato ao lado. Sinais: a saída de cada bloco de controle da folha principal (medidores e o
     resto), com o nome do rótulo da saída, e os medidores de dentro dos subcircuitos (SM_1_<rótulo>). Pausar, continuar e parar entre um bloco de passos e outro."""
     dt, tfim = float(c.get("dt", 1e-6)), float(c.get("tfim", 0.04))
-    nome = str(c.get("nome", "") or "rodada").strip()
+    nome = str(c.get("nome", "") or lingua.tr("editor.nome_rodada_padrao")).strip()
     if not re.match(r"^[A-Za-z0-9_\-]{1,40}$", nome):
         raise ErroMotor(lingua.tr("rodada.nome_invalido"))
     if not (1e-9 <= dt <= 1e-2) or not (dt < tfim <= 10.0):

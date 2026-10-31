@@ -15,6 +15,7 @@ T = {
     # o nome de uma rodada gravada na lista (planta · circuito · pasta · data e hora · intervalo)
     "scope_srv.planta_python": {"pt": "planta Python", "en": "Python plant"},
     "scope_srv.quando": {"pt": "{dia}/{mes} {hora}:{min}", "en": "{mes}/{dia} {hora}:{min}"},
+    "scope_srv.circuito_novo": {"pt": "novo (sem arquivo)", "en": "new (no file)"},
     # o módulo Figuras (figura.py)
     "figura.sem_matplotlib": {"pt": "as figuras para artigo usam o matplotlib, que não está instalado (na versão de programador: pip install matplotlib)",
                               "en": "the paper figures use matplotlib, which is not installed (in the developer version: pip install matplotlib)"},

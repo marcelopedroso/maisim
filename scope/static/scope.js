@@ -69,6 +69,10 @@ const LIMITE_FINO_MS = 40;
 const CHAVE_LAYOUT_ANTIGA = "maisim-scope-layout-v3";
 const circuitoDe = (F) => { const m = (F && F.meta) || {}, mod = String(m.modelo || "");
   return mod ? mod.split("/").pop().replace(/\.ipes$/, "") : String(m.planta || ""); };
+// o nome do circuito para MOSTRAR: um circuito novo grava no meta a marca "novo (sem arquivo)" (o servidor e as chaves a comparam
+// assim): na tela, no idioma de agora
+const MARCA_NOVO = "novo (sem arquivo)";   // i18n-ok (marcador do meta)
+const nomeCircuito = (F) => { const c = circuitoDe(F); return c === MARCA_NOVO || /^novo:/.test(c) ? tr("scope.circuito_novo") : c; };
 const donoLayout = (F) => { const m = (F && F.meta) || {}; return String(m.chave_layout || m.modelo || m.planta || ""); };
 const chaveLayout = () => { const c = donoLayout(A); return c ? `maisim-scope-layout-v5:${c}` : ""; };
 const chaveV4 = () => { const m = (A && A.meta) || {}, c = circuitoDe(A);   // um circuito novo (sem arquivo) não herda o de outro
@@ -1643,7 +1647,7 @@ function consultaPadrao(chave) {
     let novo = false;
     if (L) try { if (!localStorage.getItem(chave)) { localStorage.setItem(chave, JSON.stringify(L)); novo = true; } } catch (e) { /* ok */ }
     montaTudo();                                         // com o padrão; sem ele, o de antes ou o automático
-    if (novo) st("scope.st.padrao_circuito", { c: circuitoDe(A) });
+    if (novo) st("scope.st.padrao_circuito", { c: nomeCircuito(A) });
   });
 }
 function leLayout() {
@@ -1805,7 +1809,7 @@ function garantePainelDaRodada() {
   if (!usar.length || paineis().some((p) => p.sinais.some((c) => temSinal(A, c)))) return;
   // os títulos do automático: no idioma de agora (ninguém compara com eles); autoTit: trocam com o idioma até o usuário mudar
   // o título (os que vêm de um layout guardado nunca têm a marca)
-  const rotulo = A.meta.rotulo || "", s = adicionaSecao(circuitoDe(A) || tr("scope.secao_rodada", { rotulo }).trim(), 0);
+  const rotulo = A.meta.rotulo || "", s = adicionaSecao(nomeCircuito(A) || tr("scope.secao_rodada", { rotulo }).trim(), 0);
   if (!circuitoDe(A)) s.autoTit = { chave: "scope.secao_rodada", rotulo };
   const p = adicionaPainel({ titulo: tr("scope.painel_rodada", { rotulo }).trim(), sinais: usar.slice(0, 8), largura: 1 }, 1);
   p.autoTit = { chave: "scope.painel_rodada", rotulo };
@@ -2316,16 +2320,16 @@ $("ml-guardar").onclick = async () => {
   try {
     const r = await fetch("/maisim/simu/scope/padrao", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ modelo: A.meta.modelo, layout: layoutAtual() }) });
     const j = await r.json().catch(() => ({}));
-    const c = circuitoDe(A);
+    const c = nomeCircuito(A);
     if (r.ok) status(() => tr("scope.st.guardou", { c, arq: j.arquivo || tr("scope.st.ao_lado") })); else st("scope.st.guardar_erro", { erro: j.erro || r.statusText });
   } catch (e) { st("scope.st.guardar_sem_simu", { msg: e.message }); }
 };
 $("ml-padrao").onclick = async () => {
   $("menu-layout").hidden = true;
   const L = A && A.meta && A.meta.modelo ? await lePadrao() : null;
-  if (!L) { st("scope.st.sem_padrao", { c: circuitoDe(A) || "" }); return; }
+  if (!L) { st("scope.st.sem_padrao", { c: nomeCircuito(A) || "" }); return; }
   try { localStorage.setItem(chaveLayout(), JSON.stringify(L)); } catch (e) { /* ok */ }
-  montaTudo(); st("scope.st.de_volta", { c: circuitoDe(A) });
+  montaTudo(); st("scope.st.de_volta", { c: nomeCircuito(A) });
 };
 $("bt-padrao").onclick = () => {
   $("menu-layout").hidden = true; const k = chaveLayout();   // vazio (não apagado): nem o padrão nem o de antes voltam por cima do automático
@@ -2352,7 +2356,7 @@ $("arq-visoes").onchange = async (e) => {
     st("scope.st.imp_nao_visoes", { arq: f.name }); return; }
   if (!chaveLayout()) { st("scope.st.imp_sem_rodada"); return; }
   if (!(await pergunta({ titulo: tr("scope.q.importa"), ok: tr("scope.q.importa_ok"),
-    texto: tr(v.de ? "scope.q.importa_texto_de" : "scope.q.importa_texto", { c: circuitoDe(A), arq: f.name, de: v.de, n: itensV.length }) }))) return;
+    texto: tr(v.de ? "scope.q.importa_texto_de" : "scope.q.importa_texto", { c: nomeCircuito(A), arq: f.name, de: v.de, n: itensV.length }) }))) return;
   const cores = {};
   for (const [k, c] of Object.entries(v.cores && typeof v.cores === "object" ? v.cores : {})) { const cv = corValida(String(c)); if (cv && /^[\w.$+\-]{1,120}$/.test(k)) cores[k] = cv; }
   const esp = {};
