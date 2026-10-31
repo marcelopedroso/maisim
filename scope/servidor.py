@@ -170,7 +170,10 @@ def rotulo_rodada(f, meta=None):
     circuito = ""
     if meta.get("planta") in DO_SIMU:
         pasta = meta.get("rotulo", pasta)
-        circuito = Path(str(meta.get("modelo") or "")).stem      # o circuito (Marcelo, 19/10: as rodadas se chamavam todas Teste2)
+        mod = str(meta.get("modelo") or "")
+        circuito = Path(mod).stem      # o circuito (Marcelo, 19/10: as rodadas se chamavam todas Teste2)
+        if mod == "novo (sem arquivo)" or mod.startswith("novo:"):   # i18n-ok (a marca do meta de um circuito novo): mostrada no idioma
+            circuito = lingua.tr("scope_srv.circuito_novo")
     intervalo = meta.get("Ts") or meta.get("dt")              # o intervalo entre as amostras guardadas (comparar: ver se casam)
     intv = (f"{intervalo * 1e3:.4g} ms" if intervalo >= 1e-3 else f"{intervalo * 1e6:.4g} µs") if isinstance(intervalo, (int, float)) and intervalo > 0 else ""
     lt = time.localtime(f.stat().st_mtime)

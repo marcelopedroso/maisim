@@ -264,6 +264,7 @@ maisimI18n.add({
     en: "drag one of them to move them all (the wires inside go along) · Delete deletes · Ctrl+C / Ctrl+X copy or cut ·\n        Ctrl+V pastes where the mouse is · Shift + click adds or removes · Shift + drag on empty space adds · Esc clears the selection" },
   "simu.fio_info": { pt: "conexão {dom} · {n} pontos · ({a}) → ({b})", en: "{dom} wire · {n} points · ({a}) → ({b})" },
   "simu.rotulo_no": { pt: "rótulo do nó", en: "node label" },
+  "simu.nome_rodada_padrao": { pt: "rodada", en: "run" },   // o nome da rodada enquanto ninguém escolheu outro (⚙ ao lado do ▶)
   "simu.sem_rotulo_p": { pt: "(sem rótulo)", en: "(no label)" },
   "simu.fio_aviso": { pt: "conexões e terminais com o mesmo rótulo ficam no mesmo nó; o voltímetro mede pelos rótulos", en: "wires and terminals with the same label are on the same node; the voltmeter measures by the labels" },
   "simu.apagar_delete": { pt: "Apagar (Delete)", en: "Delete (Del)" },

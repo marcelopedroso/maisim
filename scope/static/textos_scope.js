@@ -253,6 +253,7 @@ maisimI18n.add({
   "scope.s.t_recolher": { pt: "recolher a seção (esconder os painéis; fica guardado)", en: "collapse the section (hide the panels; it is kept)" },
   "scope.nova_secao": { pt: "Nova seção", en: "New section" },
   "scope.secao_rodada": { pt: "Rodada {rotulo}", en: "Run {rotulo}" },
+  "scope.circuito_novo": { pt: "novo (sem arquivo)", en: "new (no file)" },   // o circuito ainda sem arquivo, no rótulo e no título da seção
   "scope.sem_secao": { pt: "(sem seção)", en: "(no section)" },
   "scope.n_paineis": { pt: { one: "{n} painel", other: "{n} painéis" }, en: { one: "{n} panel", other: "{n} panels" } },
 
