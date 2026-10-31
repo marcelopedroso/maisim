@@ -72,7 +72,8 @@ const circuitoDe = (F) => { const m = (F && F.meta) || {}, mod = String(m.modelo
 // o nome do circuito para MOSTRAR: um circuito novo grava no meta a marca "novo (sem arquivo)" (o servidor e as chaves a comparam
 // assim): na tela, no idioma de agora
 const MARCA_NOVO = "novo (sem arquivo)";   // i18n-ok (marcador do meta)
-const nomeCircuito = (F) => { const c = circuitoDe(F); return c === MARCA_NOVO || /^novo:/.test(c) ? tr("scope.circuito_novo") : c; };
+const ehNovo = (F) => { const c = circuitoDe(F); return c === MARCA_NOVO || /^novo:/.test(c); };
+const nomeCircuito = (F) => ehNovo(F) ? tr("scope.circuito_novo") : circuitoDe(F);
 const donoLayout = (F) => { const m = (F && F.meta) || {}; return String(m.chave_layout || m.modelo || m.planta || ""); };
 const chaveLayout = () => { const c = donoLayout(A); return c ? `maisim-scope-layout-v5:${c}` : ""; };
 const chaveV4 = () => { const m = (A && A.meta) || {}, c = circuitoDe(A);   // um circuito novo (sem arquivo) não herda o de outro
@@ -1811,6 +1812,7 @@ function garantePainelDaRodada() {
   // o título (os que vêm de um layout guardado nunca têm a marca)
   const rotulo = A.meta.rotulo || "", s = adicionaSecao(nomeCircuito(A) || tr("scope.secao_rodada", { rotulo }).trim(), 0);
   if (!circuitoDe(A)) s.autoTit = { chave: "scope.secao_rodada", rotulo };
+  else if (ehNovo(A)) s.autoTit = { chave: "scope.circuito_novo", rotulo: "" };   // o circuito novo: troca com o idioma também (Codex, #178)
   const p = adicionaPainel({ titulo: tr("scope.painel_rodada", { rotulo }).trim(), sinais: usar.slice(0, 8), largura: 1 }, 1);
   p.autoTit = { chave: "scope.painel_rodada", rotulo };
 }
