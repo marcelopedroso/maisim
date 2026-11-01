@@ -6,6 +6,20 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Security
+- **A website open in the browser can no longer reach MaiSim on this machine.** Everything already listened only on 127.0.0.1, but a page from any site could still send requests to `localhost:7100`: it could drive the Gecko screen through the noVNC WebSocket, delete the scope's recordings with a hidden POST, and read the API from a domain that resolves to 127.0.0.1 (DNS rebinding). Fixed:
+  - **The page (`app/pagina.py`)** accepts only its own Host (`localhost`, `127.0.0.1` or `[::1]` with its port; anything else gets 421). It reads request headers strictly: a bare line break, a folded line, a duplicate Host or Content-Length, Content-Length together with Transfer-Encoding, a target that does not start with `/` or an invalid header name get 400, so no hidden header reaches the modules. Headers must arrive within 15 s.
+  - **WebSockets** are allowed only to the Gecko screen, and only with the page's own Origin (403 otherwise). The Vite dev server checks the same.
+  - **The Gecko screen (x11vnc)** now asks for a random password, new at each start (`vnc.senha` in the cache, readable only by the user). Before, it ran with `-nopw`. The noVNC page gets the password from `/maisim/gecko-senha`, which answers only the MaiSim page itself (`X-MaiSim: 1`, same origin). This covers both the launcher and `gecko/sobe.sh`.
+  - **The scope**: `/apagar` requires the same check as the simulator (local Host, the page's Origin, `X-MaiSim: 1`); the scope's delete dialog and the home page's trash send the header. `/publicar` takes only JSON from no other origin or site, up to 256 MB, which is what the simulator and `run.py` already send.
+  - **The editor engine (port 7104)** drops a connection whose first line is an HTTP request. A website could POST to `localhost:7104`, and the engine ran the lines of the body as its own commands: `SAVEAS` could write a file anywhere the user can.
+  - **The simulator and the scope** check the Host on every request, also when called on their own ports (7101, 7102) without the page.
+  - **The page's life signal** (`/maisim/vivo`) only from the MaiSim page: a fake signal from a website kept MaiSim running for up to 24 h after its window closed.
+  - New test `seguranca_api` tries each attack (the no-cors POST, the WebSocket from another origin, a foreign Host on the page and on the modules' ports, a smuggled header, a slow header, an HTTP request to the engine, the screen without a password) and checks that each one is refused.
+
+### Fixed
+- **The Gecko screen in the browser starts from the launcher again.** The launcher set `WAYLAND_DISPLAY` and `XDG_SESSION_TYPE` to empty for x11vnc. x11vnc quits when it sees them at all, even empty ("Wayland display server detected"), so the noVNC screen never came up. They are now removed, as `gecko/sobe.sh` already did.
+
 ## [0.3.6] - 2026-10-31
 
 ### Added

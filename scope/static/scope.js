@@ -2458,7 +2458,7 @@ async function apagaAp(ck, orfas) {
   apagando = true; $("ap-ok").disabled = true; $("ap-ok").textContent = tr("scope.ap.apagando"); $("janela-apagar").classList.add("apagando");
   st("scope.st.apagando", { n: ck.length, tam: mb(tam) });
   try {
-    const r = await (await fetch("apagar", { method: "POST", headers: { "Content-Type": "application/json" },
+    const r = await (await fetch("apagar", { method: "POST", headers: { "Content-Type": "application/json", "X-MaiSim": "1" },
       body: JSON.stringify({ arqs: ck.map((c) => c.dataset.arq), guardadas: guard > 0, orfas }) })).json();
     status(() => resumoApagar(r));
   } catch (e) { st("scope.st.apagar_sem_servidor", { msg: e.message }); }

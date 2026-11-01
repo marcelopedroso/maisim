@@ -16,6 +16,7 @@ import argparse
 import json
 import locale
 import os
+import secrets
 import shlex
 import shutil
 import signal
@@ -230,7 +231,7 @@ class Lancador:
         f = open(self.logs / log, "a")
         extra = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW} if WIN else {"start_new_session": True}
         p = subprocess.Popen(args, stdout=f, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, cwd=str(RAIZ),
-                             env={**os.environ, **(env or {})}, **extra)
+                             env={k: v for k, v in {**os.environ, **(env or {})}.items() if v is not None}, **extra)   # None: tira a variável
         self.subiu[nome] = p
         self.grava()
         return p
@@ -287,8 +288,13 @@ class Lancador:
             env["DISPLAY"] = tela
             vnc, web = self.porta("VNC"), self.porta("TELA")
             if shutil.which("x11vnc") and shutil.which("websockify") and Path("/usr/share/novnc").is_dir():   # a tela no navegador (opcional)
-                self.sobe("x11vnc", ["x11vnc", "-display", tela, "-rfbport", str(vnc), "-localhost", "-nopw", "-forever", "-shared", "-quiet"],
-                          "x11vnc.log", {"WAYLAND_DISPLAY": "", "XDG_SESSION_TYPE": ""})
+                # a senha da tela, sorteada a cada partida (sem ela, qualquer site aberto no navegador comandava o Gecko por um
+                # websocket: o navegador não aplica a mesma origem a websockets); a página do Gecko a pede à página do MaiSim
+                senha = c / "vnc.senha"
+                senha.write_text(secrets.token_urlsafe(6)[:8] + "\n")
+                os.chmod(senha, 0o600)
+                self.sobe("x11vnc", ["x11vnc", "-display", tela, "-rfbport", str(vnc), "-localhost", "-passwdfile", str(senha), "-forever", "-shared", "-quiet"],
+                          "x11vnc.log", {"WAYLAND_DISPLAY": None, "XDG_SESSION_TYPE": None})   # (sem elas: o x11vnc desiste se as vê, mesmo vazias, como na WSLg)
                 (c / "web").mkdir(exist_ok=True)
                 shutil.copy2(RAIZ / "gecko" / "index.html", c / "web" / "index.html")
                 if not (c / "web" / "novnc").exists():

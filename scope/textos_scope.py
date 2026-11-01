@@ -8,6 +8,7 @@ T = {
     "scope_srv.nao_achei": {"pt": "não achei", "en": "not found"},
     "scope_srv.arquivo_invalido": {"pt": "arquivo inválido", "en": "invalid file"},
     "scope_srv.rota_desconhecida": {"pt": "rota desconhecida", "en": "unknown route"},
+    "scope_srv.so_maisim": {"pt": "só a página do MaiSim, nesta máquina, pode fazer isso", "en": "only the MaiSim page, on this machine, can do that"},
     # apagar gravações: por que uma ficou (o "por" de cada recusada; o "codigo" ao lado não muda com o idioma)
     "scope_srv.nao_gravacao": {"pt": "não é uma gravação do scope", "en": "not a scope recording"},
     "scope_srv.rodando": {"pt": "está rodando", "en": "running"},

@@ -38,7 +38,7 @@ const ORFA = path.join(RODADAS, "2026-01-01_000009_ap_orfa");
     const rel3 = path.relative(path.resolve(__dirname, "../../.."), path.join(g2, "scope_ap_teste_3.npz"));
     const lista = await pg.evaluate(() => fetch("rodadas").then((r) => r.json()));
     const it3 = lista.find((x) => x.nome === "ap_teste_tres") || {};
-    const r3 = await pg.evaluate((arq) => fetch("apagar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ arqs: [arq] }) }).then((r) => r.json()), it3.arq || rel3);
+    const r3 = await pg.evaluate((arq) => fetch("apagar", { method: "POST", headers: { "Content-Type": "application/json", "X-MaiSim": "1" }, body: JSON.stringify({ arqs: [arq] }) }).then((r) => r.json()), it3.arq || rel3);
     ok(it3.pasta && it3.guardada && it3.pasta_tam > 2000 && r3.recusados.length === 1 && r3.recusados[0].por === "guardada" && fs.existsSync(g2),
       `a lista diz pasta, guardada e o tamanho da pasta (${it3.pasta_tam} B); sem o pedido explícito, a guardada é recusada (${JSON.stringify(r3.recusados)})`);
     fs.rmSync(path.join(g2, ".guardada"));             // agora ela é uma rodada comum (fica de fora do filtro abaixo pelo nome)
@@ -90,7 +90,7 @@ const ORFA = path.join(RODADAS, "2026-01-01_000009_ap_orfa");
     const d4 = rodada(4, "ap_teste_quatro"), d5 = rodada(5, "ap_teste_cinco");
     await pg.evaluate(() => fetch("rodadas").then((r) => r.json()));     // o scope as vê
     const arqs = await pg.evaluate(() => fetch("rodadas").then((r) => r.json()).then((l) => l.filter((x) => /ap_teste_(quatro|cinco)/.test(x.nome)).map((x) => x.arq)));
-    const [x1, x2] = await pg.evaluate((arqs) => Promise.all([0, 1].map(() => fetch("apagar", { method: "POST", headers: { "Content-Type": "application/json" },
+    const [x1, x2] = await pg.evaluate((arqs) => Promise.all([0, 1].map(() => fetch("apagar", { method: "POST", headers: { "Content-Type": "application/json", "X-MaiSim": "1" },
       body: JSON.stringify({ arqs }) }).then(async (r) => ({ st: r.status, j: await r.json().catch(() => null) })))), arqs);
     const soma = [x1, x2].map((x) => x.j ? `${x.j.apagados.length} apagadas, ${(x.j.ja || []).length} já, ${x.j.recusados.length} recusadas` : `HTTP ${x.st}`);
     // o aviso de quem chegou depois (o que achou as duas já apagadas): a ordem em que o servidor atende os dois não é fixa

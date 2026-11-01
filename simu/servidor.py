@@ -5970,6 +5970,13 @@ def origens_maisim():
     return {f"http://{h}:{p}" for h in ("localhost", "127.0.0.1", "[::1]") for p in PORTAS_PAGINA}
 
 
+def host_local(h):
+    """O Host, se veio, é desta máquina: um site com DNS rebinding (o nome dele apontando para 127.0.0.1) chega com o Host
+    dele e leria, direto na porta do simu, as rotas que não passam pelo pedido_local (o circuito, o controle, as rodadas)."""
+    host = h.headers.get("Host")
+    return host is None or host.rsplit(":", 1)[0].strip("[]").lower() in ("localhost", "127.0.0.1", "::1")
+
+
 def pedido_local(h, post):
     """Rotas do Claude: só a página do MaiSim, na própria máquina. Host local (barra DNS rebinding); Origin, se veio, igual a
     uma das origens do MaiSim, com a porta (outra página em localhost:N não serve: pelo Vite, o CORS dele deixaria passar);
@@ -6011,6 +6018,8 @@ class Manipulador(BaseHTTPRequestHandler):
 
     def do_GET(self):
         lingua.do_pedido(self.headers)
+        if not host_local(self):
+            return self._resposta(421, {"erro": lingua.tr("servidor.so_local")})
         pedido_leitura.sim = True                     # um GET só lê: encontrar um Gecko novo não o recusa (confere_gecko)
         u = urlparse(self.path)
         rota = u.path[len(PREFIXO):] if u.path.startswith(PREFIXO + "/") else u.path
@@ -6188,6 +6197,8 @@ class Manipulador(BaseHTTPRequestHandler):
         ele ainda está em andamento, espera por ele."""
         lingua.do_pedido(self.headers)
         self._pedido_id = None
+        if not host_local(self):
+            return self._resposta(421, {"erro": lingua.tr("servidor.so_local")})
         pid = str(self.headers.get("X-MaiSim-Pedido", ""))
         if not re.match(r"^[A-Za-z0-9-]{8,64}$", pid):
             return self._do_post()

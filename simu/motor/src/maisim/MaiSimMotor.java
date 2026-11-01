@@ -44,6 +44,8 @@ public final class MaiSimMotor {
         } catch (Exception e) { System.out.println("reconectar ao Gecko: " + e); }
     }
 
+    private static final java.util.regex.Pattern PEDIDO_HTTP = java.util.regex.Pattern.compile("^[A-Za-z]+ \\S+ HTTP/\\d");
+
     public static void main(String[] args) throws Exception {
         int portaGecko = 7103, porta = 7104;
         for (int i = 0; i < args.length; i++) {
@@ -60,7 +62,13 @@ public final class MaiSimMotor {
                      BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream(), StandardCharsets.UTF_8));
                      PrintWriter out = new PrintWriter(s.getOutputStream(), true)) {
                     String linha;
+                    boolean primeira = true;
                     while ((linha = in.readLine()) != null) {
+                        // um navegador: um site qualquer alcança esta porta (um POST "no-cors" para localhost:7104) e as linhas do
+                        // corpo viravam comandos (um SAVEAS gravava onde ele quisesse); o pedido dele começa sempre pela linha do
+                        // HTTP, então a conexão cai antes de ler qualquer comando
+                        if (primeira && PEDIDO_HTTP.matcher(linha).find()) { System.out.println("cliente: um pedido HTTP, recusado"); break; }
+                        primeira = false;
                         String r;
                         try { r = "OK " + m.trata(linha.trim()); }
                         catch (Throwable e) {

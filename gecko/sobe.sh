@@ -6,7 +6,7 @@
 #   padrão: uma CÓPIA de um exemplo em $MAISIM_CACHE/gecko/ (salvar pela tela não mexe no exemplo do repositório)
 #   abrir: http://localhost:$MAISIM_PORTA_PAGINA/maisim/gecko/ (pelo MaiSim, com o menu lateral) ou
 #          http://localhost:$MAISIM_PORTA_TELA/ (direto, sem o menu); o noVNC completo continua em …/novnc/vnc.html
-# Pacotes: xvfb x11vnc novnc websockify. Tudo só em localhost (x11vnc -localhost, websockify em 127.0.0.1).
+# Pacotes: xvfb x11vnc novnc websockify. Tudo só em localhost (x11vnc -localhost com senha, websockify em 127.0.0.1).
 # WSL: /tmp/.X11-unix é do WSLg e só de leitura, então o Xvfb fica no socket abstrato (DISPLAY=:71 funciona assim);
 # o x11vnc desiste se vê WAYLAND_DISPLAY, então roda sem ele. Com o openbox instalado, ele gerencia as janelas (bordas,
 # mover, trazer para a frente) e maximiza a janela principal do Gecko (título "… - GeckoCIRCUITS"); sem ele, as janelas
@@ -36,7 +36,10 @@ if command -v openbox > /dev/null; then     # a configuração padrão + maximiz
     /etc/xdg/openbox/rc.xml > "$C/openbox_rc.xml"
   DISPLAY=$TELA nohup openbox --config-file "$C/openbox_rc.xml" > "$C/openbox.log" 2>&1 & echo $! > "$C/openbox.pid"
 fi
-env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE x11vnc -display "$TELA" -rfbport $VNC -localhost -nopw -forever -shared -quiet \
+# a senha da tela, sorteada a cada partida (sem ela, qualquer site no navegador comandava o Gecko por um websocket); a página
+# do Gecko a pede à página do MaiSim (/maisim/gecko-senha)
+( umask 077; head -c 12 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | cut -c1-8 > "$C/vnc.senha" )
+env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE x11vnc -display "$TELA" -rfbport $VNC -localhost -passwdfile "$C/vnc.senha" -forever -shared -quiet \
   -o "$C/x11vnc.log" > /dev/null 2>&1 & echo $! > "$C/x11vnc.pid"
 # pasta servida: a página do MaiSim (index.html daqui: menu lateral, estado, tela) e o noVNC do sistema em novnc/
 mkdir -p "$C/web"; cp "$AQUI/index.html" "$C/web/index.html"; ln -sfn /usr/share/novnc "$C/web/novnc"

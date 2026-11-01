@@ -13,6 +13,7 @@
 // os textos desta página, em português e inglês (aqui mesmo: a página é servida também direto na porta da tela, sem o resto)
 maisimI18n.add({
   "gecko.conectando": { pt: "conectando…", en: "connecting…" },
+  "gecko.senha": { pt: "a senha da tela do Gecko (está em gecko/vnc.senha, no cache do MaiSim)", en: "the Gecko screen password (in gecko/vnc.senha, in MaiSim's cache)" },
   "gecko.conectado": { pt: "conectado", en: "connected" },
   "gecko.sem_conexao": { pt: "sem conexão (o Gecko do MaiSim está no ar? sobe.sh) · tentando de novo…",
     en: "no connection (is MaiSim's Gecko running? sobe.sh) · trying again…" },
@@ -52,9 +53,18 @@ let rfb = null;
 const TEXTO = { "": "gecko.conectando", ok: "gecko.conectado", erro: "gecko.sem_conexao" };
 const mostra = (c) => { est.className = c; est.textContent = tr(TEXTO[c]); };
 maisimI18n.aoMudar(() => mostra(est.className));
-function conecta() {
+// a senha da tela (sorteada a cada partida pelo lançador): pela página do MaiSim, que só a dá à própria página; aberta direto
+// na porta da tela (sem a página do MaiSim), pergunta
+async function senha() {
+  try { const r = await fetch("/maisim/gecko-senha", { headers: { "X-MaiSim": "1" }, cache: "no-store" }); if (r.ok) return (await r.json()).senha || null; }
+  catch (e) { /* sem a página do MaiSim */ }
+  return null;
+}
+async function conecta() {
   mostra("");
-  rfb = new RFB(document.getElementById("tela"), url);
+  const s = await senha();
+  rfb = new RFB(document.getElementById("tela"), url, s ? { credentials: { password: s } } : {});
+  rfb.addEventListener("credentialsrequired", () => { const p = s || window.prompt(tr("gecko.senha")); if (p) rfb.sendCredentials({ password: p }); });
   rfb.scaleViewport = true; rfb.resizeSession = false;
   rfb.addEventListener("connect", () => { mostra("ok"); rfb.focus(); });
   rfb.addEventListener("disconnect", () => {
