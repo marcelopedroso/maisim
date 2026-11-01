@@ -33,6 +33,8 @@ from pathlib import Path
 AQUI = Path(__file__).resolve().parent
 sys.path.insert(0, str(AQUI.parent / "config"))
 import ler_config  # noqa: E402
+import lingua  # noqa: E402
+import textos_pagina  # noqa: E402,F401  (os textos da página, no dicionário)
 
 ler_config.aplica()
 PUBLICO, INICIO = AQUI / "public", AQUI / "index.html"
@@ -256,18 +258,15 @@ class Pagina(socketserver.BaseRequestHandler):
         try:
             dest = socket.create_connection(("127.0.0.1", porta), timeout=10)
         except OSError:
-            en = any(c.lower().startswith("cookie:") and "maisim-lingua=en" in c for c in cabs)   # o idioma da página
-            if str(porta) == os.environ.get("MAISIM_PORTA_TELA"):   # a tela do Gecko: desligada por padrão (só para depurar)
-                return self.resposta(502, ("MaiSim: the Gecko screen is off (MAISIM_TELA_GECKO=1 in .env turns it on, after a restart)" if en else
-                                           "MaiSim: a tela do Gecko está desligada (MAISIM_TELA_GECKO=1 no .env liga, depois de reiniciar)").encode(),
-                                     "text/plain; charset=utf-8")
-            return self.resposta(502, (f"MaiSim: the module on port {porta} is not running" if en else
-                                       f"MaiSim: o módulo da porta {porta} não está no ar").encode(), "text/plain; charset=utf-8")
+            lingua.do_pedido({"Cookie": "; ".join(c.split(":", 1)[1].strip() for c in cabs if c.lower().startswith("cookie:"))})   # o idioma da página
+            tela = str(porta) == os.environ.get("MAISIM_PORTA_TELA")   # a tela do Gecko: desligada por padrão (só para depurar)
+            texto = lingua.tr("pagina.tela_desligada") if tela else lingua.tr("pagina.sem_modulo", porta=porta)
+            return self.resposta(502, texto.encode(), "text/plain; charset=utf-8")
         dest.settimeout(None)
         self.request.settimeout(None)
         try:
             dest.sendall(("\r\n".join(novos) + "\r\n\r\n").encode("latin-1") + resto)
-            ida = threading.Thread(target=tubo, args=(self.request, dest), daemon=True)
+            ida = threading.Thread(target=tubo, args=(self.request, dest), daemon=True)   # i18n-ok (só copia bytes, sem texto)
             ida.start()
             if not upgrade:
                 cabecalho_fecha(dest, self.request)
@@ -306,7 +305,7 @@ class Servidor(socketserver.ThreadingTCPServer):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="A página do MaiSim (sem Node).")
+    ap = argparse.ArgumentParser(description="A página do MaiSim (sem Node).")   # i18n-ok (a ajuda do terminal, de programador)
     ap.add_argument("--porta", type=int, default=int(os.environ["MAISIM_PORTA_PAGINA"]))
     a = ap.parse_args()
     PORTA["pagina"] = a.porta
