@@ -21,7 +21,7 @@ AI assistant (Claude Code) that sees the circuit, the control code and the runs.
 | **simu** (`/maisim/simu`) | the circuit editor (palette, wires, subcircuits, global variables), Python control sampled every Ts, runs, and the AI chat | [`simu/LEIA.md`](simu/LEIA.md), [`simu/GUIA_CONTROLE.en.md`](simu/GUIA_CONTROLE.en.md) |
 | **scope** (`/maisim/scope`) | plots of the runs: live, compare two runs, sections and panels, exportable views | [`scope/LEIA.md`](scope/LEIA.md) |
 | **figures** (`/maisim/figuras`) | paper figures from the saved runs: stacked or side-by-side plots, journal styles (IEEE, Elsevier, MDPI, thesis, slides), Times New Roman/STIX/Arial, PDF, SVG and EPS (vector, fonts embedded) and PNG/TIFF at 600 dpi, compare any number of runs (matplotlib) | [`scope/figura.py`](scope/figura.py) |
-| **gecko** (`/maisim/gecko`) | the real GeckoCIRCUITS window on a virtual display, opened in the browser (noVNC) | [`gecko/LEIA.md`](gecko/LEIA.md) |
+| **gecko** (`/maisim/gecko`) | the real GeckoCIRCUITS window on a virtual display, opened in the browser (noVNC), for debugging Gecko; off by default (`MAISIM_TELA_GECKO=1` in `.env`) | [`gecko/LEIA.md`](gecko/LEIA.md) |
 | **app** | the home page and side menu (served by Python, `app/pagina.py`), which routes to the other modules; installable as an app (PWA) | [`app/public/marca/LEIA.md`](app/public/marca/LEIA.md) |
 
 Ready-made examples live in [`exemplos/`](exemplos/): buck, boost, buck-boost, DC H-bridge, half-bridge, full-bridge

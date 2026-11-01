@@ -250,6 +250,10 @@ class Pagina(socketserver.BaseRequestHandler):
             dest = socket.create_connection(("127.0.0.1", porta), timeout=10)
         except OSError:
             en = any(c.lower().startswith("cookie:") and "maisim-lingua=en" in c for c in cabs)   # o idioma da página
+            if str(porta) == os.environ.get("MAISIM_PORTA_TELA"):   # a tela do Gecko: desligada por padrão (só para depurar)
+                return self.resposta(502, ("MaiSim: the Gecko screen is off (MAISIM_TELA_GECKO=1 in .env turns it on, after a restart)" if en else
+                                           "MaiSim: a tela do Gecko está desligada (MAISIM_TELA_GECKO=1 no .env liga, depois de reiniciar)").encode(),
+                                     "text/plain; charset=utf-8")
             return self.resposta(502, (f"MaiSim: the module on port {porta} is not running" if en else
                                        f"MaiSim: o módulo da porta {porta} não está no ar").encode(), "text/plain; charset=utf-8")
         dest.settimeout(None)

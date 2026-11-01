@@ -11,7 +11,7 @@ uso: python3 app/lancador.py [--produto] [--abrir] [--sem-gecko]     |     pytho
   --produto  o perfil da versão "só usar" (config/produto.env: os dados à vista em ~/MaiSim ou Documentos\\MaiSim)
   MAISIM_JAVA (o java dos pacotes; senão o do sistema), MAISIM_GECKO_JAR (senão gecko/build/gecko-lote.jar),
   MAISIM_NAVEGADOR (o navegador do --abrir, com opções se quiser; "nenhum": não abre — os testes; no WSL, sem ele, o
-  Chrome ou o Edge do Windows)"""
+  Chrome ou o Edge do Windows), MAISIM_TELA_GECKO (1: a tela do Gecko no navegador, para depurar; desligada por padrão)"""
 import argparse
 import json
 import locale
@@ -287,14 +287,17 @@ class Lancador:
             time.sleep(1)
             env["DISPLAY"] = tela
             vnc, web = self.porta("VNC"), self.porta("TELA")
-            if shutil.which("x11vnc") and shutil.which("websockify") and Path("/usr/share/novnc").is_dir():   # a tela no navegador (opcional)
+            senha = c / "vnc.senha"
+            senha.unlink(missing_ok=True)                    # a de uma partida anterior
+            # a tela no navegador: só pedida (MAISIM_TELA_GECKO=1, para depurar o Gecko; o simu faz tudo sem ela) e com os pacotes
+            # do sistema; desligada, nem o x11vnc nem o websockify sobem (nenhuma porta a mais, e o x11vnc não fica varrendo a tela)
+            if os.environ.get("MAISIM_TELA_GECKO") == "1" and shutil.which("x11vnc") and shutil.which("websockify") and Path("/usr/share/novnc").is_dir():
                 # a senha da tela, sorteada a cada partida (sem ela, qualquer site aberto no navegador comandava o Gecko por um
                 # websocket: o navegador não aplica a mesma origem a websockets); a página do Gecko a pede à página do MaiSim
-                senha = c / "vnc.senha"
-                senha.write_text(secrets.token_urlsafe(6)[:8] + "\n")
-                os.chmod(senha, 0o600)
+                with os.fdopen(os.open(senha, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as f:   # só do dono desde o início
+                    f.write(secrets.token_urlsafe(6)[:8] + "\n")
                 self.sobe("x11vnc", ["x11vnc", "-display", tela, "-rfbport", str(vnc), "-localhost", "-passwdfile", str(senha), "-forever", "-shared", "-quiet"],
-                          "x11vnc.log", {"WAYLAND_DISPLAY": None, "XDG_SESSION_TYPE": None})   # (sem elas: o x11vnc desiste se as vê, mesmo vazias, como na WSLg)
+                          "x11vnc.log", {"WAYLAND_DISPLAY": None, "XDG_SESSION_TYPE": None})   # (sem elas: o x11vnc desiste se as vê, mesmo vazias)
                 (c / "web").mkdir(exist_ok=True)
                 shutil.copy2(RAIZ / "gecko" / "index.html", c / "web" / "index.html")
                 if not (c / "web" / "novnc").exists():

@@ -49,8 +49,10 @@ Ctrl+C derruba o que ele subiu (o Gecko só se não houver circuito sem salvar; 
 **Subir só o Gecko:** `gecko/sobe.sh [modelo.ipes]` (padrão: uma cópia do exemplo do buck em `$MAISIM_CACHE/gecko/`).
 **Parar:** `para.sh` (só os processos que o sobe.sh subiu). Portas e tela virtual: `config/padrao.env` (o `.env` da
 raiz muda o que for seu).
-**Abrir:** pelo MaiSim, **http://localhost:7100/maisim/gecko/** (cartão "GeckoCIRCUITS no navegador" ou o menu lateral;
-a página encaminha /maisim/gecko, websocket incluído), ou direto em http://localhost:7105/ (sem o menu). A página é o
+**Abrir:** pelo MaiSim, **http://localhost:7100/maisim/gecko/** (fora do menu lateral: é o "backend", só para depurar o
+Gecko; pelo lançador, só com `MAISIM_TELA_GECKO=1` no `.env`, desligada por padrão; a página encaminha /maisim/gecko,
+websocket incluído, e entrega a senha da tela), ou direto em http://localhost:7105/ (sem o menu: pergunta a senha, que
+fica em `gecko/vnc.senha` no cache, sorteada a cada partida). A página é o
 index.html desta pasta: barra com o estado da conexão, tela cheia, a tela do Gecko pelo núcleo do noVNC (reconecta
 sozinha) e o menu lateral do MaiSim (/maisim-nav.js do maisim-app). O sobe.sh monta a pasta servida em ~/.cache/maisim/gecko/web
 (essa página + atalho novnc/ para o noVNC do sistema).
