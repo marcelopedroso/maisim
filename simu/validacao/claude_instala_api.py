@@ -24,10 +24,10 @@ def pede(rota, corpo=None, **cab):
 for nome, cab in (("sem X-MaiSim", dict(X_MaiSim=None)), ("Origin de fora", dict(Origin="https://evil.example", Sec_Fetch_Site="cross-site")),
                   ("outra porta de localhost", dict(Origin="http://localhost:3000")), ("Host de fora (DNS rebinding)", dict(Host="evil.example:7201"))):
     c, j = pede("claude/instalar", {}, **cab)
-    ok(c == 403, f"POST claude/instalar, {nome}: {c} ({j.get('erro')})")
+    ok(c == (421 if "Host" in cab else 403), f"POST claude/instalar, {nome}: {c} ({j.get('erro')})")   # o Host de fora: 421, antes de tudo
 for nome, cab in (("Origin de fora", dict(Origin="https://evil.example", Sec_Fetch_Site="cross-site")), ("Host de fora", dict(Host="evil.example:7201"))):
     c, j = pede("claude/instalacao", **cab)
-    ok(c == 403, f"GET claude/instalacao, {nome}: {c}")
+    ok(c == (421 if "Host" in cab else 403), f"GET claude/instalacao, {nome}: {c}")
 c, e = pede("claude/estado")
 ok(c == 200 and e.get("sistema") == "linux" and e.get("pode_instalar") is True and "instalacao" not in e, f"estado: sistema {e.get('sistema')}, pode_instalar {e.get('pode_instalar')}")
 c, j = pede("claude/instalacao")

@@ -85,7 +85,7 @@ def vida():
 
 PORTA = {"pagina": None}                 # a porta desta página (no main): o Host e a Origin aceitos
 TOKEN = re.compile(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")   # o nome de um campo do cabeçalho (RFC 9110)
-PRAZO_CABECALHO = 15                       # s: o cabeçalho do pedido inteiro, senão a conexão cai (sem prender uma thread)
+PRAZO_CABECALHO = 15                       # s: para o cabeçalho inteiro chegar (não por pedaço), senão a conexão cai
 
 
 def locais(porta):
@@ -131,10 +131,17 @@ ROTAS = (("/maisim/simu", "MAISIM_PORTA_SIMU", False), ("/maisim/scope", "MAISIM
          ("/maisim/gecko", "MAISIM_PORTA_TELA", True))
 
 
-def le_cabecalho(s):
-    """Lê até o fim do cabeçalho HTTP; devolve (cabeçalho, o que já veio do corpo) ou (None, b"") se a conexão fechou."""
+def le_cabecalho(s, prazo=None):
+    """Lê até o fim do cabeçalho HTTP; devolve (cabeçalho, o que já veio do corpo) ou (None, b"") se a conexão fechou ou
+    se o prazo (s, para o cabeçalho inteiro: um pedaço a cada tanto não o renova) venceu."""
+    fim = None if prazo is None else time.monotonic() + prazo
     dados = b""
     while b"\r\n\r\n" not in dados:
+        if fim is not None:
+            resta = fim - time.monotonic()
+            if resta <= 0:
+                return None, b""
+            s.settimeout(resta)
         x = s.recv(65536)
         if not x:
             return None, b""
@@ -186,11 +193,11 @@ def tubo(de, para):
 
 class Pagina(socketserver.BaseRequestHandler):
     def handle(self):
-        self.request.settimeout(PRAZO_CABECALHO)
         try:
-            cab, resto = le_cabecalho(self.request)
+            cab, resto = le_cabecalho(self.request, PRAZO_CABECALHO)
         except OSError:                                   # o prazo do cabeçalho venceu (ou a conexão caiu)
             return
+        self.request.settimeout(PRAZO_CABECALHO)          # a resposta daqui: 15 s por envio (o encaminha tira, nos túneis)
         if not cab:
             return
         linhas = cab.split("\r\n")

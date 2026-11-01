@@ -21,7 +21,7 @@ const fecha = (proxy) => proxy.on('proxyRes', (proxyRes) => { proxyRes.headers.c
 // site qualquer comandava o Gecko), como na app/pagina.py
 const ORIGENS = new Set(['localhost', '127.0.0.1', '[::1]'].map((h) => `http://${h}:${CFG.MAISIM_PORTA_PAGINA}`))
 const daPagina = (req) => (!req.headers.origin || ORIGENS.has(String(req.headers.origin).toLowerCase())) && [undefined, 'same-origin', 'none'].includes(req.headers['sec-fetch-site'])
-const soDaPagina = (proxy) => proxy.on('proxyReqWs', (proxyReq, req, socket) => { if (!req.headers.origin || !daPagina(req)) socket.destroy() })
+const soDaPagina = (proxy) => proxy.on('proxyReqWs', (proxyReq, req, socket) => { if (!req.headers.origin || !daPagina(req)) { proxyReq.destroy(); socket.destroy() } })
 const proxy = {
     '/maisim/scope': { target: local('MAISIM_PORTA_SCOPE'), changeOrigin: true, configure: fecha },
     '/maisim/figuras': { target: local('MAISIM_PORTA_SCOPE'), changeOrigin: true, configure: fecha },   // o módulo Figuras (servido pelo scope)
@@ -37,6 +37,11 @@ const conexaoFechada = {
     configurePreviewServer: (server) => { server.middlewares.use((req, res, next) => { res.setHeader('Connection', 'close'); next() }) },
 }
 
+// o Host do pedido: só desta máquina (localhost, 127.0.0.1, [::1]), como na app/pagina.py — um site com DNS rebinding (o nome
+// dele apontando para 127.0.0.1) chega com o Host dele; sem depender do padrão do allowedHosts do Vite
+const HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
+const hostLocal = (req) => { try { return HOSTS.has(new URL(`http://${req.headers.host}`).hostname) } catch (e) { return false } }
+const soHostLocal = (req, res, next) => { if (hostLocal(req)) return next(); res.statusCode = 421; res.end() }
 // a senha da tela do Gecko (sorteada a cada partida, gecko/vnc.senha no cache): só para a própria página (um site não manda o
 // X-MaiSim), como a /maisim/gecko-senha da app/pagina.py; antes do proxy do /maisim/gecko (os middlewares daqui vêm primeiro)
 const senhaGecko = (req, res, next) => {
@@ -49,8 +54,11 @@ const senhaGecko = (req, res, next) => {
 }
 const seguranca = {
     name: 'maisim-seguranca',
-    configureServer: (server) => { server.middlewares.use(senhaGecko) },
-    configurePreviewServer: (server) => { server.middlewares.use(senhaGecko) },
+    configureServer: (server) => {
+        server.middlewares.use(soHostLocal); server.middlewares.use(senhaGecko)
+        server.httpServer?.on('upgrade', (req, socket) => { if (!hostLocal(req)) socket.destroy() })   // o websocket também
+    },
+    configurePreviewServer: (server) => { server.middlewares.use(soHostLocal); server.middlewares.use(senhaGecko) },
 }
 
 // https://vitejs.dev/config/

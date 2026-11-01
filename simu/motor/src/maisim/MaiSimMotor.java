@@ -44,7 +44,25 @@ public final class MaiSimMotor {
         } catch (Exception e) { System.out.println("reconectar ao Gecko: " + e); }
     }
 
-    private static final java.util.regex.Pattern PEDIDO_HTTP = java.util.regex.Pattern.compile("^[A-Za-z]+ \\S+ HTTP/\\d");
+    private static final java.util.regex.Pattern PEDIDO_HTTP = java.util.regex.Pattern.compile("^\\S+ \\S+ HTTP/\\d");
+
+    /** A 1ª linha de uma conexão: um comando (texto, sem bytes de controle além do TAB, sem a linha de um pedido HTTP). */
+    static boolean primeiraValida(String linha) {
+        if (PEDIDO_HTTP.matcher(linha).find()) return false;
+        for (int i = 0; i < linha.length(); i++) {
+            char c = linha.charAt(i);
+            if ((c < 0x20 && c != '\t') || c == 0x7f || c == '\uFFFD') return false;
+        }
+        return true;
+    }
+
+    /** Aceita a próxima conexão com 5 s para o 1º comando chegar: as conexões são atendidas uma por vez, e uma muda (de um
+     *  site, que abre e não manda nada) seguraria a fila; o simulador manda o 1º comando assim que conecta. */
+    private static Socket aceita(ServerSocket ss) throws java.io.IOException {
+        Socket s = ss.accept();
+        s.setSoTimeout(5000);
+        return s;
+    }
 
     public static void main(String[] args) throws Exception {
         int portaGecko = 7103, porta = 7104;
@@ -58,16 +76,17 @@ public final class MaiSimMotor {
         try (ServerSocket ss = new ServerSocket(porta, 10, InetAddress.getByName("127.0.0.1"))) {
             System.out.println("MaiSimMotor: Gecko na porta " + portaGecko + ", ouvindo em 127.0.0.1:" + porta);
             while (true) {
-                try (Socket s = ss.accept();
+                try (Socket s = aceita(ss);
                      BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream(), StandardCharsets.UTF_8));
                      PrintWriter out = new PrintWriter(s.getOutputStream(), true)) {
                     String linha;
                     boolean primeira = true;
                     while ((linha = in.readLine()) != null) {
                         // um navegador: um site qualquer alcança esta porta (um POST "no-cors" para localhost:7104) e as linhas do
-                        // corpo viravam comandos (um SAVEAS gravava onde ele quisesse); o pedido dele começa sempre pela linha do
-                        // HTTP, então a conexão cai antes de ler qualquer comando
-                        if (primeira && PEDIDO_HTTP.matcher(linha).find()) { System.out.println("cliente: um pedido HTTP, recusado"); break; }
+                        // corpo viravam comandos (um SAVEAS gravava onde ele quisesse). O pedido dele começa pela linha do HTTP, ou
+                        // por bytes de controle (TLS, STUN de um TURN): a conexão cai antes de ler qualquer comando
+                        if (primeira && !primeiraValida(linha)) { System.out.println("cliente: não é um comando do MaiSim, recusado"); break; }
+                        if (primeira) s.setSoTimeout(0);              // o 1º comando chegou: a conexão do simulador fica parada à vontade
                         primeira = false;
                         String r;
                         try { r = "OK " + m.trata(linha.trim()); }

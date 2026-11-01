@@ -9,8 +9,9 @@ instância de teste (a página 7200 → simu 7201, scope 7202), por um socket cr
   outra origem ou de outro site: 403; a página (com o X-MaiSim) e a publicação do simu (JSON, sem Origin) seguem;
 - direto nas portas do simu e do scope (sem a página), outro Host: 421; o sinal de vida de outro site: 403;
 - o cabeçalho que não termina (devagar de propósito) derruba a conexão depois do prazo;
-- o motor (as linhas do corpo de um POST de um site viravam comandos): um pedido HTTP cai sem resposta, num motor só deste
-  teste (compilado do código de agora);
+- o motor (as linhas do corpo de um POST de um site viravam comandos), num motor só deste teste (compilado do código de
+  agora): um pedido HTTP e uma 1ª linha com bytes de controle (TLS, STUN) caem sem resposta; uma conexão muda cai em ~5 s
+  e não segura a fila;
 - se a máquina tem o x11vnc e o Xvfb: a tela com -passwdfile pede senha (o tipo 2 do RFB, não o 1, sem senha)."""
 import json, os, shutil, socket, subprocess, sys, tempfile, time
 from pathlib import Path
@@ -94,14 +95,20 @@ ok(pedido("GET", "/maisim/scope/", host="site-mau.example:%d" % SCOPE, porta=SCO
 ok(pedido("GET", "/maisim/vivo?id=seguranca_api&fechou=1", [MAU]) == 403 and pedido("GET", "/maisim/vivo?id=seguranca_api&fechou=1", ["Sec-Fetch-Site: cross-site"]) == 403
    and pedido("GET", "/maisim/vivo?id=seguranca_api&fechou=1", ["Sec-Fetch-Site: same-origin"]) == 200, "o sinal de vida de outro site: 403; da página: 200")
 # o cabeçalho que não termina
-s = socket.create_connection(("127.0.0.1", PAG), timeout=30)
+s = socket.create_connection(("127.0.0.1", PAG), timeout=4)
 s.sendall(f"GET / HTTP/1.1\r\nHost: localhost:{PAG}\r\n".encode())
-t0 = time.time()
-try:
-    fechou = s.recv(10) == b""
-except (socket.timeout, ConnectionResetError):
-    fechou = True
-ok(fechou and 10 < time.time() - t0 < 25, f"o cabeçalho que não termina: a conexão cai em {time.time() - t0:.0f} s (o prazo é 15 s)")
+t0, fechou = time.time(), False
+while not fechou and time.time() - t0 < 30:          # um pedaço a cada 4 s (antes, cada pedaço renovava o prazo: para sempre)
+    try:
+        fechou = s.recv(10) == b""
+    except socket.timeout:
+        try:
+            s.sendall(b"X-Devagar: 1\r\n")
+        except OSError:
+            fechou = True
+    except ConnectionResetError:
+        fechou = True
+ok(fechou and 12 < time.time() - t0 < 20, f"o cabeçalho que não termina, um pedaço a cada 4 s: a conexão cai em {time.time() - t0:.0f} s (o prazo é 15 s)")
 s.close()
 # o motor (o protocolo de linhas): um POST "no-cors" de um site chegava à porta dele e as linhas do corpo viravam comandos.
 # O motor de uso fica com o simu (uma conexão por vez): um motor só deste teste, compilado do código de agora, numa porta
@@ -141,6 +148,16 @@ if shutil.which("javac") and shutil.which("java") and JAR.is_file():
         p2 = motor(b"PING\n")
         ok(p1.startswith(b"OK PONG") and b"OK" not in h and p2.startswith(b"OK PONG"),
            f"o motor: o PING responde ({p1!r}); um pedido HTTP com um comando no corpo cai sem resposta ({h!r}); o motor segue ({p2!r})")
+        bi = motor(b"\x16\x03\x01\x00\x05\x01\x00\x00\x01\nPING\n")   # o começo de um TLS (ou um STUN): bytes de controle
+        ok(b"OK" not in bi and motor(b"PING\n").startswith(b"OK PONG"), f"o motor: uma 1ª linha com bytes de controle (TLS, STUN) cai sem resposta ({bi!r})")
+        muda = socket.create_connection(("127.0.0.1", pm), timeout=15)   # uma conexão que não manda nada (um site segurando a fila)
+        t0 = time.time(); depois = motor(b"PING\n"); t1 = time.time() - t0
+        try:
+            caiu = muda.recv(10) == b""
+        except OSError:
+            caiu = True
+        muda.close()
+        ok(caiu and depois.startswith(b"OK PONG") and 3 < t1 < 9, f"o motor: a conexão muda cai em ~5 s e a seguinte é atendida ({t1:.1f} s, {depois!r})")
     except Exception as e:                               # noqa: BLE001
         ok(False, f"o motor deste teste não subiu: {e} {(T / 'motor.log').read_text()[-300:] if (T / 'motor.log').exists() else ''}")
     finally:
