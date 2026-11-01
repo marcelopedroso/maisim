@@ -13,7 +13,9 @@
 // os textos desta página, em português e inglês (aqui mesmo: a página é servida também direto na porta da tela, sem o resto)
 maisimI18n.add({
   "gecko.conectando": { pt: "conectando…", en: "connecting…" },
-  "gecko.conectado": { pt: "conectado", en: "connected" },
+  "gecko.sem_senha": { pt: "abra pelo MaiSim: /maisim/gecko/ (direto nesta porta, a tela não abre)",
+    en: "open it through MaiSim: /maisim/gecko/ (the screen does not open directly on this port)" },
+  "gecko.conectado": { pt: "conectado · só para ver", en: "connected · view only" },
   "gecko.sem_conexao": { pt: "sem conexão (o Gecko do MaiSim está no ar? sobe.sh) · tentando de novo…",
     en: "no connection (is MaiSim's Gecko running? sobe.sh) · trying again…" },
   "gecko.cred": { pt: "GeckoCIRCUITS, simulador de código aberto · tela virtual (Xvfb) pelo noVNC",
@@ -29,7 +31,7 @@ maisimI18n.add({
            padding:0 12px; background:#111418; border-bottom:1px solid #2a2f37; font-size:13px; box-sizing:border-box; }
   #barra b { color:#c4b5fd; }
   #estado::before { content:""; display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; background:#e8a33d; }
-  #estado.ok::before { background:#3ccf6e; } #estado.erro::before { background:#e5484d; }
+  #estado.ok::before { background:#3ccf6e; } #estado.erro::before, #estado.sem_senha::before { background:#e5484d; }
   #barra .cred { margin-left:auto; color:#8a939d; font-size:12px; }
   #barra button { font:inherit; font-size:12px; background:#232831; color:#e6e9ee; border:1px solid #2a2f37; border-radius:6px; padding:3px 9px; cursor:pointer; }
   #barra button:hover { background:#2b2440; }
@@ -49,15 +51,27 @@ const est = document.getElementById("estado");
 const url = (location.protocol === "https:" ? "wss://" : "ws://") + location.host + location.pathname.replace(/[^/]*$/, "") + "websockify";
 let rfb = null;
 // o estado (o texto no idioma da página; trocar o idioma reescreve)
-const TEXTO = { "": "gecko.conectando", ok: "gecko.conectado", erro: "gecko.sem_conexao" };
+const TEXTO = { "": "gecko.conectando", ok: "gecko.conectado", erro: "gecko.sem_conexao", sem_senha: "gecko.sem_senha" };
 const mostra = (c) => { est.className = c; est.textContent = tr(TEXTO[c]); };
 maisimI18n.aoMudar(() => mostra(est.className));
-function conecta() {
+// a senha da tela (sorteada a cada partida pelo lançador): pela página do MaiSim, que só a dá à própria página; aberta direto
+// na porta da tela (sem a página do MaiSim), não há senha: diz para abrir pelo MaiSim e não tenta mais
+let parado = false;
+async function senha() {
+  try { const r = await fetch("/maisim/gecko-senha", { headers: { "X-MaiSim": "1" }, cache: "no-store" }); if (r.ok) return (await r.json()).senha || null; }
+  catch (e) { /* sem a página do MaiSim */ }
+  return null;
+}
+async function conecta() {
   mostra("");
-  rfb = new RFB(document.getElementById("tela"), url);
-  rfb.scaleViewport = true; rfb.resizeSession = false;
+  const s = await senha();
+  if (!s) { parado = true; return mostra("sem_senha"); }
+  rfb = new RFB(document.getElementById("tela"), url, { credentials: { password: s } });
+  // só para ver (o x11vnc também roda com -viewonly: nenhum clique nem tecla chega ao Gecko, que é o "backend" do MaiSim)
+  rfb.viewOnly = true; rfb.scaleViewport = true; rfb.resizeSession = false;
   rfb.addEventListener("connect", () => { mostra("ok"); rfb.focus(); });
   rfb.addEventListener("disconnect", () => {
+    if (parado) return mostra("sem_senha");
     mostra("erro");
     setTimeout(conecta, 2500);
   });

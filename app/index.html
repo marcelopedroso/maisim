@@ -417,7 +417,7 @@
                     apagando = true; document.getElementById("recentes").classList.add("apagando");
                     const bl = document.getElementById("bt-apagar-lista"); if (rs.length > 1) bl.textContent = tr("inicio.apagando", { n: rs.length });
                     let j = {};
-                    try { j = await (await fetch("/maisim/scope/apagar", { method: "POST", headers: { "Content-Type": "application/json" },
+                    try { j = await (await fetch("/maisim/scope/apagar", { method: "POST", headers: { "Content-Type": "application/json", "X-MaiSim": "1" },
                         body: JSON.stringify({ arqs: rs.map((r) => r.arq), guardadas }) })).json(); }
                     catch (e) { j = { recusados: [{ arq: "", por: tr("inicio.scope_nao_respondeu") }] }; }
                     finally { apagando = false; document.getElementById("recentes").classList.remove("apagando"); }

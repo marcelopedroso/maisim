@@ -11,11 +11,12 @@ uso: python3 app/lancador.py [--produto] [--abrir] [--sem-gecko]     |     pytho
   --produto  o perfil da versão "só usar" (config/produto.env: os dados à vista em ~/MaiSim ou Documentos\\MaiSim)
   MAISIM_JAVA (o java dos pacotes; senão o do sistema), MAISIM_GECKO_JAR (senão gecko/build/gecko-lote.jar),
   MAISIM_NAVEGADOR (o navegador do --abrir, com opções se quiser; "nenhum": não abre — os testes; no WSL, sem ele, o
-  Chrome ou o Edge do Windows)"""
+  Chrome ou o Edge do Windows), MAISIM_TELA_GECKO (1: a tela do Gecko no navegador, para depurar; desligada por padrão)"""
 import argparse
 import json
 import locale
 import os
+import secrets
 import shlex
 import shutil
 import signal
@@ -35,6 +36,7 @@ import processos  # noqa: E402,F401   no Windows: o tasklist/taskkill e o javac 
 # no Windows, o padrão dos arquivos e do texto é o cp1252 (um "≈" no resumo da rodada derrubava a gravação): os servidores
 # Python em UTF-8 (PYTHONUTF8) e os Java também (-Dfile.encoding), como no Linux
 UTF8_JAVA = ["-Dfile.encoding=UTF-8"] if WIN else []
+NOVNC = "/usr/share/novnc"                               # o noVNC do sistema (a tela do Gecko no navegador)
 if WIN:
     os.environ.setdefault("PYTHONUTF8", "1")
 
@@ -230,7 +232,7 @@ class Lancador:
         f = open(self.logs / log, "a")
         extra = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW} if WIN else {"start_new_session": True}
         p = subprocess.Popen(args, stdout=f, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, cwd=str(RAIZ),
-                             env={**os.environ, **(env or {})}, **extra)
+                             env={k: v for k, v in {**os.environ, **(env or {})}.items() if v is not None}, **extra)   # None: tira a variável
         self.subiu[nome] = p
         self.grava()
         return p
@@ -259,7 +261,18 @@ class Lancador:
         pg, pm = self.porta("GECKO"), self.porta("MOTOR")
         if no_ar(pg) and no_ar(pm):
             fala(f"o Gecko já estava no ar (portas {pg} e {pm})", f"Gecko was already running (ports {pg} and {pm})")
-            return True
+            # o que ficou de um lançador anterior (adotado; talvez de outra versão, depois do Atualizar): a tela e o motor
+            # sobem de novo, com as regras desta (a tela antiga podia estar sem senha, o motor antigo sem o filtro); o Gecko
+            # e a tela virtual ficam (o circuito sem salvar está nele). O motor não guarda nada: o simulador reconecta
+            adotados = {n: p for n, p in self.subiu.items() if isinstance(p, Morto) and p.poll() is None}
+            for n, porta in (("websockify", "TELA"), ("x11vnc", "VNC"), ("motor", "MOTOR")):
+                if n in adotados:
+                    termina(adotados[n].pid)
+                    self.subiu.pop(n)
+                    espera(lambda: not no_ar(self.porta(porta)), 10)
+            if not WIN and "xvfb" in adotados:
+                self.tela_gecko(self.cache / "gecko", self.cfg["MAISIM_TELA_X"])
+            return self.motor() if "motor" in adotados else True
         if no_ar(pg) or no_ar(pm):
             fala(f"o Gecko está pela metade (portas {pg}/{pm}): pare com --parar e abra de novo",
                  f"Gecko is half up (ports {pg}/{pm}): stop it with --parar and start again")
@@ -285,15 +298,7 @@ class Lancador:
             self.sobe("xvfb", ["Xvfb", tela, "-screen", "0", "1600x1000x24", "-nolisten", "tcp"], "xvfb.log")
             time.sleep(1)
             env["DISPLAY"] = tela
-            vnc, web = self.porta("VNC"), self.porta("TELA")
-            if shutil.which("x11vnc") and shutil.which("websockify") and Path("/usr/share/novnc").is_dir():   # a tela no navegador (opcional)
-                self.sobe("x11vnc", ["x11vnc", "-display", tela, "-rfbport", str(vnc), "-localhost", "-nopw", "-forever", "-shared", "-quiet"],
-                          "x11vnc.log", {"WAYLAND_DISPLAY": "", "XDG_SESSION_TYPE": ""})
-                (c / "web").mkdir(exist_ok=True)
-                shutil.copy2(RAIZ / "gecko" / "index.html", c / "web" / "index.html")
-                if not (c / "web" / "novnc").exists():
-                    os.symlink("/usr/share/novnc", c / "web" / "novnc")
-                self.sobe("websockify", ["websockify", "--web", str(c / "web"), f"127.0.0.1:{web}", f"127.0.0.1:{vnc}"], "websockify.log")
+            self.tela_gecko(c, tela)
         log = self.logs / "gecko.log"
         log.write_text("")
         # a vigia do próprio Gecko (patch 0003) fecha os diálogos e anota em gecko/dialogos.txt (o simu lê); no Windows, sem
@@ -305,6 +310,41 @@ class Lancador:
         if not espera(lambda: no_log(log, "GeckoCIRCUITS is ready"), 120):
             fala(f"o Gecko não ficou pronto (veja {log})", f"Gecko did not get ready (see {log})")
             return False
+        if not self.motor():
+            return False
+        self.folha_em_branco()
+        fala("Gecko e motor do editor prontos", "Gecko and the editor engine are ready")
+        return True
+
+    def tela_gecko(self, c, tela):
+        """A tela do Gecko no navegador (/maisim/gecko): o x11vnc na tela virtual e o websockify com a página do noVNC. Só
+        pedida (MAISIM_TELA_GECKO=1, para depurar o Gecko; o simu faz tudo sem ela) e com os pacotes do sistema; desligada,
+        nem o x11vnc nem o websockify sobem (nenhuma porta a mais, e o x11vnc não fica varrendo a tela)."""
+        vnc, web, pagina = self.porta("VNC"), self.porta("TELA"), self.porta("PAGINA")
+        senha = c / "vnc.senha"
+        senha.unlink(missing_ok=True)                        # a de uma partida anterior
+        if not (os.environ.get("MAISIM_TELA_GECKO") == "1" and shutil.which("x11vnc") and shutil.which("websockify") and Path(NOVNC).is_dir()):
+            return
+        # a senha, sorteada a cada partida (sem ela, qualquer site aberto no navegador comandava o Gecko por um websocket: o
+        # navegador não aplica a mesma origem a websockets); a página do Gecko a pede à página do MaiSim. Só para ver
+        # (-viewonly): o Gecko é o "backend" do MaiSim, ninguém o edita pela tela (a vigia fecha os diálogos direto na tela
+        # virtual, sem o VNC)
+        with os.fdopen(os.open(senha, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as f:   # só do dono desde o início
+            f.write(secrets.token_urlsafe(6)[:8] + "\n")
+        self.sobe("x11vnc", ["x11vnc", "-display", tela, "-rfbport", str(vnc), "-localhost", "-passwdfile", str(senha), "-viewonly", "-forever", "-shared", "-quiet"],
+                  "x11vnc.log", {"WAYLAND_DISPLAY": None, "XDG_SESSION_TYPE": None})   # (sem elas: o x11vnc desiste se as vê, mesmo vazias)
+        (c / "web").mkdir(exist_ok=True)
+        shutil.copy2(RAIZ / "gecko" / "index.html", c / "web" / "index.html")
+        if not (c / "web" / "novnc").exists():
+            os.symlink(NOVNC, c / "web" / "novnc")
+        # o websocket só da página do MaiSim (a origem dela), também direto na porta da tela
+        origens = " ".join(f"http://{h}:{pagina}" for h in ("localhost", "127.0.0.1", "[::1]"))
+        self.sobe("websockify", ["websockify", "--web", str(c / "web"), "--auth-plugin", "websockify.auth_plugins.ExpectOrigin", "--auth-source", origens,
+                                 f"127.0.0.1:{web}", f"127.0.0.1:{vnc}"], "websockify.log")
+
+    def motor(self):
+        """O motor do editor (entre o simulador e o Gecko), compilado aqui se o .java for mais novo."""
+        pg, pm = self.porta("GECKO"), self.porta("MOTOR")
         m = RAIZ / "simu" / "motor"
         cls, src = m / "bin" / "maisim" / "MaiSimMotor.class", m / "src" / "maisim" / "MaiSimMotor.java"
         javac = shutil.which("javac")
@@ -318,8 +358,6 @@ class Lancador:
         if not espera(lambda: no_log(mlog, "ouvindo"), 30):     # "ouvindo": o que o motor escreve ao subir
             fala(f"o motor do editor não subiu (veja {mlog})", f"the editor engine did not start (see {mlog})")
             return False
-        self.folha_em_branco()
-        fala("Gecko e motor do editor prontos", "Gecko and the editor engine are ready")
         return True
 
     def folha_em_branco(self):

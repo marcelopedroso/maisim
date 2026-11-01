@@ -60,12 +60,53 @@ def permitido(arq):
 TIPOS = {".html": "text/html; charset=utf-8", ".js": "application/javascript", ".css": "text/css"}
 
 PREFIXO = "/maisim/scope"
+# as portas da página do MaiSim (a de uso, a isolada dos testes) e, no main(), a deste servidor: as origens que podem mandar
+# os pedidos que mudam algo (apagar, figura); um site qualquer, não (Marcelo, 01/11: "os furos, temos que executar já")
+PORTAS_PAGINA = {int(os.environ["MAISIM_PORTA_PAGINA"])} | {int(v) for v in [os.environ.get("MAISIM_PORTA_PAGINA_ISOLADA", "")] if v.isdigit()}
+LIMITE_PUBLICAR = 256 << 20                  # bytes: o maior lote da publicação ao vivo (uma rodada longa manda vários)
 FIGURAS = "/maisim/figuras"                 # o módulo Figuras (figuras para artigo): a página e a figura, com as rodadas daqui
 vivo = {"meta": None, "dados": {}, "fim": False, "n": 0}
 PARTIDA = time.strftime("%Y%m%d%H%M%S")   # com o número da rodada, identifica cada rodada publicada (mesmo depois de reiniciar)
 clientes = []
 trava = threading.Lock()
 trava_apagar = threading.Lock()                         # um "apagar" por vez (dois cliques seguidos: o 2º espera o 1º)
+
+
+def origens_maisim():
+    return {f"http://{h}:{p}" for h in ("localhost", "127.0.0.1", "[::1]") for p in PORTAS_PAGINA}
+
+
+def host_local(h):
+    """O Host, se veio, é desta máquina: um site com DNS rebinding (o nome dele apontando para 127.0.0.1) leria as gravações
+    direto na porta do scope."""
+    host = h.headers.get("Host")
+    return host is None or host.rsplit(":", 1)[0].strip("[]").lower() in ("localhost", "127.0.0.1", "::1")
+
+
+def pedido_local(h, post):
+    """Um pedido da página do MaiSim, na própria máquina (o mesmo critério do simu, simu/servidor.py): Host local (barra o
+    DNS rebinding), Origin, se veio, uma das origens do MaiSim, Sec-Fetch-Site, se veio, same-origin; nos POST, o cabeçalho
+    X-MaiSim (sem CORS, um site não consegue mandá-lo; um POST "no-cors" de outro site chega sem ele)."""
+    host = (h.headers.get("Host") or "").rsplit(":", 1)[0].strip("[]").lower()
+    origem, sitio = h.headers.get("Origin"), h.headers.get("Sec-Fetch-Site")
+    if host not in ("localhost", "127.0.0.1", "::1") or (origem is not None and origem.lower() not in origens_maisim()) \
+            or (sitio is not None and sitio not in ("same-origin", "none")):
+        return False
+    return not post or h.headers.get("X-MaiSim") == "1"
+
+
+def publicacao_valida(h):
+    """A publicação ao vivo (POST /publicar) vem do simu ou de um run.py, pelo urllib (scope/publica.py): JSON, sem Origin e
+    sem Sec-Fetch-*; um navegador mandando de outro site traz a Origin dele (ou Sec-Fetch-Site: cross-site), e um POST
+    "no-cors" não consegue mandar application/json. Recusa também o lote grande demais (a memória do vivo)."""
+    tipo = (h.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+    origem, sitio = h.headers.get("Origin"), h.headers.get("Sec-Fetch-Site")
+    try:
+        tam = int(h.headers.get("Content-Length") or 0)
+    except ValueError:
+        return False
+    return tipo == "application/json" and (origem is None or origem.lower() in origens_maisim()) \
+        and sitio in (None, "same-origin", "none") and 0 <= tam <= LIMITE_PUBLICAR
 
 
 def difunde(evento, obj):
@@ -251,6 +292,8 @@ class Manipulador(BaseHTTPRequestHandler):
 
     def do_GET(self):
         lingua.do_pedido(self.headers)
+        if not host_local(self):
+            return self._resposta(421, {"erro": lingua.tr("scope_srv.so_maisim")})
         u, rota = self._rota()
         if u.path in ("/", "/index.html", "/maisim-scope", "/maisim-scope/", PREFIXO):
             self.send_response(302)
@@ -366,13 +409,19 @@ class Manipulador(BaseHTTPRequestHandler):
 
     def do_POST(self):
         lingua.do_pedido(self.headers)
+        if not host_local(self):
+            return self._resposta(421, {"erro": lingua.tr("scope_srv.so_maisim")})
         rota = self._rota()[1]
         if rota == "/apagar":
+            if not pedido_local(self, True):
+                return self._resposta(403, {"erro": lingua.tr("scope_srv.so_maisim")})
             return self._apagar()
         if rota == "/figura":
             return self._figura()
         if rota != "/publicar":
             return self._resposta(404, {"erro": lingua.tr("scope_srv.rota_desconhecida")})
+        if not publicacao_valida(self):
+            return self._resposta(403, {"erro": lingua.tr("scope_srv.so_maisim")})
         corpo = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
         tipo = corpo.get("tipo")
         if tipo == "inicio":
@@ -396,7 +445,7 @@ class Manipulador(BaseHTTPRequestHandler):
     def _figura(self):
         """A figura para artigo (figura.py): o arquivo no formato pedido, ou a prévia em PNG. Só a página do MaiSim
         (X-MaiSim): gera arquivo a partir das gravações daqui."""
-        if self.headers.get("X-MaiSim") != "1":
+        if not pedido_local(self, True):
             return self._resposta(403, {"erro": lingua.tr("figura.so_maisim")})
         try:
             corpo = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
@@ -466,6 +515,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--porta", type=int, default=int(os.environ["MAISIM_PORTA_SCOPE"]))
     a = ap.parse_args()
+    PORTAS_PAGINA.add(a.porta)                       # a página do scope servida direto por ele (sem a do MaiSim)
     srv = ThreadingHTTPServer(("127.0.0.1", a.porta), Manipulador)
     def aquece():                                        # a 1ª lista já rápida: lê os metas em segundo plano ao subir
         for base in BUSCA:

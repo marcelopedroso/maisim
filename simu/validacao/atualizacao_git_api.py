@@ -83,6 +83,8 @@ try:
     threading.Thread(target=lanc.wait, daemon=True).start()   # recolhido assim que sair (um zumbi pareceria vivo ao --parar)
     subiu = ate(lambda: json.loads((T / "c" / "lancador.json").read_text()).get("pronto") and no_ar(B + 1), 240)
     ok(subiu, f"o clone no ar pelo lançador (portas {B}–{B + 4})")
+    ok(not no_ar(B + 5) and not no_ar(B + 6) and not (T / "c" / "gecko" / "vnc.senha").exists(),
+       f"a tela do Gecko desligada por padrão (sem MAISIM_TELA_GECKO=1): as portas {B + 5} e {B + 6} fechadas, sem senha")
     e = api("atualizacao/verificar", {})
     ok(e.get("tipo") == "fonte" and e.get("git") and e.get("versao") == V and e.get("commit") == antes and e.get("depois") == 0 and not e.get("nova"),
        f"em dia: {e.get('versao')} ({e.get('commit')}), {e.get('depois')} depois da v{V}, git {e.get('git')}, novidade {e.get('nova')}")

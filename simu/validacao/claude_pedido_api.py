@@ -253,7 +253,7 @@ def principal():
     # proteção das rotas
     ok(api("claude/pedir", {"texto": "x"}, cab={"X-MaiSim": ""}).get("ERRO") == 403, "POST sem o cabeçalho da página: 403")
     ok(api("claude/pedido", cab={"Origin": "http://localhost:9999"}).get("ERRO") == 403, "GET de outra origem: 403")
-    ok(api("claude/uso", cab={"Host": "evil.example"}).get("ERRO") == 403, "Host de fora (DNS rebinding): 403")
+    ok(api("claude/uso", cab={"Host": "evil.example"}).get("ERRO") == 421, "Host de fora (DNS rebinding): 421, antes de tudo")
     antes = api("editor/controle")["controle"]
     r = api("editor/controle", {"controle": dict(antes, codigo="import os\n")}, cab={"Origin": "http://evil.example", "X-MaiSim": ""})
     r2 = api("editor/controle/testar", {"dt": 1e-6}, cab={"Origin": "http://localhost:9999", "X-MaiSim": ""})

@@ -10,11 +10,18 @@ o lançador do "só usar" (app/lancador.py --abrir) pergunta em /maisim/vivo/ult
 Os pacotes (o instalador do Windows, o AppImage) usam esta página; a versão de programador também (o Vite fica opcional:
 MAISIM_PAGINA=vite no npm run maisim).
 
+A segurança (só esta máquina; Marcelo, 01/11: "os furos, temos que executar já"): o Host do pedido tem de ser o desta porta
+em localhost (sem isso, um site com DNS rebinding leria os GETs, porque o encaminhamento troca o Host); o cabeçalho é lido
+estrito (uma quebra de linha solta, uma linha dobrada ou Host/Content-Length em dobro passariam um cabeçalho escondido aos
+módulos); o websocket só para a tela do Gecko e só vindo da própria página (o navegador não aplica a mesma origem a
+websockets); a senha do VNC da tela (aleatória a cada partida, ver app/lancador.py) só para a própria página.
+
 uso: python3 app/pagina.py [--porta 7100]   (as portas de config/: MAISIM_PORTA_PAGINA, _SIMU, _SCOPE, _TELA)"""
 import argparse
 import json
 import mimetypes
 import os
+import re
 import socket
 import socketserver
 import sys
@@ -26,6 +33,8 @@ from pathlib import Path
 AQUI = Path(__file__).resolve().parent
 sys.path.insert(0, str(AQUI.parent / "config"))
 import ler_config  # noqa: E402
+import lingua  # noqa: E402
+import textos_pagina  # noqa: E402,F401  (os textos da página, no dicionário)
 
 ler_config.aplica()
 PUBLICO, INICIO = AQUI / "public", AQUI / "index.html"
@@ -76,16 +85,65 @@ def vida():
         return {**VIDA, "abas": len(VIVAS)}
 
 
+PORTA = {"pagina": None}                 # a porta desta página (no main): o Host e a Origin aceitos
+TOKEN = re.compile(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")   # o nome de um campo do cabeçalho (RFC 9110)
+PRAZO_CABECALHO = 15                       # s: para o cabeçalho inteiro chegar (não por pedaço), senão a conexão cai
+
+
+def locais(porta):
+    return {f"{h}:{porta}" for h in ("localhost", "127.0.0.1", "[::1]")}
+
+
+def cabecalho_valido(linhas):
+    """A 1ª linha (método, alvo começando com "/", HTTP/1.x) e os campos: sem CR/LF soltos, sem linha dobrada, nomes válidos,
+    um Host só, no máximo um Content-Length, e não os dois jeitos de dizer o tamanho do corpo. Devolve {campo: valor} (a 1ª
+    ocorrência) ou None."""
+    try:
+        metodo, alvo, versao = linhas[0].split(" ")
+    except ValueError:
+        return None
+    if not TOKEN.match(metodo) or not alvo.startswith("/") or versao not in ("HTTP/1.0", "HTTP/1.1") or "\r" in alvo or "\n" in alvo:
+        return None
+    campos, vezes = {}, {}
+    for l in linhas[1:]:
+        if not l or "\r" in l or "\n" in l or l[0] in " \t":
+            return None
+        k, sep, v = l.partition(":")
+        if not sep or not TOKEN.match(k):
+            return None
+        kl = k.lower()
+        vezes[kl] = vezes.get(kl, 0) + 1
+        campos.setdefault(kl, v.strip())
+    if vezes.get("host") != 1 or vezes.get("content-length", 0) > 1 or (vezes.get("content-length") and vezes.get("transfer-encoding")):
+        return None
+    return campos
+
+
+def senha_vnc():
+    """A senha da tela do Gecko (o x11vnc dela), que o lançador (ou o gecko/sobe.sh) sorteia a cada partida; None sem tela."""
+    try:
+        return (Path(os.environ["MAISIM_CACHE"]) / "gecko" / "vnc.senha").read_text().strip() or None
+    except (KeyError, OSError):
+        return None
+
+
 # para onde vai cada caminho: (prefixo, porta, tira o prefixo?)
 ROTAS = (("/maisim/simu", "MAISIM_PORTA_SIMU", False), ("/maisim/scope", "MAISIM_PORTA_SCOPE", False),
          ("/maisim/figuras", "MAISIM_PORTA_SCOPE", False),          # o módulo Figuras: servido pelo scope (as rodadas são dele)
          ("/maisim/gecko", "MAISIM_PORTA_TELA", True))
 
 
-def le_cabecalho(s):
-    """Lê até o fim do cabeçalho HTTP; devolve (cabeçalho, o que já veio do corpo) ou (None, b"") se a conexão fechou."""
+def le_cabecalho(s, prazo=None):
+    """Lê até o fim do cabeçalho HTTP; devolve (cabeçalho, o que já veio do corpo) ou (None, b"") se a conexão fechou ou
+    se o prazo (s, para o cabeçalho inteiro: um pedaço a cada tanto não o renova) venceu."""
+    fim = None if prazo is None else time.monotonic() + prazo
     dados = b""
     while b"\r\n\r\n" not in dados:
+        if fim is not None:
+            resta = fim - time.monotonic()
+            if resta <= 0:
+                return None, b""
+            s.settimeout(resta)
         x = s.recv(65536)
         if not x:
             return None, b""
@@ -137,15 +195,32 @@ def tubo(de, para):
 
 class Pagina(socketserver.BaseRequestHandler):
     def handle(self):
-        cab, resto = le_cabecalho(self.request)
+        try:
+            cab, resto = le_cabecalho(self.request, PRAZO_CABECALHO)
+        except OSError:                                   # o prazo do cabeçalho venceu (ou a conexão caiu)
+            return
+        self.request.settimeout(PRAZO_CABECALHO)          # a resposta daqui: 15 s por envio (o encaminha tira, nos túneis)
         if not cab:
             return
         linhas = cab.split("\r\n")
-        try:
-            metodo, alvo, versao = linhas[0].split(" ", 2)
-        except ValueError:
-            return
+        campos = cabecalho_valido(linhas)
+        if campos is None:
+            return self.resposta(400, b"", "text/plain")
+        metodo, alvo, versao = linhas[0].split(" ")
+        if campos["host"].lower() not in locais(PORTA["pagina"]):          # o DNS rebinding (um site no nome de outro IP)
+            return self.resposta(421, b"", "text/plain")
         caminho = alvo.split("?", 1)[0]
+        origem, sitio = campos.get("origin"), campos.get("sec-fetch-site")
+        da_pagina = (origem is None or origem.lower() in {f"http://{x}" for x in locais(PORTA["pagina"])}) and sitio in (None, "same-origin", "none")
+        if "upgrade" in campos and not (caminho.startswith("/maisim/gecko/") and origem is not None and da_pagina):
+            return self.resposta(403, b"", "text/plain")   # websocket: só a tela do Gecko, só da própria página
+        if caminho == "/maisim/gecko-senha":              # a senha da tela: só para a página (um site não manda o X-MaiSim)
+            s = senha_vnc()
+            if not da_pagina or campos.get("x-maisim") != "1":
+                return self.resposta(403, b"", "text/plain")
+            return self.resposta(200 if s else 404, json.dumps({"senha": s}).encode(), "application/json")
+        if caminho.startswith("/maisim/vivo") and not da_pagina:   # um site: um sinal falso seguraria o MaiSim ligado (24 h)
+            return self.resposta(403, b"", "text/plain")
         if caminho == "/maisim/vivo":                     # o sinal de vida (GET) ou o aviso de fechar (sendBeacon: POST)
             sinal_de_vida(parse_qs(alvo.partition("?")[2]))
             return self.resposta(200, json.dumps({"vigiada": time.time() - VIGIA["t"] < 15}).encode(), "application/json")
@@ -183,14 +258,15 @@ class Pagina(socketserver.BaseRequestHandler):
         try:
             dest = socket.create_connection(("127.0.0.1", porta), timeout=10)
         except OSError:
-            en = any(c.lower().startswith("cookie:") and "maisim-lingua=en" in c for c in cabs)   # o idioma da página
-            return self.resposta(502, (f"MaiSim: the module on port {porta} is not running" if en else
-                                       f"MaiSim: o módulo da porta {porta} não está no ar").encode(), "text/plain; charset=utf-8")
+            lingua.do_pedido({"Cookie": "; ".join(c.split(":", 1)[1].strip() for c in cabs if c.lower().startswith("cookie:"))})   # o idioma da página
+            tela = str(porta) == os.environ.get("MAISIM_PORTA_TELA")   # a tela do Gecko: desligada por padrão (só para depurar)
+            texto = lingua.tr("pagina.tela_desligada") if tela else lingua.tr("pagina.sem_modulo", porta=porta)
+            return self.resposta(502, texto.encode(), "text/plain; charset=utf-8")
         dest.settimeout(None)
         self.request.settimeout(None)
         try:
             dest.sendall(("\r\n".join(novos) + "\r\n\r\n").encode("latin-1") + resto)
-            ida = threading.Thread(target=tubo, args=(self.request, dest), daemon=True)
+            ida = threading.Thread(target=tubo, args=(self.request, dest), daemon=True)   # i18n-ok (só copia bytes, sem texto)
             ida.start()
             if not upgrade:
                 cabecalho_fecha(dest, self.request)
@@ -213,7 +289,8 @@ class Pagina(socketserver.BaseRequestHandler):
         self.resposta(200, b"" if metodo == "HEAD" else corpo, tipo, len(corpo))
 
     def resposta(self, codigo, corpo, tipo, tamanho=None):
-        motivo = {200: "OK", 404: "Not Found", 405: "Method Not Allowed", 502: "Bad Gateway"}.get(codigo, "")
+        motivo = {200: "OK", 400: "Bad Request", 403: "Forbidden", 404: "Not Found", 405: "Method Not Allowed", 421: "Misdirected Request",
+                  502: "Bad Gateway"}.get(codigo, "")
         cab = (f"HTTP/1.1 {codigo} {motivo}\r\nContent-Type: {tipo}\r\nContent-Length: {len(corpo) if tamanho is None else tamanho}\r\n"
                f"Cache-Control: no-cache\r\nConnection: close\r\n\r\n")
         try:
@@ -228,9 +305,10 @@ class Servidor(socketserver.ThreadingTCPServer):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="A página do MaiSim (sem Node).")
+    ap = argparse.ArgumentParser(description="A página do MaiSim (sem Node).")   # i18n-ok (a ajuda do terminal, de programador)
     ap.add_argument("--porta", type=int, default=int(os.environ["MAISIM_PORTA_PAGINA"]))
     a = ap.parse_args()
+    PORTA["pagina"] = a.porta
     with Servidor(("127.0.0.1", a.porta), Pagina) as s:
         print(f"maisim-pagina em http://localhost:{a.porta}/", flush=True)   # i18n-ok (log; o maisim.sh confere a porta)
         s.serve_forever()
