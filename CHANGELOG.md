@@ -6,6 +6,8 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+## [0.3.7] - 2026-11-01
+
 ### Security
 - **A website open in the browser can no longer reach MaiSim on this machine.** Everything already listened only on 127.0.0.1, but a page from any site could still send requests to `localhost`: it could drive the Gecko screen through the noVNC WebSocket, make the editor engine run commands (including writing files), delete the scope's recordings with a hidden POST, and read the API from a domain that resolves to 127.0.0.1 (DNS rebinding). The fixes apply to the Windows installer and the AppImage too: they use the same page, servers and engine.
   - **The page (`app/pagina.py`)** accepts only its own Host (`localhost`, `127.0.0.1` or `[::1]` with its port; anything else gets 421). It reads request headers strictly: a bare line break, a folded line, a duplicate Host or Content-Length, Content-Length together with Transfer-Encoding, a target that does not start with `/` or an invalid header name get 400, so no hidden header reaches the modules. Headers must arrive within 15 s. WebSockets are allowed only to the Gecko screen, and only with the page's own Origin (403 otherwise). The page's life signal (`/maisim/vivo`) only counts when it comes from the MaiSim page: a fake signal from a website kept MaiSim running for up to 24 h after its window closed.
