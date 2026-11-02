@@ -10,6 +10,9 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 - **MaiSim on Android in one command**: in Termux, `curl -fsSL https://raw.githubusercontent.com/marcelopedroso/maisim/main/pacote/android/instala.sh | bash` installs proot-distro and Ubuntu, downloads MaiSim's newest ARM package (checked by SHA-256) into `~/maisim-app` with what it needs from the system, and creates the `maisim` command (and a Termux:Widget shortcut): type `maisim` and open `http://localhost:7100` in the phone's browser. The installer stops with a clear message when run outside Termux or inside the Ubuntu.
 - **The folder version updates itself**: the Update button downloads the new `.tar.gz`, checks it, extracts it next to the current folder (no paths outside it), swaps the whole folder and restarts, like the AppImage. It refuses when your data is inside the program's folder (it would delete your circuits).
 
+### Fixed
+- **The Android installer updates Termux first**: it upgraded only `curl`, and the new `curl` with Termux's old `openssl` failed ("cannot locate symbol SSL_set_quic_tls_early_data_enabled") before MaiSim was downloaded. It now runs a full, non-interactive upgrade of Termux (changed config files kept) before installing proot-distro and `curl`.
+
 ### Changed
 - **The package checks what it needs from the system**: `AppRun` checks for the virtual display and Java's window libraries (`xvfb libxtst6 libxrender1 libxi6 libxext6 fontconfig fonts-dejavu-core`, on Debian/Ubuntu); as root (Termux's Ubuntu) it installs what is missing, once, otherwise it shows the exact command instead of stopping at "Gecko did not get ready". The 0.3.8-rc1 test on a phone stopped there (`libXtst.so.6` missing).
 - **On Android, MaiSim no longer shuts down when you switch apps**: with no browser to open (Android, or `MAISIM_NAVEGADOR=nenhum` anywhere), the launcher does not watch the window.
