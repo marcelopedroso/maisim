@@ -29,8 +29,8 @@ fala "maisim: 1/4 o proot-distro (o Ubuntu dentro do Termux)…" "maisim: 1/4 pr
 # o Termux inteiro atualizado antes de instalar (só o curl novo com o openssl antigo quebra: "cannot locate symbol
 # SSL_set_quic_tls_early_data_enabled"); sem perguntas (os arquivos de configuração alterados ficam como estão)
 export DEBIAN_FRONTEND=noninteractive
-apt-get update -q > /dev/null 2>&1 || true
-apt-get -y -q -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold dist-upgrade > /dev/null 2>&1 \
+{ apt-get update -q > /dev/null 2>&1 \
+  && apt-get -y -q -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold dist-upgrade > /dev/null 2>&1; } \
   || { fala "maisim: não deu para atualizar o Termux: rode  pkg upgrade  e depois este instalador de novo" \
             "maisim: could not update Termux: run  pkg upgrade  and then this installer again" >&2; exit 1; }
 apt-get -y -q -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold install proot-distro curl > /dev/null
