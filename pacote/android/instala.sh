@@ -26,8 +26,14 @@ fi
                                       "maisim: MaiSim for Android is for 64-bit ARM phones (aarch64); this one is $(uname -m)." >&2; exit 1; }
 
 fala "maisim: 1/4 o proot-distro (o Ubuntu dentro do Termux)…" "maisim: 1/4 proot-distro (Ubuntu inside Termux)…"
-pkg update -y > /dev/null 2>&1 || true
-pkg install -y proot-distro curl > /dev/null
+# o Termux inteiro atualizado antes de instalar (só o curl novo com o openssl antigo quebra: "cannot locate symbol
+# SSL_set_quic_tls_early_data_enabled"); sem perguntas (os arquivos de configuração alterados ficam como estão)
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -q > /dev/null 2>&1 || true
+apt-get -y -q -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold dist-upgrade > /dev/null 2>&1 \
+  || { fala "maisim: não deu para atualizar o Termux: rode  pkg upgrade  e depois este instalador de novo" \
+            "maisim: could not update Termux: run  pkg upgrade  and then this installer again" >&2; exit 1; }
+apt-get -y -q -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold install proot-distro curl > /dev/null
 # o Ubuntu já instalado? perguntando ao próprio proot-distro (a pasta dele mudou entre versões: installed-rootfs/ubuntu
 # nas antigas, containers/ubuntu/rootfs a partir da 5.x; o install recusa um container que já existe)
 if ! proot-distro login ubuntu -- true > /dev/null 2>&1; then
