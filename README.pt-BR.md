@@ -47,11 +47,12 @@ baixar, não precisa de internet nem de instalar mais nada.
 - **Linux ARM (aarch64), experimental**: o mesmo, com o `MaiSim-aarch64.AppImage`. Mais lento que num PC (um Raspberry
   Pi 5 roda os exemplos; rodadas longas demoram mais).
 - **Android, experimental**: o MaiSim roda dentro de um Ubuntu no [Termux](https://termux.dev) (proot) e abre no navegador
-  do celular. No Termux: `pkg install proot-distro && proot-distro install ubuntu && proot-distro login ubuntu`; nesse
-  Ubuntu: `apt update && apt install -y xvfb curl`, depois baixe e extraia a pasta
-  (`curl -LO https://github.com/marcelopedroso/maisim/releases/latest/download/MaiSim-aarch64.tar.gz && tar xzf MaiSim-aarch64.tar.gz`)
-  e rode `MAISIM_NAVEGADOR=nenhum MaiSim/AppRun`; abra `http://localhost:7100` no navegador do celular. O Termux puro
-  (sem o Ubuntu) não é suportado. As páginas ainda são feitas para mouse: a edição pelo toque vem a seguir.
+  do celular. Instale o Termux pelo [F-Droid](https://f-droid.org/packages/com.termux/) ou pelo
+  [GitHub](https://github.com/termux/termux-app/releases) (o da Play Store está desatualizado e quebrado) e, no Termux:
+  `curl -fsSL https://raw.githubusercontent.com/marcelopedroso/maisim/main/pacote/android/instala.sh | bash`. Ele instala
+  o Ubuntu, o MaiSim (`~/maisim-app`, conferido pelo SHA-256) e o que ele precisa, e cria o comando `maisim` (e um atalho
+  do Termux:Widget). Depois, digite `maisim` e abra `http://localhost:7100` no navegador do celular. Os circuitos ficam em
+  `~/MaiSim`; o botão Atualizar troca só o programa. As páginas ainda são feitas para mouse: a edição pelo toque vem a seguir.
 - **IA (opcional):** uma conta Claude. No Windows, o MaiSim instala o Claude Code para você, pela janela de contas da IA.
 
 Os seus circuitos e rodadas ficam numa pasta à vista: `Documentos\MaiSim` no Windows (dá para escolher outra ao

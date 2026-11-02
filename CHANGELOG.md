@@ -7,6 +7,15 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Added
+- **MaiSim on Android in one command**: in Termux, `curl -fsSL https://raw.githubusercontent.com/marcelopedroso/maisim/main/pacote/android/instala.sh | bash` installs proot-distro and Ubuntu, downloads MaiSim's newest ARM package (checked by SHA-256) into `~/maisim-app` with what it needs from the system, and creates the `maisim` command (and a Termux:Widget shortcut): type `maisim` and open `http://localhost:7100` in the phone's browser. The installer stops with a clear message when run outside Termux or inside the Ubuntu.
+- **The folder version updates itself**: the Update button downloads the new `.tar.gz`, checks it, extracts it next to the current folder (no paths outside it), swaps the whole folder and restarts, like the AppImage. It refuses when your data is inside the program's folder (it would delete your circuits).
+
+### Changed
+- **The package checks what it needs from the system**: `AppRun` checks for the virtual display and Java's window libraries (`xvfb libxtst6 libxrender1 libxi6 libxext6 fontconfig fonts-dejavu-core`, on Debian/Ubuntu); as root (Termux's Ubuntu) it installs what is missing, once, otherwise it shows the exact command instead of stopping at "Gecko did not get ready". The 0.3.8-rc1 test on a phone stopped there (`libXtst.so.6` missing).
+- **On Android, MaiSim no longer shuts down when you switch apps**: with no browser to open (Android, or `MAISIM_NAVEGADOR=nenhum` anywhere), the launcher does not watch the window.
+- **The ARM folder is now `maisim-app/`** (it was `MaiSim/`, the same name as the data folder: on Linux both landed in `~/MaiSim`).
+
+### Added
 - **MaiSim for Linux ARM (aarch64), experimental**: `MaiSim-<version>-aarch64.AppImage` for Raspberry Pi 4/5 and ARM laptops, and the same as a folder (`MaiSim-<version>-aarch64.tar.gz`, run `MaiSim/AppRun`) for places without FUSE, like an Ubuntu inside Termux on Android (proot), where MaiSim opens in the phone's browser at `localhost`. `pacote/linux/monta.sh` builds for the machine's architecture, with the ARM Python, Java and appimagetool pinned and checked by SHA-256 like the x86_64 ones; the CI builds the ARM packages on a native ARM runner (`ubuntu-24.04-arm`). The Update button downloads the file for the machine's architecture; the folder version tells you about a new version and how to replace it. New smoke test for both packages, `pacote/linux/fumaca.sh` (start the package's MaiSim with no browser, run the buck example, make a Figures PDF, stop), run by the packages workflow on x86_64 and ARM; the workflow also has a "test only" mode that builds and smoke-tests a branch without touching any Release. The pages are still made for a mouse; touch editing comes next (#183).
 
 ## [0.3.7] - 2026-11-01

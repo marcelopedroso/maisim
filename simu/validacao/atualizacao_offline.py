@@ -119,5 +119,36 @@ with tempfile.TemporaryDirectory() as d:
     t0 = time.time(); s = A.Atualizacao(d / "dados", d / "cache").verifica()
     ok(s["sem_rede"] and s["nova"] is None and time.time() - t0 < A.PRAZO + 2, f"sem rede: quieto ({time.time() - t0:.1f} s)")
 ok(A.tipo_instalacao() == "fonte" and A.versao_atual() == (R / "VERSION").read_text().strip(), f"aqui: a versão {A.versao_atual()}, código-fonte")
+# a versão em pasta (o .tar.gz do ARM): a troca da pasta inteira, os pacotes recusados e os dados dentro da pasta
+import io, tarfile
+def pacote(caminho, arquivos):
+    with tarfile.open(caminho, "w:gz") as t:
+        for nome, conteudo in arquivos.items():
+            dado = conteudo.encode(); i = tarfile.TarInfo(nome); i.size = len(dado); i.mode = 0o755
+            t.addfile(i, io.BytesIO(dado))
+    return caminho
+with tempfile.TemporaryDirectory() as d:
+    d = Path(d); app = d / "maisim-app"; (app / "maisim").mkdir(parents=True)
+    (app / "AppRun").write_text("velho"); (app / "maisim" / "VERSION").write_text("0.3.8-rc1"); (d / "MaiSim").mkdir(); (d / "MaiSim" / "c.ipes").write_text("meu")
+    bom = pacote(d / "bom.tar.gz", {"maisim-app/AppRun": "#!/bin/bash\n", "maisim-app/maisim/VERSION": "0.3.8-rc2"})
+    A.troca_pasta(bom, app)
+    ok((app / "maisim" / "VERSION").read_text() == "0.3.8-rc2" and (d / ".maisim-app.antigo" / "AppRun").read_text() == "velho"
+       and os.access(app / "AppRun", os.X_OK) and (d / "MaiSim" / "c.ipes").read_text() == "meu" and not (d / ".maisim-app.novo").exists(),
+       "a pasta: a nova no lugar (executável), a de antes em .maisim-app.antigo, os dados de fora intocados")
+    sem = pacote(d / "sem.tar.gz", {"maisim-app/leia.txt": "x"})
+    try:
+        A.troca_pasta(sem, app); ok(False, "um pacote sem o MaiSim: devia recusar")
+    except ValueError:
+        ok((app / "maisim" / "VERSION").read_text() == "0.3.8-rc2", "um pacote sem o MaiSim dentro (sem o AppRun): recusado, nada trocado")
+    mau = pacote(d / "mau.tar.gz", {"maisim-app/AppRun": "x", "maisim-app/maisim/VERSION": "9", "../fora.txt": "invadiu"})
+    try:
+        A.troca_pasta(mau, app); ok(False, "um pacote com ../: devia recusar")
+    except Exception:                                    # noqa: BLE001 (o filtro "data" do tarfile)
+        ok(not (d / "fora.txt").exists() and (app / "maisim" / "VERSION").read_text() == "0.3.8-rc2", "um pacote com um caminho para fora (../): recusado, nada escrito fora")
+    os.environ["MAISIM_DADOS"] = str(app / "MaiSim")
+    ok(A.dados_na_pasta(app), "os dados dentro da pasta do programa (a 0.3.8-rc1 em ~/MaiSim): a trava pega")
+    os.environ["MAISIM_DADOS"] = str(d / "MaiSim")
+    ok(not A.dados_na_pasta(app), "os dados em ~/MaiSim, fora da pasta do programa: pode atualizar")
+    os.environ.pop("MAISIM_DADOS", None)
 print("OK" if not falhas else f"FALHA: {falhas}")
 sys.exit(1 if falhas else 0)
