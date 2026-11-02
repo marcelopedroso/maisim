@@ -1,13 +1,16 @@
 """A versão do MaiSim e a atualização automática (o plano: as Releases do GitHub, o SHA-256, os canais).
 
 A versão: o arquivo VERSION da raiz; o jeito de instalação: "windows" (o instalador: o perfil produto, com o Python ao
-lado do código), "appimage" (o AppImage do Linux: a variável APPIMAGE, que o runtime dele põe) ou "fonte" (o git clone).
+lado do código), "appimage" (o AppImage do Linux, x86_64 ou aarch64: a variável APPIMAGE, que o runtime dele põe), "pasta"
+(a pasta do .tar.gz do ARM, para onde não há FUSE: o AppRun dela põe MAISIM_PACOTE=pasta; o Atualizar só avisa) ou
+"fonte" (o git clone).
 
 A verificação: as releases do repositório (a API pública do GitHub, sem token; MAISIM_RELEASES_URL troca o endereço — um
 arquivo .json, file:// ou http: os testes), na partida e a cada 6 h, com prazo curto; sem rede, fica quieta. Os canais:
 "estavel" (o padrão: só as releases que não são prerelease) e "teste" (com as prerelease, as -rc), guardados em
 MAISIM_DADOS/atualizacao.json. A comparação é a do semver com o -rc: 0.3.0-rc13 < 0.3.0 < 0.3.1. Só conta uma release
-com o arquivo deste jeito de instalação (MaiSim-Setup-<v>.exe, MaiSim-<v>-x86_64.AppImage) e o .sha256 dele.
+com o arquivo deste jeito de instalação (MaiSim-Setup-<v>.exe, MaiSim-<v>-<x86_64|aarch64>.AppImage, MaiSim-<v>-aarch64.tar.gz)
+e o .sha256 dele.
 
 Atualizar: no Windows, baixa o instalador para o cache, confere o SHA-256 (recusa se não bater) e roda ele em silêncio
 (/SILENT: o PrepareToInstall dele desliga o MaiSim; a pasta e a porta ficam), por um cmd solto (fora da árvore do
@@ -24,6 +27,7 @@ novo), monta o Gecko de novo só se os patches mudaram (o código volta ao de an
 import hashlib
 import json
 import os
+import platform
 import re
 import shutil
 import stat
@@ -55,11 +59,18 @@ def versao_atual():
         return "?"
 
 
+def arquitetura():
+    """x86_64 | aarch64: a do arquivo do Linux a baixar (o AppImage e a pasta são de uma arquitetura só)."""
+    return "aarch64" if platform.machine().lower() in ("aarch64", "arm64") else "x86_64"
+
+
 def tipo_instalacao():
-    """windows | appimage | fonte (o jeito de atualizar)."""
+    """windows | appimage | pasta | fonte (o jeito de atualizar)."""
     ai = os.environ.get("APPIMAGE")
     if ai and Path(ai).is_file():
         return "appimage"
+    if os.environ.get("MAISIM_PACOTE") == "pasta" and not (RAIZ / ".git").exists():
+        return "pasta"
     if WIN and os.environ.get("MAISIM_PERFIL") == "produto" and (RAIZ.parent / "python" / "pythonw.exe").is_file():
         return "windows"
     return "fonte"
@@ -153,7 +164,8 @@ def mais_nova(a, b):
 
 
 def nome_arquivo(tipo, v):
-    return {"windows": f"MaiSim-Setup-{v}.exe", "appimage": f"MaiSim-{v}-x86_64.AppImage"}.get(tipo)
+    return {"windows": f"MaiSim-Setup-{v}.exe", "appimage": f"MaiSim-{v}-{arquitetura()}.AppImage",
+            "pasta": f"MaiSim-{v}-{arquitetura()}.tar.gz"}.get(tipo)
 
 
 def escolhe(releases, canal, atual, tipo):
@@ -344,6 +356,8 @@ class Atualizacao:
             return self._aplica_git_inicio(nova, ocupada)
         if tipo == "fonte":
             raise ValueError(lingua.tr("atualiza.fonte", versao=nova["versao"] if nova else "?"))
+        if tipo == "pasta":                              # a pasta extraída: quem a extraiu troca (a release tem o link)
+            raise ValueError(lingua.tr("atualiza.pasta", arquivo=nova["arquivo"]["nome"] if nova and nova.get("arquivo") else "MaiSim-…tar.gz"))
         if not nova or not nova.get("arquivo"):
             raise ValueError(lingua.tr("atualiza.nada"))
         if ocupada:

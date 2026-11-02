@@ -6,6 +6,9 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Added
+- **MaiSim for Linux ARM (aarch64), experimental**: `MaiSim-<version>-aarch64.AppImage` for Raspberry Pi 4/5 and ARM laptops, and the same as a folder (`MaiSim-<version>-aarch64.tar.gz`, run `MaiSim/AppRun`) for places without FUSE, like an Ubuntu inside Termux on Android (proot), where MaiSim opens in the phone's browser at `localhost`. `pacote/linux/monta.sh` builds for the machine's architecture, with the ARM Python, Java and appimagetool pinned and checked by SHA-256 like the x86_64 ones; the CI builds the ARM packages on a native ARM runner (`ubuntu-24.04-arm`). The Update button downloads the file for the machine's architecture; the folder version tells you about a new version and how to replace it. New smoke test for both packages, `pacote/linux/fumaca.sh` (start the package's MaiSim with no browser, run the buck example, make a Figures PDF, stop), run by the packages workflow on x86_64 and ARM; the workflow also has a "test only" mode that builds and smoke-tests a branch without touching any Release. The pages are still made for a mouse; touch editing comes next.
+
 ## [0.3.7] - 2026-11-01
 
 ### Security

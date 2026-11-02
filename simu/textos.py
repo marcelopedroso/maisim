@@ -953,6 +953,8 @@ T = {
     "atualiza.fonte": {"pt": "na versão de programador, atualize pelo git: git pull (a {versao})",
                        "en": "in the developer version, update with git: git pull ({versao})"},
     "atualiza.nada": {"pt": "não há atualização para baixar", "en": "there is no update to download"},
+    "atualiza.pasta": {"pt": "na versão em pasta (o .tar.gz), baixe o {arquivo} da página da versão e extraia no lugar desta (os seus dados ficam em ~/MaiSim)",
+                       "en": "in the folder version (the .tar.gz), download {arquivo} from the version's page and extract it in place of this one (your data stays in ~/MaiSim)"},
     "atualiza.em_andamento": {"pt": "a atualização já está em andamento", "en": "the update is already in progress"},
     "atualiza.sem_salvar": {"pt": "salve antes de atualizar: {itens} sem salvar (o MaiSim fecha para atualizar)",
                             "en": "save before updating: {itens} not saved (MaiSim closes to update)"},

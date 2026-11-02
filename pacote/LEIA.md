@@ -14,8 +14,14 @@ no Windows, `Documentos\MaiSim`), o cache em `~/.cache/maisim` e a config pessoa
 ## Linux (AppImage)
 
 ```bash
-pacote/linux/monta.sh        # → pacote/dist/MaiSim-<versão>-x86_64.AppImage (+ .sha256)
+pacote/linux/monta.sh        # → pacote/dist/MaiSim-<versão>-<x86_64|aarch64>.AppImage (+ .sha256; no ARM, + a pasta .tar.gz)
+pacote/linux/fumaca.sh       # o teste de fumaça do pacote montado: sobe, roda o buck, gera um PDF no Figuras, para
 ```
+
+- A arquitetura é a da máquina que monta (o Python portátil roda lá para instalar o NumPy e o matplotlib dela): x86_64
+  ou aarch64 (o CI monta o ARM num runner `ubuntu-24.04-arm`). O ARM sai também em pasta (`MaiSim-<v>-aarch64.tar.gz`,
+  com `MaiSim/AppRun`), para onde não há FUSE (o proot do Termux no Android); a pasta avisa das versões novas, mas não se
+  troca sozinha.
 
 - Os runtimes em versões fixas, conferidos pelo SHA-256 guardado em `pacote/linux/sha256.txt` (os oficiais: o
   `SHA256SUMS` do python-build-standalone e o checksum da API da Adoptium): Python 3.11 (python-build-standalone) e JRE
