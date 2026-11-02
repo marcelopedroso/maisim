@@ -34,6 +34,7 @@ place), and digital control (a current PI; a buck with the PWM and the PI in cod
 |---|---|
 | **Windows** (installer) | [**MaiSim-Setup.exe**](https://github.com/marcelopedroso/maisim/releases/latest/download/MaiSim-Setup.exe) |
 | **Linux** (AppImage, no install) | [**MaiSim-x86_64.AppImage**](https://github.com/marcelopedroso/maisim/releases/latest/download/MaiSim-x86_64.AppImage) |
+| **Linux ARM** (aarch64: Raspberry Pi 4/5, ARM laptops; experimental) | [**MaiSim-aarch64.AppImage**](https://github.com/marcelopedroso/maisim/releases/latest/download/MaiSim-aarch64.AppImage) · as a folder, for Android: [**MaiSim-aarch64.tar.gz**](https://github.com/marcelopedroso/maisim/releases/latest/download/MaiSim-aarch64.tar.gz) |
 | Earlier versions and test builds (`-rc`) | [Releases](https://github.com/marcelopedroso/maisim/releases) |
 
 Each file comes with a `.sha256` next to it on the Releases page. Everything is inside (Python, Java, GeckoCIRCUITS): no
@@ -43,6 +44,14 @@ internet needed after downloading, nothing else to install.
   Installing a newer version over the old one updates it and keeps your circuits and settings. The installer is not
   code-signed yet: if SmartScreen warns, choose **More info → Run anyway**.
 - **Linux x86_64** (glibc 2.17+) with Xvfb (`sudo apt install xvfb`): `chmod +x MaiSim-x86_64.AppImage` and run it.
+- **Linux ARM (aarch64), experimental**: the same, with `MaiSim-aarch64.AppImage`. Slower than on a PC (a Raspberry Pi 5
+  runs the examples; long runs take longer).
+- **Android, experimental**: MaiSim runs inside an Ubuntu in [Termux](https://termux.dev) (proot), and opens in the
+  phone's browser. In Termux: `pkg install proot-distro && proot-distro install ubuntu && proot-distro login ubuntu`; in
+  that Ubuntu: `apt update && apt install -y xvfb curl`, then download and extract the folder
+  (`curl -LO https://github.com/marcelopedroso/maisim/releases/latest/download/MaiSim-aarch64.tar.gz && tar xzf MaiSim-aarch64.tar.gz`)
+  and run `MAISIM_NAVEGADOR=nenhum MaiSim/AppRun`; open `http://localhost:7100` in the phone's browser. Plain Termux
+  (without the Ubuntu) is not supported. The pages are still made for a mouse: touch editing comes next.
 - **AI (optional):** a Claude account. On Windows, MaiSim installs Claude Code for you from its AI accounts window.
 
 Your circuits and runs go to a visible folder: `Documents\MaiSim` on Windows (you can choose another when

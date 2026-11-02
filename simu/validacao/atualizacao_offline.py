@@ -28,6 +28,23 @@ ok(A.escolhe(rel, "estavel", "9.9.0", "fonte") is None and A.escolhe(rel, "teste
 w = A.escolhe(rel, "estavel", "0.3.0", "windows"); ai = A.escolhe(rel, "estavel", "0.3.0", "appimage")
 ok(w["arquivo"]["nome"] == "MaiSim-Setup-9.9.0.exe" and w["arquivo"]["sha256"].endswith(".exe.sha256")
    and ai["arquivo"]["nome"] == "MaiSim-9.9.0-x86_64.AppImage", f"o arquivo de cada jeito: {w['arquivo']['nome']}, {ai['arquivo']['nome']}")
+# o ARM (aarch64): o AppImage e a pasta (.tar.gz) da arquitetura da máquina; o x86_64 não pega o do ARM, nem o contrário
+maq = A.platform.machine
+try:
+    A.platform.machine = lambda: "aarch64"
+    arm = [{"tag_name": "v9.9.0", "prerelease": False, "body": "", "assets": [{"name": n, "browser_download_url": f"https://x/{n}", "size": 1}
+           for n in ("MaiSim-9.9.0-x86_64.AppImage", "MaiSim-9.9.0-x86_64.AppImage.sha256", "MaiSim-9.9.0-aarch64.AppImage",
+                     "MaiSim-9.9.0-aarch64.AppImage.sha256", "MaiSim-9.9.0-aarch64.tar.gz", "MaiSim-9.9.0-aarch64.tar.gz.sha256")]}]
+    ai_arm, pasta = A.escolhe(arm, "estavel", "0.3.0", "appimage"), A.escolhe(arm, "estavel", "0.3.0", "pasta")
+    ok(A.arquitetura() == "aarch64" and ai_arm["arquivo"]["nome"] == "MaiSim-9.9.0-aarch64.AppImage" and pasta["arquivo"]["nome"] == "MaiSim-9.9.0-aarch64.tar.gz",
+       f"no ARM: o AppImage e a pasta do aarch64 ({ai_arm['arquivo']['nome']}, {pasta['arquivo']['nome']})")
+    A.platform.machine = lambda: "arm64"
+    ok(A.arquitetura() == "aarch64", "arm64 (o nome no macOS e em alguns Linux) também é o aarch64")
+    A.platform.machine = lambda: "x86_64"
+    ok(A.escolhe([dict(arm[0], assets=[x for x in arm[0]["assets"] if "x86_64" not in x["name"]])], "estavel", "0.3.0", "appimage") is None,
+       "no x86_64, uma release só com o ARM: nada (não baixa o AppImage da outra arquitetura)")
+finally:
+    A.platform.machine = maq
 sem = [dict(r, assets=[a for a in r["assets"] if not a["name"].endswith(".exe.sha256")]) if r["tag_name"] == "v9.9.0" else r for r in rel]
 ok(A.escolhe(sem, "estavel", "0.3.0", "windows") is None and A.escolhe(sem, "estavel", "0.3.0", "appimage")["versao"] == "9.9.0",
    "sem o .sha256 do instalador: o Windows não vê a release (o AppImage sim)")

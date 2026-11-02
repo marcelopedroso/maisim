@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# O MaiSim para Linux num arquivo só (AppImage): baixa, marca como executável e abre, sem instalar nada além da tela virtual
+# O MaiSim para Linux num arquivo só (AppImage), em x86_64 ou aarch64 (ARM: Raspberry Pi, notebooks ARM, o Ubuntu do
+# Termux no Android): baixa, marca como executável e abre, sem instalar nada além da tela virtual
 # (Xvfb, do sistema). Leva dentro: um Python portátil (python-build-standalone) com o NumPy e o matplotlib, um Java (JRE Temurin 11), o
 # Gecko com os patches (gecko/construir.sh), o motor do editor compilado, o Monaco local (simu/vendor.sh) e o código do
 # MaiSim desta versão (git archive). O AppRun chama app/lancador.py --produto --abrir (os dados em ~/MaiSim).
 #
 # Precisa: git, curl, java/javac 11 e mvn (para o Gecko e o motor); o appimagetool vem daqui (1.9.1, conferido).
 # Os runtimes em versões fixas, conferidos pelo SHA-256 (o cache fica em pacote/.cache, fora do git).
-# uso: pacote/linux/monta.sh   →   pacote/dist/MaiSim-<versão>-x86_64.AppImage (+ .sha256)
+# O ARM sai também numa pasta (MaiSim-<versão>-aarch64.tar.gz: o proot do Termux não tem FUSE para o AppImage). Monta na
+# arquitetura da máquina (o Python portátil roda aqui para instalar o NumPy e o matplotlib dela): o CI usa um runner ARM.
+# uso: pacote/linux/monta.sh   →   pacote/dist/MaiSim-<versão>-<x86_64|aarch64>.AppImage (+ .sha256; no ARM, + .tar.gz)
 set -euo pipefail
 R="$(cd "$(dirname "$0")/../.." && pwd)"
 . "$R/config/fala.sh"
@@ -14,8 +17,14 @@ V=$(tr -d ' \n' < "$R/VERSION")
 C="$R/pacote/.cache"; OUT="$R/pacote/dist"; A="$R/pacote/.build/MaiSim.AppDir"
 mkdir -p "$C" "$OUT"; rm -rf "$A"; mkdir -p "$A"
 
-PY_URL=https://github.com/astral-sh/python-build-standalone/releases/download/20261021/cpython-3.11.17+20261021-x86_64-unknown-linux-gnu-install_only.tar.gz
-JRE_URL=https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.32.1%2B1/OpenJDK11U-jre_x64_linux_hotspot_11.0.32.1_1.tar.gz
+ARCH=$(uname -m); [ "$ARCH" = arm64 ] && ARCH=aarch64
+case "$ARCH" in
+  x86_64) JRE_ARQ=x64;;
+  aarch64) JRE_ARQ=aarch64;;
+  *) fala "pacote: arquitetura não suportada: $ARCH (x86_64 ou aarch64)" "package: unsupported architecture: $ARCH (x86_64 or aarch64)" >&2; exit 1;;
+esac
+PY_URL=https://github.com/astral-sh/python-build-standalone/releases/download/20261021/cpython-3.11.17+20261021-$ARCH-unknown-linux-gnu-install_only.tar.gz
+JRE_URL=https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.32.1%2B1/OpenJDK11U-jre_${JRE_ARQ}_linux_hotspot_11.0.32.1_1.tar.gz
 NUMPY=2.2.6
 # o matplotlib (as figuras para artigo, o módulo Figuras) e as dependências dele, nas versões do CI e do instalador do Windows
 MPL="matplotlib==3.10.8 contourpy==1.3.2 cycler==0.12.1 fonttools==4.62.0 kiwisolver==1.5.0 packaging==21.3 pillow==12.1.1 pyparsing==3.3.2 python-dateutil==2.9.0.post0 six==1.16.0"
@@ -28,7 +37,7 @@ baixa() {   # baixa uma vez (fica no cache) e confere o SHA-256 guardado em paco
   echo "$arq"
 }
 
-fala "pacote: MaiSim $V para Linux (AppImage)" "package: MaiSim $V for Linux (AppImage)"
+fala "pacote: MaiSim $V para Linux $ARCH (AppImage)" "package: MaiSim $V for Linux $ARCH (AppImage)"
 tar xzf "$(baixa "$PY_URL")" -C "$A"                                  # → $A/python
 "$A/python/bin/python3" -m pip install --quiet --no-cache-dir --disable-pip-version-check "numpy==$NUMPY" $MPL
 "$A/python/bin/python3" -c "import io, matplotlib; matplotlib.use('Agg'); from matplotlib.figure import Figure; Figure().savefig(io.BytesIO(), format='pdf')" \
@@ -47,6 +56,7 @@ cat > "$A/AppRun" <<'RUN'
 # o MaiSim de dentro do AppImage: o Java e o Python daqui, o perfil "só usar" (os dados em ~/MaiSim)
 D="$(dirname "$(readlink -f "$0")")"
 export MAISIM_JAVA="$D/jre/bin/java" MAISIM_GECKO_JAR="$D/maisim/gecko/build/gecko-lote.jar" PYTHONDONTWRITEBYTECODE=1
+[ -n "${APPIMAGE:-}" ] || export MAISIM_PACOTE=pasta    # a pasta extraída (o .tar.gz do ARM): o Atualizar só avisa
 exec "$D/python/bin/python3" "$D/maisim/app/lancador.py" --produto --abrir "$@"
 RUN
 chmod +x "$A/AppRun"
@@ -63,9 +73,15 @@ Categories=Science;Engineering;Education;
 Terminal=false
 DESK
 
-T=$(baixa https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage)   # versão fixa, conferida
+T=$(baixa "https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-$ARCH.AppImage")   # versão fixa, conferida
 chmod +x "$T"
-SAIDA="$OUT/MaiSim-$V-x86_64.AppImage"
-ARCH=x86_64 "$T" --appimage-extract-and-run --no-appstream "$A" "$SAIDA" > /dev/null 2>&1
+SAIDA="$OUT/MaiSim-$V-$ARCH.AppImage"
+ARCH=$ARCH "$T" --appimage-extract-and-run --no-appstream "$A" "$SAIDA" > /dev/null 2>&1
 (cd "$OUT" && sha256sum "$(basename "$SAIDA")" > "$(basename "$SAIDA").sha256")
+if [ "$ARCH" = aarch64 ]; then                         # a pasta, para onde não há FUSE (o proot do Termux): MaiSim/AppRun
+  PASTA="$OUT/MaiSim-$V-$ARCH.tar.gz"
+  tar czf "$PASTA" -C "$(dirname "$A")" --transform "s|^MaiSim.AppDir|MaiSim|" MaiSim.AppDir
+  (cd "$OUT" && sha256sum "$(basename "$PASTA")" > "$(basename "$PASTA").sha256")
+  fala "pacote: e a pasta → $PASTA ($(du -h "$PASTA" | cut -f1))" "package: and the folder → $PASTA ($(du -h "$PASTA" | cut -f1))"
+fi
 fala "pacote: pronto → $SAIDA ($(du -h "$SAIDA" | cut -f1))" "package: done → $SAIDA ($(du -h "$SAIDA" | cut -f1))"

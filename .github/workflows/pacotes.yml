@@ -1,5 +1,7 @@
-# The "just use it" packages for a version (pacote/LEIA.md): the Linux AppImage and the Windows installer, built from the
-# version's tag and attached to its GitHub Release with their .sha256 files. Started by full-suite.yml right after it
+# The "just use it" packages for a version (pacote/LEIA.md): the Linux AppImage (x86_64 and ARM/aarch64, the ARM one also
+# as a folder .tar.gz for places without FUSE, like Termux's proot) and the Windows installer, built from the version's tag,
+# smoke-tested (pacote/linux/fumaca.sh: start, run the buck, a Figures PDF, stop) and attached to its GitHub Release with
+# their .sha256 files. "test only" builds and smoke-tests the dispatched branch and attaches nothing. Started by full-suite.yml right after it
 # creates the Release (a Release made with the Actions token does not trigger other workflows; workflow_dispatch does),
 # or by hand: Actions → packages → Run workflow, with the tag (e.g. v0.3.0-rc1).
 name: packages
@@ -10,6 +12,10 @@ on:
       tag:
         description: "the version tag to package (e.g. v0.3.0-rc1)"
         required: true
+      test_only:
+        description: "test only: build and smoke-test the dispatched branch, attach nothing (the tag is ignored)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -23,24 +29,28 @@ jobs:
       TAG: ${{ inputs.tag }}   # only through the environment, never pasted into a script (whoever dispatches chooses it)
     steps:
       - name: check the tag
+        if: ${{ !inputs.test_only }}
         run: |
           [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "not a version tag: $TAG"; exit 1; }
       - uses: actions/checkout@v7
         with:
-          ref: ${{ env.TAG }}
+          ref: ${{ inputs.test_only && github.ref || env.TAG }}
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "11"   # sem cache: maven — o pom.xml do Gecko só existe depois do gecko/construir.sh (fora do git)
       - name: tools
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq unzip > /dev/null
+          sudo apt-get update -qq && sudo apt-get install -y -qq unzip xvfb > /dev/null
           python3 -m pip install --quiet pillow
       - name: Linux AppImage
         run: bash pacote/linux/monta.sh
+      - name: smoke test (the AppImage's MaiSim runs the buck and makes a PDF)
+        run: bash pacote/linux/fumaca.sh
       - name: Windows installer
         run: bash pacote/windows/monta.sh
       - name: attach to the Release
+        if: ${{ !inputs.test_only }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -48,5 +58,43 @@ jobs:
           cd pacote/dist
           cp MaiSim-Setup-*.exe MaiSim-Setup.exe && sha256sum MaiSim-Setup.exe > MaiSim-Setup.exe.sha256
           cp MaiSim-*-x86_64.AppImage MaiSim-x86_64.AppImage && sha256sum MaiSim-x86_64.AppImage > MaiSim-x86_64.AppImage.sha256
+          ls -la
+          gh release upload "$TAG" ./* --repo "$GITHUB_REPOSITORY" --clobber
+
+  arm:
+    name: ARM (aarch64) AppImage and folder
+    runs-on: ubuntu-24.04-arm   # free for public repositories; builds natively (the portable Python installs NumPy/matplotlib here)
+    timeout-minutes: 60
+    env:
+      TAG: ${{ inputs.tag }}
+    steps:
+      - name: check the tag
+        if: ${{ !inputs.test_only }}
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "not a version tag: $TAG"; exit 1; }
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.test_only && github.ref || env.TAG }}
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "11"
+      - name: tools
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb > /dev/null
+          command -v mvn > /dev/null || sudo apt-get install -y -qq maven > /dev/null
+      - name: ARM AppImage and folder
+        run: bash pacote/linux/monta.sh
+      - name: smoke test on ARM (the AppImage's MaiSim runs the buck and makes a PDF)
+        run: bash pacote/linux/fumaca.sh
+      - name: attach to the Release
+        if: ${{ !inputs.test_only }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # também com nome fixo (sem a versão), como o x86_64: os links .../releases/latest/download/... nunca mudam
+          cd pacote/dist
+          cp MaiSim-*-aarch64.AppImage MaiSim-aarch64.AppImage && sha256sum MaiSim-aarch64.AppImage > MaiSim-aarch64.AppImage.sha256
+          cp MaiSim-*-aarch64.tar.gz MaiSim-aarch64.tar.gz && sha256sum MaiSim-aarch64.tar.gz > MaiSim-aarch64.tar.gz.sha256
           ls -la
           gh release upload "$TAG" ./* --repo "$GITHUB_REPOSITORY" --clobber
