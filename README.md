@@ -46,12 +46,13 @@ internet needed after downloading, nothing else to install.
 - **Linux x86_64** (glibc 2.17+) with Xvfb (`sudo apt install xvfb`): `chmod +x MaiSim-x86_64.AppImage` and run it.
 - **Linux ARM (aarch64), experimental**: the same, with `MaiSim-aarch64.AppImage`. Slower than on a PC (a Raspberry Pi 5
   runs the examples; long runs take longer).
-- **Android, experimental**: MaiSim runs inside an Ubuntu in [Termux](https://termux.dev) (proot), and opens in the
-  phone's browser. In Termux: `pkg install proot-distro && proot-distro install ubuntu && proot-distro login ubuntu`; in
-  that Ubuntu: `apt update && apt install -y xvfb curl`, then download and extract the folder
-  (`curl -LO https://github.com/marcelopedroso/maisim/releases/latest/download/MaiSim-aarch64.tar.gz && tar xzf MaiSim-aarch64.tar.gz`)
-  and run `MAISIM_NAVEGADOR=nenhum MaiSim/AppRun`; open `http://localhost:7100` in the phone's browser. Plain Termux
-  (without the Ubuntu) is not supported. The pages are still made for a mouse: touch editing comes next.
+- **Android, experimental**: MaiSim runs inside an Ubuntu in [Termux](https://termux.dev) (proot) and opens in the
+  phone's browser. Install Termux from [F-Droid](https://f-droid.org/packages/com.termux/) or its
+  [GitHub](https://github.com/termux/termux-app/releases) (the Play Store one is outdated and broken), then, in Termux:
+  `curl -fsSL https://raw.githubusercontent.com/marcelopedroso/maisim/main/pacote/android/instala.sh | bash`. It
+  installs Ubuntu, MaiSim (`~/maisim-app`, checked by SHA-256) and what it needs, and creates the `maisim` command (and a
+  Termux:Widget shortcut). Then type `maisim` and open `http://localhost:7100` in the phone's browser. Your circuits stay
+  in `~/MaiSim`; the Update button replaces only the program. The pages are still made for a mouse: touch editing comes next.
 - **AI (optional):** a Claude account. On Windows, MaiSim installs Claude Code for you from its AI accounts window.
 
 Your circuits and runs go to a visible folder: `Documents\MaiSim` on Windows (you can choose another when

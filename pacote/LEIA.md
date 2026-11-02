@@ -18,6 +18,12 @@ pacote/linux/monta.sh        # → pacote/dist/MaiSim-<versão>-<x86_64|aarch64>
 pacote/linux/fumaca.sh       # o teste de fumaça do pacote montado: sobe, roda o buck, gera um PDF no Figuras, para
 ```
 
+- O AppRun confere o que o MaiSim precisa do sistema (`xvfb libxtst6 libxrender1 libxi6 libxext6 fontconfig
+  fonts-dejavu-core`, no Debian/Ubuntu): como root (o Ubuntu do Termux), instala o que faltar; senão, diz o comando. No
+  Android (o kernel diz "android"), não abre navegador nem vigia a janela (trocar de app não é fechar o MaiSim).
+- Android: `pacote/android/instala.sh` (no Termux, por `curl … | bash`) instala o Ubuntu (proot-distro), a pasta em
+  `~/maisim-app` e o comando `maisim`; a pasta se atualiza pelo botão Atualizar (troca a pasta inteira; os dados ficam em
+  `~/MaiSim`).
 - A arquitetura é a da máquina que monta (o Python portátil roda lá para instalar o NumPy e o matplotlib dela): x86_64
   ou aarch64 (o CI monta o ARM num runner `ubuntu-24.04-arm`). O ARM sai também em pasta (`MaiSim-<v>-aarch64.tar.gz`,
   com `MaiSim/AppRun`), para onde não há FUSE (o proot do Termux no Android); a pasta avisa das versões novas, mas não se

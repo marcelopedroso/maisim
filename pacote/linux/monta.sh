@@ -7,7 +7,7 @@
 #
 # Precisa: git, curl, java/javac 11 e mvn (para o Gecko e o motor); o appimagetool vem daqui (1.9.1, conferido).
 # Os runtimes em versões fixas, conferidos pelo SHA-256 (o cache fica em pacote/.cache, fora do git).
-# O ARM sai também numa pasta (MaiSim-<versão>-aarch64.tar.gz: o proot do Termux não tem FUSE para o AppImage). Monta na
+# O ARM sai também numa pasta (MaiSim-<versão>-aarch64.tar.gz, com maisim-app/: o proot do Termux não tem FUSE). Monta na
 # arquitetura da máquina (o Python portátil roda aqui para instalar o NumPy e o matplotlib dela): o CI usa um runner ARM.
 # uso: pacote/linux/monta.sh   →   pacote/dist/MaiSim-<versão>-<x86_64|aarch64>.AppImage (+ .sha256; no ARM, + .tar.gz)
 set -euo pipefail
@@ -53,11 +53,39 @@ find "$A" -name "__pycache__" -prune -exec rm -rf {} +; rm -rf "$A/python/lib/py
 
 cat > "$A/AppRun" <<'RUN'
 #!/bin/bash
-# o MaiSim de dentro do AppImage: o Java e o Python daqui, o perfil "só usar" (os dados em ~/MaiSim)
+# o MaiSim de dentro do pacote (o AppImage, ou a pasta maisim-app do .tar.gz): o Java e o Python daqui, o perfil "só usar"
+# (os dados em ~/MaiSim, fora da pasta do programa: o Atualizar troca a pasta inteira)
 D="$(dirname "$(readlink -f "$0")")"
+. "$D/maisim/config/fala.sh"
 export MAISIM_JAVA="$D/jre/bin/java" MAISIM_GECKO_JAR="$D/maisim/gecko/build/gecko-lote.jar" PYTHONDONTWRITEBYTECODE=1
-[ -n "${APPIMAGE:-}" ] || export MAISIM_PACOTE=pasta    # a pasta extraída (o .tar.gz do ARM): o Atualizar só avisa
-exec "$D/python/bin/python3" "$D/maisim/app/lancador.py" --produto --abrir "$@"
+if [ -z "${APPIMAGE:-}" ]; then                          # a pasta extraída (o .tar.gz do ARM): o Atualizar troca a pasta
+  export MAISIM_PACOTE=pasta
+  rm -rf "$(dirname "$D")/.$(basename "$D").antigo"     # a pasta de antes da última atualização (já não roda)
+fi
+# no Android (o Ubuntu do Termux): sem navegador para abrir (o do celular abre localhost:7100) e sem vigiar a janela (trocar
+# de app não é fechar o MaiSim); MAISIM_NAVEGADOR=nenhum, em qualquer lugar, faz o mesmo
+case "$(uname -r)" in *[Aa]ndroid*) export MAISIM_NAVEGADOR="${MAISIM_NAVEGADOR:-nenhum}";; esac
+ABRIR=--abrir; [ "${MAISIM_NAVEGADOR:-}" = nenhum ] && ABRIR=
+# o que o MaiSim precisa do sistema (a tela virtual do Gecko e as bibliotecas de janela do Java), no Debian/Ubuntu: como root
+# (o Ubuntu do Termux), instala o que faltar, uma vez; senão, diz o comando
+PRECISA="xvfb libxtst6 libxrender1 libxi6 libxext6 fontconfig fonts-dejavu-core"
+case " $* " in *" --parar "*) PRECISA=;; esac
+if [ -n "$PRECISA" ] && command -v dpkg > /dev/null; then
+  FALTA=$(for p in $PRECISA; do dpkg -s "$p" > /dev/null 2>&1 || printf '%s ' "$p"; done)
+  if [ -n "$FALTA" ]; then
+    if [ "$(id -u)" = 0 ] && command -v apt-get > /dev/null; then
+      fala "maisim: instalando o que falta no sistema (uma vez): $FALTA" "maisim: installing what the system is missing (once): $FALTA"
+      export DEBIAN_FRONTEND=noninteractive    # (o apt em inglês: num Ubuntu mínimo o pt_BR não existe e o perl reclama)
+      { LC_ALL=C LANG=C apt-get update -qq && LC_ALL=C LANG=C apt-get install -y -qq --no-install-recommends $FALTA; } > /tmp/maisim-apt.log 2>&1 \
+        || { fala "maisim: não deu para instalar: $FALTA(veja /tmp/maisim-apt.log)" "maisim: could not install: $FALTA(see /tmp/maisim-apt.log)" >&2; exit 1; }
+    else
+      fala "maisim: falta no sistema: $FALTA— instale com: sudo apt install -y $FALTA" \
+           "maisim: the system is missing: $FALTA— install it with: sudo apt install -y $FALTA" >&2
+      exit 1
+    fi
+  fi
+fi
+exec "$D/python/bin/python3" "$D/maisim/app/lancador.py" --produto $ABRIR "$@"
 RUN
 chmod +x "$A/AppRun"
 cp "$R/app/public/marca/maisim-app-512.png" "$A/maisim.png"
@@ -80,7 +108,7 @@ ARCH=$ARCH "$T" --appimage-extract-and-run --no-appstream "$A" "$SAIDA" > /dev/n
 (cd "$OUT" && sha256sum "$(basename "$SAIDA")" > "$(basename "$SAIDA").sha256")
 if [ "$ARCH" = aarch64 ]; then                         # a pasta, para onde não há FUSE (o proot do Termux): MaiSim/AppRun
   PASTA="$OUT/MaiSim-$V-$ARCH.tar.gz"
-  tar czf "$PASTA" -C "$(dirname "$A")" --transform "s|^MaiSim.AppDir|MaiSim|" MaiSim.AppDir
+  tar czf "$PASTA" -C "$(dirname "$A")" --transform "s|^MaiSim.AppDir|maisim-app|" MaiSim.AppDir   # (não MaiSim: os dados ficam em ~/MaiSim)
   (cd "$OUT" && sha256sum "$(basename "$PASTA")" > "$(basename "$PASTA").sha256")
   fala "pacote: e a pasta → $PASTA ($(du -h "$PASTA" | cut -f1))" "package: and the folder → $PASTA ($(du -h "$PASTA" | cut -f1))"
 fi

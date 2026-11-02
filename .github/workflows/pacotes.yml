@@ -41,7 +41,8 @@ jobs:
           java-version: "11"   # sem cache: maven — o pom.xml do Gecko só existe depois do gecko/construir.sh (fora do git)
       - name: tools
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq unzip xvfb > /dev/null
+          # (o que o AppRun confere no sistema: a tela virtual e as bibliotecas de janela do Java)
+          sudo apt-get update -qq && sudo apt-get install -y -qq unzip xvfb libxtst6 libxrender1 libxi6 libxext6 fontconfig fonts-dejavu-core > /dev/null
           python3 -m pip install --quiet pillow
       - name: Linux AppImage
         run: bash pacote/linux/monta.sh
@@ -81,7 +82,7 @@ jobs:
           java-version: "11"
       - name: tools
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb > /dev/null
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb libxtst6 libxrender1 libxi6 libxext6 fontconfig fonts-dejavu-core > /dev/null
           command -v mvn > /dev/null || sudo apt-get install -y -qq maven > /dev/null
       - name: ARM AppImage and folder
         run: bash pacote/linux/monta.sh

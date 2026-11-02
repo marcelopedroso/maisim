@@ -2,8 +2,8 @@
 
 A versão: o arquivo VERSION da raiz; o jeito de instalação: "windows" (o instalador: o perfil produto, com o Python ao
 lado do código), "appimage" (o AppImage do Linux, x86_64 ou aarch64: a variável APPIMAGE, que o runtime dele põe), "pasta"
-(a pasta do .tar.gz do ARM, para onde não há FUSE: o AppRun dela põe MAISIM_PACOTE=pasta; o Atualizar só avisa) ou
-"fonte" (o git clone).
+(a pasta maisim-app do .tar.gz do ARM, para onde não há FUSE, como o Ubuntu do Termux: o AppRun dela põe MAISIM_PACOTE=pasta)
+ou "fonte" (o git clone).
 
 A verificação: as releases do repositório (a API pública do GitHub, sem token; MAISIM_RELEASES_URL troca o endereço — um
 arquivo .json, file:// ou http: os testes), na partida e a cada 6 h, com prazo curto; sem rede, fica quieta. Os canais:
@@ -15,7 +15,9 @@ e o .sha256 dele.
 Atualizar: no Windows, baixa o instalador para o cache, confere o SHA-256 (recusa se não bater) e roda ele em silêncio
 (/SILENT: o PrepareToInstall dele desliga o MaiSim; a pasta e a porta ficam), por um cmd solto (fora da árvore do
 lançador, que o --parar derruba) que depois abre o MaiSim de novo; no AppImage, baixa para <AppImage>.novo, confere,
-marca como executável, troca pelo de agora (rename atômico) e reinicia (--parar e o novo com --abrir).
+marca como executável, troca pelo de agora (rename atômico) e reinicia (--parar e o novo com --abrir); na pasta, baixa o
+.tar.gz, confere, extrai ao lado, troca a pasta inteira (dois rename: a de agora vira .<nome>.antigo, que o AppRun novo
+apaga) e reinicia — os dados ficam fora da pasta (~/MaiSim); se estiverem dentro dela, recusa (apagaria os circuitos).
 
 Na versão de programador (o git clone, aberto pelo lançador), pelo git (MAISIM_ATUALIZA_GIT: o remoto, "origin" no
 padrão; vazio, como no perfil de teste, só a dica do "git pull"): busca o main e as tags do remoto; o canal "teste" segue
@@ -33,6 +35,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import tarfile
 import threading
 import time
 import urllib.request
@@ -251,6 +254,41 @@ def troca_appimage(novo, alvo):
     os.replace(novo, alvo)
 
 
+def dados_na_pasta(pasta):
+    """Os dados (MAISIM_DADOS) estão dentro da pasta do programa? (a 0.3.8-rc1 extraía em ~/MaiSim, a pasta dos dados)"""
+    try:
+        d = Path(os.environ.get("MAISIM_DADOS") or "").resolve()
+    except OSError:
+        return False
+    p = Path(pasta).resolve()
+    return bool(os.environ.get("MAISIM_DADOS")) and (d == p or p in d.parents)
+
+
+def troca_pasta(tgz, pasta):
+    """O .tar.gz baixado (já conferido) no lugar da pasta do programa: extrai ao lado (.<nome>.novo; sem caminhos para fora
+    nem dispositivos: o filtro "data" do tarfile), confere que veio um MaiSim (o AppRun), e troca a pasta inteira: a de
+    agora vira .<nome>.antigo (o que roda segue com os arquivos abertos; o AppRun novo a apaga) e a nova toma o lugar."""
+    pasta = Path(pasta)
+    novo, antigo = pasta.with_name(f".{pasta.name}.novo"), pasta.with_name(f".{pasta.name}.antigo")
+    shutil.rmtree(novo, ignore_errors=True)
+    novo.mkdir(parents=True)
+    try:
+        with tarfile.open(tgz) as t:
+            t.extractall(novo, filter="data")
+        dentro = [d for d in novo.iterdir() if d.is_dir()]
+        if len(dentro) != 1 or not (dentro[0] / "AppRun").is_file() or not (dentro[0] / "maisim" / "VERSION").is_file():
+            raise ValueError(lingua.tr("atualiza.pasta_invalida"))
+        shutil.rmtree(antigo, ignore_errors=True)
+        os.rename(pasta, antigo)
+        try:
+            os.rename(dentro[0], pasta)
+        except OSError:
+            os.rename(antigo, pasta)                 # volta a de antes
+            raise
+    finally:
+        shutil.rmtree(novo, ignore_errors=True)
+
+
 def _ambiente_limpo():
     """O ambiente para o MaiSim novo: sem o que aponta para dentro do AppImage de agora (a pasta montada some ao sair)."""
     d = os.environ.get("APPDIR") or ""
@@ -356,8 +394,8 @@ class Atualizacao:
             return self._aplica_git_inicio(nova, ocupada)
         if tipo == "fonte":
             raise ValueError(lingua.tr("atualiza.fonte", versao=nova["versao"] if nova else "?"))
-        if tipo == "pasta":                              # a pasta extraída: quem a extraiu troca (a release tem o link)
-            raise ValueError(lingua.tr("atualiza.pasta", arquivo=nova["arquivo"]["nome"] if nova and nova.get("arquivo") else "MaiSim-…tar.gz"))
+        if tipo == "pasta" and dados_na_pasta(RAIZ.parent):   # a pasta seria trocada com os dados dentro
+            raise ValueError(lingua.tr("atualiza.pasta_dados", pasta=str(RAIZ.parent)))
         if not nova or not nova.get("arquivo"):
             raise ValueError(lingua.tr("atualiza.nada"))
         if ocupada:
@@ -455,6 +493,18 @@ class Atualizacao:
                 self._fase(fase="instalando")
                 if reinicia:
                     instala_windows(exe)
+            elif tipo == "pasta":
+                pasta = RAIZ.parent
+                for velho in self.cache.glob("MaiSim-*.tar.gz"):
+                    velho.unlink(missing_ok=True)
+                tgz = baixa(a["url"], self.cache / a["nome"], a["sha256"], progresso)
+                self._confere_livre()
+                self._fase(fase="instalando")
+                troca_pasta(tgz, pasta)
+                tgz.unlink(missing_ok=True)
+                self._fase(fase="reiniciando")
+                if reinicia:
+                    reinicia_pasta(pasta)
             else:
                 alvo = Path(os.environ["APPIMAGE"])
                 novo = baixa(a["url"], alvo.with_name(alvo.name + ".novo"), a["sha256"], progresso)
@@ -512,6 +562,16 @@ def reinicia_fonte(modo, log):
     env = {**os.environ, **({"MAISIM_NAVEGADOR": "nenhum"} if "--abrir" in modo else {})}
     subprocess.Popen(["/bin/sh", "-c", 'sleep 1; "$0" "$1" --parar; exec "$0" "$@"', sys.executable, lanc, *modo],
                      cwd=str(RAIZ), env=env, stdin=subprocess.DEVNULL, stdout=open(log, "a"), stderr=subprocess.STDOUT, start_new_session=True)
+
+
+def reinicia_pasta(pasta):
+    """O MaiSim de agora para (--parar, pelo AppRun da pasta nova: o mesmo lançador) e o novo abre, numa sessão própria (o
+    --parar derruba o grupo do simu, não ela); o AppRun escolhe sozinho se vigia a janela (no Android, não)."""
+    apprun = str(Path(pasta) / "AppRun")
+    log = open(Path(os.environ.get("MAISIM_CACHE") or "/tmp") / "logs" / "atualizacao.log", "a")
+    env = {k: v for k, v in os.environ.items() if k not in ("MAISIM_JAVA", "MAISIM_GECKO_JAR")}   # (apontavam para a pasta antiga)
+    subprocess.Popen(["/bin/sh", "-c", 'sleep 1; "$0" --parar; exec "$0"', apprun],
+                     env=env, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
 
 
 def reinicia_appimage(alvo):
