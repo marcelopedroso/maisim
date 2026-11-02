@@ -11,7 +11,6 @@ set -euo pipefail
 case "${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}" in pt*) PT=1;; *) PT=;; esac
 fala() { if [ -n "$PT" ]; then printf '%s\n' "$1"; else printf '%s\n' "$2"; fi; }
 REPO=marcelopedroso/maisim
-ROOTFS="${PREFIX:-}/var/lib/proot-distro/installed-rootfs/ubuntu"
 
 if [ -z "${PREFIX:-}" ] || [ "${PREFIX#/data/data/com.termux}" = "$PREFIX" ]; then
   if [ -f /etc/os-release ] && grep -qi ubuntu /etc/os-release && [ "$(id -u)" = 0 ]; then
@@ -29,7 +28,9 @@ fi
 fala "maisim: 1/4 o proot-distro (o Ubuntu dentro do Termux)…" "maisim: 1/4 proot-distro (Ubuntu inside Termux)…"
 pkg update -y > /dev/null 2>&1 || true
 pkg install -y proot-distro curl > /dev/null
-if [ ! -d "$ROOTFS" ]; then
+# o Ubuntu já instalado? perguntando ao próprio proot-distro (a pasta dele mudou entre versões: installed-rootfs/ubuntu
+# nas antigas, containers/ubuntu/rootfs a partir da 5.x; o install recusa um container que já existe)
+if ! proot-distro login ubuntu -- true > /dev/null 2>&1; then
   fala "maisim: 2/4 instalando o Ubuntu (uns 50 MB, alguns minutos)…" "maisim: 2/4 installing Ubuntu (about 50 MB, a few minutes)…"
   proot-distro install ubuntu
 else
