@@ -7,10 +7,16 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Added
+- **Phone app: “Open now” at the top of Home**: the circuit open on the server (MaiSim keeps it, even with the app closed), with “not saved” when it has changes; one tap opens it as it is, changes kept, to save or undo. Before, the phone showed no open circuit (its Circuit tab was greyed out), so when Update refused because of unsaved changes there was no way to find them without the PC screen. A refused Update also refreshes this card.
+- **Phone app: + New circuit in Home**: a blank sheet, as on the PC (the editor asks for the name, and what to do with unsaved changes). The phone could only open existing circuits.
+- **Phone app: Open in a subcircuit's panel**: on the PC you enter a subcircuit by double-clicking it, which a phone never delivers (the first tap opens the panel and moves the view).
+- **Phone app: the editor's errors show up**: they went to the editor's header, which the phone hides (a run that failed, a wire that could not be made, a save that failed); they now appear in the app's notice, in red, and a Save from the ⋯ menu says where it saved.
 - **Phone app: Compare A/B one tap away**: the scope's collapsed header on the phone has a **Compare A/B** button that opens the choice of runs A and B and enters Compare (it was there, but only behind the unlabelled ▾). On the phone the collapsed header now wraps instead of running off the screen, so ▾ and Compare A/B stay visible on narrow phones.
 - **Phone app: “Test versions” switch in Home → Settings**, next to Update: the same update channel as the PC's update window (on: the -rc releases too; off: only the stable ones). The phone had no way to change it.
 
 ### Fixed
+- **Phone app: the AI buttons in Control** (IA, and “ask the AI” on a test error) opened the conversation in a column the Control view hides; they now switch to the AI tab.
+- **Phone scope: no ☰ Index button** (the index does not show on the phone, so the button did nothing), and a layout saved with “one section at a time” shows all sections on the phone (there was no index to switch sections).
 - **Phone app: the Scope tab shows the open circuit's runs**: opening a circuit showed the server's last run, from whatever circuit ran last, and the previous circuit's scope stayed after opening another one. It now shows the last run of the circuit you opened; with none yet, a short notice (tap ▶ to simulate) instead of a scope, which would follow another circuit's live run.
 
 ### Removed

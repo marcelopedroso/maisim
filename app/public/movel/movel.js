@@ -13,7 +13,7 @@
   // ── avisos e gavetas (uma de cada vez) ──
   let avisoT = 0;
   function aviso(txt, bt, acao, ms) {
-    $("aviso-tx").textContent = txt; $("aviso-bt").textContent = bt || ""; $("aviso-bt").hidden = !bt;
+    $("aviso-tx").textContent = txt; $("aviso-bt").textContent = bt || ""; $("aviso-bt").hidden = !bt; $("aviso").classList.remove("erro");
     $("aviso-bt").onclick = () => { $("aviso").classList.remove("on"); if (acao) acao(); };
     $("aviso").classList.add("on"); clearTimeout(avisoT); avisoT = setTimeout(() => $("aviso").classList.remove("on"), ms || 4000);
   }
@@ -101,7 +101,7 @@
   $("atu-bt").onclick = async () => {
     const b = $("atu-bt"); b.disabled = true;
     try { const j = await (await fetch(`/maisim/simu/atualizacao/${b.dataset.acao}`, { method: "POST", headers: { "Content-Type": "application/json", "X-MaiSim": "1" }, body: "{}" })).json();
-      if (j && j.versao) ATU = j; if (j && j.erro) ATU = { ...ATU, aplicando: { fase: "erro", erro: j.erro } }; } catch (e) { /* fica */ }
+      if (j && j.versao) ATU = j; if (j && j.erro) { ATU = { ...ATU, aplicando: { fase: "erro", erro: j.erro } }; carregaAberto(); } } catch (e) { /* fica */ }   // (recusou por algo sem salvar: o cartão do aberto)
     pintaVersao(); if (ATU && ATU.aplicando && ATU.aplicando.fase !== "erro") acompanhaAtu();
   };
   function acompanhaAtu() {
@@ -114,17 +114,30 @@
     }, 1000);
   }
 
+  // ── o circuito aberto no servidor (o editor guarda um, às vezes sem salvar, mesmo com o app fechado): no topo do Início,
+  //    para continuar nele (e salvar: o Atualizar recusa com algo sem salvar, e sem isto o celular não tinha como achá-lo) ──
+  async function carregaAberto() {
+    let p = null;
+    try { p = await (await fetch("/maisim/simu/editor/pendente", { cache: "no-store" })).json();
+      const a = await (await fetch("/maisim/simu/editor/aberto", { cache: "no-store" })).json(); if (a.fechado) p = null; } catch (e) { p = null; }
+    const arq = p && p.arquivo, novo = !!arq && /^\(|sem arquivo/.test(arq);
+    $("g-aberto").hidden = !arq || (arq === est.arq && !p.pendente);
+    if (!arq) return;
+    $("aberto-n").textContent = novo ? tr("mv.novo_sem_nome") : nomeDe(arq);
+    $("aberto-s").textContent = p.pendente ? tr("mv.aberto_sujo", { motivo: p.motivo || "" }) : tr("mv.aberto_ok");
+    $("aberto-bt").onclick = () => novo ? abre(null) : abre(arq);
+  }
   // ── abrir um circuito: o editor (no iframe) abre e liga a edição; as abas do circuito acendem ──
   function abre(arq) {
-    est.arq = arq; est.n = 0; est.painel = est.janela = false; $("titulo").textContent = nomeDe(arq);   // o editor novo começa sem painel nem janela $("sub").textContent = tr("mv.sub_abrindo");
+    est.arq = arq; est.nome = ""; est.n = 0; est.painel = est.janela = false; $("titulo").textContent = nomeDe(arq);   // o editor novo começa sem painel nem janela $("sub").textContent = tr("mv.sub_abrindo");
     est.scope = null; fScope.src = "about:blank";             // o scope do circuito anterior não fica (a aba Scope acha a rodada deste)
     document.querySelectorAll('.aba[data-tab="circuito"], .aba[data-tab="controle"], .aba[data-tab="ia"]').forEach((b) => { b.disabled = false; });
-    fSimu.src = `/maisim/simu/?movel=1&modelo=${encodeURIComponent(arq)}`; aba("circuito");
+    fSimu.src = arq ? `/maisim/simu/?movel=1&modelo=${encodeURIComponent(arq)}` : "/maisim/simu/?movel=1&novo=1"; aba("circuito");   // (sem arquivo: o novo sem nome do servidor)
   }
   function topo() {
     const com = !!est.arq, t = est.tab;
     $("rodar").hidden = !com || t === "inicio"; $("mais").hidden = !com || !["circuito", "controle", "ia"].includes(t);
-    $("titulo").textContent = t === "inicio" || !com ? "MaiSim · Android" : nomeDe(est.arq);
+    $("titulo").textContent = t === "inicio" || !com ? "MaiSim · Android" : est.nome || nomeDe(est.arq);
     if (!est.vivo) $("sub").textContent = t === "inicio" || !com ? tr("mv.sub_inicio") : est.n ? tr("mv.sub_edit", { n: est.n }) : tr("mv.sub_abrindo");
   }
   function aba(t) {
@@ -134,12 +147,13 @@
     $("paleta").hidden = t !== "circuito" || est.painel || est.janela;
     if (["circuito", "controle", "ia"].includes(t)) pedeSimu({ cmd: "vista", vista: t });
     if (t === "scope") mostraScope();
-    if (t === "inicio") { carregaModelos(); carregaVersao(); }
+    if (t === "inicio") { carregaModelos(); carregaVersao(); carregaAberto(); }
     topo();
   }
   document.querySelectorAll(".aba").forEach((b) => b.onclick = () => aba(b.dataset.tab));
   $("nome").onclick = () => aba("inicio");
   $("paleta").onclick = () => pedeSimu({ cmd: "paleta" });
+  $("novo-bt").onclick = () => abre(null);                    // o editor com ?novo=1: pede o nome (e, com algo sem salvar, o que fazer)
   $("contas").onclick = () => { if (!fSimu.getAttribute("src")) fSimu.src = "/maisim/simu/?movel=1"; est.querContas = true; aba("circuito"); pedeSimu({ cmd: "contas" }); };
 
   // a aba Scope: a rodada do circuito aberto; aberto e sem nenhuma, só o aviso (o scope sem rodada se liga à rodada ao vivo do
@@ -163,14 +177,16 @@
   addEventListener("message", (ev) => {
     if (ev.origin !== location.origin || ev.source !== fSimu.contentWindow) return; const m = ev.data || {};
     if (m.maisim !== "simu") return;
-    if (m.tipo === "arquivo" && m.arq) { est.arq = m.arq; topo(); }   // Salvar como… (ou outro aberto no editor): o arquivo de agora
+    if (m.tipo === "arquivo" && m.arq) { est.arq = m.arq; est.nome = m.nome || ""; topo(); }
+    if (m.tipo === "msg" && m.texto) { aviso(m.texto, null, null, m.erro ? 7000 : 3500); $("aviso").classList.toggle("erro", !!m.erro); }   // os erros e o "salvo" do editor (o cabeçalho dele não aparece)
+    if (m.tipo === "aba" && m.aba) aba(m.aba);                 // o editor pede outra aba (a IA, pelos botões do Controle)   // Salvar como… (ou outro aberto no editor): o arquivo de agora
     if (m.tipo === "painel") est.painel = m.on;
     if (m.tipo === "janela") est.janela = m.on;
     if (m.tipo === "painel" || m.tipo === "janela") $("paleta").hidden = est.painel || est.janela || est.tab !== "circuito";   // o + não cobre o painel nem a janela   // o painel ou a paleta abertos: o + sai da frente
     if (m.tipo === "scope") {                                   // a rodada ao vivo ou a que terminou agora
       est.scope = m.url + (m.url.includes("?") ? "&" : "?") + "movel=1"; mostraScope(); }
     if (m.tipo === "aberto" && !est.scope) ultimaDoCircuito(m.arq || est.arq);   // aberto: a última rodada DESTE circuito (o editor conta a do servidor, de qualquer um)
-    if (m.tipo === "aberto") { est.n = m.elementos; est.camadas = m.camadas || []; if (m.arq) est.arq = m.arq; if (est.querContas) { est.querContas = false; pedeSimu({ cmd: "contas" }); } topo(); }
+    if (m.tipo === "aberto") { est.n = m.elementos; est.camadas = m.camadas || []; if (m.arq) est.arq = m.arq; est.nome = m.nome || ""; if (est.querContas) { est.querContas = false; pedeSimu({ cmd: "contas" }); } topo(); }
     if (m.tipo === "rodada") {
       const vivo = ["preparando", "rodando", "pausada"].includes(m.estado), era = est.vivo; est.vivo = vivo;
       $("prog").hidden = !vivo; $("rodar").classList.toggle("ativo", vivo); $("rodar").setAttribute("aria-label", tr(vivo ? "mv.a_parar" : "mv.a_rodar"));
@@ -203,7 +219,7 @@
   async function exporta() {
     let pastas = [];
     try { const r = await (await fetch("/maisim/scope/rodadas")).json();
-      pastas = r.filter((x) => x.modelo === est.arq && x.pasta).sort((a, b) => b.mtime - a.mtime).slice(0, 3).map((x) => x.arq.split("/").slice(-2, -1)[0]); } catch (e) { /* só o circuito */ }
+      pastas = r.filter((x) => x.pasta && x.modelo && (x.modelo === est.arq || x.modelo.endsWith("/" + est.arq))).sort((a, b) => b.mtime - a.mtime).slice(0, 3).map((x) => x.arq.split("/").slice(-2, -1)[0]); } catch (e) { /* só o circuito */ }
     location.href = `/maisim/simu/msd/exportar?arq=${encodeURIComponent(est.arq)}&rodadas=${encodeURIComponent(pastas.join(","))}`;
   }
 

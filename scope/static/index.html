@@ -301,7 +301,7 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
   body.movel main, body.movel #conteudo { padding-left:8px !important; padding-right:8px !important; }
   body.movel #paineis { grid-template-columns:minmax(0, 1fr) !important; gap:10px; }
   body.movel #paineis > .cartao { grid-column:1 / -1 !important; }
-  body.movel #indice { display:none; }
+  body.movel #indice, body.movel #bt-indice { display:none; }   /* (o índice não aparece no celular: o botão dele não fazia nada) */
   body.movel .cab button { min-width:36px; min-height:36px; }
   body.movel .u-over { touch-action:none; }
   /* o Comparar A/B a um toque no celular (com o cabeçalho recolhido, a escolha das rodadas fica escondida atrás do ▾) */

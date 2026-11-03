@@ -130,6 +130,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     const ab = await sc.evaluate(() => ({ ativo: document.getElementById("bt-comparar").classList.contains("ativo"), b: !!document.getElementById("sel-b").offsetParent,
       opcoes: document.getElementById("sel-b").options.length, aberto: !document.querySelector("header").classList.contains("recolhido") }));
     ok(ab0 && ab.ativo && ab.b && ab.aberto && ab.opcoes > 1, `Comparar A/B a um toque no cabeçalho recolhido: Comparar ativo, a escolha de B à vista (${ab.opcoes} opções)`);
+    ok(!(await SC.locator("#bt-indice").isVisible()), "o ☰ Índice não aparece no scope do celular (o índice não aparece ali: o botão não fazia nada)");
 
     // Controle e IA: o mesmo editor, noutra vista (sem foco automático)
     await pg.locator('.aba[data-tab="controle"]').tap(); await pg.waitForTimeout(1500);
@@ -168,6 +169,47 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     const dele = a ? (await pg.evaluate(async (a) => ((await (await fetch("/maisim/scope/rodadas")).json()).find((x) => x.arq === a) || {}).modelo || "", a)).includes("exemplo_boost")
       : aviso && !comScope && src === "about:blank";
     ok(dele, `abrir outro circuito: a aba Scope mostra a rodada dele ou só o aviso (${a ? a.split("/").slice(-2).join("/") : `aviso ${aviso}, scope ${src}`}), não a do exemplo_buck`);
+    // os botões da IA no Controle levam à aba IA (a conversa não aparece na vista do Controle)
+    await pg.locator('.aba[data-tab="controle"]').tap(); await pg.waitForTimeout(1200);
+    await pg.frameLocator("#f-simu").locator("#ctl-claude-bt").tap(); await pg.waitForTimeout(1200);
+    ok(await pg.locator('.aba[data-tab="ia"]').getAttribute("aria-selected") === "true", "Controle → o botão IA leva à aba IA (a conversa fica lá)");
+    // os erros do editor (o cabeçalho dele, onde eles apareciam, não aparece no celular) vão para o aviso da casca, em vermelho
+    await pg.locator('.aba[data-tab="circuito"]').tap(); await pg.waitForTimeout(800);
+    await pg.frames().find((f) => /\/maisim\/simu\/\?movel=1/.test(f.url())).evaluate(() => msg("erro de teste do celular", "erro")); await pg.waitForTimeout(500);
+    ok(await pg.locator("#aviso.on.erro").count() === 1 && /erro de teste do celular/.test(await pg.locator("#aviso-tx").textContent()), "um erro do editor aparece no aviso da casca, em vermelho");
+    // subcircuito: o painel dele tem o Abrir (no PC é o duplo clique, que no celular não chega)
+    await pg.locator('.aba[data-tab="inicio"]').tap(); await pg.waitForTimeout(600);
+    await pg.locator(".linha", { hasText: "exemplo_cascata_hb" }).first().tap(); await pg.waitForTimeout(4000);
+    const d3 = pg.frameLocator("#f-simu").locator(".modal button", { hasText: "Descartar" }); if (await d3.count()) { await d3.first().tap(); await pg.waitForTimeout(3000); }
+    const sm = () => pg.frames().find((f) => /\/maisim\/simu\/\?movel=1/.test(f.url()));
+    const iSub = await sm().evaluate(() => dados.folhas[folhaAtual].elementos.findIndex((x) => x.tipo === "SUBCIRCUIT" && dados.folhas[x.uid]));
+    const folhaSub = { antes: "", depois: "" };
+    if (iSub >= 0) { folhaSub.antes = await sm().evaluate(() => folhaAtual);
+      await pg.frameLocator("#f-simu").locator(`#svg g.el[data-i="${iSub}"]`).tap({ force: true }); await pg.waitForTimeout(1200);
+      await pg.frameLocator("#f-simu").locator("#mv-abre-sub").tap(); await pg.waitForTimeout(1500); folhaSub.depois = await sm().evaluate(() => folhaAtual); }
+    ok(iSub >= 0 && folhaSub.depois && folhaSub.depois !== folhaSub.antes && await pg.frameLocator("#f-simu").locator("#mv-volta").isVisible(), `o Abrir do painel entra no subcircuito (folha ${folhaSub.antes} → ${folhaSub.depois}, com o ‹ de volta)`);
+    // + Novo circuito no Início: o editor pede o nome e o título da casca passa a ser ele
+    await pg.locator('.aba[data-tab="inicio"]').tap(); await pg.waitForTimeout(600);
+    await pg.locator("#novo-bt").tap(); await pg.waitForTimeout(4000);
+    const d4 = pg.frameLocator("#f-simu").locator(".modal button", { hasText: "Descartar" }); if (await d4.count()) { await d4.first().tap(); await pg.waitForTimeout(2500); }
+    const campoNome = pg.frameLocator("#f-simu").locator(".modal input").first();
+    if (await campoNome.count()) { await campoNome.fill("movel_novo_teste"); await pg.frameLocator("#f-simu").locator(".modal button.primario, .modal .m-ok").first().tap(); await pg.waitForTimeout(2000); }
+    ok(/movel_novo_teste/.test(await pg.locator("#titulo").textContent()) && !(await pg.locator('.aba[data-tab="circuito"]').isDisabled()), `+ Novo circuito: o nome pedido vira o título ("${await pg.locator("#titulo").textContent()}")`);
+    await pg.locator('.aba[data-tab="inicio"]').tap(); await pg.waitForTimeout(500);   // de volta ao exemplo_boost (o novo, vazio, se for o caso, descartado)
+    await pg.locator("#l-exemplos .linha", { hasText: "exemplo_boost" }).first().tap(); await pg.waitForTimeout(4000);
+    const d5 = pg.frameLocator("#f-simu").locator(".modal button", { hasText: "Descartar" }); if (await d5.count()) { await d5.first().tap(); await pg.waitForTimeout(3000); }
+    // o circuito aberto no servidor, com uma mudança sem salvar: o app reaberto mostra "Aberto agora" no Início, e tocar abre
+    // o mesmo circuito com a mudança (sem perguntar se descarta); sem isto o celular não achava o que o Atualizar pedia para salvar
+    const simu2 = () => pg.frames().find((f) => /\/maisim\/simu\/\?movel=1/.test(f.url()));
+    const alvo = await simu2().evaluate(async () => { const e = dados.folhas[folhaAtual].elementos.find((x) => x.tipo === "R"); await pede("SETP", [qualificado(e), "R", "77"], "teste"); return e.nome; });
+    await pg.waitForTimeout(1200); await pg.reload(); await pg.waitForTimeout(2500);
+    const card = await pg.locator("#g-aberto").isVisible() ? await pg.locator("#g-aberto").innerText() : "";
+    ok(/exemplo_boost/.test(card) && /sem salvar/.test(card), `o app reaberto mostra o circuito aberto no servidor, sem salvar: "${card.replace(/\n/g, " · ")}"`);
+    await pg.locator("#aberto-bt").tap(); await pg.waitForTimeout(4000);
+    const r77 = simu2() ? await simu2().evaluate((n) => (dados.folhas[folhaAtual].elementos.find((x) => x.nome === n) || {}).par, alvo) : null;
+    ok(r77 && Object.values(r77).includes(77) && await pg.frameLocator("#f-simu").locator(".modal").count() === 0 && /exemplo_boost/.test(await pg.locator("#titulo").textContent()),
+      `tocar em "Aberto agora" abre o mesmo circuito com a mudança (${alvo} ${JSON.stringify(r77)}), sem perguntar`);
+    await simu2().evaluate(() => desfazer()); await pg.waitForTimeout(1200);   // (desfaz: o próximo teste começa sem nada pendente)
     ok(!erros.length, `sem erros na casca${erros.length ? ": " + erros.join(" · ") : ""}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message}`); }
   finally { if (b) await b.close(); }

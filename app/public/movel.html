@@ -95,6 +95,7 @@ button { font: inherit; color: inherit; }
 .btn.pri { background: var(--accent); color: var(--on-accent); border-color: transparent; }
 .aviso { position: absolute; left: 12px; right: 12px; bottom: 14px; z-index: 30; background: var(--ink); color: var(--bg); border-radius: 14px; padding: 10px 10px 10px 16px; display: flex; align-items: center; gap: 12px; transform: translateY(160%); transition: transform .25s; }
 .aviso.on { transform: none; }
+.aviso.erro { background: #b42318; color: #fff; }
 .aviso:not(.on) { visibility: hidden; pointer-events: none; transition: transform .25s, visibility 0s .25s; }
 .aviso span { flex: 1; font-size: 14px; }
 .aviso button { border: 0; background: none; color: var(--accent-soft); font-weight: 700; min-height: 44px; padding: 0 10px; }
@@ -114,6 +115,9 @@ button { font: inherit; color: inherit; }
       <div class="lista">
         <label class="busca"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
           <input id="busca" type="search" autocomplete="off" data-tr-ph="mv.ph_busca" placeholder="Procurar circuito"></label>
+        <div class="cartoes"><button class="linha" type="button" id="novo-bt"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span class="tx"><b data-tr="mv.novo">Novo circuito</b><span data-tr="mv.d_novo">uma folha em branco</span></span></button></div>
+        <div class="grupo" id="g-aberto" hidden><h2 data-tr="mv.aberto_agora">Aberto agora</h2><div class="cartoes">
+          <button class="linha" type="button" id="aberto-bt"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg></span><span class="tx"><b id="aberto-n"></b><span id="aberto-s"></span></span></button></div></div>
         <div class="grupo"><h2 data-tr="mv.meus">Meus circuitos</h2><div class="cartoes" id="l-meus"></div></div>
         <div class="grupo"><h2 data-tr="mv.exemplos">Exemplos</h2><div class="cartoes" id="l-exemplos"></div></div>
         <div class="grupo"><h2 data-tr="mv.arquivos">Arquivos</h2><div class="cartoes">

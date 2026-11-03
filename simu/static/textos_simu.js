@@ -131,7 +131,7 @@ maisimI18n.add({
   "simu.dica_abre_sm": { pt: "clique para abrir a folha de dentro", en: "click to open the sheet inside" },
   // o que vai para o histórico (e o desfazer)
   "simu.d_movido": { pt: "movido {nome}", en: "moved {nome}" },
-  "simu.mv_mover": { pt: "Mover", en: "Move" },
+  "simu.mv_mover": { pt: "Mover", en: "Move" }, "simu.mv_abre_sub": { pt: "Abrir", en: "Open" },
   "simu.mv_mover_aviso": { pt: "Toque onde colocar o {nome}", en: "Tap where to place {nome}" },
   "simu.mv_cancelar": { pt: "Cancelar", en: "Cancel" },
   "simu.d_girado": { pt: "girado {nome}", en: "rotated {nome}" },

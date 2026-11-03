@@ -28,5 +28,9 @@ maisimI18n.add({
   "mv.atu_erro": { pt: "não deu para atualizar: {erro}", en: "could not update: {erro}" },
   "mv.atualizar": { pt: "Atualizar", en: "Update" }, "mv.verificar": { pt: "Verificar", en: "Check" },
   "mv.scope_vazio": { pt: "Este circuito ainda não tem rodada: toque em ▶ para simular.", en: "This circuit has no run yet: tap ▶ to simulate." },
+  "mv.novo": { pt: "Novo circuito", en: "New circuit" }, "mv.d_novo": { pt: "uma folha em branco", en: "a blank sheet" },
+  "mv.aberto_agora": { pt: "Aberto agora", en: "Open now" },
+  "mv.aberto_sujo": { pt: "{motivo} · abra para salvar", en: "{motivo} · open it to save" },
+  "mv.aberto_ok": { pt: "toque para continuar", en: "tap to continue" }, "mv.novo_sem_nome": { pt: "circuito novo (sem nome)", en: "new circuit (no name)" },
   "mv.canal_teste": { pt: "Versões de teste", en: "Test versions" }, "mv.d_canal_teste": { pt: "as -rc, antes da estável", en: "the -rc ones, before the stable" }
 });
