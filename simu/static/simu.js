@@ -3337,10 +3337,14 @@ if (MOVEL) (() => {
     ver = { x: a.x - (cx - ini.r.left) / ini.r.width * w, y: a.y - (cy - ini.r.top) / ini.r.height * h, w, h }; aplicaVer(); });
   ["pointerup", "pointercancel"].forEach((t) => svg.addEventListener(t, (ev) => { toques.delete(ev.pointerId);
     if (toques.size) { const p = [...toques.values()][0]; ini = { v: Object.assign({}, ver), r: svg.getBoundingClientRect(), cx: p.x, cy: p.y, d: 0, n: 1, moveu: true }; } else ini = null; }));
-  // os botões de zoom (o + − e ver tudo), embaixo à esquerda
+  // o Desfazer (o mesmo do PC: Ctrl+Z, o histórico) em cima dos botões de zoom (o + − e ver tudo), embaixo à esquerda
   const z = document.createElement("div"); z.id = "mv-zoom";
-  z.innerHTML = '<button type="button" data-z="1">+</button><button type="button" data-z="-1">−</button><button type="button" data-z="0">⤢</button>';
-  z.onclick = (ev) => { const b = ev.target.closest("button"); if (!b) return; const k = +b.dataset.z; if (!k) { ajusta(); return; }
+  z.innerHTML = '<button type="button" data-z="u" class="mv-desfaz">↶</button><button type="button" data-z="1">+</button><button type="button" data-z="-1">−</button><button type="button" data-z="0">⤢</button>';
+  const bDesfaz = z.querySelector(".mv-desfaz"); bDesfaz.setAttribute("aria-label", tr("simu.bt_desfazer")); bDesfaz.title = tr("simu.bt_desfazer");
+  const marcaDesfaz = () => { bDesfaz.disabled = !(ed.ligado && dados && dados.desfazer && dados.desfazer.n); };
+  setInterval(marcaDesfaz, 500);
+  z.onclick = (ev) => { const b = ev.target.closest("button"); if (!b) return; if (b.dataset.z === "u") { desfazer().then(marcaDesfaz); return; }
+    const k = +b.dataset.z; if (!k) { ajusta(); return; }
     const f = k > 0 ? 1 / 1.35 : 1.35, cx = ver.x + ver.w / 2, cy = ver.y + ver.h / 2; ver = { x: cx - ver.w * f / 2, y: cy - ver.h * f / 2, w: ver.w * f, h: ver.h * f }; aplicaVer(); };
   document.body.append(z);
   // o desenho escondido (no controle e na IA) não tem tamanho: enquadrar ali daria NaN; enquadra ao voltar para o circuito

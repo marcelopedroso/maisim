@@ -88,8 +88,8 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     await pg.touchscreen.tap(quadro.x + cx + 64, quadro.y + cy); await pg.waitForTimeout(1500);
     const x1 = await pos();
     ok(x1 > x0 && await simu.evaluate(() => document.getElementById("mv-faixa").hidden), `o toque seguinte é onde a peça fica: R.1 x ${x0} → ${x1}, a faixa some`);
-    await simu.evaluate(() => desfazer()); await pg.waitForTimeout(1200);
-    ok(await pos() === x0, `o Desfazer volta a peça (x ${await pos()})`);
+    await pg.frameLocator("#f-simu").locator("#mv-zoom .mv-desfaz").tap(); await pg.waitForTimeout(1500);   // o ↶ em cima do zoom
+    ok(await pos() === x0, `o ↶ (Desfazer, em cima do zoom) volta a peça (x ${await pos()})`);
     // o Mover começado e outra aba (ou outra folha) no meio: cancela (o toque seguinte não move nada)
     await simu.evaluate(() => ajusta()); await pg.waitForTimeout(300); [cx, cy] = await centroR1();
     await pg.touchscreen.tap(quadro.x + cx, quadro.y + cy); await pg.waitForTimeout(1200);
