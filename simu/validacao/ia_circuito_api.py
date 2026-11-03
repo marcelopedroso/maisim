@@ -64,17 +64,17 @@ for a in (("U.1", 10, 10, "U"), ("R.1", 20, 10, "R"), ("C.1", 30, 10, "C"), ("R.
 for n in ("U.1", "R.1", "C.1", "R.2"):
     c("INNODE", n, 0, "a"); c("OUTNODE", n, 0, "gnd")
 c("SETP", "U.1", "uDC", 10.0); c("SETP", "R.1", "R", 10.0); c("SETP", "C.1", "C", 1e-4)
-c("CREATE", "SUBCIRCUIT.1", 50, 10, "SUBCIRCUIT"); c("CREATE", "SUBCIRCUIT.1#C.1", 20, 20, "C"); c("SETP", "SUBCIRCUIT.1#C.1", "C", 1e-6)
+c("CREATE", "SUBCIRCUIT.1", 50, 10, "SUBCIRCUIT"); c("CREATE", "SUBCIRCUIT.1#C.5", 20, 20, "C"); c("SETP", "SUBCIRCUIT.1#C.5", "C", 1e-6)
 var(acao="nova", nome="$Vg", valor=5)
 var(acao="liga", componente="R.2", parametro="R", nome="$Rl", valor=7)       # R.2 · R vem da variável $Rl
 api("editor/controle", {"controle": {"ativo": False, "Ts": 1e-5, "atuacoes": [], "parametros": [], "acionamentos": [], "controladores": [],
                                      "codigo": "def iniciar(p, e):\n    pass\n\n\ndef passo(t, m, p, e):\n    return {}\n", "arquivos": {}}})
-ok(valor("C.1", "C") == 1e-4 and valor("SUBCIRCUIT.1#C.1", "C") == 1e-6, "o circuito: C.1 = 100 µF, SUBCIRCUIT.1#C.1 = 1 µF")
+ok(valor("C.1", "C") == 1e-4 and valor("SUBCIRCUIT.1#C.5", "C") == 1e-6, "o circuito: C.1 = 100 µF, SUBCIRCUIT.1#C.5 = 1 µF")
 
 # 1. a proposta: duas mudanças válidas no circuito, uma dentro do subcircuito, desativar R.1 e uma variável; o resto sai com aviso
 (CONF / "falso_circuito.json").write_text(json.dumps({"pecas": [
     {"peca": "C.1", "parametro": "C", "valor": 8.2e-4, "motivo": "ΔV ≤ 10 %"},
-    {"peca": "SUBCIRCUIT.1#C.1", "parametro": "C", "valor": 2.2e-6},
+    {"peca": "SUBCIRCUIT.1#C.5", "parametro": "C", "valor": 2.2e-6},
     {"peca": "R.1", "parametro": "enabled", "valor": 0},
     {"peca": "R.1", "parametro": "R", "valor": 10.0},              # o mesmo valor: não é mudança
     {"peca": "C.9", "parametro": "C", "valor": 1e-3},              # não existe
@@ -89,8 +89,8 @@ ok(not e.get("erro") and p.get("mudou") and not p.get("ligar") and not p.get("er
 ok(e.get("resposta", "").startswith("circuito.json vazio na pasta"), f"o MaiSim pôs o circuito.json vazio na pasta: {e.get('resposta', '')[:60]}")
 q = circ.get(("C.1", "C")) or {}
 ok(q.get("de") == 1e-4 and q.get("para") == 8.2e-4 and "unidade" in q and q.get("motivo") == "ΔV ≤ 10 %", f"C.1 · C: de 100 µF para 820 µF, com a unidade e o motivo ({q})")
-q = circ.get(("SUBCIRCUIT.1#C.1", "C")) or {}
-ok(q.get("de") == 1e-6 and q.get("para") == 2.2e-6, f"dentro do subcircuito: SUBCIRCUIT.1#C.1 · C de 1 µF para 2,2 µF ({q})")
+q = circ.get(("SUBCIRCUIT.1#C.5", "C")) or {}
+ok(q.get("de") == 1e-6 and q.get("para") == 2.2e-6, f"dentro do subcircuito: SUBCIRCUIT.1#C.5 · C de 1 µF para 2,2 µF ({q})")
 q = circ.get(("R.1", "enabled")) or {}
 ok(q.get("de") == 1 and q.get("para") == 0, f"R.1 · enabled: de 1 para 0 (desativar) ({q})")
 ok(len(circ) == 3, f"só as três válidas (o mesmo valor, C.9, Xyz, \"dez\" e R.2 ligado a $Rl ficam de fora): {sorted(circ)}")
@@ -100,7 +100,7 @@ ok(all(x in av for x in ("C.9", "Xyz", "U.1", "$Rl", "$Nao")), f"os avisos dizem
 cli = [json.loads(x) for x in (CONF / "falso_chamadas.jsonl").read_text().splitlines() if "--allowedTools" in x][-1]
 ok("Edit(./circuito.json)" in cli["args"], "o CLI pode editar ./circuito.json")
 ctx = (Path(cli["cwd"]) / "CONTEXTO.md").read_text()
-ok('"peca": "C.1"' in ctx and "`C` = 0.0001" in ctx and '"peca": "SUBCIRCUIT.1#C.1"' in ctx and "`$Rl`" in ctx and "`$Vg` = 5" in ctx,
+ok('"peca": "C.1"' in ctx and "`C` = 0.0001" in ctx and '"peca": "SUBCIRCUIT.1#C.5"' in ctx and "`$Rl`" in ctx and "`$Vg` = 5" in ctx,
    "CONTEXTO.md: os parâmetros do painel de cada componente (com o nome do subcircuito e a variável que dá o valor) e as variáveis $")
 ok(valor("C.1", "C") == 1e-4 and ativo("R.1") is True and api("editor/estado")["globais"].get("$Vg") == 5, "nada muda antes de aplicar")
 
@@ -109,15 +109,15 @@ cmds = [{"op": "SETP", "args": [q["peca"], q["parametro"], q["para"]]} for q in 
        [{"op": "SETG", "args": [g["nome"], g["para"]]} for g in p.get("globais") or []]
 r = api("editor/cmds", {"cmds": cmds, "descr": "IA: C.1 · C: 100 µF → 820 µF"})
 ok(not r.get("ERRO") and (r.get("desfazer") or {}).get("ultimo") == "IA: C.1 · C: 100 µF → 820 µF", f"aplicado num passo do editor: {r.get('erro') or (r.get('desfazer') or {}).get('ultimo')}")
-ok(valor("C.1", "C") == 8.2e-4 and valor("SUBCIRCUIT.1#C.1", "C") == 2.2e-6 and ativo("R.1") is False and api("editor/estado")["globais"].get("$Vg") == 12,
-   "C.1 = 820 µF, SUBCIRCUIT.1#C.1 = 2,2 µF, R.1 desativado, $Vg = 12")
+ok(valor("C.1", "C") == 8.2e-4 and valor("SUBCIRCUIT.1#C.5", "C") == 2.2e-6 and ativo("R.1") is False and api("editor/estado")["globais"].get("$Vg") == 12,
+   "C.1 = 820 µF, SUBCIRCUIT.1#C.5 = 2,2 µF, R.1 desativado, $Vg = 12")
 api("claude/aplicada", {"aplicado": {"circuito": p.get("circuito"), "globais": p.get("globais")}})
 m = api("claude/mudanca?i=0")
 ok(len(m.get("circuito") or []) == 3 and m.get("globais") == p.get("globais"), f"o histórico da conversa guarda o circuito ({len(m.get('circuito') or [])} mudanças) e as variáveis")
 # 3. o desfazer do editor volta tudo de uma vez
 r = api("editor/desfazer", {})
-ok(valor("C.1", "C") == 1e-4 and valor("SUBCIRCUIT.1#C.1", "C") == 1e-6 and ativo("R.1") is True and api("editor/estado")["globais"].get("$Vg") == 5,
-   f"desfazer ({r.get('desfeito')}): C.1 = 100 µF, SUBCIRCUIT.1#C.1 = 1 µF, R.1 ativo, $Vg = 5")
+ok(valor("C.1", "C") == 1e-4 and valor("SUBCIRCUIT.1#C.5", "C") == 1e-6 and ativo("R.1") is True and api("editor/estado")["globais"].get("$Vg") == 5,
+   f"desfazer ({r.get('desfeito')}): C.1 = 100 µF, SUBCIRCUIT.1#C.5 = 1 µF, R.1 ativo, $Vg = 5")
 
 # 4. circuito.json fora do formato: aviso, o circuito fica como está (e sem mudança, sem proposta do circuito)
 (CONF / "falso_circuito.json").write_text('{"pecas": {"C.1": 1}}')
