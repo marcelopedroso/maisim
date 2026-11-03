@@ -56,6 +56,25 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     const vb1 = await simu.evaluate(() => +document.getElementById("svg").getAttribute("viewBox").split(" ")[2]);
     ok(vb1 < vb0 * 0.6, `dois dedos dão zoom: a largura vista foi de ${Math.round(vb0)} para ${Math.round(vb1)}`);
 
+    // tocar e segurar numa peça: ela gruda no dedo e anda pela grade (o Desfazer volta); um arrasto rápido move a folha
+    const pos = () => simu.evaluate(() => { const e = dados.folhas[folhaAtual].elementos.find((x) => x.nome === "R.1"); return e.x; });
+    const gesto = (segura, dx) => simu.evaluate(async ([segura, dx]) => {
+      const i = dados.folhas[folhaAtual].elementos.findIndex((x) => x.nome === "R.1"), g = document.querySelector(`#svg g.el[data-i="${i}"] .corpo`) || document.querySelector(`#svg g.el[data-i="${i}"]`);
+      const r = g.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+      const ev = (t, xx) => g.dispatchEvent(new PointerEvent(t, { pointerId: 9, clientX: xx, clientY: y, bubbles: true, pointerType: "touch", isPrimary: true }));
+      ev("pointerdown", x); await new Promise((ok) => setTimeout(ok, segura));
+      for (let k = 1; k <= 10; k++) { ev("pointermove", x + dx * k / 10); await new Promise((ok) => setTimeout(ok, 20)); }
+      ev("pointerup", x + dx); await new Promise((ok) => setTimeout(ok, 800));
+    }, [segura, dx]);
+    await simu.evaluate(() => ajusta()); await pg.waitForTimeout(300);
+    const x0 = await pos(); await gesto(700, 90); const x1 = await pos();
+    ok(x1 > x0, `tocar e segurar numa peça e arrastar: R.1 anda na grade (x ${x0} → ${x1})`);
+    const vbA = await simu.evaluate(() => document.getElementById("svg").getAttribute("viewBox")); await gesto(40, 90);
+    const vbB = await simu.evaluate(() => document.getElementById("svg").getAttribute("viewBox"));
+    ok(await pos() === x1 && vbA !== vbB, "um arrasto rápido move a folha, não a peça");
+    await simu.evaluate(() => desfazer()); await pg.waitForTimeout(1200);
+    ok(await pos() === x0, `o Desfazer volta a peça arrastada (x ${await pos()})`);
+
     // ▶: o andamento em cima, o aviso de pronta e o scope (o próprio, ?movel=1)
     await pg.locator("#rodar").tap();
     let sub = ""; for (let k = 0; k < 240; k++) { await pg.waitForTimeout(500); sub = await pg.locator("#sub").textContent(); if (/pronta/.test(sub)) break; }
@@ -83,12 +102,18 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     await simu.evaluate(() => { const s = document.getElementById("sel-modelo"), o = new Option("copia_movel.ipes", "circuitos/copia_movel.ipes"); s.add(o); s.value = o.value; });
     await pg.locator('.aba[data-tab="circuito"]').tap(); await pg.waitForTimeout(1500);
     ok(/copia_movel/.test(await pg.locator("#titulo").textContent()), `depois de Salvar como…, a casca usa o arquivo novo: "${await pg.locator("#titulo").textContent()}"`);
-    // o ⋯: a ⚙ (os parâmetros da simulação) abre no editor, sem foco
+    // o ⋯: a ⚙ (os parâmetros da simulação) abre no editor, sem foco (e o + sai da frente dela; abrir outro circuito com
+    // ela aberta: o editor novo começa sem janela, e o + volta)
     await pg.locator('.aba[data-tab="circuito"]').tap(); await pg.waitForTimeout(800);
     await pg.locator("#mais").tap(); await pg.waitForTimeout(500);
     await pg.locator("#g-corpo .menu-lista button").first().tap(); await pg.waitForTimeout(1200);
     const ps = await simu.evaluate(() => { const a = document.activeElement; return { modal: !!document.querySelector(".modal"), foco: a ? a.tagName : "" }; });
     ok(ps.modal && ps.foco !== "INPUT", `⋯ → Simulação abre a ⚙ do editor, sem foco (foco em ${ps.foco})`);
+    ok(await pg.locator("#paleta").isHidden(), "com uma janela do editor aberta, o + sai da frente");
+    await pg.locator('.aba[data-tab="inicio"]').tap(); await pg.waitForTimeout(500);
+    await pg.locator("#l-exemplos .linha", { hasText: "exemplo_boost" }).first().tap(); await pg.waitForTimeout(4000);
+    const desc2 = pg.frameLocator("#f-simu").locator(".modal button", { hasText: "Descartar" }); if (await desc2.count()) { await desc2.first().tap(); await pg.waitForTimeout(3000); }
+    ok(await pg.locator("#paleta").isVisible(), "abrir outro circuito com uma janela aberta: o + volta (o editor novo começa sem janela)");
     ok(!erros.length, `sem erros na casca${erros.length ? ": " + erros.join(" · ") : ""}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message}`); }
   finally { if (b) await b.close(); }

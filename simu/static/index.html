@@ -685,6 +685,7 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   body.movel #codigo-fora, body.movel #ctl-fora, body.movel #faixa-sm:empty { display:none !important; }
   body.movel #tela { top:0 !important; left:0 !important; right:0 !important; bottom:0 !important; }
   body.movel #svg { touch-action:none; -webkit-user-select:none; }
+  body.movel #svg { -webkit-touch-callout:none; } body.movel #svg.mv-pegou .el.sel .corpo { stroke-width:3.2; }   /* segurar: a peça que gruda no dedo */
   body.movel #paleta, body.movel #props { display:none !important; }
   body.movel.mv-props #props, body.movel.mv-paleta #paleta { display:block !important; position:fixed; left:0; right:0; top:auto; width:auto;
     bottom:var(--teclado, 0px); max-height:calc((100% - var(--teclado, 0px)) * .72); overflow:auto; z-index:60; border:0; border-radius:20px 20px 0 0;

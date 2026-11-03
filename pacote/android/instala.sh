@@ -83,7 +83,7 @@ APP=http://localhost:7100/movel.html
 abre() { termux-open-url "$APP" 2> /dev/null || am start -a android.intent.action.VIEW -d "$APP" > /dev/null 2>&1 || true; }
 if curl -fs -o /dev/null --max-time 2 "$APP"; then abre; exit 0; fi
 termux-wake-lock 2> /dev/null || true
-proot-distro login ubuntu -- /root/maisim-app/AppRun "$@" &
+proot-distro login ubuntu -- env MAISIM_NAVEGADOR=nenhum /root/maisim-app/AppRun "$@" &   # (o kernel de mentira do proot-distro: sem "android")
 PID=$!
 i=0; while [ $i -lt 240 ] && kill -0 $PID 2> /dev/null; do
   if curl -fs -o /dev/null --max-time 2 "$APP"; then abre; break; fi

@@ -4555,7 +4555,7 @@ def _acompanha_instala(proc, a=None):
     for x in IAS.values():                            # e as outras IAs que usam a mesma ferramenta
         x.instalado()
     if erro is None and not achou:
-        erro = ("nao_achou", {"pasta": str(Path(a.bin).parent)})
+        erro = ("nao_achou", {"pasta": str(Path(a.bin).parent), "programa": Path(a.bin).name})   # (claude, cursor-agent…)
     with trava_instala:
         if claude_instala.get("proc") is proc:
             claude_instala.update(proc=None, andamento=False, fim=time.time(), codigo=proc.returncode, ok=erro is None, erro_t=erro)

@@ -72,7 +72,7 @@
 
   // ── abrir um circuito: o editor (no iframe) abre e liga a edição; as abas do circuito acendem ──
   function abre(arq) {
-    est.arq = arq; est.n = 0; $("titulo").textContent = nomeDe(arq); $("sub").textContent = tr("mv.sub_abrindo");
+    est.arq = arq; est.n = 0; est.painel = est.janela = false; $("titulo").textContent = nomeDe(arq);   // o editor novo começa sem painel nem janela $("sub").textContent = tr("mv.sub_abrindo");
     document.querySelectorAll('.aba[data-tab="circuito"], .aba[data-tab="controle"], .aba[data-tab="ia"]').forEach((b) => { b.disabled = false; });
     fSimu.src = `/maisim/simu/?movel=1&modelo=${encodeURIComponent(arq)}`; aba("circuito");
   }
@@ -86,7 +86,7 @@
     est.tab = t; fecha();
     document.querySelectorAll(".aba").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === t)));
     $("t-inicio").hidden = t !== "inicio"; $("t-simu").hidden = !["circuito", "controle", "ia"].includes(t); $("t-scope").hidden = t !== "scope";
-    $("paleta").hidden = t !== "circuito" || est.painel;
+    $("paleta").hidden = t !== "circuito" || est.painel || est.janela;
     if (["circuito", "controle", "ia"].includes(t)) pedeSimu({ cmd: "vista", vista: t });
     if (t === "scope" && !fScope.getAttribute("src")) fScope.src = est.scope || "/maisim/scope/?movel=1";
     if (t === "inicio") carregaModelos();
@@ -104,7 +104,9 @@
     if (ev.origin !== location.origin || ev.source !== fSimu.contentWindow) return; const m = ev.data || {};
     if (m.maisim !== "simu") return;
     if (m.tipo === "arquivo" && m.arq) { est.arq = m.arq; topo(); }   // Salvar como… (ou outro aberto no editor): o arquivo de agora
-    if (m.tipo === "painel") { est.painel = m.on; $("paleta").hidden = m.on || est.tab !== "circuito"; }   // o painel ou a paleta abertos: o + sai da frente
+    if (m.tipo === "painel") est.painel = m.on;
+    if (m.tipo === "janela") est.janela = m.on;
+    if (m.tipo === "painel" || m.tipo === "janela") $("paleta").hidden = est.painel || est.janela || est.tab !== "circuito";   // o + não cobre o painel nem a janela   // o painel ou a paleta abertos: o + sai da frente
     if (m.tipo === "scope" || (m.tipo === "aberto" && m.scope && !fScope.getAttribute("src"))) {   // a rodada ao vivo ou a terminada
       const u = m.url || m.scope; est.scope = u + (u.includes("?") ? "&" : "?") + "movel=1";
       if (m.tipo === "scope" || est.tab === "scope") { if (fScope.getAttribute("src") !== est.scope) fScope.src = est.scope; } }

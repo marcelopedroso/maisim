@@ -3297,8 +3297,30 @@ if (MOVEL) (() => {
   // a paleta: escolher um componente fecha a gaveta (o próximo toque na folha põe o componente)
   const escolheOriginal = escolhe;
   escolhe = function (item) { const r = escolheOriginal.apply(this, arguments); if (item) { document.body.classList.remove("mv-paleta"); casca({ tipo: "painel", on: false }); } return r; };
-  // dois dedos: zoom e mover; um dedo arrastando: mover (o toque simples continua sendo o clique: selecionar, pôr, ligar)
-  const svg = $("svg"), toques = new Map(); let ini = null;
+  // dois dedos: zoom e mover; um dedo arrastando: mover (o toque simples continua sendo o clique: selecionar, pôr, ligar).
+  // Tocar e segurar numa peça (meio segundo, o celular vibra): ela gruda no dedo e anda pela grade, como arrastar com o mouse
+  // no PC (o mesmo código: os eventos de mouse que o editor já entende; o movimento vai para o Desfazer)
+  const svg = $("svg"), toques = new Map(); let ini = null, pega = null;
+  const mouse = (tipo, alvo, x, y) => alvo.dispatchEvent(new MouseEvent(tipo, { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, buttons: tipo === "mouseup" ? 0 : 1 }));
+  const larga = () => { if (pega) clearTimeout(pega.timer); pega = null; };
+  svg.addEventListener("contextmenu", (ev) => ev.preventDefault());              // segurar não abre o menu do navegador
+  svg.addEventListener("pointerdown", (ev) => { if (ev.pointerType !== "touch") return;
+    const g = ev.target.closest && ev.target.closest(".el");
+    if (toques.size === 0 && g && ed.ligado && !ed.colocar && !ed.fio.modo && !ed.conector && !simulando()) {
+      const x = ev.clientX, y = ev.clientY, alvo = ev.target;
+      pega = { x, y, ativo: false, timer: setTimeout(() => { if (!pega) return; pega.ativo = true; ini = null;
+        if (navigator.vibrate) try { navigator.vibrate(25); } catch (e) { /* ok */ }
+        svg.classList.add("mv-pegou"); mouse("mousedown", alvo, x, y); }, 450) };
+    } else larga();
+  }, true);
+  svg.addEventListener("pointermove", (ev) => { if (!pega || ev.pointerType !== "touch") return;
+    if (pega.ativo) { ev.stopImmediatePropagation(); mouse("mousemove", window, ev.clientX, ev.clientY); return; }
+    if (Math.hypot(ev.clientX - pega.x, ev.clientY - pega.y) > 8) larga();         // mexeu antes do tempo: é mover a folha
+  }, true);
+  ["pointerup", "pointercancel"].forEach((t) => svg.addEventListener(t, (ev) => { if (!pega || ev.pointerType !== "touch") return;
+    if (pega.ativo) { ev.stopImmediatePropagation(); toques.delete(ev.pointerId); ini = null; svg.classList.remove("mv-pegou");
+      mouse("mouseup", window, ev.clientX, ev.clientY); }
+    larga(); }, true));
   const pontoSvg = (v, r, x, y) => ({ x: v.x + (x - r.left) / r.width * v.w, y: v.y + (y - r.top) / r.height * v.h });
   svg.addEventListener("pointerdown", (ev) => { if (ev.pointerType !== "touch") return; toques.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
     const r = svg.getBoundingClientRect(), p = [...toques.values()], cx = p.reduce((a, q) => a + q.x, 0) / p.length, cy = p.reduce((a, q) => a + q.y, 0) / p.length;
@@ -3359,6 +3381,10 @@ if (MOVEL) (() => {
     setTimeout(ajusta, 80);
     // o arquivo do circuito muda sem a casca pedir (Salvar como…, Novo, abrir outro aqui dentro): ela fica sabendo (o título,
     // o Exportar .msd e o Início usam o arquivo de agora)
+    // uma janela do editor aberta (a ⚙, as contas de IA, uma pergunta): o + da casca sai da frente
+    let janela = false;
+    new MutationObserver(() => { const j = !!document.querySelector(".modal"); if (j !== janela) { janela = j; casca({ tipo: "janela", on: j }); } })
+      .observe(document.body, { childList: true, subtree: true });
     let arq = $("sel-modelo").value || "";
     setInterval(() => { const a = $("sel-modelo").value || ""; if (a !== arq) { arq = a; casca({ tipo: "arquivo", arq: a }); } }, 700);
   })();
