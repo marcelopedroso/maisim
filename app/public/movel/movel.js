@@ -38,7 +38,7 @@
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", aplicaTema);
   const marcaLingua = () => document.querySelectorAll("[data-lingua]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lingua === maisimI18n.lingua())));
   document.querySelectorAll("[data-lingua]").forEach((b) => b.onclick = () => maisimI18n.muda(b.dataset.lingua));
-  maisimI18n.aoMudar(() => { marcaLingua(); listaModelos(); topo(); });
+  maisimI18n.aoMudar(() => { marcaLingua(); listaModelos(); topo(); pintaVersao(); });
 
   // ── o Início: os circuitos do servidor (os seus e os exemplos), como na tela inicial do PC ──
   const nomeDe = (arq) => (arq || "").split("/").pop().replace(/\.ipes$/, "");
@@ -70,6 +70,42 @@
     } catch (e) { aviso(tr("mv.msd_erro", { erro: e.message }), null, null, 6000); }
   };
 
+  // ── a versão e o Atualizar (o mesmo do trilho do PC: /maisim/simu/atualizacao; no Android, a pasta do ARM): baixa, troca o
+  //    programa e o MaiSim reinicia sozinho; quando a versão nova responde, a página recarrega ──
+  let ATU = null, acomp = 0;
+  const tipoNome = (t) => tr("mv.tipo_" + (["windows", "appimage", "pasta", "fonte"].includes(t) ? t : "fonte"));
+  async function carregaVersao() {
+    try { ATU = await (await fetch("/maisim/simu/atualizacao", { cache: "no-store" })).json(); } catch (e) { return; }
+    pintaVersao(); if (ATU.aplicando && ATU.aplicando.fase !== "erro") acompanhaAtu();
+  }
+  function pintaVersao() {
+    if (!ATU) return; const n = ATU.nova, ap = ATU.aplicando, soGit = ATU.tipo === "fonte" && !ATU.git;
+    let s, bt = null;
+    if (ap && ap.fase === "erro") s = tr("mv.atu_erro", { erro: ap.erro || "" });
+    else if (ap && ap.fase === "baixando") s = tr("mv.atu_baixando", { versao: ap.versao, pct: ap.total ? `${Math.min(100, Math.round(100 * ap.feito / ap.total))}%` : "" });
+    else if (ap) s = tr("mv.atu_instalando", { versao: ap.versao });
+    else if (n) { s = tr("mv.atu_nova", { versao: n.versao }) + (soGit ? " · git pull" : ""); if (!soGit) bt = tr("mv.atualizar"); }
+    else s = ATU.sem_rede ? tr("mv.atu_sem_rede") : tr("mv.atu_em_dia");
+    $("atu-v").textContent = `MaiSim ${ATU.versao}`; $("atu-s").textContent = `${tipoNome(ATU.tipo)} · ${s}`;
+    const b = $("atu-bt"); b.hidden = false; b.disabled = !!(ap && ap.fase !== "erro");
+    b.textContent = bt || tr("mv.verificar"); b.dataset.acao = bt ? "aplicar" : "verificar"; b.classList.toggle("pri", !!bt);
+  }
+  $("atu-bt").onclick = async () => {
+    const b = $("atu-bt"); b.disabled = true;
+    try { const j = await (await fetch(`/maisim/simu/atualizacao/${b.dataset.acao}`, { method: "POST", headers: { "Content-Type": "application/json", "X-MaiSim": "1" }, body: "{}" })).json();
+      if (j && j.versao) ATU = j; if (j && j.erro) ATU = { ...ATU, aplicando: { fase: "erro", erro: j.erro } }; } catch (e) { /* fica */ }
+    pintaVersao(); if (ATU && ATU.aplicando && ATU.aplicando.fase !== "erro") acompanhaAtu();
+  };
+  function acompanhaAtu() {
+    if (acomp) return; const de = ATU.versao + (ATU.commit || "");
+    acomp = setInterval(async () => {
+      try { const e = await (await fetch("/maisim/simu/atualizacao", { cache: "no-store" })).json();
+        if (e.versao + (e.commit || "") !== de) { location.reload(); return; }   // a versão nova no ar
+        ATU = e; pintaVersao(); if (!e.aplicando || e.aplicando.fase === "erro") { clearInterval(acomp); acomp = 0; }
+      } catch (err) { /* desligado para atualizar: espera voltar */ }
+    }, 1000);
+  }
+
   // ── abrir um circuito: o editor (no iframe) abre e liga a edição; as abas do circuito acendem ──
   function abre(arq) {
     est.arq = arq; est.n = 0; est.painel = est.janela = false; $("titulo").textContent = nomeDe(arq);   // o editor novo começa sem painel nem janela $("sub").textContent = tr("mv.sub_abrindo");
@@ -89,7 +125,7 @@
     $("paleta").hidden = t !== "circuito" || est.painel || est.janela;
     if (["circuito", "controle", "ia"].includes(t)) pedeSimu({ cmd: "vista", vista: t });
     if (t === "scope" && !fScope.getAttribute("src")) fScope.src = est.scope || "/maisim/scope/?movel=1";
-    if (t === "inicio") carregaModelos();
+    if (t === "inicio") { carregaModelos(); carregaVersao(); }
     topo();
   }
   document.querySelectorAll(".aba").forEach((b) => b.onclick = () => aba(b.dataset.tab));

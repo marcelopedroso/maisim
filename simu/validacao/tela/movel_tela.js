@@ -17,6 +17,14 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     const exemplos = await pg.locator("#l-exemplos .linha").count();
     ok(exemplos >= 5, `Início: ${exemplos} exemplos do servidor na lista`);
     ok(await pg.locator('.aba[data-tab="circuito"]').isDisabled(), "sem circuito aberto, a aba Circuito fica apagada");
+    // a versão e o Atualizar no Início (o mesmo do trilho do PC); no Android, a pasta do ARM, com o botão Atualizar
+    await pg.waitForFunction(() => /MaiSim \d/.test(document.getElementById("atu-v").textContent), null, { timeout: 8000 }).catch(() => {});
+    ok(/MaiSim \d/.test(await pg.locator("#atu-v").textContent()) && await pg.locator("#atu-bt").isVisible(), `Início: a versão (${await pg.locator("#atu-v").textContent()} · ${await pg.locator("#atu-s").textContent()}) e o botão`);
+    await pg.route("**/maisim/simu/atualizacao", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ versao: "0.3.8-rc4", tipo: "pasta", canal: "teste", verificado: 1, sem_rede: false, nova: { versao: "0.3.8-rc5", notas: "", pagina: "", pre: true }, aplicando: null, git: false }) }));
+    await pg.locator('.aba[data-tab="scope"]').tap(); await pg.waitForTimeout(300); await pg.locator('.aba[data-tab="inicio"]').tap(); await pg.waitForTimeout(800);
+    ok(/Android/.test(await pg.locator("#atu-s").textContent()) && /0\.3\.8-rc5/.test(await pg.locator("#atu-s").textContent()) && await pg.locator("#atu-bt").textContent() === "Atualizar",
+      `no Android, com versão nova: "${await pg.locator("#atu-s").textContent()}" e o botão "${await pg.locator("#atu-bt").textContent()}"`);
+    await pg.unroute("**/maisim/simu/atualizacao");
     // o manifesto do app do celular (instalável: abre direto no /movel.html)
     const cdp = await ctx.newCDPSession(pg), man = await cdp.send("Page.getAppManifest"), m = man.data ? JSON.parse(man.data) : {};
     ok(m.start_url && /\/movel\.html$/.test(m.start_url) && m.display === "standalone", `manifesto do celular: start_url ${m.start_url}, ${m.display}`);
@@ -56,24 +64,42 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     const vb1 = await simu.evaluate(() => +document.getElementById("svg").getAttribute("viewBox").split(" ")[2]);
     ok(vb1 < vb0 * 0.6, `dois dedos dão zoom: a largura vista foi de ${Math.round(vb0)} para ${Math.round(vb1)}`);
 
-    // tocar e segurar numa peça: ela gruda no dedo e anda pela grade (o Desfazer volta); um arrasto rápido move a folha
+    // o Mover: toca na peça, no Mover do painel, e o próximo toque na folha é onde ela fica (o Desfazer volta); arrastar o
+    // dedo a partir de uma peça move a folha, não a peça
     const pos = () => simu.evaluate(() => { const e = dados.folhas[folhaAtual].elementos.find((x) => x.nome === "R.1"); return e.x; });
-    const gesto = (segura, dx) => simu.evaluate(async ([segura, dx]) => {
-      const i = dados.folhas[folhaAtual].elementos.findIndex((x) => x.nome === "R.1"), g = document.querySelector(`#svg g.el[data-i="${i}"] .corpo`) || document.querySelector(`#svg g.el[data-i="${i}"]`);
-      const r = g.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
-      const ev = (t, xx) => g.dispatchEvent(new PointerEvent(t, { pointerId: 9, clientX: xx, clientY: y, bubbles: true, pointerType: "touch", isPrimary: true }));
-      ev("pointerdown", x); await new Promise((ok) => setTimeout(ok, segura));
-      for (let k = 1; k <= 10; k++) { ev("pointermove", x + dx * k / 10); await new Promise((ok) => setTimeout(ok, 20)); }
-      ev("pointerup", x + dx); await new Promise((ok) => setTimeout(ok, 800));
-    }, [segura, dx]);
+    const centroR1 = () => simu.evaluate(() => { const i = dados.folhas[folhaAtual].elementos.findIndex((x) => x.nome === "R.1");
+      const g = document.querySelector(`#svg g.el[data-i="${i}"] .corpo`) || document.querySelector(`#svg g.el[data-i="${i}"]`); const r = g.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
     await simu.evaluate(() => ajusta()); await pg.waitForTimeout(300);
-    const x0 = await pos(); await gesto(700, 90); const x1 = await pos();
-    ok(x1 > x0, `tocar e segurar numa peça e arrastar: R.1 anda na grade (x ${x0} → ${x1})`);
-    const vbA = await simu.evaluate(() => document.getElementById("svg").getAttribute("viewBox")); await gesto(40, 90);
-    const vbB = await simu.evaluate(() => document.getElementById("svg").getAttribute("viewBox"));
-    ok(await pos() === x1 && vbA !== vbB, "um arrasto rápido move a folha, não a peça");
+    const x0 = await pos();
+    let [cx, cy] = await centroR1();
+    await simu.evaluate(async ([cx, cy]) => {                 // arrastar o dedo a partir da peça
+      const el = document.elementFromPoint(cx, cy), ev = (t, x) => el.dispatchEvent(new PointerEvent(t, { pointerId: 9, clientX: x, clientY: cy, bubbles: true, pointerType: "touch", isPrimary: true }));
+      ev("pointerdown", cx); for (let k = 1; k <= 10; k++) { ev("pointermove", cx + 9 * k); await new Promise((ok) => setTimeout(ok, 20)); } ev("pointerup", cx + 90);
+    }, [cx, cy]); await pg.waitForTimeout(600);
+    ok(await pos() === x0, "arrastar o dedo a partir de uma peça move a folha, não a peça");
+    await simu.evaluate(() => ajusta()); await pg.waitForTimeout(300); [cx, cy] = await centroR1();
+    const quadro = await pg.locator("#f-simu").boundingBox();
+    await pg.touchscreen.tap(quadro.x + cx, quadro.y + cy); await pg.waitForTimeout(1200);
+    const bt = pg.frameLocator("#f-simu").locator("#mv-mover");
+    ok(await bt.count() === 1, "o painel da peça tem o Mover");
+    await bt.tap(); await pg.waitForTimeout(500);
+    const faixa = await simu.evaluate(() => { const f = document.getElementById("mv-faixa"); return !f.hidden && getComputedStyle(f).display !== "none" ? f.textContent : ""; });
+    ok(/R\.1/.test(faixa) && !/mv-props/.test(await simu.evaluate(() => document.body.className)), `Mover fecha o painel e a faixa diz o que fazer: "${faixa}"`);
+    await pg.touchscreen.tap(quadro.x + cx + 64, quadro.y + cy); await pg.waitForTimeout(1500);
+    const x1 = await pos();
+    ok(x1 > x0 && await simu.evaluate(() => document.getElementById("mv-faixa").hidden), `o toque seguinte é onde a peça fica: R.1 x ${x0} → ${x1}, a faixa some`);
     await simu.evaluate(() => desfazer()); await pg.waitForTimeout(1200);
-    ok(await pos() === x0, `o Desfazer volta a peça arrastada (x ${await pos()})`);
+    ok(await pos() === x0, `o Desfazer volta a peça (x ${await pos()})`);
+    // o Mover começado e outra aba (ou outra folha) no meio: cancela (o toque seguinte não move nada)
+    await simu.evaluate(() => ajusta()); await pg.waitForTimeout(300); [cx, cy] = await centroR1();
+    await pg.touchscreen.tap(quadro.x + cx, quadro.y + cy); await pg.waitForTimeout(1200);
+    await pg.frameLocator("#f-simu").locator("#mv-mover").tap(); await pg.waitForTimeout(400);
+    await pg.locator('.aba[data-tab="controle"]').tap(); await pg.waitForTimeout(800); await pg.locator('.aba[data-tab="circuito"]').tap(); await pg.waitForTimeout(1200);
+    const faixa2 = await simu.evaluate(() => document.getElementById("mv-faixa").hidden);
+    await simu.evaluate(() => ajusta()); await pg.waitForTimeout(300); [cx, cy] = await centroR1();
+    await pg.touchscreen.tap(quadro.x + cx + 64, quadro.y + cy + 40); await pg.waitForTimeout(1200);
+    ok(faixa2 && await pos() === x0, `trocar de aba no meio do Mover o cancela: a faixa some e a peça fica (x ${await pos()})`);
+    await simu.evaluate(() => seleciona(null)); await pg.waitForTimeout(300);
 
     // ▶: o andamento em cima, o aviso de pronta e o scope (o próprio, ?movel=1)
     await pg.locator("#rodar").tap();
