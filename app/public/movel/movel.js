@@ -133,7 +133,7 @@
     $("t-inicio").hidden = t !== "inicio"; $("t-simu").hidden = !["circuito", "controle", "ia"].includes(t); $("t-scope").hidden = t !== "scope";
     $("paleta").hidden = t !== "circuito" || est.painel || est.janela;
     if (["circuito", "controle", "ia"].includes(t)) pedeSimu({ cmd: "vista", vista: t });
-    if (t === "scope" && (!fScope.getAttribute("src") || fScope.getAttribute("src") === "about:blank")) fScope.src = est.scope || "/maisim/scope/?movel=1";
+    if (t === "scope") mostraScope();
     if (t === "inicio") { carregaModelos(); carregaVersao(); }
     topo();
   }
@@ -142,13 +142,20 @@
   $("paleta").onclick = () => pedeSimu({ cmd: "paleta" });
   $("contas").onclick = () => { if (!fSimu.getAttribute("src")) fSimu.src = "/maisim/simu/?movel=1"; est.querContas = true; aba("circuito"); pedeSimu({ cmd: "contas" }); };
 
-  // a última rodada gravada do circuito aberto (nenhuma: o scope vazio, até rodar)
+  // a aba Scope: a rodada do circuito aberto; aberto e sem nenhuma, só o aviso (o scope sem rodada se liga à rodada ao vivo do
+  // servidor, que pode ser de outro circuito); sem circuito aberto, o scope geral (a rodada ao vivo)
+  function mostraScope() {
+    const vazio = !!est.arq && !est.scope; $("scope-vazio").hidden = !vazio; fScope.hidden = vazio;
+    const u = vazio ? "about:blank" : est.scope || "/maisim/scope/?movel=1";
+    if (fScope.getAttribute("src") !== u) fScope.src = u;
+  }
+  // a última rodada gravada do circuito aberto (nenhuma: o aviso, até rodar)
   async function ultimaDoCircuito(arq) {
     let u = null;
     try { const r = await (await fetch("/maisim/scope/rodadas")).json();
       const x = r.filter((y) => y.modelo && (y.modelo === arq || y.modelo.endsWith("/" + arq))).sort((a, b) => b.mtime - a.mtime)[0]; if (x) u = `/maisim/scope/?so=rodada&a=${encodeURIComponent(x.arq)}&movel=1`; } catch (e) { /* sem a lista: vazio */ }
     if (arq !== est.arq || est.scope) return;                 // outro circuito aberto (ou uma rodada nova) no meio
-    est.scope = u; if (est.tab === "scope") fScope.src = u || "/maisim/scope/?movel=1";
+    est.scope = u; if (est.tab === "scope") mostraScope();
   }
   // ── o ▶ e o andamento (o editor conta pelo postMessage) ──
   $("rodar").onclick = () => pedeSimu({ cmd: est.vivo ? "parar" : "rodar" });
@@ -161,7 +168,7 @@
     if (m.tipo === "janela") est.janela = m.on;
     if (m.tipo === "painel" || m.tipo === "janela") $("paleta").hidden = est.painel || est.janela || est.tab !== "circuito";   // o + não cobre o painel nem a janela   // o painel ou a paleta abertos: o + sai da frente
     if (m.tipo === "scope") {                                   // a rodada ao vivo ou a que terminou agora
-      est.scope = m.url + (m.url.includes("?") ? "&" : "?") + "movel=1"; if (fScope.getAttribute("src") !== est.scope) fScope.src = est.scope; }
+      est.scope = m.url + (m.url.includes("?") ? "&" : "?") + "movel=1"; mostraScope(); }
     if (m.tipo === "aberto" && !est.scope) ultimaDoCircuito(m.arq || est.arq);   // aberto: a última rodada DESTE circuito (o editor conta a do servidor, de qualquer um)
     if (m.tipo === "aberto") { est.n = m.elementos; est.camadas = m.camadas || []; if (m.arq) est.arq = m.arq; if (est.querContas) { est.querContas = false; pedeSimu({ cmd: "contas" }); } topo(); }
     if (m.tipo === "rodada") {

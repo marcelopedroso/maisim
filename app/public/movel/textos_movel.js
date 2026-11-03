@@ -27,5 +27,6 @@ maisimI18n.add({
   "mv.atu_instalando": { pt: "instalando a {versao}; o MaiSim reinicia sozinho", en: "installing {versao}; MaiSim restarts on its own" },
   "mv.atu_erro": { pt: "não deu para atualizar: {erro}", en: "could not update: {erro}" },
   "mv.atualizar": { pt: "Atualizar", en: "Update" }, "mv.verificar": { pt: "Verificar", en: "Check" },
+  "mv.scope_vazio": { pt: "Este circuito ainda não tem rodada: toque em ▶ para simular.", en: "This circuit has no run yet: tap ▶ to simulate." },
   "mv.canal_teste": { pt: "Versões de teste", en: "Test versions" }, "mv.d_canal_teste": { pt: "as -rc, antes da estável", en: "the -rc ones, before the stable" }
 });

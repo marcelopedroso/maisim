@@ -11,7 +11,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 - **Phone app: “Test versions” switch in Home → Settings**, next to Update: the same update channel as the PC's update window (on: the -rc releases too; off: only the stable ones). The phone had no way to change it.
 
 ### Fixed
-- **Phone app: the Scope tab shows the open circuit's runs**: opening a circuit showed the server's last run, from whatever circuit ran last, and the previous circuit's scope stayed after opening another one. It now shows the last run of the circuit you opened, or an empty scope until you run it.
+- **Phone app: the Scope tab shows the open circuit's runs**: opening a circuit showed the server's last run, from whatever circuit ran last, and the previous circuit's scope stayed after opening another one. It now shows the last run of the circuit you opened; with none yet, a short notice (tap ▶ to simulate) instead of a scope, which would follow another circuit's live run.
 
 ### Removed
 - **Phone app: the “Desktop version” link in Home → Settings**: it opened the PC screen inside the app with no way back to the phone screens (its one phone use, the update channel, is now the “Test versions” switch). The phone app is the MaiSim of the phone; the PC screen stays on the PC.

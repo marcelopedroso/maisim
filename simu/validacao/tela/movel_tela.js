@@ -160,11 +160,14 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     await pg.locator("#l-exemplos .linha", { hasText: "exemplo_boost" }).first().tap(); await pg.waitForTimeout(4000);
     const desc2 = pg.frameLocator("#f-simu").locator(".modal button", { hasText: "Descartar" }); if (await desc2.count()) { await desc2.first().tap(); await pg.waitForTimeout(3000); }
     ok(await pg.locator("#paleta").isVisible(), "abrir outro circuito com uma janela aberta: o + volta (o editor novo começa sem janela)");
-    // a aba Scope do outro circuito: a rodada DELE (ou vazia), não a do exemplo_buck que rodou antes
+    // a aba Scope do outro circuito: a rodada DELE, ou (sem nenhuma) só o aviso, sem scope carregado — não a do exemplo_buck que
+    // rodou antes, nem o scope sem rodada (que se liga à rodada ao vivo do servidor, de qualquer circuito; Codex, #205)
     await pg.locator('.aba[data-tab="scope"]').tap(); await pg.waitForTimeout(3000);
     const src = await pg.locator("#f-scope").getAttribute("src"), a = new URLSearchParams((src || "").split("?")[1] || "").get("a");
-    const dele = !a || (await pg.evaluate(async (a) => ((await (await fetch("/maisim/scope/rodadas")).json()).find((x) => x.arq === a) || {}).modelo || "", a)).includes("exemplo_boost");
-    ok(src && src !== "about:blank" && dele, `abrir outro circuito: a aba Scope mostra a rodada dele ou nenhuma (${a ? a.split("/").slice(-2).join("/") : "vazia"}), não a do exemplo_buck`);
+    const aviso = await pg.locator("#scope-vazio").isVisible(), comScope = await pg.locator("#f-scope").isVisible();
+    const dele = a ? (await pg.evaluate(async (a) => ((await (await fetch("/maisim/scope/rodadas")).json()).find((x) => x.arq === a) || {}).modelo || "", a)).includes("exemplo_boost")
+      : aviso && !comScope && src === "about:blank";
+    ok(dele, `abrir outro circuito: a aba Scope mostra a rodada dele ou só o aviso (${a ? a.split("/").slice(-2).join("/") : `aviso ${aviso}, scope ${src}`}), não a do exemplo_buck`);
     ok(!erros.length, `sem erros na casca${erros.length ? ": " + erros.join(" · ") : ""}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message}`); }
   finally { if (b) await b.close(); }
