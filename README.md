@@ -51,8 +51,10 @@ internet needed after downloading, nothing else to install.
   [GitHub](https://github.com/termux/termux-app/releases) (the Play Store one is outdated and broken), then, in Termux:
   `curl -fsSL https://raw.githubusercontent.com/marcelopedroso/maisim/main/pacote/android/instala.sh | bash`. It
   installs Ubuntu, MaiSim (`~/maisim-app`, checked by SHA-256) and what it needs, and creates the `maisim` command (and a
-  Termux:Widget shortcut). Then type `maisim` and open `http://localhost:7100` in the phone's browser. Your circuits stay
-  in `~/MaiSim`; the Update button replaces only the program. The pages are still made for a mouse: touch editing comes next.
+  Termux:Widget shortcut), then starts MaiSim and opens the phone app (`http://localhost:7100/movel.html`: tabs for Home,
+  Circuit, Scope, Control and AI, made for touch). In the browser, ⋮ → Add to Home screen turns it into an app; next time,
+  the Termux:Widget shortcut (or `maisim` in Termux) starts everything. Your circuits stay in `~/MaiSim`; the Update button
+  replaces only the program.
 - **AI (optional):** a Claude account. On Windows, MaiSim installs Claude Code for you from its AI accounts window.
 
 Your circuits and runs go to a visible folder: `Documents\MaiSim` on Windows (you can choose another when

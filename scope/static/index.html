@@ -291,6 +291,19 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
   .menu-xy .seg { display:flex; gap:4px; flex-wrap:wrap; } .menu-xy .seg button { font-size:12px; padding:2px 8px; }
   .menu-xy .rec { padding-left:20px; }
   .menu-xy .xy-par, .menu-xy .xy-th { display:flex; flex-direction:column; gap:4px; border-left:2px solid var(--borda); padding-left:8px; }
+  /* o celular (/movel.html, ?movel=1): o scope numa aba da casca. Painéis na largura toda, botões do tamanho do dedo, sem o
+     título nem a ajuda do mouse; dois dedos dão zoom no tempo e um dedo lê os valores (scope.js, o bloco do celular) */
+  body.movel header h1, body.movel #bt-ajuda, body.movel #bt-porlinha { display:none !important; }
+  body.movel header { padding:6px 10px; gap:6px; }
+  body.movel header .linha { flex-wrap:wrap; gap:6px; }
+  body.movel header button, body.movel header select { min-height:38px; font-size:14px; border-radius:10px; }
+  body.movel header label { font-size:14px; }
+  body.movel main, body.movel #conteudo { padding-left:8px !important; padding-right:8px !important; }
+  body.movel #paineis { grid-template-columns:minmax(0, 1fr) !important; gap:10px; }
+  body.movel #paineis > .cartao { grid-column:1 / -1 !important; }
+  body.movel #indice { display:none; }
+  body.movel .cab button { min-width:36px; min-height:36px; }
+  body.movel .u-over { touch-action:none; }
 </style>
 </head>
 <body>

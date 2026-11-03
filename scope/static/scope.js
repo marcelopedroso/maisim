@@ -2558,3 +2558,25 @@ window.addEventListener("resize", () => { clearTimeout(tRes); tRes = setTimeout(
     if (!document.hidden) conectaVivo();       // aberta em segundo plano: conecta quando aparecer (visibilitychange)
   }
 })();
+
+// ---------------------------------------------------------------- o celular (/movel.html, ?movel=1)
+// O scope numa aba da casca do celular: dois dedos dão zoom no tempo (o mesmo mudaX dos painéis: os ligados andam juntos) e um
+// dedo arrastando leva o cursor (a legenda mostra os valores). As medições, os painéis e as seções são os de sempre.
+if (new URLSearchParams(location.search).get("movel") === "1") (() => {
+  document.body.classList.add("movel");
+  // o cabeçalho começa recolhido (uma linha que rola de lado; o ▾ mostra tudo), a não ser que a pessoa já tenha escolhido
+  try { if (!localStorage.getItem("maisim-scope-cab")) document.getElementById("bt-cab").click(); } catch (e) { /* ok */ }
+  const criaOriginal = criaGrafico;
+  criaGrafico = function (p) { const r = criaOriginal.apply(this, arguments); if (p.u && !p.u.over.dataset.toque) toque(p); return r; };
+  function toque(p) {
+    const o = p.u.over, dedos = new Map(); let ini = null; o.dataset.toque = "1";
+    const cursor = (ev) => { const r = o.getBoundingClientRect(); p.u.setCursor({ left: ev.clientX - r.left, top: ev.clientY - r.top }); };
+    o.addEventListener("pointerdown", (ev) => { if (ev.pointerType !== "touch") return; dedos.set(ev.pointerId, ev.clientX);
+      if (dedos.size === 2) { const [a, b] = [...dedos.values()], r = o.getBoundingClientRect();
+        ini = { d: Math.abs(a - b), c: p.u.posToVal((a + b) / 2 - r.left, "x"), min: p.u.scales.x.min, max: p.u.scales.x.max }; } else cursor(ev); });
+    o.addEventListener("pointermove", (ev) => { if (!dedos.has(ev.pointerId)) return; dedos.set(ev.pointerId, ev.clientX);
+      if (dedos.size === 2 && ini) { const [a, b] = [...dedos.values()], f = ini.d / Math.max(20, Math.abs(a - b));
+        mudaX(p, [ini.c - (ini.c - ini.min) * f, ini.c + (ini.max - ini.c) * f]); } else if (dedos.size === 1) cursor(ev); });
+    ["pointerup", "pointercancel"].forEach((t) => o.addEventListener(t, (ev) => { dedos.delete(ev.pointerId); if (dedos.size < 2) ini = null; }));
+  }
+})();

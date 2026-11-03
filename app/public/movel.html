@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<title>MaiSim Android</title>
+<link rel="manifest" href="/movel/manifest.webmanifest">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#ffffff" data-claro="#ffffff" data-escuro="#1b1d27">
+<script>
+  // o tema (a mesma chave do desktop, localStorage "maisim-tema": sistema, claro ou escuro), aplicado antes de pintar
+  try { const t = localStorage.getItem("maisim-tema") || "sistema";
+    document.documentElement.dataset.tema = t === "escuro" || (t === "sistema" && matchMedia("(prefers-color-scheme: dark)").matches) ? "escuro" : "claro";
+  } catch (e) { document.documentElement.dataset.tema = "claro"; }
+</script>
+<script src="/maisim-i18n.js"></script>
+<script src="/movel/textos_movel.js"></script>
+<style>
+/* o MaiSim no celular: a casca de abas (Início, Circuito, Scope, Controle, IA). O desenho, o controle e a IA são o próprio editor
+   do simu num iframe (?movel=1); o scope é o próprio scope (?movel=1). Uma tela por vez, gavetas que sobem de baixo, nada de
+   foco automático (o teclado só sobe quando a pessoa toca num campo) */
+:root { --bg: #f4f4f8; --surface: #ffffff; --surface-2: #eeeef5; --ink: #1b1d2a; --muted: #585d72; --line: #dfe0ea; --accent: #5b3fd9; --accent-soft: #ebe6fd;
+  --on-accent: #fff; --ok: #157a3c; --scrim: rgba(20, 20, 40, .38); --ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color-scheme: light; }
+:root[data-tema="escuro"] { --bg: #12131a; --surface: #1b1d27; --surface-2: #242734; --ink: #eceef6; --muted: #a2a7bb; --line: #2e3142; --accent: #9c86ff;
+  --accent-soft: #2c2650; --on-accent: #120d2b; --ok: #5fd08c; --scrim: rgba(0, 0, 0, .55); color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--ui); font-size: 15px; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+button { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.app { position: relative; height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+.topo { display: flex; align-items: center; gap: 8px; padding: calc(8px + env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) 8px max(12px, env(safe-area-inset-left, 0px)); background: var(--surface); border-bottom: 1px solid var(--line); min-height: 60px; }
+.topo .nome { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; background: none; border: 0; text-align: left; padding: 4px 6px; border-radius: 10px; }
+.topo .nome b { font-size: 17px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topo .nome span { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topo .mais { width: 44px; height: 44px; border-radius: 12px; border: 0; background: none; display: grid; place-items: center; flex: none; }
+.rodar { width: 52px; height: 52px; border-radius: 16px; border: 0; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; flex: none; }
+.rodar svg { width: 24px; height: 24px; }
+.rodar.ativo { background: var(--surface-2); color: var(--ink); }
+.progresso { height: 3px; background: var(--surface-2); position: relative; overflow: hidden; }
+.progresso i { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent); transition: width .2s linear; }
+.telas { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+.tela { position: absolute; inset: 0; overflow: auto; display: flex; flex-direction: column; }
+.quadro { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; background: var(--bg); }
+.abas { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); background: var(--surface); border-top: 1px solid var(--line); padding: 4px max(4px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-left, 0px)); }
+.aba { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0 4px; border: 0; background: none; color: var(--muted); font-size: 11.5px; font-weight: 600; min-height: 56px; }
+.aba svg { width: 24px; height: 24px; }
+.aba .pilula { display: grid; place-items: center; width: 56px; height: 30px; border-radius: 15px; }
+.aba[aria-selected="true"] { color: var(--ink); }
+.aba[aria-selected="true"] .pilula { background: var(--accent-soft); color: var(--accent); }
+.aba:disabled { opacity: .4; }
+.lista { padding: 14px max(16px, env(safe-area-inset-right, 0px)) 96px max(16px, env(safe-area-inset-left, 0px)); display: flex; flex-direction: column; gap: 18px; }
+.busca { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 0 14px; height: 50px; color: var(--muted); }
+.busca input { flex: 1; min-width: 0; border: 0; background: none; font: inherit; font-size: 16px; color: var(--ink); height: 100%; outline: none; }
+.grupo h2 { font-size: 12.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px 4px; }
+.cartoes { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.linha { display: flex; align-items: center; gap: 14px; width: 100%; border: 0; background: none; text-align: left; padding: 12px 16px; min-height: 64px; }
+.linha + .linha, .ajuste + .ajuste, .linha + .ajuste, .ajuste + .linha { border-top: 1px solid var(--line); }
+.linha .ic { width: 40px; height: 40px; border-radius: 12px; background: var(--surface-2); display: grid; place-items: center; color: var(--accent); flex: none; }
+.linha .tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.linha .tx b { font-weight: 600; font-size: 15.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.linha .tx span { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vazio-lista { padding: 16px; color: var(--muted); font-size: 14px; }
+.ajuste { display: flex; align-items: center; gap: 12px; padding: 12px 16px; min-height: 60px; }
+.ajuste .rot { flex: 1; min-width: 0; font-weight: 600; }
+.segm { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); background: var(--surface-2); border-radius: 12px; padding: 3px; gap: 3px; width: 220px; flex: none; }
+.segm button { height: 36px; border: 0; border-radius: 9px; background: none; font-weight: 600; font-size: 13px; color: var(--muted); }
+.segm button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, .08); }
+.fab { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); bottom: 16px; width: 56px; height: 56px; border-radius: 18px; border: 0; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; box-shadow: 0 6px 18px rgba(40, 20, 120, .25); z-index: 5; }
+.fab svg { width: 26px; height: 26px; }
+.scrim { position: absolute; inset: 0; background: var(--scrim); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 20; }
+.scrim.on { opacity: 1; pointer-events: auto; }
+.gaveta { position: absolute; left: 0; right: 0; bottom: 0; z-index: 21; background: var(--surface); border-radius: 22px 22px 0 0; transform: translateY(105%); transition: transform .26s cubic-bezier(.2, .8, .2, 1); max-height: 82%; display: flex; flex-direction: column; padding-bottom: env(safe-area-inset-bottom, 0px); }
+.gaveta.on { transform: none; }
+.alca { width: 40px; height: 5px; border-radius: 3px; background: var(--line); margin: 10px auto 4px; flex: none; }
+.gav-topo { display: flex; align-items: center; gap: 12px; padding: 6px 20px 12px; }
+.gav-topo .tx { flex: 1; min-width: 0; }
+.gav-topo h3 { margin: 0; font-size: 19px; font-weight: 700; }
+.gav-topo p { margin: 2px 0 0; color: var(--muted); font-size: 13.5px; }
+.fechar { width: 44px; height: 44px; border-radius: 12px; border: 0; background: var(--surface-2); display: grid; place-items: center; flex: none; font-size: 20px; }
+.gav-corpo { overflow: auto; padding: 0 20px 20px; display: flex; flex-direction: column; gap: 14px; }
+.gav-corpo > * { flex-shrink: 0; }
+.menu-lista { border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.menu-lista button { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 56px; padding: 0 16px; border: 0; background: none; text-align: left; font-weight: 600; }
+.menu-lista button + button { border-top: 1px solid var(--line); }
+.menu-lista button svg { width: 22px; height: 22px; color: var(--accent); flex: none; }
+.chave { width: 50px; height: 30px; border-radius: 15px; background: var(--line); border: 0; position: relative; flex: none; }
+.chave::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .25); transition: left .15s; }
+.chave[aria-checked="true"] { background: var(--accent); }
+.chave[aria-checked="true"]::after { left: 23px; }
+.nota { font-size: 13px; color: var(--muted); line-height: 1.45; margin: 0 4px; }
+.btn { height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); font-weight: 700; }
+.btn.pri { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.aviso { position: absolute; left: 12px; right: 12px; bottom: 14px; z-index: 30; background: var(--ink); color: var(--bg); border-radius: 14px; padding: 10px 10px 10px 16px; display: flex; align-items: center; gap: 12px; transform: translateY(160%); transition: transform .25s; }
+.aviso.on { transform: none; }
+.aviso:not(.on) { visibility: hidden; pointer-events: none; transition: transform .25s, visibility 0s .25s; }
+.aviso span { flex: 1; font-size: 14px; }
+.aviso button { border: 0; background: none; color: var(--accent-soft); font-weight: 700; min-height: 44px; padding: 0 10px; }
+@media (prefers-reduced-motion: reduce) { .gaveta, .scrim, .aviso, .progresso i { transition: none; } }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="topo">
+    <button class="nome" id="nome" type="button" data-tr-aria="mv.a_inicio"><b id="titulo">MaiSim · Android</b><span id="sub" data-tr="mv.sub_inicio">os seus circuitos</span></button>
+    <button class="mais" id="mais" type="button" data-tr-aria="mv.a_mais" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></button>
+    <button class="rodar" id="rodar" type="button" data-tr-aria="mv.a_rodar" hidden><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg></button>
+  </header>
+  <div class="progresso" id="prog" hidden><i id="progi"></i></div>
+  <main class="telas">
+    <section class="tela" id="t-inicio">
+      <div class="lista">
+        <label class="busca"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="busca" type="search" autocomplete="off" data-tr-ph="mv.ph_busca" placeholder="Procurar circuito"></label>
+        <div class="grupo"><h2 data-tr="mv.meus">Meus circuitos</h2><div class="cartoes" id="l-meus"></div></div>
+        <div class="grupo"><h2 data-tr="mv.exemplos">Exemplos</h2><div class="cartoes" id="l-exemplos"></div></div>
+        <div class="grupo"><h2 data-tr="mv.arquivos">Arquivos</h2><div class="cartoes">
+          <button class="linha" type="button" id="imp-msd"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></span><span class="tx"><b data-tr="mv.imp_msd">Importar .msd</b><span data-tr="mv.d_imp_msd">circuito, controle, scope e rodadas de outro MaiSim</span></span></button>
+        </div><input type="file" id="arq-msd" accept=".msd" hidden></div>
+        <div class="grupo"><h2 data-tr="mv.ajustes">Ajustes</h2><div class="cartoes">
+          <div class="ajuste"><span class="rot" data-tr="mv.tema">Tema</span><div class="segm" id="seg-tema" role="group"><button type="button" data-tema="sistema" data-tr="mv.t_sistema">Sistema</button><button type="button" data-tema="claro" data-tr="mv.t_claro">Claro</button><button type="button" data-tema="escuro" data-tr="mv.t_escuro">Escuro</button></div></div>
+          <div class="ajuste"><span class="rot" data-tr="mv.idioma">Idioma</span><div class="segm" style="--n: 2" id="seg-lingua" role="group"><button type="button" data-lingua="pt">Português</button><button type="button" data-lingua="en">English</button></div></div>
+          <button class="linha" type="button" id="contas"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3l2.2 5.3L20 9l-4.4 3.8L17 18.5 12 15.6 7 18.5l1.4-5.7L4 9l5.8-.7z"/></svg></span><span class="tx"><b data-tr="mv.contas">Contas de IA</b><span data-tr="mv.d_contas">Claude · DeepSeek · Cursor</span></span></button>
+          <a class="linha" href="/" style="color: inherit; text-decoration: none"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span><span class="tx"><b data-tr="mv.desktop">Versão de computador</b><span data-tr="mv.d_desktop">a tela do PC, com o trilho e o Atualizar</span></span></a>
+        </div></div>
+      </div>
+    </section>
+    <section class="tela" id="t-simu" hidden><iframe class="quadro" id="f-simu" title="MaiSim"></iframe>
+      <button class="fab" type="button" id="paleta" data-tr-aria="mv.a_paleta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></section>
+    <section class="tela" id="t-scope" hidden><iframe class="quadro" id="f-scope" title="Scope"></iframe></section>
+    <div class="scrim" id="scrim"></div>
+    <div class="gaveta" id="gaveta" role="dialog" aria-modal="true" aria-labelledby="g-tit">
+      <div class="alca"></div>
+      <div class="gav-topo"><div class="tx"><h3 id="g-tit"></h3><p id="g-sub"></p></div><button class="fechar" type="button" id="g-fechar" data-tr-aria="mv.fechar">×</button></div>
+      <div class="gav-corpo" id="g-corpo"></div>
+    </div>
+    <div class="aviso" id="aviso" role="status"><span id="aviso-tx"></span><button type="button" id="aviso-bt"></button></div>
+  </main>
+  <nav class="abas" role="tablist">
+    <button class="aba" type="button" role="tab" data-tab="inicio" aria-selected="true"><span class="pilula"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z"/></svg></span><span data-tr="mv.inicio">Início</span></button>
+    <button class="aba" type="button" role="tab" data-tab="circuito" aria-selected="false" disabled><span class="pilula"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8h5l2-4 3 8 2-4h6v12H3z"/></svg></span><span data-tr="mv.circuito">Circuito</span></button>
+    <button class="aba" type="button" role="tab" data-tab="scope" aria-selected="false"><span class="pilula"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M5 14c2-6 3-6 4 0s2 6 4 0 3-6 4 0 2 4 2 4"/></svg></span>Scope</button>
+    <button class="aba" type="button" role="tab" data-tab="controle" aria-selected="false" disabled><span class="pilula"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M8.5 7 3.5 12l5 5M15.5 7l5 5-5 5"/></svg></span><span data-tr="mv.controle">Controle</span></button>
+    <button class="aba" type="button" role="tab" data-tab="ia" aria-selected="false" disabled><span class="pilula"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4.5 4.5h15a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-8.5l-4.5 3.6v-3.6h-2a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2z"/></svg></span><span data-tr="mv.ia">IA</span></button>
+  </nav>
+</div>
+<script src="/movel/movel.js"></script>
+</body>
+</html>

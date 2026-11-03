@@ -1,0 +1,17 @@
+{
+  "name": "MaiSim Android",
+  "short_name": "MaiSim",
+  "description": "MaiSim for Android: power electronics simulation and control on the phone",
+  "id": "/movel.html",
+  "start_url": "/movel.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f4f8",
+  "theme_color": "#5b3fd9",
+  "icons": [
+    { "src": "/marca/maisim-app-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/marca/maisim-app-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

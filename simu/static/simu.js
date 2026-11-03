@@ -27,6 +27,9 @@ addEventListener("maisim-tema", () => {                    // o tema mudou: o de
 // As janelas conversam pelo BroadcastChannel: controle guardado, circuito mudou, rodada começou, a janela do código aberta
 const VISTA_CODIGO = new URLSearchParams(location.search).get("vista") === "codigo";
 if (VISTA_CODIGO) document.body.classList.add("vista-codigo");
+// o celular (/movel.html): esta página dentro da casca de abas, ?movel=1 (o bloco no fim do arquivo)
+const MOVEL = new URLSearchParams(location.search).get("movel") === "1";
+if (MOVEL) document.body.classList.add("movel", "vm-circuito");
 const canal = typeof BroadcastChannel === "function" ? new BroadcastChannel("maisim-simu") : null;
 const EU = Math.random().toString(36).slice(2);
 function avisa(tipo, extra = {}) { if (canal) try { canal.postMessage(Object.assign({ tipo, de: EU, codigo: VISTA_CODIGO }, extra)); } catch (e) { /* ok */ } }
@@ -3250,3 +3253,113 @@ function titulosCabecalho() {
   tituloPlay(); tituloGuardar();
 }
 titulosCabecalho();
+
+// ---------------------------------------------------------------- o celular (/movel.html)
+// A casca do celular (app/public/movel.html) mostra esta página num iframe, ?movel=1: só o que a aba pede (o desenho, o controle
+// ou a IA) em tela cheia, ao toque. O painel do componente e a paleta sobem de baixo, uma coisa por vez, e sobem junto com o
+// teclado; dois dedos (ou um, arrastando) movem e dão zoom; nada dá foco sozinho: o teclado só sobe quando a pessoa toca num
+// campo (Marcelo, 02/11: "lembrar disso sempre"). A casca e esta página conversam por postMessage (a mesma origem): de lá vêm
+// os pedidos (rodar, a paleta, a ⚙, salvar…), daqui vão o circuito aberto e o andamento da rodada. É o mesmo editor do PC.
+if (MOVEL) (() => {
+  const casca = (m) => { try { parent.postMessage(Object.assign({ maisim: "simu" }, m), location.origin); } catch (e) { /* sem casca */ } };
+  // o foco: só no campo que a pessoa tocou (o painel, as janelas e a IA chamam .focus() ao abrir; no celular isso sobe o teclado)
+  let toqueEm = null, toqueT = 0;
+  addEventListener("pointerdown", (ev) => { toqueEm = ev.target; toqueT = Date.now(); }, true);
+  const focoOriginal = HTMLElement.prototype.focus;
+  HTMLElement.prototype.focus = function (op) {
+    const campo = this.matches("input:not([type=checkbox]):not([type=radio]):not([type=button]), textarea, select, [contenteditable=true]");
+    const caixa = toqueEm && toqueEm.closest ? toqueEm.closest(".monaco-editor, #ctl-editor, label") : null;   // o editor de código foca a caixa dele
+    const tocou = toqueEm && Date.now() - toqueT < 1000 && (this === toqueEm || this.contains(toqueEm) || (toqueEm.contains && toqueEm.contains(this)) || (caixa && caixa.contains(this)));
+    if (campo && !tocou) return; return focoOriginal.call(this, op);
+  };
+  // o teclado: o painel sobe junto (a altura que ele tira da tela)
+  if (window.visualViewport) { const vv = visualViewport;
+    const ajustaTeclado = () => { const k = Math.max(0, innerHeight - vv.height - vv.offsetTop); document.body.style.setProperty("--teclado", (k > 80 ? k : 0) + "px"); };
+    vv.addEventListener("resize", ajustaTeclado); vv.addEventListener("scroll", ajustaTeclado); }
+  // o painel do componente: sobe quando há seleção, com a alça (puxar: tela cheia) e o ×; a peça fica à vista acima dele
+  const alca = (alvo, fechar) => { if (alvo.querySelector(".mv-alca")) return; const d = document.createElement("div"); d.className = "mv-alca";
+    d.innerHTML = '<i></i><button type="button" aria-label="×">×</button>'; d.querySelector("button").onclick = fechar;
+    d.querySelector("i").onclick = () => document.body.classList.toggle("mv-cheia"); alvo.prepend(d); };
+  const fechaProps = () => { document.body.classList.remove("mv-props", "mv-cheia"); if (ed.sel || ed.fioSel) seleciona(null); };
+  const mostraPropsOriginal = mostraProps;
+  mostraProps = async function () {
+    await mostraPropsOriginal.apply(this, arguments);
+    const ha = !!(ed.sel || ed.fioSel || ed.multi.size); document.body.classList.toggle("mv-props", ha);
+    casca({ tipo: "painel", on: ha });
+    if (!ha) { document.body.classList.remove("mv-cheia"); return; }
+    document.body.classList.remove("mv-paleta"); alca($("props"), fechaProps); $("props").scrollTop = 0; mostraSelecionado();
+  };
+  function mostraSelecionado() {
+    const e = selecionado && selecionado(); if (!e || !dados) return; const r = $("svg").getBoundingClientRect(), esc = ver.w / r.width;
+    const livre = r.height - $("props").offsetHeight, alvoY = Math.max(40, livre / 2);
+    ver = Object.assign({}, ver, { x: e.x * G - r.width / 2 * esc, y: e.y * G - alvoY * esc }); aplicaVer();
+  }
+  // a paleta: escolher um componente fecha a gaveta (o próximo toque na folha põe o componente)
+  const escolheOriginal = escolhe;
+  escolhe = function (item) { const r = escolheOriginal.apply(this, arguments); if (item) { document.body.classList.remove("mv-paleta"); casca({ tipo: "painel", on: false }); } return r; };
+  // dois dedos: zoom e mover; um dedo arrastando: mover (o toque simples continua sendo o clique: selecionar, pôr, ligar)
+  const svg = $("svg"), toques = new Map(); let ini = null;
+  const pontoSvg = (v, r, x, y) => ({ x: v.x + (x - r.left) / r.width * v.w, y: v.y + (y - r.top) / r.height * v.h });
+  svg.addEventListener("pointerdown", (ev) => { if (ev.pointerType !== "touch") return; toques.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    const r = svg.getBoundingClientRect(), p = [...toques.values()], cx = p.reduce((a, q) => a + q.x, 0) / p.length, cy = p.reduce((a, q) => a + q.y, 0) / p.length;
+    ini = { v: Object.assign({}, ver), r, cx, cy, d: p.length > 1 ? Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) : 0, n: p.length, moveu: false }; });
+  svg.addEventListener("pointermove", (ev) => { if (!toques.has(ev.pointerId) || !ini) return; toques.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    const p = [...toques.values()], cx = p.reduce((a, q) => a + q.x, 0) / p.length, cy = p.reduce((a, q) => a + q.y, 0) / p.length;
+    if (p.length !== ini.n) return;
+    if (!ini.moveu && Math.hypot(cx - ini.cx, cy - ini.cy) < 8 && p.length === 1) return; ini.moveu = true;
+    const f = p.length > 1 && ini.d > 10 ? Math.min(6, Math.max(1 / 6, ini.d / Math.max(10, Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y)))) : 1;
+    const a = pontoSvg(ini.v, ini.r, ini.cx, ini.cy), w = ini.v.w * f, h = ini.v.h * f;
+    ver = { x: a.x - (cx - ini.r.left) / ini.r.width * w, y: a.y - (cy - ini.r.top) / ini.r.height * h, w, h }; aplicaVer(); });
+  ["pointerup", "pointercancel"].forEach((t) => svg.addEventListener(t, (ev) => { toques.delete(ev.pointerId);
+    if (toques.size) { const p = [...toques.values()][0]; ini = { v: Object.assign({}, ver), r: svg.getBoundingClientRect(), cx: p.x, cy: p.y, d: 0, n: 1, moveu: true }; } else ini = null; }));
+  // os botões de zoom (o + − e ver tudo), embaixo à esquerda
+  const z = document.createElement("div"); z.id = "mv-zoom";
+  z.innerHTML = '<button type="button" data-z="1">+</button><button type="button" data-z="-1">−</button><button type="button" data-z="0">⤢</button>';
+  z.onclick = (ev) => { const b = ev.target.closest("button"); if (!b) return; const k = +b.dataset.z; if (!k) { ajusta(); return; }
+    const f = k > 0 ? 1 / 1.35 : 1.35, cx = ver.x + ver.w / 2, cy = ver.y + ver.h / 2; ver = { x: cx - ver.w * f / 2, y: cy - ver.h * f / 2, w: ver.w * f, h: ver.h * f }; aplicaVer(); };
+  document.body.append(z);
+  // o desenho escondido (no controle e na IA) não tem tamanho: enquadrar ali daria NaN; enquadra ao voltar para o circuito
+  const ajustaOriginal = ajusta;
+  ajusta = function () { if ($("svg").getBoundingClientRect().height < 20) return; return ajustaOriginal.apply(this, arguments); };
+  // o scope é a aba Scope da casca (não o da doca daqui): a rodada ao vivo e a terminada vão para lá
+  mostraScope = function (on, url) { if (on) casca({ tipo: "scope", url: url || urlScope(sim.ultimo) }); };
+  // o andamento da rodada, para a barra de cima da casca
+  const acompanhaOriginal = acompanha;
+  acompanha = function (j) { const r = acompanhaOriginal.apply(this, arguments);
+    casca({ tipo: "rodada", estado: j.estado, t: j.t || 0, tfim: j.tfim || 0, nome: j.nome || "", amostras: j.amostras || 0 }); return r; };
+  // dentro de um subcircuito: o "‹ principal" (no PC, a trilha do cabeçalho, que aqui não aparece)
+  const volta = document.createElement("button"); volta.id = "mv-volta"; volta.type = "button"; volta.hidden = true; volta.onclick = () => abre("0");
+  document.body.append(volta);
+  const abreOriginal = abre;
+  abre = function (fid) { const r = abreOriginal.apply(this, arguments);
+    volta.hidden = folhaAtual === "0"; if (!volta.hidden) volta.textContent = "‹ " + nomeSub(dados.folhas[folhaAtual].nome); return r; };
+  // as vistas e os pedidos da casca
+  function vista(v) {
+    ["circuito", "controle", "ia"].forEach((n) => document.body.classList.toggle("vm-" + n, n === v));
+    document.body.classList.remove("mv-paleta");
+    if (v !== "circuito") { document.body.classList.remove("mv-props", "mv-cheia"); mostraDoca("controle"); }
+    if (v === "ia" && typeof ccAbre === "function" && !cc.aberto) ccAbre(true);
+    if (v === "circuito" && dados) setTimeout(() => { if (!ed.sel) ajusta(); }, 60);
+  }
+  addEventListener("message", (ev) => {
+    if (ev.origin !== location.origin || ev.source !== parent) return; const m = ev.data || {};
+    const pedidos = { vista: () => vista(m.vista), rodar: () => $("bt-play").click(), pausar: () => $("bt-pausa").click(), parar: () => $("bt-parar").click(),
+      paleta: () => { document.body.classList.remove("mv-props"); alca($("paleta"), () => { document.body.classList.remove("mv-paleta", "mv-cheia"); casca({ tipo: "painel", on: false }); });
+        casca({ tipo: "painel", on: document.body.classList.toggle("mv-paleta") }); },
+      parametros: () => parametrosSim(), globais: () => variaveisGlobais(), salvar: () => $("bt-salvar").click(), salvar_como: () => $("bt-salvar-como").click(),
+      desfazer: () => desfazer(), ajustar: () => ajusta(), camada: () => { const b = $(m.id); if (b) b.click(); }, contas: () => typeof abreJanelaClaude === "function" && abreJanelaClaude() };
+    if (pedidos[m.cmd]) pedidos[m.cmd]();
+  });
+  // aberto: liga a edição (no celular não há o cadeado no cabeçalho) e conta à casca o circuito
+  (async function avisaAberto() {
+    for (let k = 0; k < 200 && !dados; k++) await new Promise((ok) => setTimeout(ok, 100));
+    if (!dados) return;
+    if (!ed.ligado) { try { await liga(true); } catch (e) { /* só ver */ } }
+    casca({ tipo: "aberto", arq: $("sel-modelo").value || "", scope: urlScope(sim.ultimo), elementos: dados.folhas[folhaAtual].elementos.length, camadas: ["bt-controle", "bt-rotulos", "bt-medicoes", "bt-corrente"].map((id) => ({ id, on: $(id).classList.contains("ativo") })) });
+    setTimeout(ajusta, 80);
+    // o arquivo do circuito muda sem a casca pedir (Salvar como…, Novo, abrir outro aqui dentro): ela fica sabendo (o título,
+    // o Exportar .msd e o Início usam o arquivo de agora)
+    let arq = $("sel-modelo").value || "";
+    setInterval(() => { const a = $("sel-modelo").value || ""; if (a !== arq) { arq = a; casca({ tipo: "arquivo", arq: a }); } }, 700);
+  })();
+})();
