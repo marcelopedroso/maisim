@@ -40,11 +40,32 @@ class Instalador(private val ctx: Context, private val c: Caminhos) {
 
     fun garante() {
         listOf(c.dados, c.tmp, c.falsos, c.logs).forEach { it.mkdirs() }
+        confereCelular()
         if (!File(c.ubuntu, ".maisim-ok").exists()) instalaUbuntu()
         ajustaUbuntu()
         testaProot()
         ferramentas()
         if (!File(c.app, "AppRun").exists()) instalaMaisim()
+    }
+
+    // o mínimo do celular, antes de baixar: o espaço do que falta montar (o Ubuntu com o que o MaiSim instala nele, o MaiSim
+    // extraído e, se a pessoa quiser, o Claude Code) e a memória (abaixo de 3 GB o Java e o Python juntos ficam no limite: avisa
+    // e deixa tentar). O Android 10+ e os 64 bits o próprio instalador do Android já exige (minSdk, só arm64)
+    private val ESPACO_UBUNTU = 700L shl 20
+    private val ESPACO_MAISIM = 800L shl 20
+    private fun confereCelular() {
+        val gb = 1L shl 30
+        espaco((if (!File(c.ubuntu, ".maisim-ok").exists()) ESPACO_UBUNTU else 0L) + (if (!File(c.app, "AppRun").exists()) ESPACO_MAISIM else 0L))
+        val mem = android.app.ActivityManager.MemoryInfo()
+        (ctx.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).getMemoryInfo(mem)
+        if (mem.totalMem < 2_900L * (1L shl 20)) Estado.anota(ctx.getString(R.string.aviso_memoria, "%.1f".format(mem.totalMem.toDouble() / gb)))
+    }
+
+    // o espaço do que ainda falta, conferido antes de cada etapa (o celular pode encher no meio: a mensagem clara, não a falha
+    // genérica no meio de um download)
+    private fun espaco(falta: Long) {
+        val gb = (1L shl 30).toDouble(); val livre = android.os.StatFs(c.base.path).availableBytes
+        if (falta > 0 && livre < falta) throw Falha(ctx.getString(R.string.erro_espaco, "%.1f".format(falta / gb), "%.1f".format(livre / gb)))
     }
 
     private fun instalaUbuntu() {
@@ -119,6 +140,7 @@ class Instalador(private val ctx: Context, private val c: Caminhos) {
         }
         if (url == null) throw Falha(ctx.getString(R.string.erro_sem_pacote))
         val tgz = File(c.base, "maisim.tar.gz")
+        espaco(ESPACO_MAISIM)
         Estado.etapa(ctx.getString(R.string.baixando_maisim, versao))
         val esperado = texto("$url.sha256").trim().substringBefore(' ')
         baixa(url, tgz)

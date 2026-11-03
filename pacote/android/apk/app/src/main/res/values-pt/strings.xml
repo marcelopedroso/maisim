@@ -13,6 +13,8 @@
     <string name="ferramentas">Instalando as ferramentas básicas (curl)…</string>
     <string name="erro_ferramentas">Não deu para instalar o curl dentro do Linux (veja as linhas acima). Tente de novo.</string>
     <string name="erro_instalar">Não deu para pôr o MaiSim no lugar (%1$s). Tente de novo.</string>
+    <string name="erro_espaco">Falta espaço: o MaiSim precisa de uns %1$s GB para se montar e o celular tem %2$s GB livres. Libere espaço e tente de novo.</string>
+    <string name="aviso_memoria">Aviso: este celular tem %1$s GB de RAM; o MaiSim vai melhor com 4 GB (pode ficar lento ou fechar).</string>
     <string name="tentar">Tentar de novo</string>
     <string name="parar">Parar</string>
     <string name="notif_canal">MaiSim ligado</string>
