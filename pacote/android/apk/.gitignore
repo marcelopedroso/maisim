@@ -1,0 +1,7 @@
+.gradle/
+build/
+app/build/
+local.properties
+# o proot e o loader vêm do CI (pacote/android/proot); não ficam no repositório
+app/src/main/jniLibs/
+*.keystore

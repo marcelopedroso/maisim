@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MaiSim</string>
+    <string name="preparando">Preparando o MaiSim</string>
+    <string name="primeira_vez">Na primeira vez leva alguns minutos e precisa de internet (uns 200 MB).</string>
+    <string name="testando">Conferindo o celular…</string>
+    <string name="baixando_ubuntu">Baixando a base Linux…</string>
+    <string name="extraindo_ubuntu">Instalando a base Linux…</string>
+    <string name="baixando_maisim">Baixando o MaiSim %1$s…</string>
+    <string name="extraindo_maisim">Instalando o MaiSim…</string>
+    <string name="ligando">Ligando o MaiSim…</string>
+    <string name="ligando_1a">Ligando o MaiSim (na primeira vez ele também instala o que precisa)…</string>
+    <string name="ferramentas">Instalando as ferramentas básicas (curl)…</string>
+    <string name="erro_ferramentas">Não deu para instalar o curl dentro do Linux (veja as linhas acima). Tente de novo.</string>
+    <string name="erro_instalar">Não deu para pôr o MaiSim no lugar (%1$s). Tente de novo.</string>
+    <string name="tentar">Tentar de novo</string>
+    <string name="parar">Parar</string>
+    <string name="notif_canal">MaiSim ligado</string>
+    <string name="notif_texto">O simulador está ligado. Toque para abrir; Parar desliga.</string>
+    <string name="salvo">Salvo em Downloads: %1$s</string>
+    <string name="erro_salvar">Não deu para salvar: %1$s</string>
+    <string name="erro_proot">Este celular não conseguiu ligar a base Linux (proot): %1$s</string>
+    <string name="erro_rede">Sem internet: %1$s</string>
+    <string name="erro_parou">O MaiSim parou (código %1$d). Veja as linhas acima.</string>
+    <string name="erro_conferencia">O download não conferiu (SHA-256). Tente de novo.</string>
+    <string name="erro_sem_pacote">Não achei o pacote ARM do MaiSim.</string>
+</resources>

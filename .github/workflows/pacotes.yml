@@ -1,5 +1,6 @@
 # The "just use it" packages for a version (pacote/LEIA.md): the Linux AppImage (x86_64 and ARM/aarch64, the ARM one also
-# as a folder .tar.gz for places without FUSE, like Termux's proot) and the Windows installer, built from the version's tag,
+# as a folder .tar.gz for places without FUSE, like Termux's proot), the Windows installer and the Android app (the APK,
+# pacote/android/apk, signed with the official key from the secrets), built from the version's tag,
 # smoke-tested (pacote/linux/fumaca.sh: start, run the buck, a Figures PDF, stop) and attached to its GitHub Release with
 # their .sha256 files. "test only" builds and smoke-tests the dispatched branch and attaches nothing. Started by full-suite.yml right after it
 # creates the Release (a Release made with the Actions token does not trigger other workflows; workflow_dispatch does),
@@ -97,5 +98,63 @@ jobs:
           cd pacote/dist
           cp MaiSim-*-aarch64.AppImage MaiSim-aarch64.AppImage && sha256sum MaiSim-aarch64.AppImage > MaiSim-aarch64.AppImage.sha256
           cp MaiSim-*-aarch64.tar.gz MaiSim-aarch64.tar.gz && sha256sum MaiSim-aarch64.tar.gz > MaiSim-aarch64.tar.gz.sha256
+          ls -la
+          gh release upload "$TAG" ./* --repo "$GITHUB_REPOSITORY" --clobber
+
+  android:
+    name: Android app (the APK)
+    runs-on: ubuntu-24.04   # has the Android SDK; the app is Kotlin + Gradle, arm64 only (no NDK: the proot comes prebuilt)
+    timeout-minutes: 30
+    env:
+      TAG: ${{ inputs.tag }}
+    steps:
+      - name: check the tag
+        if: ${{ !inputs.test_only }}
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "not a version tag: $TAG"; exit 1; }
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.test_only && github.ref || env.TAG }}
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: proot (prebuilt, checked by SHA-256)
+        run: bash pacote/android/apk/proot.sh
+      - name: APK (signed with the official key, checked against the registered fingerprint)
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          ANDROID_KEYSTORE_SENHA: ${{ secrets.ANDROID_KEYSTORE_SENHA }}
+          ANDROID_CHAVE_NOME: ${{ secrets.ANDROID_CHAVE_NOME }}
+          ANDROID_CHAVE_SENHA: ${{ secrets.ANDROID_CHAVE_SENHA }}
+        run: |
+          cd pacote/android/apk
+          # a chave só existe neste passo (fora do repositório; apagada no fim, mesmo se falhar)
+          trap 'rm -f "$RUNNER_TEMP/maisim.keystore"' EXIT
+          if [ -n "$ANDROID_KEYSTORE_B64" ]; then
+            printf '%s' "$ANDROID_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/maisim.keystore"
+            export MAISIM_KEYSTORE="$RUNNER_TEMP/maisim.keystore" MAISIM_KEYSTORE_SENHA="$ANDROID_KEYSTORE_SENHA" \
+                   MAISIM_CHAVE_NOME="$ANDROID_CHAVE_NOME" MAISIM_CHAVE_SENHA="$ANDROID_CHAVE_SENHA"
+          elif [ "${{ inputs.test_only }}" != "true" ]; then
+            echo "no signing key (secrets): a release APK must be signed with the official key"; exit 1
+          fi
+          ./gradlew lintRelease assembleRelease --no-daemon -q   # (o lint barra API que não existe no Android 10, a versão mínima)
+          V=$(cat ../../../VERSION); mkdir -p ../../dist
+          cp app/build/outputs/apk/release/app-release.apk "../../dist/MaiSim-Android-$V.apk"
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          IMP=$("$BT/apksigner" verify --print-certs "../../dist/MaiSim-Android-$V.apk" | sed -n 's/.*SHA-256 digest: //p' | head -1 | tr a-f A-F | sed 's/../&:/g; s/:$//')
+          echo "certificate SHA-256: $IMP"
+          if [ -n "$ANDROID_KEYSTORE_B64" ] && [ "$IMP" != "$(cat chave.sha256)" ]; then
+            echo "the APK is not signed with the registered key (chave.sha256)"; exit 1
+          fi
+      - name: attach to the Release
+        if: ${{ !inputs.test_only }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # também com nome fixo (sem a versão): o link .../releases/latest/download/MaiSim-Android.apk nunca muda (site)
+          cd pacote/dist
+          cp MaiSim-Android-*.apk MaiSim-Android.apk
+          for f in MaiSim-Android-*.apk MaiSim-Android.apk; do sha256sum "$f" > "$f.sha256"; done
           ls -la
           gh release upload "$TAG" ./* --repo "$GITHUB_REPOSITORY" --clobber
