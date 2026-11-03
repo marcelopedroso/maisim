@@ -1,0 +1,24 @@
+// os textos do MaiSim no celular (/movel.html), em português e inglês (maisim-i18n.js: tr("chave", {params}); no HTML, data-tr*)
+maisimI18n.add({
+  "mv.inicio": { pt: "Início", en: "Home" }, "mv.circuito": { pt: "Circuito", en: "Circuit" }, "mv.controle": { pt: "Controle", en: "Control" }, "mv.ia": { pt: "IA", en: "AI" },
+  "mv.a_inicio": { pt: "Ir para o Início", en: "Go to Home" }, "mv.a_mais": { pt: "Mais opções", en: "More options" }, "mv.a_rodar": { pt: "Rodar a simulação", en: "Run the simulation" },
+  "mv.a_parar": { pt: "Parar a simulação", en: "Stop the simulation" }, "mv.a_paleta": { pt: "Adicionar componente", en: "Add component" }, "mv.fechar": { pt: "Fechar", en: "Close" },
+  "mv.sub_inicio": { pt: "os seus circuitos", en: "your circuits" }, "mv.sub_edit": { pt: "editando · {n} elementos", en: "editing · {n} elements" },
+  "mv.sub_sim": { pt: "simulando · {a} de {b}", en: "simulating · {a} of {b}" }, "mv.sub_fim": { pt: "rodada pronta · {n} amostras", en: "run ready · {n} samples" },
+  "mv.sub_abrindo": { pt: "abrindo…", en: "opening…" },
+  "mv.ph_busca": { pt: "Procurar circuito", en: "Search circuits" }, "mv.meus": { pt: "Meus circuitos", en: "My circuits" }, "mv.exemplos": { pt: "Exemplos", en: "Examples" },
+  "mv.arquivos": { pt: "Arquivos", en: "Files" }, "mv.ajustes": { pt: "Ajustes", en: "Settings" }, "mv.nenhum": { pt: "Nenhum ainda: abra um exemplo e salve com outro nome.", en: "None yet: open an example and save it with another name." },
+  "mv.imp_msd": { pt: "Importar .msd", en: "Import .msd" }, "mv.d_imp_msd": { pt: "circuito, controle, scope e rodadas de outro MaiSim", en: "circuit, control, scope and runs from another MaiSim" },
+  "mv.tema": { pt: "Tema", en: "Theme" }, "mv.t_sistema": { pt: "Sistema", en: "System" }, "mv.t_claro": { pt: "Claro", en: "Light" }, "mv.t_escuro": { pt: "Escuro", en: "Dark" },
+  "mv.idioma": { pt: "Idioma", en: "Language" }, "mv.contas": { pt: "Contas de IA", en: "AI accounts" }, "mv.d_contas": { pt: "Claude · DeepSeek · Cursor", en: "Claude · DeepSeek · Cursor" },
+  "mv.desktop": { pt: "Versão de computador", en: "Desktop version" }, "mv.d_desktop": { pt: "a tela do PC, com o trilho e o Atualizar", en: "the PC screen, with the rail and Update" },
+  "mv.alterado": { pt: "mudou {quando}", en: "changed {quando}" },
+  "mv.m_sim": { pt: "Simulação (Δt, tempo final, solver)", en: "Simulation (Δt, end time, solver)" }, "mv.m_vars": { pt: "Variáveis $", en: "$ variables" },
+  "mv.m_camadas": { pt: "Camadas", en: "Layers" }, "mv.m_salvar": { pt: "Salvar", en: "Save" }, "mv.m_salvar_como": { pt: "Salvar como…", en: "Save as…" },
+  "mv.m_desfazer": { pt: "Desfazer", en: "Undo" }, "mv.m_ajustar": { pt: "Ver o circuito inteiro", en: "Show the whole circuit" }, "mv.m_exportar": { pt: "Exportar .msd (abre igual no PC)", en: "Export .msd (opens the same on the PC)" },
+  "mv.cam_controle": { pt: "Blocos de controle e medição", en: "Control and measurement blocks" }, "mv.cam_rotulos": { pt: "Rótulos das conexões", en: "Connection labels" },
+  "mv.cam_medicoes": { pt: "Medições (A, V+ e V−)", en: "Measurements (A, V+ and V−)" }, "mv.cam_corrente": { pt: "Sentido da corrente", en: "Current direction" },
+  "mv.pronta": { pt: "Rodada pronta · {n} amostras", en: "Run ready · {n} samples" }, "mv.ver_scope": { pt: "Ver scope", en: "View scope" },
+  "mv.msd_lendo": { pt: "Lendo o .msd…", en: "Reading the .msd…" }, "mv.msd_ok": { pt: "{nome} importado", en: "{nome} imported" }, "mv.msd_erro": { pt: "Não deu para importar: {erro}", en: "Could not import: {erro}" },
+  "mv.abrir": { pt: "Abrir", en: "Open" }
+});

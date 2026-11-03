@@ -5,7 +5,7 @@
 # tem), baixa a versão ARM mais nova do MaiSim (MaiSim-<v>-aarch64.tar.gz, conferido pelo SHA-256) para ~/maisim-app dentro
 # do Ubuntu (os circuitos ficam em ~/MaiSim, fora: o botão Atualizar troca só o programa), o que ele precisa do sistema (a
 # tela virtual, as bibliotecas de janela do Java) e cria o comando "maisim" no Termux (e o atalho do Termux:Widget, em
-# ~/.shortcuts/MaiSim). Depois: digite maisim e abra http://localhost:7100 no navegador do celular.
+# ~/.shortcuts/MaiSim), liga o MaiSim e abre o app do celular (http://localhost:7100/movel.html) no navegador.
 # Rodar de novo é seguro: reinstala o MaiSim (os circuitos ficam). MAISIM_VERSAO=0.3.8-rc2 escolhe uma versão.
 set -euo pipefail
 case "${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}" in pt*) PT=1;; *) PT=;; esac
@@ -74,19 +74,31 @@ rm -rf /root/maisim-app && mv \"\$1\" /root/maisim-app && rm -rf /root/.maisim-a
 test -x /root/maisim-app/AppRun
 "
 
-# o comando maisim (e o atalho do Termux:Widget): o Ubuntu e o MaiSim de uma vez; o wake lock segura o Android de dormir o Termux
+# o comando maisim (e o atalho do Termux:Widget): o Ubuntu e o MaiSim de uma vez e, quando ele responde, o app do celular
+# (/movel.html) no navegador; já ligado, só abre o app. O wake lock segura o Android de dormir o Termux
 cat > "$PREFIX/bin/maisim" <<'CMD'
 #!/data/data/com.termux/files/usr/bin/sh
-# o MaiSim (instalado pelo pacote/android/instala.sh): no Ubuntu do Termux; abra http://localhost:7100 no navegador
+# o MaiSim (instalado pelo pacote/android/instala.sh): no Ubuntu do Termux; o app abre sozinho no navegador
+APP=http://localhost:7100/movel.html
+abre() { termux-open-url "$APP" 2> /dev/null || am start -a android.intent.action.VIEW -d "$APP" > /dev/null 2>&1 || true; }
+if curl -fs -o /dev/null --max-time 2 "$APP"; then abre; exit 0; fi
 termux-wake-lock 2> /dev/null || true
-exec proot-distro login ubuntu -- /root/maisim-app/AppRun "$@"
+proot-distro login ubuntu -- /root/maisim-app/AppRun "$@" &
+PID=$!
+i=0; while [ $i -lt 240 ] && kill -0 $PID 2> /dev/null; do
+  if curl -fs -o /dev/null --max-time 2 "$APP"; then abre; break; fi
+  sleep 1; i=$((i + 1))
+done
+wait $PID
 CMD
 chmod +x "$PREFIX/bin/maisim"
 mkdir -p "$HOME/.shortcuts" && cp "$PREFIX/bin/maisim" "$HOME/.shortcuts/MaiSim" && chmod +x "$HOME/.shortcuts/MaiSim"
-
 fala "" ""
-fala "maisim: pronto! Para ligar o MaiSim, digite:   maisim" "maisim: done! To start MaiSim, type:   maisim"
-fala "        e abra http://localhost:7100 no navegador do celular (para parar: CTRL + C no Termux)." \
-     "        and open http://localhost:7100 in the phone's browser (to stop: CTRL + C in Termux)."
+fala "maisim: pronto! O MaiSim vai ligar e abrir no navegador. No navegador, menu ⋮ → Adicionar à tela inicial: vira um app." \
+     "maisim: done! MaiSim will start and open in the browser. In the browser, menu ⋮ → Add to Home screen: it becomes an app."
+fala "        Da próxima vez: o atalho MaiSim do Termux:Widget na tela inicial (ou digite maisim no Termux) liga tudo." \
+     "        Next time: the MaiSim shortcut of Termux:Widget on the home screen (or type maisim in Termux) starts everything."
 fala "        Os circuitos ficam em ~/MaiSim, dentro do Ubuntu; o botão Atualizar do MaiSim troca só o programa." \
      "        Circuits stay in ~/MaiSim, inside Ubuntu; MaiSim's Update button replaces only the program."
+fala "" ""
+exec "$PREFIX/bin/maisim"
