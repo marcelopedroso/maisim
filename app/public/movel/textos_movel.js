@@ -26,5 +26,6 @@ maisimI18n.add({
   "mv.atu_nova": { pt: "há a {versao}", en: "{versao} is available" }, "mv.atu_baixando": { pt: "baixando a {versao}… {pct}", en: "downloading {versao}… {pct}" },
   "mv.atu_instalando": { pt: "instalando a {versao}; o MaiSim reinicia sozinho", en: "installing {versao}; MaiSim restarts on its own" },
   "mv.atu_erro": { pt: "não deu para atualizar: {erro}", en: "could not update: {erro}" },
-  "mv.atualizar": { pt: "Atualizar", en: "Update" }, "mv.verificar": { pt: "Verificar", en: "Check" }
+  "mv.atualizar": { pt: "Atualizar", en: "Update" }, "mv.verificar": { pt: "Verificar", en: "Check" },
+  "mv.canal_teste": { pt: "Versões de teste", en: "Test versions" }, "mv.d_canal_teste": { pt: "as -rc, antes da estável", en: "the -rc ones, before the stable" }
 });

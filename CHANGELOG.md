@@ -8,12 +8,13 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ### Added
 - **Phone app: Compare A/B one tap away**: the scope's collapsed header on the phone has a **Compare A/B** button that opens the choice of runs A and B and enters Compare (it was there, but only behind the unlabelled ▾). On the phone the collapsed header now wraps instead of running off the screen, so ▾ and Compare A/B stay visible on narrow phones.
+- **Phone app: “Test versions” switch in Home → Settings**, next to Update: the same update channel as the PC's update window (on: the -rc releases too; off: only the stable ones). The phone had no way to change it.
 
 ### Fixed
 - **Phone app: the Scope tab shows the open circuit's runs**: opening a circuit showed the server's last run, from whatever circuit ran last, and the previous circuit's scope stayed after opening another one. It now shows the last run of the circuit you opened, or an empty scope until you run it.
 
 ### Removed
-- **Phone app: the “Desktop version” link in Home → Settings**: it opened the PC screen inside the app with no way back to the phone screens. The phone app is the MaiSim of the phone; the PC screen stays on the PC.
+- **Phone app: the “Desktop version” link in Home → Settings**: it opened the PC screen inside the app with no way back to the phone screens (its one phone use, the update channel, is now the “Test versions” switch). The phone app is the MaiSim of the phone; the PC screen stays on the PC.
 
 ## [0.3.8] - 2026-11-03
 

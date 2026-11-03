@@ -24,6 +24,16 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     await pg.locator('.aba[data-tab="scope"]').tap(); await pg.waitForTimeout(300); await pg.locator('.aba[data-tab="inicio"]').tap(); await pg.waitForTimeout(800);
     ok(/Android/.test(await pg.locator("#atu-s").textContent()) && /0\.3\.8-rc5/.test(await pg.locator("#atu-s").textContent()) && await pg.locator("#atu-bt").textContent() === "Atualizar",
       `no Android, com versão nova: "${await pg.locator("#atu-s").textContent()}" e o botão "${await pg.locator("#atu-bt").textContent()}"`);
+    // o canal no celular (a janela do PC, onde ele mudava, não existe no app): a chave "Versões de teste" (no Android, com
+    // o canal teste do mock: ligada) pede o estável ao servidor e mostra o que ele responde
+    const ch = pg.locator("#atu-canal-bt"), pedidos = [];
+    await pg.route("**/maisim/simu/atualizacao/canal", (r) => { pedidos.push(JSON.parse(r.request().postData() || "{}").canal);
+      r.fulfill({ contentType: "application/json", body: JSON.stringify({ versao: "0.3.8-rc4", tipo: "pasta", canal: "estavel", verificado: 1, sem_rede: false, nova: null, aplicando: null, git: false }) }); });
+    const vis = await ch.isVisible(), liga0 = await ch.getAttribute("aria-checked");
+    await ch.tap(); await pg.waitForTimeout(800);
+    ok(vis && liga0 === "true" && pedidos.join() === "estavel" && await ch.getAttribute("aria-checked") === "false" && /é a mais nova/.test(await pg.locator("#atu-s").textContent()),
+      `Início no Android: a chave "Versões de teste" (ligada no canal teste) pede o estável e mostra a resposta (${pedidos.join()}; "${await pg.locator("#atu-s").textContent()}")`);
+    await pg.unroute("**/maisim/simu/atualizacao/canal");
     await pg.unroute("**/maisim/simu/atualizacao");
     // sem a "Versão de computador" no Início: abria a tela do PC dentro do app, sem caminho de volta para o celular
     ok(await pg.locator('#t-inicio a[href="/"]').count() === 0, "o Início não tem o link para a tela do PC (dentro do app não havia volta)");

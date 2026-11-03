@@ -89,7 +89,15 @@
     $("atu-v").textContent = `MaiSim ${ATU.versao}`; $("atu-s").textContent = `${tipoNome(ATU.tipo)} · ${s}`;
     const b = $("atu-bt"); b.hidden = false; b.disabled = !!(ap && ap.fase !== "erro");
     b.textContent = bt || tr("mv.verificar"); b.dataset.acao = bt ? "aplicar" : "verificar"; b.classList.toggle("pri", !!bt);
+    $("atu-canal").hidden = soGit; $("atu-canal-bt").setAttribute("aria-checked", String(ATU.canal === "teste"));
   }
+  // o canal (o mesmo da janela do PC): as versões de teste (-rc) ou só as estáveis; a escolha já refaz a "há a …"
+  $("atu-canal-bt").onclick = async () => {
+    const ch = $("atu-canal-bt"), canal = ch.getAttribute("aria-checked") === "true" ? "estavel" : "teste"; ch.disabled = true;
+    try { const j = await (await fetch("/maisim/simu/atualizacao/canal", { method: "POST", headers: { "Content-Type": "application/json", "X-MaiSim": "1" }, body: JSON.stringify({ canal }) })).json();
+      if (j && j.versao) ATU = j; } catch (e) { /* fica */ }
+    ch.disabled = false; pintaVersao();
+  };
   $("atu-bt").onclick = async () => {
     const b = $("atu-bt"); b.disabled = true;
     try { const j = await (await fetch(`/maisim/simu/atualizacao/${b.dataset.acao}`, { method: "POST", headers: { "Content-Type": "application/json", "X-MaiSim": "1" }, body: "{}" })).json();
