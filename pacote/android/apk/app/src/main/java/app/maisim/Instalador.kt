@@ -104,9 +104,12 @@ class Instalador(private val ctx: Context, private val c: Caminhos) {
     }
 
     private fun instalaMaisim() {
-        // a release mais nova (com as -rc) que tem o pacote ARM, como o pacote/android/instala.sh
-        val rels = JSONArray(texto("https://api.github.com/repos/$repo/releases?per_page=20"))
-        var url: String? = null; var versao = ""
+        // o MaiSim desta versão do app (a mesma do VERSION, a do tag); sem ela (um app montado de outro ponto), a release mais
+        // nova (com as -rc) que tem o pacote ARM, como o pacote/android/instala.sh. Depois, o Atualizar do MaiSim segue sozinho
+        val v = BuildConfig.VERSION_NAME
+        var url: String? = "https://github.com/$repo/releases/download/v$v/MaiSim-$v-aarch64.tar.gz"; var versao = "v$v"
+        if (!existe(url!!)) { url = null; versao = "" }
+        val rels = if (url == null) JSONArray(texto("https://api.github.com/repos/$repo/releases?per_page=20")) else JSONArray()
         loop@ for (i in 0 until rels.length()) {
             val r = rels.getJSONObject(i); val assets = r.getJSONArray("assets")
             for (j in 0 until assets.length()) {
@@ -145,6 +148,8 @@ class Instalador(private val ctx: Context, private val c: Caminhos) {
         }
         throw Falha(ctx.getString(R.string.erro_rede, "redirect"))
     }
+
+    private fun existe(url: String): Boolean = try { abre(url).run { disconnect(); true } } catch (_: Exception) { false }
 
     private fun texto(url: String): String = try { abre(url).inputStream.use { it.readBytes().decodeToString() } }
         catch (e: Falha) { throw e } catch (e: Exception) { throw Falha(ctx.getString(R.string.erro_rede, e.message ?: e.javaClass.simpleName)) }

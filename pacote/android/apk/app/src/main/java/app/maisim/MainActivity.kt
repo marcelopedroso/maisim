@@ -92,6 +92,7 @@ class MainActivity : Activity() {
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun configuraWeb() {
+        if (BuildConfig.DEBUG) WebView.setWebContentsDebuggingEnabled(true)   // o APK de teste: chrome://inspect pelo cabo
         web.settings.javaScriptEnabled = true
         web.settings.domStorageEnabled = true
         web.webViewClient = object : WebViewClient() {

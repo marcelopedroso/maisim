@@ -40,6 +40,7 @@ android {
             signingConfig = if (System.getenv("MAISIM_KEYSTORE") != null) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
         }
     }
+    buildFeatures { buildConfig = true }
     packaging { jniLibs { useLegacyPackaging = true } }    // extrai os .so (sem isso o proot não fica executável)
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
