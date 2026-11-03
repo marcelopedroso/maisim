@@ -3288,6 +3288,10 @@ if (MOVEL) (() => {
     casca({ tipo: "painel", on: ha });
     if (!ha) { document.body.classList.remove("mv-cheia"); return; }
     document.body.classList.remove("mv-paleta"); alca($("props"), fechaProps); $("props").scrollTop = 0; mostraSelecionado();
+    const e = selecionado && selecionado(), bts = $("props").querySelector(".botoes");   // o Mover, ao lado do Girar
+    if (e && bts && !bts.querySelector("#mv-mover") && ed.ligado && !simulando()) {
+      const b = document.createElement("button"); b.id = "mv-mover"; b.type = "button"; b.textContent = tr("simu.mv_mover");
+      b.onclick = () => comecaAMover(e); bts.prepend(b); }
   };
   function mostraSelecionado() {
     const e = selecionado && selecionado(); if (!e || !dados) return; const r = $("svg").getBoundingClientRect(), esc = ver.w / r.width;
@@ -3297,30 +3301,29 @@ if (MOVEL) (() => {
   // a paleta: escolher um componente fecha a gaveta (o próximo toque na folha põe o componente)
   const escolheOriginal = escolhe;
   escolhe = function (item) { const r = escolheOriginal.apply(this, arguments); if (item) { document.body.classList.remove("mv-paleta"); casca({ tipo: "painel", on: false }); } return r; };
-  // dois dedos: zoom e mover; um dedo arrastando: mover (o toque simples continua sendo o clique: selecionar, pôr, ligar).
-  // Tocar e segurar numa peça (meio segundo, o celular vibra): ela gruda no dedo e anda pela grade, como arrastar com o mouse
-  // no PC (o mesmo código: os eventos de mouse que o editor já entende; o movimento vai para o Desfazer)
-  const svg = $("svg"), toques = new Map(); let ini = null, pega = null;
-  const mouse = (tipo, alvo, x, y) => alvo.dispatchEvent(new MouseEvent(tipo, { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, buttons: tipo === "mouseup" ? 0 : 1 }));
-  const larga = () => { if (pega) clearTimeout(pega.timer); pega = null; };
+  // dois dedos: zoom e mover; um dedo arrastando: mover a folha (o toque simples continua sendo o clique: selecionar, pôr,
+  // ligar). Mudar uma peça de lugar é pelo Mover do painel dela (abaixo): no celular, arrastar o dedo sobre o desenho moveria
+  // peças sem querer, e o "toque longo" é do Android (ele cancela o gesto)
+  const svg = $("svg"), toques = new Map(); let ini = null;
   svg.addEventListener("contextmenu", (ev) => ev.preventDefault());              // segurar não abre o menu do navegador
-  svg.addEventListener("pointerdown", (ev) => { if (ev.pointerType !== "touch") return;
-    const g = ev.target.closest && ev.target.closest(".el");
-    if (toques.size === 0 && g && ed.ligado && !ed.colocar && !ed.fio.modo && !ed.conector && !simulando()) {
-      const x = ev.clientX, y = ev.clientY, alvo = ev.target;
-      pega = { x, y, ativo: false, timer: setTimeout(() => { if (!pega) return; pega.ativo = true; ini = null;
-        if (navigator.vibrate) try { navigator.vibrate(25); } catch (e) { /* ok */ }
-        svg.classList.add("mv-pegou"); mouse("mousedown", alvo, x, y); }, 450) };
-    } else larga();
+  // o Mover (Marcelo, 03/11): toca na peça, no Mover, e o próximo toque na folha é onde ela fica (o mesmo MOVE do campo
+  // "posição" do painel: vai para o Desfazer). A faixa no topo diz o que fazer e tem o Cancelar
+  let movendo = null;
+  const faixa = document.createElement("div"); faixa.id = "mv-faixa"; faixa.hidden = true;
+  faixa.innerHTML = '<span></span><button type="button"></button>'; document.body.append(faixa);
+  const paraDeMover = () => { movendo = null; faixa.hidden = true; };
+  faixa.querySelector("button").onclick = paraDeMover;
+  function comecaAMover(e) {
+    movendo = e; fechaProps();
+    faixa.querySelector("span").textContent = tr("simu.mv_mover_aviso", { nome: e.nome });
+    faixa.querySelector("button").textContent = tr("simu.mv_cancelar"); faixa.hidden = false;
+  }
+  ["mousedown", "click"].forEach((t) => svg.addEventListener(t, (ev) => { if (movendo) { ev.stopImmediatePropagation(); ev.preventDefault(); } }, true));
+  svg.addEventListener("mouseup", (ev) => {
+    if (!movendo) return; ev.stopImmediatePropagation(); ev.preventDefault();
+    const e = movendo, [x, y] = grade(ev); paraDeMover();
+    if (x !== e.x || y !== e.y) pede("MOVE", [qualificado(e), x, y], tr("simu.d_movido", { nome: e.nome }));
   }, true);
-  svg.addEventListener("pointermove", (ev) => { if (!pega || ev.pointerType !== "touch") return;
-    if (pega.ativo) { ev.stopImmediatePropagation(); mouse("mousemove", window, ev.clientX, ev.clientY); return; }
-    if (Math.hypot(ev.clientX - pega.x, ev.clientY - pega.y) > 8) larga();         // mexeu antes do tempo: é mover a folha
-  }, true);
-  ["pointerup", "pointercancel"].forEach((t) => svg.addEventListener(t, (ev) => { if (!pega || ev.pointerType !== "touch") return;
-    if (pega.ativo) { ev.stopImmediatePropagation(); toques.delete(ev.pointerId); ini = null; svg.classList.remove("mv-pegou");
-      mouse("mouseup", window, ev.clientX, ev.clientY); }
-    larga(); }, true));
   const pontoSvg = (v, r, x, y) => ({ x: v.x + (x - r.left) / r.width * v.w, y: v.y + (y - r.top) / r.height * v.h });
   svg.addEventListener("pointerdown", (ev) => { if (ev.pointerType !== "touch") return; toques.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
     const r = svg.getBoundingClientRect(), p = [...toques.values()], cx = p.reduce((a, q) => a + q.x, 0) / p.length, cy = p.reduce((a, q) => a + q.y, 0) / p.length;

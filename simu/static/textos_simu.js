@@ -131,6 +131,9 @@ maisimI18n.add({
   "simu.dica_abre_sm": { pt: "clique para abrir a folha de dentro", en: "click to open the sheet inside" },
   // o que vai para o histórico (e o desfazer)
   "simu.d_movido": { pt: "movido {nome}", en: "moved {nome}" },
+  "simu.mv_mover": { pt: "Mover", en: "Move" },
+  "simu.mv_mover_aviso": { pt: "Toque onde colocar o {nome}", en: "Tap where to place {nome}" },
+  "simu.mv_cancelar": { pt: "Cancelar", en: "Cancel" },
   "simu.d_girado": { pt: "girado {nome}", en: "rotated {nome}" },
   "simu.fio_desfeito": { pt: "conexão desfeita · W sai do modo conexão", en: "wire undone · W leaves wire mode" },
   "simu.nao_gira": { pt: "o Gecko não gira bloco de controle nem subcircuito; para ligar sem fio, dê o mesmo rótulo aos dois terminais", en: "Gecko does not rotate control blocks or subcircuits; to connect without a wire, give both terminals the same label" },

@@ -20,5 +20,12 @@ maisimI18n.add({
   "mv.cam_medicoes": { pt: "Medições (A, V+ e V−)", en: "Measurements (A, V+ and V−)" }, "mv.cam_corrente": { pt: "Sentido da corrente", en: "Current direction" },
   "mv.pronta": { pt: "Rodada pronta · {n} amostras", en: "Run ready · {n} samples" }, "mv.ver_scope": { pt: "Ver scope", en: "View scope" },
   "mv.msd_lendo": { pt: "Lendo o .msd…", en: "Reading the .msd…" }, "mv.msd_ok": { pt: "{nome} importado", en: "{nome} imported" }, "mv.msd_erro": { pt: "Não deu para importar: {erro}", en: "Could not import: {erro}" },
-  "mv.abrir": { pt: "Abrir", en: "Open" }
+  "mv.abrir": { pt: "Abrir", en: "Open" },
+  "mv.tipo_windows": { pt: "Windows", en: "Windows" }, "mv.tipo_appimage": { pt: "Linux (AppImage)", en: "Linux (AppImage)" },
+  "mv.tipo_pasta": { pt: "Android / Linux ARM", en: "Android / Linux ARM" }, "mv.tipo_fonte": { pt: "código-fonte", en: "source code" },
+  "mv.atu_em_dia": { pt: "é a mais nova", en: "it is the latest" }, "mv.atu_sem_rede": { pt: "sem internet para conferir", en: "no internet to check" },
+  "mv.atu_nova": { pt: "há a {versao}", en: "{versao} is available" }, "mv.atu_baixando": { pt: "baixando a {versao}… {pct}", en: "downloading {versao}… {pct}" },
+  "mv.atu_instalando": { pt: "instalando a {versao}; o MaiSim reinicia sozinho", en: "installing {versao}; MaiSim restarts on its own" },
+  "mv.atu_erro": { pt: "não deu para atualizar: {erro}", en: "could not update: {erro}" },
+  "mv.atualizar": { pt: "Atualizar", en: "Update" }, "mv.verificar": { pt: "Verificar", en: "Check" }
 });
