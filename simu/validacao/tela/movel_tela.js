@@ -195,7 +195,16 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     const campoNome = pg.frameLocator("#f-simu").locator(".modal input").first();
     if (await campoNome.count()) { await campoNome.fill("movel_novo_teste"); await pg.frameLocator("#f-simu").locator(".modal button.primario, .modal .m-ok").first().tap(); await pg.waitForTimeout(2000); }
     ok(/movel_novo_teste/.test(await pg.locator("#titulo").textContent()) && !(await pg.locator('.aba[data-tab="circuito"]').isDisabled()), `+ Novo circuito: o nome pedido vira o título ("${await pg.locator("#titulo").textContent()}")`);
-    await pg.locator('.aba[data-tab="inicio"]').tap(); await pg.waitForTimeout(500);   // de volta ao exemplo_boost (o novo, vazio, se for o caso, descartado)
+    // o novo, ainda sem arquivo, com uma peça: o app reaberto mostra "Aberto agora" (o servidor diz arquivo: null) e tocar abre o
+    // mesmo rascunho, com a peça, sem perguntar (Codex, #207)
+    await pg.frames().find((f) => /\/maisim\/simu\/\?movel=1/.test(f.url())).evaluate(() => pede("CREATE", ["R.1", 10, 10, "R"], "teste")); await pg.waitForTimeout(1200);
+    await pg.reload(); await pg.waitForTimeout(2500);
+    const cardR = await pg.locator("#g-aberto").isVisible() ? await pg.locator("#g-aberto").innerText() : "";
+    await pg.locator("#aberto-bt").tap().catch(() => {}); await pg.waitForTimeout(4500);
+    const rasc = await pg.frames().find((f) => /\/maisim\/simu\/\?movel=1/.test(f.url())).evaluate(() => dados ? dados.folhas[folhaAtual].elementos.map((e) => e.nome) : []).catch(() => []);
+    ok(/sem nome/.test(cardR) && /sem salvar/.test(cardR) && rasc.includes("R.1") && await pg.frameLocator("#f-simu").locator(".modal").count() === 0,
+      `o circuito novo sem arquivo, com uma peça: "Aberto agora" ("${cardR.replace(/\n/g, " · ")}") abre o rascunho como está (${rasc.join(",")})`);
+    await pg.locator('.aba[data-tab="inicio"]').tap(); await pg.waitForTimeout(500);   // de volta ao exemplo_boost (o rascunho descartado)
     await pg.locator("#l-exemplos .linha", { hasText: "exemplo_boost" }).first().tap(); await pg.waitForTimeout(4000);
     const d5 = pg.frameLocator("#f-simu").locator(".modal button", { hasText: "Descartar" }); if (await d5.count()) { await d5.first().tap(); await pg.waitForTimeout(3000); }
     // o circuito aberto no servidor, com uma mudança sem salvar: o app reaberto mostra "Aberto agora" no Início, e tocar abre

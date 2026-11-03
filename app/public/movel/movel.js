@@ -120,19 +120,20 @@
     let p = null;
     try { p = await (await fetch("/maisim/simu/editor/pendente", { cache: "no-store" })).json();
       const a = await (await fetch("/maisim/simu/editor/aberto", { cache: "no-store" })).json(); if (a.fechado) p = null; } catch (e) { p = null; }
-    const arq = p && p.arquivo, novo = !!arq && /^\(|sem arquivo/.test(arq);
-    $("g-aberto").hidden = !arq || (arq === est.arq && !p.pendente);
-    if (!arq) return;
-    $("aberto-n").textContent = novo ? tr("mv.novo_sem_nome") : nomeDe(arq);
+    const arq = p && p.arquivo, rascunho = !!p && !arq && !!p.pendente;   // um circuito novo, ainda sem arquivo, com mudanças (Codex, #207)
+    $("g-aberto").hidden = rascunho ? false : !arq || (arq === est.arq && !p.pendente);
+    if (!arq && !rascunho) return;
+    $("aberto-n").textContent = rascunho ? tr("mv.novo_sem_nome") : nomeDe(arq);
     $("aberto-s").textContent = p.pendente ? tr("mv.aberto_sujo", { motivo: p.motivo || "" }) : tr("mv.aberto_ok");
-    $("aberto-bt").onclick = () => novo ? abre(null) : abre(arq);
+    $("aberto-bt").onclick = () => abre(rascunho ? "" : arq);
   }
   // ── abrir um circuito: o editor (no iframe) abre e liga a edição; as abas do circuito acendem ──
   function abre(arq) {
     est.arq = arq; est.nome = ""; est.n = 0; est.painel = est.janela = false; $("titulo").textContent = nomeDe(arq);   // o editor novo começa sem painel nem janela $("sub").textContent = tr("mv.sub_abrindo");
     est.scope = null; fScope.src = "about:blank";             // o scope do circuito anterior não fica (a aba Scope acha a rodada deste)
     document.querySelectorAll('.aba[data-tab="circuito"], .aba[data-tab="controle"], .aba[data-tab="ia"]').forEach((b) => { b.disabled = false; });
-    fSimu.src = arq ? `/maisim/simu/?movel=1&modelo=${encodeURIComponent(arq)}` : "/maisim/simu/?movel=1&novo=1"; aba("circuito");   // (sem arquivo: o novo sem nome do servidor)
+    // (null: um circuito novo, que o editor pede o nome; "": o novo sem nome que o servidor já tem, como está)
+    fSimu.src = arq ? `/maisim/simu/?movel=1&modelo=${encodeURIComponent(arq)}` : arq === "" ? "/maisim/simu/?movel=1&continua=1" : "/maisim/simu/?movel=1&novo=1"; aba("circuito");
   }
   function topo() {
     const com = !!est.arq, t = est.tab;

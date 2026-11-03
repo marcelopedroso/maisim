@@ -3127,9 +3127,10 @@ $("sel-modelo").onchange = async (e) => {
   // pelas mudanças não salvas (abrir o último deste navegador, se for outro, perguntaria antes)
   // Um circuito novo sem nome aberto no servidor: o "+ Novo" não abre nada antes (abrir perguntaria): mostra aquele
   const pedeNovo = !VISTA_CODIGO && new URLSearchParams(location.search).has("novo");
+  const continua = !VISTA_CODIGO && new URLSearchParams(location.search).has("continua");   // (o celular: o circuito novo sem nome do servidor, como está)
   let semNome = null;
-  if (VISTA_CODIGO || pedeNovo) {
-    try { const e = await api("editor/estado"); if (e && arqs.includes(e.arq)) quer = e.arq; else if (pedeNovo && e && !e.fechado && /^\(/.test(e.arq || "")) semNome = e; }
+  if (VISTA_CODIGO || pedeNovo || continua) {
+    try { const e = await api("editor/estado"); if (e && arqs.includes(e.arq)) quer = e.arq; else if ((pedeNovo || continua) && e && !e.fechado && /^\(/.test(e.arq || "")) semNome = e; }
     catch (e) { /* o último deste navegador */ } }
   try { quer = quer || localStorage.getItem("maisim-simu-modelo"); } catch (e) { /* ok */ }
   let fechado = false;                                   // fechado no editor e nada pedido no endereço: começa vazio

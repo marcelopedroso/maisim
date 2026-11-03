@@ -7,7 +7,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Added
-- **Phone app: “Open now” at the top of Home**: the circuit open on the server (MaiSim keeps it, even with the app closed), with “not saved” when it has changes; one tap opens it as it is, changes kept, to save or undo. Before, the phone showed no open circuit (its Circuit tab was greyed out), so when Update refused because of unsaved changes there was no way to find them without the PC screen. A refused Update also refreshes this card.
+- **Phone app: “Open now” at the top of Home**: the circuit open on the server (MaiSim keeps it, even with the app closed), with “not saved” when it has changes; one tap opens it as it is, changes kept, to save or undo (a new circuit not saved yet shows as “new circuit (no name)”). Before, the phone showed no open circuit (its Circuit tab was greyed out), so when Update refused because of unsaved changes there was no way to find them without the PC screen. A refused Update also refreshes this card.
 - **Phone app: + New circuit in Home**: a blank sheet, as on the PC (the editor asks for the name, and what to do with unsaved changes). The phone could only open existing circuits.
 - **Phone app: Open in a subcircuit's panel**: on the PC you enter a subcircuit by double-clicking it, which a phone never delivers (the first tap opens the panel and moves the view).
 - **Phone app: the editor's errors show up**: they went to the editor's header, which the phone hides (a run that failed, a wire that could not be made, a save that failed); they now appear in the app's notice, in red, and a Save from the ⋯ menu says where it saved.
