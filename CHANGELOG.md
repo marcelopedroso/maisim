@@ -6,6 +6,8 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+## [0.3.8] - 2026-11-03
+
 ### Added
 - **The Android app checks the phone before setting up**: not enough free space for what is still missing (the Linux base, MaiSim) stops with a clear message (how much it needs, how much is free) instead of failing halfway; less than 3 GB of RAM shows a warning and lets you try. Android 10+ and 64-bit ARM are enforced by Android's installer itself.
 - **MaiSim for Android, the APK (`app.maisim`)**: one file to download and open, no Termux. The app carries proot (Termux's, prebuilt and checked by SHA-256) as native libraries, and on first launch downloads and sets up Ubuntu Base 24.04 (arm64, checked against Canonical's SHA256SUMS), the basic tools (curl, for the AI installers) and this version's MaiSim ARM package, with a progress screen. Then it shows the phone app (`/movel.html`) in a WebView, keeps MaiSim running in a foreground service (with Stop), saves exports to Downloads and opens the file picker for imports. Your circuits stay outside Ubuntu, and MaiSim's Update button replaces only the program (tested on a real phone from rc3 to rc4). The packages workflow builds it, signs it with the official key and checks the certificate against the one registered with Google (`pacote/android/apk/chave.sha256`) before attaching `MaiSim-Android-<version>.apk` (and `MaiSim-Android.apk`) to the Release. Third parties: `pacote/android/apk/NOTICE.md`.
