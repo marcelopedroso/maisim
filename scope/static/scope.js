@@ -1727,9 +1727,10 @@ function desenhaIndice() {
 }
 function aplicaVisibilidade() {
   const gs = gruposMostraveis(), ks = new Set(gs.map((g) => g.k)); let mudou = false;
-  if (indice.unica && gs.length && !ks.has(indice.secao)) { indice.secao = gs[0].k; desenhaIndice(); }
+  const unica = indice.unica && !document.body.classList.contains("movel");   // no celular, sem o índice para trocar de seção: todas
+  if (unica && gs.length && !ks.has(indice.secao)) { indice.secao = gs[0].k; desenhaIndice(); }
   for (const g of grupos()) {
-    const ver = ks.has(g.k) && (!indice.unica || g.k === indice.secao);
+    const ver = ks.has(g.k) && (!unica || g.k === indice.secao);
     if (g.s) { const n = g.ps.filter(mostravel).length; g.s.el.querySelector(".n-rec").textContent = g.s.recolhida ? tr("scope.n_paineis", { n }) : ""; }
     for (const [x, v] of (g.s ? [[g.s, ver]] : []).concat(g.ps.map((p) => [p, ver && mostravel(p) && !(g.s && g.s.recolhida)])))
       if (x.el.classList.contains("oculto") === v) { x.el.classList.toggle("oculto", !v); mudou = true; }

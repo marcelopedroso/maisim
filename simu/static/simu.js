@@ -3127,9 +3127,10 @@ $("sel-modelo").onchange = async (e) => {
   // pelas mudanças não salvas (abrir o último deste navegador, se for outro, perguntaria antes)
   // Um circuito novo sem nome aberto no servidor: o "+ Novo" não abre nada antes (abrir perguntaria): mostra aquele
   const pedeNovo = !VISTA_CODIGO && new URLSearchParams(location.search).has("novo");
+  const continua = !VISTA_CODIGO && new URLSearchParams(location.search).has("continua");   // (o celular: o circuito novo sem nome do servidor, como está)
   let semNome = null;
-  if (VISTA_CODIGO || pedeNovo) {
-    try { const e = await api("editor/estado"); if (e && arqs.includes(e.arq)) quer = e.arq; else if (pedeNovo && e && !e.fechado && /^\(/.test(e.arq || "")) semNome = e; }
+  if (VISTA_CODIGO || pedeNovo || continua) {
+    try { const e = await api("editor/estado"); if (e && arqs.includes(e.arq)) quer = e.arq; else if ((pedeNovo || continua) && e && !e.fechado && /^\(/.test(e.arq || "")) semNome = e; }
     catch (e) { /* o último deste navegador */ } }
   try { quer = quer || localStorage.getItem("maisim-simu-modelo"); } catch (e) { /* ok */ }
   let fechado = false;                                   // fechado no editor e nada pedido no endereço: começa vazio
@@ -3292,6 +3293,9 @@ if (MOVEL) (() => {
     if (e && bts && !bts.querySelector("#mv-mover") && ed.ligado && !simulando()) {
       const b = document.createElement("button"); b.id = "mv-mover"; b.type = "button"; b.textContent = tr("simu.mv_mover");
       b.onclick = () => comecaAMover(e); bts.prepend(b); }
+    if (e && e.tipo === "SUBCIRCUIT" && dados.folhas[e.uid] && bts && !bts.querySelector("#mv-abre-sub")) {   // entrar no subcircuito: no PC é o duplo clique,
+      const b = document.createElement("button"); b.id = "mv-abre-sub"; b.type = "button"; b.textContent = tr("simu.mv_abre_sub");   // que no celular não chega (o 1º toque abre o painel)
+      b.onclick = () => { fechaProps(); abre(e.uid); }; bts.prepend(b); }
   };
   function mostraSelecionado() {
     const e = selecionado && selecionado(); if (!e || !dados) return; const r = $("svg").getBoundingClientRect(), esc = ver.w / r.width;
@@ -3376,16 +3380,25 @@ if (MOVEL) (() => {
     const pedidos = { vista: () => vista(m.vista), rodar: () => $("bt-play").click(), pausar: () => $("bt-pausa").click(), parar: () => $("bt-parar").click(),
       paleta: () => { document.body.classList.remove("mv-props"); alca($("paleta"), () => { document.body.classList.remove("mv-paleta", "mv-cheia"); casca({ tipo: "painel", on: false }); });
         casca({ tipo: "painel", on: document.body.classList.toggle("mv-paleta") }); },
-      parametros: () => parametrosSim(), globais: () => variaveisGlobais(), salvar: () => $("bt-salvar").click(), salvar_como: () => $("bt-salvar-como").click(),
+      parametros: () => parametrosSim(), globais: () => variaveisGlobais(), salvar: () => { esperaSalvo = Date.now(); $("bt-salvar").click(); }, salvar_como: () => { esperaSalvo = Date.now(); $("bt-salvar-como").click(); },
       desfazer: () => desfazer(), ajustar: () => ajusta(), camada: () => { const b = $(m.id); if (b) b.click(); }, contas: () => typeof abreJanelaClaude === "function" && abreJanelaClaude() };
     if (pedidos[m.cmd]) pedidos[m.cmd]();
   });
   // aberto: liga a edição (no celular não há o cadeado no cabeçalho) e conta à casca o circuito
+  let esperaSalvo = 0;                                       // um Salvar / Salvar como pedido pela casca: o "salvo em…" vai para ela também
+  const msgOriginal = msg;
+  msg = function (t, tipo) {
+    msgOriginal.apply(this, arguments);
+    if (tipo === "erro") casca({ tipo: "msg", texto: t, erro: true });
+    else if (tipo === "ok" && esperaSalvo && Date.now() - esperaSalvo < 120000) { esperaSalvo = 0; casca({ tipo: "msg", texto: t }); }
+  };
   (async function avisaAberto() {
     for (let k = 0; k < 200 && !dados; k++) await new Promise((ok) => setTimeout(ok, 100));
     if (!dados) return;
     if (!ed.ligado) { try { await liga(true); } catch (e) { /* só ver */ } }
-    casca({ tipo: "aberto", arq: $("sel-modelo").value || "", scope: urlScope(sim.ultimo), elementos: dados.folhas[folhaAtual].elementos.length, camadas: ["bt-controle", "bt-rotulos", "bt-medicoes", "bt-corrente"].map((id) => ({ id, on: $(id).classList.contains("ativo") })) });
+    if (typeof ccAbre === "function") { const ccAbreOriginal = ccAbre;   // (o claude_chat.js carrega depois deste arquivo: aqui ele já está)
+      ccAbre = function (on) { const r = ccAbreOriginal.apply(this, arguments); if (typeof cc !== "undefined" && cc.aberto && document.body.classList.contains("vm-controle")) casca({ tipo: "aba", aba: "ia" }); return r; }; }
+    casca({ tipo: "aberto", arq: $("sel-modelo").value || "", nome: $("sel-modelo").value === NOVO ? ed.novo : "", scope: urlScope(sim.ultimo), elementos: dados.folhas[folhaAtual].elementos.length, camadas: ["bt-controle", "bt-rotulos", "bt-medicoes", "bt-corrente"].map((id) => ({ id, on: $(id).classList.contains("ativo") })) });
     setTimeout(ajusta, 80);
     // o arquivo do circuito muda sem a casca pedir (Salvar como…, Novo, abrir outro aqui dentro): ela fica sabendo (o título,
     // o Exportar .msd e o Início usam o arquivo de agora)
@@ -3394,6 +3407,6 @@ if (MOVEL) (() => {
     new MutationObserver(() => { const j = !!document.querySelector(".modal"); if (j !== janela) { janela = j; casca({ tipo: "janela", on: j }); } })
       .observe(document.body, { childList: true, subtree: true });
     let arq = $("sel-modelo").value || "";
-    setInterval(() => { const a = $("sel-modelo").value || ""; if (a !== arq) { arq = a; casca({ tipo: "arquivo", arq: a }); } }, 700);
+    setInterval(() => { const a = $("sel-modelo").value || ""; if (a !== arq) { arq = a; casca({ tipo: "arquivo", arq: a, nome: a === NOVO ? ed.novo : "" }); } }, 700);
   })();
 })();
