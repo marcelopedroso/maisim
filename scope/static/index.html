@@ -304,6 +304,14 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
   body.movel #indice { display:none; }
   body.movel .cab button { min-width:36px; min-height:36px; }
   body.movel .u-over { touch-action:none; }
+  /* o Comparar A/B a um toque no celular (com o cabeçalho recolhido, a escolha das rodadas fica escondida atrás do ▾) */
+  #bt-ab { display:none; }
+  body.movel header.recolhido #bt-ab { display:inline-block; margin-left:auto; }
+  body.movel header.recolhido #bt-cab { margin-left:6px; }
+  /* no celular, a linha recolhida quebra (correndo para o lado, o A/B e o ▾ ficavam fora da tela num celular estreito) e
+     o status sai (cortado, só mostrava "A…") */
+  body.movel header.recolhido { flex-wrap:wrap; overflow-x:visible; }
+  body.movel header.recolhido #status { display:none; }
 </style>
 </head>
 <body>
@@ -344,6 +352,7 @@ A seta ▾ recolhe a seção (os painéis somem até abrir de novo) ou o painel 
 ⤢ expande o painel para a janela inteira; Esc, ⤡ ou um clique fora volta.
 Sinais de passo fino (pulsos, tensões PWM, medidas do Gecko) aparecem a cada 1 µs com zoom abaixo de 40 ms; com zoom maior, como média em cada janela de 20 µs.
 A em cores; B em preto tracejado.">?</button>
+    <button id="bt-ab" type="button" title="comparar duas rodadas (A e B): abre o cabeçalho com a escolha das rodadas" data-tr-title="scope.h.t_ab" data-tr="scope.h.ab">Comparar A/B</button>
     <button id="bt-cab" aria-expanded="true" title="recolher o cabeçalho: numa linha, só a rodada e + Painel, + Painel XY, + Seção, Por linha" data-tr-title="scope.h.t_cab_recolher">▴</button>
   </div>
 </header>

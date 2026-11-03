@@ -89,7 +89,15 @@
     $("atu-v").textContent = `MaiSim ${ATU.versao}`; $("atu-s").textContent = `${tipoNome(ATU.tipo)} · ${s}`;
     const b = $("atu-bt"); b.hidden = false; b.disabled = !!(ap && ap.fase !== "erro");
     b.textContent = bt || tr("mv.verificar"); b.dataset.acao = bt ? "aplicar" : "verificar"; b.classList.toggle("pri", !!bt);
+    $("atu-canal").hidden = soGit; $("atu-canal-bt").setAttribute("aria-checked", String(ATU.canal === "teste"));
   }
+  // o canal (o mesmo da janela do PC): as versões de teste (-rc) ou só as estáveis; a escolha já refaz a "há a …"
+  $("atu-canal-bt").onclick = async () => {
+    const ch = $("atu-canal-bt"), canal = ch.getAttribute("aria-checked") === "true" ? "estavel" : "teste"; ch.disabled = true;
+    try { const j = await (await fetch("/maisim/simu/atualizacao/canal", { method: "POST", headers: { "Content-Type": "application/json", "X-MaiSim": "1" }, body: JSON.stringify({ canal }) })).json();
+      if (j && j.versao) ATU = j; } catch (e) { /* fica */ }
+    ch.disabled = false; pintaVersao();
+  };
   $("atu-bt").onclick = async () => {
     const b = $("atu-bt"); b.disabled = true;
     try { const j = await (await fetch(`/maisim/simu/atualizacao/${b.dataset.acao}`, { method: "POST", headers: { "Content-Type": "application/json", "X-MaiSim": "1" }, body: "{}" })).json();
@@ -109,6 +117,7 @@
   // ── abrir um circuito: o editor (no iframe) abre e liga a edição; as abas do circuito acendem ──
   function abre(arq) {
     est.arq = arq; est.n = 0; est.painel = est.janela = false; $("titulo").textContent = nomeDe(arq);   // o editor novo começa sem painel nem janela $("sub").textContent = tr("mv.sub_abrindo");
+    est.scope = null; fScope.src = "about:blank";             // o scope do circuito anterior não fica (a aba Scope acha a rodada deste)
     document.querySelectorAll('.aba[data-tab="circuito"], .aba[data-tab="controle"], .aba[data-tab="ia"]').forEach((b) => { b.disabled = false; });
     fSimu.src = `/maisim/simu/?movel=1&modelo=${encodeURIComponent(arq)}`; aba("circuito");
   }
@@ -124,7 +133,7 @@
     $("t-inicio").hidden = t !== "inicio"; $("t-simu").hidden = !["circuito", "controle", "ia"].includes(t); $("t-scope").hidden = t !== "scope";
     $("paleta").hidden = t !== "circuito" || est.painel || est.janela;
     if (["circuito", "controle", "ia"].includes(t)) pedeSimu({ cmd: "vista", vista: t });
-    if (t === "scope" && !fScope.getAttribute("src")) fScope.src = est.scope || "/maisim/scope/?movel=1";
+    if (t === "scope") mostraScope();
     if (t === "inicio") { carregaModelos(); carregaVersao(); }
     topo();
   }
@@ -133,6 +142,21 @@
   $("paleta").onclick = () => pedeSimu({ cmd: "paleta" });
   $("contas").onclick = () => { if (!fSimu.getAttribute("src")) fSimu.src = "/maisim/simu/?movel=1"; est.querContas = true; aba("circuito"); pedeSimu({ cmd: "contas" }); };
 
+  // a aba Scope: a rodada do circuito aberto; aberto e sem nenhuma, só o aviso (o scope sem rodada se liga à rodada ao vivo do
+  // servidor, que pode ser de outro circuito); sem circuito aberto, o scope geral (a rodada ao vivo)
+  function mostraScope() {
+    const vazio = !!est.arq && !est.scope; $("scope-vazio").hidden = !vazio; fScope.hidden = vazio;
+    const u = vazio ? "about:blank" : est.scope || "/maisim/scope/?movel=1";
+    if (fScope.getAttribute("src") !== u) fScope.src = u;
+  }
+  // a última rodada gravada do circuito aberto (nenhuma: o aviso, até rodar)
+  async function ultimaDoCircuito(arq) {
+    let u = null;
+    try { const r = await (await fetch("/maisim/scope/rodadas")).json();
+      const x = r.filter((y) => y.modelo && (y.modelo === arq || y.modelo.endsWith("/" + arq))).sort((a, b) => b.mtime - a.mtime)[0]; if (x) u = `/maisim/scope/?so=rodada&a=${encodeURIComponent(x.arq)}&movel=1`; } catch (e) { /* sem a lista: vazio */ }
+    if (arq !== est.arq || est.scope) return;                 // outro circuito aberto (ou uma rodada nova) no meio
+    est.scope = u; if (est.tab === "scope") mostraScope();
+  }
   // ── o ▶ e o andamento (o editor conta pelo postMessage) ──
   $("rodar").onclick = () => pedeSimu({ cmd: est.vivo ? "parar" : "rodar" });
   const si = (v) => v >= 1 ? `${+v.toPrecision(3)} s` : v >= 1e-3 ? `${+(v * 1e3).toPrecision(3)} ms` : `${+(v * 1e6).toPrecision(3)} µs`;
@@ -143,9 +167,9 @@
     if (m.tipo === "painel") est.painel = m.on;
     if (m.tipo === "janela") est.janela = m.on;
     if (m.tipo === "painel" || m.tipo === "janela") $("paleta").hidden = est.painel || est.janela || est.tab !== "circuito";   // o + não cobre o painel nem a janela   // o painel ou a paleta abertos: o + sai da frente
-    if (m.tipo === "scope" || (m.tipo === "aberto" && m.scope && !fScope.getAttribute("src"))) {   // a rodada ao vivo ou a terminada
-      const u = m.url || m.scope; est.scope = u + (u.includes("?") ? "&" : "?") + "movel=1";
-      if (m.tipo === "scope" || est.tab === "scope") { if (fScope.getAttribute("src") !== est.scope) fScope.src = est.scope; } }
+    if (m.tipo === "scope") {                                   // a rodada ao vivo ou a que terminou agora
+      est.scope = m.url + (m.url.includes("?") ? "&" : "?") + "movel=1"; mostraScope(); }
+    if (m.tipo === "aberto" && !est.scope) ultimaDoCircuito(m.arq || est.arq);   // aberto: a última rodada DESTE circuito (o editor conta a do servidor, de qualquer um)
     if (m.tipo === "aberto") { est.n = m.elementos; est.camadas = m.camadas || []; if (m.arq) est.arq = m.arq; if (est.querContas) { est.querContas = false; pedeSimu({ cmd: "contas" }); } topo(); }
     if (m.tipo === "rodada") {
       const vivo = ["preparando", "rodando", "pausada"].includes(m.estado), era = est.vivo; est.vivo = vivo;
