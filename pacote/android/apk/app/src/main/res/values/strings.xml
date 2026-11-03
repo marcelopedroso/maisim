@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MaiSim</string>
+    <string name="preparando">Getting MaiSim ready</string>
+    <string name="primeira_vez">The first time takes a few minutes and needs the internet (about 200 MB).</string>
+    <string name="testando">Checking the phone…</string>
+    <string name="baixando_ubuntu">Downloading the Linux base…</string>
+    <string name="extraindo_ubuntu">Installing the Linux base…</string>
+    <string name="baixando_maisim">Downloading MaiSim %1$s…</string>
+    <string name="extraindo_maisim">Installing MaiSim…</string>
+    <string name="ligando">Starting MaiSim…</string>
+    <string name="ligando_1a">Starting MaiSim (the first time it also installs what it needs)…</string>
+    <string name="ferramentas">Installing the basic tools (curl)…</string>
+    <string name="erro_ferramentas">Could not install curl inside Linux (see the lines above). Try again.</string>
+    <string name="tentar">Try again</string>
+    <string name="parar">Stop</string>
+    <string name="notif_canal">MaiSim running</string>
+    <string name="notif_texto">The simulator is on. Tap to open; Stop turns it off.</string>
+    <string name="salvo">Saved to Downloads: %1$s</string>
+    <string name="erro_salvar">Could not save: %1$s</string>
+    <string name="erro_proot">This phone could not start the Linux base (proot): %1$s</string>
+    <string name="erro_rede">No internet: %1$s</string>
+    <string name="erro_parou">MaiSim stopped (code %1$d). See the lines above.</string>
+    <string name="erro_conferencia">The download did not check out (SHA-256). Try again.</string>
+    <string name="erro_sem_pacote">MaiSim\'s ARM package was not found.</string>
+</resources>
