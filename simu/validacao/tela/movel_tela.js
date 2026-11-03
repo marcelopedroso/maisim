@@ -102,13 +102,18 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     await simu.evaluate(() => { const s = document.getElementById("sel-modelo"), o = new Option("copia_movel.ipes", "circuitos/copia_movel.ipes"); s.add(o); s.value = o.value; });
     await pg.locator('.aba[data-tab="circuito"]').tap(); await pg.waitForTimeout(1500);
     ok(/copia_movel/.test(await pg.locator("#titulo").textContent()), `depois de Salvar como…, a casca usa o arquivo novo: "${await pg.locator("#titulo").textContent()}"`);
-    // o ⋯: a ⚙ (os parâmetros da simulação) abre no editor, sem foco
+    // o ⋯: a ⚙ (os parâmetros da simulação) abre no editor, sem foco (e o + sai da frente dela; abrir outro circuito com
+    // ela aberta: o editor novo começa sem janela, e o + volta)
     await pg.locator('.aba[data-tab="circuito"]').tap(); await pg.waitForTimeout(800);
     await pg.locator("#mais").tap(); await pg.waitForTimeout(500);
     await pg.locator("#g-corpo .menu-lista button").first().tap(); await pg.waitForTimeout(1200);
     const ps = await simu.evaluate(() => { const a = document.activeElement; return { modal: !!document.querySelector(".modal"), foco: a ? a.tagName : "" }; });
     ok(ps.modal && ps.foco !== "INPUT", `⋯ → Simulação abre a ⚙ do editor, sem foco (foco em ${ps.foco})`);
     ok(await pg.locator("#paleta").isHidden(), "com uma janela do editor aberta, o + sai da frente");
+    await pg.locator('.aba[data-tab="inicio"]').tap(); await pg.waitForTimeout(500);
+    await pg.locator("#l-exemplos .linha", { hasText: "exemplo_boost" }).first().tap(); await pg.waitForTimeout(4000);
+    const desc2 = pg.frameLocator("#f-simu").locator(".modal button", { hasText: "Descartar" }); if (await desc2.count()) { await desc2.first().tap(); await pg.waitForTimeout(3000); }
+    ok(await pg.locator("#paleta").isVisible(), "abrir outro circuito com uma janela aberta: o + volta (o editor novo começa sem janela)");
     ok(!erros.length, `sem erros na casca${erros.length ? ": " + erros.join(" · ") : ""}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message}`); }
   finally { if (b) await b.close(); }

@@ -72,7 +72,7 @@
 
   // ── abrir um circuito: o editor (no iframe) abre e liga a edição; as abas do circuito acendem ──
   function abre(arq) {
-    est.arq = arq; est.n = 0; $("titulo").textContent = nomeDe(arq); $("sub").textContent = tr("mv.sub_abrindo");
+    est.arq = arq; est.n = 0; est.painel = est.janela = false; $("titulo").textContent = nomeDe(arq);   // o editor novo começa sem painel nem janela $("sub").textContent = tr("mv.sub_abrindo");
     document.querySelectorAll('.aba[data-tab="circuito"], .aba[data-tab="controle"], .aba[data-tab="ia"]').forEach((b) => { b.disabled = false; });
     fSimu.src = `/maisim/simu/?movel=1&modelo=${encodeURIComponent(arq)}`; aba("circuito");
   }

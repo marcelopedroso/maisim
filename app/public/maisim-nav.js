@@ -41,6 +41,7 @@
     "nav.tipo_windows": { pt: "Windows (instalado)", en: "Windows (installed)" },
     "nav.tipo_appimage": { pt: "Linux (AppImage)", en: "Linux (AppImage)" },
     "nav.tipo_fonte": { pt: "código-fonte", en: "source code" },
+    "nav.tipo_pasta": { pt: "Linux ARM (pasta)", en: "Linux ARM (folder)" },
     // a versão de programador (pelo git): "0.3.5 +2" = dois commits depois da v0.3.5 (o número só muda na release)
     "nav.versao_depois": { pt: "+{n}", en: "+{n}" },
     "nav.versao_commit": { pt: "{versao} ({commit})", en: "{versao} ({commit})" },
@@ -308,7 +309,7 @@
   const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const postAtu = (rota, corpo) => fetch(`/maisim/simu/atualizacao/${rota}`, { method: "POST", headers: { "Content-Type": "application/json", "X-MaiSim": "1" },
     body: JSON.stringify(corpo || {}) }).then((r) => r.json());
-  const tipoAtu = (e) => tr(`nav.tipo_${e && ["windows", "appimage", "fonte"].includes(e.tipo) ? e.tipo : "fonte"}`);
+  const tipoAtu = (e) => tr(`nav.tipo_${e && ["windows", "appimage", "pasta", "fonte"].includes(e.tipo) ? e.tipo : "fonte"}`);
   // a versão por extenso: na de programador, os commits depois da tag e o commit ("0.3.5 +2 (a7dffe1)")
   const versaoAtu = (e) => { const v = e.depois ? `${e.versao} ${tr("nav.versao_depois", { n: e.depois })}` : e.versao;
     return e.commit ? tr("nav.versao_commit", { versao: v, commit: e.commit }) : v; };

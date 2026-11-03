@@ -15,7 +15,8 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 - **The folder version updates itself**: the Update button downloads the new `.tar.gz`, checks it, extracts it next to the current folder (no paths outside it), swaps the whole folder and restarts, like the AppImage. It refuses when your data is inside the program's folder (it would delete your circuits).
 
 ### Fixed
-- **Phone app**: the + button no longer covers the editor's windows (AI accounts, ⚙).
+- **Phone app**: the + button no longer covers the editor's windows (AI accounts, ⚙), and comes back when another circuit opens.
+- **The update window names the ARM folder version** (“Linux ARM (folder)”, the Android package); it said “source code”.
 - **The AI install message names the right program** (it said “claude” for Cursor too).
 - **Termux: MaiSim no longer shuts down right after starting**: newer proot-distro shows a fake kernel name without “android”, so `AppRun` thought there was a browser window to watch. The `maisim` command now says there is no browser.
 - **The Android installer updates Termux first**: it upgraded only `curl`, and the new `curl` with Termux's old `openssl` failed ("cannot locate symbol SSL_set_quic_tls_early_data_enabled") before MaiSim was downloaded. It now runs a full, non-interactive upgrade of Termux (changed config files kept) before installing proot-distro and `curl`.
