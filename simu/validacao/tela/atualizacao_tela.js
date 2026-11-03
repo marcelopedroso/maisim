@@ -1,4 +1,4 @@
-// a versão no trilho e a janela da atualização (instância de teste 7700 → 7701; as releases de mentira do config/teste.env):
+// a versão no trilho e a janela da atualização (instância de teste 7200 → 7201; as releases de mentira do config/teste.env):
 // "v0.3.0" sob a marca, com o ponto da release nova; a dica "MaiSim 0.3.0 · código-fonte"; o clique abre a janela com a
 // 9.9.0, as notas em markdown (sem o link javascript: e sem a imagem), o "git pull" (a versão de programador não baixa), o
 // canal teste (a 9.9.1-rc1) e de volta; Depois fecha; em inglês; e a versão no "Sobre e créditos" da página inicial.
@@ -14,7 +14,7 @@ const post = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(`/maisim/simu/at
   try {
     b = await chromium.launch(); pg = await (await b.newContext({ viewport: { width: 1300, height: 800 } })).newPage();
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message));
-    await pg.goto("http://localhost:7700/"); await pg.waitForSelector("#maisim-nav");
+    await pg.goto("http://localhost:7200/"); await pg.waitForSelector("#maisim-nav");
     const E = await post(pg, "verificar", {}).then(() => post(pg, "canal", { canal: "estavel" }));
     const VX = `${V}${E.depois ? ` +${E.depois}` : ""}${E.commit ? ` (${E.commit})` : ""}`;   // a versão por extenso
     ok(E.tipo === "fonte" && !E.git && /^[0-9a-f]{7,}$/.test(E.commit || ""), `a versão de programador, sem o Atualizar pelo git no perfil de teste: commit ${E.commit}, ${E.depois} depois da v${V}`);
@@ -62,7 +62,7 @@ const post = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(`/maisim/simu/at
     await pg.click("#sobre-versao a"); ok(!!(await pg.waitForSelector("#maisim-atu", { timeout: 5000 }).catch(() => null)), "o link de lá abre a janela da atualização");
     await pg.keyboard.press("Escape");
     // em inglês (o trilho numa página do simu)
-    await pg.goto("http://localhost:7700/maisim/scope/"); await pg.waitForSelector("#maisim-nav .versao:not([hidden])", { timeout: 15000 });
+    await pg.goto("http://localhost:7200/maisim/scope/"); await pg.waitForSelector("#maisim-nav .versao:not([hidden])", { timeout: 15000 });
     await pg.evaluate(() => window.maisimI18n.muda("en")); await pg.waitForTimeout(500);
     const tEn = await pg.getAttribute("#maisim-nav .versao", "aria-label");
     await pg.click("#maisim-nav .versao"); await pg.waitForSelector("#maisim-atu h2");
