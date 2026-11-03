@@ -995,6 +995,30 @@ def parametro_gecko(dom, typ, curto):
     return None
 
 
+def params_do_elemento(nome, dom="", typ=""):
+    """Os parâmetros de um componente como o painel os mostra (editor/params; também o contexto e a proposta da IA): o nome
+    do Gecko, a unidade, a descrição e o valor de agora; com dom e typ, o identificador no arquivo, o tipo e se pode vir de $."""
+    typ = str(typ)
+    if not NOME.match(nome):
+        raise ErroMotor(lingua.tr("editor.nome_invalido", nome=repr(nome)))
+    lst = []
+    for ent in MOTOR.cmd(f"PARAMS {nome}").split("||"):
+        campos = ent.split("\t")
+        if not campos[0]:
+            continue
+        item = dict(nome=campos[0], unidade=campos[2] if len(campos) > 2 else "", descricao=campos[3] if len(campos) > 3 else "")
+        try:
+            item["valor"] = float(MOTOR.cmd(f"GETP {nome} {campos[0]}"))
+        except (ErroMotor, ValueError) as e:
+            item["erro"] = str(e)
+        p = parametro_gecko(dom, typ, campos[0]) if dom and typ.lstrip("-").isdigit() else None
+        if p:                                # o identificador no arquivo (o $ligado vem em par[id + "_var"])
+            item["id"], item["pode_var"] = p["id"], p["valor"] in ("Double", "Integer")
+            item["tipo"] = p["valor"]        # o tipo no Gecko (Boolean, ControlSourceType…): a tela escolhe o campo
+        lst.append(item)
+    return lst
+
+
 def _num_gecko(v):
     """Como o Gecko grava um double (repr do Python: o Java lê 1e-07 e 325.0)."""
     return repr(float(v))
@@ -4594,10 +4618,11 @@ def ia_conta(ia, acao, *args):
 
 
 # ---------------------------------------------------------------- Claude do MaiSim: uso da conta e "pedir ao Claude" (passo 3b)
-# O usuário monta o circuito; o Claude do MaiSim cuida só do controle. Cada conversa (uma por circuito, até "nova conversa")
-# tem uma pasta própria, que é o cwd do `claude` (a retomada de uma sessão exige o mesmo cwd). A cada pedido o MaiSim reescreve
-# nela o estado atual: controle.py, parametros.json, acionamentos.json, CONTEXTO.md (o circuito, as medidas, as atuações,
-# Ts, Δt e tfim) e o GUIA_CONTROLE.md. Os anexos (PDF de artigo, foto) ficam em anexos/ e o Claude Code os lê direto.
+# O usuário monta o circuito; o Claude do MaiSim cuida do controle (e propõe valores do circuito, no circuito.json). Cada
+# conversa (uma por circuito, até "nova conversa") tem uma pasta própria, que é o cwd do `claude` (a retomada de uma sessão
+# exige o mesmo cwd). A cada pedido o MaiSim reescreve nela o estado atual: controle.py, parametros.json, acionamentos.json,
+# circuito.json (vazio), CONTEXTO.md (o circuito, as medidas, as atuações, Ts, Δt e tfim) e o GUIA_CONTROLE.md. Os anexos
+# (PDF de artigo, foto) ficam em anexos/ e o Claude Code os lê direto.
 # O `claude` roda restrito: --restricted (sem terminal nem internet; os arquivos ficam na pasta), só Read/Glob/Grep/Edit,
 # Edit só nesses três arquivos, --permission-mode dontAsk + --permission-prompts none (o que pediria permissão é negado).
 # No fim, o MaiSim lê os arquivos de volta, valida e testa a proposta (iniciar e 3 passo, sem simular) e a tela mostra a
@@ -4605,7 +4630,7 @@ def ia_conta(ia, acao, *args):
 CLAUDE_CASA = ESTADO.with_name("claude")
 CLAUDE_CONVERSAS = CLAUDE_CASA / "conversas"
 CLAUDE_SESSOES = CLAUDE_CASA / "sessoes.json"
-EDITAVEIS = ("controle.py", "parametros.json", "acionamentos.json", "controladores.json", "memoria.md")
+EDITAVEIS = ("controle.py", "parametros.json", "acionamentos.json", "controladores.json", "memoria.md", "circuito.json")
 CONTEXTOS = contextos.pasta_padrao()               # os contextos salvos (contextos.py): dados do MaiSim, fora do repositório
 CLAUDE_MEMORIA = CLAUDE_CASA / "memoria.md"      # a memória do MaiSim: vale em todas as conversas (o usuário edita; o Claude propõe)
 ANEXO_TIPOS = {".pdf", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".txt", ".md", ".csv"}
@@ -5082,6 +5107,22 @@ def num_txt(x):
     return f"{x:.6g}" if isinstance(x, (int, float)) else str(x)
 
 
+def params_contexto(e, nome):
+    """A linha do CONTEXTO.md com os parâmetros do painel de um componente (o nome do Gecko, o valor e a unidade: o que o
+    circuito.json usa), ou None. O que vem de uma variável $ diz qual; o Gecko fora do ar não impede o pedido."""
+    try:
+        lst = params_do_elemento(nome, e["dom"], e["typ"])
+    except Exception:                                    # o contexto sai sem a linha (o resto do pedido segue)
+        return None
+    pars = []
+    for q in lst:
+        if "erro" in q or q["nome"].lower() in PARS_DESENHO or q.get("tipo") not in (None, "Double", "Integer", "Boolean"):
+            continue
+        var = q.get("id") and (e.get("par") or {}).get(q["id"] + "_var")
+        pars.append(f"`{q['nome']}` = {num_txt(q['valor'])}" + (f" {q['unidade']}" if q.get("unidade") else "") + (f" (`{var}`)" if var else ""))
+    return lingua.tr("ia_contexto.elemento_params", nome=nome, lista=", ".join(pars)) if pars else None
+
+
 def claude_contexto(c, dt, tfim):
     """O CONTEXTO.md: o que o Claude precisa saber do circuito aberto e do controle, gerado do estado do MaiSim (no idioma do
     pedido; os nomes de arquivo, de bloco e do código ficam como são)."""
@@ -5159,6 +5200,7 @@ def claude_contexto(c, dt, tfim):
         if not atu:
             L.append(tr("ia_contexto.sem_atuacao"))
         L += ["", tr("ia_contexto.circuito_titulo"), ""]
+        n_pars = 0                                      # os componentes com os parâmetros do painel (cada um pergunta ao Gecko)
         for fid, fl in ult["folhas"].items():
             rede, rot, terms = redes_basicas(fl, "LK")
             nomes_rede, k = {}, 0
@@ -5184,11 +5226,22 @@ def claude_contexto(c, dt, tfim):
                     L.append(tr("ia_contexto.elemento" if e.get('ativo', True) else "ia_contexto.elemento_desativado",
                                 nome=e['nome'], tipo=e.get('nome_tipo') or e['tipo'], nos=', '.join(nos.get(e['nome'], [])) or '?')
                              + (f"; {par}" if par else ""))
+                    if e["tipo"] != "SUBCIRCUIT" and n_pars < CONTEXTO_PARAMS_MAX:   # os nomes e valores que o circuito.json usa
+                        n_pars += 1
+                        linha = params_contexto(e, e["nome"] if fid == "0" else f"{fl.get('nome')}#{e['nome']}")
+                        if linha:
+                            L.append(linha)
+                    elif e["tipo"] != "SUBCIRCUIT" and n_pars == CONTEXTO_PARAMS_MAX:
+                        n_pars += 1
+                        L.append(tr("ia_contexto.params_cortado", n=CONTEXTO_PARAMS_MAX))
             outros = [e for e in fl["elementos"] if e["dom"] == "CONTROL" and e["tipo"] not in ("VOLT", "AMP", "CONST", "TERM", "SCOPE")]
             for e in outros:
                 tipo = e.get('nome_tipo') or e['tipo']
                 L.append(tr("ia_contexto.bloco_gate", nome=e['nome'], tipo=tipo, alvo=e['mede'][0])
                          if e["tipo"] == "GATE" and e["mede"] and e["mede"][0] else tr("ia_contexto.bloco", nome=e['nome'], tipo=tipo))
+        if ult.get("globais"):                          # as variáveis $ (Parameters do Gecko): a IA pode propor o valor delas
+            L += ["", tr("ia_contexto.globais"), ""]
+            L += [f"- `{n}` = {num_txt(v)}" for n, v in ult["globais"].items()]
         L.append("")
     L += [tr("ia_contexto.parametros"), ""]
     L += [f"- `p[\"{q['nome']}\"]` = {num_txt(q['valor'])} {q.get('unidade', '')}".rstrip() for q in c["parametros"]] or [tr("ia_contexto.nenhum")]
@@ -5315,6 +5368,7 @@ def _claude_comeca(texto, dt, tfim, vez, modelo="", esforco="", ia="claude"):
     (pasta / "acionamentos.json").write_text(json.dumps(c.get("acionamentos") or [], ensure_ascii=False, indent=1) + "\n")
     (pasta / "controladores.json").write_text(json.dumps({"controladores": c.get("controladores") or [], "rede": c.get("rede") or {"latencia": 0.0}},
                                                          ensure_ascii=False, indent=1) + "\n")
+    (pasta / "circuito.json").write_text(json.dumps(CIRCUITO_VAZIO, ensure_ascii=False, indent=1) + "\n")   # a IA preenche (só valores)
     memoria = le_memoria()
     (pasta / "memoria.md").write_text(memoria)
     (pasta / "CONTEXTO.md").write_text(claude_contexto(c, dt, tfim))
@@ -5648,6 +5702,107 @@ def chaves_devolvidas(codigo, modulos=()):
     return out
 
 
+# a IA propõe valores do circuito (Marcelo, 02/11: o retificador com ΔV ≤ 10 % — ela explica com as contas e propõe
+# C.1 · C: 100 µF → 820 µF): circuito.json na pasta do pedido, só valores de componentes e de variáveis $ que já existem —
+# nada de pôr, tirar, religar ou renomear. O MaiSim confere cada item com o circuito aberto (o que o painel lê do Gecko) e a
+# tela mostra de → para; só vale quando o usuário aplica, como uma edição do editor (o desfazer volta).
+CIRCUITO_VAZIO = {"pecas": [], "globais": {}}
+CIRCUITO_MAX = 200                                   # mudanças por proposta (o lote do editor aceita 400)
+PARS_DESENHO = {"blocksizex", "blocksizey", "worksheetsizex", "worksheetsizey", "terminallocation"}   # do desenho, não do circuito
+CONTEXTO_PARAMS_MAX = 150                            # componentes com os parâmetros do painel no CONTEXTO.md (cada um pergunta ao Gecko)
+
+
+def elemento_do_circuito(ult, nome):
+    """O componente pelo nome que o editor usa: "C.1" na folha principal, "<subcircuito>#C.1" dentro de um subcircuito."""
+    fol, _, el = str(nome).rpartition("#")
+    fl = (ult["folhas"].get("0") if not fol else
+          next((f for k, f in ult["folhas"].items() if k != "0" and f.get("nome") == fol), None))
+    return next((e for e in (fl or {}).get("elementos", []) if e["nome"] == el), None)
+
+
+def _numero(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+
+def circuito_proposto(pasta, ult):
+    """O circuito.json conferido: ([{peca, parametro, de, para, unidade, motivo}], [{nome, de, para}], avisos). O item que
+    não confere sai, com um aviso: componente ou parâmetro que não existe, valor que não é número, parâmetro do desenho ou
+    que vem de uma variável $ (aí quem muda é a variável), variável que não existe (a IA não cria variáveis)."""
+    tr = lingua.tr
+    try:
+        cj = json.loads((pasta / "circuito.json").read_text())
+    except OSError:
+        return [], [], []
+    except ValueError as e:
+        return [], [], [tr("pedido.circuito_json", erro=e)]
+    if not isinstance(cj, dict) or not isinstance(cj.get("pecas", []), list) or not isinstance(cj.get("globais", {}), dict):
+        return [], [], [tr("pedido.circuito_formato")]
+    itens, globs = cj.get("pecas", []), cj.get("globais", {})
+    if not itens and not globs:
+        return [], [], []
+    if not ult:                                          # outro circuito aberto no meio: os nomes não são os do pedido
+        return [], [], [tr("pedido.circuito_outro")]
+    avisos = [tr("pedido.circuito_muitos", n=CIRCUITO_MAX)] if len(itens) + len(globs) > CIRCUITO_MAX else []
+    pecas, lidos = {}, {}
+    for i, q in enumerate(itens[:CIRCUITO_MAX]):
+        if not isinstance(q, dict) or not isinstance(q.get("peca"), str) or not isinstance(q.get("parametro"), str):
+            avisos.append(tr("pedido.circuito_item", i=i + 1))
+            continue
+        nome, par, valor = q["peca"].strip(), q["parametro"].strip(), q.get("valor")
+        e = elemento_do_circuito(ult, nome) if NOME.match(nome) else None
+        if not e or e["tipo"] in ("TERM", "SUBCIRCUIT"):
+            avisos.append(tr("pedido.circuito_sem_peca", peca=nome))
+            continue
+        if not _numero(valor):
+            avisos.append(tr("pedido.circuito_valor", peca=nome, parametro=par))
+            continue
+        if par == "enabled":                             # o "desativar" do painel: 1 ativo, 0 desativado (2, em curto, fica de fora)
+            if valor not in (0, 1):
+                avisos.append(tr("pedido.circuito_enabled", peca=nome))
+                continue
+            de, un = (2.0 if e.get("curto") else 1.0 if e.get("ativo", True) else 0.0), ""
+        else:
+            if par.lower() in PARS_DESENHO:
+                avisos.append(tr("pedido.circuito_desenho", peca=nome, parametro=par))
+                continue
+            try:                                         # o que o painel mostra: o nome do Gecko, a unidade e o valor de agora
+                if nome not in lidos:
+                    lidos[nome] = params_do_elemento(nome, e["dom"], e["typ"])
+            except ErroMotor as x:
+                avisos.append(tr("pedido.circuito_gecko", peca=nome, erro=x))
+                continue
+            lst = [x for x in lidos[nome] if x["nome"].lower() not in PARS_DESENHO]
+            g = next((x for x in lst if x["nome"] == par), None) or next((x for x in lst if x["nome"].lower() == par.lower()), None)
+            if not g or "erro" in g:
+                avisos.append(tr("pedido.circuito_sem_param", peca=nome, parametro=par, lista=", ".join(x["nome"] for x in lst) or "—"))
+                continue
+            if g.get("tipo") not in (None, "Double", "Integer", "Boolean") or (g.get("tipo") == "Boolean" and valor not in (0, 1)):
+                avisos.append(tr("pedido.circuito_tipo", peca=nome, parametro=g["nome"], tipo=g.get("tipo")))
+                continue
+            var = g.get("id") and (e.get("par") or {}).get(g["id"] + "_var")
+            if var:
+                avisos.append(tr("pedido.circuito_ligado", peca=nome, parametro=g["nome"], var=var))
+                continue
+            par, de, un = g["nome"], g["valor"], g.get("unidade") or ""
+        pecas.pop((nome, par), None)                     # o mesmo parâmetro duas vezes: vale o último
+        if float(valor) != de:
+            pecas[(nome, par)] = {"peca": nome, "parametro": par, "de": de, "para": float(valor), "unidade": un,
+                                  "motivo": str(q.get("motivo") or "")[:300]}
+    existentes, globais = ult.get("globais") or {}, {}
+    for n, v in list(globs.items())[:max(0, CIRCUITO_MAX - len(itens))]:
+        n = str(n).strip()
+        n = n if n.startswith("$") else "$" + n
+        if n not in existentes:
+            avisos.append(tr("pedido.circuito_sem_global", nome=n))
+        elif not _numero(v):
+            avisos.append(tr("pedido.circuito_valor_global", nome=n))
+        else:
+            globais.pop(n, None)
+            if float(v) != existentes[n]:
+                globais[n] = {"nome": n, "de": existentes[n], "para": float(v)}
+    return list(pecas.values()), list(globais.values()), avisos
+
+
 def claude_proposta(pasta, antes, dt, chave=None, memoria=""):
     """Lê de volta o que o Claude deixou nos três arquivos e confere, SEM EXECUTAR o código (formato, sintaxe, medidas,
     parâmetros e atuações): o código proposto só roda quando o usuário pede o teste (claude_testa) ou aplica e simula — um
@@ -5704,6 +5859,11 @@ def claude_proposta(pasta, antes, dt, chave=None, memoria=""):
     ult = editor.get("ultimo")
     if chave is not None and (editor.get("aberto") or "(sem arquivo)") != chave:  # i18n-ok (a chave da conversa)
         ult = None                                       # outro circuito aberto no meio: medidas e atuações não são as do pedido
+    circ, globs, avisos_c = circuito_proposto(pasta, ult)   # os valores do circuito (circuito.json): só valem ao aplicar
+    avisos += avisos_c
+    out.update(circuito=circ, globais=globs, avisos_circuito=avisos_c)   # (à parte também: a tela os mostra sem outra mudança)
+    if circ or globs:
+        out["mudou"] = True
     atu = atuadores_disponiveis(ult) if ult else []
     if not erros and ult:                                # marca o que o código (módulos e controladores) e os controladores escrevem
         escritas = chaves_devolvidas(cod, list(arqs.values())) | {k for q in c2.get("controladores", []) for k in q["atuacoes"]}
@@ -5794,7 +5954,8 @@ def _resumo_mudanca(m):
         mais, menos = mais + n_mais, menos + n_menos
     return {"mais": mais, "menos": menos, "arquivos": arquivos,
             "outros": int(m["parametros_antes"] != m["parametros"]) + int(m["acionamentos_antes"] != m["acionamentos"])
-                      + int((m.get("controladores_antes") or []) != (m.get("controladores") or []) or (m.get("rede_antes") or {}) != (m.get("rede") or {}))}
+                      + int((m.get("controladores_antes") or []) != (m.get("controladores") or []) or (m.get("rede_antes") or {}) != (m.get("rede") or {}))
+                      + int(bool(m.get("circuito") or m.get("globais")))}
 
 
 def claude_aplicada(antes=None, aplicado=None, recusados=None):
@@ -5819,6 +5980,7 @@ def claude_aplicada(antes=None, aplicado=None, recusados=None):
                  "arquivos_antes": a.get("arquivos", p.get("arquivos_antes") or {}), "arquivos": d.get("arquivos", p.get("arquivos") or {}),
                  "controladores_antes": a.get("controladores", p.get("controladores_antes") or []), "controladores": d.get("controladores", p.get("controladores") or []),
                  "rede_antes": a.get("rede", p.get("rede_antes")), "rede": d.get("rede", p.get("rede")),
+                 "circuito": d.get("circuito", p.get("circuito") or []), "globais": d.get("globais", p.get("globais") or []),   # os valores do circuito (de → para)
                  "quando": time.time()}
             if recusados:
                 m["recusados"] = [str(x) for x in recusados][:50]
@@ -6148,26 +6310,7 @@ class Manipulador(BaseHTTPRequestHandler):
         if rota == "/editor/params":
             q = parse_qs(u.query)
             nome, dom, typ = q.get("nome", [""])[0], q.get("dom", [""])[0], q.get("typ", [""])[0]
-            def params():
-                if not NOME.match(nome):
-                    raise ErroMotor(lingua.tr("editor.nome_invalido", nome=repr(nome)))
-                lst = []
-                for ent in MOTOR.cmd(f"PARAMS {nome}").split("||"):
-                    campos = ent.split("\t")
-                    if not campos[0]:
-                        continue
-                    item = dict(nome=campos[0], unidade=campos[2] if len(campos) > 2 else "", descricao=campos[3] if len(campos) > 3 else "")
-                    try:
-                        item["valor"] = float(MOTOR.cmd(f"GETP {nome} {campos[0]}"))
-                    except (ErroMotor, ValueError) as e:
-                        item["erro"] = str(e)
-                    p = parametro_gecko(dom, typ, campos[0]) if dom and typ.lstrip("-").isdigit() else None
-                    if p:                                # o identificador no arquivo (o $ligado vem em par[id + "_var"])
-                        item["id"], item["pode_var"] = p["id"], p["valor"] in ("Double", "Integer")
-                        item["tipo"] = p["valor"]        # o tipo no Gecko (Boolean, ControlSourceType…): a tela escolhe o campo
-                    lst.append(item)
-                return lst
-            return self._editor(params)
+            return self._editor(lambda: params_do_elemento(nome, dom, typ))
         return self._resposta(404, {"erro": lingua.tr("servidor.rota_desconhecida")})
 
     def _editor(self, f):
