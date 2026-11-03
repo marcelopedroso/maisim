@@ -41,6 +41,8 @@ android {
         }
     }
     buildFeatures { buildConfig = true }
+    // o que não existe na versão mínima do Android (29) quebra o app num celular antigo: o lint barra (o CI roda antes de montar)
+    lint { fatal += listOf("NewApi", "InlinedApi"); abortOnError = true; checkReleaseBuilds = true }
     packaging { jniLibs { useLegacyPackaging = true } }    // extrai os .so (sem isso o proot não fica executável)
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }

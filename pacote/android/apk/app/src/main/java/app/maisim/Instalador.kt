@@ -130,7 +130,7 @@ class Instalador(private val ctx: Context, private val c: Caminhos) {
         tgz.delete()
         val dentro = novo.listFiles()?.singleOrNull { it.isDirectory } ?: throw Falha(ctx.getString(R.string.erro_sem_pacote))
         c.app.deleteRecursively()
-        if (!dentro.renameTo(c.app)) throw Falha("rename ${dentro.name}")
+        if (!dentro.renameTo(c.app)) throw Falha(ctx.getString(R.string.erro_instalar, dentro.name))
         novo.deleteRecursively()
     }
 

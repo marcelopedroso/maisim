@@ -138,7 +138,7 @@ jobs:
           elif [ "${{ inputs.test_only }}" != "true" ]; then
             echo "no signing key (secrets): a release APK must be signed with the official key"; exit 1
           fi
-          ./gradlew assembleRelease --no-daemon -q
+          ./gradlew lintRelease assembleRelease --no-daemon -q   # (o lint barra API que não existe no Android 10, a versão mínima)
           V=$(cat ../../../VERSION); mkdir -p ../../dist
           cp app/build/outputs/apk/release/app-release.apk "../../dist/MaiSim-Android-$V.apk"
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)

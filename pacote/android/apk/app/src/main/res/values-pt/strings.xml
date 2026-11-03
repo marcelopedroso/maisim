@@ -12,6 +12,7 @@
     <string name="ligando_1a">Ligando o MaiSim (na primeira vez ele também instala o que precisa)…</string>
     <string name="ferramentas">Instalando as ferramentas básicas (curl)…</string>
     <string name="erro_ferramentas">Não deu para instalar o curl dentro do Linux (veja as linhas acima). Tente de novo.</string>
+    <string name="erro_instalar">Não deu para pôr o MaiSim no lugar (%1$s). Tente de novo.</string>
     <string name="tentar">Tentar de novo</string>
     <string name="parar">Parar</string>
     <string name="notif_canal">MaiSim ligado</string>

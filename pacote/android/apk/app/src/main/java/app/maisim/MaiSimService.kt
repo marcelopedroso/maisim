@@ -36,7 +36,7 @@ class MaiSimService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == "parar") { para(); return START_NOT_STICKY }
         primeiroPlano()
-        if (!Estado.rodando) { Estado.rodando = true; Estado.erro = null; Estado.pronto = false; Thread { roda() }.start() }
+        if (!Estado.rodando) { parando = false; Estado.rodando = true; Estado.erro = null; Estado.pronto = false; Thread { roda() }.start() }
         return START_STICKY
     }
 
@@ -49,7 +49,8 @@ class MaiSimService : Service() {
             .setContentTitle(getString(R.string.notif_canal)).setContentText(getString(R.string.notif_texto))
             .setContentIntent(abrir).setOngoing(true)
             .addAction(Notification.Action.Builder(null, getString(R.string.parar), parar).build()).build()
-        startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        if (android.os.Build.VERSION.SDK_INT >= 34) startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        else startForeground(1, n)                                     // (o tipo specialUse só existe no Android 14+)
         if (trava == null) trava = getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "maisim:servidor").apply { acquire() }
     }
 
@@ -58,9 +59,12 @@ class MaiSimService : Service() {
         try {
             val primeira = !File(c.app, "AppRun").exists()
             Instalador(this, c).garante()
+            if (parando) return                                        // o Parar durante a preparação: não liga o MaiSim
             Estado.etapa(getString(if (primeira) R.string.ligando_1a else R.string.ligando))
-            val p = Proot.processo(c, listOf("/root/maisim-app/AppRun")).redirectErrorStream(true).start()
-            proc = p
+            val p = synchronized(this) {                                // (o Parar pode chegar agora: confere de novo junto com o start)
+                if (parando) return
+                Proot.processo(c, listOf("/root/maisim-app/AppRun")).redirectErrorStream(true).start().also { proc = it }
+            }
             val log = File(c.logs, "maisim.log").printWriter()
             Thread { p.inputStream.bufferedReader().forEachLine { Estado.anota(it); log.println(it); log.flush() } }.start()
             while (p.isAlive && !Estado.pronto) {                      // pronto quando a tela do celular responde
@@ -82,9 +86,9 @@ class MaiSimService : Service() {
 
     // parar: o lançador do MaiSim desliga os servidores (com a porta do app); depois o proot e o serviço
     private fun para() {
-        parando = true
+        val ligado = synchronized(this) { parando = true; proc != null }   // ainda preparando: não há MaiSim para desligar
         Thread {
-            try { Proot.processo(Caminhos(this), listOf("/root/maisim-app/AppRun", "--parar")).start().waitFor() } catch (_: Exception) { }
+            if (ligado) try { Proot.processo(Caminhos(this), listOf("/root/maisim-app/AppRun", "--parar")).start().waitFor() } catch (_: Exception) { }
             proc?.destroy()
             trava?.let { if (it.isHeld) it.release() }; trava = null
             stopForeground(STOP_FOREGROUND_REMOVE); stopSelf()

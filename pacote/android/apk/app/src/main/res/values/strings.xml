@@ -12,6 +12,7 @@
     <string name="ligando_1a">Starting MaiSim (the first time it also installs what it needs)…</string>
     <string name="ferramentas">Installing the basic tools (curl)…</string>
     <string name="erro_ferramentas">Could not install curl inside Linux (see the lines above). Try again.</string>
+    <string name="erro_instalar">Could not put MaiSim in place (%1$s). Try again.</string>
     <string name="tentar">Try again</string>
     <string name="parar">Stop</string>
     <string name="notif_canal">MaiSim running</string>

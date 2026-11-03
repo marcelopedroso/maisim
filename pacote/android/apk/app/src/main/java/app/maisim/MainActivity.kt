@@ -51,8 +51,14 @@ class MainActivity : Activity() {
         super.onCreate(s)
         val raiz = FrameLayout(this).apply { setBackgroundColor(Color.parseColor("#f4f4f8")) }
         raiz.setOnApplyWindowInsetsListener { v, ins ->               // de ponta a ponta (Android 15): as barras e o teclado
-            val b = ins.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.ime())
-            v.setPadding(b.left, b.top, b.right, b.bottom); WindowInsets.CONSUMED
+            if (android.os.Build.VERSION.SDK_INT >= 30) {             // (WindowInsets.Type e CONSUMED: Android 11+)
+                val b = ins.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.ime())
+                v.setPadding(b.left, b.top, b.right, b.bottom); WindowInsets.CONSUMED
+            } else {                                                  // Android 10: o jeito antigo (as barras e o teclado juntos)
+                @Suppress("DEPRECATION")
+                v.setPadding(ins.systemWindowInsetLeft, ins.systemWindowInsetTop, ins.systemWindowInsetRight, ins.systemWindowInsetBottom)
+                @Suppress("DEPRECATION") ins.consumeSystemWindowInsets()
+            }
         }
         web = WebView(this).apply { visibility = View.GONE }
         preparo = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(64, 64, 64, 64) }
@@ -68,7 +74,8 @@ class MainActivity : Activity() {
         raiz.addView(preparo); raiz.addView(web)
         setContentView(raiz)
         configuraWeb()
-        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&                  // (antes do Android 13 a notificação não pede permissão)
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         liga()
         h.post(object : Runnable { override fun run() { mostra(); h.postDelayed(this, 300) } })
