@@ -35,10 +35,12 @@ place), and digital control (a current PI; a buck with the PWM and the PI in cod
 | **Windows** (installer) | [**MaiSim-Setup.exe**](https://github.com/marcelopedroso/maisim/releases/latest/download/MaiSim-Setup.exe) |
 | **Linux** (AppImage, no install) | [**MaiSim-x86_64.AppImage**](https://github.com/marcelopedroso/maisim/releases/latest/download/MaiSim-x86_64.AppImage) |
 | **Linux ARM** (aarch64: Raspberry Pi 4/5, ARM laptops; experimental) | [**MaiSim-aarch64.AppImage**](https://github.com/marcelopedroso/maisim/releases/latest/download/MaiSim-aarch64.AppImage) · as a folder, for Android: [**MaiSim-aarch64.tar.gz**](https://github.com/marcelopedroso/maisim/releases/latest/download/MaiSim-aarch64.tar.gz) |
+| **Android** (64-bit ARM phones; the app, no Termux) | [**MaiSim-Android.apk**](https://github.com/marcelopedroso/maisim/releases/latest/download/MaiSim-Android.apk) |
 | Earlier versions and test builds (`-rc`) | [Releases](https://github.com/marcelopedroso/maisim/releases) |
 
 Each file comes with a `.sha256` next to it on the Releases page. Everything is inside (Python, Java, GeckoCIRCUITS): no
-internet needed after downloading, nothing else to install.
+internet needed after downloading, nothing else to install. The Android app is the exception: small to download, it sets
+itself up on first launch.
 
 - **Windows 10 (1809+) or 11, 64-bit**, about 250 MB, Edge or Chrome; installs for your user only, **no administrator**.
   Installing a newer version over the old one updates it and keeps your circuits and settings. The installer is not
@@ -46,15 +48,12 @@ internet needed after downloading, nothing else to install.
 - **Linux x86_64** (glibc 2.17+) with Xvfb (`sudo apt install xvfb`): `chmod +x MaiSim-x86_64.AppImage` and run it.
 - **Linux ARM (aarch64), experimental**: the same, with `MaiSim-aarch64.AppImage`. Slower than on a PC (a Raspberry Pi 5
   runs the examples; long runs take longer).
-- **Android, experimental**: MaiSim runs inside an Ubuntu in [Termux](https://termux.dev) (proot) and opens in the
-  phone's browser. Install Termux from [F-Droid](https://f-droid.org/packages/com.termux/) or its
-  [GitHub](https://github.com/termux/termux-app/releases) (the Play Store one is outdated and broken), then, in Termux:
-  `curl -fsSL https://raw.githubusercontent.com/marcelopedroso/maisim/main/pacote/android/instala.sh | bash`. It
-  installs Ubuntu, MaiSim (`~/maisim-app`, checked by SHA-256) and what it needs, and creates the `maisim` command (and a
-  Termux:Widget shortcut), then starts MaiSim and opens the phone app (`http://localhost:7100/movel.html`: tabs for Home,
-  Circuit, Scope, Control and AI, made for touch). In the browser, ⋮ → Add to Home screen turns it into an app; next time,
-  the Termux:Widget shortcut (or `maisim` in Termux) starts everything. Your circuits stay in `~/MaiSim`; the Update button
-  replaces only the program.
+- **Android 10+ (64-bit ARM), experimental**: install `MaiSim-Android.apk` (Android asks once to allow installing from
+  your browser) and open it. The first launch downloads and sets up a Linux base and MaiSim (about 200 MB, a few minutes,
+  with internet), then MaiSim opens in the phone app: tabs for Home, Circuit, Scope, Control and AI, made for touch. It
+  runs entirely on the phone. Your circuits stay in the app; Home → Settings → Update updates MaiSim; Export `.msd` takes
+  a circuit, its control and runs to the PC. No Termux needed. (Developers can still run it in an Ubuntu inside
+  [Termux](https://termux.dev): `curl -fsSL https://raw.githubusercontent.com/marcelopedroso/maisim/main/pacote/android/instala.sh | bash`.)
 - **AI (optional):** a Claude account. On Windows, MaiSim installs Claude Code for you from its AI accounts window.
 
 Your circuits and runs go to a visible folder: `Documents\MaiSim` on Windows (you can choose another when
