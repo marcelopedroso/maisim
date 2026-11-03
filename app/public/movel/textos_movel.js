@@ -11,7 +11,6 @@ maisimI18n.add({
   "mv.imp_msd": { pt: "Importar .msd", en: "Import .msd" }, "mv.d_imp_msd": { pt: "circuito, controle, scope e rodadas de outro MaiSim", en: "circuit, control, scope and runs from another MaiSim" },
   "mv.tema": { pt: "Tema", en: "Theme" }, "mv.t_sistema": { pt: "Sistema", en: "System" }, "mv.t_claro": { pt: "Claro", en: "Light" }, "mv.t_escuro": { pt: "Escuro", en: "Dark" },
   "mv.idioma": { pt: "Idioma", en: "Language" }, "mv.contas": { pt: "Contas de IA", en: "AI accounts" }, "mv.d_contas": { pt: "Claude · DeepSeek · Cursor", en: "Claude · DeepSeek · Cursor" },
-  "mv.desktop": { pt: "Versão de computador", en: "Desktop version" }, "mv.d_desktop": { pt: "a tela do PC, com o trilho e o Atualizar", en: "the PC screen, with the rail and Update" },
   "mv.alterado": { pt: "mudou {quando}", en: "changed {quando}" },
   "mv.m_sim": { pt: "Simulação (Δt, tempo final, solver)", en: "Simulation (Δt, end time, solver)" }, "mv.m_vars": { pt: "Variáveis $", en: "$ variables" },
   "mv.m_camadas": { pt: "Camadas", en: "Layers" }, "mv.m_salvar": { pt: "Salvar", en: "Save" }, "mv.m_salvar_como": { pt: "Salvar como…", en: "Save as…" },

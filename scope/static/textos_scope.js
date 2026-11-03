@@ -10,6 +10,7 @@ maisimI18n.add({
   "scope.media_intervalo": { pt: "(média do intervalo)", en: "(interval average)" },
   "scope.t_media_intervalo": { pt: "perda gravada como a média de todos os passos do intervalo entre amostras, não o valor de um passo (a de chaveamento dura um passo só e quase nunca cairia na amostra)", en: "loss recorded as the average of every step in the interval between samples, not the value of one step (the switching loss lasts a single step and would almost never land on the sample)" },
   "scope.h.comparar": { pt: "Comparar", en: "Compare" },
+  "scope.h.ab": { pt: "Comparar A/B", en: "Compare A/B" }, "scope.h.t_ab": { pt: "comparar duas rodadas (A e B): abre o cabeçalho com a escolha das rodadas", en: "compare two runs (A and B): opens the header with the choice of runs" },
   "scope.h.carregar": { pt: "Carregar", en: "Load" },
   "scope.h.indice": { pt: "☰ Índice", en: "☰ Index" },
   "scope.h.t_cab_recolher": { pt: "recolher o cabeçalho: numa linha, só a rodada e + Painel, + Painel XY, + Seção, Por linha",

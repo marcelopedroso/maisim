@@ -25,6 +25,8 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     ok(/Android/.test(await pg.locator("#atu-s").textContent()) && /0\.3\.8-rc5/.test(await pg.locator("#atu-s").textContent()) && await pg.locator("#atu-bt").textContent() === "Atualizar",
       `no Android, com versão nova: "${await pg.locator("#atu-s").textContent()}" e o botão "${await pg.locator("#atu-bt").textContent()}"`);
     await pg.unroute("**/maisim/simu/atualizacao");
+    // sem a "Versão de computador" no Início: abria a tela do PC dentro do app, sem caminho de volta para o celular
+    ok(await pg.locator('#t-inicio a[href="/"]').count() === 0, "o Início não tem o link para a tela do PC (dentro do app não havia volta)");
     // o manifesto do app do celular (instalável: abre direto no /movel.html)
     const cdp = await ctx.newCDPSession(pg), man = await cdp.send("Page.getAppManifest"), m = man.data ? JSON.parse(man.data) : {};
     ok(m.start_url && /\/movel\.html$/.test(m.start_url) && m.display === "standalone", `manifesto do celular: start_url ${m.start_url}, ${m.display}`);
@@ -110,6 +112,14 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     const sc = pg.frames().find((f) => /\/maisim\/scope\/.*movel=1/.test(f.url()));
     const grafs = sc ? await sc.evaluate(() => ({ cls: document.body.className, u: document.querySelectorAll(".u-over").length })) : null;
     ok(grafs && /movel/.test(grafs.cls) && grafs.u > 0, `a aba Scope mostra a rodada: ${grafs ? grafs.u : 0} gráfico(s), modo celular`);
+    // o Comparar A/B a um toque: no cabeçalho recolhido, o botão abre a escolha das rodadas e entra no Comparar
+    const SC = pg.frameLocator("#f-scope");
+    if (!(await sc.evaluate(() => document.querySelector("header").classList.contains("recolhido")))) { await SC.locator("#bt-cab").tap(); await pg.waitForTimeout(400); }
+    const ab0 = await SC.locator("#bt-ab").isVisible();
+    if (ab0) { await SC.locator("#bt-ab").tap(); await pg.waitForTimeout(1200); }
+    const ab = await sc.evaluate(() => ({ ativo: document.getElementById("bt-comparar").classList.contains("ativo"), b: !!document.getElementById("sel-b").offsetParent,
+      opcoes: document.getElementById("sel-b").options.length, aberto: !document.querySelector("header").classList.contains("recolhido") }));
+    ok(ab0 && ab.ativo && ab.b && ab.aberto && ab.opcoes > 1, `Comparar A/B a um toque no cabeçalho recolhido: Comparar ativo, a escolha de B à vista (${ab.opcoes} opções)`);
 
     // Controle e IA: o mesmo editor, noutra vista (sem foco automático)
     await pg.locator('.aba[data-tab="controle"]').tap(); await pg.waitForTimeout(1500);
@@ -140,6 +150,11 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     await pg.locator("#l-exemplos .linha", { hasText: "exemplo_boost" }).first().tap(); await pg.waitForTimeout(4000);
     const desc2 = pg.frameLocator("#f-simu").locator(".modal button", { hasText: "Descartar" }); if (await desc2.count()) { await desc2.first().tap(); await pg.waitForTimeout(3000); }
     ok(await pg.locator("#paleta").isVisible(), "abrir outro circuito com uma janela aberta: o + volta (o editor novo começa sem janela)");
+    // a aba Scope do outro circuito: a rodada DELE (ou vazia), não a do exemplo_buck que rodou antes
+    await pg.locator('.aba[data-tab="scope"]').tap(); await pg.waitForTimeout(3000);
+    const src = await pg.locator("#f-scope").getAttribute("src"), a = new URLSearchParams((src || "").split("?")[1] || "").get("a");
+    const dele = !a || (await pg.evaluate(async (a) => ((await (await fetch("/maisim/scope/rodadas")).json()).find((x) => x.arq === a) || {}).modelo || "", a)).includes("exemplo_boost");
+    ok(src && src !== "about:blank" && dele, `abrir outro circuito: a aba Scope mostra a rodada dele ou nenhuma (${a ? a.split("/").slice(-2).join("/") : "vazia"}), não a do exemplo_buck`);
     ok(!erros.length, `sem erros na casca${erros.length ? ": " + erros.join(" · ") : ""}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message}`); }
   finally { if (b) await b.close(); }

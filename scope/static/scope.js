@@ -1759,6 +1759,8 @@ const cabecalho = (() => {
     aplica();
   });
   aplica();
+  // no celular, o Comparar A/B do cabeçalho recolhido: abre o cabeçalho (a escolha de A e B) e entra no Comparar
+  document.getElementById("bt-ab").addEventListener("click", () => { if (recolhido) bt.click(); document.getElementById("bt-comparar").click(); });
   return { aplica };
 })();
 (() => {
