@@ -1,5 +1,9 @@
 # MaiSim para Android (o APK, pacote `app.maisim`)
 
+O celular mínimo: Android 10+ (minSdk 29), ARM de 64 bits (só arm64-v8a; o instalador do Android recusa os outros),
+1,5 GB livres com a IA, 4 GB de RAM (3 GB no mínimo; abaixo disso o app avisa) e internet na primeira abertura; sem espaço
+para o que falta montar, a preparação para com a mensagem, antes de baixar.
+
 Um app que traz o proot (o Linux sem root do Termux) e, na primeira abertura, baixa e monta o Ubuntu Base 24.04 (arm64) e
 o MaiSim ARM desta versão (`MaiSim-<versão>-aarch64.tar.gz`, conferido pelo SHA-256), e mostra a tela do celular
 (`/movel.html`) numa WebView. Um serviço em primeiro plano mantém o MaiSim ligado; os circuitos ficam fora do Ubuntu
