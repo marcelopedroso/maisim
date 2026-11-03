@@ -119,7 +119,23 @@ r = api("editor/desfazer", {})
 ok(valor("C.1", "C") == 1e-4 and valor("SUBCIRCUIT.1#C.5", "C") == 1e-6 and ativo("R.1") is True and api("editor/estado")["globais"].get("$Vg") == 5,
    f"desfazer ({r.get('desfeito')}): C.1 = 100 µF, SUBCIRCUIT.1#C.5 = 1 µF, R.1 ativo, $Vg = 5")
 
-# 4. circuito.json fora do formato: aviso, o circuito fica como está (e sem mudança, sem proposta do circuito)
+# 4. mexer no circuito enquanto a IA trabalha: o "de" é o que ela viu (100 µF), não o de agora; o Aplicar confere e pergunta
+(CONF / "falso_circuito.json").write_text(json.dumps({"pecas": [{"peca": "C.1", "parametro": "C", "valor": 8.2e-4}]}))
+(CONF / "falso_cenario").write_text("circuito"); (CONF / "falso_espera").write_text("3")
+api("claude/pedir", {"texto": "o capacitor", "dt": 1e-6, "tfim": 0.002}); time.sleep(1)
+c("SETP", "C.1", "C", 3.3e-4)                           # a pessoa mudou para 330 µF no meio
+for _ in range(60):
+    e = api("claude/pedido")
+    if not e.get("andamento"):
+        break
+    time.sleep(0.5)
+(CONF / "falso_espera").unlink(missing_ok=True)
+q = {(x["peca"], x["parametro"]): x for x in (e.get("proposta") or {}).get("circuito") or []}.get(("C.1", "C")) or {}
+ok(q.get("de") == 1e-4 and q.get("para") == 8.2e-4 and valor("C.1", "C") == 3.3e-4,
+   f"mudou no meio: o “de” é o que a IA viu (100 µF), o circuito está em 330 µF e o Aplicar vai perguntar ({q})")
+c("SETP", "C.1", "C", 1e-4)
+
+# 5. circuito.json fora do formato: aviso, o circuito fica como está (e sem mudança, sem proposta do circuito)
 (CONF / "falso_circuito.json").write_text('{"pecas": {"C.1": 1}}')
 p = pede("circuito").get("proposta") or {}
 ok(not p.get("circuito") and not p.get("globais") and any("circuito.json" in a for a in p.get("avisos") or []), f"fora do formato: nada do circuito, com aviso ({p.get('avisos')})")
@@ -127,7 +143,7 @@ ok(not p.get("circuito") and not p.get("globais") and any("circuito.json" in a f
 api("editor/novo", {"modo": "descartar"}); api("claude/nova", {})
 for k in set(api("editor/estado")["globais"]) - set(g0):   # o "novo" não apaga as variáveis: tira as do teste
     var(acao="apaga", nome=k)
-for f in ("falso_cenario", "falso_logado", "falso_circuito.json"):
+for f in ("falso_cenario", "falso_logado", "falso_circuito.json", "falso_espera"):
     (CONF / f).unlink(missing_ok=True)
 print("falhas:", falhas)
 raise SystemExit(1 if falhas else 0)

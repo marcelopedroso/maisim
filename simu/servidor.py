@@ -5107,9 +5107,10 @@ def num_txt(x):
     return f"{x:.6g}" if isinstance(x, (int, float)) else str(x)
 
 
-def params_contexto(e, nome):
+def params_contexto(e, nome, visto=None):
     """A linha do CONTEXTO.md com os parâmetros do painel de um componente (o nome do Gecko, o valor e a unidade: o que o
-    circuito.json usa), ou None. O que vem de uma variável $ diz qual; o Gecko fora do ar não impede o pedido."""
+    circuito.json usa), ou None. O que vem de uma variável $ diz qual; o Gecko fora do ar não impede o pedido. Em visto
+    ficam os valores que a IA leu (o "de" da proposta é o deles, não o de quando ela termina)."""
     try:
         lst = params_do_elemento(nome, e["dom"], e["typ"])
     except Exception:                                    # o contexto sai sem a linha (o resto do pedido segue)
@@ -5119,15 +5120,20 @@ def params_contexto(e, nome):
         if "erro" in q or q["nome"].lower() in PARS_DESENHO or q.get("tipo") not in (None, "Double", "Integer", "Boolean"):
             continue
         var = q.get("id") and (e.get("par") or {}).get(q["id"] + "_var")
+        if visto is not None:
+            visto.setdefault(nome, {})[q["nome"]] = q["valor"]
         pars.append(f"`{q['nome']}` = {num_txt(q['valor'])}" + (f" {q['unidade']}" if q.get("unidade") else "") + (f" (`{var}`)" if var else ""))
     return lingua.tr("ia_contexto.elemento_params", nome=nome, lista=", ".join(pars)) if pars else None
 
 
-def claude_contexto(c, dt, tfim):
+def claude_contexto(c, dt, tfim, visto=None):
     """O CONTEXTO.md: o que o Claude precisa saber do circuito aberto e do controle, gerado do estado do MaiSim (no idioma do
-    pedido; os nomes de arquivo, de bloco e do código ficam como são)."""
+    pedido; os nomes de arquivo, de bloco e do código ficam como são). Em visto (se dado) ficam os valores do circuito que a IA
+    leu: {"pecas": {nome: {parâmetro: valor}}, "ativo": {nome: 1|0|2}, "globais": {$x: valor}}."""
     tr = lingua.tr
     ult = editor.get("ultimo")
+    if visto is not None:
+        visto.update(pecas={}, ativo={}, globais=dict((ult or {}).get("globais") or {}))
     L = [tr("ia_contexto.titulo"), "", tr("ia_contexto.gerado"), ""]
     L += [tr("ia_contexto.circuito", arq=editor.get('aberto') or tr("ia_contexto.sem_arquivo")),
           tr("ia_contexto.passo", dt=num_txt(dt), tfim=num_txt(tfim))]
@@ -5226,9 +5232,12 @@ def claude_contexto(c, dt, tfim):
                     L.append(tr("ia_contexto.elemento" if e.get('ativo', True) else "ia_contexto.elemento_desativado",
                                 nome=e['nome'], tipo=e.get('nome_tipo') or e['tipo'], nos=', '.join(nos.get(e['nome'], [])) or '?')
                              + (f"; {par}" if par else ""))
+                    nome_painel = e["nome"] if fid == "0" else f"{fl.get('nome')}#{e['nome']}"
+                    if visto is not None:
+                        visto["ativo"][nome_painel] = 2.0 if e.get("curto") else 1.0 if e.get("ativo", True) else 0.0
                     if e["tipo"] != "SUBCIRCUIT" and n_pars < CONTEXTO_PARAMS_MAX:   # os nomes e valores que o circuito.json usa
                         n_pars += 1
-                        linha = params_contexto(e, e["nome"] if fid == "0" else f"{fl.get('nome')}#{e['nome']}")
+                        linha = params_contexto(e, nome_painel, visto["pecas"] if visto is not None else None)
                         if linha:
                             L.append(linha)
                     elif e["tipo"] != "SUBCIRCUIT" and n_pars == CONTEXTO_PARAMS_MAX:
@@ -5371,7 +5380,9 @@ def _claude_comeca(texto, dt, tfim, vez, modelo="", esforco="", ia="claude"):
     (pasta / "circuito.json").write_text(json.dumps(CIRCUITO_VAZIO, ensure_ascii=False, indent=1) + "\n")   # a IA preenche (só valores)
     memoria = le_memoria()
     (pasta / "memoria.md").write_text(memoria)
-    (pasta / "CONTEXTO.md").write_text(claude_contexto(c, dt, tfim))
+    visto = {}
+    (pasta / "CONTEXTO.md").write_text(claude_contexto(c, dt, tfim, visto))
+    circuito_visto[str(pasta)] = visto
     shutil.copyfile(guia_controle(), pasta / "GUIA_CONTROLE.md")   # o guia no idioma do pedido, com o nome de sempre
     ult = resumo_rodada.ultima(RODADAS, circuito_aberto())   # os "olhos": o resumo da rodada mais nova deste circuito
     tem_rodada = bool(ult) and resumo_rodada.copia_para(ult, pasta)
@@ -5708,6 +5719,9 @@ def chaves_devolvidas(codigo, modulos=()):
 # tela mostra de → para; só vale quando o usuário aplica, como uma edição do editor (o desfazer volta).
 CIRCUITO_VAZIO = {"pecas": [], "globais": {}}
 CIRCUITO_MAX = 200                                   # mudanças por proposta (o lote do editor aceita 400)
+# os valores do circuito que a IA leu no começo de cada pedido (pela pasta dele): o "de" da proposta é o que ela viu; se a
+# pessoa mexeu no circuito enquanto a IA trabalhava, o valor de agora é outro e o Aplicar pergunta antes de passar por cima
+circuito_visto = {}
 PARS_DESENHO = {"blocksizex", "blocksizey", "worksheetsizex", "worksheetsizey", "terminallocation"}   # do desenho, não do circuito
 CONTEXTO_PARAMS_MAX = 150                            # componentes com os parâmetros do painel no CONTEXTO.md (cada um pergunta ao Gecko)
 
@@ -5743,7 +5757,7 @@ def circuito_proposto(pasta, ult):
     if not ult:                                          # outro circuito aberto no meio: os nomes não são os do pedido
         return [], [], [tr("pedido.circuito_outro")]
     avisos = [tr("pedido.circuito_muitos", n=CIRCUITO_MAX)] if len(itens) + len(globs) > CIRCUITO_MAX else []
-    pecas, lidos = {}, {}
+    pecas, lidos, visto = {}, {}, circuito_visto.get(str(pasta)) or {}
     for i, q in enumerate(itens[:CIRCUITO_MAX]):
         if not isinstance(q, dict) or not isinstance(q.get("peca"), str) or not isinstance(q.get("parametro"), str):
             avisos.append(tr("pedido.circuito_item", i=i + 1))
@@ -5761,6 +5775,7 @@ def circuito_proposto(pasta, ult):
                 avisos.append(tr("pedido.circuito_enabled", peca=nome))
                 continue
             de, un = (2.0 if e.get("curto") else 1.0 if e.get("ativo", True) else 0.0), ""
+            de = (visto.get("ativo") or {}).get(nome, de)   # o que a IA viu (mudou no meio: o Aplicar confere e pergunta)
         else:
             if par.lower() in PARS_DESENHO:
                 avisos.append(tr("pedido.circuito_desenho", peca=nome, parametro=par))
@@ -5784,6 +5799,7 @@ def circuito_proposto(pasta, ult):
                 avisos.append(tr("pedido.circuito_ligado", peca=nome, parametro=g["nome"], var=var))
                 continue
             par, de, un = g["nome"], g["valor"], g.get("unidade") or ""
+            de = ((visto.get("pecas") or {}).get(nome) or {}).get(par, de)
         pecas.pop((nome, par), None)                     # o mesmo parâmetro duas vezes: vale o último
         if float(valor) != de:
             pecas[(nome, par)] = {"peca": nome, "parametro": par, "de": de, "para": float(valor), "unidade": un,
@@ -5798,8 +5814,9 @@ def circuito_proposto(pasta, ult):
             avisos.append(tr("pedido.circuito_valor_global", nome=n))
         else:
             globais.pop(n, None)
-            if float(v) != existentes[n]:
-                globais[n] = {"nome": n, "de": existentes[n], "para": float(v)}
+            de = (visto.get("globais") or {}).get(n, existentes[n])
+            if float(v) != de:
+                globais[n] = {"nome": n, "de": de, "para": float(v)}
     return list(pecas.values()), list(globais.values()), avisos
 
 
