@@ -103,6 +103,7 @@
   addEventListener("message", (ev) => {
     if (ev.origin !== location.origin || ev.source !== fSimu.contentWindow) return; const m = ev.data || {};
     if (m.maisim !== "simu") return;
+    if (m.tipo === "arquivo" && m.arq) { est.arq = m.arq; topo(); }   // Salvar como… (ou outro aberto no editor): o arquivo de agora
     if (m.tipo === "painel") { est.painel = m.on; $("paleta").hidden = m.on || est.tab !== "circuito"; }   // o painel ou a paleta abertos: o + sai da frente
     if (m.tipo === "scope" || (m.tipo === "aberto" && m.scope && !fScope.getAttribute("src"))) {   // a rodada ao vivo ou a terminada
       const u = m.url || m.scope; est.scope = u + (u.includes("?") ? "&" : "?") + "movel=1";

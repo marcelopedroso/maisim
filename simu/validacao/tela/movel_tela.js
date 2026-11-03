@@ -79,6 +79,10 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     ok(/vm-ia/.test(ia.cls) && ia.vis !== "none", "IA: a conversa em tela cheia");
     ok(ia.foco !== "TEXTAREA" && ia.foco !== "INPUT", `abrir a IA não dá foco à caixa de texto: foco em ${ia.foco}`);
 
+    // o arquivo muda no editor (Salvar como…): a casca acompanha (o título e o Exportar .msd usam o de agora)
+    await simu.evaluate(() => { const s = document.getElementById("sel-modelo"), o = new Option("copia_movel.ipes", "circuitos/copia_movel.ipes"); s.add(o); s.value = o.value; });
+    await pg.locator('.aba[data-tab="circuito"]').tap(); await pg.waitForTimeout(1500);
+    ok(/copia_movel/.test(await pg.locator("#titulo").textContent()), `depois de Salvar como…, a casca usa o arquivo novo: "${await pg.locator("#titulo").textContent()}"`);
     // o ⋯: a ⚙ (os parâmetros da simulação) abre no editor, sem foco
     await pg.locator('.aba[data-tab="circuito"]').tap(); await pg.waitForTimeout(800);
     await pg.locator("#mais").tap(); await pg.waitForTimeout(500);

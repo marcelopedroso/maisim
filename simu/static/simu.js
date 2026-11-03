@@ -3357,5 +3357,9 @@ if (MOVEL) (() => {
     if (!ed.ligado) { try { await liga(true); } catch (e) { /* só ver */ } }
     casca({ tipo: "aberto", arq: $("sel-modelo").value || "", scope: urlScope(sim.ultimo), elementos: dados.folhas[folhaAtual].elementos.length, camadas: ["bt-controle", "bt-rotulos", "bt-medicoes", "bt-corrente"].map((id) => ({ id, on: $(id).classList.contains("ativo") })) });
     setTimeout(ajusta, 80);
+    // o arquivo do circuito muda sem a casca pedir (Salvar como…, Novo, abrir outro aqui dentro): ela fica sabendo (o título,
+    // o Exportar .msd e o Início usam o arquivo de agora)
+    let arq = $("sel-modelo").value || "";
+    setInterval(() => { const a = $("sel-modelo").value || ""; if (a !== arq) { arq = a; casca({ tipo: "arquivo", arq: a }); } }, 700);
   })();
 })();
