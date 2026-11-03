@@ -90,6 +90,16 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     ok(x1 > x0 && await simu.evaluate(() => document.getElementById("mv-faixa").hidden), `o toque seguinte é onde a peça fica: R.1 x ${x0} → ${x1}, a faixa some`);
     await simu.evaluate(() => desfazer()); await pg.waitForTimeout(1200);
     ok(await pos() === x0, `o Desfazer volta a peça (x ${await pos()})`);
+    // o Mover começado e outra aba (ou outra folha) no meio: cancela (o toque seguinte não move nada)
+    await simu.evaluate(() => ajusta()); await pg.waitForTimeout(300); [cx, cy] = await centroR1();
+    await pg.touchscreen.tap(quadro.x + cx, quadro.y + cy); await pg.waitForTimeout(1200);
+    await pg.frameLocator("#f-simu").locator("#mv-mover").tap(); await pg.waitForTimeout(400);
+    await pg.locator('.aba[data-tab="controle"]').tap(); await pg.waitForTimeout(800); await pg.locator('.aba[data-tab="circuito"]').tap(); await pg.waitForTimeout(1200);
+    const faixa2 = await simu.evaluate(() => document.getElementById("mv-faixa").hidden);
+    await simu.evaluate(() => ajusta()); await pg.waitForTimeout(300); [cx, cy] = await centroR1();
+    await pg.touchscreen.tap(quadro.x + cx + 64, quadro.y + cy + 40); await pg.waitForTimeout(1200);
+    ok(faixa2 && await pos() === x0, `trocar de aba no meio do Mover o cancela: a faixa some e a peça fica (x ${await pos()})`);
+    await simu.evaluate(() => seleciona(null)); await pg.waitForTimeout(300);
 
     // ▶: o andamento em cima, o aviso de pronta e o scope (o próprio, ?movel=1)
     await pg.locator("#rodar").tap();

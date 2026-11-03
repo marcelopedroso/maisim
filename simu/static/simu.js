@@ -3356,11 +3356,12 @@ if (MOVEL) (() => {
   const volta = document.createElement("button"); volta.id = "mv-volta"; volta.type = "button"; volta.hidden = true; volta.onclick = () => abre("0");
   document.body.append(volta);
   const abreOriginal = abre;
-  abre = function (fid) { const r = abreOriginal.apply(this, arguments);
+  abre = function (fid) { paraDeMover(); const r = abreOriginal.apply(this, arguments);   // (o Mover é de uma folha: outra folha o cancela)
     volta.hidden = folhaAtual === "0"; if (!volta.hidden) volta.textContent = "‹ " + nomeSub(dados.folhas[folhaAtual].nome); return r; };
   // as vistas e os pedidos da casca
   function vista(v) {
     ["circuito", "controle", "ia"].forEach((n) => document.body.classList.toggle("vm-" + n, n === v));
+    paraDeMover();
     document.body.classList.remove("mv-paleta");
     if (v !== "circuito") { document.body.classList.remove("mv-props", "mv-cheia"); mostraDoca("controle"); }
     if (v === "ia" && typeof ccAbre === "function" && !cc.aberto) ccAbre(true);
