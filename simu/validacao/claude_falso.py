@@ -4,7 +4,9 @@
 O servidor passa ao filho só um ambiente de lista branca, então o cenário vem de arquivos na pasta de configuração
 (CLAUDE_CONFIG_DIR, a descartável da instância de teste):
   falso_logado     existe: `auth status` diz conectado (senão, e no login/logout, chama o claude de verdade)
-  falso_cenario    o que fazer no pedido: ganho | metade | quebra | json_ruim | lento | anexo | erro | recusa | modulos | controladores | dois_donos | autonomo | limite | le_contexto | renova | trava | resumo_falha | le_conversa
+  falso_espera     (cenário circuito) quantos segundos esperar antes de escrever o circuito.json
+  falso_cenario    o que fazer no pedido: ganho | metade | quebra | json_ruim | lento | anexo | erro | recusa | modulos | controladores | dois_donos | autonomo | limite | le_contexto | renova | trava | resumo_falha | le_conversa | circuito
+                   (circuito: escreve no circuito.json o que o teste deixou em falso_circuito.json)
                    (falso_resumo_lento: o resumo de um contexto demora N s)
                    (o pedido do resumo de um contexto salvo responde sempre com um resumo, sem mexer em arquivo)
   falso_chamadas.jsonl   cada chamada (argumentos e pasta), para o teste conferir as opções; do ambiente, só se havia
@@ -226,6 +228,13 @@ elif cenario in ("controladores", "dois_donos"):        # 3 DSPs: o controle.py 
     cj["rede"] = {"latencia": 2e-5}
     Path("controladores.json").write_text(json.dumps(cj, indent=1))
     resposta = "Criei **dsp_a** e **dsp_b** como controladores (fibra de 20 µs); o dsp_a escreve u_ctrl."
+elif cenario == "circuito":                               # os valores do circuito: o circuito.json que o teste deixou (falso_circuito.json)
+    vazio = Path("circuito.json").exists() and json.loads(Path("circuito.json").read_text()) == {"pecas": [], "globais": {}}
+    if (conf / "falso_espera").exists():                  # o teste mexe no circuito enquanto a IA "trabalha"
+        time.sleep(float((conf / "falso_espera").read_text() or 3))
+    usa("Edit", file_path="circuito.json")
+    Path("circuito.json").write_text((conf / "falso_circuito.json").read_text())
+    resposta = ("circuito.json vazio na pasta" if vazio else "sem circuito.json vazio") + ": para $\\Delta V \\le 10\\,\\%$, proponho `C.1` · `C` = 820 µF."
 elif cenario == "memoria":                                # o pedido de lembrar: uma linha na memória do MaiSim
     usa("Edit", file_path="memoria.md")
     Path("memoria.md").write_text(Path("memoria.md").read_text() + "- prefiro anti-windup por clamping\n")

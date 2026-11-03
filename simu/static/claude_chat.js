@@ -1,7 +1,7 @@
 // MaiSim / simu — "pedir ao Claude" (passo 3b): uma conversa por circuito, no painel do controle.
-// O Claude do MaiSim cuida só do controle: lê o contexto (o circuito, as medidas, as atuações, Ts, Δt, tfim) e o código atual
-// e propõe controle.py, parâmetros e acionamentos; o servidor valida e testa a proposta e aqui o usuário vê a diferença e
-// aplica (com volta) ou descarta. Anexos (PDF de artigo, foto de um diagrama, texto) vão para a pasta da conversa: 📎,
+// O Claude do MaiSim cuida do controle: lê o contexto (o circuito, as medidas, as atuações, Ts, Δt, tfim) e o código atual
+// e propõe controle.py, parâmetros, acionamentos e valores do circuito (entram como uma edição do editor); o servidor valida
+// e testa a proposta e aqui o usuário vê a diferença e aplica (com volta) ou descarta. Anexos (PDF de artigo, foto de um diagrama, texto) vão para a pasta da conversa: 📎,
 // arrastar para a conversa ou colar uma imagem. O topo mostra o uso da conta (sessão de 5 h e semana).
 const ICONE_DOC = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>';
 const ICONE_CLIPE = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5l-8.6 8.6a5 5 0 0 1-7.1-7.1l9.2-9.2a3.3 3.3 0 0 1 4.7 4.7l-9.2 9.2a1.7 1.7 0 0 1-2.4-2.4l8.5-8.5"/></svg>';
@@ -195,6 +195,14 @@ function mudancasControladores(p) {
   if (la !== ld) out.push(tr("cc.rede_latencia", { antes: fmtTempo(la), depois: fmtTempo(ld) }));
   return out;
 }
+// os valores do circuito que a IA propõe (circuito.json; Marcelo, 02/11): "C.1 · C: 100 µF → 820 µF" (o prefixo como no painel)
+// e as variáveis $; só valem ao aplicar, como uma edição do editor
+const valorCirc = (v, u) => textoLido(v, u || "")[0];
+function mudancasCircuito(p) {
+  return (p.circuito || []).map((q) => (q.parametro === "enabled" ? tr(q.para ? "cc.circ_ativa" : "cc.circ_desativa", { peca: q.peca })
+    : tr("cc.circ_par", { peca: q.peca, par: q.parametro, de: valorCirc(q.de, q.unidade), para: valorCirc(q.para, q.unidade) })))
+    .concat((p.globais || []).map((g) => tr("cc.circ_global", { nome: g.nome, de: valorCirc(g.de), para: valorCirc(g.para) })));
+}
 function mudancasAcionamentos(antes, depois) {
   const chave = (q) => JSON.stringify([q.t, q.alvo, q.valor]), A = new Set((antes || []).map(chave)), D = new Set((depois || []).map(chave));
   const txt = (q) => `t = ${fmtTempo(q.t)}: ${q.alvo.replace(/^p:(.*)$/, 'p["$1"]').replace(/^CONST:/, "")} = ${fmtNum(q.valor)}`;
@@ -348,7 +356,8 @@ const contaOps = (ops) => ({ mais: ops.filter((o) => o.t === "+").length, menos:
 function cartaoProposta(e, rodando) {
   const p = e.proposta, itens = [];
   if (p.erro && !p.mudou) return `<div class="cc-prop"><h5 class="cc-erro">${escT(tr("cc.prop_problema"))}</h5><p class="cc-erro">${escT(p.erro)}</p></div>`;
-  if (!p.mudou) return "";                               // só uma pergunta respondida: nada a aplicar, sem cartão
+  if (!p.mudou) return (p.avisos_circuito || []).length   // só uma pergunta respondida: nada a aplicar, sem cartão (o circuito.json
+    ? `<div class="cc-prop"><ul>${p.avisos_circuito.map((x) => `<li class="cc-aviso-t">${escT(x)}</li>`).join("")}</ul></div>` : "";   // recusado: o porquê)
   const muds = arquivosMudados(p).map((f) => Object.assign(f, { ops: diffLinhas(f.antes, f.depois) }));
   const codigoMudou = muds.length > 0;
   const opsMem = memoriaMudou(p) ? diffLinhas(p.memoria_antes || "", p.memoria || "") : null;
@@ -356,6 +365,8 @@ function cartaoProposta(e, rodando) {
   for (const x of mudancasParametros(p.parametros_antes, p.parametros)) itens.push(escT(x));
   for (const x of mudancasAcionamentos(p.acionamentos_antes, p.acionamentos)) itens.push(escT(tr("cc.acionamento_x", { x })));
   for (const x of mudancasControladores(p)) itens.push(escT(x));
+  mudancasCircuito(p).forEach((x, i) => { const m = ((p.circuito || [])[i] || {}).motivo;   // o porquê da IA, na dica
+    itens.push(m ? `<span title="${escT(m)}">${escT(x)}</span>` : escT(x)); });
   if (p.marcar && p.marcar.length) itens.push(trHtml("cc.marca_atuacao_html", {}, { lista: p.marcar.map((x) => `<code>${escT(x)}</code>`).join(", ") }));
   if (p.ligar) itens.push(escT(tr("cc.liga_usar")));
   if (opsMem) itens.push(tr("cc.memoria_linhas_html", { mais: opsMem.filter((o) => o.t === "+").length, menos: opsMem.filter((o) => o.t === "-").length }));
@@ -414,7 +425,36 @@ function propostaParcial(p, op, c) {
   if (arquivos && rec.size) { arquivos = Object.assign({}, p.arquivos);
     for (const a of rec) if (a !== "controle.py") { if (a in atual) arquivos[a] = atual[a]; else delete arquivos[a]; } }
   const pars = op.semPars ? { parametros: c.parametros, acionamentos: c.acionamentos || [] } : { parametros: p.parametros, acionamentos: p.acionamentos };
-  return Object.assign({}, p, { codigo: rec.has("controle.py") ? codigoAtual() : p.codigo, arquivos }, pars, op.semPars ? { controladores: undefined, rede: undefined } : {});
+  return Object.assign({}, p, { codigo: rec.has("controle.py") ? codigoAtual() : p.codigo, arquivos }, pars, op.semPars ? { controladores: undefined, rede: undefined, circuito: [], globais: [] } : {});
+}
+// o circuito da proposta (circuito.json): a peça pelo nome do editor ("C.1", ou "<subcircuito>#C.1"), o que mudou no circuito
+// depois do pedido (o valor de agora não é o "de" que a IA viu: pergunta, como o código) e a aplicação, num lote do editor —
+// uma linha no histórico, e o desfazer volta tudo
+const temCircuito = (p) => (p.circuito || []).length + (p.globais || []).length > 0;
+function pecaDoCircuito(nome) {
+  if (!dados) return null;
+  const i = nome.lastIndexOf("#"), f = i < 0 ? dados.folhas["0"] : Object.entries(dados.folhas).find(([k, x]) => k !== "0" && x.nome === nome.slice(0, i));
+  const fl = i < 0 ? f : f && f[1];
+  return fl ? fl.elementos.find((e) => e.nome === nome.slice(i + 1)) || null : null;
+}
+async function circuitoPropostoMudou(p) {
+  const difere = (a, b) => typeof a !== "number" || Math.abs(a - b) > 1e-12 * Math.max(1, Math.abs(b)), lidos = {};
+  try {
+    for (const q of p.circuito || []) {
+      if (q.parametro === "enabled") { const e = pecaDoCircuito(q.peca); if (!e || difere(e.curto ? 2 : e.ativo ? 1 : 0, q.de)) return true; continue; }
+      if (!lidos[q.peca]) lidos[q.peca] = await api(`editor/params?nome=${encodeURIComponent(q.peca)}`);
+      const g = lidos[q.peca].find((x) => x.nome === q.parametro);
+      if (!g || difere(g.valor, q.de)) return true;
+    }
+    return (p.globais || []).some((g) => difere((dados && dados.globais || {})[g.nome], g.de));
+  } catch (e) { return true; }                           // não deu para ler: pergunta
+}
+async function aplicaCircuito(p) {
+  const cmds = (p.circuito || []).map((q) => ({ op: "SETP", args: [q.peca, q.parametro, q.para] }))
+    .concat((p.globais || []).map((g) => ({ op: "SETG", args: [g.nome, g.para] })));
+  const descr = tr("cc.circ_descr", { lista: mudancasCircuito(p).join("; ") }).slice(0, 200);   // o servidor guarda até 200
+  novoEstado(await api("editor/cmds", { cmds, descr }));
+  return descr;
 }
 async function ccAplica(op = {}) {
   const p0 = cc.estado && cc.estado.proposta;
@@ -426,7 +466,8 @@ async function ccAplica(op = {}) {
   const mudou = [codigoAtual() !== p.codigo_antes && tr("cc.mudou_codigo"), !igual(c.parametros, p.parametros_antes) && tr("cc.mudou_parametros"),
     !igual(c.acionamentos || [], p.acionamentos_antes || []) && tr("cc.mudou_acionamentos"),
     p.arquivos && !igual(ordena(arquivosDoEditor()), ordena(p.arquivos_antes)) && tr("cc.mudou_arquivos"),
-    p.controladores && !igual(c.controladores || [], p.controladores_antes || []) && tr("cc.mudou_controladores")].filter(Boolean);
+    p.controladores && !igual(c.controladores || [], p.controladores_antes || []) && tr("cc.mudou_controladores"),
+    temCircuito(p) && (await circuitoPropostoMudou(p)) && tr("cc.mudou_circuito")].filter(Boolean);
   if (mudou.length && !(await confirma(tr("cc.aplicar_titulo"), tr("cc.confirma_mudou", { lista: mudou.join(tr("cc.lista_e")) }), tr("cc.aplicar"), false))) return;
   cc.aplicando = true;
   const memMudou = memoriaMudou(p);
@@ -435,9 +476,18 @@ async function ccAplica(op = {}) {
     if (atual !== null && atual.trim() !== (p.memoria_antes || "").trim() &&
         !(await confirma(tr("cc.aplicar_titulo"), tr("cc.confirma_memoria"), tr("cc.aplicar"), false))) { cc.aplicando = false; return; }
   }
+  let descrCirc = "";                                    // o circuito primeiro: se o editor recusar, nada do controle muda
+  if (temCircuito(p)) {
+    try { descrCirc = await aplicaCircuito(p); }
+    catch (err) {
+      cc.aviso = tr("cc.circ_erro", { erro: err.message }); cc.aplicando = false;
+      try { novoEstado(await api("editor/estado")); } catch (_) { /* fica o desenho de antes */ }
+      desenhaChat(); return;
+    }
+  }
   cc.antes = { codigo: codigoAtual(), parametros: JSON.parse(JSON.stringify(c.parametros)), acionamentos: JSON.parse(JSON.stringify(c.acionamentos || [])),
     atuacoes: [...c.atuacoes], ativo: !!c.ativo, arquivos: arquivosDoEditor(),
-    controladores: JSON.parse(JSON.stringify(c.controladores || [])), rede: JSON.parse(JSON.stringify(c.rede || { latencia: 0 })) };
+    controladores: JSON.parse(JSON.stringify(c.controladores || [])), rede: JSON.parse(JSON.stringify(c.rede || { latencia: 0 })), circuito: descrCirc };
   if (memMudou) { try { cc.antes.memoria = (await apiClaude("memoria")).texto; } catch (e) { cc.antes.memoria = p.memoria_antes || ""; } }
   poeControle({ codigo: p.codigo, parametros: p.parametros, acionamentos: p.acionamentos, atuacoes: p.atuacoes || c.atuacoes, ativo: p.ligar ? true : c.ativo, arquivos: p.arquivos,
     ...(p.controladores ? { controladores: p.controladores, rede: p.rede } : {}) });
@@ -448,7 +498,7 @@ async function ccAplica(op = {}) {
       try { cc.estado = await apiClaude("aplicada", { antes: { codigo: cc.antes.codigo, parametros: cc.antes.parametros, acionamentos: cc.antes.acionamentos, arquivos: cc.antes.arquivos,
         controladores: cc.antes.controladores, rede: cc.antes.rede },
         aplicado: { codigo: p.codigo, parametros: p.parametros, acionamentos: p.acionamentos, arquivos: p.arquivos,
-          controladores: p.controladores || cc.antes.controladores, rede: p.controladores ? p.rede : cc.antes.rede },
+          controladores: p.controladores || cc.antes.controladores, rede: p.controladores ? p.rede : cc.antes.rede, circuito: p.circuito || [], globais: p.globais || [] },
         recusados: [...(op.recusados || [])].concat(op.semPars ? ["parâmetros, acionamentos e controladores"] : []) }); } catch (e) { /* ok */ }   // i18n-ok: vai para o histórico (dado)
     }
     else cc.aviso = tr("cc.aplicada_nao_guardou");
@@ -460,8 +510,13 @@ async function ccAplica(op = {}) {
 }
 async function ccVolta() {
   if (!cc.antes || document.body.classList.contains("sim-rodando")) return;
-  const mem = cc.antes.memoria;
+  const mem = cc.antes.memoria, circ = cc.antes.circuito;
   poeControle(cc.antes); cc.antes = null; cc.voltou = true;
+  if (circ) {                                            // o circuito: o desfazer do editor, se a última edição ainda é a da proposta
+    if (dados && dados.desfazer && dados.desfazer.ultimo === circ) {
+      try { const j = await api("editor/desfazer", {}); ed.sel = null; ed.fioSel = null; novoEstado(j); } catch (e) { cc.aviso = e.message; }
+    } else cc.aviso = tr("cc.circ_voltar");
+  }
   if (mem !== undefined) { try { await apiClaude("memoria", { texto: mem }); } catch (e) { cc.aviso = tr("cc.memoria_erro", { erro: e.message }); } }
   await guardaControle();
   try { cc.estado = await apiClaude("desfeita", {}); } catch (e) { /* ok: só a marca no histórico */ }
@@ -518,7 +573,7 @@ async function ccDescarta() {
 function ccDiferenca(p0, op = {}) {
   const p = op.historico ? p0 : cc.estado && cc.estado.proposta; if (!p) return;
   const fundo = document.createElement("div"); fundo.className = "modal-fundo"; fundo.style.paddingTop = "5vh";
-  const pars = mudancasParametros(p.parametros_antes, p.parametros).concat(mudancasAcionamentos(p.acionamentos_antes, p.acionamentos).map((x) => tr("cc.acionamento_x", { x })), mudancasControladores(p));
+  const pars = mudancasParametros(p.parametros_antes, p.parametros).concat(mudancasAcionamentos(p.acionamentos_antes, p.acionamentos).map((x) => tr("cc.acionamento_x", { x })), mudancasControladores(p), mudancasCircuito(p));
   const rodando = document.body.classList.contains("sim-rodando");
   const modoDif = (() => { try { return localStorage.getItem("maisim-simu-dif-modo") === "lado" ? "lado" : "uni"; } catch (e) { return "uni"; } })();
   const muds = arquivosMudados(p); if (!muds.length) muds.push({ arq: "controle.py", antes: p.codigo_antes || "", depois: p.codigo || "", novo: false });

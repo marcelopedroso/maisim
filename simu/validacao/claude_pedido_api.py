@@ -109,7 +109,7 @@ def principal():
     perm = a[a.index("--allowedTools") + 1: a.index("--permission-mode")]
     sem_texto = [x for k, x in enumerate(a) if not (k > 0 and a[k - 1] in ("-p", "--append-system-prompt", "--session-id", "--resume"))]
     esperado = ["-p", "--output-format", "stream-json", "--verbose", "--restricted", "--tools", "Read,Edit,Write,Glob,Grep", "--allowedTools",
-                "Edit(./controle.py)", "Edit(./parametros.json)", "Edit(./acionamentos.json)", "Edit(./controladores.json)", "Edit(./memoria.md)",
+                "Edit(./controle.py)", "Edit(./parametros.json)", "Edit(./acionamentos.json)", "Edit(./controladores.json)", "Edit(./memoria.md)", "Edit(./circuito.json)",
                 "Edit(./*.py)", "Write(./*.py)", "--permission-mode", "dontAsk",          # etapa B (19/10): os módulos (.py da pasta), nada fora dela
                 "--permission-prompts", "none", "--strict-mcp-config", "--max-turns", "100", "--append-system-prompt", "--session-id"]
     ok(sem_texto == esperado, f"claude restrito, exatamente estas opções (nada a mais): ferramentas {tools}, edita só {perm}, dontAsk, sem perguntas, sem MCP")
