@@ -1292,13 +1292,15 @@ function dica(ev, e) {
     const e = arrasto.el.e;
     if (k === " ") { if (podeGirar(e)) { await pede("ROTATE", [qualificado(e)], tr("simu.d_girado", { nome: e.nome })); continuaArrasto(e.nome); }
       else if (naoGira(e)) msg(tr(motivoNaoGira(e))); return; }
-    // virar (o Gecko não espelha: só 4 rotações): com dois terminais, virar no eixo dele é girar 180° (o diodo inverte), no outro
-    // eixo não muda nada; com 3 ou mais, bloco de controle ou subcircuito, não há como
-    const nos = (e.entradas || []).length + (e.saidas || []).length;   // (o transformador tem 4 nós, mesmo sem os bornes no desenho)
-    if (naoGira(e) || e.tipo === "TERM" || nos !== 2 || (e.terminais || []).length !== 2) { msg(tr("simu.nao_espelha", { nome: e.nome })); return; }
-    const deitado = e.terminais[0].y === e.terminais[1].y;          // (pelos bornes: no controle o 503 é deitado, na potência em pé)
-    if ((k === "x") !== deitado) { msg(tr(k === "x" ? "simu.vira_nada_x" : "simu.vira_nada_y", { nome: e.nome })); return; }
-    await gira180(e, tr("simu.d_virado", { nome: e.nome, eixo: k.toUpperCase() })); continuaArrasto(e.nome);
+    // X e Y (Marcelo, 04/11: "junta tudo"): X deita a peça em pé e, já deitada, a vira da esquerda para a direita; Y a põe em pé
+    // e, já em pé, a vira de cima para baixo. O Gecko não espelha (só 4 rotações): virar é girar 180° (os bornes trocam de lado,
+    // o diodo inverte), o que só dá nas peças com os bornes numa linha que passa pelo centro (R, L, C, D, chave, GAIN, CONST, GATE…)
+    const ts = e.terminais || [], nos = (e.entradas || []).length + (e.saidas || []).length;   // (o transformador: 4 nós, sem os bornes no desenho)
+    const deitado = ts.length && ts.every((t) => t.y === e.y), emPe = ts.length && ts.every((t) => t.x === e.x);   // (pelos bornes: no controle o 503 é deitado)
+    if (naoGira(e) || e.tipo === "TERM" || !ts.length || nos !== ts.length || !(deitado || emPe)) { msg(tr("simu.nao_espelha", { nome: e.nome })); return; }
+    if ((k === "x" && deitado) || (k === "y" && emPe)) await gira180(e, tr("simu.d_virado", { nome: e.nome, eixo: k.toUpperCase() }));
+    else await pede("ROTATE", [qualificado(e)], tr(k === "x" ? "simu.d_deitado" : "simu.d_empe", { nome: e.nome }));
+    continuaArrasto(e.nome);
   });
   addEventListener("keydown", (ev) => {
     if (ev.target.closest && ev.target.closest("input, select, textarea, [contenteditable], #ctl-editor")) return;   // digitando (o controle.py também)

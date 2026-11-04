@@ -33,6 +33,48 @@
     "nav.tamanho_maior": { pt: "Tamanho do MaiSim: {pct}% (clique: maior)", en: "MaiSim size: {pct}% (click: larger)" },
     "nav.tamanho_menor": { pt: "Tamanho do MaiSim: {pct}% (clique: menor)", en: "MaiSim size: {pct}% (click: smaller)" },
     "nav.lingua": { pt: "Idioma: português (clique: English)", en: "Language: English (click: português)" },
+    // a janela dos atalhos (Marcelo, 04/11: "no trilho, Atalhos com tudo isso")
+    "nav.atalhos": { pt: "Atalhos do mouse e do teclado", en: "Mouse and keyboard shortcuts" },
+    "atl.titulo": { pt: "Atalhos", en: "Shortcuts" }, "atl.fechar": { pt: "Fechar", en: "Close" },
+    "atl.s_editor": { pt: "Editor do circuito", en: "Circuit editor" }, "atl.s_fio": { pt: "Fios e conectores", en: "Wires and connectors" },
+    "atl.s_sim": { pt: "Simulação e arquivo", en: "Simulation and file" }, "atl.s_scope": { pt: "Scope", en: "Scope" },
+    "atl.roda": { pt: "Roda do mouse", en: "Mouse wheel" }, "atl.d_roda": { pt: "zoom (em volta do mouse)", en: "zoom (around the mouse)" },
+    "atl.roda_clic": { pt: "Roda clicada + arrastar", en: "Wheel pressed + drag" }, "atl.d_roda_clic": { pt: "move a tela (em qualquer modo)", en: "moves the view (in any mode)" },
+    "atl.arrasta_vazio": { pt: "Arrastar no vazio", en: "Drag on empty space" }, "atl.d_arrasta_vazio": { pt: "move a tela", en: "moves the view" },
+    "atl.arrasta_peca": { pt: "Arrastar uma peça", en: "Drag a part" }, "atl.d_arrasta_peca": { pt: "move a peça (na grade)", en: "moves the part (on the grid)" },
+    "atl.seg_espaco": { pt: "Segurar a peça + Espaço", en: "Hold the part + Space" }, "atl.d_seg_espaco": { pt: "gira 90°", en: "rotates 90°" },
+    "atl.seg_x": { pt: "Segurar a peça + X", en: "Hold the part + X" }, "atl.d_seg_x": { pt: "põe na horizontal; já na horizontal, espelha (180°)", en: "sets it horizontal; already horizontal, mirrors it (180°)" },
+    "atl.seg_y": { pt: "Segurar a peça + Y", en: "Hold the part + Y" }, "atl.d_seg_y": { pt: "põe na vertical; já na vertical, espelha (180°)", en: "sets it vertical; already vertical, mirrors it (180°)" },
+    "atl.r": { pt: "R", en: "R" }, "atl.d_r": { pt: "gira a peça selecionada", en: "rotates the selected part" },
+    "atl.del": { pt: "Delete ou Backspace", en: "Delete or Backspace" }, "atl.d_del": { pt: "apaga a peça, a conexão ou a seleção", en: "deletes the part, the wire or the selection" },
+    "atl.copia": { pt: "Ctrl+C · Ctrl+X · Ctrl+V", en: "Ctrl+C · Ctrl+X · Ctrl+V" }, "atl.d_copia": { pt: "copia · recorta · cola onde está o mouse", en: "copy · cut · paste where the mouse is" },
+    "atl.shift": { pt: "Shift + clique · Shift + arrastar", en: "Shift + click · Shift + drag" }, "atl.d_shift": { pt: "seleciona vários (arrastar: um retângulo)", en: "selects several (drag: a rectangle)" },
+    "atl.zero": { pt: "0", en: "0" }, "atl.d_zero": { pt: "ver o circuito inteiro", en: "show the whole circuit" },
+    "atl.duplo_sub": { pt: "Duplo clique no subcircuito", en: "Double click on a subcircuit" }, "atl.d_duplo_sub": { pt: "abre a folha de dentro (Esc volta)", en: "opens the sheet inside (Esc goes back)" },
+    "atl.esc": { pt: "Esc", en: "Esc" }, "atl.d_esc": { pt: "cancela (o fio, pôr a peça, a seleção)", en: "cancels (the wire, placing a part, the selection)" },
+    "atl.w": { pt: "W", en: "W" }, "atl.d_w": { pt: "modo fio (clique em cada canto)", en: "wire mode (click each corner)" },
+    "atl.fio_enter": { pt: "Enter · Backspace", en: "Enter · Backspace" }, "atl.d_fio_enter": { pt: "termina o fio · tira o último canto", en: "finishes the wire · removes the last corner" },
+    "atl.c": { pt: "C", en: "C" }, "atl.d_c": { pt: "conector (rótulo: mesmo nome, mesmo nó)", en: "connector (label: same name, same node)" },
+    "atl.ctrl_enter": { pt: "Ctrl+Enter", en: "Ctrl+Enter" }, "atl.d_ctrl_enter": { pt: "simula", en: "simulates" },
+    "atl.espaco_sim": { pt: "Espaço (simulando)", en: "Space (while simulating)" }, "atl.d_espaco_sim": { pt: "pausa e continua", en: "pauses and continues" },
+    "atl.ctrl_s": { pt: "Ctrl+S", en: "Ctrl+S" }, "atl.d_ctrl_s": { pt: "salva", en: "saves" },
+    "atl.ctrl_z": { pt: "Ctrl+Z", en: "Ctrl+Z" }, "atl.d_ctrl_z": { pt: "desfaz", en: "undoes" },
+    "atl.sc_arrasta": { pt: "Arrastar no gráfico", en: "Drag on a plot" }, "atl.d_sc_arrasta": { pt: "zoom (X, Y ou área, como escolhido no painel)", en: "zoom (X, Y or area, as chosen in the panel)" },
+    "atl.sc_duplo": { pt: "Duplo clique no gráfico", en: "Double click on a plot" }, "atl.d_sc_duplo": { pt: "volta a ver tudo", en: "shows everything again" },
+    "atl.sc_shift": { pt: "Shift + arrastar no gráfico", en: "Shift + drag on a plot" }, "atl.d_sc_shift": { pt: "escolhe o intervalo do Medir", en: "picks the Measure interval" },
+    "atl.sc_esc": { pt: "Esc", en: "Esc" }, "atl.d_sc_esc": { pt: "fecha o painel expandido", en: "closes the expanded panel" },
+    "atl.sc_canto": { pt: "Duplo clique no canto do painel", en: "Double click on a panel's corner" }, "atl.d_sc_canto": { pt: "volta ao tamanho padrão", en: "goes back to the default size" },
+    "atl.clica_de_novo": { pt: "Clicar de novo na peça selecionada", en: "Click the selected part again" }, "atl.d_clica_de_novo": { pt: "abre o painel dela", en: "opens its panel" },
+    "atl.fio_duplo": { pt: "Duplo clique", en: "Double click" }, "atl.d_fio_duplo": { pt: "termina o fio fora de um ponto de ligação", en: "finishes the wire away from a connection point" },
+    "atl.s_codigo": { pt: "Código (Controle)", en: "Code (Control)" }, "atl.s_ia": { pt: "IA", en: "AI" }, "atl.s_janelas": { pt: "Listas e janelas", en: "Lists and dialogs" },
+    "atl.cod_s": { pt: "Ctrl+S", en: "Ctrl+S" }, "atl.d_cod_s": { pt: "salva o código e o circuito", en: "saves the code and the circuit" },
+    "atl.cod_enter": { pt: "Ctrl+Enter", en: "Ctrl+Enter" }, "atl.d_cod_enter": { pt: "simula com o código de agora", en: "simulates with the current code" },
+    "atl.cod_altz": { pt: "Alt+Z", en: "Alt+Z" }, "atl.d_cod_altz": { pt: "quebra as linhas longas (liga e desliga)", en: "wraps long lines (on and off)" },
+    "atl.cod_tab": { pt: "Tab", en: "Tab" }, "atl.d_cod_tab": { pt: "põe 4 espaços", en: "inserts 4 spaces" },
+    "atl.cod_aba": { pt: "Duplo clique na aba de um arquivo", en: "Double click on a file tab" }, "atl.d_cod_aba": { pt: "renomeia o arquivo", en: "renames the file" },
+    "atl.ia_enter": { pt: "Ctrl+Enter", en: "Ctrl+Enter" }, "atl.d_ia_enter": { pt: "envia a pergunta", en: "sends the question" },
+    "atl.lista": { pt: "↑ ↓ · Enter", en: "↑ ↓ · Enter" }, "atl.d_lista": { pt: "escolhem nas sugestões (busca de componente, sinais, variáveis $)", en: "pick from the suggestions (component search, signals, $ variables)" },
+    "atl.janela": { pt: "Enter · Esc", en: "Enter · Esc" }, "atl.d_janela": { pt: "confirma · fecha a janela", en: "confirms · closes the dialog" },
     // a versão sob a marca e a atualização automática (simu/atualizacao.py)
     "nav.versao_curta": { pt: "v{versao}", en: "v{versao}" },
     "nav.versao_pre": { pt: "{pre}", en: "{pre}" },                  // o "rc1" de uma versão de teste, embaixo
@@ -129,6 +171,18 @@
   #maisim-atu .notas ul { padding-left:20px; margin:4px 0; } #maisim-atu .notas code, #maisim-atu code { font:12px ui-monospace,monospace; background:rgba(127,127,127,.15); padding:1px 4px; border-radius:4px; }
   #maisim-atu a { color:#7c3aed; } #maisim-atu .msg { margin:0; font-size:13px; } #maisim-atu .msg.falha { color:#dc2626; } #maisim-atu .msg:empty { display:none; }
   #maisim-atu .pe { display:flex; align-items:center; gap:8px; flex-wrap:wrap; } #maisim-atu .pe .procurar { margin-left:auto; }
+  #maisim-atalhos { position:fixed; inset:0; z-index:2147483100; background:rgba(15,23,42,.45); display:flex; align-items:center; justify-content:center;
+             font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  #maisim-atalhos .caixa { width:min(620px, calc(100vw - 32px)); max-height:min(760px, calc(100vh - 32px)); display:flex; flex-direction:column; gap:10px;
+             background:#fff; color:#1b1f24; border:1px solid #d9dde3; border-radius:12px; padding:18px 20px; box-shadow:0 18px 50px rgba(0,0,0,.3); box-sizing:border-box; }
+  html[data-tema="escuro"] #maisim-atalhos .caixa { background:#1b1f26; color:#e6e9ee; border-color:#2a2f37; }
+  #maisim-atalhos h2 { margin:0; font-size:17px; } #maisim-atalhos .lista { overflow:auto; min-height:0; flex:1 1 auto; }
+  #maisim-atalhos h3 { grid-column:1 / -1; margin:12px 0 2px; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:#7c3aed; }
+  #maisim-atalhos dl { display:grid; grid-template-columns:max-content minmax(0, 1fr); gap:5px 14px; margin:0; font-size:13px; }
+  #maisim-atalhos dt { margin:0; } #maisim-atalhos dd { margin:0; align-self:center; }
+  #maisim-atalhos kbd { font:12px ui-monospace,monospace; background:rgba(127,127,127,.15); border:1px solid rgba(127,127,127,.3); border-radius:5px; padding:1px 6px; white-space:nowrap; }
+  #maisim-atalhos .pe { display:flex; justify-content:flex-end; }
+  #maisim-atalhos button { font:inherit; font-size:13px; padding:6px 14px; border-radius:8px; border:1px solid #7c3aed; background:#7c3aed; color:#fff; cursor:pointer; }
   #maisim-atu .pe label { font-size:13px; display:flex; align-items:center; gap:6px; }
   #maisim-atu select { width:auto !important; min-width:0; flex:0 1 auto; font:inherit; font-size:13px; padding:3px 6px; border:1px solid rgba(127,127,127,.4); border-radius:7px; background:transparent; color:inherit; }
   #maisim-atu button { font:inherit; font-size:13px; padding:6px 14px; border-radius:8px; border:1px solid rgba(127,127,127,.4); background:transparent; color:inherit; cursor:pointer; }
@@ -151,7 +205,7 @@
   #maisim-nav .escala .item { height:26px; border:0; background:transparent; cursor:pointer; font:600 17px/1 system-ui, sans-serif; }
   #maisim-nav .escala .item:disabled { opacity:.3; cursor:default; } #maisim-nav .escala .item:disabled:hover { background:transparent; color:#aab2bd; }
   #maisim-nav .escala .pct { color:#8a94a0; font-size:10px; font-variant-numeric:tabular-nums; }
-  #maisim-nav .tema { border:0; background:transparent; cursor:pointer; font:inherit; }
+  #maisim-nav .tema, #maisim-nav .atalhos { border:0; background:transparent; cursor:pointer; font:inherit; }
   #maisim-nav .lingua[hidden] { display:none; }
   #maisim-nav .lingua { border:0; background:transparent; cursor:pointer; font:600 12px/1 system-ui, sans-serif; letter-spacing:.04em; }
   #maisim-nav.claro { background:#ffffff; border-right-color:#d9dde3; }
@@ -215,6 +269,12 @@
   // (no simu, na hora; nas outras páginas, o simu já com ela aberta: ?contas=1). A situação vem do simu (o Claude leva ~0,5 s:
   // chama o claude) — ao abrir, ao voltar à aba e a cada 2 min, em segundo plano; na hora, quando um login entra ou sai (o
   // simu avisa: maisim-ia-logados). A janela à parte (janela=1) não mostra o trilho: não pergunta
+  const ICONE_ATALHOS = svg('<rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7.5 14h9"/>');
+  // as linhas da janela dos atalhos: [seção, [[teclas, o que fazem], …]] (as chaves dos textos acima)
+  const ATALHOS = [["atl.s_editor", ["roda", "roda_clic", "arrasta_vazio", "arrasta_peca", "seg_espaco", "seg_x", "seg_y", "r", "del", "copia", "shift", "zero", "clica_de_novo", "duplo_sub", "esc"]],
+    ["atl.s_fio", ["w", "fio_enter", "fio_duplo", "c"]], ["atl.s_sim", ["ctrl_enter", "espaco_sim", "ctrl_s", "ctrl_z"]],
+    ["atl.s_codigo", ["cod_s", "cod_enter", "cod_altz", "cod_tab", "cod_aba"]], ["atl.s_ia", ["ia_enter"]],
+    ["atl.s_scope", ["sc_arrasta", "sc_duplo", "sc_shift", "sc_canto", "sc_esc"]], ["atl.s_janelas", ["lista", "janela"]]];
   const ICONE_IA = svg('<path d="M4.5 4.5h15a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-8.5l-4.5 3.6v-3.6h-2a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2z"/><path d="M6.5 11h2.2M15.6 11h1.9M8.7 8.2l5.6 2.8-5.6 2.8z"/><path d="M15.6 8.2v5.6"/>');
   let ultimaIA = 0, ultimasIAs = null;
   const rotuloIA = (nomes) => (nomes.length ? tr("nav.ia_conectadas", { n: nomes.length, nomes: nomes.join(", ") }) : tr("nav.ia_nenhuma"));   // "IAs conectadas: Claude, DeepSeek"
@@ -255,7 +315,8 @@
     nav.insertAdjacentHTML("beforeend", `<a class="item ia" href="/maisim/simu/?contas=1" data-rotulo="${tr("nav.ia")}" aria-label="${tr("nav.ia")}">${ICONE_IA}<span class="ponto"></span></a>`
       + (comEscala() ? `<div class="escala"><button class="item mais" type="button" aria-label="${tr("nav.maior")}">+</button>
       <span class="pct"></span><button class="item menos" type="button" aria-label="${tr("nav.menor")}">−</button></div>` : "")
-      + `<button class="item lingua" type="button" hidden></button><button class="item tema" type="button"></button>`);
+      + `<button class="item lingua" type="button" hidden></button><button class="item tema" type="button"></button>`
+      + `<button class="item atalhos" type="button" data-rotulo="${tr("nav.atalhos")}" aria-label="${tr("nav.atalhos")}">${ICONE_ATALHOS}</button>`);   // no pé, embaixo do tema (Marcelo, 04/11)
     const bl = nav.querySelector(".lingua");             // PT/EN: mostra o idioma de agora; o clique troca pelo outro, em todas as janelas
     bl.addEventListener("click", () => { if (trocaLingua()) I().muda(I().lingua() === "pt" ? "en" : "pt"); });
     if (comEscala()) { nav.querySelector(".mais").addEventListener("click", () => mudaEscala(1)); nav.querySelector(".menos").addEventListener("click", () => mudaEscala(-1)); }
@@ -263,6 +324,7 @@
       if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || typeof window.abreJanelaClaude !== "function") return;
       e.preventDefault(); window.abreJanelaClaude(); });
     nav.querySelector(".versao").addEventListener("click", abreAtualizacao);
+    nav.querySelector(".atalhos").addEventListener("click", abreAtalhos);
     nav.querySelector(".tema").addEventListener("click", () => {
       const prox = TEMAS[(TEMAS.indexOf(escolhaTema()) + 1) % TEMAS.length];
       try { localStorage.setItem("maisim-tema", prox); } catch (e) { /* ok */ }
@@ -297,6 +359,7 @@
     const ia = nav.querySelector(".item.ia");
     if (ia) { const r = ultimasIAs ? rotuloIA(ultimasIAs) : tr("nav.ia"); ia.dataset.rotulo = r; ia.setAttribute("aria-label", r); }
     rotulaVersao();
+    const at = nav.querySelector(".item.atalhos"); if (at) { at.dataset.rotulo = tr("nav.atalhos"); at.setAttribute("aria-label", tr("nav.atalhos")); }
     const m = nav.querySelector(".mais"), n = nav.querySelector(".menos");
     if (m) m.setAttribute("aria-label", tr("nav.maior"));
     if (n) n.setAttribute("aria-label", tr("nav.menor"));
@@ -376,6 +439,18 @@
         ATU = e; rotulaVersao(); if (!e.aplicando || e.aplicando.fase === "erro") { clearInterval(acompanha); acompanha = null; }
       } catch (err) { /* desligado para atualizar: espera voltar */ }
     }, 1000);
+  }
+  function abreAtalhos() {
+    if (document.getElementById("maisim-atalhos")) return;
+    const j = document.createElement("div"); j.id = "maisim-atalhos";
+    j.innerHTML = `<div class="caixa" role="dialog" aria-modal="true" aria-labelledby="maisim-atalhos-t"><h2 id="maisim-atalhos-t">${esc(tr("atl.titulo"))}</h2>
+      <div class="lista"><dl>${ATALHOS.map(([s, ks]) => `<h3>${esc(tr(s))}</h3>${ks.map((k) => `<dt><kbd>${esc(tr("atl." + k))}</kbd></dt><dd>${esc(tr("atl.d_" + k))}</dd>`).join("")}`).join("")}</dl></div>
+      <div class="pe"><button type="button" class="fechar prim">${esc(tr("atl.fechar"))}</button></div></div>`;
+    document.body.appendChild(j);
+    const fecha = () => j.remove();
+    j.addEventListener("click", (e) => { if (e.target === j) fecha(); });
+    j.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.stopPropagation(); fecha(); } });
+    j.querySelector(".fechar").addEventListener("click", fecha); j.querySelector(".fechar").focus();
   }
   async function abreAtualizacao() {
     if (document.getElementById("maisim-atu")) return;
