@@ -193,7 +193,11 @@
     if (m.maisim !== "simu") return;
     if (m.tipo === "arquivo" && m.arq) { est.arq = m.arq; est.nome = m.nome || ""; topo(); }
     if (m.tipo === "msg" && m.texto) { aviso(m.texto, null, null, m.erro ? 7000 : 3500); $("aviso").classList.toggle("erro", !!m.erro); }   // os erros e o "salvo" do editor (o cabeçalho dele não aparece)
-    if (m.tipo === "aba" && m.aba) aba(m.aba);                 // o editor pede outra aba (a IA, pelos botões do Controle)   // Salvar como… (ou outro aberto no editor): o arquivo de agora
+    if (m.tipo === "aba" && m.aba) aba(m.aba);
+    if (m.tipo === "fechado") {                                 // o circuito fechado (pelo ⋯): as abas dele apagam e volta ao Início
+      est.arq = null; est.nome = ""; est.n = 0; est.scope = null; fScope.src = "about:blank"; fSimu.src = "about:blank";
+      document.querySelectorAll('.aba[data-tab="circuito"], .aba[data-tab="controle"], .aba[data-tab="ia"]').forEach((b) => { b.disabled = true; });
+      aba("inicio"); aviso(tr("mv.fechado")); }                 // o editor pede outra aba (a IA, pelos botões do Controle)   // Salvar como… (ou outro aberto no editor): o arquivo de agora
     if (m.tipo === "painel") est.painel = m.on;
     if (m.tipo === "janela") est.janela = m.on;
     if (m.tipo === "painel" || m.tipo === "janela") $("paleta").hidden = est.painel || est.janela || est.tab !== "circuito";   // o + não cobre o painel nem a janela   // o painel ou a paleta abertos: o + sai da frente
@@ -213,7 +217,7 @@
   });
 
   // ── o ⋯ do circuito: a ⚙, as variáveis $, as camadas, salvar, desfazer, exportar o .msd ──
-  $("mais").onclick = () => gaveta(nomeDe(est.arq), "", el("div", { class: "menu-lista" },
+  $("mais").onclick = () => gaveta(est.nome || nomeDe(est.arq), "", el("div", { class: "menu-lista" },
     item('<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>', tr("mv.m_sim"), () => { aba("circuito"); pedeSimu({ cmd: "parametros" }); }),
     item('<path d="M7 5h10M7 19h10M12 5v14"/>', tr("mv.m_vars"), () => { aba("circuito"); pedeSimu({ cmd: "globais" }); }),
     item('<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>', tr("mv.m_camadas"), camadas),
@@ -221,13 +225,14 @@
     item('<path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/>', tr("mv.m_salvar"), () => pedeSimu({ cmd: "salvar" })),
     item('<path d="M5 4h11l3 3v13H5z"/><path d="M12 11v6M9 14h6"/>', tr("mv.m_salvar_como"), () => { aba("circuito"); pedeSimu({ cmd: "salvar_como" }); }),
     item('<path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/>', tr("mv.m_desfazer"), () => pedeSimu({ cmd: "desfazer" })),
-    item('<path d="M12 15V4M7 9l5-5 5 5M5 20h14"/>', tr("mv.m_exportar"), exporta)));
+    item('<path d="M12 15V4M7 9l5-5 5 5M5 20h14"/>', tr("mv.m_exportar"), exporta),
+    item('<path d="M6 6l12 12M18 6 6 18"/>', tr("mv.m_fechar"), () => { aba("circuito"); pedeSimu({ cmd: "fechar" }); })));
   function camadas() {
     const nomes = { "bt-controle": "mv.cam_controle", "bt-rotulos": "mv.cam_rotulos", "bt-medicoes": "mv.cam_medicoes", "bt-corrente": "mv.cam_corrente" };
     const lista = el("div", { class: "cartoes" }, ...est.camadas.map((c) => { const ch = el("button", { class: "chave", type: "button", role: "switch", "aria-checked": String(c.on), "aria-label": tr(nomes[c.id]) });
       ch.onclick = () => { c.on = !c.on; ch.setAttribute("aria-checked", String(c.on)); pedeSimu({ cmd: "camada", id: c.id }); };
       return el("div", { class: "ajuste" }, el("span", { class: "rot" }, tr(nomes[c.id])), ch); }));
-    gaveta(tr("mv.m_camadas"), nomeDe(est.arq), lista);
+    gaveta(tr("mv.m_camadas"), est.nome || nomeDe(est.arq), lista);
   }
   // exportar: o .msd do circuito com as últimas rodadas dele (o navegador baixa: no Android, vai para os Downloads)
   async function exporta() {

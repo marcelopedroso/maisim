@@ -32,6 +32,7 @@ maisimI18n.add({
   "mv.novo_pendente": { pt: "{nome}: {motivo}. Um circuito novo começa em branco.", en: "{nome}: {motivo}. A new circuit starts blank." },
   "mv.novo_abrir": { pt: "Abrir {nome} para salvar", en: "Open {nome} to save it" },
   "mv.novo_descartar": { pt: "Descartar as mudanças e criar o novo", en: "Discard the changes and create the new one" },
+  "mv.m_fechar": { pt: "Fechar o circuito", en: "Close the circuit" }, "mv.fechado": { pt: "Circuito fechado", en: "Circuit closed" },
   "mv.aberto_agora": { pt: "Aberto agora", en: "Open now" },
   "mv.aberto_sujo": { pt: "{motivo} · abra para salvar", en: "{motivo} · open it to save" },
   "mv.aberto_ok": { pt: "toque para continuar", en: "tap to continue" }, "mv.novo_sem_nome": { pt: "circuito novo (sem nome)", en: "new circuit (no name)" },

@@ -3380,6 +3380,8 @@ if (MOVEL) (() => {
     const pedidos = { vista: () => vista(m.vista), rodar: () => $("bt-play").click(), pausar: () => $("bt-pausa").click(), parar: () => $("bt-parar").click(),
       paleta: () => { document.body.classList.remove("mv-props"); alca($("paleta"), () => { document.body.classList.remove("mv-paleta", "mv-cheia"); casca({ tipo: "painel", on: false }); });
         casca({ tipo: "painel", on: document.body.classList.toggle("mv-paleta") }); },
+      // fechar: o mesmo do PC (com algo sem salvar, a pergunta: salvar, salvar como ou descartar); fechado, a casca volta ao Início
+      fechar: async () => { await fechaCircuito(); if (!$("sel-modelo").value && dados && dados.fechado) casca({ tipo: "fechado" }); },
       parametros: () => parametrosSim(), globais: () => variaveisGlobais(), salvar: () => { esperaSalvo = Date.now(); $("bt-salvar").click(); }, salvar_como: () => { esperaSalvo = Date.now(); $("bt-salvar-como").click(); },
       desfazer: () => desfazer(), ajustar: () => ajusta(), camada: () => { const b = $(m.id); if (b) b.click(); }, contas: () => typeof abreJanelaClaude === "function" && abreJanelaClaude() };
     if (pedidos[m.cmd]) pedidos[m.cmd]();

@@ -195,6 +195,8 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     const campoNome = pg.frameLocator("#f-simu").locator(".modal input").first();
     if (await campoNome.count()) { await campoNome.fill("movel_novo_teste"); await pg.frameLocator("#f-simu").locator(".modal button.primario, .modal .m-ok").first().tap(); await pg.waitForTimeout(2000); }
     ok(/movel_novo_teste/.test(await pg.locator("#titulo").textContent()) && !(await pg.locator('.aba[data-tab="circuito"]').isDisabled()), `+ Novo circuito: o nome pedido vira o título ("${await pg.locator("#titulo").textContent()}")`);
+    await pg.locator("#mais").tap(); await pg.waitForTimeout(500); const titMenu = await pg.locator("#g-tit").textContent(); await pg.locator("#g-fechar").tap(); await pg.waitForTimeout(300);
+    ok(titMenu === "movel_novo_teste", `o ⋯ de um circuito novo tem o nome dele, não o interno ("${titMenu}")`);
     // o novo, ainda sem arquivo, com uma peça: o app reaberto mostra "Aberto agora" (o servidor diz arquivo: null) e tocar abre o
     // mesmo rascunho, com a peça, sem perguntar (Codex, #207)
     await pg.frames().find((f) => /\/maisim\/simu\/\?movel=1/.test(f.url())).evaluate(() => pede("CREATE", ["R.1", 10, 10, "R"], "teste")); await pg.waitForTimeout(1200);
@@ -230,7 +232,16 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     const r77 = simu2() ? await simu2().evaluate((n) => (dados.folhas[folhaAtual].elementos.find((x) => x.nome === n) || {}).par, alvo) : null;
     ok(r77 && Object.values(r77).includes(77) && await pg.frameLocator("#f-simu").locator(".modal").count() === 0 && /exemplo_boost/.test(await pg.locator("#titulo").textContent()),
       `tocar em "Aberto agora" abre o mesmo circuito com a mudança (${alvo} ${JSON.stringify(r77)}), sem perguntar`);
-    await simu2().evaluate(() => desfazer()); await pg.waitForTimeout(1200);   // (desfaz: o próximo teste começa sem nada pendente)
+    // ⋯ → Fechar o circuito, com uma mudança sem salvar: a pergunta do editor (descartar), e a casca volta ao Início com as abas
+    // do circuito apagadas; o servidor fica sem circuito aberto (sem o ⋯, o celular não tinha como fechar um circuito)
+    await pg.locator("#mais").tap(); await pg.waitForTimeout(500);
+    await pg.locator("#g-corpo .menu-lista button").last().tap(); await pg.waitForTimeout(2000);
+    const dF = pg.frameLocator("#f-simu").locator(".modal button", { hasText: "Descartar" }); const perguntou = await dF.count() > 0;
+    if (perguntou) { await dF.first().tap(); await pg.waitForTimeout(2500); }
+    const fechado = await pg.evaluate(async () => (await (await fetch("/maisim/simu/editor/aberto", { cache: "no-store" })).json()).fechado);
+    ok(perguntou && fechado && await pg.locator('.aba[data-tab="circuito"]').isDisabled() && await pg.locator("#t-inicio").isVisible(),
+      `⋯ → Fechar o circuito: pergunta o que fazer com a mudança, fecha no servidor (fechado ${fechado}) e volta ao Início`);
+    await pg.locator("#l-exemplos .linha", { hasText: "exemplo_boost" }).first().tap(); await pg.waitForTimeout(4000);   // (o próximo teste começa com um circuito aberto)
     ok(!erros.length, `sem erros na casca${erros.length ? ": " + erros.join(" · ") : ""}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message}`); }
   finally { if (b) await b.close(); }
