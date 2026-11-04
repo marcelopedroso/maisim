@@ -699,6 +699,40 @@ function doisPinos(g, e) {
 // as ligações num quadro local girado com a orientação (a do Gecko é sempre uma rotação: 503 0°, 504 90°, 501 180°, 502
 // 270°); no M-DC o campo é a bobina entre os dois bornes de cima. Embaixo, o tipo e o torque de carga (o sinal de controle
 // que o dá, como o "Tm >>" do Gecko; sem sinal, em vermelho: a máquina gira em vazio)
+// bloco de controle girado (o Gecko do MaiSim gira: patch 0012): o desenho de sempre (deitado, 503) num referencial do bloco,
+// girado em volta de (x, y) — 504 a 90°, 501 a 180°, 502 a 270°, como o ponto_gecko do ipes.py —, com os textos em pé
+const GIRO_CT = { 504: 90, 501: 180, 502: 270 };
+function giraPonto(e, x, y, ang) {
+  const dx = x - e.x, dy = y - e.y, [rx, ry] = ang === 90 ? [-dy, dx] : ang === 180 ? [-dx, -dy] : ang === 270 ? [dy, -dx] : [dx, dy];
+  return [e.x + rx, e.y + ry];
+}
+function desenhaBlocoGirado(e, g, giro) {
+  const loc = e.terminais.map((t) => { const [x, y] = giraPonto(e, t.x, t.y, 360 - giro); return { x, y, lado: t.lado }; });   // como se deitado
+  const ys = [e.y, ...loc.map((t) => t.y)], topo = Math.min(...ys) - 0.5, h = Math.max(...ys) - Math.min(...ys) + 1;
+  const cantos = [[e.x - 1, topo], [e.x + 1, topo + h]].map(([x, y]) => giraPonto(e, x, y, giro));
+  const x0 = Math.min(cantos[0][0], cantos[1][0]), x1 = Math.max(cantos[0][0], cantos[1][0]), y0 = Math.min(cantos[0][1], cantos[1][1]), y1 = Math.max(cantos[0][1], cantos[1][1]);
+  no("rect", { class: "corpo", x: x0 * G, y: y0 * G, width: (x1 - x0) * G, height: (y1 - y0) * G, fill: COR.ctFundo, stroke: COR.ct, "stroke-width": 1.4, rx: 2 }, g);
+  const [sx, sy] = giraPonto(e, e.x, topo + h / 2, giro);
+  texto(g, sx, sy, ehTag(e) ? "tag" : SIMBOLO[e.tipo] || e.tipo, { class: "simbolo", "text-anchor": "middle", fill: COR.ct, "font-size": (ehTag(e) ? 0.55 : 0.6) * G, "font-weight": 700 });
+  for (const t of loc) {                                            // as pernas, do borne até a borda da caixa
+    const borda = t.lado === "e" ? e.x - 1 : e.x + 1; if (t.x === borda) continue;
+    const [ax, ay] = giraPonto(e, t.x, t.y, giro), [bx, by] = giraPonto(e, borda, t.y, giro);
+    no("line", { x1: ax * G, y1: ay * G, x2: bx * G, y2: by * G, stroke: COR.ct, "stroke-width": 1.4 }, g);
+  }
+  // com as entradas externas (SIGNAL, LIMIT, HYS): o que cada uma dá, por dentro, junto do borne (Codex, #215: sem isso,
+  // girado, dava para ligar a amplitude no borne da frequência)
+  const ext = bornesExternos(e), pars = ext && EXTERNA[e.tipo].pars;
+  if (ext) ext.forEach((t, k) => { const [lx, ly] = giraPonto(e, t.x, t.y, 360 - giro), esq = lx < e.x;
+    const [px, py] = giraPonto(e, lx + (esq ? 0.42 : -0.42), ly, giro);
+    texto(g, px, py, pars[k].simb, { class: "pino-ext", "text-anchor": "middle", fill: COR.ct, "font-size": 0.38 * G, "font-family": MAT,
+      "font-style": pars[k].simb.length === 1 ? "italic" : "normal" }); });
+  const pn = !ext && PINOS[e.tipo];                                 // os nomes das entradas e saídas, por dentro, junto do borne
+  if (pn) for (const lado of ["e", "s"]) { const ts = loc.filter((t) => t.lado === lado);
+    (pn[lado] || []).forEach((nm, k) => { const t = ts[k]; if (!t) return; const borda = lado === "e" ? e.x - 1 : e.x + 1;
+      const [px, py] = giraPonto(e, borda + (lado === "e" ? 0.35 : -0.35), t.y, giro);
+      texto(g, px, py, nm, { class: "pino", "text-anchor": "middle", fill: COR.ct, "font-size": 0.38 * G, "font-family": MAT }); }); }
+  return { cima: y0, baixo: y1, direita: x1, meio: (y0 + y1) / 2, emPe: giro === 90 || giro === 270 };
+}
 const ANG_DIR = { 503: 0, 504: 90, 501: 180, 502: 270 };
 // os rótulos de sinal de controle de uma folha: as saídas dos blocos de controle e os fios de controle com rótulo
 const rotulosCtl = (fl) => [...new Set(fl.elementos.filter((x) => x.dom === "CONTROL").flatMap((x) => x.saidas || []).concat(
@@ -953,7 +987,12 @@ function desenha() {
     } else {                                                            // bloco de controle
       // a caixa cobre as linhas dos bornes, onde o Gecko os põe (Marcelo, 24/10: com useExternal, o SIGNAL ganha 5 entradas em
       // y + 2 … y + 6, abaixo da saída, o LIMIT 2 em y + 2, y + 3 e o HYS 1 em y + 2 — ver EXTERNAS no ipes.py); sem bornes, uma linha
+      const giro = GIRO_CT[e.dir] || 0;
+      let cima, baixo, cx = null;                       // a caixa, na folha (para o que vai em cima e embaixo dela)
+      if (giro) { const c = desenhaBlocoGirado(e, g, giro); cima = c.cima; baixo = c.baixo; if (c.emPe) cx = c; }   // em pé: o valor vai à direita (embaixo há uma perna)
+      else {
       const ys = [e.y, ...e.terminais.map((t) => t.y)], topo = Math.min(...ys) - 0.5, h = Math.max(...ys) - Math.min(...ys) + 1;
+      cima = topo; baixo = topo + h;
       const ext = bornesExternos(e), pars = ext && EXTERNA[e.tipo].pars;
       const caixa = no("rect", { class: "corpo", x: (e.x - 1) * G, y: topo * G, width: 2 * G, height: h * G, fill: COR.ctFundo, stroke: COR.ct, "stroke-width": 1.4, rx: 2 }, g);
       // o símbolo no meio; com as entradas externas, no meio da faixa de cima (a da saída, livre dos nomes das entradas)
@@ -975,16 +1014,19 @@ function desenha() {
         const w = Math.min(12, Math.max(2, simb.isConnected ? simb.getComputedTextLength() / G + 0.6 : 2));
         caixa.setAttribute("width", w * G); simb.setAttribute("x", (e.x - 1 + w / 2) * G); if (w === 12) cortaAte(simb, 11.4);
       } else ajustaSimbolo(simb, e, topo, h, [...g.querySelectorAll(".pino-ext, .pino")], !!ext);
+      }
       const valCtl = valorPrincipal(e);
-      if (valCtl) texto(g, e.x, topo + h + 0.5, valCtl, { class: "valor-bloco", "text-anchor": "middle", fill: COR.par, "font-size": 0.45 * G });
-      if (e.tipo === "VIEWMOT") texto(g, e.x, topo + h + 0.55, e.mede[1] && e.grandeza ? `${e.mede[1]} · ${e.grandeza}` : tr("simu.sem_maquina"),
-        { class: "vm-alvo", "text-anchor": "middle", fill: e.mede[1] ? COR.ct : COR.erro, "font-size": 0.45 * G });
-      if (e.tipo === "TF" && e.tf) cortaAte(texto(g, e.x, topo + h + 0.55, rotuloTF(e), { class: "tf-h", "text-anchor": "middle", fill: COR.ct, "font-size": 0.45 * G }), 9);
-      if (e.tipo === "GATE") texto(g, e.x, topo + h + 0.55, e.mede[0] ? `→ ${e.mede[0]}` : tr("simu.sem_chave"), { "text-anchor": "middle", fill: e.mede[0] ? COR.ct : COR.erro, "font-size": 0.45 * G });
+      if (valCtl) texto(g, cx ? cx.direita + 0.3 : e.x, cx ? cx.meio : baixo + 0.5, valCtl, { class: "valor-bloco", "text-anchor": cx ? "start" : "middle", fill: COR.par, "font-size": 0.45 * G });
+      // a linha de baixo (a máquina do VIEWMOT, a TF, a chave do GATE): em pé, ao lado da caixa, abaixo do valor
+      const lx = cx ? cx.direita + 0.3 : e.x, ly = cx ? cx.meio + (valCtl ? 0.6 : 0) : baixo + 0.55, la = cx ? "start" : "middle";
+      if (e.tipo === "VIEWMOT") texto(g, lx, ly, e.mede[1] && e.grandeza ? `${e.mede[1]} · ${e.grandeza}` : tr("simu.sem_maquina"),
+        { class: "vm-alvo", "text-anchor": la, fill: e.mede[1] ? COR.ct : COR.erro, "font-size": 0.45 * G });
+      if (e.tipo === "TF" && e.tf) cortaAte(texto(g, lx, ly, rotuloTF(e), { class: "tf-h", "text-anchor": la, fill: COR.ct, "font-size": 0.45 * G }), 9);
+      if (e.tipo === "GATE") texto(g, lx, ly, e.mede[0] ? `→ ${e.mede[0]}` : tr("simu.sem_chave"), { "text-anchor": la, fill: e.mede[0] ? COR.ct : COR.erro, "font-size": 0.45 * G });
       // escrito pelo controle: a etiqueta vai em cima do bloco, como o nome de um componente (Marcelo, 19/10: na saída ela
       // cobria o que se liga ali, como o borne S do SM encostado no CONST)
       const atuador = typeof atuadorDe === "function" ? atuadorDe(e) : null;
-      if (atuador) tagAtuador(camRot, e.x, e.y - 1.0, atuador, true);
+      if (atuador) tagAtuador(camRot, e.x, giro ? cima - 0.5 : e.y - 1.0, atuador, true);
       // a saída de um bloco da folha principal que vai para o scope ou para o controle (Marcelo, 24/10: "o desenho mostra tudo
       // o que vai para o scope"): a etiqueta no borne da 1ª saída, em cima da conexão (embaixo, se o bloco é um atuador: a
       // etiqueta dele já está em cima), no lugar do rótulo (é o mesmo nome); com várias saídas, uma em cada borne
@@ -993,10 +1035,11 @@ function desenha() {
       const cs = dest !== "fora" ? canaisDe(e, "0") : [];
       const saiScope = mostrar.medicoes ? e.terminais.filter((t) => t.lado === "s").slice(0, cs.length) : [];
       saiScope.forEach((t, i) => { const esq = t.x < e.x;
+        if (cx) { tagScope(camRot, t.x + 0.35, t.y, cs[i], corSinal(cs[i], e), dest, { larg: 4.5 }); return; }   // em pé: ao lado do borne
         tagScope(camRot, t.x + (esq ? -0.25 : 0.25), t.y + (atuador ? 0.62 : -0.62), cs[i], corSinal(cs[i], e), dest, { larg: 4.5, fim: esq }); });
       for (const t of e.terminais) {
-        const borda = t.lado === "e" ? e.x - 1 : e.x + 1;
-        if (t.x !== borda) no("line", { x1: t.x * G, y1: t.y * G, x2: borda * G, y2: t.y * G, stroke: COR.ct, "stroke-width": 1.4 }, g);
+        const borda = t.lado === "e" ? e.x - 1 : e.x + 1;   // (girado, as pernas já estão no desenho dele)
+        if (!giro && t.x !== borda) no("line", { x1: t.x * G, y1: t.y * G, x2: borda * G, y2: t.y * G, stroke: COR.ct, "stroke-width": 1.4 }, g);
         if (atuador && t.lado === "s") continue;                                                              // a etiqueta já diz o nome
         if ((MEDIDOR.has(e.tipo) || ehTag(e)) && t.lado === "s") { if (mostrar.medicoes) tagScope(camRot, t.x + 0.35, t.y, canalScope(e), corSinal(canalScope(e), e), destinoDe(e)); }   // regra: medidor (e tag) vai para o /maisim/scope
         else if (mostrar.rotulos && t.rotulo && !saiScope.includes(t)) rotBorne(e, i, t, t.rotulo, t.lado === "e" ? t.x - 0.2 : t.x + 0.2, t.y - 0.42,
@@ -1253,7 +1296,7 @@ function dica(ev, e) {
     // eixo não muda nada; com 3 ou mais, bloco de controle ou subcircuito, não há como
     const nos = (e.entradas || []).length + (e.saidas || []).length;   // (o transformador tem 4 nós, mesmo sem os bornes no desenho)
     if (naoGira(e) || e.tipo === "TERM" || nos !== 2 || (e.terminais || []).length !== 2) { msg(tr("simu.nao_espelha", { nome: e.nome })); return; }
-    const deitado = e.dir === 502 || e.dir === 504;
+    const deitado = e.terminais[0].y === e.terminais[1].y;          // (pelos bornes: no controle o 503 é deitado, na potência em pé)
     if ((k === "x") !== deitado) { msg(tr(k === "x" ? "simu.vira_nada_x" : "simu.vira_nada_y", { nome: e.nome })); return; }
     await gira180(e, tr("simu.d_virado", { nome: e.nome, eixo: k.toUpperCase() })); continuaArrasto(e.nome);
   });
@@ -1321,10 +1364,10 @@ const naFolhaPrincipal = () => folhaAtual === "0";
 const podeGirar = (e) => e.tipo !== "TERM" && !naoGira(e);   // o terminal do SM não gira: a borda da folha diz o lado do borne
 // o Gecko não gira bloco de controle nem subcircuito: RegelBlock.rotiereSymbol() é vazio ("control components cannot be
 // rotated at the moment!") e os dois forçam a orientação para baixo em setComponentDirection (conferido em 19/10)
-const naoGira = (e) => e.dom === "CONTROL" || e.tipo === "SUBCIRCUIT" || termicoFixo(e);
+const naoGira = (e) => e.tipo === "SUBCIRCUIT" || termicoFixo(e) || e.dom === "CONTROL" && (e.geometria !== "gecko" || e.tipo === "TEXT");
 // a referência térmica e a fonte de perdas (um terminal só): o Gecko também força a orientação (ThermAmbient, ThermPvChip)
 const termicoFixo = (e) => e.dom === "THERM" && (e.tipo === "TREF" || e.tipo === "Pv");
-const motivoNaoGira = (e) => termicoFixo(e) ? "simu.nao_gira_termico" : "simu.nao_gira";
+const motivoNaoGira = (e) => termicoFixo(e) ? "simu.nao_gira_termico" : e.dom === "CONTROL" ? "simu.nao_gira_bloco" : "simu.nao_gira";
 // girar 180° (dois ROTATE numa mudança só: um Desfazer volta), em todos os subcircuitos iguais como o pede()
 async function gira180(e, ok) {
   const fs = alvos(); ok += nosSMs(fs);
@@ -1891,7 +1934,7 @@ async function montaProps() {
   P.innerHTML = `<h3>${e.nome}</h3><div class="t">${ehTag(e) ? escT(tr("simu.tag_descr")) : escT(nomeTipo(e))} · (${e.x}, ${e.y})</div>
     <label><span>${escT(tr("simu.p_nome"))}</span><input id="p-nome" value="${e.nome}"></label>
     <label><span>${escT(tr("simu.p_pos"))}</span><input id="p-pos" value="${e.x}, ${e.y}"></label>
-    <div class="botoes">${podeGirar(e) ? `<button id="p-gira">${escT(tr("simu.girar_r"))}</button>` : naoGira(e) ? `<button id="p-nao-gira" class="nao-gira" title="${escT(tr(motivoNaoGira(e)))}">${escT(tr("simu.girar"))}</button>` : ""}<button id="p-apaga" class="perigo">${escT(tr("simu.apagar"))}</button></div>
+    <div class="botoes">${podeGirar(e) ? `<button id="p-gira"${e.dom === "CONTROL" ? ` title="${escT(tr("simu.t_gira_bloco"))}"` : ""}>${escT(tr("simu.girar_r"))}</button>` : naoGira(e) ? `<button id="p-nao-gira" class="nao-gira" title="${escT(tr(motivoNaoGira(e)))}">${escT(tr("simu.girar"))}</button>` : ""}<button id="p-apaga" class="perigo">${escT(tr("simu.apagar"))}</button></div>
     ${e.tipo !== "TERM" ? `<label class="p-desat" title="${escT(tr(e.tipo === "SUBCIRCUIT" ? "simu.t_desat_sub" : "simu.t_desat"))}"><input type="checkbox" id="p-desat" ${e.ativo === false ? "checked" : ""}> ${escT(tr("simu.desativado"))}${e.curto ? ` <small>${escT(tr("simu.curto_gecko"))}</small>` : ""}</label>` : ""}
     ${e.tipo === "SUBCIRCUIT" ? `<div class="botoes"><button id="p-lib" title="${escT(tr("simu.t_p_lib"))}">${escT(tr("simu.p_lib"))}</button></div>
       <h4>${escT(tr("simu.h_bloco"))}</h4><label><span>${escT(tr("simu.p_larg_alt"))}</span><input id="p-bloco" value="${e.tamanho[0]} × ${e.tamanho[1]}" title="${escT(tr("simu.t_p_bloco"))}"></label>
