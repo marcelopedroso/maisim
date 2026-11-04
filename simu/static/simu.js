@@ -1129,6 +1129,9 @@ function dica(ev, e) {
     ver = { x: px - (px - ver.x) * f, y: py - (py - ver.y) * f, w: ver.w * f, h: ver.h * f }; aplicaVer();
   }, { passive: false });
   svg.addEventListener("mousedown", (ev) => {
+    if (ev.button === 1) {                                              // a roda clicada: arrastar move a tela, em qualquer modo
+      ev.preventDefault(); arrasto = { x: ev.clientX, y: ev.clientY, v: Object.assign({}, ver), moveu: false, el: null, meio: true };
+      svg.classList.add("arrastando"); return; }
     if (ev.button !== 0) return;
     const g = ev.target.closest && ev.target.closest(".el");
     const e = g && dados ? dados.folhas[folhaAtual].elementos[+g.dataset.i] : null;
@@ -1175,6 +1178,7 @@ function dica(ev, e) {
   addEventListener("mouseup", (ev) => {
     if (!arrasto) return;
     const a = arrasto; arrasto = null; svg.classList.remove("arrastando");
+    if (a.meio) return;                                                // a roda clicada só move a tela: nada de clique
     if (a.ret) { const r = $("ret-sel"); if (r) r.remove(); if (a.moveu) selecionaRetangulo(a.ret, grade(ev)); return; }
     if (a.shift) {                                                       // Shift + clique: põe ou tira da seleção
       const fw = ev.target.closest && ev.target.closest(".fio, .conector-rot[data-k]"), g = ev.target.closest && ev.target.closest(".el, .conector-rot[data-i]");
@@ -1210,6 +1214,7 @@ function dica(ev, e) {
     if (e && e.tipo === "SUBCIRCUIT" && dados.folhas[e.uid]) abre(e.uid);
   });
   svg.addEventListener("mouseleave", esconde);
+  svg.addEventListener("auxclick", (ev) => { if (ev.button === 1) ev.preventDefault(); });   // (no Linux, o clique do meio cola a seleção)
   // o realce dos conectores: o mouse (ou o foco do teclado) numa bandeirinha acende todas as do mesmo nome e as conexões com
   // ele (no mesmo domínio); sair apaga. Enter ou espaço numa bandeirinha com foco: o mesmo que clicar nela
   const realca = (c) => { svg.querySelectorAll(".realce").forEach((x) => x.classList.remove("realce"));
@@ -1227,6 +1232,30 @@ function dica(ev, e) {
   addEventListener("mousemove", (ev) => {               // onde o Ctrl+V cola: pela posição na área do desenho (a dica, a faixa do
     const r = svg.getBoundingClientRect();              // SM ou outro quadro por cima não tiram o mouse do desenho)
     ed.mouse = r.width && ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom ? grade(ev) : null;
+  });
+  // a peça segura (o botão apertado nela, arrastando ou não): depois de girar ela é desenhada de novo; o arrasto passa para a
+  // nova, com o deslocamento de agora, e soltar a põe onde o mouse estiver
+  const continuaArrasto = (nome) => {
+    if (!arrasto || !arrasto.el || arrasto.el.e.nome !== nome) return;
+    const f = dados.folhas[folhaAtual], i = f.elementos.findIndex((x) => x.nome === nome), g = svg.querySelector(`.el[data-i="${i}"]`);
+    if (i < 0 || !g) { arrasto = null; return; }
+    arrasto.el = { e: f.elementos[i], g }; if (arrasto.dg) g.setAttribute("transform", `translate(${arrasto.dg[0] * G},${arrasto.dg[1] * G})`);
+  };
+  addEventListener("keydown", async (ev) => {
+    if (!arrasto || !arrasto.el || !ed.ligado || simulando() || ev.ctrlKey || ev.metaKey || ev.altKey || ev.repeat) return;
+    const k = (ev.key || "").toLowerCase(); if (![" ", "x", "y"].includes(k)) return;
+    if (ev.target.closest && ev.target.closest("input, select, textarea, [contenteditable], #ctl-editor")) return;
+    ev.preventDefault(); ev.stopImmediatePropagation();               // (o Espaço não rola a página nem chega à pausa)
+    const e = arrasto.el.e;
+    if (k === " ") { if (podeGirar(e)) { await pede("ROTATE", [qualificado(e)], tr("simu.d_girado", { nome: e.nome })); continuaArrasto(e.nome); }
+      else if (naoGira(e)) msg(tr(motivoNaoGira(e))); return; }
+    // virar (o Gecko não espelha: só 4 rotações): com dois terminais, virar no eixo dele é girar 180° (o diodo inverte), no outro
+    // eixo não muda nada; com 3 ou mais, bloco de controle ou subcircuito, não há como
+    const nos = (e.entradas || []).length + (e.saidas || []).length;   // (o transformador tem 4 nós, mesmo sem os bornes no desenho)
+    if (naoGira(e) || e.tipo === "TERM" || nos !== 2 || (e.terminais || []).length !== 2) { msg(tr("simu.nao_espelha", { nome: e.nome })); return; }
+    const deitado = e.dir === 502 || e.dir === 504;
+    if ((k === "x") !== deitado) { msg(tr(k === "x" ? "simu.vira_nada_x" : "simu.vira_nada_y", { nome: e.nome })); return; }
+    await gira180(e, tr("simu.d_virado", { nome: e.nome, eixo: k.toUpperCase() })); continuaArrasto(e.nome);
   });
   addEventListener("keydown", (ev) => {
     if (ev.target.closest && ev.target.closest("input, select, textarea, [contenteditable], #ctl-editor")) return;   // digitando (o controle.py também)
@@ -1260,7 +1289,7 @@ function dica(ev, e) {
     if (ev.key === "0") ajusta();
     const e = selecionado();
     if (ed.ligado && e && (ev.key === "r" || ev.key === "R") && !ev.ctrlKey && !ev.metaKey) {
-      if (podeGirar(e)) pede("ROTATE", [qualificado(e)], tr("simu.d_girado", { nome: e.nome })); else if (naoGira(e)) msg(tr("simu.nao_gira"));
+      if (podeGirar(e)) pede("ROTATE", [qualificado(e)], tr("simu.d_girado", { nome: e.nome })); else if (naoGira(e)) msg(tr(motivoNaoGira(e)));
     }
     if (ed.ligado && e && (ev.key === "Delete" || ev.key === "Backspace")) apaga(e);
   });
@@ -1292,7 +1321,19 @@ const naFolhaPrincipal = () => folhaAtual === "0";
 const podeGirar = (e) => e.tipo !== "TERM" && !naoGira(e);   // o terminal do SM não gira: a borda da folha diz o lado do borne
 // o Gecko não gira bloco de controle nem subcircuito: RegelBlock.rotiereSymbol() é vazio ("control components cannot be
 // rotated at the moment!") e os dois forçam a orientação para baixo em setComponentDirection (conferido em 19/10)
-const naoGira = (e) => e.dom === "CONTROL" || e.tipo === "SUBCIRCUIT";
+const naoGira = (e) => e.dom === "CONTROL" || e.tipo === "SUBCIRCUIT" || termicoFixo(e);
+// a referência térmica e a fonte de perdas (um terminal só): o Gecko também força a orientação (ThermAmbient, ThermPvChip)
+const termicoFixo = (e) => e.dom === "THERM" && (e.tipo === "TREF" || e.tipo === "Pv");
+const motivoNaoGira = (e) => termicoFixo(e) ? "simu.nao_gira_termico" : "simu.nao_gira";
+// girar 180° (dois ROTATE numa mudança só: um Desfazer volta), em todos os subcircuitos iguais como o pede()
+async function gira180(e, ok) {
+  const fs = alvos(); ok += nosSMs(fs);
+  const pre = dados.folhas[folhaAtual].nome + "#", nome = qualificado(e);
+  const q = (k) => fs.length > 1 && String(nome).startsWith(pre) ? dados.folhas[k].nome + "#" + String(nome).slice(pre.length) : nome;
+  msg(tr("simu.aplicando"));
+  try { novoEstado(await api("editor/cmds", { cmds: fs.flatMap((k) => [{ op: "ROTATE", args: [q(k)] }, { op: "ROTATE", args: [q(k)] }]), descr: ok })); msg(ok, "ok"); }
+  catch (err) { msg(err.message, "erro"); try { novoEstado(await api("editor/estado")); } catch (_) { desenha(); } }
+}
 // terminal de subcircuito (regra do Gecko, TerminalToWrap): levado a (x, y), encosta na borda mais próxima da folha (as
 // diagonais dividem os lados), e essa borda é o lado do borne no bloco. O servidor confere e escolhe um borne livre.
 function bordaGecko(x, y, sx, sy) {
@@ -1850,7 +1891,7 @@ async function montaProps() {
   P.innerHTML = `<h3>${e.nome}</h3><div class="t">${ehTag(e) ? escT(tr("simu.tag_descr")) : escT(nomeTipo(e))} · (${e.x}, ${e.y})</div>
     <label><span>${escT(tr("simu.p_nome"))}</span><input id="p-nome" value="${e.nome}"></label>
     <label><span>${escT(tr("simu.p_pos"))}</span><input id="p-pos" value="${e.x}, ${e.y}"></label>
-    <div class="botoes">${podeGirar(e) ? `<button id="p-gira">${escT(tr("simu.girar_r"))}</button>` : naoGira(e) ? `<button id="p-nao-gira" class="nao-gira" title="${escT(tr("simu.nao_gira"))}">${escT(tr("simu.girar"))}</button>` : ""}<button id="p-apaga" class="perigo">${escT(tr("simu.apagar"))}</button></div>
+    <div class="botoes">${podeGirar(e) ? `<button id="p-gira">${escT(tr("simu.girar_r"))}</button>` : naoGira(e) ? `<button id="p-nao-gira" class="nao-gira" title="${escT(tr(motivoNaoGira(e)))}">${escT(tr("simu.girar"))}</button>` : ""}<button id="p-apaga" class="perigo">${escT(tr("simu.apagar"))}</button></div>
     ${e.tipo !== "TERM" ? `<label class="p-desat" title="${escT(tr(e.tipo === "SUBCIRCUIT" ? "simu.t_desat_sub" : "simu.t_desat"))}"><input type="checkbox" id="p-desat" ${e.ativo === false ? "checked" : ""}> ${escT(tr("simu.desativado"))}${e.curto ? ` <small>${escT(tr("simu.curto_gecko"))}</small>` : ""}</label>` : ""}
     ${e.tipo === "SUBCIRCUIT" ? `<div class="botoes"><button id="p-lib" title="${escT(tr("simu.t_p_lib"))}">${escT(tr("simu.p_lib"))}</button></div>
       <h4>${escT(tr("simu.h_bloco"))}</h4><label><span>${escT(tr("simu.p_larg_alt"))}</span><input id="p-bloco" value="${e.tamanho[0]} × ${e.tamanho[1]}" title="${escT(tr("simu.t_p_bloco"))}"></label>
@@ -1925,7 +1966,7 @@ async function montaProps() {
   if (v("#p-nome")) v("#p-nome").onchange = (ev) => pede("RENAME", [qualificado(e), ev.target.value.trim()], tr("simu.d_renomeado", { nome: e.nome, novo: ev.target.value.trim() }));
   if (v("#p-pos")) v("#p-pos").onchange = (ev) => { const [x, y] = ev.target.value.split(/[ ,;]+/).map(Number); if (isFinite(x) && isFinite(y)) pede("MOVE", [qualificado(e), x, y], tr("simu.d_movido", { nome: e.nome })); };
   if (v("#p-gira")) v("#p-gira").onclick = () => pede("ROTATE", [qualificado(e)], tr("simu.d_girado", { nome: e.nome }));
-  if (v("#p-nao-gira")) v("#p-nao-gira").onclick = () => msg(tr("simu.nao_gira"));
+  if (v("#p-nao-gira")) v("#p-nao-gira").onclick = () => msg(tr(motivoNaoGira(e)));
   // desativar (Marcelo, 19/10: "um check: preparado no circuito, mas desabilitado, na cor cinza"): o enabled do Gecko
   if (v("#p-desat")) v("#p-desat").onchange = (ev) => pede("SETP", [qualificado(e), "enabled", ev.target.checked ? 0 : 1], tr(ev.target.checked ? "simu.d_desativado" : "simu.d_ativado", { nome: e.nome }));
   if (v("#p-apaga")) v("#p-apaga").onclick = () => apaga(e);
