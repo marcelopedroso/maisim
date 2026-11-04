@@ -3,7 +3,7 @@ maisimI18n.add({
   "mv.inicio": { pt: "Início", en: "Home" }, "mv.circuito": { pt: "Circuito", en: "Circuit" }, "mv.controle": { pt: "Controle", en: "Control" }, "mv.ia": { pt: "IA", en: "AI" },
   "mv.a_inicio": { pt: "Ir para o Início", en: "Go to Home" }, "mv.a_mais": { pt: "Mais opções", en: "More options" }, "mv.a_rodar": { pt: "Rodar a simulação", en: "Run the simulation" },
   "mv.a_parar": { pt: "Parar a simulação", en: "Stop the simulation" }, "mv.a_paleta": { pt: "Adicionar componente", en: "Add component" }, "mv.fechar": { pt: "Fechar", en: "Close" },
-  "mv.sub_inicio": { pt: "os seus circuitos", en: "your circuits" }, "mv.sub_edit": { pt: "editando · {n} elementos", en: "editing · {n} elements" },
+  "mv.sub_inicio": { pt: "os seus circuitos", en: "your circuits" }, "mv.sub_edit": { pt: "editando · {n} elementos", en: "editing · {n} elements" }, "mv.sub_vazio": { pt: "editando · folha em branco", en: "editing · blank sheet" }, "mv.sub_edit1": { pt: "editando · 1 elemento", en: "editing · 1 element" },
   "mv.sub_sim": { pt: "simulando · {a} de {b}", en: "simulating · {a} of {b}" }, "mv.sub_fim": { pt: "rodada pronta · {n} amostras", en: "run ready · {n} samples" },
   "mv.sub_abrindo": { pt: "abrindo…", en: "opening…" },
   "mv.ph_busca": { pt: "Procurar circuito", en: "Search circuits" }, "mv.meus": { pt: "Meus circuitos", en: "My circuits" }, "mv.exemplos": { pt: "Exemplos", en: "Examples" },

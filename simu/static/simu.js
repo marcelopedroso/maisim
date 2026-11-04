@@ -3495,7 +3495,10 @@ if (MOVEL) (() => {
     new MutationObserver(() => { const j = !!document.querySelector(".modal"); if (j !== janela) { janela = j; casca({ tipo: "janela", on: j }); } })
       .observe(document.body, { childList: true, subtree: true });
     let arq = "";                                          // o arquivo e, num circuito novo, o nome dele (de um novo para outro novo o arquivo não muda)
+    let nEls = dados.folhas[folhaAtual].elementos.length;   // as peças que o "aberto" já contou: a 1ª diferença já vai (Codex, #217)
     setInterval(() => { const a = $("sel-modelo").value || "", k = a + "|" + (a === NOVO ? ed.novo || "" : "");
-      if (k !== arq) { const primeira = !arq; arq = k; if (!primeira) casca({ tipo: "arquivo", arq: a, nome: a === NOVO ? ed.novo : "" }); } }, 700);
+      if (k !== arq) { const primeira = !arq; arq = k; if (!primeira) casca({ tipo: "arquivo", arq: a, nome: a === NOVO ? ed.novo : "" }); }
+      const n = dados && dados.folhas[folhaAtual] ? dados.folhas[folhaAtual].elementos.length : -1;   // as peças da folha à vista
+      if (n >= 0 && n !== nEls) { nEls = n; casca({ tipo: "elementos", n }); } }, 700);
   })();
 })();
