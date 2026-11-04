@@ -31,7 +31,7 @@ maisimI18n.add({
   "mv.novo": { pt: "Novo circuito", en: "New circuit" }, "mv.d_novo": { pt: "uma folha em branco", en: "a blank sheet" },
   "mv.novo_pendente": { pt: "{nome}: {motivo}. Um circuito novo começa em branco.", en: "{nome}: {motivo}. A new circuit starts blank." },
   "mv.novo_abrir": { pt: "Abrir {nome} para salvar", en: "Open {nome} to save it" },
-  "mv.novo_descartar": { pt: "Descartar e criar o novo (o Desfazer traz de volta)", en: "Discard and create the new one (Undo brings it back)" },
+  "mv.novo_descartar": { pt: "Descartar as mudanças e criar o novo", en: "Discard the changes and create the new one" },
   "mv.aberto_agora": { pt: "Aberto agora", en: "Open now" },
   "mv.aberto_sujo": { pt: "{motivo} · abra para salvar", en: "{motivo} · open it to save" },
   "mv.aberto_ok": { pt: "toque para continuar", en: "tap to continue" }, "mv.novo_sem_nome": { pt: "circuito novo (sem nome)", en: "new circuit (no name)" },

@@ -154,8 +154,9 @@
   document.querySelectorAll(".aba").forEach((b) => b.onclick = () => aba(b.dataset.tab));
   $("nome").onclick = () => aba("inicio");
   $("paleta").onclick = () => pedeSimu({ cmd: "paleta" });
-  // + Novo circuito: com algo sem salvar no servidor, pergunta aqui ANTES (abrindo para salvar, ou descartando, que o Desfazer
-  // do editor traz de volta); senão o editor mostrava o circuito de antes atrás da pergunta do nome e, cancelando, ficava nele
+  // + Novo circuito: com algo sem salvar no servidor, pergunta aqui ANTES (abrir para salvar, ou descartar: como no PC, o que não
+  // foi salvo se perde; o Desfazer só traz o desenho, não o controle nem as cores — Codex, #209); senão o editor mostrava o
+  // circuito de antes atrás da pergunta do nome e, cancelando, ficava nele
   $("novo-bt").onclick = async () => {
     let p = null; try { p = await (await fetch("/maisim/simu/editor/pendente", { cache: "no-store" })).json(); } catch (e) { /* segue */ }
     if (!p || !p.pendente) { abre(null); return; }
