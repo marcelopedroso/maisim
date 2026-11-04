@@ -129,7 +129,7 @@
   }
   // ── abrir um circuito: o editor (no iframe) abre e liga a edição; as abas do circuito acendem ──
   function abre(arq) {
-    est.arq = arq; est.nome = ""; est.n = 0; est.painel = est.janela = false; $("titulo").textContent = nomeDe(arq);   // o editor novo começa sem painel nem janela $("sub").textContent = tr("mv.sub_abrindo");
+    est.arq = arq; est.nome = ""; est.n = null; est.painel = est.janela = false; $("titulo").textContent = nomeDe(arq);   // o editor novo começa sem painel nem janela $("sub").textContent = tr("mv.sub_abrindo");
     est.scope = null; fScope.src = "about:blank";             // o scope do circuito anterior não fica (a aba Scope acha a rodada deste)
     document.querySelectorAll('.aba[data-tab="circuito"], .aba[data-tab="controle"], .aba[data-tab="ia"]').forEach((b) => { b.disabled = false; });
     // (null: um circuito novo, que o editor pede o nome; "": o novo sem nome que o servidor já tem, como está)
@@ -139,7 +139,7 @@
     const com = !!est.arq, t = est.tab;
     $("rodar").hidden = !com || t === "inicio"; $("mais").hidden = !com || !["circuito", "controle", "ia"].includes(t);
     $("titulo").textContent = t === "inicio" || !com ? "MaiSim · Android" : est.nome || nomeDe(est.arq);
-    if (!est.vivo) $("sub").textContent = t === "inicio" || !com ? tr("mv.sub_inicio") : est.n ? tr("mv.sub_edit", { n: est.n }) : tr("mv.sub_abrindo");
+    if (!est.vivo) $("sub").textContent = t === "inicio" || !com ? tr("mv.sub_inicio") : est.n == null ? tr("mv.sub_abrindo") : est.n === 1 ? tr("mv.sub_edit1") : est.n ? tr("mv.sub_edit", { n: est.n }) : tr("mv.sub_vazio");   // (null: abrindo; 0: a folha em branco de um novo)
   }
   function aba(t) {
     est.tab = t; fecha();
@@ -194,8 +194,9 @@
     if (m.tipo === "arquivo" && m.arq) { est.arq = m.arq; est.nome = m.nome || ""; topo(); }
     if (m.tipo === "msg" && m.texto) { aviso(m.texto, null, null, m.erro ? 7000 : 3500); $("aviso").classList.toggle("erro", !!m.erro); }   // os erros e o "salvo" do editor (o cabeçalho dele não aparece)
     if (m.tipo === "aba" && m.aba) aba(m.aba);
+    if (m.tipo === "elementos") { est.n = m.n; if (!est.vivo) topo(); }   // peças postas ou tiradas: o "editando · N elementos" acompanha
     if (m.tipo === "fechado") {                                 // o circuito fechado (pelo ⋯): as abas dele apagam e volta ao Início
-      est.arq = null; est.nome = ""; est.n = 0; est.scope = null; fScope.src = "about:blank"; fSimu.src = "about:blank";
+      est.arq = null; est.nome = ""; est.n = null; est.scope = null; fScope.src = "about:blank"; fSimu.src = "about:blank";
       document.querySelectorAll('.aba[data-tab="circuito"], .aba[data-tab="controle"], .aba[data-tab="ia"]').forEach((b) => { b.disabled = true; });
       aba("inicio"); aviso(tr("mv.fechado")); }                 // o editor pede outra aba (a IA, pelos botões do Controle)   // Salvar como… (ou outro aberto no editor): o arquivo de agora
     if (m.tipo === "painel") est.painel = m.on;
@@ -210,7 +211,7 @@
       $("prog").hidden = !vivo; $("rodar").classList.toggle("ativo", vivo); $("rodar").setAttribute("aria-label", tr(vivo ? "mv.a_parar" : "mv.a_rodar"));
       $("rodar").innerHTML = vivo ? '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="2"/></svg>' : '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>';
       if (vivo && m.tfim) { $("progi").style.width = `${Math.min(100, 100 * m.t / m.tfim)}%`; $("sub").textContent = tr("mv.sub_sim", { a: si(m.t), b: si(m.tfim) }); }
-      if (!vivo && era) { $("sub").textContent = m.estado === "fim" ? tr("mv.sub_fim", { n: m.amostras }) : tr("mv.sub_edit", { n: est.n });
+      if (!vivo && era) { if (m.estado === "fim") $("sub").textContent = tr("mv.sub_fim", { n: m.amostras }); else topo();
         if (m.estado === "fim") {
           aviso(tr("mv.pronta", { n: m.amostras }), tr("mv.ver_scope"), () => aba("scope"), 6000); } }
     }

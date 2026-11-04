@@ -197,9 +197,13 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     ok(/movel_novo_teste/.test(await pg.locator("#titulo").textContent()) && !(await pg.locator('.aba[data-tab="circuito"]').isDisabled()), `+ Novo circuito: o nome pedido vira o título ("${await pg.locator("#titulo").textContent()}")`);
     await pg.locator("#mais").tap(); await pg.waitForTimeout(500); const titMenu = await pg.locator("#g-tit").textContent(); await pg.locator("#g-fechar").tap(); await pg.waitForTimeout(300);
     ok(titMenu === "movel_novo_teste", `o ⋯ de um circuito novo tem o nome dele, não o interno ("${titMenu}")`);
+    const subNovo = await pg.locator("#sub").textContent();
+    ok(/folha em branco/.test(subNovo), `o circuito novo, sem peças, diz "${subNovo}" (antes ficava em "abrindo…" para sempre)`);
     // o novo, ainda sem arquivo, com uma peça: o app reaberto mostra "Aberto agora" (o servidor diz arquivo: null) e tocar abre o
     // mesmo rascunho, com a peça, sem perguntar (Codex, #207)
-    await pg.frames().find((f) => /\/maisim\/simu\/\?movel=1/.test(f.url())).evaluate(() => pede("CREATE", ["R.1", 10, 10, "R"], "teste")); await pg.waitForTimeout(1200);
+    await pg.frames().find((f) => /\/maisim\/simu\/\?movel=1/.test(f.url())).evaluate(() => pede("CREATE", ["R.1", 10, 10, "R"], "teste")); await pg.waitForTimeout(1600);
+    const subUma = await pg.locator("#sub").textContent();
+    ok(/· 1 elemento$/.test(subUma), `pôr uma peça atualiza o "editando · N elementos" ("${subUma}")`);
     await pg.reload(); await pg.waitForTimeout(2500);
     const cardR = await pg.locator("#g-aberto").isVisible() ? await pg.locator("#g-aberto").innerText() : "";
     await pg.locator("#aberto-bt").tap().catch(() => {}); await pg.waitForTimeout(4500);

@@ -20,6 +20,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ### Fixed
 - **Editor: R on the thermal reference (TREF) or the loss source (Pv)** sent a rotation Gecko ignores; it now says Gecko does not rotate them, like control blocks.
+- **Phone app: a new circuit no longer says “opening…” forever**: with no parts, the top line now says “editing · blank sheet” (0 parts read as “not open yet”), and the “editing · N elements” count follows the parts you place or delete (it kept the count from when the circuit opened, even the previous circuit's).
 - **Phone app: the ⋯ menu of a new circuit showed “__novo__”** (an internal name) as its title; it shows the circuit's name.
 - **Phone app: the AI buttons in Control** (IA, and “ask the AI” on a test error) opened the conversation in a column the Control view hides; they now switch to the AI tab.
 - **Phone scope: no ☰ Index button** (the index does not show on the phone, so the button did nothing), and a layout saved with “one section at a time” shows all sections on the phone (there was no index to switch sections).
