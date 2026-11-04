@@ -1,0 +1,24 @@
+diff --git a/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/IDStringDialog.java b/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/IDStringDialog.java
+index d345ea34..9232b7a7 100644
+--- a/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/IDStringDialog.java
++++ b/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/IDStringDialog.java
+@@ -298,6 +298,19 @@ public final class IDStringDialog {
+             } else if (possibleComponents.isEmpty()) {
+                 throw new NoSuchElementException("A component with the name " + searchName + " could not be found!");
+             } else if (possibleComponents.size() > 1) {
++                // MaiSim: a name without a sheet path is the one on the main sheet (a component inside a subcircuit is
++                // addressed as SUBCIRCUIT.1#NAME); only when none, or several, are on the main sheet is it ambiguous
++                AbstractBlockInterface onMain = null;
++                int mainCount = 0;
++                for (AbstractBlockInterface candidate : possibleComponents) {
++                    if (candidate.getParentCircuitSheet() == SchematischeEingabe2.Singleton._circuitSheet) {
++                        onMain = candidate;
++                        mainCount++;
++                    }
++                }
++                if (mainCount == 1) {
++                    return onMain;
++                }
+                 throw new RuntimeException("Name ambiguousness error! The model contains several components with the name: " + searchName + ".\n"
+                         + "Hint: you can select a specific component by indexing with its subcircuit sheet names.\n"
+                         + "For instance: SUBCIRCUIT.1#R.1 returns the component R.1 from SUBCIRCUIT.1.");
