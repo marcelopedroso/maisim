@@ -1,0 +1,28 @@
+diff --git a/src/main/java/ch/technokrat/gecko/geckocircuits/control/RegelBlock.java b/src/main/java/ch/technokrat/gecko/geckocircuits/control/RegelBlock.java
+index 957ab2c3..998e2aa1 100644
+--- a/src/main/java/ch/technokrat/gecko/geckocircuits/control/RegelBlock.java
++++ b/src/main/java/ch/technokrat/gecko/geckocircuits/control/RegelBlock.java
+@@ -248,10 +248,8 @@ public abstract class RegelBlock extends AbstractBlockInterface implements Seria
+         _controlTyp = controTyp;
+     }            
+ 
+-    @Override
+-    public final void rotiereSymbol() {
+-        // control components cannot be rotated at the moment!
+-    }
++    // MaiSim: control blocks rotate like the other components (AbstractBlockInterface.rotiereSymbol); their terminals
++    // (TerminalControl, TerminalRelativePosition) already follow getComponentDirection()
+ 
+     @Override
+     protected abstract Window openDialogWindow();
+@@ -268,10 +266,6 @@ public abstract class RegelBlock extends AbstractBlockInterface implements Seria
+         drawCenteredString(g);
+     }
+ 
+-    @Override
+-    public void setComponentDirection(final ComponentDirection orientation) {
+-        super.setComponentDirection(ComponentDirection.NORTH_SOUTH);
+-    }
+     
+     
+ 

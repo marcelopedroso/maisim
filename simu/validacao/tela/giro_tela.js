@@ -1,8 +1,8 @@
-// girar (instância de teste 7200 → 7201): o Gecko só gira componentes de potência — bloco de controle e subcircuito ficam
-// sempre para baixo (RegelBlock.rotiereSymbol() vazio, "control components cannot be rotated at the moment!"; os dois
-// forçam a orientação em setComponentDirection). Antes o "girar (R)" aparecia no CONST e não fazia nada (pergunta de
-// Marcelo, 19/10: "o CONST tá sempre pra um lado"). Agora: R gira o resistor; no CONST e no subcircuito o botão explica
-// e o R avisa, sem pedir nada ao Gecko nem anotar "girado" no histórico
+// girar (instância de teste 7200 → 7201): o resistor gira; o bloco de controle também, desde o patch 0012 do Gecko do MaiSim
+// (o original não gira: RegelBlock.rotiereSymbol() vazio; Marcelo, 04/11: "podemos rotacionar no nosso") — o R e o "girar
+// (R)" do painel giram o CONST, com os bornes girados (o desenho em pé: gira_controle_api confere que o fio liga); o
+// subcircuito continua sem girar (o Gecko força a orientação): o botão explica e o R avisa, sem pedir nada ao Gecko nem anotar
+// "girado" no histórico
 const { chromium } = require("playwright");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
@@ -26,11 +26,21 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     await pg.mouse.move(5, 300); await pg.keyboard.press("r"); await pg.waitForTimeout(1500);
     const r1 = await el("R.1");
     ok(r1.dir !== r0.dir && JSON.stringify(r1.t) !== JSON.stringify(r0.t), `R no resistor gira (orientação ${r0.dir} → ${r1.dir}, bornes ${JSON.stringify(r0.t)} → ${JSON.stringify(r1.t)})`);
-    // CONST e subcircuito: o botão explica; o R avisa; nada muda e nada vai ao histórico
-    for (const n of ["C.1", "SUBCIRCUIT.1"]) {
+    // o CONST (bloco de controle): girar (R) no painel, e o R gira, com os bornes girados
+    await escolhe("C.1"); const c0 = await el("C.1");
+    ok(!!(await pg.$("#p-gira")) && !(await pg.$("#p-nao-gira")), "CONST: o painel tem \"girar (R)\" (o Gecko do MaiSim gira bloco de controle)");
+    await pg.mouse.move(5, 300); await pg.keyboard.press("r"); await pg.waitForTimeout(1500);
+    const c1 = await el("C.1");
+    ok(c1.dir !== c0.dir && JSON.stringify(c1.t) !== JSON.stringify(c0.t), `R no CONST gira (orientação ${c0.dir} → ${c1.dir}, bornes ${JSON.stringify(c0.t)} → ${JSON.stringify(c1.t)})`);
+    const caixa = await pg.evaluate(() => { const i = dados.folhas["0"].elementos.findIndex((x) => x.nome === "C.1"), r = document.querySelector(`#svg .el[data-i="${i}"] .corpo`);
+      const perna = document.querySelector(`#svg .el[data-i="${i}"] line`); return { w: +r.getAttribute("width"), h: +r.getAttribute("height"),
+        perna: perna ? +perna.getAttribute("x1") === +perna.getAttribute("x2") : null }; });
+    ok(caixa.h > caixa.w && caixa.perna === true, `o CONST girado é desenhado em pé (caixa ${caixa.w}×${caixa.h}, a perna da saída na vertical)`);
+    // subcircuito: o botão explica; o R avisa; nada muda e nada vai ao histórico
+    for (const n of ["SUBCIRCUIT.1"]) {
       await escolhe(n); const a = await el(n), h0 = (await girados()).length;
       const bt = await pg.evaluate(() => ({ gira: !!$("p-gira"), nao: $("p-nao-gira") && $("p-nao-gira").title }));
-      ok(!bt.gira && /não gira bloco de controle nem subcircuito/.test(bt.nao || ""), `${n}: sem "girar (R)"; o botão explica ("${bt.nao}")`);
+      ok(!bt.gira && /não gira subcircuito/.test(bt.nao || ""), `${n}: sem "girar (R)"; o botão explica ("${bt.nao}")`);
       await pg.click("#p-nao-gira"); await pg.waitForTimeout(200);
       const m1 = await pg.textContent("#msg");
       await pg.evaluate(() => { $("msg").textContent = ""; }); await pg.mouse.move(5, 300); await pg.keyboard.press("r"); await pg.waitForTimeout(1500);
