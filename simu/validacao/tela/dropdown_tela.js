@@ -70,7 +70,8 @@ const lum = (rgb) => { const [r, g, b] = (rgb.match(/\d+/g) || [0, 0, 0]).map(Nu
     await pg.click(M); await pg.waitForTimeout(150); await pg.click("#maisim-lista .ml-op:nth-child(3)"); await pg.waitForTimeout(150);
     v = await pg.evaluate((s) => ({ v: document.querySelector(s).value, ev: window.__ev.join(",") }), M);
     ok(v.v === "2" && v.ev === "input,change,input,change", `⚙: o clique no Gear escolhe (${v.v}; ${v.ev})`);
-    await pg.click(M); await pg.waitForTimeout(150); await pg.mouse.click(30, 830); await pg.waitForTimeout(150);
+    // (o clique fora: no título do diálogo — o canto de baixo do trilho, onde clicava, agora é o botão dos Atalhos, #216)
+    await pg.click(M); await pg.waitForTimeout(150); await pg.click(".modal h3"); await pg.waitForTimeout(150);
     ok(!(await estado(pg, M)) && !!(await pg.$(".modal .m-solver")), "⚙: o clique fora fecha a lista");
     // 5. o select de verdade continua: selectOption e .value (sem lista)
     await pg.selectOption(M, "0"); await pg.waitForTimeout(100);
