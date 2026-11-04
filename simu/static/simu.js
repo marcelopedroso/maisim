@@ -3406,7 +3406,8 @@ if (MOVEL) (() => {
     let janela = false;
     new MutationObserver(() => { const j = !!document.querySelector(".modal"); if (j !== janela) { janela = j; casca({ tipo: "janela", on: j }); } })
       .observe(document.body, { childList: true, subtree: true });
-    let arq = $("sel-modelo").value || "";
-    setInterval(() => { const a = $("sel-modelo").value || ""; if (a !== arq) { arq = a; casca({ tipo: "arquivo", arq: a, nome: a === NOVO ? ed.novo : "" }); } }, 700);
+    let arq = "";                                          // o arquivo e, num circuito novo, o nome dele (de um novo para outro novo o arquivo não muda)
+    setInterval(() => { const a = $("sel-modelo").value || "", k = a + "|" + (a === NOVO ? ed.novo || "" : "");
+      if (k !== arq) { const primeira = !arq; arq = k; if (!primeira) casca({ tipo: "arquivo", arq: a, nome: a === NOVO ? ed.novo : "" }); } }, 700);
   })();
 })();

@@ -204,6 +204,18 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     const rasc = await pg.frames().find((f) => /\/maisim\/simu\/\?movel=1/.test(f.url())).evaluate(() => dados ? dados.folhas[folhaAtual].elementos.map((e) => e.nome) : []).catch(() => []);
     ok(/sem nome/.test(cardR) && /sem salvar/.test(cardR) && rasc.includes("R.1") && await pg.frameLocator("#f-simu").locator(".modal").count() === 0,
       `o circuito novo sem arquivo, com uma peça: "Aberto agora" ("${cardR.replace(/\n/g, " · ")}") abre o rascunho como está (${rasc.join(",")})`);
+    // + Novo com o rascunho sem salvar no servidor: a casca pergunta antes (abrir para salvar, ou descartar); descartando, o editor
+    // só pede o nome, a folha vem em branco e o título é o nome dado (antes: o rascunho aparecia atrás da pergunta, e o título
+    // ficava "circuito_sem_nome")
+    await pg.locator('.aba[data-tab="inicio"]').tap(); await pg.waitForTimeout(500);
+    await pg.locator("#novo-bt").tap(); await pg.waitForTimeout(1200);
+    const pergunta = await pg.locator("#gaveta.on").count() ? await pg.locator("#g-corpo").innerText() : "";
+    if (pergunta) { await pg.locator("#g-corpo .menu-lista button").nth(1).tap(); await pg.waitForTimeout(4500); }
+    const nomeL = pg.frameLocator("#f-simu").locator(".modal input").first();
+    if (await nomeL.count()) { await nomeL.fill("movel_limpo"); await pg.frameLocator("#f-simu").locator(".modal .m-ok").first().tap(); await pg.waitForTimeout(2500); }
+    const limpo = await pg.frames().find((f) => /\/maisim\/simu\/\?movel=1/.test(f.url())).evaluate(() => dados.folhas[folhaAtual].elementos.length).catch(() => -1);
+    ok(/Descartar/.test(pergunta) && limpo === 0 && /movel_limpo/.test(await pg.locator("#titulo").textContent()) && await pg.frameLocator("#f-simu").locator(".modal").count() === 0,
+      `+ Novo com um rascunho sem salvar: pergunta antes, e o novo vem em branco (${limpo} peças) com o nome dado ("${await pg.locator("#titulo").textContent()}")`);
     await pg.locator('.aba[data-tab="inicio"]').tap(); await pg.waitForTimeout(500);   // de volta ao exemplo_boost (o rascunho descartado)
     await pg.locator("#l-exemplos .linha", { hasText: "exemplo_boost" }).first().tap(); await pg.waitForTimeout(4000);
     const d5 = pg.frameLocator("#f-simu").locator(".modal button", { hasText: "Descartar" }); if (await d5.count()) { await d5.first().tap(); await pg.waitForTimeout(3000); }

@@ -154,7 +154,19 @@
   document.querySelectorAll(".aba").forEach((b) => b.onclick = () => aba(b.dataset.tab));
   $("nome").onclick = () => aba("inicio");
   $("paleta").onclick = () => pedeSimu({ cmd: "paleta" });
-  $("novo-bt").onclick = () => abre(null);                    // o editor com ?novo=1: pede o nome (e, com algo sem salvar, o que fazer)
+  // + Novo circuito: com algo sem salvar no servidor, pergunta aqui ANTES (abrindo para salvar, ou descartando, que o Desfazer
+  // do editor traz de volta); senão o editor mostrava o circuito de antes atrás da pergunta do nome e, cancelando, ficava nele
+  $("novo-bt").onclick = async () => {
+    let p = null; try { p = await (await fetch("/maisim/simu/editor/pendente", { cache: "no-store" })).json(); } catch (e) { /* segue */ }
+    if (!p || !p.pendente) { abre(null); return; }
+    const nome = p.arquivo ? nomeDe(p.arquivo) : tr("mv.novo_sem_nome");
+    gaveta(tr("mv.novo"), tr("mv.novo_pendente", { nome, motivo: p.motivo || "" }), el("div", { class: "menu-lista" },
+      item('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>', tr("mv.novo_abrir", { nome }), () => abre(p.arquivo || "")),
+      item('<path d="M12 5v14M5 12h14"/>', tr("mv.novo_descartar"), async () => {
+        try { const r = await fetch("/maisim/simu/editor/novo", { method: "POST", headers: { "Content-Type": "application/json", "X-MaiSim": "1" }, body: JSON.stringify({ modo: "descartar" }) });
+          if (!r.ok) throw new Error((await r.json().catch(() => ({}))).erro || r.status); } catch (e) { aviso(String(e.message || e)); $("aviso").classList.add("erro"); return; }
+        abre(null); })));
+  };
   $("contas").onclick = () => { if (!fSimu.getAttribute("src")) fSimu.src = "/maisim/simu/?movel=1"; est.querContas = true; aba("circuito"); pedeSimu({ cmd: "contas" }); };
 
   // a aba Scope: a rodada do circuito aberto; aberto e sem nenhuma, só o aviso (o scope sem rodada se liga à rodada ao vivo do
