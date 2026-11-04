@@ -7,6 +7,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Added
+- **Editor (PC): mouse and keyboard shortcuts**: pressing the mouse wheel and dragging moves the view, in any mode (no browser autoscroll or paste); holding a part (the button pressed on it), **Space** rotates it and **X** or **Y** flips it, and releasing puts it where the mouse is. Gecko cannot mirror (only four rotations): a two-terminal part flips by turning 180° when the flip is along its axis (the terminals swap, a diode reverses), in one Undo step; across its axis, or with three or more terminals, a control block or a subcircuit, a message explains. The wheel already zoomed. The component panel's hint lists the shortcuts.
 - **Phone app: “Open now” at the top of Home**: the circuit open on the server (MaiSim keeps it, even with the app closed), with “not saved” when it has changes; one tap opens it as it is, changes kept, to save or undo (a new circuit not saved yet shows as “new circuit (no name)”). Before, the phone showed no open circuit (its Circuit tab was greyed out), so when Update refused because of unsaved changes there was no way to find them without the PC screen. A refused Update also refreshes this card.
 - **Phone app: + New circuit in Home**: a blank sheet, as on the PC. With something unsaved on the server, the app asks first (open it to save, or discard the changes and create), then the editor asks only for the name, and the app's title is that name. The phone could only open existing circuits.
 - **Phone app: ⋯ → Close the circuit**: the PC's Close, with the same question when something is unsaved (save, save as or discard); then the app goes back to Home with the circuit's tabs greyed out. The phone had no way to close a circuit.
@@ -16,6 +17,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 - **Phone app: “Test versions” switch in Home → Settings**, next to Update: the same update channel as the PC's update window (on: the -rc releases too; off: only the stable ones). The phone had no way to change it.
 
 ### Fixed
+- **Editor: R on the thermal reference (TREF) or the loss source (Pv)** sent a rotation Gecko ignores; it now says Gecko does not rotate them, like control blocks.
 - **Phone app: the ⋯ menu of a new circuit showed “__novo__”** (an internal name) as its title; it shows the circuit's name.
 - **Phone app: the AI buttons in Control** (IA, and “ask the AI” on a test error) opened the conversation in a column the Control view hides; they now switch to the AI tab.
 - **Phone scope: no ☰ Index button** (the index does not show on the phone, so the button did nothing), and a layout saved with “one section at a time” shows all sections on the phone (there was no index to switch sections).
