@@ -245,7 +245,14 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     const fechado = await pg.evaluate(async () => (await (await fetch("/maisim/simu/editor/aberto", { cache: "no-store" })).json()).fechado);
     ok(perguntou && fechado && await pg.locator('.aba[data-tab="circuito"]').isDisabled() && await pg.locator("#t-inicio").isVisible(),
       `⋯ → Fechar o circuito: pergunta o que fazer com a mudança, fecha no servidor (fechado ${fechado}) e volta ao Início`);
-    await pg.locator("#l-exemplos .linha", { hasText: "exemplo_boost" }).first().tap(); await pg.waitForTimeout(4000);   // (o próximo teste começa com um circuito aberto)
+    // e reabrir: uma peça posta logo depois de abrir (antes da 1ª conferida, a cada 700 ms) também muda a contagem (Codex, #217)
+    await pg.locator("#l-exemplos .linha", { hasText: "exemplo_boost" }).first().tap();
+    for (let k = 0; k < 80 && !/editando · \d+ elementos/.test(await pg.locator("#sub").textContent()); k++) await pg.waitForTimeout(100);
+    const n0 = +((await pg.locator("#sub").textContent()).match(/(\d+) elementos/) || [0, -1])[1];
+    await pg.frames().find((f) => /\/maisim\/simu\/\?movel=1/.test(f.url())).evaluate(() => pede("CREATE", ["R.99", 60, 40, "R"], "teste"));
+    await pg.waitForTimeout(1800); const subLogo = await pg.locator("#sub").textContent();
+    ok(n0 > 0 && subLogo.includes(`${n0 + 1} elementos`), `uma peça posta logo depois de abrir muda a contagem (${n0} → "${subLogo}")`);
+    await pg.frames().find((f) => /\/maisim\/simu\/\?movel=1/.test(f.url())).evaluate(() => desfazer()); await pg.waitForTimeout(1200);   // (o próximo teste começa com o circuito como estava)
     ok(!erros.length, `sem erros na casca${erros.length ? ": " + erros.join(" · ") : ""}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message}`); }
   finally { if (b) await b.close(); }
