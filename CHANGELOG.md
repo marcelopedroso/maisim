@@ -6,6 +6,8 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+## [0.3.10] - 2026-11-04
+
 ### Fixed
 - **A component with the same name as one inside a subcircuit could not be changed** (rotate, move, rename, parameters: “Name ambiguousness error! The model contains several components with the name: GATE.2”), e.g. after inserting a library subcircuit that has its own GATE.1 and GATE.2. Gecko looked the name up in every sheet; patch `0013` makes a name without a sheet path mean the component on the main sheet (one inside a subcircuit is still addressed as `SUBCIRCUIT.1#GATE.2`).
 
