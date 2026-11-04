@@ -719,7 +719,14 @@ function desenhaBlocoGirado(e, g, giro) {
     const [ax, ay] = giraPonto(e, t.x, t.y, giro), [bx, by] = giraPonto(e, borda, t.y, giro);
     no("line", { x1: ax * G, y1: ay * G, x2: bx * G, y2: by * G, stroke: COR.ct, "stroke-width": 1.4 }, g);
   }
-  const pn = PINOS[e.tipo];                                         // os nomes das entradas e saídas, por dentro, junto do borne
+  // com as entradas externas (SIGNAL, LIMIT, HYS): o que cada uma dá, por dentro, junto do borne (Codex, #215: sem isso,
+  // girado, dava para ligar a amplitude no borne da frequência)
+  const ext = bornesExternos(e), pars = ext && EXTERNA[e.tipo].pars;
+  if (ext) ext.forEach((t, k) => { const [lx, ly] = giraPonto(e, t.x, t.y, 360 - giro), esq = lx < e.x;
+    const [px, py] = giraPonto(e, lx + (esq ? 0.42 : -0.42), ly, giro);
+    texto(g, px, py, pars[k].simb, { class: "pino-ext", "text-anchor": "middle", fill: COR.ct, "font-size": 0.38 * G, "font-family": MAT,
+      "font-style": pars[k].simb.length === 1 ? "italic" : "normal" }); });
+  const pn = !ext && PINOS[e.tipo];                                 // os nomes das entradas e saídas, por dentro, junto do borne
   if (pn) for (const lado of ["e", "s"]) { const ts = loc.filter((t) => t.lado === lado);
     (pn[lado] || []).forEach((nm, k) => { const t = ts[k]; if (!t) return; const borda = lado === "e" ? e.x - 1 : e.x + 1;
       const [px, py] = giraPonto(e, borda + (lado === "e" ? 0.35 : -0.35), t.y, giro);

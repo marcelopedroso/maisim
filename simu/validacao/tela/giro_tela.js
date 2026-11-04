@@ -36,6 +36,11 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
       const perna = document.querySelector(`#svg .el[data-i="${i}"] line`); return { w: +r.getAttribute("width"), h: +r.getAttribute("height"),
         perna: perna ? +perna.getAttribute("x1") === +perna.getAttribute("x2") : null }; });
     ok(caixa.h > caixa.w && caixa.perna === true, `o CONST girado é desenhado em pé (caixa ${caixa.w}×${caixa.h}, a perna da saída na vertical)`);
+    // o SIGNAL com as entradas externas, girado: continua dizendo o que cada entrada dá (Â, f, …; Codex, #215)
+    const ext = await pg.evaluate(async () => { novoEstado(await api("editor/cmds", { cmds: [{ op: "CREATE", args: ["SIGNAL.1", 30, 14, "SIGNAL"] }, { op: "SETP", args: ["SIGNAL.1", "useExternal", 1] }, { op: "ROTATE", args: ["SIGNAL.1"] }] }));
+      await new Promise((ok) => setTimeout(ok, 300)); const e = dados.folhas["0"].elementos.find((x) => x.nome === "SIGNAL.1"), i = dados.folhas["0"].elementos.indexOf(e);
+      return { dir: e.dir, n: e.terminais.filter((t) => t.lado === "e").length, rot: [...document.querySelectorAll(`#svg .el[data-i="${i}"] .pino-ext`)].map((x) => x.textContent) }; });
+    ok(ext.dir === 504 && ext.n === 5 && ext.rot.length === 5 && ext.rot.includes("f"), `o SIGNAL com entradas externas girado mostra o que cada uma dá (${ext.rot.join(" ")})`);
     // subcircuito: o botão explica; o R avisa; nada muda e nada vai ao histórico
     for (const n of ["SUBCIRCUIT.1"]) {
       await escolhe(n); const a = await el(n), h0 = (await girados()).length;
