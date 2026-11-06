@@ -1,6 +1,6 @@
 // o MaiSim sem internet (instância de teste 7201; o passo dos pacotes do instalador e do AppImage): todo pedido que não for
 // ao localhost é cortado. Com o Monaco local (simu/vendor.sh), o editor de código do Controle abre o Monaco de verdade,
-// com o Python colorido; o guia do "?" sai formatado (o marked local); e nenhum pedido sai para fora.
+// com o Python e o C coloridos; o guia do "?" sai formatado (o marked local); e nenhum pedido sai para fora.
 const { chromium } = require("playwright");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
@@ -20,6 +20,11 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     const m = await pg.evaluate(() => ({ monaco: !!window.monaco, local: typeof MONACO === "string" && MONACO.startsWith(location.origin), editor: !!document.querySelector(".monaco-editor"),
       cores: document.querySelectorAll(".monaco-editor .view-line span[class*='mtk']").length }));
     ok(m.monaco && m.local && m.editor && m.cores > 3, `sem internet: o editor de código é o Monaco local, com o Python colorido (${JSON.stringify(m)})`);
+    await pg.evaluate(() => abreC(false)); await pg.waitForFunction(() => ctl.arq === "controle.c", null, { timeout: 10000 }).catch(() => {});
+    await pg.waitForTimeout(1500);                       // o realce do C (basic-languages/cpp) chega depois do modelo
+    const c = await pg.evaluate(() => ({ arq: ctl.arq, ling: ctl.editor && ctl.editor.getModel().getLanguageId(),
+      cores: new Set([...document.querySelectorAll(".monaco-editor .view-line span[class*='mtk']")].map((x) => x.className)).size }));
+    ok(c.arq === "controle.c" && c.ling === "c" && c.cores > 3, `sem internet: o controle.c colorido como C (${JSON.stringify(c)})`);
     const [guia] = await Promise.all([ctx.waitForEvent("page"), pg.click("#ctl-guia")]);
     await guia.waitForFunction(() => document.querySelectorAll("#guia h2").length > 3, null, { timeout: 20000 }).catch(() => {});
     const g = await guia.evaluate(() => ({ marked: !!window.marked, h2: document.querySelectorAll("#guia h2").length, tabelas: document.querySelectorAll("#guia table").length }));
