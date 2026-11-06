@@ -198,6 +198,17 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   #ctl-lado h4 { margin:12px 0 4px; font-size:11px; color:var(--sutil); text-transform:uppercase; letter-spacing:.04em; }
   #ctl-lado h4 small { text-transform:none; letter-spacing:0; font-weight:400; font-family:ui-monospace, monospace; }
   .ctl-ativo { display:flex; gap:6px; align-items:center; font-weight:600; color:var(--acento); margin-bottom:6px; }
+  .ctl-c { display:flex; flex-wrap:wrap; gap:4px 6px; align-items:center; margin:-2px 0 8px; font-size:12px; }
+  #ctl-ling { display:inline-flex; border:1px solid var(--borda); border-radius:7px; overflow:hidden; }
+  #ctl-ling button { border:0; border-radius:0; padding:2px 10px; font-size:12px; background:none; color:var(--sutil); }
+  #ctl-ling button + button { border-left:1px solid var(--borda); }
+  #ctl-ling button.ativo { background:var(--acento); color:#fff; font-weight:600; }
+  #ctl-ling button:disabled { opacity:.45; cursor:default; }
+  #painel-controle:not(.visao-c) #ctl-c-prec { display:none; }
+  .ctl-c select, .ctl-c button { font-size:11.5px; padding:1px 6px; }
+  #ctl-c-res { flex-basis:100%; font-size:11.5px; line-height:1.35; }
+  #ctl-c-res .ok { color:var(--ok, #15803d); font-weight:600; } #ctl-c-res .dif { color:var(--erro, #b91c1c); font-weight:600; }
+  #ctl-c-res table { border-collapse:collapse; margin-top:3px; } #ctl-c-res td { padding:0 6px 0 0; font-variant-numeric:tabular-nums; }
   .ctl-ts input { width:90px; font:inherit; padding:2px 6px; border:1px solid var(--borda); border-radius:5px; }
   .ctl-ts small, .ctl-dica { display:block; color:var(--sutil); font-size:11px; margin-top:2px; }
   .ctl-alerta { color:var(--aviso); } .ctl-alerta::before { content:"⚠ "; }
@@ -788,6 +799,11 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   <div id="painel-controle" class="oculto" data-msg="nenhum circuito aberto: abra um ou comece um novo para escrever o controle" data-tr-msg="ctl.sem_circuito">
     <div id="ctl-lado">
       <label class="ctl-ativo" data-tr="ctl.ativo" title="a simulação chama o seu passo() a cada Ts e escreve as atuações" data-tr-title="ctl.t_ativo"><input type="checkbox" id="ctl-ativo"> Usar este controle ao simular</label>
+      <div id="ctl-c" class="ctl-c"><input type="checkbox" id="ctl-c-usar" hidden>
+        <span id="ctl-ling" role="tablist" aria-label="a linguagem do controle: a que roda e a que o painel mostra" data-tr-aria="ctl.a_ling"><button data-ling="py" role="tab" title="o controle.py roda na simulação (e o painel mostra os .py)" data-tr-title="ctl.t_ling_py">Python</button><button data-ling="c" role="tab" title="o controle.c roda na simulação, compilado em C (o SIL), como ficaria num DSP; o painel mostra os arquivos C" data-tr-title="ctl.t_ling_c">C</button><button data-ling="fpga" role="tab" disabled title="em breve: o mesmo C para FPGA (HLS)" data-tr-title="ctl.t_ling_fpga">FPGA</button></span>
+        <select id="ctl-c-prec" title="a precisão do C: double (como o Python) ou float (precisão simples, como o double do C28x)" data-tr-title="ctl.t_c_prec"><option value="double">double</option><option value="float">float</option></select>
+        <button id="ctl-c-comparar" title="roda o circuito duas vezes, com o controle.py e com o controle.c, e compara as formas de onda sinal a sinal" data-tr-title="ctl.t_c_comparar" data-tr="ctl.c_comparar">Comparar Python × C</button>
+        <div id="ctl-c-res"></div></div>
       <div id="ctl-vistas" role="tablist" aria-label="o que a coluna mostra" data-tr-aria="ctl.a_vistas"><button data-vista="var" role="tab" data-tr="ctl.vista_var">Variáveis</button><button data-vista="arq" role="tab" data-tr="ctl.vista_arq">Arquivos <small id="ctl-n-arq"></small></button></div>
       <div id="ctl-v-var" role="tabpanel">
       <div class="ctl-ts"><label>Ts <input id="ctl-ts" title="período de amostragem do controle (s); vira um número inteiro de passos Δt" data-tr-title="ctl.t_ts"> s</label><span class="ctl-i" id="ctl-ts-i" tabindex="0">i</span><small id="ctl-ts-info"></small></div>

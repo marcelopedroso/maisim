@@ -1701,11 +1701,47 @@ class ErroControle(ErroMotor):
 ATRASOS = ("logo", "amostra", "tempo")       # atuação em t + Δt (logo), em t + Ts (amostra seguinte) ou em t + τ
 
 
+def modelo_c():
+    """O controle.c de um circuito novo (o modelo, no idioma do pedido): o botão "controle.c" do painel o cria."""
+    arq = AQUI / "controle_c" / ("controle_modelo.en.c" if lingua.atual() == "en" else "controle_modelo.c")
+    try:
+        return arq.read_text()
+    except OSError:
+        return '#include "maisim_controle.h"\n'
+
+
+def compara_rodadas(a, b):
+    """O "Comparar Python × C" do painel: a maior diferença de cada coluna numérica entre duas rodadas (as do C e do Python
+    no mesmo circuito); iguais = bit a bit (o NaN no mesmo lugar conta como igual). Só rodadas da pasta das rodadas."""
+    import numpy as np
+    arqs = []
+    for x in (a, b):
+        f = Path(str(x)).resolve()
+        if not f.is_file() or f.suffix != ".npz" or RODADAS.resolve() not in f.parents:
+            raise ErroMotor(lingua.tr("controle.compara_sem_rodada"))
+        arqs.append(np.load(f))
+    za, zb = arqs
+    cols = []
+    for k in sorted(set(za.files) & set(zb.files)):
+        va, vb = za[k], zb[k]
+        if not (np.issubdtype(va.dtype, np.number) and np.issubdtype(vb.dtype, np.number)) or k == "t":
+            continue
+        n = min(len(va), len(vb))
+        va, vb = va[:n].astype(float), vb[:n].astype(float)
+        iguais = bool(np.array_equal(va, vb, equal_nan=True))
+        d = np.abs(va - vb)
+        d = d[np.isfinite(d)]
+        esc = float(np.nanmax(np.abs(va))) if np.isfinite(va).any() else 0.0
+        cols.append({"nome": k, "iguais": iguais, "max": float(d.max()) if d.size else 0.0,
+                     "rel": float(d.max() / esc) if d.size and esc > 0 else 0.0})
+    return {"ok": True, "colunas": cols, "iguais": all(c["iguais"] for c in cols)}
+
+
 def controle_padrao():
     return {"ativo": False, "Ts": 1e-4, "atuacoes": [], "parametros": [], "codigo": modelo_codigo("controle"),
             "atraso": {"modo": "logo", "tempo": 0.0}, "acionamentos": [],
             "arquivos": modelos_arquivos(), "controladores": [],
-            "rede": {"latencia": 0.0}}
+            "rede": {"latencia": 0.0}, "c": {"usar": False, "precisao": "double", "arquivos": {}}}
 
 
 def completa_controle(salvo):
@@ -1764,6 +1800,7 @@ def controle_do_arquivo(arq_ipes):
 # subcircuitos: uma instância por subcircuito, com a visão dele sem o prefixo (o mesmo código para todos). Eles conversam
 # por mensagens (envia/recebe) com a latência da rede ("rede"). Sem controladores na lista: controle.py vê tudo (o de sempre).
 ARQ_PY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,40}\.py$")
+ARQ_C = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,40}\.[ch]$")   # o controle em C (o SIL: controle_worker_c.py)
 NOME_SINAL = re.compile(r"^[A-Za-z0-9_]{1,80}$")
 
 
@@ -1928,6 +1965,17 @@ def instancias_controle(c, r):
     lista, um só: controle.py, com todas as medidas e as atuações marcadas (o de sempre). Num controlador que vale em
     subcircuitos, uma instância por subcircuito ("<controlador>_<prefixo>"), que lê as medidas e escreve as atuações
     marcadas de dentro dele com o nome sem o prefixo; as medidas e atuações da lista dele valem com o nome do circuito."""
+    cc = c.get("c") or {}
+    if cc.get("usar"):                                 # o controle em C (o SIL): um controlador só, o controle.c
+        if c.get("controladores"):
+            return [], [lingua.tr("controle.c_varios")], []
+        if "controle.c" not in (cc.get("arquivos") or {}):
+            return [], [lingua.tr("controle.c_sem_arquivo")], []
+        entradas = [k for _, k in sinais_da_rodada(r, "controle")] if r else []
+        return [{"nome": "controle", "arquivo": "controle.c", "codigo": cc["arquivos"]["controle.c"], "medidas": None,
+                 "atuacoes": None, "linguagem": "c", "arquivos_c": dict(cc["arquivos"]), "precisao": cc.get("precisao", "double"),
+                 "sinais": {"m": entradas, "p": [q["nome"] for q in c["parametros"]] + ["Ts"], "u": list(c["atuacoes"])},
+                 "modulos": {}, "outros": []}], [], []
     if not c.get("controladores"):
         return [{"nome": "controle", "arquivo": "controle.py", "codigo": c["codigo"], "medidas": None, "atuacoes": None,
                  "modulos": modulos_de(c), "outros": []}], [], []
@@ -2011,7 +2059,7 @@ def arquivo_controle(arq_ipes):
 
 def controle_em_uso(c):
     return bool(c["ativo"] or c["atuacoes"] or c["parametros"] or c.get("acionamentos") or canon_codigo(c["codigo"]) != MODELOS_CODIGO["controle"]["pt"]
-                or arquivos_em_uso(c.get("arquivos") or {}) or c.get("controladores"))
+                or arquivos_em_uso(c.get("arquivos") or {}) or c.get("controladores") or (c.get("c") or {}).get("arquivos"))
 
 
 def arquivos_em_uso(arqs):
@@ -2618,6 +2666,11 @@ def usos_no_controle(c, nomes):
     return usos
 
 
+def ident_c(nome):
+    """O nome de um sinal como identificador de C, como o controle_worker_c.py gera no maisim_sinais.h (M_<nome>…)."""
+    return re.sub(r"[^A-Za-z0-9_]", "_", str(nome))
+
+
 def renomeia_no_controle(c, pares):
     """O controle com os nomes trocados (todos de uma vez: a → b e b → c não viram a → c). Devolve (controle, trocas)."""
     mapa = {str(a): str(b) for a, b in pares if a and b and a != b}
@@ -2646,6 +2699,14 @@ def renomeia_no_controle(c, pares):
     for q in c.get("controladores") or []:
         q["medidas"], q["atuacoes"] = troca_lista(q.get("medidas")), troca_lista(q.get("atuacoes"))
     c["atuacoes"] = troca_lista(c.get("atuacoes"))
+    if (c.get("c") or {}).get("arquivos"):            # no controle em C, o índice do maisim_sinais.h: m[M_<nome>], u[U_<nome>]
+        mapa_c = {ident_c(a): ident_c(b) for a, b in mapa.items()}
+        rx_c = re.compile(r"\b([MU])_(" + "|".join(re.escape(x) for x in sorted(mapa_c, key=len, reverse=True)) + r")\b")
+
+        def troca_c(m):
+            n[0] += 1
+            return f"{m.group(1)}_{mapa_c[m.group(2)]}"
+        c["c"]["arquivos"] = {a: rx_c.sub(troca_c, t) for a, t in c["c"]["arquivos"].items()}
     for q in c.get("acionamentos") or []:            # o alvo é CONST:<atuador> (ou p:<parâmetro>, que não muda aqui)
         tipo, _, nome = str(q.get("alvo", "")).partition(":")
         if tipo == "CONST" and nome in mapa:
@@ -3088,7 +3149,7 @@ def painel_controle(c=None):
         conferencia += [dict(x, arquivo=arq) for x in confere_codigo(cod, c["parametros"], locais_a, locais_m if ult else None,
                                                                     [{"nome": k} for k in locais_a], extras={"id", "controlador", "subcircuito"},
                                                                     so_scope=so_scope_de(ult))]
-    return dict(controle=c, erros=erros, avisos=erros_ctl + avisos + avisos_ctl, erros_controladores=erros_ctl, conferencia=conferencia,
+    return dict(modelo_c=modelo_c(), controle=c, erros=erros, avisos=erros_ctl + avisos + avisos_ctl, erros_controladores=erros_ctl, conferencia=conferencia,
                 compartilhados=com_codigo(avisos + avisos_ctl, "importado_compartilhado"),
                 entradas=entradas, atuadores=atu, modelo=modelo_codigo("controle"), circuito=bool(ult),
                 modelos={**modelos_arquivos(), "modulo": modelo_codigo("modulo"), "outro": modelo_codigo("outro")}, lingua=lingua.atual(),
@@ -3230,6 +3291,19 @@ def confere_controle(c):
     if not (0.0 <= lat <= 1.0):
         raise ErroMotor(lingua.tr("controle.latencia_rede_faixa"))
     out["rede"] = {"latencia": lat}
+    cc = c.get("c") or {}                              # o controle em C: o controle.c (e outros .c/.h dele), à parte dos .py
+    if not isinstance(cc, dict) or not isinstance(cc.get("arquivos") or {}, dict):
+        raise ErroMotor(lingua.tr("controle.config_malformada"))
+    arqs_c = {}
+    for k, v in (cc.get("arquivos") or {}).items():
+        if not ARQ_C.match(str(k)) or str(k) in ("maisim_controle.h", "maisim_sinais.h", "maisim_sil.c"):
+            raise ErroMotor(lingua.tr("controle.arquivo_c_invalido", arq=repr(k)))
+        if not isinstance(v, str) or len(v) > 200_000:
+            raise ErroMotor(lingua.tr("controle.arquivo_grande", arq=k))
+        arqs_c[str(k)] = v
+    if len(arqs_c) > 50:
+        raise ErroMotor(lingua.tr("controle.arquivos_demais"))
+    out["c"] = {"usar": bool(cc.get("usar")), "precisao": "float" if cc.get("precisao") == "float" else "double", "arquivos": arqs_c}
     return out
 
 
@@ -3244,7 +3318,7 @@ class Trabalhador:
     """O processo de um controlador (controle_worker.py): manda um pedido e lê a resposta com prazo (separados, para os
     controladores calcularem juntos). conexao: por multiprocessing.connection (o processo se liga ao endereço que recebe
     no ambiente; conecta() espera por ele) em vez do stdin/stdout e da thread leitora."""
-    def __init__(self, log, conexao=False):
+    def __init__(self, log, conexao=False, worker="controle_worker.py"):
         env = {**os.environ, "MAISIM_LINGUA": lingua.atual()}   # as mensagens do controle_worker no idioma do pedido
         self.conn = self.ouvinte = None
         if conexao:
@@ -3252,10 +3326,10 @@ class Trabalhador:
             chave = os.urandom(32)
             self.ouvinte = Listener(authkey=chave)       # o endereço: um socket Unix num arquivo temporário / um pipe nomeado
             env.update(MAISIM_CTL_ENDERECO=self.ouvinte.address, MAISIM_CTL_CHAVE=chave.hex())
-            self.proc = subprocess.Popen([sys.executable, "-I", str(AQUI / "controle_worker.py")], stdin=subprocess.DEVNULL,
+            self.proc = subprocess.Popen([sys.executable, "-I", str(AQUI / worker)], stdin=subprocess.DEVNULL,
                                          stdout=log, stderr=log, cwd=str(Path(log.name).parent), env=env)
             return
-        self.proc = subprocess.Popen([sys.executable, "-I", str(AQUI / "controle_worker.py")], stdin=subprocess.PIPE,
+        self.proc = subprocess.Popen([sys.executable, "-I", str(AQUI / worker)], stdin=subprocess.PIPE,
                                      stdout=subprocess.PIPE, stderr=log, text=True, bufsize=1, cwd=str(Path(log.name).parent),
                                      env=env)
         self.fila = queue.Queue()
@@ -3359,7 +3433,7 @@ class Controladores:
         try:
             conexao = CONEXAO_CONTROLADORES == "conexao" if conexao is None else conexao
             for i in insts:                              # os processos sobem juntos; depois, cada um se liga (conexao)
-                self.trabs.append(Trabalhador(log, conexao))
+                self.trabs.append(Trabalhador(log, conexao, "controle_worker_c.py" if i.get("linguagem") == "c" else "controle_worker.py"))
             for tb in self.trabs:
                 tb.conecta()
             for i, tb in zip(insts, self.trabs):        # carregam juntos
@@ -3369,7 +3443,8 @@ class Controladores:
                 tb.manda({"op": "carrega", "codigo": i["codigo"], "arquivo": i["arquivo"], "nome": i["nome"], "atuacoes": i["atuacoes"],
                           "p": dict(params, **({"id": i["nome"], **i["p"]} if i.get("p") is not None else {})), "nomes": nomes,
                           "prefixar": prefixar and not sempre, "varios": prefixar,
-                          "modulos": i.get("modulos") or {}, "outros": i.get("outros") or []})
+                          "modulos": i.get("modulos") or {}, "outros": i.get("outros") or [],
+                          **({"arquivos_c": i["arquivos_c"], "sinais": i["sinais"], "precisao": i["precisao"]} if i.get("linguagem") == "c" else {})})
             for tb in self.trabs:
                 tb.resposta(20)
         except BaseException:
@@ -3499,6 +3574,8 @@ def _rodar(c, ctl_de_fora=None):
     m = max(1, math.ceil(n / amostras))
     por_cima = str(c.get("por_cima", "")).lower() in ("1", "true", "sim") and not ctl_de_fora   # o autônomo sempre cria nova
     ctl = completa_controle(confere_controle(dict(ctl_de_fora))) if ctl_de_fora else le_controle()
+    if c.get("linguagem") in ("python", "c") and ctl.get("c"):   # o "Comparar Python × C": a rodada diz a linguagem (o guardado fica)
+        ctl = {**ctl, "c": {**ctl["c"], "usar": c["linguagem"] == "c"}}
     # para onde vai cada sinal (as caixinhas "→ Scope" e "→ Controle"): a rodada lê do Gecko os dois juntos (sem controle, só
     # os do scope), grava só os do scope (rodadas menores) e entrega ao m[...] só os do controle
     canais_scope = [k for _, k in sinais_da_rodada(r, "scope")]
@@ -3609,6 +3686,8 @@ def _rodar(c, ctl_de_fora=None):
     if ctl["ativo"]:
         for arq_py, cod in arquivos_de(ctl).items():      # todos os arquivos do controle, como estavam
             (pasta / arq_py).write_text(cod)
+        for arq_c, cod in (ctl.get("c") or {}).get("arquivos", {}).items():   # e os do C (o worker do C compila ali)
+            (pasta / arq_c).write_text(cod)
         (pasta / "controle.json").write_text(json.dumps({k: v for k, v in ctl.items() if k != "codigo"}, ensure_ascii=False, indent=1))
         log = open(pasta / "controle.log", "w")
         params = {q["nome"]: q["valor"] for q in ctl["parametros"]}
@@ -6609,6 +6688,11 @@ class Manipulador(BaseHTTPRequestHandler):
                     grava_cores(cs)
                 return estado()
             return self._editor(cor)
+        if rota == "/editor/controle/compara":         # o "Comparar Python × C": duas rodadas, coluna a coluna
+            try:
+                return self._resposta(200, compara_rodadas(corpo.get("a"), corpo.get("b")))
+            except ErroMotor as e:
+                return self._resposta(409, {"erro": str(e)})
         if rota == "/editor/controle/testar":          # roda iniciar() e alguns passo() sem simular (o validador do painel)
             try:
                 return self._resposta(200, testa_controle(float(corpo.get("dt", 1e-6))))
@@ -6640,7 +6724,10 @@ class Manipulador(BaseHTTPRequestHandler):
             if rodada.get("estado") in RODANDO:
                 return self._resposta(409, {"erro": lingua.tr("controle.travado_rodando")})
             def guarda():
-                c = segue_codigo(confere_controle(corpo.get("controle") or {}), editor.get("ultimo"))
+                pedido = corpo.get("controle") or {}
+                if isinstance(pedido, dict) and "c" not in pedido:   # quem não manda o controle em C não o apaga
+                    pedido = {**pedido, "c": le_controle().get("c")}
+                c = segue_codigo(confere_controle(pedido), editor.get("ultimo"))
                 grava_controle(c)
                 return painel_controle(c)
             return self._editor(guarda)
