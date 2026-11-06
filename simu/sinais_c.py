@@ -60,10 +60,12 @@ def compilador(raiz=None):
 
 
 def opcoes(e_tcc, precisao="double"):
-    """As opções de sempre: os .h na pasta, a precisão e, no gcc/cc, as contas como o Python (sem FMA)."""
+    """As opções de sempre: os .h na pasta, a precisão e, no gcc/cc, as contas como o Python (sem FMA nem sincos)."""
     o = ["-I.", f"-DMAISIM_REAL={precisao}"]
     if not e_tcc:
-        o += ["-O2", "-std=c99", "-ffp-contract=off", "-Werror=implicit-function-declaration"]
+        # -fno-builtin-sin/-cos: sem eles, o gcc junta sin(x) e cos(x) num sincos(), que às vezes difere no último bit do
+        # sin() e do cos() que o Python chama (o PLL da biblioteca saía diferente do pll.py)
+        o += ["-O2", "-std=c99", "-ffp-contract=off", "-fno-builtin-sin", "-fno-builtin-cos", "-Werror=implicit-function-declaration"]
     return o
 
 

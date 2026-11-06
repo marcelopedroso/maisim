@@ -13,21 +13,21 @@ unset $(compgen -v MAISIM_); eval "$(python3 "$V/../../config/ler_config.py" --s
 L="$MAISIM_DADOS/bateria"; mkdir -p "$L"; : > "$L/resumo.txt"
 export NODE_PATH=${NODE_PATH:-$HOME/ns-test/node_modules}
 
-OFFLINE="validador_offline casos_tracado claude_offline claude_instala_offline lingua_offline config_offline msd_offline atualizacao_offline cursor_offline icones_offline lancador_app_offline figura_offline"
+OFFLINE="validador_offline biblioteca_offline casos_tracado claude_offline claude_instala_offline lingua_offline config_offline msd_offline atualizacao_offline cursor_offline icones_offline lancador_app_offline figura_offline"
 TELA="largura_tela scope_menu_tela contextos_tela erro_copia_tela claude_tex_tela scope_soma_tela scope_potencia_tela scope_tema_tela scope_visoes_tela scope_xy_tela scope_digital_tela scope_cabecalho_tela figuras_tela
   diagrama_zoom_tela envia_for_tela sem_esquema_tela renomear_tela sub_iguais_tela desativar_tela diagrama_tela escolha_tela mensagens_tela
   claude_controladores_tela arvore_tela tabelas_tela saida_tela giro_tela atalhos_tela claude_modulos_tela modulos_tela divisor_tela beira_tela
   scope_cursores_tela variaveis_tela parametros_tela selecao_tela fechar_tela trilho_ia_tela ia_contas_tela scope_fora_tela scope_no_painel_tela scope_padrao_tela copia_tela tag_tela rede_tela app_tela movel_tela inicio_tela inicio_circuitos_tela codigo_tela controladores_tela dica_tela dicas_tela sub_terminais_tela
   lingua_tela sub_novo_tela claude_chat_tela escala_tela quebra_tela pontas_tela tema_tela cores_tela cabecalho_tela validador_tela ajustes_tela atualizacao_tela
-  claude_tela claude_instala_tela cursor_tela pwm_tela controle_tela controle_c_tela passo2_tela revisao_tela guia_tela offline_tela scope_notacao_tela varias_saidas_tela msd_tela fecha_pagina_tela solver_tela termica_tela paleta_tela dropdown_tela motores_tela tf_tela blocos_tela conectores_tela unidades_tela scope_novo_lingua_tela"
+  claude_tela claude_instala_tela cursor_tela pwm_tela controle_tela controle_c_tela biblioteca_tela passo2_tela revisao_tela guia_tela offline_tela scope_notacao_tela varias_saidas_tela msd_tela fecha_pagina_tela solver_tela termica_tela paleta_tela dropdown_tela motores_tela tf_tela blocos_tela conectores_tela unidades_tela scope_novo_lingua_tela"
 API="lingua_api lingua_ia_api claude_instala_api rodadas_api exemplos_api amostra_t0_api ia_troca_api deepseek_api cursor_api claude_renova_api contextos_api padrao_janela_api claude_autonomo_api segue_codigo_api
   renomear_api janela_gecko_api colar_sms_api desativar_api fonte_gerador_api nomes_ocultos_api claude_controladores_api ia_circuito_api atuacoes_modulos_api biblioteca_rotulos_api modulos_api
   move_api variaveis_api ponta_migra_api controladores_api teste_controle teste_passo2 teste_revisao atraso_caminhos atraso_sub
-  sub_terminais_api claude_pedido_api nao_salvo_api assinatura_api destino_api varias_saidas_api gecko_novo_api msd_api solver_api termica_api termica_gecko_api termica_sub_api desempenho_api atualizacao_api atualizacao_git_api figura_api seguranca_api paleta_oculto_api motores_api blocos_controle_api gira_controle_api nome_principal_api uso_real_api controle_c_api claude_c_api tf_api fio_junta_api rodada_lingua_api"
+  sub_terminais_api claude_pedido_api nao_salvo_api assinatura_api destino_api varias_saidas_api gecko_novo_api msd_api solver_api termica_api termica_gecko_api termica_sub_api desempenho_api atualizacao_api atualizacao_git_api figura_api seguranca_api paleta_oculto_api motores_api blocos_controle_api gira_controle_api nome_principal_api uso_real_api controle_c_api biblioteca_api claude_c_api tf_api fio_junta_api rodada_lingua_api"
 ISOLADOS="fila_tema_tela scope_painel_tela comparar_tela scope_cores_tela scope_recolher_tela scope_apagar_tela"   # na instância isolada (sobe_fila.sh): o scope ao vivo
-RAPIDO="$OFFLINE seguranca_api amostra_t0_api assinatura_api nao_salvo_api controladores_api teste_controle controle_c_api claude_c_api atraso_caminhos atraso_sub
+RAPIDO="$OFFLINE seguranca_api amostra_t0_api assinatura_api nao_salvo_api controladores_api teste_controle controle_c_api biblioteca_api claude_c_api atraso_caminhos atraso_sub
   biblioteca_rotulos_api ia_troca_api contextos_api largura_tela lingua_tela inicio_tela app_tela movel_tela scope_visoes_tela cabecalho_tela validador_tela
-  controle_tela controle_c_tela lingua_api destino_api nomes_ocultos_api fonte_gerador_api varias_saidas_api termica_tela atualizacao_api atualizacao_tela"
+  controle_tela controle_c_tela biblioteca_tela lingua_api destino_api nomes_ocultos_api fonte_gerador_api varias_saidas_api termica_tela atualizacao_api atualizacao_tela"
 SO_NA_MAQUINA="claude_tela"                          # o link do login de verdade do Claude (às vezes atrasa)
 
 falhou=0

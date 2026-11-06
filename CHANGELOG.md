@@ -7,6 +7,12 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Added
+- **Control library: ready-made modules in Python and in C** (`simu/biblioteca_controle`): **PI** (saturation and anti-windup), **PWM** (sawtooth or triangular carrier), **first-order low-pass filter**, **ramp** (rate limiter for a soft start) and **three-phase SRF-PLL** (uses the PI). In the Control panel, **+ File** now offers *Empty* or one of them: on the Python view it creates `pi.py`; on the C view, the pair `pi.h`/`pi.c`, with the modules it uses (the PLL brings the PI). Each module does the same operations in the same order in both languages, so **Compare Python × C** gives bit-identical results; the usage is in the comment at the top of each file, in pt or en. A test runs every module in Python and in C on the same inputs and checks every output bit for bit, and the buck example controlled with the library's PI and PWM runs bit-identical in Python and in C. MaiSim's AI is told to use them instead of rewriting.
+
+### Fixed
+- **C code calling `sin()` and `cos()` of the same angle could differ from Python in the last bit**: gcc merges the two calls into `sincos()`, which sometimes rounds differently. The C control is now compiled with `-fno-builtin-sin -fno-builtin-cos` (as `-ffp-contract=off` already avoids fused multiply-adds), so the same operations give the same double as Python.
+
+### Added
 - **C modules in the Control panel**, as C firmware is organized: on the C view, **+ File** creates the pair `name.h` (what the module offers: the declarations, with an include guard) and `name.c` (the code); `controle.c` does `#include "name.h"` and calls its functions in the same sample. The file tree follows the `#include`s (`controle.c` → `pwm.c` → `pwm.h`), like the Python tree follows the imports, and the **Files** count on each view counts only that language's files (the C view showed the Python count). The modules compile together with `controle.c` (a run with the PWM in `pwm.c` matches the single-file one bit for bit), a compile error points at the module's file and line, and MaiSim's AI may write `.c`/`.h` files: converting a `controle.py` with modules gives one `.h`/`.c` pair per module. For now C runs as a single controller (several C controllers, sharing modules between DSPs, come later).
 
 ### Fixed
