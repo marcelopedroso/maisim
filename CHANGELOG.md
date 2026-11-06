@@ -6,6 +6,13 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Changed
+- **MaiSim's AI is now a tab, "AI", next to Scope and Control.** On the desktop, the conversation opened as a third column inside the Control panel and squeezed the code to half its width (the lines were cut off); now the whole dock is the conversation, and the Control tab keeps the code at its full width.
+  - The **AI** button in the Control bar, "ask the AI" on an error and the ✦ window open the tab; **×** goes back to the tab you came from.
+  - The automatic **Code ⇄** request no longer switches tabs while you are editing: it runs behind, and the Control panel shows "asking the AI…".
+  - The code window (open in a separate window) has the Control and AI tabs. On the phone, the AI view is the same tab.
+  - The conversation's divider and the "beside / below the code" button are gone, since there is nothing to squeeze any more.
+
 ### Added
 - **Control library: ready-made modules in Python and in C** (`simu/biblioteca_controle`): **PI** (saturation and anti-windup), **PWM** (sawtooth or triangular carrier), **first-order low-pass filter**, **ramp** (rate limiter for a soft start) and **three-phase SRF-PLL** (uses the PI). In the Control panel, **+ File** now offers *Empty* or one of them: on the Python view it creates `pi.py`; on the C view, the pair `pi.h`/`pi.c`, with the modules it uses (the PLL brings the PI). Each module does the same operations in the same order in both languages, so **Compare Python × C** gives bit-identical results; the usage is in the comment at the top of each file, in pt or en. A test runs every module in Python and in C on the same inputs and checks every output bit for bit, and the buck example controlled with the library's PI and PWM runs bit-identical in Python and in C. MaiSim's AI is told to use them instead of rewriting.
 

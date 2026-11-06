@@ -209,35 +209,22 @@ function mudancasAcionamentos(antes, depois) {
   return (depois || []).filter((q) => !A.has(chave(q))).map((q) => `+ ${txt(q)}`).concat((antes || []).filter((q) => !D.has(chave(q))).map((q) => `− ${txt(q)}`));
 }
 
-// ---------------------------------------------------------------- onde fica a conversa: ao lado do código (3 colunas) ou embaixo
-// a escolha fica no navegador; ao lado com o painel estreito demais (o código ficaria espremido), desce sozinha
-const LARGURA_MIN_LADO = 820;
-const ICONE_LUGAR = {
-  lado: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><path d="M6 2.5v11M10.5 2.5v11"/></svg>',
-  embaixo: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><path d="M6 2.5v11M6 9h8.5"/></svg>' };
-let lugarMem = "lado";                                   // sem localStorage: vale até recarregar
-function lugarEscolhido() { try { return localStorage.getItem("maisim-simu-claude-lugar") === "embaixo" ? "embaixo" : "lado"; } catch (e) { return lugarMem; } }
-function aplicaLugar() {
-  const p = $("painel-controle"), escolha = lugarEscolhido(), estreito = p.clientWidth > 0 && p.clientWidth < LARGURA_MIN_LADO;
-  const embaixo = escolha === "embaixo" || estreito;
-  p.classList.toggle("cc-embaixo", embaixo);
-  const b = $("cc-lugar");
-  b.innerHTML = ICONE_LUGAR[escolha === "lado" ? "embaixo" : "lado"];            // o ícone mostra para onde o clique leva
-  b.title = escolha === "lado" ? tr(estreito ? "cc.t_lugar_lado_estreito" : "cc.t_lugar_lado") : tr("cc.t_lugar_embaixo");
-  if (ctl.editor) setTimeout(() => ctl.editor.layout(), 30);
-}
-
 // ---------------------------------------------------------------- abrir, acompanhar
+// a conversa é a aba "IA" da doca (Marcelo, 06/11: dentro do Controle ela espremia o código): abrir mostra a aba; fechar
+// volta à aba de antes (o Controle, quase sempre); ccVisivel acompanha (marcaDoca chama a cada troca de aba)
 function ccAbre(on = !cc.aberto) {
+  if (on) { if (typeof abaDoca !== "undefined" && abaDoca !== "ia") cc.volta = abaDoca; mostraDoca("ia"); }
+  else mostraDoca(cc.volta || "controle");
+}
+function ccVisivel(on) {
+  if (on === !!cc.aberto) return;
   cc.aberto = on;
-  $("painel-controle").classList.toggle("com-claude", on); aplicaLugar();
   $("ctl-claude-bt").classList.toggle("ativo", on);
   if (on) {
     if (!cla.estado) atualizaClaude().then(desenhaChat);
     atualizaChat(); carregaUsoChat();
     setTimeout(() => $("cc-texto").focus(), 50);
-  } else if (cc.timer) { clearInterval(cc.timer); cc.timer = null; }
-  if (ctl.editor) setTimeout(() => ctl.editor.layout(), 30);
+  } else acompanhaChat();                                 // escondida: o acompanhamento para (menos um pedido do Código ⇄)
 }
 async function atualizaChat() {
   const andava = !!(cc.estado && cc.estado.andamento);
@@ -247,11 +234,15 @@ async function atualizaChat() {
   const quem = cc.estado && cc.estado.ia;                 // um pedido de outra IA terminou: o saldo dela mudou
   if (andava && cc.estado && !cc.estado.andamento && quem && quem !== "claude" && cla.iaUso[quem]) carregaUsoIA(quem, true);
   desenhaChat(); acompanhaChat();
-  if (andava && cc.estado && !cc.estado.andamento && typeof aoFimDoPedido === "function") aoFimDoPedido(cc.estado);   // o Código ⇄ do painel
+  if (andava && cc.estado && !cc.estado.andamento) {
+    cc.fundo = false;
+    if (typeof aoFimDoPedido === "function") aoFimDoPedido(cc.estado);   // o Código ⇄ do painel
+  }
 }
 const editorPronto = () => !!(ctl.editor || ctl.texto);   // o Monaco ainda carregando: o código na tela seria ""
 function acompanhaChat() {
-  const anda = cc.aberto && !!(cc.estado && cc.estado.andamento);   // fechada a conversa, o acompanhamento para
+  // fechada a conversa, o acompanhamento para; um pedido do Código ⇄ (cc.fundo) segue sem trocar de aba, até terminar
+  const anda = (cc.aberto || cc.fundo) && !!(cc.estado && cc.estado.andamento);
   if (anda && !cc.timer) cc.timer = setInterval(atualizaChat, 1000);
   else if (!anda && cc.timer) { clearInterval(cc.timer); cc.timer = null; }
 }
@@ -649,34 +640,8 @@ async function ccAnexa(arquivos) {
   }
 }
 
-// o divisor entre o código e a conversa (pedido de Marcelo, 19/10): ao lado muda a largura da conversa (--cc-w), embaixo a
-// altura (--cc-h); guardado no navegador. As contas em pixels de CSS (o zoom do MaiSim muda a escala do mouse: k)
-function divisorConversa() {
-  const pc = $("painel-controle"), dv = $("cc-divisor"); if (!dv) return;
-  try { for (const v of ["w", "h"]) { const x = localStorage.getItem(`maisim-simu-cc-${v}`); if (x) pc.style.setProperty(`--cc-${v}`, x); } } catch (e) { /* padrão */ }
-  dv.addEventListener("mousedown", (ev) => {
-    if (ev.button !== 0) return; ev.preventDefault();
-    const cl = $("ctl-claude"), embaixo = pc.classList.contains("cc-embaixo"), r = cl.getBoundingClientRect();
-    const k = embaixo ? cl.offsetHeight / (r.height || 1) : cl.offsetWidth / (r.width || 1);
-    const v0 = embaixo ? cl.offsetHeight : cl.offsetWidth, p0 = embaixo ? ev.clientY : ev.clientX;
-    const max = embaixo ? pc.offsetHeight - 150 : pc.offsetWidth - ($("ctl-lado").offsetWidth || 0) - 300, min = embaixo ? 160 : 260;
-    dv.classList.add("arrastando"); document.body.style.cursor = embaixo ? "row-resize" : "col-resize";
-    let v = v0;
-    const mexe = (e) => { v = Math.round(Math.max(min, Math.min(max, v0 - ((embaixo ? e.clientY : e.clientX) - p0) * k)));
-      pc.style.setProperty(embaixo ? "--cc-h" : "--cc-w", `${v}px`); if (ctl.editor) ctl.editor.layout(); };
-    const solta = () => { removeEventListener("mousemove", mexe); removeEventListener("mouseup", solta); dv.classList.remove("arrastando"); document.body.style.cursor = "";
-      try { localStorage.setItem(embaixo ? "maisim-simu-cc-h" : "maisim-simu-cc-w", `${v}px`); } catch (e) { /* só agora */ }
-      if (ctl.editor) ctl.editor.layout(); };
-    addEventListener("mousemove", mexe); addEventListener("mouseup", solta);
-  });
-  dv.addEventListener("dblclick", () => {
-    const v = pc.classList.contains("cc-embaixo") ? "h" : "w"; pc.style.removeProperty(`--cc-${v}`);
-    try { localStorage.removeItem(`maisim-simu-cc-${v}`); } catch (e) { /* ok */ } if (ctl.editor) setTimeout(() => ctl.editor.layout(), 30);
-  });
-}
 (function iniciaChat() {
   const painel = $("ctl-claude"); if (!painel) return;
-  divisorConversa();
   ccModelos();                                             // o "Modelo: padrão" do HTML no idioma de agora, antes de /claude/ias chegar
   for (const id of ["cc-modelo", "cc-esforco"]) {          // o modelo (de cada IA) e o esforço escolhidos ficam no navegador
     const chave = () => (id === "cc-modelo" ? chaveModelo(ccIA()) : `maisim-simu-${id}`);
@@ -688,9 +653,6 @@ function divisorConversa() {
   $("ctl-claude-bt").onclick = () => ccAbre();
   $("cc-fechar").onclick = () => ccAbre(false);
   $("cc-memoria").onclick = ccMemoria;
-  $("cc-lugar").onclick = () => { lugarMem = lugarEscolhido() === "lado" ? "embaixo" : "lado";
-    try { localStorage.setItem("maisim-simu-claude-lugar", lugarMem); } catch (e) { /* só até recarregar */ } aplicaLugar(); };
-  new ResizeObserver(() => { if (cc.aberto) aplicaLugar(); }).observe($("painel-controle"));
   $("cc-enviar").onclick = ccEnvia;
   $("cc-parar").onclick = async () => { try { cc.estado = await apiClaude("parar", {}); } catch (e) { cc.aviso = e.message; } desenhaChat(); acompanhaChat(); };
   $("cc-nova").onclick = async () => {
@@ -728,5 +690,5 @@ function divisorConversa() {
   addEventListener("focus", () => { if (cc.aberto && !cc.timer) atualizaChat(); });
   // trocou o idioma: os modelos (o "Modelo: padrão"), o title do lugar e a conversa (as etiquetas dos contextos também, as do
   // claude_contextos.js); fechada, só esquece o desenho, para redesenhar ao abrir
-  maisimI18n.aoMudar(() => { ccModelos(); cc.desenhado = ""; if (cc.aberto) { aplicaLugar(); desenhaChat(); } });
+  maisimI18n.aoMudar(() => { ccModelos(); cc.desenhado = ""; if (cc.aberto) desenhaChat(); });
 })();
