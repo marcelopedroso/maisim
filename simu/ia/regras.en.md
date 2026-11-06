@@ -27,6 +27,8 @@ The working folder has:
   controle.py and controle.c, do the SAME operations in the SAME order (Python int(x) is (long)(x) for x ≥ 0; min/max are
   fmin/fmax; e["key"] becomes a struct field; the same scope names): then MaiSim shows the two bit-identical. When asked to
   change one of them, do not touch the other unless the user asks.
+  A control request goes in the language CONTEXTO.md says ("Control language"), unless the user asks for the other:
+  with C, write in controle.c (from scratch, if only the template is there), with no need for a controle.py.
 - parametros.json: the parameters p["..."], a list of {"nome", "valor", "unidade"}. Every p["x"] in the code must
   be here (create it with value and unit); "Ts" does not go here (it comes from the panel).
 - acionamentos.json: changes at time t, a list of {"t": seconds, "alvo": "p:<parameter>" or

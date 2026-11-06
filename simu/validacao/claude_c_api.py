@@ -2,7 +2,8 @@
 pedido tem o controle.c (o modelo, se ainda não há), o maisim_sinais.h gerado do painel e o maisim_controle.h; a IA pode
 escrever o controle.c; a proposta traz o C junto com os outros arquivos (a diferença, o aplicar por arquivo e o voltar), o
 MaiSim o confere compilando (sem rodar: um erro volta com a linha) e o teste da proposta roda o C. O controle.c aplicado
-roda e dá as mesmas formas de onda que o controle.py (exemplos/exemplo_controle_pwm)."""
+roda e dá as mesmas formas de onda que o controle.py (exemplos/exemplo_controle_pwm). O CONTEXTO.md diz a linguagem
+do painel (Python ou C), e com o painel em C o controle.c escrito do zero vira proposta."""
 import json, subprocess, time, urllib.request
 from pathlib import Path
 
@@ -77,6 +78,19 @@ try:
     e2 = pede(errado)
     erros = (e2.get("proposta") or {}).get("erros") or []
     ok(any(x.get("arquivo") == "controle.c" and x.get("linha") == 38 for x in erros), f"a proposta com C errado traz o erro na linha 38: {erros[:1]}")
+    # a IA sabe a linguagem do painel (o seletor Python | C): o CONTEXTO.md diz qual roda
+    ok("Linguagem do controle: Python" in resp, f"com o painel em Python, o CONTEXTO.md diz Python: {resp[-80:]}")
+    api("editor/abrir", {"arq": "exemplos/exemplo_controle_pwm.ipes", "modo": "descartar"})
+    c = api("editor/controle")["controle"]
+    c["c"] = {**c["c"], "usar": True}                    # o painel em C, ainda sem controle.c no circuito
+    api("editor/controle", {"controle": c})
+    py_antes = api("editor/controle")["controle"]["codigo"]
+    e4 = pede(CONTROLE_C, "faça o controle de corrente do buck")
+    p4, resp4 = e4.get("proposta") or {}, e4.get("resposta") or ""
+    ok("Linguagem do controle: C" in resp4, f"com o painel em C, o CONTEXTO.md diz C: {resp4[-80:]}")
+    ok(p4.get("c_mudou") and (p4.get("arquivos") or {}).get("controle.c") == CONTROLE_C and not p4.get("erros")
+       and (p4.get("arquivos") or {}).get("controle.py", py_antes) == py_antes,
+       f"com o painel em C e sem C antes, o controle.c escrito entra na proposta, sem erro, e o controle.py fica como estava ({sorted(p4.get('arquivos') or {})})")
     # o modelo intocado de um circuito sem C não vira proposta
     api("editor/abrir", {"arq": "exemplos/exemplo_controle_pwm.ipes", "modo": "descartar"})
     modelo = (RAIZ / "simu/controle_c/controle_modelo.c").read_text()

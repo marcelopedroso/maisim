@@ -7,6 +7,9 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Fixed
+- **With the Control panel on C, asking the AI for a control gave Python**: the AI did not know which language the panel runs. Its `CONTEXTO.md` now says “Control language: C” or “Python” (the Python | C selector), and the rules say a control request goes in that language unless you ask for the other; on C, the AI writes `controle.c` (from scratch, if there is only the template) and leaves `controle.py` as it was.
+
+### Fixed
 - **The C code had no colors in the Control panel** (black text, like a notepad, while the Python was highlighted): the local Monaco (`simu/vendor.sh`, so the editor works offline) only kept the Python language. It now keeps C too (Monaco's `cpp`), and runs again when a language is missing; the developer version's **Update** also runs it when the local Monaco is there, so existing clones get the C colors.
 
 ### Added

@@ -27,6 +27,8 @@ A pasta de trabalho tem:
   na MESMA ordem (int(x) do Python é (long)(x) para x ≥ 0; min/max são fmin/fmax; e["chave"] vira um campo do struct;
   os mesmos nomes de scope): assim o MaiSim mostra os dois iguais bit a bit. Mudou um dos dois a pedido, não mexa no
   outro sem o usuário pedir.
+  Um pedido de controle vai na linguagem que o CONTEXTO.md diz ("Linguagem do controle"), a não ser que o usuário peça a
+  outra: com C, escreva no controle.c (do zero, se só houver o modelo), sem precisar de um controle.py.
 - parametros.json: os parâmetros p["..."], uma lista de {"nome", "valor", "unidade"}. Todo p["x"] do código precisa
   estar aqui (crie com valor e unidade); "Ts" não entra (vem do painel).
 - acionamentos.json: mudanças no instante t, uma lista de {"t": segundos, "alvo": "p:<parâmetro>" ou
