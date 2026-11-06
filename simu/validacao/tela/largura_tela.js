@@ -1,5 +1,5 @@
 // a página do MaiSim não passa da largura da tela (21/10: a 1366 px, a barra do código — IA, testar, modelo, quebra de linha,
-// ? — passava 78 px e a página rolava para o lado): com o painel do controle e com a conversa aberta (a aba IA), em 1280, 1366 e 1600
+// ? — passava 78 px e a página rolava para o lado): com o painel do controle e com a conversa aberta (a gaveta), em 1280, 1366 e 1600
 const { chromium } = require("playwright");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
@@ -14,11 +14,11 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
         return { pag: d.scrollWidth - d.clientWidth, barra: bar.scrollWidth - bar.clientWidth, guia: g.right <= d.clientWidth && g.width > 0 }; });
       await pg.evaluate(() => mostraDoca("controle")); await pg.waitForTimeout(1200);
       const a = await mede();
-      await pg.evaluate(() => ccAbre(true)); await pg.waitForTimeout(1200);   // a conversa: a aba IA (a barra dela, no lugar da do código)
-      const c = await pg.evaluate(() => { const d = document.documentElement, topo = document.querySelector("#ctl-claude .cc-topo");
-        return { pag: d.scrollWidth - d.clientWidth, barra: topo.scrollWidth - topo.clientWidth, aba: abaDoca }; });
-      ok(a.pag <= 0 && a.barra <= 0 && a.guia && c.pag <= 0 && c.barra <= 0 && c.aba === "ia",
-        `${w} px: a página e a barra do código cabem (painel: sobra ${-a.pag}/${-a.barra}; com a conversa, na aba IA: ${-c.pag}/${-c.barra}), o ? à vista`);
+      await pg.evaluate(() => ccAbre(true)); await pg.waitForTimeout(1200);   // a conversa: a gaveta da direita (por cima)
+      const c = await pg.evaluate(() => { const d = document.documentElement;
+        return { pag: d.scrollWidth - d.clientWidth, gaveta: !$("gaveta-ia").hidden && $("gaveta-ia").getBoundingClientRect().right <= d.clientWidth + 1 }; });
+      ok(a.pag <= 0 && a.barra <= 0 && a.guia && c.pag <= 0 && c.gaveta,
+        `${w} px: a página e a barra do código cabem (painel: sobra ${-a.pag}/${-a.barra}; com a conversa, na gaveta: ${-c.pag}), o ? à vista`);
       await pg.close();
     }
   } catch (e) { ok(false, `o teste parou: ${e.message.split("\n")[0]}`); }

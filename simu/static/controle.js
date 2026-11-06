@@ -1708,7 +1708,7 @@ function marcaSelo() {
 function converteIA(paraC, fundo = false) {              // a conversa da IA, com o pedido de conversão escrito e enviado
   if (typeof ccAbre !== "function" || typeof ccEnvia !== "function" || travado()) return;
   if (paraC && !ctl.lista.includes("controle.c")) abreC(false);
-  if (fundo) cc.fundo = true; else ccAbre(true);         // o Código ⇄ (fundo): sem trocar de aba (a pessoa está no código)
+  if (!fundo) ccAbre(true);                              // o Código ⇄ (fundo): sem abrir a conversa (a pessoa está no código)
   $("cc-texto").value = tr(paraC ? "ctl.c_pedido_c" : "ctl.c_pedido_py"); ccEnvia();
 }
 function editou(a) {                                      // o usuário mexeu num dos dois (não a IA aplicando uma proposta)

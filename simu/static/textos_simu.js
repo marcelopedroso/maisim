@@ -31,8 +31,6 @@ maisimI18n.add({
   "simu.vz_abrir": { pt: "Abrir…", en: "Open…" },
   "simu.vz_exemplos": { pt: "Exemplos", en: "Examples" },
   "simu.aba_controle": { pt: "Controle", en: "Control" },
-  "simu.aba_ia": { pt: "IA", en: "AI" },
-  "simu.t_aba_ia": { pt: "a IA do MaiSim: ela lê o circuito e o código e propõe o controle", en: "MaiSim's AI: it reads the circuit and the code and proposes the control" },
   "simu.scope_fora_html": { pt: "o scope está na <b>janela do scope</b><br>(ao vivo lá também)", en: "the scope is in the <b>scope window</b><br>(live there too)" },
   "simu.t_scope_fora_ir": { pt: "trazer a janela do scope para a frente", en: "bring the scope window to the front" },
   "simu.ir_la": { pt: "Ir para lá", en: "Go there" },

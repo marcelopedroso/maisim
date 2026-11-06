@@ -31,17 +31,17 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
   const original = await pg.evaluate(() => codigoAtual());
   // abrir a conversa
   await pg.click("#ctl-claude-bt"); await pg.waitForTimeout(1500);
-  const lay = await pg.evaluate(() => { const r = (id) => $(id).getBoundingClientRect(); return { chat: r("ctl-claude"), doca: r("doca"), aba: abaDoca,
-    controle: $("painel-controle").classList.contains("oculto"), ativa: (document.querySelector("#abas-doca button.ativo") || {}).dataset, uso: $("cc-uso").textContent, vazio: !!document.querySelector(".cc-vazio li") }; });
-  // a conversa é a aba "IA" da doca (Marcelo, 06/11: dentro do Controle ela espremia o código): a doca inteira é a conversa
-  ok(lay.aba === "ia" && lay.controle && lay.ativa && lay.ativa.aba === "ia" && lay.chat.width > lay.doca.width - 4 && lay.chat.height > 150,
-    `conversa aberta na aba IA (${Math.round(lay.chat.width)}×${Math.round(lay.chat.height)}, a doca tem ${Math.round(lay.doca.width)} px)`);
-  // a aba Controle: o código com a largura dele (sem a conversa ao lado); de volta à IA, a conversa como estava
-  await pg.click('#abas-doca [data-aba="controle"]'); await pg.waitForTimeout(500);
-  const ed = await pg.evaluate(() => ({ ed: $("ctl-editor").getBoundingClientRect().width, painel: $("painel-controle").getBoundingClientRect().width, lado: $("ctl-lado").getBoundingClientRect().width, aberto: cc.aberto }));
-  ok(ed.ed > ed.painel - ed.lado - 4 && !ed.aberto, `aba Controle: o código com ${Math.round(ed.ed)} px (o painel ${Math.round(ed.painel)} − a coluna ${Math.round(ed.lado)}), a conversa escondida`);
-  await pg.click('#abas-doca [data-aba="ia"]'); await pg.waitForTimeout(500);
-  ok(await pg.evaluate(() => cc.aberto && !$("painel-ia").classList.contains("oculto")), "aba IA de novo: a conversa");
+  const lay = await pg.evaluate(() => { const r = (id) => $(id).getBoundingClientRect(); return { chat: r("ctl-claude"), ed: r("ctl-editor"), aba: abaDoca,
+    gaveta: !$("gaveta-ia").hidden, larg: innerWidth, flutua: getComputedStyle($("bt-ia-flutua")).display, uso: $("cc-uso").textContent, vazio: !!document.querySelector(".cc-vazio li") }; });
+  // a conversa fica à parte (Marcelo, 06/11): a gaveta da direita, por cima da tela; o Controle continua aberto embaixo
+  ok(lay.gaveta && lay.aba === "controle" && Math.abs(lay.chat.right - lay.larg) < 2 && lay.chat.width >= 320 && lay.chat.height > 300 && lay.flutua === "none",
+    `a conversa na gaveta da direita (${Math.round(lay.chat.width)}×${Math.round(lay.chat.height)}), a doca no Controle, o botão flutuante escondido`);
+  // fechar: a gaveta some, o botão flutuante volta e abre de novo; a doca não mudou
+  await pg.click("#cc-fechar"); await pg.waitForTimeout(300);
+  const fechada = await pg.evaluate(() => ({ g: $("gaveta-ia").hidden, b: getComputedStyle($("bt-ia-flutua")).display, aberto: cc.aberto, aba: abaDoca, ed: $("ctl-editor").getBoundingClientRect().width }));
+  ok(fechada.g && fechada.b !== "none" && !fechada.aberto && fechada.aba === "controle" && fechada.ed > 300, `× fecha a gaveta (o botão flutuante volta; o código com ${Math.round(fechada.ed)} px)`);
+  await pg.click("#bt-ia-flutua"); await pg.waitForTimeout(500);
+  ok(await pg.evaluate(() => cc.aberto && !$("gaveta-ia").hidden), "o botão flutuante abre a conversa");
   ok(/sessão 42%/.test(lay.uso) && /semana 81%/.test(lay.uso), `uso da conta no topo: "${lay.uso}"`);
   ok(lay.vazio, "conversa vazia mostra exemplos do que pedir");
   await pg.screenshot({ path: "claude_chat_vazio.png" });
@@ -137,27 +137,36 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
   ok(/virus\.exe: .*PDF, imagem/.test(await pg.evaluate(() => $("cc-aviso").textContent)), "tipo não aceito: aviso na conversa");
   // o ✦ com o uso e o "pedir ao Claude"
   await pg.click("#cc-fechar"); await pg.waitForTimeout(300);
-  ok(await pg.evaluate(() => !cc.aberto && abaDoca === "controle" && $("painel-ia").classList.contains("oculto")), "× fecha a conversa (volta à aba Controle)");
+  ok(await pg.evaluate(() => !cc.aberto && $("gaveta-ia").hidden), "× fecha a conversa");
   await pg.click("#bt-claude"); await pg.waitForSelector("[data-abre=claude]"); await pg.click("[data-abre=claude]");   // os detalhes e limites (o botão)
   await pg.waitForSelector(".cla-uso-l", { timeout: 10000 });
   const jan = await pg.evaluate(() => ({ l: [...document.querySelectorAll(".cla-uso-l")].map((x) => x.innerText.replace(/\s+/g, " ").trim()), pedir: !!$("cla-pedir") }));
   ok(jan.l.length === 3 && /sessão \(5 h\) 42% renova hoje às 13h50/.test(jan.l[0]) && jan.pedir, `✦: barras de uso (${jan.l[0]}) e o botão "pedir ao Claude"`);
   await pg.screenshot({ path: "claude_janela_uso.png", clip: { x: 400, y: 0, width: 900, height: 500 } });
   await pg.click("#cla-pedir"); await pg.waitForTimeout(800);
-  ok(await pg.evaluate(() => !document.querySelector(".modal-fundo") && abaDoca === "ia" && cc.aberto && document.activeElement === $("cc-texto")), "pedir ao Claude: abre a conversa (a aba IA), com o cursor na caixa");
-  // a aba IA aberta direto, vindo do Scope: o × volta ao Scope (Codex, #232)
-  await pg.evaluate(() => mostraDoca("scope")); await pg.click('#abas-doca [data-aba="ia"]'); await pg.waitForTimeout(300);
+  ok(await pg.evaluate(() => !document.querySelector(".modal-fundo") && !$("gaveta-ia").hidden && cc.aberto && document.activeElement === $("cc-texto")), "pedir ao Claude: abre a conversa (a gaveta), com o cursor na caixa");
+  // fechar a gaveta com a IA respondendo: o pedido segue acompanhado; no fim, o botão para de pulsar e mostra a proposta (Codex, #233)
+  await pg.evaluate(() => ccAbre(true)); await pg.fill("#cc-texto", "suba o ganho"); await pg.click("#cc-enviar");
+  await pg.waitForFunction(() => $("bt-ia-flutua").classList.contains("trabalhando"), null, { timeout: 10000 }).catch(() => {});
+  await pg.click("#cc-fechar");
+  const fim = await pg.waitForFunction(() => cc.estado && !cc.estado.andamento && !$("bt-ia-flutua").classList.contains("trabalhando"), null, { timeout: 30000 }).then(() => true).catch(() => false);
+  ok(fim && await pg.evaluate(() => $("bt-ia-flutua").classList.contains("proposta") && $("gaveta-ia").hidden),
+    `gaveta fechada no meio do pedido: ele termina, o botão para de pulsar e mostra a proposta (${await pg.evaluate(() => $("bt-ia-flutua").className)})`);
+  await pg.click("#bt-ia-flutua"); await pg.waitForTimeout(500);
+  await pg.evaluate(() => typeof ccDescarta === "function" && ccDescarta()); await pg.waitForTimeout(500);
+  // com o Scope na doca: abrir e fechar a IA não mexe nele (a IA fica à parte)
+  await pg.evaluate(() => { ccAbre(false); mostraDoca("scope"); }); await pg.click("#bt-ia-flutua"); await pg.waitForTimeout(300);
   await pg.click("#cc-fechar"); await pg.waitForTimeout(300);
-  ok(await pg.evaluate(() => abaDoca === "scope" && !cc.aberto), "a aba IA aberta direto do Scope: o × volta ao Scope");
-  // o Código ⇄ automático que falha (a IA deu erro): o Controle diz, sem trocar de aba, e o botão leva à aba IA (Codex, #232)
+  ok(await pg.evaluate(() => abaDoca === "scope" && !cc.aberto), "com o Scope na doca, abrir e fechar a IA deixa o Scope como estava");
+  // o Código ⇄ automático que falha (a IA deu erro): o Controle diz, com a conversa fechada, e o botão a abre (Codex, #232)
   fs.writeFileSync(path.join(CONF, "falso_cenario"), "erro");
   await pg.evaluate(() => mostraDoca("controle")); await pg.waitForTimeout(400);
   await pg.evaluate(() => { ctl.sincPendente = true; converteIA(true, true); });
   const falhou = await pg.waitForFunction(() => /não converteu|did not convert/.test($("ctl-c-res").textContent), null, { timeout: 30000 }).then(() => true).catch(() => false);
-  ok(falhou && await pg.evaluate(() => abaDoca === "controle" && !!document.querySelector("#ctl-c-res [data-abre-ia]")),
-    `o Código ⇄ que falhou: "${await pg.textContent("#ctl-c-res")}", na aba Controle`);
+  ok(falhou && await pg.evaluate(() => $("gaveta-ia").hidden && !!document.querySelector("#ctl-c-res [data-abre-ia]")),
+    `o Código ⇄ que falhou: "${await pg.textContent("#ctl-c-res")}", com a conversa fechada`);
   await pg.click("#ctl-c-res [data-abre-ia]"); await pg.waitForTimeout(400);
-  ok(await pg.evaluate(() => abaDoca === "ia" && cc.aberto), "o \"ver na aba IA\" leva à conversa (com o erro)");
+  ok(await pg.evaluate(() => !$("gaveta-ia").hidden && cc.aberto), "o \"ver na IA\" abre a conversa (com o erro)");
   fs.writeFileSync(path.join(CONF, "falso_cenario"), "ganho");
   // escuro
   const tema = (t) => pg.evaluate((x) => { document.documentElement.dataset.tema = x; dispatchEvent(new CustomEvent("maisim-tema", { detail: { tema: x } })); }, t);   // sem o trilho (porta do servidor)

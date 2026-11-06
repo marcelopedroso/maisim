@@ -31,7 +31,7 @@ maisimI18n.add({
   "ctl.c_pedido_py": { pt: "Converta o controle.c para Python, no controle.py (iniciar e passo), com as mesmas contas na mesma ordem e os mesmos nomes de scope. Não mude o controle.c.",
     en: "Convert controle.c to Python, in controle.py (iniciar and passo), with the same operations in the same order and the same scope names. Do not change controle.c." },
   "ctl.c_sinc_falhou": { pt: "Código ⇄: a IA não converteu", en: "Code ⇄: the AI did not convert" },
-  "ctl.c_ver_ia": { pt: "ver na aba IA", en: "see in the AI tab" },
+  "ctl.c_ver_ia": { pt: "ver na IA", en: "see in the AI" },
   "ctl.c_sinc_pedindo": { pt: "Código ⇄: pedindo à IA a outra linguagem…", en: "Code ⇄: asking the AI for the other language…" },
   "ctl.c_comparar": { pt: "Comparar Python × C", en: "Compare Python × C" },
   "ctl.t_c_comparar": { pt: "roda o circuito duas vezes, com o controle.py e com o controle.c, e compara as formas de onda sinal a sinal",
