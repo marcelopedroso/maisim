@@ -279,7 +279,9 @@ elif cenario == "converte_c":                           # o controle em C: lê o
     Path("controle.c").write_text((conf / "falso_controle.c").read_text())
     indices = ", ".join(re.findall(r"#define ([MPU]_\w+)", h)) or "nenhum"
     tem_h = "sim" if Path("maisim_controle.h").exists() else "não"
-    resposta = f"Converti o controle.py para C no controle.c. Índices: {indices}; havia controle.c: {'sim' if modelo else 'não'}; maisim_controle.h: {tem_h}."
+    ctx = Path("CONTEXTO.md").read_text() if Path("CONTEXTO.md").exists() else ""
+    ling = next((l.strip("- ").split(" (")[0] for l in ctx.splitlines() if "Linguagem do controle" in l or "Control language" in l), "sem linguagem")
+    resposta = f"Converti o controle.py para C no controle.c. Índices: {indices}; havia controle.c: {'sim' if modelo else 'não'}; maisim_controle.h: {tem_h}; {ling}."
 elif cenario == "anexo":
     nomes = sorted(x.name for x in Path("anexos").iterdir()) if Path("anexos").is_dir() else []
     for n in nomes:

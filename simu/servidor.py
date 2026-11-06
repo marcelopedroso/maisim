@@ -5232,7 +5232,8 @@ def claude_contexto(c, dt, tfim, visto=None):
              vezes=int(tfim / (nTs * dt)) if dt > 0 and tfim > 0 else '?'),
           tr("ia_contexto.atraso_tempo", modo=modo_txt, d=d_at, tau=num_txt(at.get('tempo'))) if at.get("modo") == "tempo"
           else tr("ia_contexto.atraso", modo=modo_txt, d=d_at),
-          tr("ia_contexto.ligado_sim" if c["ativo"] else "ia_contexto.ligado_nao"), ""]
+          tr("ia_contexto.ligado_sim" if c["ativo"] else "ia_contexto.ligado_nao"),
+          tr("ia_contexto.ling_c" if (c.get("c") or {}).get("usar") else "ia_contexto.ling_py"), ""]   # o seletor Python | C
     if not ult:
         L += [tr("ia_contexto.sem_circuito"), ""]
     else:
