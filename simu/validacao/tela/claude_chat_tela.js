@@ -145,6 +145,15 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
   await pg.screenshot({ path: "claude_janela_uso.png", clip: { x: 400, y: 0, width: 900, height: 500 } });
   await pg.click("#cla-pedir"); await pg.waitForTimeout(800);
   ok(await pg.evaluate(() => !document.querySelector(".modal-fundo") && !$("gaveta-ia").hidden && cc.aberto && document.activeElement === $("cc-texto")), "pedir ao Claude: abre a conversa (a gaveta), com o cursor na caixa");
+  // fechar a gaveta com a IA respondendo: o pedido segue acompanhado; no fim, o botão para de pulsar e mostra a proposta (Codex, #233)
+  await pg.evaluate(() => ccAbre(true)); await pg.fill("#cc-texto", "suba o ganho"); await pg.click("#cc-enviar");
+  await pg.waitForFunction(() => $("bt-ia-flutua").classList.contains("trabalhando"), null, { timeout: 10000 }).catch(() => {});
+  await pg.click("#cc-fechar");
+  const fim = await pg.waitForFunction(() => cc.estado && !cc.estado.andamento && !$("bt-ia-flutua").classList.contains("trabalhando"), null, { timeout: 30000 }).then(() => true).catch(() => false);
+  ok(fim && await pg.evaluate(() => $("bt-ia-flutua").classList.contains("proposta") && $("gaveta-ia").hidden),
+    `gaveta fechada no meio do pedido: ele termina, o botão para de pulsar e mostra a proposta (${await pg.evaluate(() => $("bt-ia-flutua").className)})`);
+  await pg.click("#bt-ia-flutua"); await pg.waitForTimeout(500);
+  await pg.evaluate(() => typeof ccDescarta === "function" && ccDescarta()); await pg.waitForTimeout(500);
   // com o Scope na doca: abrir e fechar a IA não mexe nele (a IA fica à parte)
   await pg.evaluate(() => { ccAbre(false); mostraDoca("scope"); }); await pg.click("#bt-ia-flutua"); await pg.waitForTimeout(300);
   await pg.click("#cc-fechar"); await pg.waitForTimeout(300);

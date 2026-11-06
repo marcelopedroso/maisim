@@ -226,7 +226,7 @@ function ccVisivel(on) {
     if (!cla.estado) atualizaClaude().then(desenhaChat);
     atualizaChat(); carregaUsoChat();
     setTimeout(() => $("cc-texto").focus(), 50);
-  } else acompanhaChat();                                 // escondida: o acompanhamento para (menos um pedido do Código ⇄)
+  }
 }
 async function atualizaChat() {
   const andava = !!(cc.estado && cc.estado.andamento);
@@ -236,10 +236,7 @@ async function atualizaChat() {
   const quem = cc.estado && cc.estado.ia;                 // um pedido de outra IA terminou: o saldo dela mudou
   if (andava && cc.estado && !cc.estado.andamento && quem && quem !== "claude" && cla.iaUso[quem]) carregaUsoIA(quem, true);
   desenhaChat(); acompanhaChat();
-  if (andava && cc.estado && !cc.estado.andamento) {
-    cc.fundo = false;
-    if (typeof aoFimDoPedido === "function") aoFimDoPedido(cc.estado);   // o Código ⇄ do painel
-  }
+  if (andava && cc.estado && !cc.estado.andamento && typeof aoFimDoPedido === "function") aoFimDoPedido(cc.estado);   // o Código ⇄ do painel
 }
 const editorPronto = () => !!(ctl.editor || ctl.texto);   // o Monaco ainda carregando: o código na tela seria ""
 function marcaBotaoIA() {                                // o botão flutuante: a IA respondendo (pulsa) e a proposta que chegou
@@ -249,8 +246,9 @@ function marcaBotaoIA() {                                // o botão flutuante: 
   b.classList.toggle("proposta", !cc.aberto && !e.andamento && !!(p && p.mudou && !e.aplicada));
 }
 function acompanhaChat() {
-  // fechada a conversa, o acompanhamento para; um pedido do Código ⇄ (cc.fundo) segue sem trocar de aba, até terminar
-  const anda = (cc.aberto || cc.fundo) && !!(cc.estado && cc.estado.andamento);
+  // um pedido em andamento é acompanhado até o fim, com a gaveta aberta ou fechada (o botão flutuante mostra o fim e a
+  // proposta; o Código ⇄ espera por ele — Codex, #233)
+  const anda = !!(cc.estado && cc.estado.andamento);
   if (anda && !cc.timer) cc.timer = setInterval(atualizaChat, 1000);
   else if (!anda && cc.timer) { clearInterval(cc.timer); cc.timer = null; }
 }
