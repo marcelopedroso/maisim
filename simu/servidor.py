@@ -1726,13 +1726,14 @@ def compara_rodadas(a, b):
         va, vb = za[k], zb[k]
         if not (np.issubdtype(va.dtype, np.number) and np.issubdtype(vb.dtype, np.number)) or k == "t":
             continue
+        mesmo_n = len(va) == len(vb)                     # tamanhos diferentes: diferentes (a sobra não some na comparação; Codex, #225)
         n = min(len(va), len(vb))
         va, vb = va[:n].astype(float), vb[:n].astype(float)
-        iguais = bool(np.array_equal(va, vb, equal_nan=True))
+        iguais = mesmo_n and bool(np.array_equal(va, vb, equal_nan=True))
         d = np.abs(va - vb)
         d = d[np.isfinite(d)]
         esc = float(np.nanmax(np.abs(va))) if np.isfinite(va).any() else 0.0
-        cols.append({"nome": k, "iguais": iguais, "max": float(d.max()) if d.size else 0.0,
+        cols.append({"nome": k, "iguais": iguais, **({} if mesmo_n else {"amostras": [len(za[k]), len(zb[k])]}), "max": float(d.max()) if d.size else 0.0,
                      "rel": float(d.max() / esc) if d.size and esc > 0 else 0.0})
     return {"ok": True, "colunas": cols, "iguais": all(c["iguais"] for c in cols)}
 

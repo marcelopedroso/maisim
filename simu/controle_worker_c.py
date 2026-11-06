@@ -29,8 +29,11 @@ IDENT_C = re.compile(r"[^A-Za-z0-9_]")
 # controle.c:12:5: error: … (gcc, clang) | controle.c:12: error: … (tcc)
 ERRO_CC = re.compile(r"^(?:.*[/\\])?(?P<arq>[A-Za-z0-9_]+\.[ch]):(?P<linha>\d+):(?:\d+:)?\s*(?:fatal )?(?:error|erro)\s*:?\s*(?P<msg>.*)$", re.M)  # i18n-ok (a saída dos compiladores)
 
-saida = sys.stdout
-sys.stdout = sys.stderr                          # um printf do usuário não chega aqui; um print por engano vai para o log
+# o protocolo (no modo pipe: o stdout) fica num descritor só dele, e o fd 1 passa a ser o log (o stderr): um printf() do
+# controle.c, que escreve direto no fd 1, vai para o controle.log em vez de virar uma "resposta" (Codex, #225)
+saida = os.fdopen(os.dup(1), "w", buffering=1)
+os.dup2(2, 1)
+sys.stdout = sys.stderr
 cfg = {"nome": "controle", "atuacoes": None, "varios": False}
 lib = estado = p_arr = None
 nomes = {"m": [], "p": [], "u": []}

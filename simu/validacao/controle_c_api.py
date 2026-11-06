@@ -2,7 +2,7 @@
 (exemplos/exemplo_controle_pwm): a rodada em C tem de dar as mesmas formas de onda que a em Python (as contas na mesma ordem
 dão o mesmo double). Confere também: o teste de 3 passos em C, a precisão simples (float, como o C28x), um erro de
 compilação com a linha, uma função que falta e que a tela, sem mandar o campo do C, não o apaga."""
-import json, re, time, urllib.request
+import json, re, subprocess, sys, tempfile, time, urllib.request
 from pathlib import Path
 import numpy as np
 
@@ -130,6 +130,35 @@ try:
     cc = (rn.get("controle") or {}).get("c", {}).get("arquivos", {}).get("controle.c", "")
     ok("M_i_bob" in cc and "M_i_L" not in cc, "renomear a medida i_L troca também o índice no controle.c (m[M_i_bob])")
     api("editor/controle/renomeia", {"pares": [["i_bob", "i_L"]]})
+    if jp.get("arquivo"):                                 # uma rodada mais curta não pode sair "igual"
+        jcurta = api("editor/rodar", {"dt": "1e-6", "tfim": "0.005", "nome": "controle_c_curta", "amostras": "2500", "linguagem": "c"})
+        while jcurta.get("estado") in ("preparando", "rodando", "pausada"):
+            time.sleep(0.4); jcurta = api("editor/rodada")
+        cp3 = api("editor/controle/compara", {"a": jp["arquivo"], "b": jcurta.get("arquivo", "")}) if jcurta.get("arquivo") else {}
+        ok(cp3.get("iguais") is False and any(c.get("amostras") for c in cp3.get("colunas", [])),
+           "rodadas de tamanhos diferentes não saem iguais (a sobra conta como diferença)")
+    # o worker do C sozinho, no modo pipe (o do Windows): um printf() do controle.c vai para o log, não para o protocolo
+    with tempfile.TemporaryDirectory() as d:
+        cod = '#include <stdio.h>\n#include "maisim_controle.h"\nsize_t maisim_tamanho_estado(void) { return 8; }\n' \
+              'void maisim_iniciar(const maisim_real p[MAISIM_N_P], void *e) { (void)p; (void)e; printf("oi do iniciar\\n"); }\n' \
+              'void maisim_passo(maisim_real t, const maisim_real m[MAISIM_N_M], const maisim_real p[MAISIM_N_P], void *e, maisim_real u[MAISIM_N_U]) {\n' \
+              '  (void)p; (void)e; printf("oi do passo t=%g\\n", t); fflush(stdout); u[U_y] = 2 * m[M_x]; }\n'
+        log = open(Path(d) / "log.txt", "w")
+        w = subprocess.Popen([sys.executable, "-I", str(RAIZ / "simu/controle_worker_c.py")], cwd=d, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                             stderr=log, text=True, bufsize=1)
+        respostas = []
+        for ped in ({"op": "carrega", "p": {"Ts": 1e-4}, "sinais": {"m": ["x"], "p": ["Ts"], "u": ["y"]}, "arquivos_c": {"controle.c": cod}},
+                    {"op": "passo", "t": 0.0, "m": {"x": 3.0}}, {"op": "passo", "t": 1e-4, "m": {"x": 4.0}}):
+            w.stdin.write(json.dumps(ped) + "\n"); w.stdin.flush()
+            linha = w.stdout.readline()
+            try:
+                respostas.append(json.loads(linha))
+            except ValueError:
+                respostas.append({"ok": False, "erro": f"não é JSON: {linha!r}"})
+        w.kill(); w.wait(); log.close()
+        txt = (Path(d) / "log.txt").read_text()
+        ok(all(r.get("ok") for r in respostas) and respostas[2].get("a") == {"y": 8.0} and "oi do passo" in txt,
+           f"pipe: o printf do C vai para o log e o protocolo segue: {respostas} · log {txt.strip()[:80]!r}")
     pc0 = api("editor/controle")
     ok("maisim_controle.h" in (pc0.get("modelo_c") or ""), "o painel traz o modelo do controle.c")
     r = guarda(c={"usar": True, "precisao": "float", "arquivos": {"controle.c": CONTROLE_C}})
