@@ -49,6 +49,7 @@ mkdir -p "$A/maisim/gecko/build"; cp "$R/gecko/build/gecko-lote.jar" "$A/maisim/
 M="$A/maisim/simu/motor"; mkdir -p "$M/bin"
 javac -nowarn -encoding UTF-8 -cp "$R/gecko/build/gecko-lote.jar" -d "$M/bin" "$M/src/maisim/MaiSimMotor.java"
 bash "$A/maisim/simu/vendor.sh" > /dev/null
+bash "$R/pacote/tcc.sh" "$A/maisim/tcc" > /dev/null   # o TinyCC: o controle em C sem compilador no sistema
 find "$A" -name "__pycache__" -prune -exec rm -rf {} +; rm -rf "$A/python/lib/python3.11/test" "$A/jre/legal" "$A/maisim/simu/validacao" "$A/maisim/.github"
 
 cat > "$A/AppRun" <<'RUN'

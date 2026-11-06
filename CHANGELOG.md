@@ -6,6 +6,13 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Added
+- **The packages bring their own C compiler (TinyCC)**, so the C control runs where there is no compiler: the Windows installer, the AppImage (x86_64 and ARM) and the Android app.
+  - On Linux the TinyCC 0.9.27 is built from its source (`pacote/tcc.sh`, SHA-256 pinned, without the memory checker that no longer builds with today's glibc). On Windows it is the official win64 build. The license (LGPL v2.1) goes in `maisim/tcc/COPYING`, and the credits name it.
+  - On Linux the embedded TinyCC compiles with MaiSim's own minimal C headers (`simu/controle_c/libc`) instead of the system's, and links without the system C library (the functions come from the Python process). It compiles the same on any machine, even without developer tools.
+  - With it, the C gives exactly the same results as with gcc, bit for bit, in the buck and with the whole control library (the PLL with sin and cos). A `printf` in the C now reaches the control log as it happens.
+  - The package smoke test runs a C control, and the CI builds the TinyCC to test it.
+
 ### Changed
 - **MaiSim's AI stands apart, in a drawer opened by a floating button.** On the desktop, the conversation used to open as a third column inside the Control panel and squeezed the code to half its width.
   - Now a round button in the bottom-right corner opens a drawer on the right, full height below the header, over whatever is on screen (circuit, control or scope).

@@ -31,6 +31,8 @@ MPL_URLS=(
   https://files.pythonhosted.org/packages/ec/57/56b9bcc3c9c6a792fcbaf139543cee77261f3651ca9da0c93f5c1221264b/python_dateutil-2.9.0.post0-py2.py3-none-any.whl
   https://files.pythonhosted.org/packages/d9/5a/e7c31adbe875f2abbb91bd84cf2dc52d792b5a01506781dbcf25c91daf11/six-1.16.0-py2.py3-none-any.whl
 )
+TCC_URL=https://download.savannah.gnu.org/releases/tinycc/tcc-0.9.27-win64-bin.zip   # o TinyCC oficial (o controle em C)
+TCC_FONTE=https://download.savannah.gnu.org/releases/tinycc/tcc-0.9.27.tar.bz2          # (só a licença, o COPYING)
 baixa() {   # baixa uma vez (fica no cache) e confere o SHA-256 guardado
   local url=$1 arq=$C/$(basename "${1//%2B/+}")
   [ -f "$arq" ] || curl -fsSL -o "$arq" "$url"
@@ -56,6 +58,8 @@ mkdir -p "$P/maisim/gecko/build"; cp "$R/gecko/build/gecko-lote.jar" "$P/maisim/
 M="$P/maisim/simu/motor"; mkdir -p "$M/bin"
 javac -nowarn -encoding UTF-8 -cp "$R/gecko/build/gecko-lote.jar" -d "$M/bin" "$M/src/maisim/MaiSimMotor.java"
 bash "$P/maisim/simu/vendor.sh" > /dev/null
+unzip -q "$(baixa "$TCC_URL")" -d "$P/maisim"                                          # → maisim/tcc/tcc.exe (com os cabeçalhos dele)
+tar xjf "$(baixa "$TCC_FONTE")" -O tcc-0.9.27/COPYING > "$P/maisim/tcc/COPYING"
 rm -rf "$P/maisim/simu/validacao" "$P/maisim/.github" "$P/maisim/pacote" "$P/jre/legal"
 find "$P" -name "__pycache__" -prune -exec rm -rf {} +
 python3 "$R/pacote/windows/imagens.py" "$B/imagens" > /dev/null
