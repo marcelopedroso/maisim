@@ -653,6 +653,8 @@ T = {
                            "en": "the message from {de} carries a list in {k}: the C control only receives numbers"},
     "worker_c.msgs_demais": {"pt": "mensagens demais numa amostra (o máximo são 256 chaves enviadas e 256 recebidas)",
                              "en": "too many messages in one sample (at most 256 keys sent and 256 received)"},
+    "worker_c.nome_longo": {"pt": "{nome}: um nome (de controlador, de chave da mensagem ou do scope) com mais de 63 bytes no controle em C; encurte",
+                            "en": "{nome}: a name (of a controller, a message key or a scope variable) longer than 63 bytes in the C control; shorten it"},
     "controle.compara_sem_rodada": {"pt": "não achei as duas rodadas para comparar", "en": "could not find the two runs to compare"},
     "controle.arquivo_c_repetido": {"pt": "{a} e {b}: nomes que só diferem em maiúsculas (no Windows seriam o mesmo arquivo); renomeie um deles",
                                     "en": "{a} and {b}: names that differ only in case (on Windows they would be the same file); rename one of them"},

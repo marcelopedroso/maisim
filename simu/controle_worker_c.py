@@ -117,6 +117,9 @@ def recebidas(msgs):
                 continue
             if isinstance(v, (list, tuple)):
                 raise ErroC(lingua.tr("worker_c.msg_lista", de=msg.get("de"), k=chave))
+            for nome in (str(msg.get("de")), str(chave)):     # o calço guarda até 63 bytes: cortado, seria outro nome
+                if len(nome.encode()) >= 64:
+                    raise ErroC(lingua.tr("worker_c.nome_longo", nome=nome))
             n += 1
             if n > 256:
                 raise ErroC(lingua.tr("worker_c.msgs_demais"))
@@ -127,6 +130,8 @@ def enviadas():
     """O que o controle mandou com maisim_envia nesta amostra: uma mensagem por destino, {"para", "dados": {chave: valor}}."""
     if lib.maisim_sil_env_estouro():
         raise ErroC(lingua.tr("worker_c.msgs_demais"))
+    if lib.maisim_sil_nome_longo():
+        raise ErroC(lingua.tr("worker_c.nome_longo", nome="maisim_envia / maisim_scope"))
     por = {}
     for i in range(lib.maisim_sil_env_n()):
         para = lib.maisim_sil_env_para(i).decode("utf-8", "replace")

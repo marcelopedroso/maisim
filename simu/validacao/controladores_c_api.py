@@ -4,7 +4,7 @@ conversam pela rede (maisim_envia / maisim_recebeu), com um módulo (copia.h/cop
 EXATAMENTE o mesmo que em Python (as mesmas contas na mesma ordem), com latência 0 e 2,5·Ts. E: cada controlador compila
 na sua pasta com um maisim_sinais.h só com os sinais dele; um controlador sem o .c dele não roda (o erro diz qual falta);
 maisim_envia para quem não existe é erro, com o arquivo; a proposta da IA compila cada controlador com os índices dele."""
-import json, os, time, urllib.request
+import json, os, subprocess, sys, tempfile, time, urllib.request
 from pathlib import Path
 import numpy as np
 RAIZ_PROJ = str(Path(__file__).resolve().parents[2])
@@ -99,6 +99,31 @@ def dist(lat, usar_c, arqs_c=ARQS_C):
     return dict(base, codigo=CTL, arquivos={"aquisicao.py": AQ, "copia.py": COPIA_PY}, rede={"latencia": lat}, controladores=CTLS,
                 c={"usar": usar_c, "precisao": "double", "arquivos": arqs_c})
 
+def nomes_longos():
+    """O worker do C sozinho (pipe): uma chave de mais de 63 bytes no maisim_envia (o calço cortaria: viraria outra) e uma
+    recebida com o nome longo são erro, com o arquivo (Codex, #231)."""
+    longa = "x" * 70
+    cod = ('#include "maisim_controle.h"\nsize_t maisim_tamanho_estado(void) { return 8; }\n'
+           'void maisim_iniciar(const maisim_real p[MAISIM_N_P], void *e) { (void)p; (void)e; }\n'
+           'void maisim_passo(maisim_real t, const maisim_real m[MAISIM_N_M], const maisim_real p[MAISIM_N_P], void *e, maisim_real u[MAISIM_N_U]) {\n'
+           f'    (void)t; (void)m; (void)p; (void)e; (void)u; maisim_envia("b", "{longa}", 1.0);\n}}\n')
+    with tempfile.TemporaryDirectory() as d:
+        w = subprocess.Popen([sys.executable, "-I", os.path.join(RAIZ_PROJ, "simu/controle_worker_c.py")], cwd=d, stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1)
+        resp = []
+        for ped in ({"op": "carrega", "arquivo": "a.c", "nome": "a", "nomes": ["a", "b"], "varios": True, "p": {"Ts": 1e-4},
+                     "sinais": {"m": [], "p": ["Ts"], "u": []}, "arquivos_c": {"a.c": cod}},
+                    {"op": "passo", "t": 0.0, "m": {}},
+                    {"op": "passo", "t": 1e-4, "m": {}, "msgs": [{"de": "b", "t": 0.0, "dados": {longa: 2.0}}]}):
+            w.stdin.write(json.dumps(ped) + "\n"); w.stdin.flush()
+            resp.append(json.loads(w.stdout.readline()))
+        w.kill(); w.wait()
+    envio, chegada = resp[1], resp[2]
+    return (resp[0].get("ok") and not envio.get("ok") and "63 bytes" in envio.get("erro", "") and envio.get("arquivo") == "a.c"
+            and not chegada.get("ok") and longa in chegada.get("erro", ""),
+            f"nomes de mais de 63 bytes no C são erro (o envio: {envio.get('erro', '')[:70]}…; a chegada: {chegada.get('erro', '')[:40]}…)")
+
+
 try:
     ok("recebe()" in CTL and "import copia" in CTL, "o controle em Python montado a partir do exemplo (o PI e o anti-windup são os mesmos)")
     for lat in (0.0, 2.5 * Ts):
@@ -158,6 +183,7 @@ void maisim_passo(maisim_real t, const maisim_real m[MAISIM_N_M], const maisim_r
     iguais = d and pares and all(a in d and c in d and np.array_equal(d[a][:-1], d[c][:-1]) for a, c in pares)
     ok(bool(iguais), f"na cascata, em C: {len(insts)} instâncias do sm.c, cada uma com o vCSm do subcircuito dela "
                      f"({', '.join(f'{a} = {c}' for a, c in pares[:3])}…) {j.get('erro', '')}")
+    ok(*nomes_longos())
 except Exception as exc:
     ok(False, f"o teste caiu: {exc}")
 finally:

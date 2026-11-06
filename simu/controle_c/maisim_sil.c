@@ -10,10 +10,12 @@
 static char sil_nome[MAISIM_SIL_MAX][MAISIM_SIL_NOME];
 static double sil_valor[MAISIM_SIL_MAX];
 static int sil_n;
+static int nome_longo;                             /* um nome que não cabe (cortado viraria outro): o worker acusa */
 
 void maisim_scope(const char *nome, maisim_real valor) {
     int i;
     if (!nome) return;
+    if (strlen(nome) >= MAISIM_SIL_NOME) { nome_longo = 1; return; }
     for (i = 0; i < sil_n; i++)
         if (strncmp(sil_nome[i], nome, MAISIM_SIL_NOME - 1) == 0) { sil_valor[i] = (double)valor; return; }
     if (sil_n < MAISIM_SIL_MAX) {
@@ -40,6 +42,7 @@ static void copia(char *dst, const char *src) { strncpy(dst, src, MAISIM_SIL_NOM
 void maisim_envia(const char *para, const char *chave, maisim_real valor) {
     int i;
     if (!para || !chave) return;
+    if (strlen(para) >= MAISIM_SIL_NOME || strlen(chave) >= MAISIM_SIL_NOME) { nome_longo = 1; return; }
     for (i = 0; i < env_n; i++)                    /* a mesma chave ao mesmo controlador nesta amostra: vale a última */
         if (strncmp(env_para[i], para, MAISIM_SIL_NOME - 1) == 0 && strncmp(env_chave[i], chave, MAISIM_SIL_NOME - 1) == 0) {
             env_valor[i] = (double)valor; return;
@@ -61,6 +64,7 @@ int maisim_recebeu(const char *de, const char *chave, maisim_real *valor) {
 
 int maisim_sil_env_n(void) { return env_n; }
 int maisim_sil_env_estouro(void) { return env_estouro; }
+int maisim_sil_nome_longo(void) { return nome_longo; }
 const char *maisim_sil_env_para(int i) { return env_para[i]; }
 const char *maisim_sil_env_chave(int i) { return env_chave[i]; }
 double maisim_sil_env_valor(int i) { return env_valor[i]; }
@@ -68,4 +72,4 @@ void maisim_sil_recebida(const char *de, const char *chave, double valor) {
     if (rec_n >= MAISIM_SIL_MAX) return;
     copia(rec_de[rec_n], de); copia(rec_chave[rec_n], chave); rec_valor[rec_n++] = valor;
 }
-void maisim_sil_limpa(void) { sil_n = 0; env_n = 0; env_estouro = 0; rec_n = 0; }
+void maisim_sil_limpa(void) { sil_n = 0; env_n = 0; env_estouro = 0; rec_n = 0; nome_longo = 0; }
