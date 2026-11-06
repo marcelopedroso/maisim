@@ -310,7 +310,7 @@ function insereNoCodigo(txt) {
   if (document.body.classList.contains("sim-rodando")) return;
   if (ctl.tabela) mostraArquivo(ctl.arq);                // de uma tabela: volta ao arquivo aberto e insere no cursor
   if (ctl.editor) { ctl.editor.focus(); ctl.editor.trigger("maisim", "type", { text: txt }); return; }
-  if (ctl.texto) { const t = ctl.texto, i = t.selectionStart; t.setRangeText(txt, i, t.selectionEnd, "end"); t.focus(); agendaGuardar(); }
+  if (ctl.texto) { const t = ctl.texto, i = t.selectionStart; t.setRangeText(txt, i, t.selectionEnd, "end"); t.focus(); editou(ctl.arq); agendaGuardar(); }
 }
 // erros (sintaxe, ou o da rodada/teste) em vermelho; a conferência do validador (p[...] sem parâmetro, m[...] que não é medida,
 // atuação não marcada) em amarelo, só no trecho
@@ -380,7 +380,7 @@ async function criaEditor(c) {
   } catch (e) {                                          // sem o Monaco: caixa de texto simples (o resto funciona igual)
     $("ctl-editor").innerHTML = `<textarea id="ctl-texto" spellcheck="false"></textarea>`;
     ctl.modelos = {}; ctl.textos = Object.assign({}, todos);
-    ctl.texto = $("ctl-texto"); ctl.texto.value = todos["controle.py"]; ctl.texto.addEventListener("input", agendaGuardar);
+    ctl.texto = $("ctl-texto"); ctl.texto.value = todos["controle.py"]; ctl.texto.addEventListener("input", () => { editou(ctl.arq); agendaGuardar(); });
     ctl.texto.style.whiteSpace = ctl.quebra ? "pre-wrap" : "pre";
     ctl.texto.addEventListener("keydown", (ev) => {
       if (ev.key === "Tab") { ev.preventDefault(); insereNoCodigo("    "); }
@@ -1622,7 +1622,7 @@ async function aoFimDoPedido(e) {                         // claude_chat.js avis
   ctl.sincPendente = false;
   const p = e && e.proposta;
   if (e && e.erro || (p && (p.erros || []).length) || typeof ccAplica !== "function") { $("ctl-c-res").textContent = ""; return; }   // a conversa mostra o erro
-  if (p && p.mudou) { await ccAplica(); if (!(cc.estado && cc.estado.aplicada)) return; }
+  if (p && p.mudou) { await ccAplica({ auto: true }); if (!(cc.estado && cc.estado.aplicada)) { $("ctl-c-res").textContent = ""; return; } }
   comparaPyC();                                           // aplicada, ou a outra linguagem já estava certa (nada a mudar): confere
 }
 function mostraComparacao() {

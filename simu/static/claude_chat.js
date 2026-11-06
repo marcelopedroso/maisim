@@ -471,6 +471,7 @@ async function ccAplica(op = {}) {
     p.arquivos && !igual(ordena(todosArquivos()), ordena(p.arquivos_antes)) && tr("cc.mudou_arquivos"),
     p.controladores && !igual(c.controladores || [], p.controladores_antes || []) && tr("cc.mudou_controladores"),
     temCircuito(p) && (await circuitoPropostoMudou(p)) && tr("cc.mudou_circuito")].filter(Boolean);
+  if (mudou.length && op.auto) return;                   // o Código ⇄: mudou algo depois do pedido — não pergunta nem aplica (a edição nova pede outra conversão)
   if (mudou.length && !(await confirma(tr("cc.aplicar_titulo"), tr("cc.confirma_mudou", { lista: mudou.join(tr("cc.lista_e")) }), tr("cc.aplicar"), false))) return;
   cc.aplicando = true;
   const memMudou = memoriaMudou(p);
