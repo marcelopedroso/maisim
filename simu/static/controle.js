@@ -1604,6 +1604,7 @@ function tagAtuador(g, x, y, nome, centrada = false) {   // centrada: x é o mei
   document.querySelectorAll("#ctl-ling [data-ling]").forEach((b) => { b.onclick = () => { if (!b.disabled) poeVisao(b.dataset.ling === "c"); }; });
   $("ctl-c-comparar").onclick = comparaPyC;
   $("ctl-c-ia").onclick = () => converteIA(visaoC());
+  $("ctl-c-res").addEventListener("click", (ev) => { if (ev.target.closest("[data-abre-ia]") && typeof ccAbre === "function") ccAbre(true); });
   $("ctl-saida-fecha").onclick = () => { $("ctl-saida-caixa").style.display = "none"; };
   $("ctl-saida-copia").onclick = async () => { const bt = $("ctl-saida-copia"); feito(bt, (await copiaTexto(ctl.saida && ctl.saida.tipo === "erro" ? textoDoErro() : $("ctl-saida").textContent)) ? tr("ctl.copiado") : tr("ctl.nao_deu"), "ctl.saida_copia"); };
   $("ctl-saida-claude").onclick = () => {                  // a conversa abre com o pedido escrito; quem envia é você
@@ -1698,7 +1699,10 @@ async function aoFimDoPedido(e) {                         // claude_chat.js avis
   if (!ctl.sincPendente) return;
   ctl.sincPendente = false;
   const p = e && e.proposta;
-  if (e && e.erro || (p && (p.erros || []).length) || typeof ccAplica !== "function") { $("ctl-c-res").textContent = ""; return; }   // a conversa mostra o erro
+  if (e && e.erro || (p && (p.erros || []).length) || typeof ccAplica !== "function") {   // o erro está na conversa: o Controle diz e leva lá
+    $("ctl-c-res").innerHTML = `<span class="dif">${escT(tr("ctl.c_sinc_falhou"))}</span> <button data-abre-ia>${escT(tr("ctl.c_ver_ia"))}</button>`;
+    return;
+  }
   if (p && p.mudou) { await ccAplica({ auto: true }); if (!(cc.estado && cc.estado.aplicada)) { $("ctl-c-res").textContent = ""; return; } }
   comparaPyC();                                           // aplicada, ou a outra linguagem já estava certa (nada a mudar): confere
 }

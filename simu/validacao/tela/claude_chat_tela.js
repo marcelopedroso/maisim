@@ -145,6 +145,20 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
   await pg.screenshot({ path: "claude_janela_uso.png", clip: { x: 400, y: 0, width: 900, height: 500 } });
   await pg.click("#cla-pedir"); await pg.waitForTimeout(800);
   ok(await pg.evaluate(() => !document.querySelector(".modal-fundo") && abaDoca === "ia" && cc.aberto && document.activeElement === $("cc-texto")), "pedir ao Claude: abre a conversa (a aba IA), com o cursor na caixa");
+  // a aba IA aberta direto, vindo do Scope: o × volta ao Scope (Codex, #232)
+  await pg.evaluate(() => mostraDoca("scope")); await pg.click('#abas-doca [data-aba="ia"]'); await pg.waitForTimeout(300);
+  await pg.click("#cc-fechar"); await pg.waitForTimeout(300);
+  ok(await pg.evaluate(() => abaDoca === "scope" && !cc.aberto), "a aba IA aberta direto do Scope: o × volta ao Scope");
+  // o Código ⇄ automático que falha (a IA deu erro): o Controle diz, sem trocar de aba, e o botão leva à aba IA (Codex, #232)
+  fs.writeFileSync(path.join(CONF, "falso_cenario"), "erro");
+  await pg.evaluate(() => mostraDoca("controle")); await pg.waitForTimeout(400);
+  await pg.evaluate(() => { ctl.sincPendente = true; converteIA(true, true); });
+  const falhou = await pg.waitForFunction(() => /não converteu|did not convert/.test($("ctl-c-res").textContent), null, { timeout: 30000 }).then(() => true).catch(() => false);
+  ok(falhou && await pg.evaluate(() => abaDoca === "controle" && !!document.querySelector("#ctl-c-res [data-abre-ia]")),
+    `o Código ⇄ que falhou: "${await pg.textContent("#ctl-c-res")}", na aba Controle`);
+  await pg.click("#ctl-c-res [data-abre-ia]"); await pg.waitForTimeout(400);
+  ok(await pg.evaluate(() => abaDoca === "ia" && cc.aberto), "o \"ver na aba IA\" leva à conversa (com o erro)");
+  fs.writeFileSync(path.join(CONF, "falso_cenario"), "ganho");
   // escuro
   const tema = (t) => pg.evaluate((x) => { document.documentElement.dataset.tema = x; dispatchEvent(new CustomEvent("maisim-tema", { detail: { tema: x } })); }, t);   // sem o trilho (porta do servidor)
   await tema("escuro"); await pg.waitForTimeout(600);

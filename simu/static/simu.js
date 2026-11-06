@@ -2337,6 +2337,7 @@ function marcaDoca() {
 }
 function mostraDoca(aba) {
   if (VISTA_CODIGO && aba !== "ia") aba = "controle";      // a janela do código: o Controle e a IA (o Scope fica na do circuito)
+  if (aba === "ia" && abaDoca !== "ia" && typeof cc !== "undefined") cc.volta = abaDoca;   // o × da IA volta para onde estava
   abaDoca = aba; document.body.classList.add("com-scope");
   if (aba === "scope" && !$("if-scope").getAttribute("src")) $("if-scope").src = urlScope(sim.ultimo);
   if (aba === "controle" && typeof abreControle === "function") abreControle();

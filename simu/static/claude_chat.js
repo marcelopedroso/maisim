@@ -213,7 +213,7 @@ function mudancasAcionamentos(antes, depois) {
 // a conversa é a aba "IA" da doca (Marcelo, 06/11: dentro do Controle ela espremia o código): abrir mostra a aba; fechar
 // volta à aba de antes (o Controle, quase sempre); ccVisivel acompanha (marcaDoca chama a cada troca de aba)
 function ccAbre(on = !cc.aberto) {
-  if (on) { if (typeof abaDoca !== "undefined" && abaDoca !== "ia") cc.volta = abaDoca; mostraDoca("ia"); }
+  if (on) mostraDoca("ia");                             // (mostraDoca guarda a aba de onde veio: cc.volta)
   else mostraDoca(cc.volta || "controle");
 }
 function ccVisivel(on) {
