@@ -7,7 +7,8 @@ O servidor passa ao filho só um ambiente de lista branca, então o cenário vem
   falso_espera     (cenário circuito) quantos segundos esperar antes de escrever o circuito.json
   falso_cenario    o que fazer no pedido: ganho | metade | quebra | json_ruim | lento | anexo | erro | recusa | modulos | controladores | dois_donos | autonomo | limite | le_contexto | renova | trava | resumo_falha | le_conversa | circuito | converte_c
                    (circuito: escreve no circuito.json o que o teste deixou em falso_circuito.json)
-                   (converte_c: escreve no controle.c o que o teste deixou em falso_controle.c)
+                   (converte_c: escreve no controle.c o que o teste deixou em falso_controle.c; e, se houver o
+                   falso_c_extra.json, {arquivo: texto}, os módulos em C dele)
                    (falso_resumo_lento: o resumo de um contexto demora N s)
                    (o pedido do resumo de um contexto salvo responde sempre com um resumo, sem mexer em arquivo)
   falso_chamadas.jsonl   cada chamada (argumentos e pasta), para o teste conferir as opções; do ambiente, só se havia
@@ -277,6 +278,10 @@ elif cenario == "converte_c":                           # o controle em C: lê o
     modelo = Path("controle.c").read_text() if Path("controle.c").exists() else ""
     usa("Write", file_path="controle.c")
     Path("controle.c").write_text((conf / "falso_controle.c").read_text())
+    if (conf / "falso_c_extra.json").exists():          # os módulos em C (o par .h/.c)
+        for arq_c, cod in json.loads((conf / "falso_c_extra.json").read_text()).items():
+            usa("Write", file_path=arq_c)
+            Path(arq_c).write_text(cod)
     indices = ", ".join(re.findall(r"#define ([MPU]_\w+)", h)) or "nenhum"
     tem_h = "sim" if Path("maisim_controle.h").exists() else "não"
     ctx = Path("CONTEXTO.md").read_text() if Path("CONTEXTO.md").exists() else ""

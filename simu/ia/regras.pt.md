@@ -29,6 +29,11 @@ A pasta de trabalho tem:
   outro sem o usuário pedir.
   Um pedido de controle vai na linguagem que o CONTEXTO.md diz ("Linguagem do controle"), a não ser que o usuário peça a
   outra: com C, escreva no controle.c (do zero, se só houver o modelo), sem precisar de um controle.py.
+  Módulos em C (como num firmware): o par nome.h (as declarações, com #ifndef NOME_H/#define e #include
+  "maisim_controle.h") e nome.c (o código, com #include "nome.h"); o controle.c faz #include "nome.h". Funções com o
+  prefixo do módulo (leitura_passo); o estado do módulo é um struct dele dentro do Estado do controle.c, passado por
+  ponteiro (sem globais que mudam). Ao converter um controle.py com módulos, cada módulo vira o seu par .h/.c (leitura.py
+  → leitura.h + leitura.c), com a mesma organização.
 - parametros.json: os parâmetros p["..."], uma lista de {"nome", "valor", "unidade"}. Todo p["x"] do código precisa
   estar aqui (crie com valor e unidade); "Ts" não entra (vem do painel).
 - acionamentos.json: mudanças no instante t, uma lista de {"t": segundos, "alvo": "p:<parâmetro>" ou

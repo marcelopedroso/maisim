@@ -2,7 +2,7 @@
 // cria o pll.py, chama do controle.py na ordem e revisa o leitura.py), direto no servidor de teste 7201: a proposta com os 3
 // arquivos (pll.py novo), a janela da diferença com uma aba por arquivo, ▷ testar com os módulos, aplicar (o pll.py entra
 // no editor e no servidor, como módulo), "ver a mudança" com os arquivos, voltar ao de antes (o pll.py sai), e as opções
-// do CLI (Write só em ./*.py); o modelo e o esforço escolhidos e o enviar desligado enquanto ele responde
+// do CLI (Write só em ./*.py e no C: ./*.c, ./*.h); o modelo e o esforço escolhidos e o enviar desligado enquanto ele responde
 const { chromium } = require("playwright");
 const fs = require("fs"), path = require("path"), { execSync } = require("child_process");
 let falhas = 0;
@@ -37,8 +37,8 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
       `cartão: ${card.split("\n").slice(1, 4).join(" · ")}`);
     const cli = fs.readFileSync(path.join(CONF, "falso_chamadas.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)).filter((x) => x.args.includes("--allowedTools")).pop();
     const tools = cli.args[cli.args.indexOf("--tools") + 1], perm = cli.args.slice(cli.args.indexOf("--allowedTools") + 1, cli.args.indexOf("--permission-mode"));
-    ok(/Write/.test(tools) && perm.includes("Edit(./*.py)") && perm.includes("Write(./*.py)") && !perm.some((x) => /Write\((?!\.\/\*\.py\)|\.\/controle\.c\))/.test(x)),
-      `o CLI: --tools ${tools}; escrever só ./*.py e o controle.c (${perm.filter((x) => /\*\.py|controle\.c/.test(x)).join(", ")})`);
+    ok(/Write/.test(tools) && perm.includes("Edit(./*.py)") && perm.includes("Write(./*.py)") && !perm.some((x) => /Write\((?!\.\/\*\.(py|c|h)\))/.test(x)),
+      `o CLI: --tools ${tools}; escrever só ./*.py e o C (./*.c, ./*.h) (${perm.filter((x) => /Write/.test(x)).join(", ")})`);
     // a janela da diferença: uma aba por arquivo
     await pg.click("#cc-ver"); await pg.waitForSelector(".cc-dif"); await pg.waitForTimeout(800);
     const abas = await pg.evaluate(() => [...document.querySelectorAll(".cc-dif-arqs button")].map((x) => x.textContent.replace(/^[✓✗]/, "")));   // ✓/✗: aceito ou recusado

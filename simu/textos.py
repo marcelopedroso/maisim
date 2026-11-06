@@ -639,7 +639,7 @@ T = {
     # o controle em C (controle_worker_c.py: o SIL)
     "worker_c.sem_compilador": {"pt": "não achei um compilador de C (tcc, gcc ou cc) para rodar o controle.c",
                                 "en": "no C compiler found (tcc, gcc or cc) to run controle.c"},
-    "worker_c.compilacao": {"pt": "o controle.c não compilou: {msg}", "en": "controle.c did not compile: {msg}"},
+    "worker_c.compilacao": {"pt": "o C não compilou: {msg}", "en": "the C did not compile: {msg}"},   # antes da mensagem vem o arquivo e a linha (controle.c, pwm.c…)
     "worker_c.carregar": {"pt": "o controle.c compilou, mas não carregou (uma função usada e não definida?): {msg}",
                           "en": "controle.c compiled but did not load (a function used but not defined?): {msg}"},
     "worker_c.falta_funcao": {"pt": "o controle.c precisa definir {f}() (veja o maisim_controle.h)",

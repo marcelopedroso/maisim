@@ -119,6 +119,16 @@ try:
         ok(cp.get("iguais") is True and len(cp.get("colunas", [])) >= 9, f"o 'Comparar Python × C' do painel: iguais em {len(cp.get('colunas', []))} sinais")
         fora = api("editor/controle/compara", {"a": "/etc/passwd", "b": jc["arquivo"]})
         ok("ERRO" in fora, "a comparação só lê rodadas da pasta das rodadas")
+        # um módulo em C (o par pwm.h/pwm.c, com #include): compila junto e dá a mesma rodada
+        pwm_h = '#ifndef PWM_H\n#define PWM_H\n#include "maisim_controle.h"\nmaisim_real pwm_compara(maisim_real portadora, maisim_real d);\n#endif\n'
+        pwm_c = '#include "pwm.h"\nmaisim_real pwm_compara(maisim_real portadora, maisim_real d) { return portadora < d ? 1.0 : 0.0; }\n'
+        com_mod = CONTROLE_C.replace('#include "maisim_controle.h"', '#include "maisim_controle.h"\n#include "pwm.h"', 1) \
+                            .replace("u[U_g] = portadora < e->d ? 1.0 : 0.0;", "u[U_g] = pwm_compara(portadora, e->d);")
+        r = guarda(c={"usar": True, "arquivos": {"controle.c": com_mod, "pwm.h": pwm_h, "pwm.c": pwm_c}})
+        ok("ERRO" not in r and sorted(r["controle"]["c"]["arquivos"]) == ["controle.c", "pwm.c", "pwm.h"], "o controle.c com um módulo (pwm.h + pwm.c) guardado")
+        jm = roda("controle_c_modulo")
+        cpm = api("editor/controle/compara", {"a": jc["arquivo"], "b": jm.get("arquivo", "")}) if jm.get("arquivo") else {}
+        ok(jm.get("estado") == "fim" and cpm.get("iguais") is True, f"com o PWM no módulo pwm.c, a rodada é igual bit a bit à do controle.c sozinho: {jm.get('estado')} {jm.get('erro', '')}")
         guarda(c={"usar": False, "arquivos": {"controle.c": CONTROLE_C}})          # guardado em Python; a rodada pede o C
         j = api("editor/rodar", {"dt": "1e-6", "tfim": "0.01", "nome": "controle_c_pedido", "amostras": "5000", "linguagem": "c"})
         while j.get("estado") in ("preparando", "rodando", "pausada"):

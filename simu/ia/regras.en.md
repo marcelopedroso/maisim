@@ -29,6 +29,11 @@ The working folder has:
   change one of them, do not touch the other unless the user asks.
   A control request goes in the language CONTEXTO.md says ("Control language"), unless the user asks for the other:
   with C, write in controle.c (from scratch, if only the template is there), with no need for a controle.py.
+  C modules (as in firmware): the pair name.h (the declarations, with #ifndef NAME_H/#define and #include
+  "maisim_controle.h") and name.c (the code, with #include "name.h"); controle.c does #include "name.h". Functions
+  prefixed with the module name (leitura_passo); the module's state is a struct of its own inside controle.c's Estado,
+  passed by pointer (no mutable globals). When converting a controle.py with modules, each module becomes its own .h/.c
+  pair (leitura.py → leitura.h + leitura.c), with the same organization.
 - parametros.json: the parameters p["..."], a list of {"nome", "valor", "unidade"}. Every p["x"] in the code must
   be here (create it with value and unit); "Ts" does not go here (it comes from the panel).
 - acionamentos.json: changes at time t, a list of {"t": seconds, "alvo": "p:<parameter>" or

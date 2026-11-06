@@ -64,7 +64,7 @@ try:
     ok(p.get("mudou") and p.get("c_mudou") and (p.get("arquivos") or {}).get("controle.c") == CONTROLE_C and not p.get("erros"),
        f"a proposta traz o controle.c, sem erro de compilação (arquivos: {sorted(p.get('arquivos') or {})}, erros: {p.get('erros')})")
     chamada = [json.loads(l) for l in (CONF / "falso_chamadas.jsonl").read_text().splitlines() if '"-p"' in l and '/usage' not in l][-1]["args"]
-    ok("Write(./controle.c)" in chamada and "Edit(./controle.c)" in chamada, "a IA pode escrever e editar o controle.c")
+    ok(all(x in chamada for x in ("Write(./*.c)", "Edit(./*.c)", "Write(./*.h)", "Edit(./*.h)")), "a IA pode escrever e editar o controle.c e os módulos em C (.c/.h)")
     t = api("claude/testar", {"dt": 1e-6})
     teste = (t.get("proposta") or {}).get("teste") or {}
     ok(teste.get("ok") and len(teste.get("passos") or []) == 3, f"o teste da proposta roda o C: {teste.get('erro') or [x['a'] for x in teste.get('passos', [])]}")
@@ -91,6 +91,21 @@ try:
     ok(p4.get("c_mudou") and (p4.get("arquivos") or {}).get("controle.c") == CONTROLE_C and not p4.get("erros")
        and (p4.get("arquivos") or {}).get("controle.py", py_antes) == py_antes,
        f"com o painel em C e sem C antes, o controle.c escrito entra na proposta, sem erro, e o controle.py fica como estava ({sorted(p4.get('arquivos') or {})})")
+    # a IA escreve um módulo em C (o par pwm.h/pwm.c): entra na proposta e compila junto
+    pwm_h = '#ifndef PWM_H\n#define PWM_H\n#include "maisim_controle.h"\nmaisim_real pwm_compara(maisim_real portadora, maisim_real d);\n#endif\n'
+    pwm_c = '#include "pwm.h"\nmaisim_real pwm_compara(maisim_real portadora, maisim_real d) { return portadora < d ? 1.0 : 0.0; }\n'
+    com_mod = CONTROLE_C.replace('#include "maisim_controle.h"', '#include "maisim_controle.h"\n#include "pwm.h"', 1) \
+                        .replace("u[U_g] = portadora < e->d ? 1.0 : 0.0;", "u[U_g] = pwm_compara(portadora, e->d);")
+    (CONF / "falso_c_extra.json").write_text(json.dumps({"pwm.h": pwm_h, "pwm.c": pwm_c}))
+    e5 = pede(com_mod, "separe o PWM num módulo")
+    p5 = e5.get("proposta") or {}
+    ok(all((p5.get("arquivos") or {}).get(a) == t for a, t in (("controle.c", com_mod), ("pwm.h", pwm_h), ("pwm.c", pwm_c))) and not p5.get("erros"),
+       f"o módulo em C da IA (pwm.h + pwm.c) entra na proposta e compila junto: {sorted(p5.get('arquivos') or {})} {p5.get('erros')}")
+    (CONF / "falso_c_extra.json").write_text(json.dumps({"pwm.h": pwm_h, "pwm.c": pwm_c.replace("1.0 : 0.0;", "1.0 : 0.0")}))
+    e6 = pede(com_mod, "separe o PWM num módulo")
+    erros6 = (e6.get("proposta") or {}).get("erros") or []
+    ok(any(x.get("arquivo") == "pwm.c" for x in erros6), f"um erro no módulo volta com o arquivo dele (pwm.c): {erros6[:1]}")
+    (CONF / "falso_c_extra.json").unlink()
     # o modelo intocado de um circuito sem C não vira proposta
     api("editor/abrir", {"arq": "exemplos/exemplo_controle_pwm.ipes", "modo": "descartar"})
     modelo = (RAIZ / "simu/controle_c/controle_modelo.c").read_text()
@@ -101,5 +116,6 @@ except Exception as exc:
     ok(False, f"o teste caiu: {exc}")
 finally:
     (CONF / "falso_cenario").write_text("ganho")
+    (CONF / "falso_c_extra.json").unlink(missing_ok=True)
     api("editor/novo", {"modo": "descartar"})
 raise SystemExit(1 if falhas else 0)

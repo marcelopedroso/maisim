@@ -146,6 +146,7 @@ try:
     ok(c["config"].get("approvalMode") == "allowlist" and (c["config"].get("sandbox") or {}).get("readBoundary") == "workspace"
        and {"Shell(*)", "WebFetch(*)", "Mcp(*:*)", f"Read({CASA_CUR.resolve()}/*)", f"Write({P}/CONTEXTO.md)", f"Write({P}/*/*)"} <= set(pol.get("deny", []))
        and f"Write({P}/controle.py)" in pol.get("allow", []) and f"Write({P}/*.py)" in pol.get("allow", []) and "Shell(ls)" not in pol.get("allow", [])
+       and f"Write({P}/*.c)" in pol.get("allow", []) and f"Write({P}/*.h)" in pol.get("allow", []) and f"Write({P}/maisim_sinais.h)" in pol.get("deny", [])
        and (c["projeto"] or {}).get("permissions") == pol,
        "a política do MaiSim na configuração da casa e na da pasta: allowlist, ler só na pasta, escrever só nos editáveis, sem terminal/web/MCP")
     ok("Você é a IA do MaiSim (Cursor)" in str(c.get("agents_md")), "as regras do MaiSim no AGENTS.md da pasta (com o nome do Cursor)")

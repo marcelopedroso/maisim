@@ -1,7 +1,7 @@
 """O Claude como IA do MaiSim: o Claude Code (`claude`, conferido no CLI 2.1.273), com a pasta de configuração do MaiSim
 (~/.claude-maisim, o login dele; o servidor nunca lê as credenciais — quem faz o login é o próprio CLI).
 
-Pedido: `claude -p` restrito (só Read, Edit, Write, Glob e Grep; Edit só nos arquivos editáveis da pasta e nos .py; sem
+Pedido: `claude -p` restrito (só Read, Edit, Write, Glob e Grep; Edit só nos arquivos editáveis da pasta e nos .py, .c e .h; sem
 shell, sem MCP, sem perguntar), stream-json, retomando a sessão da conversa (--resume) ou criando (--session-id).
 Resumo de um contexto: `claude -p` só com leitura, sem sessão, saída JSON."""
 import os
@@ -29,7 +29,7 @@ class Claude(IA):
     def comando(self, prompt, sessao, retoma, regras, modelo="", esforco="", passos=100, editaveis=(), pasta=None):
         cmd = [self.bin, "-p", prompt, "--output-format", "stream-json", "--verbose", "--restricted",
                "--tools", "Read,Edit,Write,Glob,Grep", "--allowedTools", *[f"Edit(./{f})" for f in editaveis], "Edit(./*.py)", "Write(./*.py)",
-               *[f"Write(./{f})" for f in editaveis if f.endswith(".c")],    # o controle.c (o C reescrito inteiro)
+               "Edit(./*.c)", "Write(./*.c)", "Edit(./*.h)", "Write(./*.h)",   # o controle em C e os módulos dele (o par nome.h/nome.c)
                "--permission-mode", "dontAsk", "--permission-prompts", "none", "--strict-mcp-config", "--max-turns", str(passos),
                *(["--model", modelo] if modelo else []), *(["--effort", esforco] if esforco else []),
                "--append-system-prompt", regras]
