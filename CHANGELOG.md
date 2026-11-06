@@ -7,11 +7,13 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Changed
-- **MaiSim's AI is now a tab, "AI", next to Scope and Control.** On the desktop, the conversation opened as a third column inside the Control panel and squeezed the code to half its width (the lines were cut off); now the whole dock is the conversation, and the Control tab keeps the code at its full width.
-  - The **AI** button in the Control bar, "ask the AI" on an error and the ✦ window open the tab; **×** goes back to the tab you came from.
-  - The automatic **Code ⇄** request no longer switches tabs while you are editing: it runs behind, and the Control panel shows "asking the AI…".
-  - The code window (open in a separate window) has the Control and AI tabs. On the phone, the AI view is the same tab.
-  - The conversation's divider and the "beside / below the code" button are gone, since there is nothing to squeeze any more.
+- **MaiSim's AI stands apart, in a drawer opened by a floating button.** On the desktop, the conversation used to open as a third column inside the Control panel and squeezed the code to half its width.
+  - Now a round button in the bottom-right corner opens a drawer on the right, full height below the header, over whatever is on screen (circuit, control or scope).
+  - Dragging its left edge changes the width (double click: the default). The dock is back to Scope | Control, and opening or closing the AI does not change it.
+  - The button pulses while the AI is answering and shows a dot when a proposal arrived with the drawer closed.
+  - The **AI** button in the Control bar, "ask the AI" on an error and the ✦ window open the same drawer.
+  - The automatic **Code ⇄** request runs behind; if it fails, the Control panel says so, with a button to open the conversation.
+  - On the phone, the AI view is the drawer, full screen. The old divider and "beside / below the code" button are gone.
 
 ### Added
 - **Several controllers in C, talking over the network**. With the controllers list (acquisition, control, one per subcircuit…), the C view runs the same controllers, each in the `.c` named after its `.py` (`aquisicao.py` → `aquisicao.c`).

@@ -2330,21 +2330,18 @@ function marcaDoca() {
   $("bt-scope").classList.toggle("ativo", aberta && abaDoca === "scope"); $("bt-ctl").classList.toggle("ativo", aberta && abaDoca === "controle");
   document.querySelectorAll("#abas-doca button").forEach((b) => b.classList.toggle("ativo", b.dataset.aba === abaDoca));
   $("if-scope").classList.toggle("oculto", abaDoca !== "scope"); $("painel-controle").classList.toggle("oculto", abaDoca !== "controle");
-  $("painel-ia").classList.toggle("oculto", abaDoca !== "ia");    // a IA do MaiSim (claude_chat.js): a aba dela
-  if (typeof ccVisivel === "function") ccVisivel(aberta && abaDoca === "ia");
   document.body.classList.toggle("doca-controle", abaDoca === "controle");   // com o código na outra janela, a coluna vira faixa (CSS)
   document.body.classList.toggle("doca-scope", abaDoca === "scope");         // e com o scope na janela dele, a aba scope também
 }
 function mostraDoca(aba) {
-  if (VISTA_CODIGO && aba !== "ia") aba = "controle";      // a janela do código: o Controle e a IA (o Scope fica na do circuito)
-  if (aba === "ia" && abaDoca !== "ia" && typeof cc !== "undefined") cc.volta = abaDoca;   // o × da IA volta para onde estava
+  if (VISTA_CODIGO) aba = "controle";
   abaDoca = aba; document.body.classList.add("com-scope");
   if (aba === "scope" && !$("if-scope").getAttribute("src")) $("if-scope").src = urlScope(sim.ultimo);
   if (aba === "controle" && typeof abreControle === "function") abreControle();
   marcaDoca(); setTimeout(() => dados && ajusta(), 60);
 }
 function mostraScope(on, url) {
-  if (VISTA_CODIGO) { if (abaDoca !== "ia") abaDoca = "controle"; document.body.classList.add("com-scope"); marcaDoca(); return; }   // aqui, o controle (e a IA)
+  if (VISTA_CODIGO) { abaDoca = "controle"; document.body.classList.add("com-scope"); marcaDoca(); return; }   // aqui, só o controle
   document.body.classList.toggle("com-scope", on);
   const f = $("if-scope");
   if (on) { abaDoca = "scope"; if (url) f.src = url; else if (!f.getAttribute("src")) f.src = urlScope(sim.ultimo); }
@@ -3460,7 +3457,8 @@ if (MOVEL) (() => {
     ["circuito", "controle", "ia"].forEach((n) => document.body.classList.toggle("vm-" + n, n === v));
     paraDeMover();
     document.body.classList.remove("mv-paleta");
-    if (v !== "circuito") { document.body.classList.remove("mv-props", "mv-cheia"); mostraDoca(v === "ia" ? "ia" : "controle"); }   // a IA: a aba dela
+    if (v !== "circuito") { document.body.classList.remove("mv-props", "mv-cheia"); mostraDoca("controle"); }
+    if (typeof ccAbre === "function") ccAbre(v === "ia");     // a vista IA: a gaveta da IA, em tela cheia
     if (v === "circuito" && dados) setTimeout(() => { if (!ed.sel) ajusta(); }, 60);
   }
   addEventListener("message", (ev) => {

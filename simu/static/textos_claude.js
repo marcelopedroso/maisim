@@ -5,6 +5,8 @@ maisimI18n.add({
   "cc.solte": { pt: "solte para anexar (PDF, imagem, texto)", en: "drop to attach (PDF, image, text)" },
   "cc.t_divisor": { pt: "arraste para mudar o espaço da conversa e do código (duplo clique: volta ao padrão)", en: "drag to change the room for the chat and the code (double click: back to default)" },
   "cc.titulo": { pt: "IA do MaiSim", en: "MaiSim AI" },
+  "cc.t_bt_flutua": { pt: "IA do MaiSim: ela lê o circuito e o código e propõe o controle", en: "MaiSim's AI: it reads the circuit and the code and proposes the control" },
+  "cc.t_borda": { pt: "arraste para mudar a largura; duplo clique: a de sempre", en: "drag to change the width; double click: the default" },
   "cc.t_salvar": { pt: "salvar esta conversa como contexto: o resumo (a IA escreve, você revisa), a conversa, o controle e a rodada — fica guardado para outras conversas", en: "save this chat as a context: the summary (the AI writes it, you review it), the chat, the control and the run — kept for other chats" },
   "cc.salvar": { pt: "Salvar", en: "Save" },
   "cc.t_exportar": { pt: "exportar esta conversa: salva como contexto (ou junta com o contexto em uso) e já baixa o .maisimctx para mandar a um colega", en: "export this chat: saves it as a context (or merges it with the context in use) and downloads the .maisimctx to send to a colleague" },

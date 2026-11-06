@@ -210,16 +210,18 @@ function mudancasAcionamentos(antes, depois) {
 }
 
 // ---------------------------------------------------------------- abrir, acompanhar
-// a conversa é a aba "IA" da doca (Marcelo, 06/11: dentro do Controle ela espremia o código): abrir mostra a aba; fechar
-// volta à aba de antes (o Controle, quase sempre); ccVisivel acompanha (marcaDoca chama a cada troca de aba)
+// a conversa fica à parte, numa gaveta à direita (Marcelo, 06/11: "totalmente apartado… um botão suspenso no canto"): o
+// botão flutuante, o "IA" do Controle e o "pedir à IA" de um erro abrem; o × fecha; a tela de baixo (circuito, controle,
+// scope) não muda. No celular, a vista IA é a gaveta em tela cheia
 function ccAbre(on = !cc.aberto) {
-  if (on) mostraDoca("ia");                             // (mostraDoca guarda a aba de onde veio: cc.volta)
-  else mostraDoca(cc.volta || "controle");
+  $("gaveta-ia").hidden = !on;
+  document.body.classList.toggle("com-ia", on);
+  ccVisivel(on);
 }
 function ccVisivel(on) {
   if (on === !!cc.aberto) return;
   cc.aberto = on;
-  $("ctl-claude-bt").classList.toggle("ativo", on);
+  $("ctl-claude-bt").classList.toggle("ativo", on); marcaBotaoIA();
   if (on) {
     if (!cla.estado) atualizaClaude().then(desenhaChat);
     atualizaChat(); carregaUsoChat();
@@ -240,6 +242,12 @@ async function atualizaChat() {
   }
 }
 const editorPronto = () => !!(ctl.editor || ctl.texto);   // o Monaco ainda carregando: o código na tela seria ""
+function marcaBotaoIA() {                                // o botão flutuante: a IA respondendo (pulsa) e a proposta que chegou
+  const b = $("bt-ia-flutua"); if (!b) return;
+  const e = cc.estado || {}, p = e.proposta;
+  b.classList.toggle("trabalhando", !!(cc.enviando || e.andamento));
+  b.classList.toggle("proposta", !cc.aberto && !e.andamento && !!(p && p.mudou && !e.aplicada));
+}
 function acompanhaChat() {
   // fechada a conversa, o acompanhamento para; um pedido do Código ⇄ (cc.fundo) segue sem trocar de aba, até terminar
   const anda = (cc.aberto || cc.fundo) && !!(cc.estado && cc.estado.andamento);
@@ -274,6 +282,7 @@ function desenhaUsoOutraIA(el, ia) {
 
 // ---------------------------------------------------------------- desenhar (só quando algo que aparece mudou)
 function desenhaChat() {
+  marcaBotaoIA();
   desenhaUsoChat();
   const e = cc.estado, logado = iaLogada(), anda = !!(e && e.andamento);
   // nenhuma IA logada: a conversa não tem como andar — só o botão que abre as contas (a caixa e as ferramentas somem)
@@ -640,8 +649,25 @@ async function ccAnexa(arquivos) {
   }
 }
 
+// a borda da gaveta: arrastar muda a largura (guardada no navegador); duplo clique, a de sempre
+function bordaGaveta() {
+  const g = $("gaveta-ia"), bd = $("ia-borda"); if (!g || !bd) return;
+  try { const w = localStorage.getItem("maisim-simu-ia-w"); if (w) document.body.style.setProperty("--ia-w", w); } catch (e) { /* padrão */ }
+  bd.addEventListener("mousedown", (ev) => {
+    if (ev.button !== 0) return; ev.preventDefault();
+    const k = g.offsetWidth / (g.getBoundingClientRect().width || 1), x0 = ev.clientX, w0 = g.offsetWidth;   // o zoom do MaiSim
+    let w = w0; bd.classList.add("arrastando"); document.body.style.cursor = "col-resize";
+    const mexe = (e) => { w = Math.round(Math.max(320, Math.min(innerWidth * k - 80, w0 - (e.clientX - x0) * k))); document.body.style.setProperty("--ia-w", `${w}px`); };
+    const solta = () => { removeEventListener("mousemove", mexe); removeEventListener("mouseup", solta); bd.classList.remove("arrastando"); document.body.style.cursor = "";
+      try { localStorage.setItem("maisim-simu-ia-w", `${w}px`); } catch (e) { /* só agora */ } };
+    addEventListener("mousemove", mexe); addEventListener("mouseup", solta);
+  });
+  bd.addEventListener("dblclick", () => { document.body.style.removeProperty("--ia-w"); try { localStorage.removeItem("maisim-simu-ia-w"); } catch (e) { /* ok */ } });
+}
 (function iniciaChat() {
   const painel = $("ctl-claude"); if (!painel) return;
+  bordaGaveta();
+  $("bt-ia-flutua").onclick = () => ccAbre(true);
   ccModelos();                                             // o "Modelo: padrão" do HTML no idioma de agora, antes de /claude/ias chegar
   for (const id of ["cc-modelo", "cc-esforco"]) {          // o modelo (de cada IA) e o esforço escolhidos ficam no navegador
     const chave = () => (id === "cc-modelo" ? chaveModelo(ccIA()) : `maisim-simu-${id}`);
