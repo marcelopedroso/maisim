@@ -31,22 +31,17 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
   const original = await pg.evaluate(() => codigoAtual());
   // abrir a conversa
   await pg.click("#ctl-claude-bt"); await pg.waitForTimeout(1500);
-  const lay = await pg.evaluate(() => { const r = (id) => $(id).getBoundingClientRect(); return { chat: r("ctl-claude"), ed: r("ctl-editor"), lado: document.body.classList.contains("scope-lado"), uso: $("cc-uso").textContent, vazio: !!document.querySelector(".cc-vazio li") }; });
-  ok(lay.chat.width > 200 && lay.chat.height > 150 && lay.ed.width > 300, `conversa aberta (${Math.round(lay.chat.width)}×${Math.round(lay.chat.height)}), editor com ${Math.round(lay.ed.width)} px`);
-  // onde fica: ao lado do código (3 colunas, o padrão) ou embaixo; com o painel estreito, desce sozinha
-  const onde = () => pg.evaluate(() => { const c = $("ctl-claude").getBoundingClientRect(), e = $("ctl-editor").getBoundingClientRect();
-    return { lado: c.left >= e.right - 1, embaixo: c.top >= e.bottom - 1, larg: $("painel-controle").clientWidth, ed: Math.round(e.width), guardado: localStorage.getItem("maisim-simu-claude-lugar") }; });
-  const o1 = await onde();
-  ok(o1.larg < 820 ? o1.embaixo : o1.lado, `padrão "ao lado": painel de ${o1.larg} px → ${o1.lado ? "3 colunas" : "embaixo (estreito)"}`);
-  await pg.setViewportSize({ width: 2400, height: 950 }); await pg.waitForTimeout(700);
-  const o2 = await onde();
-  ok(o2.larg >= 820 && o2.lado && o2.ed > 300, `painel largo (${o2.larg} px): 3 colunas, código com ${o2.ed} px`);
-  await pg.click("#cc-lugar"); await pg.waitForTimeout(400);
-  const o3 = await onde();
-  ok(o3.embaixo && o3.guardado === "embaixo", "o botão leva a conversa para baixo do código (e lembra)");
-  await pg.click("#cc-lugar"); await pg.waitForTimeout(400);
-  ok((await onde()).lado, "e de volta ao lado");
-  await pg.setViewportSize({ width: 1600, height: 950 }); await pg.waitForTimeout(500);
+  const lay = await pg.evaluate(() => { const r = (id) => $(id).getBoundingClientRect(); return { chat: r("ctl-claude"), doca: r("doca"), aba: abaDoca,
+    controle: $("painel-controle").classList.contains("oculto"), ativa: (document.querySelector("#abas-doca button.ativo") || {}).dataset, uso: $("cc-uso").textContent, vazio: !!document.querySelector(".cc-vazio li") }; });
+  // a conversa é a aba "IA" da doca (Marcelo, 06/11: dentro do Controle ela espremia o código): a doca inteira é a conversa
+  ok(lay.aba === "ia" && lay.controle && lay.ativa && lay.ativa.aba === "ia" && lay.chat.width > lay.doca.width - 4 && lay.chat.height > 150,
+    `conversa aberta na aba IA (${Math.round(lay.chat.width)}×${Math.round(lay.chat.height)}, a doca tem ${Math.round(lay.doca.width)} px)`);
+  // a aba Controle: o código com a largura dele (sem a conversa ao lado); de volta à IA, a conversa como estava
+  await pg.click('#abas-doca [data-aba="controle"]'); await pg.waitForTimeout(500);
+  const ed = await pg.evaluate(() => ({ ed: $("ctl-editor").getBoundingClientRect().width, painel: $("painel-controle").getBoundingClientRect().width, lado: $("ctl-lado").getBoundingClientRect().width, aberto: cc.aberto }));
+  ok(ed.ed > ed.painel - ed.lado - 4 && !ed.aberto, `aba Controle: o código com ${Math.round(ed.ed)} px (o painel ${Math.round(ed.painel)} − a coluna ${Math.round(ed.lado)}), a conversa escondida`);
+  await pg.click('#abas-doca [data-aba="ia"]'); await pg.waitForTimeout(500);
+  ok(await pg.evaluate(() => cc.aberto && !$("painel-ia").classList.contains("oculto")), "aba IA de novo: a conversa");
   ok(/sessão 42%/.test(lay.uso) && /semana 81%/.test(lay.uso), `uso da conta no topo: "${lay.uso}"`);
   ok(lay.vazio, "conversa vazia mostra exemplos do que pedir");
   await pg.screenshot({ path: "claude_chat_vazio.png" });
@@ -142,14 +137,28 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
   ok(/virus\.exe: .*PDF, imagem/.test(await pg.evaluate(() => $("cc-aviso").textContent)), "tipo não aceito: aviso na conversa");
   // o ✦ com o uso e o "pedir ao Claude"
   await pg.click("#cc-fechar"); await pg.waitForTimeout(300);
-  ok(!(await pg.evaluate(() => $("painel-controle").classList.contains("com-claude"))), "× fecha a conversa");
+  ok(await pg.evaluate(() => !cc.aberto && abaDoca === "controle" && $("painel-ia").classList.contains("oculto")), "× fecha a conversa (volta à aba Controle)");
   await pg.click("#bt-claude"); await pg.waitForSelector("[data-abre=claude]"); await pg.click("[data-abre=claude]");   // os detalhes e limites (o botão)
   await pg.waitForSelector(".cla-uso-l", { timeout: 10000 });
   const jan = await pg.evaluate(() => ({ l: [...document.querySelectorAll(".cla-uso-l")].map((x) => x.innerText.replace(/\s+/g, " ").trim()), pedir: !!$("cla-pedir") }));
   ok(jan.l.length === 3 && /sessão \(5 h\) 42% renova hoje às 13h50/.test(jan.l[0]) && jan.pedir, `✦: barras de uso (${jan.l[0]}) e o botão "pedir ao Claude"`);
   await pg.screenshot({ path: "claude_janela_uso.png", clip: { x: 400, y: 0, width: 900, height: 500 } });
   await pg.click("#cla-pedir"); await pg.waitForTimeout(800);
-  ok(await pg.evaluate(() => !document.querySelector(".modal-fundo") && $("painel-controle").classList.contains("com-claude") && document.activeElement === $("cc-texto")), "pedir ao Claude: abre a conversa, com o cursor na caixa");
+  ok(await pg.evaluate(() => !document.querySelector(".modal-fundo") && abaDoca === "ia" && cc.aberto && document.activeElement === $("cc-texto")), "pedir ao Claude: abre a conversa (a aba IA), com o cursor na caixa");
+  // a aba IA aberta direto, vindo do Scope: o × volta ao Scope (Codex, #232)
+  await pg.evaluate(() => mostraDoca("scope")); await pg.click('#abas-doca [data-aba="ia"]'); await pg.waitForTimeout(300);
+  await pg.click("#cc-fechar"); await pg.waitForTimeout(300);
+  ok(await pg.evaluate(() => abaDoca === "scope" && !cc.aberto), "a aba IA aberta direto do Scope: o × volta ao Scope");
+  // o Código ⇄ automático que falha (a IA deu erro): o Controle diz, sem trocar de aba, e o botão leva à aba IA (Codex, #232)
+  fs.writeFileSync(path.join(CONF, "falso_cenario"), "erro");
+  await pg.evaluate(() => mostraDoca("controle")); await pg.waitForTimeout(400);
+  await pg.evaluate(() => { ctl.sincPendente = true; converteIA(true, true); });
+  const falhou = await pg.waitForFunction(() => /não converteu|did not convert/.test($("ctl-c-res").textContent), null, { timeout: 30000 }).then(() => true).catch(() => false);
+  ok(falhou && await pg.evaluate(() => abaDoca === "controle" && !!document.querySelector("#ctl-c-res [data-abre-ia]")),
+    `o Código ⇄ que falhou: "${await pg.textContent("#ctl-c-res")}", na aba Controle`);
+  await pg.click("#ctl-c-res [data-abre-ia]"); await pg.waitForTimeout(400);
+  ok(await pg.evaluate(() => abaDoca === "ia" && cc.aberto), "o \"ver na aba IA\" leva à conversa (com o erro)");
+  fs.writeFileSync(path.join(CONF, "falso_cenario"), "ganho");
   // escuro
   const tema = (t) => pg.evaluate((x) => { document.documentElement.dataset.tema = x; dispatchEvent(new CustomEvent("maisim-tema", { detail: { tema: x } })); }, t);   // sem o trilho (porta do servidor)
   await tema("escuro"); await pg.waitForTimeout(600);

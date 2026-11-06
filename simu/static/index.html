@@ -171,7 +171,7 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   /* a janela do código (?vista=codigo): só o painel do controle, em tela cheia; o ▶ fica na janela do circuito */
   body.vista-codigo #paleta, body.vista-codigo #tela, body.vista-codigo #props, body.vista-codigo .aba-borda, body.vista-codigo #g-ver, body.vista-codigo #g-sim,
   body.vista-codigo #g-scope, body.vista-codigo #trilha, body.vista-codigo #bt-novo, body.vista-codigo #bt-editar, body.vista-codigo #divisoria,
-  body.vista-codigo #abas-doca, body.vista-codigo #info { display:none !important; }
+  body.vista-codigo #abas-doca [data-aba="scope"], body.vista-codigo #info { display:none !important; }
   body.vista-codigo header { display:none !important; }   /* só o código, sem o cabeçalho (o trilho some na janela aberta por ele: janela=1) */
   body.vista-codigo #painel-scope { display:flex !important; top:0 !important; left:var(--maisim-nav-w, 0px) !important; right:0 !important; bottom:0 !important;
     width:auto !important; height:auto !important; border:0 !important; }
@@ -232,21 +232,12 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   .modal.cla .iac-passo { margin:6px 0; } .modal.cla a.iac-termos { color:inherit; text-decoration:underline dotted; }
   .modal.cla section.cla-ia .cla-bts { align-items:center; } .modal.cla .cla-abre { margin-right:auto; padding:2px 8px; }
   .modal.cla .cla-det { border-top:1px dashed var(--borda); margin-top:6px; padding-top:4px; }
-  /* pedir ao Claude: a conversa no painel do controle — ao lado do código (3 colunas, o padrão) ou embaixo dele (o botão
-     do topo da conversa escolhe; com o painel estreito demais, desce sozinha: classe cc-embaixo) */
-  #ctl-claude { display:none; min-width:0; min-height:0; flex-direction:column; border-left:1px solid var(--borda); background:var(--cartao); position:relative; }
-  #painel-controle.com-claude { grid-template-columns:var(--lado, 240px) minmax(0, 1fr) minmax(260px, var(--cc-w, 36%)); }
-  #painel-controle.com-claude #ctl-claude { display:flex; }
+  /* a IA do MaiSim: a aba "IA" da doca, ao lado de Scope e Controle (Marcelo, 06/11: dentro do Controle ela espremia o
+     código); o painel inteiro é a conversa, e o código fica com a largura dele na aba Controle */
+  #painel-ia { flex:1 1 auto; min-width:0; min-height:0; display:flex; background:var(--cartao); }
+  #ctl-claude { display:flex; flex:1 1 auto; min-width:0; min-height:0; flex-direction:column; background:var(--cartao); position:relative; }
   #ctl-claude.cc-sem-ia :is(#cc-uso, #cc-salvar, #cc-exportar, #cc-contextos, #cc-memoria, #cc-nova, #cc-nota, #cc-anexos, #cc-lembrete,
     #cc-texto, #cc-anexar, #cc-aviso, #cc-ia, #cc-modelo, #cc-esforco, #cc-auto, #cc-parar, #cc-enviar) { display:none !important; }
-  #painel-controle.com-claude.cc-embaixo { grid-template-columns:var(--lado, 240px) minmax(0, 1fr); grid-template-rows:minmax(0, 1fr) minmax(160px, var(--cc-h, 46%)); }
-  /* o divisor entre o código e a conversa: arrastar muda a largura (ao lado) ou a altura (embaixo); duplo clique volta ao padrão */
-  #cc-divisor { position:absolute; left:-4px; top:0; bottom:0; width:8px; cursor:col-resize; z-index:3; }
-  #painel-controle.cc-embaixo #cc-divisor { left:0; right:0; top:-4px; bottom:auto; width:auto; height:8px; cursor:row-resize; }
-  #cc-divisor:hover, #cc-divisor.arrastando { background:color-mix(in srgb, var(--acento) 35%, transparent); }
-  #painel-controle.com-claude.cc-embaixo #ctl-lado { grid-row:1 / span 2; }
-  #painel-controle.com-claude.cc-embaixo #ctl-claude { grid-column:2; grid-row:2; border-left:0; border-top:1px solid var(--borda); }
-  #cc-lugar { padding:1px 5px; display:inline-flex; } #cc-lugar svg { display:block; }
   #ctl-claude-bt.ativo { background:var(--acento-suave); color:var(--acento); border-color:var(--acento-borda); }
   .mascote { color:var(--acento); --diodo-fundo:var(--acento-suave); vertical-align:middle; flex:0 0 auto; overflow:visible; }
   .mascote.pensando { --brilho:cc-brilho 1.4s ease-in-out infinite; }
@@ -732,11 +723,9 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   body.movel:is(.vm-controle, .vm-ia) #tela { display:none; }
   body.movel:is(.vm-controle, .vm-ia) #painel-scope { display:flex !important; inset:0 0 var(--teclado, 0px) 0 !important; width:auto !important; height:auto !important; border:0 !important; }
   body.movel.vm-controle #painel-controle { grid-template-columns:minmax(0, 1fr) !important; grid-template-rows:minmax(0, 1fr) !important; }
-  body.movel.vm-controle #painel-controle #ctl-lado, body.movel.vm-controle #ctl-claude { display:none !important; }
-  body.movel.vm-ia #painel-controle { grid-template-columns:minmax(0, 1fr) !important; grid-template-rows:minmax(0, 1fr) !important; }
-  body.movel.vm-ia #painel-controle > :not(#ctl-claude) { display:none !important; }
-  body.movel.vm-ia #ctl-claude { display:flex !important; grid-column:1 !important; grid-row:1 !important; border:0 !important; font-size:15px; }
-  body.movel.vm-ia #cc-divisor, body.movel.vm-ia #cc-fechar, body.movel.vm-ia #cc-lugar { display:none !important; }
+  body.movel.vm-controle #painel-controle #ctl-lado { display:none !important; }
+  body.movel.vm-ia #ctl-claude { font-size:15px; }
+  body.movel.vm-ia #cc-fechar { display:none !important; }
   body.movel .modal { max-width:calc(100vw - 20px) !important; max-height:calc(100% - var(--teclado, 0px) - 20px); overflow:auto; font-size:15px; }
   body.movel .modal input, body.movel .modal select { font-size:16px; }
   body.movel #dica { display:none !important; }
@@ -798,7 +787,7 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
     <div><button id="vz-novo" class="primario" data-tr="simu.vz_novo">+ Novo circuito</button><button id="vz-abrir" data-tr="simu.vz_abrir">Abrir…</button><a href="/#exemplos" id="vz-exemplos" data-tr="simu.vz_exemplos">Exemplos</a></div></div></div>
 <div id="props"></div>
 <div id="painel-scope"><div id="divisoria"></div><div id="doca">
-  <div id="abas-doca"><button data-aba="scope">Scope</button><button data-aba="controle" data-tr="simu.aba_controle">Controle</button></div>
+  <div id="abas-doca"><button data-aba="scope">Scope</button><button data-aba="controle" data-tr="simu.aba_controle">Controle</button><button data-aba="ia" data-tr="simu.aba_ia" title="a IA do MaiSim: ela lê o circuito e o código e propõe o controle" data-tr-title="simu.t_aba_ia">IA</button></div>
   <iframe id="if-scope" title="MaiSim · Scope"></iframe>
   <div id="scope-fora"><div><span data-tr-html="simu.scope_fora_html">o scope está na <b>janela do scope</b><br>(ao vivo lá também)</span><br><button id="scope-fora-ir" title="trazer a janela do scope para a frente" data-tr-title="simu.t_scope_fora_ir" data-tr="simu.ir_la">Ir para lá</button><button id="scope-fora-bt" title="ver o scope também nesta janela" data-tr-title="simu.t_scope_fora_bt" data-tr="simu.scope_fora_bt">Ver aqui também</button></div></div>
   <div id="painel-controle" class="oculto" data-msg="nenhum circuito aberto: abra um ou comece um novo para escrever o controle" data-tr-msg="ctl.sem_circuito">
@@ -858,9 +847,10 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
       <div id="ctl-saida-caixa" style="display:none"><div id="ctl-saida-bts"><button id="ctl-saida-copia" data-tr="ctl.saida_copia" title="copiar a saída — num erro, com o trecho do código em volta da linha (▶)" data-tr-title="ctl.t_saida_copia">Copiar</button><button id="ctl-saida-claude" data-tr="ctl.saida_claude" title="abrir o pedido à IA do MaiSim com este erro e o trecho do código (você revisa e envia)" data-tr-title="ctl.t_saida_claude">Pedir à IA</button><button id="ctl-saida-fecha" title="fechar a saída (o ▷ Testar abre de novo)" data-tr-title="ctl.t_saida_fecha" aria-label="fechar a saída" data-tr-aria="ctl.a_saida_fecha">✕</button></div><pre id="ctl-saida"></pre></div>
     </div>
     <div id="ctl-fora"><div><span data-tr-html="ctl.fora_html">o código e a IA estão na <b>janela do código</b><br>(as mudanças de lá aparecem aqui)</span><br><button id="ctl-fora-ir" title="trazer a janela do código para a frente" data-tr-title="ctl.t_fora_ir" data-tr="simu.ir_la">Ir para lá</button><button id="ctl-fora-bt" title="editar o código também nesta janela (vale o que for guardado por último)" data-tr-title="ctl.t_fora_bt" data-tr="ctl.fora_bt">Editar aqui também</button></div></div>
-  <div id="ctl-claude" aria-label="pedir à IA" data-tr-aria="cc.a_painel" data-msg="solte para anexar (PDF, imagem, texto)" data-tr-msg="cc.solte"><div id="cc-divisor" title="arraste para mudar o espaço da conversa e do código (duplo clique: volta ao padrão)" data-tr-title="cc.t_divisor"></div>
+  </div>
+  <div id="painel-ia" class="oculto"><div id="ctl-claude" aria-label="pedir à IA" data-tr-aria="cc.a_painel" data-msg="solte para anexar (PDF, imagem, texto)" data-tr-msg="cc.solte">
       <div class="cc-topo"><svg class="mascote" width="21" height="21" aria-hidden="true"><use href="#maisim-claude"/></svg><b data-tr="cc.titulo">IA do MaiSim</b><span id="cc-uso" data-tr-js title="uso da sua conta do Claude (o mesmo do /usage)"></span>
-        <button id="cc-lugar" data-tr-js title="conversa ao lado do código ou embaixo dele"></button><button id="cc-salvar" data-tr="cc.salvar" title="salvar esta conversa como contexto: o resumo (a IA escreve, você revisa), a conversa, o controle e a rodada — fica guardado para outras conversas" data-tr-title="cc.t_salvar">Salvar</button><button id="cc-exportar" data-tr="cc.exportar" title="exportar esta conversa: salva como contexto (ou junta com o contexto em uso) e já baixa o .maisimctx para mandar a um colega" data-tr-title="cc.t_exportar">Exportar</button><button id="cc-contextos" data-tr="cc.contextos" title="os contextos salvos: usar nesta conversa, abrir, exportar, importar; e as conversas anteriores" data-tr-title="cc.t_contextos">Contextos</button><button id="cc-memoria" data-tr="cc.memoria" title="a memória da IA do MaiSim: preferências e lições, em todas as conversas" data-tr-title="cc.t_memoria">Memória</button><button id="cc-nova" data-tr="cc.nova" title="nova conversa: a IA esquece esta (os anexos saem; a memória fica)" data-tr-title="cc.t_nova">Nova</button><button id="cc-fechar" title="fechar a conversa" data-tr-title="cc.t_fechar">×</button></div>
+        <button id="cc-salvar" data-tr="cc.salvar" title="salvar esta conversa como contexto: o resumo (a IA escreve, você revisa), a conversa, o controle e a rodada — fica guardado para outras conversas" data-tr-title="cc.t_salvar">Salvar</button><button id="cc-exportar" data-tr="cc.exportar" title="exportar esta conversa: salva como contexto (ou junta com o contexto em uso) e já baixa o .maisimctx para mandar a um colega" data-tr-title="cc.t_exportar">Exportar</button><button id="cc-contextos" data-tr="cc.contextos" title="os contextos salvos: usar nesta conversa, abrir, exportar, importar; e as conversas anteriores" data-tr-title="cc.t_contextos">Contextos</button><button id="cc-memoria" data-tr="cc.memoria" title="a memória da IA do MaiSim: preferências e lições, em todas as conversas" data-tr-title="cc.t_memoria">Memória</button><button id="cc-nova" data-tr="cc.nova" title="nova conversa: a IA esquece esta (os anexos saem; a memória fica)" data-tr-title="cc.t_nova">Nova</button><button id="cc-fechar" title="fechar a conversa" data-tr-title="cc.t_fechar">×</button></div>
       <div id="cc-msgs"></div>
       <div id="cc-nota" class="cc-nota"></div>
       <div id="cc-anexos"></div>
@@ -870,8 +860,7 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
         <div class="cc-botoes"><button type="button" class="cc-anexar" id="cc-anexar" title="anexar PDF de artigo, imagem ou texto (ou arraste para a conversa, ou cole uma imagem)" data-tr-title="cc.t_anexar"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 11v6M9 14h6"/></svg></button><input type="file" id="cc-arq" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.txt,.md,.csv" hidden>
           <span id="cc-aviso"></span><select id="cc-ia" style="display:none"><option value="claude">Claude</option></select><select id="cc-modelo"><option value="" data-tr-js>Modelo: padrão</option><option value="fable">Fable</option><option value="opus">Opus</option><option value="sonnet">Sonnet</option><option value="haiku">Haiku</option></select><select id="cc-esforco"><option value="" data-tr="cc.esforco_padrao">Esforço: padrão</option><option value="low" data-tr="cc.esforco_low">Baixo</option><option value="medium" data-tr="cc.esforco_medium">Médio</option><option value="high" data-tr="cc.esforco_high">Alto</option><option value="xhigh" data-tr="cc.esforco_xhigh">Muito alto</option><option value="max" data-tr="cc.esforco_max">Máximo</option></select><select id="cc-auto" title="a IA simula sozinha: a cada versão, o MaiSim roda a simulação com ela (sem aplicar no seu controle), devolve o resumo e ela corrige, até dizer que terminou ou acabarem as rodadas. O código dela roda sem você olhar cada versão; o seu controle só muda quando você aplicar. Volta a “não” ao recarregar a página." data-tr-title="cc.t_auto"><option value="0" data-tr="cc.auto_0">Simular sozinho: não</option><option value="3" data-tr="cc.auto_3">Simular sozinho: até 3</option><option value="5" data-tr="cc.auto_5">Simular sozinho: até 5</option><option value="10" data-tr="cc.auto_10">Simular sozinho: até 10</option><option value="20" data-tr="cc.auto_20">Simular sozinho: até 20</option></select><button id="cc-parar" data-tr="cc.parar" class="perigo" style="display:none" title="parar o pedido" data-tr-title="cc.t_parar">Parar</button><button id="cc-enviar" data-tr-js class="primario" title="enviar (Ctrl+Enter)" data-tr-title="cc.t_enviar">Enviar</button></div>
       </div>
-    </div>
-  </div>
+    </div></div>
 </div></div>
 <!-- o ícone do Claude do MaiSim: um diodo com o brilho de "IA" (sem rosto). A cor vem de color (currentColor), o fundo do
      triângulo de --diodo-fundo, e o brilho pulsa com --brilho (só onde o Claude está trabalhando) -->

@@ -6,6 +6,13 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Changed
+- **MaiSim's AI is now a tab, "AI", next to Scope and Control.** On the desktop, the conversation opened as a third column inside the Control panel and squeezed the code to half its width (the lines were cut off); now the whole dock is the conversation, and the Control tab keeps the code at its full width.
+  - The **AI** button in the Control bar, "ask the AI" on an error and the ✦ window open the tab; **×** goes back to the tab you came from.
+  - The automatic **Code ⇄** request no longer switches tabs while you are editing: it runs behind, and the Control panel shows "asking the AI…".
+  - The code window (open in a separate window) has the Control and AI tabs. On the phone, the AI view is the same tab.
+  - The conversation's divider and the "beside / below the code" button are gone, since there is nothing to squeeze any more.
+
 ### Added
 - **Several controllers in C, talking over the network**. With the controllers list (acquisition, control, one per subcircuit…), the C view runs the same controllers, each in the `.c` named after its `.py` (`aquisicao.py` → `aquisicao.c`).
   - Each controller compiles in its own folder, with a `maisim_sinais.h` holding only its own measurements and actuations.

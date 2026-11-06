@@ -1631,6 +1631,7 @@ function tagAtuador(g, x, y, nome, centrada = false) {   // centrada: x é o mei
   document.querySelectorAll("#ctl-ling [data-ling]").forEach((b) => { b.onclick = () => { if (!b.disabled) poeVisao(b.dataset.ling === "c"); }; });
   $("ctl-c-comparar").onclick = comparaPyC;
   $("ctl-c-ia").onclick = () => converteIA(visaoC());
+  $("ctl-c-res").addEventListener("click", (ev) => { if (ev.target.closest("[data-abre-ia]") && typeof ccAbre === "function") ccAbre(true); });
   $("ctl-saida-fecha").onclick = () => { $("ctl-saida-caixa").style.display = "none"; };
   $("ctl-saida-copia").onclick = async () => { const bt = $("ctl-saida-copia"); feito(bt, (await copiaTexto(ctl.saida && ctl.saida.tipo === "erro" ? textoDoErro() : $("ctl-saida").textContent)) ? tr("ctl.copiado") : tr("ctl.nao_deu"), "ctl.saida_copia"); };
   $("ctl-saida-claude").onclick = () => {                  // a conversa abre com o pedido escrito; quem envia é você
@@ -1704,10 +1705,11 @@ function marcaSelo() {
   const ok = sc.ok && sc.py === impressao(textoDe("controle.py")) && sc.c === impressao(textoDe("controle.c"));
   el.textContent = tr(ok ? "ctl.c_em_sinc" : "ctl.c_fora_sinc"); el.className = ok ? "ok" : "fora"; el.title = tr(ok ? "ctl.t_c_em_sinc" : "ctl.t_c_fora_sinc");
 }
-function converteIA(paraC) {                              // a conversa da IA, com o pedido de conversão escrito e enviado
+function converteIA(paraC, fundo = false) {              // a conversa da IA, com o pedido de conversão escrito e enviado
   if (typeof ccAbre !== "function" || typeof ccEnvia !== "function" || travado()) return;
   if (paraC && !ctl.lista.includes("controle.c")) abreC(false);
-  ccAbre(true); $("cc-texto").value = tr(paraC ? "ctl.c_pedido_c" : "ctl.c_pedido_py"); ccEnvia();
+  if (fundo) cc.fundo = true; else ccAbre(true);         // o Código ⇄ (fundo): sem trocar de aba (a pessoa está no código)
+  $("cc-texto").value = tr(paraC ? "ctl.c_pedido_c" : "ctl.c_pedido_py"); ccEnvia();
 }
 function editou(a) {                                      // o usuário mexeu num dos dois (não a IA aplicando uma proposta)
   if ((ehC(a) || a === "controle.py") && !(typeof cc !== "undefined" && cc.aplicando)) ctl.editouLing = ehC(a) ? "c" : "py";
@@ -1718,13 +1720,16 @@ function sincAuto(l) {
   const ocupado = travado() || (typeof cc !== "undefined" && (cc.enviando || cc.aplicando || (cc.estado && cc.estado.andamento)));
   if (ocupado) { agendaSinc(l); return; }
   ctl.sincPendente = true; $("ctl-c-res").textContent = tr("ctl.c_sinc_pedindo");
-  converteIA(l === "py");                                 // mexeu no Python: gera o C; mexeu no C: gera o Python
+  converteIA(l === "py", true);                           // mexeu no Python: gera o C; mexeu no C: gera o Python
 }
 async function aoFimDoPedido(e) {                         // claude_chat.js avisa quando um pedido termina
   if (!ctl.sincPendente) return;
   ctl.sincPendente = false;
   const p = e && e.proposta;
-  if (e && e.erro || (p && (p.erros || []).length) || typeof ccAplica !== "function") { $("ctl-c-res").textContent = ""; return; }   // a conversa mostra o erro
+  if (e && e.erro || (p && (p.erros || []).length) || typeof ccAplica !== "function") {   // o erro está na conversa: o Controle diz e leva lá
+    $("ctl-c-res").innerHTML = `<span class="dif">${escT(tr("ctl.c_sinc_falhou"))}</span> <button data-abre-ia>${escT(tr("ctl.c_ver_ia"))}</button>`;
+    return;
+  }
   if (p && p.mudou) { await ccAplica({ auto: true }); if (!(cc.estado && cc.estado.aplicada)) { $("ctl-c-res").textContent = ""; return; } }
   comparaPyC();                                           // aplicada, ou a outra linguagem já estava certa (nada a mudar): confere
 }
