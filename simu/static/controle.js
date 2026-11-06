@@ -54,8 +54,32 @@ function poeLado(recolhido) {
 // subcircuito…). No Monaco, um modelo por arquivo (cada um com o seu desfazer); sem ele, um texto por arquivo na caixa
 const textoDe = (arq) => ctl.modelos[arq] ? ctl.modelos[arq].getValue() : arq === ctl.arq && ctl.texto ? ctl.texto.value : (ctl.textos[arq] ?? "");
 const codigoAtual = () => textoDe("controle.py");
+// o controle em C (o SIL: controle_worker_c.py): o controle.c (e outros .c/.h) abre numa aba como os .py, no Monaco em C,
+// mas fica fora dos módulos do Python (não vai em "arquivos", nem na árvore dos imports): vai em "c": {usar, precisao, arquivos}
+const ehC = (a) => /\.[ch]$/.test(a);
+const lingDe = (a) => ehC(a) ? "c" : "python";
+// a visão (Python | C): a linguagem que roda e a que o painel mostra (as abas, a árvore dos arquivos); a comparação usa as duas
+const visaoC = () => $("ctl-c-usar").checked;
+function marcaVisao() {
+  const c = visaoC();
+  $("painel-controle").classList.toggle("visao-c", c);
+  document.querySelectorAll("#ctl-ling [data-ling]").forEach((b) => { const a = b.dataset.ling === (c ? "c" : "py"); b.classList.toggle("ativo", a); b.setAttribute("aria-selected", String(a)); });
+  if (ctl.lista.length && ehC(ctl.arq) !== c && !ctl.tabela) {   // o arquivo aberto é da outra linguagem (a página abriu já na visão C): troca
+    const alvo = c ? ctl.lista.find((a) => a === "controle.c") || ctl.lista.find(ehC) : "controle.py";
+    if (alvo) mostraArquivo(alvo, false);
+  }
+}
+function poeVisao(c) {                                   // o seletor: troca a linguagem, guarda (o change da coluna) e mostra o arquivo dela
+  if (travado() || c === visaoC()) return;
+  $("ctl-c-usar").checked = c; marcaVisao();
+  $("ctl-c-usar").dispatchEvent(new Event("change", { bubbles: true }));
+  mostraArquivo(c ? "controle.c" : "controle.py", false);
+  desenhaControladores(); desenhaAbas();
+  if (ctl.tabela === "diag") desenhaDiagrama();
+}
 const travado = () => document.body.classList.contains("sim-rodando");
-function arquivosDoEditor() { const o = {}; for (const a of ctl.lista) if (a !== "controle.py") o[a] = textoDe(a); return o; }
+function arquivosDoEditor() { const o = {}; for (const a of ctl.lista) if (a !== "controle.py" && !ehC(a)) o[a] = textoDe(a); return o; }
+function arquivosC() { const o = {}; for (const a of ctl.lista) if (ehC(a)) o[a] = textoDe(a); return o; }
 function poeCodigo(txt, arq = "controle.py") {
   if (travado()) return;
   if (ctl.modelos[arq]) { if (ctl.modelos[arq].getValue() !== txt) ctl.modelos[arq].setValue(txt); }
@@ -64,7 +88,7 @@ function poeCodigo(txt, arq = "controle.py") {
 }
 function criaArquivo(arq, txt) {                         // um arquivo novo no editor (sem guardar: quem chama guarda)
   if (!ctl.lista.includes(arq)) ctl.lista = ["controle.py", ...ctl.lista.filter((a) => a !== "controle.py").concat(arq).sort()];
-  if (ctl.monaco && ctl.editor) { if (!ctl.modelos[arq]) { ctl.modelos[arq] = ctl.monaco.editor.createModel(txt, "python", ctl.monaco.Uri.parse(`file:///maisim/${arq}`));
+  if (ctl.monaco && ctl.editor) { if (!ctl.modelos[arq]) { ctl.modelos[arq] = ctl.monaco.editor.createModel(txt, lingDe(arq), ctl.monaco.Uri.parse(`file:///maisim/${arq}`));
     ctl.modelos[arq].onDidChangeContent(() => { if (!ctl.calado) agendaGuardar(); }); } else ctl.modelos[arq].setValue(txt); }
   else ctl.textos[arq] = txt;
 }
@@ -75,7 +99,7 @@ function tiraArquivo(arq) {
   delete ctl.textos[arq]; delete ctl.vistas[arq];
 }
 function poeArquivos(c) {                                 // os arquivos de uma configuração (outro circuito, desfazer…) no editor
-  const novos = Object.assign({ "controle.py": c.codigo }, c.arquivos || {});
+  const novos = Object.assign({ "controle.py": c.codigo }, c.arquivos || {}, (c.c && c.c.arquivos) || {});
   ctl.calado = true;
   for (const a of ctl.lista.slice()) if (!(a in novos)) tiraArquivo(a);
   for (const [a, t] of Object.entries(novos)) if (ctl.lista.includes(a)) poeCodigo(t, a); else criaArquivo(a, t);
@@ -100,7 +124,7 @@ const listaE = (l) => new Intl.ListFormat(maisimI18n.local(), { type: "conjuncti
 // as abas são os arquivos ABERTOS (Marcelo, 19/10: "o × da aba é para fechar a aba; o × da lista, para excluir"): fechar só
 // tira a aba (o arquivo fica na lista de arquivos; clicar nele reabre); o controle.py fica sempre aberto
 ctl.fechadas = new Set();
-const abasAbertas = () => ctl.lista.filter((a) => !ctl.fechadas.has(a));
+const abasAbertas = () => ctl.lista.filter((a) => !ctl.fechadas.has(a) && ehC(a) === visaoC());   // as da linguagem à vista
 function fechaAba(a) {
   if (a === "controle.py" || !ctl.lista.includes(a)) return;
   const abertas = abasAbertas(), i = abertas.indexOf(a);
@@ -179,15 +203,36 @@ function ordenaLinhas(linhas, k) {                            // [{html, s: {col
 }
 // onde um nome aparece nos arquivos do editor (fora de comentário): [{arq, linha}]
 const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-function usosNoCodigo(re) {
+// no controle.c, o mesmo nome é o índice do maisim_sinais.h: m[M_i_L], p[P_Kp], u[U_g] (o nome com o que não é letra,
+// número ou _ trocado por _, como o controle_worker_c.py gera); fora de comentário // e /* */
+const identC = (n) => String(n).replace(/[^A-Za-z0-9_]/g, "_");
+function usosNoCodigo(re, reC) {
   const out = [];
-  for (const a of ctl.lista) textoDe(a).split("\n").forEach((l, i) => { re.lastIndex = 0; let m;
-    while ((m = re.exec(l))) { if (!l.slice(0, m.index).includes("#")) { out.push({ arq: a, linha: i + 1 }); break; } } });
+  for (const a of ctl.lista) {
+    const c = ehC(a), r = c ? reC : re; if (!r) continue;
+    let bloco = false;
+    textoDe(a).split("\n").forEach((l, i) => {
+      if (c) {                                             // tira os comentários de C da linha (o /* */ pode atravessar linhas)
+        let t = "", k = 0;
+        while (k < l.length) {
+          if (bloco) { const f = l.indexOf("*/", k); if (f < 0) { k = l.length; break; } bloco = false; k = f + 2; continue; }
+          const ab = l.indexOf("/*", k), lc = l.indexOf("//", k);
+          if (lc >= 0 && (ab < 0 || lc < ab)) { t += l.slice(k, lc); break; }
+          if (ab >= 0) { t += l.slice(k, ab); bloco = true; k = ab + 2; continue; }
+          t += l.slice(k); break;
+        }
+        l = t;
+      }
+      r.lastIndex = 0; let m;
+      while ((m = r.exec(l))) { if (c || !l.slice(0, m.index).includes("#")) { out.push({ arq: a, linha: i + 1 }); break; } }
+    });
+  }
   return out;
 }
-const usoPar = (n) => usosNoCodigo(new RegExp(`\\bp\\[\\s*["']${escRe(n)}["']\\s*\\]`, "g"));
-const usoMed = (n) => usosNoCodigo(new RegExp(`["']${escRe(n)}["'](?!\\s*:)`, "g"));   // m["Va"], x["Va"] e listas ("Va", "Vb"); chave de dicionário de saída não
-const usoAtu = (n) => usosNoCodigo(new RegExp(`["']${escRe(n)}["']\\s*:|\\[\\s*["']${escRe(n)}["']\\s*\\]\\s*=(?!=)`, "g"));
+const usoPar = (n) => usosNoCodigo(new RegExp(`\\bp\\[\\s*["']${escRe(n)}["']\\s*\\]`, "g"), new RegExp(`\\bP_${identC(n)}\\b`, "g"));
+const usoMed = (n) => usosNoCodigo(new RegExp(`["']${escRe(n)}["'](?!\\s*:)`, "g"), new RegExp(`\\bM_${identC(n)}\\b`, "g"));   // m["Va"], x["Va"] e listas ("Va", "Vb"); chave de dicionário de saída não
+const usoAtu = (n) => usosNoCodigo(new RegExp(`["']${escRe(n)}["']\\s*:|\\[\\s*["']${escRe(n)}["']\\s*\\]\\s*=(?!=)`, "g"),
+  new RegExp(`\\[\\s*U_${identC(n)}\\s*\\]\\s*=(?!=)`, "g"));                  // u[U_g] = …
 function htmlOndeUsa(u) {
   if (!u.length) return `<span class="sem-uso">${escT(tr("ctl.sem_uso"))}</span>`;
   let ant = null; const partes = u.slice(0, 8).map((x) => { const r = `<a data-vai="${escT(x.arq)}:${x.linha}" title="${escT(tr("ctl.t_abrir_linha", { arq: x.arq, linha: x.linha }))}">${x.arq === ant ? "" : `${escT(x.arq)}:`}${x.linha}</a>`; ant = x.arq; return r; });
@@ -237,7 +282,7 @@ function organizaDSP() {
   poeEstado(tr("ctl.dsp_criados", { arqs: listaE(novos) }), "ok");
 }
 async function renomeiaArquivo(a) {
-  if (travado() || a === "controle.py") return;
+  if (travado() || a === "controle.py" || ehC(a)) return;   // o controle.c tem nome fixo (o worker do C procura por ele)
   const r = await modal({ titulo: tr("ctl.renomear_titulo_html", { arq: a }), texto: tr("ctl.renomear_texto_html", { nome: nomeDoArquivo(a) }),
     campos: [{ nome: "nome", rotulo: tr("ctl.col_nome"), valor: a, dica: tr("ctl.dica_nome_arq") }], ok: tr("ctl.renomear") });
   if (!r) return;
@@ -295,13 +340,13 @@ function estadoCodigo(j) {
 }
 
 async function criaEditor(c) {
-  const todos = Object.assign({ "controle.py": c.codigo }, c.arquivos || {});
-  ctl.lista = ["controle.py", ...Object.keys(c.arquivos || {}).filter((a) => a !== "controle.py").sort()]; ctl.arq = "controle.py";
+  const todos = Object.assign({ "controle.py": c.codigo }, c.arquivos || {}, (c.c && c.c.arquivos) || {});
+  ctl.lista = ["controle.py", ...Object.keys(todos).filter((a) => a !== "controle.py").sort()]; ctl.arq = "controle.py";
   try {
     const monaco = ctl.monaco = await carregaMonaco();
     $("ctl-editor").innerHTML = "";
     addEventListener("maisim-tema", () => monaco.editor.setTheme(temaAtual() === "escuro" ? "vs-dark" : "vs"));   // o tema do MaiSim
-    for (const a of ctl.lista) { ctl.modelos[a] = monaco.editor.createModel(todos[a], "python", monaco.Uri.parse(`file:///maisim/${a}`));
+    for (const a of ctl.lista) { ctl.modelos[a] = monaco.editor.createModel(todos[a], lingDe(a), monaco.Uri.parse(`file:///maisim/${a}`));
       ctl.modelos[a].onDidChangeContent(() => { if (!ctl.calado) agendaGuardar(); }); }
     ctl.editor = monaco.editor.create($("ctl-editor"), { model: ctl.modelos["controle.py"], automaticLayout: true, fontSize: 13, theme: temaAtual() === "escuro" ? "vs-dark" : "vs",
       minimap: { enabled: false }, scrollBeyondLastLine: false, tabSize: 4, insertSpaces: true, lineNumbersMinChars: 3,
@@ -347,6 +392,7 @@ function desenhaLigacoes() {
   const d = ctl.dados; if (!d) return;
   const c = d.controle, dt = Number(sim.par.dt) || 1e-6;
   $("ctl-ativo").checked = !!c.ativo;
+  $("ctl-c-usar").checked = !!(c.c && c.c.usar); $("ctl-c-prec").value = (c.c && c.c.precisao) || "double"; marcaVisao();
   if (document.activeElement !== $("ctl-ts")) $("ctl-ts").value = c.Ts;
   campoNumero($("ctl-ts"), { un: "s", positivo: true, apos: $("ctl-ts-i") });   // o Ts com prefixo (50u): "= 50 µs" embaixo
   infoTs();
@@ -547,8 +593,11 @@ function desenhaControladores() {
   let html = ctlsArq.filter((a) => ctl.lista.includes(a)).map(raiz).join("");
   if (comp.length) html += `<details class="ctl-comp" open><summary title="${escT(tr("ctl.t_compartilhados"))}">${escT(tr("ctl.compartilhados", { n: comp.length }))}</summary>${comp.map((f) =>
     modulo(f, `⇄/${f}`, new Set(), true) + `<div class="ctl-usa">${escT(tr("ctl.usado_por", { quem: quemUsa(f) }))}</div>`).join("")}</details>`;
-  const soltos = ctl.lista.filter((a) => !mostrados.has(a));
-  if (soltos.length) {                                   // primeiro os que nenhum outro solto importa, com os que eles importam embaixo
+  const soltos = ctl.lista.filter((a) => !mostrados.has(a) && !ehC(a));
+  if (visaoC()) html = ctl.lista.filter(ehC).map((a) =>    // a visão C: só os arquivos do C (o controle.c é o controlador; nome fixo)
+    `<div class="ctl-no${a === ctl.arq ? " ativo" : ""}${comErro.has(a) ? " com-erro" : ""}" data-abre="${escT(a)}" title="${escT(a)}">${ICONE_ARQ}<span class="nome">${escT(a)}</span>${a === "controle.c" ? ""
+      : `<span class="fecha" data-fecha="${escT(a)}" title="${escT(tr("ctl.t_apagar_arq", { arq: a }))}">×</span>`}</div>`).join("");
+  if (soltos.length && !visaoC()) {                      // primeiro os que nenhum outro solto importa, com os que eles importam embaixo
     const importados = new Set(soltos.flatMap((a) => importsDe(a)));
     let h = soltos.filter((a) => !importados.has(a)).map((a) => modulo(a, `~/${a}`, new Set())).join("");
     h += soltos.filter((a) => !mostrados.has(a)).map((a) => modulo(a, `~/${a}`, new Set())).join("");   // os de um ciclo
@@ -716,7 +765,8 @@ document.addEventListener("click", (ev) => { if (!ev.target.closest) return;
   const b = ev.target.closest("#ctl-avisos [data-troca]"); if (b && ctl.dados) { trocaVariavel((ctl.dados.sem_esquema || [])[+b.dataset.troca]); return; }
   const vai = ev.target.closest("#ctl-avisos [data-vai]"); if (vai) { const i = vai.dataset.vai.lastIndexOf(":"); vaiParaLinha(vai.dataset.vai.slice(0, i), +vai.dataset.vai.slice(i + 1)); } });
 // o módulo compartilhado (o servidor diz quais, pelo código): a árvore já mostra, o painel não repete
-const avisosDoPainel = (l, comp) => (l || []).filter((a) => !(comp || []).includes(a)).map((a) => `<div>${escT(a)}</div>`).join("");
+// na visão C, os avisos dos módulos .py (que o C não usa) ficam de fora: valem para a visão Python
+const avisosDoPainel = (l, comp) => (l || []).filter((a) => !(comp || []).includes(a) && !(visaoC() && /\.py\b/.test(a))).map((a) => `<div>${escT(a)}</div>`).join("");
 function importsDe(a) {
   const t = textoDe(a), nomes = [];
   for (const m of t.matchAll(/^[ \t]*(?:import[ \t]+([\w., \t]+)|from[ \t]+(\w+)[ \t]+import\b)/gm)) {
@@ -833,7 +883,7 @@ function ligaVistaDiag() {
 function desenhaDiagrama() {
   const svg = $("ctl-diag-svg"); if (!svg || !ctl.dados) return;
   const d = ctl.dados, c = d.controle, cs = (c.controladores || []).length ? c.controladores
-    : [{ nome: "controle", arquivo: "controle.py", todas: true, medidas: [], atuacoes: c.atuacoes.slice(), subcircuitos: [] }];
+    : [{ nome: "controle", arquivo: visaoC() ? "controle.c" : "controle.py", todas: true, medidas: [], atuacoes: c.atuacoes.slice(), subcircuitos: [] }];
   const msgs = mensagensDe(cs), lat = (c.rede && c.rede.latencia) || 0, quando = lat > 0 ? tr("ctl.diag_fibra", { t: si(lat, "s") }) : tr("ctl.diag_mais1");
   // o que foi de fato nas mensagens (o último "testar" ou a última rodada: mensagens_vistas, no servidor), no lugar do que dá
   // para ler do código (Marcelo, 22/10: envia("controle", c["sobe"]) com o dicionário montado num laço em outro arquivo
@@ -1231,6 +1281,7 @@ function coleta() {
   return { ativo: $("ctl-ativo").checked, Ts: ts || c.Ts || 1e-4,
     atuacoes: [...document.querySelectorAll("#ctl-atu [data-atu]")].filter((x) => x.checked).map((x) => x.dataset.atu),
     parametros: pars.filter((q) => q.nome), codigo: codigoAtual(), arquivos: arquivosDoEditor(), controladores: ctls, rede: { latencia: latRede },
+    c: { usar: $("ctl-c-usar").checked, precisao: $("ctl-c-prec").value, arquivos: arquivosC() },
     atraso: { modo: $("ctl-atraso").value, tempo: lat }, acionamentos: acs };
 }
 function agendaGuardar() { clearTimeout(ctl.timer); poeEstado(tr("ctl.editando")); ctl.timer = setTimeout(guardaControle, 600); }
@@ -1468,6 +1519,9 @@ function tagAtuador(g, x, y, nome, centrada = false) {   // centrada: x é o mei
   $("ctl-quebra").onclick = () => poeQuebra(!ctl.quebra);
   $("ctl-quebra").classList.toggle("ativo", ctl.quebra); $("ctl-quebra").setAttribute("aria-pressed", String(ctl.quebra));
   $("ctl-testar").onclick = testaControle;
+  $("ctl-c-usar").addEventListener("change", () => { if ($("ctl-c-usar").checked) abreC(false); });   // guarda: o change da coluna
+  document.querySelectorAll("#ctl-ling [data-ling]").forEach((b) => { b.onclick = () => { if (!b.disabled) poeVisao(b.dataset.ling === "c"); }; });
+  $("ctl-c-comparar").onclick = comparaPyC;
   $("ctl-saida-fecha").onclick = () => { $("ctl-saida-caixa").style.display = "none"; };
   $("ctl-saida-copia").onclick = async () => { const bt = $("ctl-saida-copia"); feito(bt, (await copiaTexto(ctl.saida && ctl.saida.tipo === "erro" ? textoDoErro() : $("ctl-saida").textContent)) ? tr("ctl.copiado") : tr("ctl.nao_deu"), "ctl.saida_copia"); };
   $("ctl-saida-claude").onclick = () => {                  // a conversa abre com o pedido escrito; quem envia é você
@@ -1491,6 +1545,50 @@ function desenhaLigacoesTs() { infoTs(); }
 async function atualizaVistas() {                     // o que foi nas mensagens (mensagens_vistas): o diagrama acompanha
   try { const j = await api("editor/controle"); if (ctl.dados) { ctl.dados.mensagens_vistas = j.mensagens_vistas; if (ctl.tabela === "diag") desenhaDiagrama(); } }
   catch (e) { /* ok: fica o de antes */ }
+}
+// o controle.c: abre (e cria do modelo do servidor, se não houver); guardar = o mesmo caminho dos outros arquivos
+const editorDoCodigoPronto = () => !!(ctl.editor || ctl.texto);      // o Monaco (ou a caixa simples) já de pé: antes, o código ainda não está nele
+function abreC(guarda = true) {
+  if (!editorDoCodigoPronto()) return;
+  if (!ctl.lista.includes("controle.c")) { criaArquivo("controle.c", (ctl.dados && ctl.dados.modelo_c) || '#include "maisim_controle.h"\n'); if (guarda) guardaControle(); }
+  mostraArquivo("controle.c");
+}
+// "Comparar Python × C": a mesma rodada com o controle.py e com o controle.c (o ⚙ da simulação), e a maior diferença de
+// cada sinal; as duas ficam no Scope (A e B) para ver lado a lado. A chave "Rodar em C" volta a como estava
+const esperaLivre = async () => { for (let k = 0; k < 40 && document.body.classList.contains("sim-rodando"); k++) await new Promise((ok) => setTimeout(ok, 150)); };
+async function comparaPyC() {
+  const bt = $("ctl-c-comparar"), res = $("ctl-c-res");
+  if (bt.disabled || !editorDoCodigoPronto() || sim.estado === "rodando" || sim.estado === "pausada") return;
+  if (!ctl.lista.includes("controle.c")) abreC(false);
+  const so = (t) => t.replace(/\s+/g, " ").trim();          // o controle.c ainda é o modelo: não escreve nada, a comparação não diria nada útil
+  if (ctl.dados && ctl.dados.modelo_c && so(textoDe("controle.c")) === so(ctl.dados.modelo_c)) {
+    mostraArquivo("controle.c"); res.innerHTML = `<span class="dif">${escT(tr("ctl.c_modelo"))}</span>`; return; }
+  bt.disabled = true;
+  const umaRodada = async (comC, n, qual) => {          // a rodada diz a linguagem (linguagem): o que está guardado não muda
+    res.textContent = tr("ctl.c_rodando", { n, qual });
+    await esperaLivre();
+    let j = await api("editor/rodar", { ...sim.par, linguagem: comC ? "c" : "python", nome: `${sim.par.nome || "rodada"}_${comC ? "c" : "python"}` });
+    acompanha(j);
+    while (["preparando", "rodando", "pausada"].includes(j.estado)) { await new Promise((ok) => setTimeout(ok, 500)); j = await api("editor/rodada"); }
+    if (j.estado !== "fim") throw new Error(j.erro || j.estado);
+    return j;
+  };
+  try {
+    if (!(await guardaControle())) throw new Error(ctl.erroGuardar || tr("ctl.nao_guardou"));
+    const a = await umaRodada(false, 1, "controle.py"), b = await umaRodada(true, 2, "controle.c");
+    ctl.compara = { r: await api("editor/controle/compara", { a: a.arquivo, b: b.arquivo }), a: a.nome, b: b.nome };
+    mostraComparacao();
+    if (typeof mostraDoca === "function") mostraDoca("controle");   // o fim da rodada levou ao Scope: o resultado está aqui
+  } catch (e) { res.innerHTML = `<span class="dif">${escT(tr("ctl.c_falhou", { erro: e.message }))}</span>`; if (typeof mostraDoca === "function") mostraDoca("controle"); }
+  finally { bt.disabled = false; }
+}
+function mostraComparacao() {
+  const k = ctl.compara; if (!k) return;
+  const cols = k.r.colunas, difs = cols.filter((c) => !c.iguais), num = (x) => +x.toPrecision(3);
+  $("ctl-c-res").innerHTML = (k.r.iguais ? `<span class="ok">${escT(tr("ctl.c_iguais", { n: cols.length }))}</span>`
+    : `<span class="dif">${escT(tr("ctl.c_diferentes", { n: difs.length, total: cols.length }))}</span><table>${difs.map((c) =>
+      `<tr><td>${escT(tr("ctl.c_col", { nome: c.nome, max: num(c.max), rel: `${num(100 * c.rel)} %` }))}</td></tr>`).join("")}</table>`) +
+    `<div>${escT(tr("ctl.c_rodadas", { a: k.a, b: k.b }))}</div>`;
 }
 async function testaControle() {
   const bt = $("ctl-testar"); if (bt.disabled) return;

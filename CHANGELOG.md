@@ -6,6 +6,9 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Added
+- **The control in C, running inside the simulation (software-in-the-loop)**: a `controle.c` can run in place of the `controle.py`, compiled and called every Ts through the same path (delays, events and Gecko's per-sample stepping unchanged). In the Control panel, a **Python | C** selector (FPGA greyed out, coming later) chooses the language that runs and the one the panel shows: the files, the tabs (the C one with C highlighting, created from a template) and the controller block in the diagram; the tables' "In the code" column finds the uses in both (`m[M_i_L]`, `p[P_Kp]`, `u[U_g] =`). **Compare Python × C** runs the circuit with each and shows, signal by signal, whether they match bit for bit or the largest difference; both runs stay in the Scope to compare A/B. MaiSim generates `maisim_sinais.h` from the panel (the indices `M_<measurement>`, `P_<parameter>` with `P_Ts`, `U_<actuation>`); the contract is `simu/controle_c/maisim_controle.h` (`maisim_tamanho_estado`, `maisim_iniciar`, `maisim_passo`, `maisim_scope`): state in a struct, no `malloc`, ready for a DSP. A compile error comes back with the file and line, like a Python error. With the same operations in the same order, the C run matches the Python run bit for bit (the PWM buck example); `float` precision (as on a C28x) shows its effect. For now: one controller, needs `tcc`, `gcc` or `cc`, and the C is written by hand; the AI converting between Python and C and the compiler bundled in the packages come next.
+
 ## [0.3.10] - 2026-11-04
 
 ### Fixed

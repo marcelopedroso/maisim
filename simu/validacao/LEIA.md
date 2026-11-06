@@ -73,6 +73,7 @@ Rode um ensaio por vez, porque o Gecko de teste é um só. Os ensaios Python usa
 | `controladores_api.py` | vários controladores: aquisição + controle ≡ controlador único com a medida atrasada (bit a bit, latência 0 e 2,5·Ts); isolamento; paralelo; visão local; dono único; salvar/abrir; um por subcircuito no MMC | 17/17 |
 | `validador_offline.py` | o validador do controle (offline) | 11/11 |
 | `teste_controle.py` | passo 1: PI de corrente num RL (fonte controlada) × referência independente | atuação 1 Δt depois da amostra; erro ~1e-4 A (referência por exponencial exata) |
+| `controle_c_api.py` | o controle em C (SIL, `controle_worker_c.py`) × o mesmo em Python no exemplo do buck com PWM; teste de 3 passos em C, precisão simples, erro de compilação com a linha, função que falta, a tela sem o campo do C não o apaga | as 10 colunas da rodada iguais bit a bit (`-ffp-contract=off`); float perto |
 | `teste_passo2.py` | passo 2: atrasos logo, amostra e latência; acionamentos de CONST e de `p[...]`; malha aberta; CONST devolvidos. Referência por **Euler implícito** (como o Gecko), tolerância 1e-9 A | 1,4e-13 a 1,6e-13 A; malha aberta 1,4e-12 A; com o atraso errado, 0,18 a 0,63 A |
 | `teste_revisao.py` | as correções da revisão do passo 2 (rode depois do `teste_passo2.py`, que deixa o circuito aberto) | 0 falhas |
 | `pi_euler.py` | o resíduo do PI some com Euler implícito (lê as rodadas `A_logo` e `B_amostra` do `teste_passo2.py`) | 9,4e-5 → 1,4e-13 A |
