@@ -465,6 +465,13 @@ class Atualizacao:
                 else:
                     git("checkout", "-q", "--detach", antes)
                 raise
+            if (RAIZ / "simu" / "static" / "vendor" / "monaco" / ".versao").is_file():   # o Monaco local (sem internet): traz o
+                with open(log, "a") as f:                   # que mudou nele (o realce do C); sem rede, segue com o que há
+                    try:
+                        subprocess.run(["bash", str(RAIZ / "simu" / "vendor.sh")], stdout=f, stderr=subprocess.STDOUT,
+                                       stdin=subprocess.DEVNULL, timeout=300)
+                    except (OSError, subprocess.TimeoutExpired) as e:
+                        f.write(f"vendor.sh: {e}\n")
             self._fase(fase="reiniciando")
             if reinicia:
                 reinicia_fonte(modo, log)

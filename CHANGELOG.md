@@ -6,6 +6,9 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Fixed
+- **The C code had no colors in the Control panel** (black text, like a notepad, while the Python was highlighted): the local Monaco (`simu/vendor.sh`, so the editor works offline) only kept the Python language. It now keeps C too (Monaco's `cpp`), and runs again when a language is missing; the developer version's **Update** also runs it when the local Monaco is there, so existing clones get the C colors.
+
 ### Added
 - **The AI converts the control between Python and C ("Code ⇄")**: in the Control panel, **⇄ Generate C from Python** (on the C view) or **⇄ Generate Python from C** (on the Python view) asks MaiSim's AI for the same control in the other language, with the same operations in the same order; you see the diff and apply it, as with any proposal (per file, and "back to before" brings the C back too). The AI's folder now has `controle.c` (the template if there is none), `maisim_sinais.h` generated from the panel and `maisim_controle.h`, and the AI may write `controle.c`; the proposed C is compiled to check it (not run), so an error shows on its line before you apply, and the proposal's test runs the C. A badge says **in sync ✓** while both files are the ones from the last comparison that matched (and **out of sync** once either changes). With **Code ⇄** on, saving a change in one of them asks the AI for the other after a few seconds, applies it and compares both.
 
