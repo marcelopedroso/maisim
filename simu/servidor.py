@@ -1702,6 +1702,21 @@ class ErroControle(ErroMotor):
 ATRASOS = ("logo", "amostra", "tempo")       # atuação em t + Δt (logo), em t + Ts (amostra seguinte) ou em t + τ
 
 
+# a biblioteca de controle (Marcelo, 06/11: "pwm.py e pwm.c, pi.py e pi.c… ter ali e usar ou não"): módulos prontos, cada
+# um em Python e em C com as mesmas contas na mesma ordem (o Comparar Python × C dá igual bit a bit: biblioteca_offline.py);
+# o "+ Arquivo" do painel os insere (o .py na visão Python; o par .h/.c na visão C), com os que eles usam (o pll usa o pi)
+BIBLIOTECA = AQUI / "biblioteca_controle"
+BIB_MODULOS = {"pi": [], "pwm": [], "passa_baixa": [], "rampa": [], "pll": ["pi"]}   # o módulo: os que ele importa
+
+
+def biblioteca_controle():
+    """Os módulos da biblioteca no idioma do pedido: {nome: {"py": {arq: texto}, "c": {arq: texto}, "precisa": [nomes]}}."""
+    sufixo = ".en" if lingua.atual() == "en" else ""
+    le = lambda m, x: (BIBLIOTECA / f"{m}{sufixo}.{x}").read_text()
+    return {m: {"py": {f"{m}.py": le(m, "py")}, "c": {f"{m}.h": le(m, "h"), f"{m}.c": le(m, "c")}, "precisa": precisa}
+            for m, precisa in BIB_MODULOS.items()}
+
+
 def modelo_c():
     """O controle.c de um circuito novo (o modelo, no idioma do pedido): o botão "controle.c" do painel o cria."""
     arq = AQUI / "controle_c" / ("controle_modelo.en.c" if lingua.atual() == "en" else "controle_modelo.c")
@@ -6421,6 +6436,8 @@ class Manipulador(BaseHTTPRequestHandler):
             return self._resposta(200, r)
         if rota == "/editor/controle":
             return self._resposta(200, painel_controle())
+        if rota == "/editor/controle/biblioteca":      # os módulos prontos (pi, pwm, passa_baixa, rampa, pll) em Python e em C
+            return self._resposta(200, {"modulos": biblioteca_controle()})
         if rota == "/editor/pendente":               # o Gecko do MaiSim tem algo não salvo? (para quem vai derrubá-lo: npm run maisim)
             try:                                     # o circuito, o controle e as cores, contra o arquivo aberto (situacao_gecko)
                 sit = situacao_gecko()

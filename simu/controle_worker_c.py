@@ -6,7 +6,8 @@ devolve as atuações e o que foi ao scope; {"op": "parametros"} troca p[...]. U
 linha, como o erro do Python. O contrato está em controle_c/maisim_controle.h.
 
 O compilador: MAISIM_CC, o TinyCC que vem com o MaiSim (tcc/ na raiz), o tcc do sistema, o gcc ou o cc — o que houver.
-Com gcc/cc, -ffp-contract=off: as contas na mesma ordem dão o mesmo double do Python (sem FMA trocando o arredondamento).
+Com gcc/cc, -ffp-contract=off e sem o sincos() do gcc: as contas na mesma ordem dão o mesmo double do Python (sem FMA nem
+sincos trocando o arredondamento).
 """
 import ctypes
 import json

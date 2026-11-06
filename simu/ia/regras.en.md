@@ -34,6 +34,9 @@ The working folder has:
   prefixed with the module name (leitura_passo); the module's state is a struct of its own inside controle.c's Estado,
   passed by pointer (no mutable globals). When converting a controle.py with modules, each module becomes its own .h/.c
   pair (leitura.py → leitura.h + leitura.c), with the same organization.
+  The MaiSim library (pi, pwm, passa_baixa, rampa, pll: the comment at the top says "MaiSim library") has the same
+  module in Python and in C, with the same operations: if the control already has one, use it (how to use it is in the
+  comment at the top) instead of rewriting it; when converting, pi.py becomes the library's pi.h/pi.c, as they are.
 - parametros.json: the parameters p["..."], a list of {"nome", "valor", "unidade"}. Every p["x"] in the code must
   be here (create it with value and unit); "Ts" does not go here (it comes from the panel).
 - acionamentos.json: changes at time t, a list of {"t": seconds, "alvo": "p:<parameter>" or

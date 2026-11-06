@@ -261,11 +261,15 @@ function buscaModelosCodigo() {                           // ao trocar o idioma 
 // controlador à parte (outro DSP, com atraso nas mensagens), "virar controlador" na árvore
 async function novoArquivo() {
   if (travado() || !ctl.carregado) return;
-  if (visaoC()) { novoModuloC(); return; }
-  let k = 1; while (ctl.lista.includes(`modulo${k}.py`)) k++;
-  const r = await modal({ titulo: tr("ctl.novo_arq_titulo"), texto: tr("ctl.novo_arq_html"),
-    campos: [{ nome: "nome", rotulo: tr("ctl.col_nome"), valor: `modulo${k}.py`, dica: tr("ctl.dica_nome_arq") }], ok: tr("ctl.criar") });
+  const emC = visaoC();
+  let k = 1; while (emC ? ctl.lista.includes(`modulo${k}.c`) || ctl.lista.includes(`modulo${k}.h`) : ctl.lista.includes(`modulo${k}.py`)) k++;
+  let bib = "";                                          // um módulo da biblioteca, ou "" (o módulo vazio, com o nome digitado)
+  const r = await modal({ titulo: tr("ctl.novo_arq_titulo"), texto: tr(emC ? "ctl.novo_arq_c_html" : "ctl.novo_arq_html"), html: htmlBiblioteca(),
+    campos: [{ nome: "nome", rotulo: tr("ctl.col_nome"), valor: emC ? `modulo${k}` : `modulo${k}.py`, dica: tr(emC ? "ctl.dica_nome_arq_c" : "ctl.dica_nome_arq") }],
+    ok: tr("ctl.criar"), foco: "input[name=nome]", monta: (f) => ligaBiblioteca(f, emC, (b) => { bib = b; }) });
   if (!r) return;
+  if (bib) { insereDaBiblioteca(bib); return; }
+  if (emC) { criaModuloC(r.nome); return; }
   const nome = /\.py$/.test(r.nome.trim()) ? r.nome.trim() : r.nome.trim() + ".py";
   if (!/^[A-Za-z_][A-Za-z0-9_]{0,40}\.py$/.test(nome)) { poeEstado(tr("ctl.nome_arq_invalido"), "erro"); return; }
   if (ctl.lista.includes(nome)) { poeEstado(tr("ctl.ja_existe", { nome }), "erro"); return; }
@@ -273,6 +277,42 @@ async function novoArquivo() {
   criaArquivo(nome, modelosCodigo().modelos.modulo || "");
   Object.assign(ctl.dados.controle, c, { arquivos: arquivosDoEditor() }); desenhaLigacoes(); mostraArquivo(nome); guardaControle();
   poeEstado(tr("ctl.modulo_criado", { arq: nome, mod: nomeDoArquivo(nome) }), "ok");
+}
+// a biblioteca de controle (Marcelo, 06/11: "pwm.py e pwm.c, pi.py e pi.c… ter ali e usar ou não, ajudaria a turma"): os
+// módulos prontos do servidor (simu/biblioteca_controle), em Python e em C com as mesmas contas na mesma ordem. Na janela
+// do "+ Arquivo": vazio (o nome digitado) ou um deles (o nome é o dele: o código chama pi.passo / pi_passo)
+const BIB = ["pi", "pwm", "passa_baixa", "rampa", "pll"];
+function htmlBiblioteca() {
+  const op = (b, rot, sub, marcado = false) => `<label><input type="radio" name="bib" value="${b}"${marcado ? " checked" : ""}> <b>${escT(rot)}</b> <small>${escT(sub)}</small></label>`;
+  return `<div class="ctl-bib" role="radiogroup" aria-label="${escT(tr("ctl.bib_a"))}">${op("", tr("ctl.bib_vazio"), tr("ctl.bib_vazio_sub"), true)}
+    <h4>${escT(tr("ctl.bib_titulo"))}</h4>${BIB.map((b) => op(b, tr(`ctl.bib_${b}`), tr(`ctl.bib_${b}_sub`))).join("")}</div>`;
+}
+function ligaBiblioteca(fundo, emC, aoEscolher) {        // um módulo da biblioteca: o nome é o dele (só leitura); vazio: o digitado
+  const campo = fundo.querySelector("input[name=nome]"), digitado = campo.value;
+  fundo.querySelectorAll("input[name=bib]").forEach((x) => x.addEventListener("change", () => {
+    const b = x.value; aoEscolher(b);
+    campo.readOnly = !!b; campo.value = b ? (emC ? b : `${b}.py`) : digitado;
+  }));
+}
+async function bibliotecaControle() {                    // no idioma da hora (os comentários do código)
+  const l = maisimI18n.lingua();
+  if (!ctl.bib || ctl.bib.lingua !== l) ctl.bib = { lingua: l, modulos: (await api("editor/controle/biblioteca")).modulos };
+  return ctl.bib.modulos;
+}
+async function insereDaBiblioteca(nome) {                // o .py (visão Python) ou o par .h/.c (visão C), com os que ele usa
+  const emC = visaoC();
+  let bib; try { bib = await bibliotecaControle(); } catch (e) { poeEstado(tr("ctl.bib_nao_leu", { erro: e.message }), "erro"); return; }
+  const arqs = (n) => (emC ? bib[n].c : bib[n].py);
+  const existe = (a) => ctl.lista.find((x) => x.toLowerCase() === a.toLowerCase());
+  const ja = Object.keys(arqs(nome)).map(existe).find(Boolean);
+  if (ja) { poeEstado(tr("ctl.ja_existe", { nome: ja }), "erro"); return; }
+  const novos = [...bib[nome].precisa, nome].flatMap((n) => Object.entries(arqs(n))).filter(([a]) => !existe(a));   // o pi que já está fica como está
+  const c = coleta(); if (c.invalido) return;
+  for (const [a, t] of novos) criaArquivo(a, t);
+  if (emC) c.c = { ...c.c, arquivos: arquivosC() };
+  const uso = emC ? `${nome}.h` : `${nome}.py`;          // o uso está no comentário do começo
+  Object.assign(ctl.dados.controle, c, { arquivos: arquivosDoEditor() }); desenhaLigacoes(); mostraArquivo(uso);
+  if (await guardaControle()) poeEstado(tr("ctl.bib_inserido", { arqs: listaE(novos.map(([a]) => a)), uso }), "ok");   // depois do "guardado"
 }
 // um módulo em C: o par nome.h (o que ele oferece: as declarações) e nome.c (o código), como se organiza um firmware; o
 // controle.c faz #include "nome.h" e chama as funções. O nome vira o prefixo das funções (nome_passo)
@@ -283,12 +323,8 @@ function modelosModuloC(mod) {
     c: `/* ${tr("ctl.c_mod_c_coment", { mod })} */\n#include "${mod}.h"\n\nmaisim_real ${mod}_passo(maisim_real x) {\n    return x;\n}\n`,
   };
 }
-async function novoModuloC() {
-  let k = 1; while (ctl.lista.includes(`modulo${k}.c`) || ctl.lista.includes(`modulo${k}.h`)) k++;
-  const r = await modal({ titulo: tr("ctl.novo_arq_titulo"), texto: tr("ctl.novo_arq_c_html"),
-    campos: [{ nome: "nome", rotulo: tr("ctl.col_nome"), valor: `modulo${k}`, dica: tr("ctl.dica_nome_arq_c") }], ok: tr("ctl.criar") });
-  if (!r) return;
-  const mod = r.nome.trim().replace(/\.[ch]$/, "");
+function criaModuloC(nome) {
+  const mod = nome.trim().replace(/\.[ch]$/, "");
   if (!/^[A-Za-z_][A-Za-z0-9_]{0,38}$/.test(mod) || /^maisim_/i.test(mod) || mod === "controle") { poeEstado(tr("ctl.nome_arq_c_invalido"), "erro"); return; }
   const h = `${mod}.h`, c_ = `${mod}.c`;                // foo e Foo não: a guarda FOO_H seria a mesma (e no Windows, o mesmo arquivo)
   const ja = ctl.lista.find((a) => ehC(a) && [h, c_].some((x) => x.toLowerCase() === a.toLowerCase()));

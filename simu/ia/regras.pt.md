@@ -34,6 +34,9 @@ A pasta de trabalho tem:
   prefixo do módulo (leitura_passo); o estado do módulo é um struct dele dentro do Estado do controle.c, passado por
   ponteiro (sem globais que mudam). Ao converter um controle.py com módulos, cada módulo vira o seu par .h/.c (leitura.py
   → leitura.h + leitura.c), com a mesma organização.
+  A biblioteca do MaiSim (pi, pwm, passa_baixa, rampa, pll: o comentário do começo diz "biblioteca do MaiSim") tem o
+  mesmo módulo em Python e em C, com as mesmas contas: se o controle já tem um deles, use-o (o uso está no comentário do
+  começo) em vez de reescrever; ao converter, o pi.py vira o pi.h/pi.c da biblioteca, como estão.
 - parametros.json: os parâmetros p["..."], uma lista de {"nome", "valor", "unidade"}. Todo p["x"] do código precisa
   estar aqui (crie com valor e unidade); "Ts" não entra (vem do painel).
 - acionamentos.json: mudanças no instante t, uma lista de {"t": segundos, "alvo": "p:<parâmetro>" ou
