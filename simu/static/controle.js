@@ -57,6 +57,7 @@ const codigoAtual = () => textoDe("controle.py");
 // o controle em C (o SIL: controle_worker_c.py): o controle.c (e outros .c/.h) abre numa aba como os .py, no Monaco em C,
 // mas fica fora dos módulos do Python (não vai em "arquivos", nem na árvore dos imports): vai em "c": {usar, precisao, arquivos}
 const ehC = (a) => /\.[ch]$/.test(a);
+const raizC = (a) => a.replace(/\.py$/, ".c");        // o arquivo em C de um controlador: o nome do .py dele (aquisicao.py → aquisicao.c)
 const lingDe = (a) => ehC(a) ? "c" : "python";
 // a visão (Python | C): a linguagem que roda e a que o painel mostra (as abas, a árvore dos arquivos); a comparação usa as duas
 const visaoC = () => $("ctl-c-usar").checked;
@@ -323,6 +324,13 @@ function modelosModuloC(mod) {
     c: `/* ${tr("ctl.c_mod_c_coment", { mod })} */\n#include "${mod}.h"\n\nmaisim_real ${mod}_passo(maisim_real x) {\n    return x;\n}\n`,
   };
 }
+function criaRaizC(a) {                                 // o .c de um controlador que ainda não tem (o modelo do controle.c)
+  if (travado() || !ctl.carregado || ctl.lista.includes(a)) return;
+  const c = coleta(); if (c.invalido) return;
+  criaArquivo(a, (ctl.dados && ctl.dados.modelo_c) || '#include "maisim_controle.h"\n');
+  c.c = { ...c.c, arquivos: arquivosC() };
+  Object.assign(ctl.dados.controle, c, { arquivos: arquivosDoEditor() }); desenhaLigacoes(); mostraArquivo(a); guardaControle();
+}
 function criaModuloC(nome) {
   const mod = nome.trim().replace(/\.[ch]$/, "");
   if (!/^[A-Za-z_][A-Za-z0-9_]{0,38}$/.test(mod) || /^maisim_/i.test(mod) || mod === "controle") { poeEstado(tr("ctl.nome_arq_c_invalido"), "erro"); return; }
@@ -572,7 +580,7 @@ function desenhaControladores() {
   const aberto = (i, g, padrao) => (antes ? antes.has(`${i}:${g}`) : padrao) ? "open" : "";
   const comErro = new Set((d.erros || []).map(arquivoDe));
   const semCircuito = !d.circuito && !d.entradas.length;
-  const msgs = cs.length ? mensagensDe(cs) : {}, lat = (c.rede && c.rede.latencia) || 0;
+  const msgs = cs.length ? mensagensDe(visaoC() ? cs.map((q) => ({ ...q, arquivo: raizC(q.arquivo) })) : cs) : {}, lat = (c.rede && c.rede.latencia) || 0;   // na visão C, as do C
   const quando = lat > 0 ? tr("ctl.quando_fibra", { t: si(lat, "s") }) : tr("ctl.quando_seguinte");
   const oQue = (x) => x.chaves.length ? x.chaves.map((k) => `<code>${escT(k)}</code>`).join(", ") : x.livre ? `<i>${escT(tr("ctl.uma_mensagem"))}</i>` : "<i>{}</i>";
   // o tooltip (Marcelo, 19/10: "passar o mouse e ver o que estou enviando"): as linhas do código do envia, o que vai e o
@@ -614,14 +622,15 @@ function desenhaControladores() {
       ${ss.length ? `<details class="grupo" data-g="sub" ${aberto(i, "sub", q.subcircuitos.length > 0)}><summary><b>${escT(tr("ctl.g_sub"))}</b> ${escT(curto(q.subcircuitos.map(nomeSub)) || tr("ctl.nao"))}</summary>
         <div class="opcoes">${ss.map((x) => caixa("data-sub", x, q.subcircuitos.includes(x), nomeSub(x))).join("")}</div></details>` : ""}
       ${resumo ? `<div class="inst">${escT(resumo)}</div>` : ""}
-      ${q.arquivo !== "controle.py" ? `<button class="ctl-papel" data-desliga="${escT(q.arquivo)}" title="${escT(tr("ctl.t_virar_modulo"))}">${escT(tr("ctl.virar_modulo"))}</button>` : ""}</div>`;
+      ${q.arquivo !== "controle.py" && !visaoC() ? `<button class="ctl-papel" data-desliga="${escT(q.arquivo)}" title="${escT(tr("ctl.t_virar_modulo"))}">${escT(tr("ctl.virar_modulo"))}</button>` : ""}</div>`;
   };
   const semDSP = !ctl.lista.includes("leitura.py") && !ctl.lista.includes("escrita.py");
   // a árvore pelos imports (Marcelo, 19/10: "a lista já está ficando cheia… busca e hierarquia"): cada controlador na raiz;
   // embaixo, os módulos que ele importa, na ordem em que o passo() os chama (o fluxo); módulo que importa outro fica
   // aninhado; o que já apareceu aparece de novo só como referência (acima); os que ninguém importa vão para "sem uso"
-  const emC = visaoC();                                  // a visão C: o controle.c na raiz (um controlador só, nome fixo)
-  const ctlsArq = emC ? ["controle.c"] : cs.length ? unico(["controle.py", ...cs.map((q) => q.arquivo)]) : ["controle.py"];
+  const emC = visaoC();                                  // a visão C: os mesmos controladores, cada um no .c com o nome do .py dele
+  const arqDe = (q) => (emC ? raizC(q.arquivo) : q.arquivo);
+  const ctlsArq = emC ? (cs.length ? unico(cs.map(arqDe)) : ["controle.c"]) : cs.length ? unico(["controle.py", ...cs.map((q) => q.arquivo)]) : ["controle.py"];
   const mostrados = new Set();
   // compartilhados (Marcelo, 19/10: "um lugar do código compartilhado"): entre os arquivos em uso (alcançados a partir dos
   // controladores), o módulo que dois ou mais importam aparece igual em todo lugar (⇄, sem filhos: ninguém é o dono) e uma
@@ -649,16 +658,18 @@ function desenhaControladores() {
   };
   const raiz = (a) => {
     mostrados.add(a);
-    const deles = cs.map((q, i) => [q, i]).filter(([q]) => q.arquivo === a);
+    const deles = cs.map((q, i) => [q, i]).filter(([q]) => arqDe(q) === a);
     const corpo = deles.map(([q, i]) => cartao(q, i)).join("") || (!cs.length && a === "controle.py"
       ? `<div class="ctl-vazio">${escT(tr("ctl.vazio_ctl"))}${semDSP ? `<br><button data-dsp="1" title="${escT(tr("ctl.t_dsp"))}">${escT(tr("ctl.dsp"))}</button>` : ""}</div>` : "");
     const fs = filhos(a, new Set()), semCartao = ctl.cartoesFechados.has(a);
     // dois controles (Marcelo, 19/10): a seta recolhe os códigos (os módulos embaixo); o +/− mostra ou esconde o cartão
     const bt = corpo ? `<button class="ctl-card-bt" data-card="${escT(a)}" title="${escT(semCartao ? tr("ctl.t_cartao_mostra") : tr("ctl.t_cartao_esconde"))}" aria-expanded="${!semCartao}">${semCartao ? "+" : "−"}</button>` : "";
-    return `<div class="ctl-no${a === ctl.arq ? " ativo" : ""}${comErro.has(a) ? " com-erro" : ""}" data-abre="${escT(a)}" title="${escT(tr(a === "controle.py" ? "ctl.t_raiz" : a === "controle.c" ? "ctl.t_raiz_c" : "ctl.t_raiz_renomear", { arq: a }))}">${seta(a, fs.length)}${ICONE_ARQ}<span class="nome">${escT(a)}</span>${bt}${a === "controle.py" || a === "controle.c" ? ""
+    if (emC && !ctl.lista.includes(a))                   // um controlador ainda sem o .c dele: um clique cria (o cartão fica: a lista vem dele)
+      return `<div class="ctl-no ctl-falta" data-cria-c="${escT(a)}" title="${escT(tr("ctl.t_c_falta", { arq: a }))}">${seta(a, 0)}${ICONE_ARQ}<span class="nome">${escT(a)}</span><small>${escT(tr("ctl.c_falta"))}</small>${bt}</div>${corpo ? `<div class="ctl-sub"${semCartao ? " hidden" : ""}>${corpo}</div>` : ""}`;
+    return `<div class="ctl-no${a === ctl.arq ? " ativo" : ""}${comErro.has(a) ? " com-erro" : ""}" data-abre="${escT(a)}" title="${escT(tr(a === "controle.py" ? "ctl.t_raiz" : ehC(a) ? "ctl.t_raiz_c" : "ctl.t_raiz_renomear", { arq: a }))}">${seta(a, fs.length)}${ICONE_ARQ}<span class="nome">${escT(a)}</span>${bt}${a === "controle.py" || a === "controle.c" ? ""
         : `<span class="fecha" data-fecha="${escT(a)}" title="${escT(tr("ctl.t_apagar_arq", { arq: a }))}">×</span>`}</div>${corpo ? `<div class="ctl-sub"${semCartao ? " hidden" : ""}>${corpo}</div>` : ""}` + ramo(fs, a, new Set([a]));
   };
-  let html = ctlsArq.filter((a) => ctl.lista.includes(a)).map(raiz).join("");
+  let html = ctlsArq.filter((a) => emC || ctl.lista.includes(a)).map(raiz).join("");
   if (comp.length) html += `<details class="ctl-comp" open><summary title="${escT(tr("ctl.t_compartilhados"))}">${escT(tr("ctl.compartilhados", { n: comp.length }))}</summary>${comp.map((f) =>
     modulo(f, `⇄/${f}`, new Set(), true) + `<div class="ctl-usa">${escT(tr("ctl.usado_por", { quem: quemUsa(f) }))}</div>`).join("")}</details>`;
   const soltos = ctl.lista.filter((a) => !mostrados.has(a) && ehC(a) === emC);   // só os da linguagem à vista
@@ -683,6 +694,8 @@ function desenhaControladores() {
 // outro… o theta vem do PLL… ter essa cadeia"): os envia("destino", {"chave": …}) do arquivo do controlador e dos módulos
 // que ele importa (eles também têm envia); o que cada um recebe sai do que os outros mandam para ele
 function semComentario(t) { return t.split("\n").map((l) => { const i = l.indexOf("#"); return i < 0 ? l : l.slice(0, i); }).join("\n"); }
+// o C sem comentários, com as quebras de linha no lugar (a linha do envia continua certa)
+function semComentarioC(t) { return t.replace(/\/\*[\s\S]*?\*\//g, (x) => x.replace(/[^\n]/g, " ")).replace(/\/\/.*$/gm, ""); }
 function arquivosDoControlador(arq, ctlsArq) {        // o arquivo e os módulos que ele importa (sem os outros controladores)
   const vistos = new Set([arq]), fila = [arq];
   while (fila.length) for (const f of importsDe(fila.shift())) if (!vistos.has(f) && !ctlsArq.includes(f)) { vistos.add(f); fila.push(f); }
@@ -747,7 +760,19 @@ function mensagensDe(cs) {   // {nome: {envia: [{para, chaves, codigo}], recebe:
   for (const q of cs) out[q.nome] = { envia: [], recebe: [], le: new Set(), chamaRecebe: false };
   for (const q of cs) {
     for (const f of arquivosDoControlador(q.arquivo, ctlsArq)) {
-      const t = semComentario(textoDe(f)), linhas = textoDe(f).split("\n");
+      const linhas = textoDe(f).split("\n");
+      if (ehC(f)) {                                     // o C: maisim_envia("para", "chave", …) e maisim_recebeu("de", "chave", …)
+        const t = semComentarioC(textoDe(f));
+        for (const x of t.matchAll(/\bmaisim_recebeu\s*\(\s*"\w+"\s*,\s*"(\w+)"/g)) { out[q.nome].chamaRecebe = true; out[q.nome].le.add(x[1]); }
+        for (const x of t.matchAll(/\bmaisim_envia\s*\(\s*"(\w+)"\s*,\s*"(\w+)"/g)) {
+          const n = t.slice(0, x.index).split("\n").length, codigo = `${f}:${n}: ${(linhas[n - 1] || "").trim()}`;
+          const e = out[q.nome].envia.find((y) => y.para === x[1]);
+          if (e) { if (!e.chaves.includes(x[2])) e.chaves.push(x[2]); if (!e.codigo.includes(codigo)) e.codigo.push(codigo); }
+          else out[q.nome].envia.push({ para: x[1], chaves: [x[2]], livre: false, codigo: [codigo] });
+        }
+        continue;
+      }
+      const t = semComentario(textoDe(f));
       if (/\brecebe\s*\(\s*\)/.test(t)) out[q.nome].chamaRecebe = true;
       // o que este controlador lê das mensagens: msg["dados"]["x"] ou msg["dados"].get("x")
       for (const x of t.matchAll(/\[\s*["']dados["']\s*\]\s*(?:\[\s*["'](\w+)["']\s*\]|\.get\(\s*["'](\w+)["'])/g)) out[q.nome].le.add(x[1] || x[2]);
@@ -961,8 +986,9 @@ function ligaVistaDiag() {
 }
 function desenhaDiagrama() {
   const svg = $("ctl-diag-svg"); if (!svg || !ctl.dados) return;
-  const d = ctl.dados, c = d.controle, cs = (c.controladores || []).length ? c.controladores
-    : [{ nome: "controle", arquivo: visaoC() ? "controle.c" : "controle.py", todas: true, medidas: [], atuacoes: c.atuacoes.slice(), subcircuitos: [] }];
+  const d = ctl.dados, c = d.controle, cs = ((c.controladores || []).length ? c.controladores
+    : [{ nome: "controle", arquivo: "controle.py", todas: true, medidas: [], atuacoes: c.atuacoes.slice(), subcircuitos: [] }])
+    .map((q) => (visaoC() ? { ...q, arquivo: raizC(q.arquivo) } : q));   // a visão C: cada controlador no .c dele
   const msgs = mensagensDe(cs), lat = (c.rede && c.rede.latencia) || 0, quando = lat > 0 ? tr("ctl.diag_fibra", { t: si(lat, "s") }) : tr("ctl.diag_mais1");
   // o que foi de fato nas mensagens (o último "testar" ou a última rodada: mensagens_vistas, no servidor), no lugar do que dá
   // para ler do código (Marcelo, 22/10: envia("controle", c["sobe"]) com o dicionário montado num laço em outro arquivo
@@ -1552,6 +1578,7 @@ function tagAtuador(g, x, y, nome, centrada = false) {   // centrada: x é o mei
     if (st) { const k = st.dataset.seta; ctl.recolhidos.has(k) ? ctl.recolhidos.delete(k) : ctl.recolhidos.add(k);
       try { localStorage.setItem("maisim-simu-ctl-recolhidos", JSON.stringify([...ctl.recolhidos])); } catch (e) { /* ok */ } desenhaControladores(); return; }
     const f = ev.target.closest("#ctl-ctls [data-fecha]"); if (f) { apagaArquivo(f.dataset.fecha); return; }
+    const falta = ev.target.closest("#ctl-ctls [data-cria-c]"); if (falta) { criaRaizC(falta.dataset.criaC); return; }
     const vai = ev.target.closest("#ctl-busca-res [data-vai]"); if (vai) { const i = vai.dataset.vai.lastIndexOf(":"); vaiParaLinha(vai.dataset.vai.slice(0, i), +vai.dataset.vai.slice(i + 1)); return; }
     const no_ = ev.target.closest("#ctl-ctls .ctl-no, #ctl-busca-res .ctl-no"); if (no_ && !ev.target.closest("[data-liga], [data-desliga]")) { mostraArquivo(no_.dataset.abre); return; }   // i18n-ok: um seletor
     const vista = ev.target.closest("#ctl-vistas [data-vista]"); if (vista) { mostraVista(vista.dataset.vista); return; }

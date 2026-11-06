@@ -1983,20 +1983,66 @@ def sinais_do_c(c, r):
             "u": list(c["atuacoes"])}
 
 
+def raiz_c(arq):
+    """O arquivo em C de um controlador: o nome do .py dele (controle.py → controle.c, aquisicao.py → aquisicao.c)."""
+    return arq[:-3] + ".c" if arq.endswith(".py") else arq
+
+
 def instancias_controle(c, r):
     """Os controladores como instâncias para o processo do controle: (instâncias, erros, avisos). Sem controladores na
     lista, um só: controle.py, com todas as medidas e as atuações marcadas (o de sempre). Num controlador que vale em
     subcircuitos, uma instância por subcircuito ("<controlador>_<prefixo>"), que lê as medidas e escreve as atuações
-    marcadas de dentro dele com o nome sem o prefixo; as medidas e atuações da lista dele valem com o nome do circuito."""
-    cc = c.get("c") or {}
-    if cc.get("usar"):                                 # o controle em C (o SIL): um controlador só, o controle.c
-        if c.get("controladores"):
-            return [], [lingua.tr("controle.c_varios")], []
-        if "controle.c" not in (cc.get("arquivos") or {}):
-            return [], [lingua.tr("controle.c_sem_arquivo")], []
-        return [{"nome": "controle", "arquivo": "controle.c", "codigo": cc["arquivos"]["controle.c"], "medidas": None,
-                 "atuacoes": None, "linguagem": "c", "arquivos_c": dict(cc["arquivos"]), "precisao": cc.get("precisao", "double"),
-                 "sinais": sinais_do_c(c, r), "modulos": {}, "outros": []}], [], []
+    marcadas de dentro dele com o nome sem o prefixo; as medidas e atuações da lista dele valem com o nome do circuito.
+    Rodando em C, os mesmos controladores, cada um no .c com o nome do .py dele (instancias_c)."""
+    insts, erros, avisos = instancias_py(c, r)
+    if (c.get("c") or {}).get("usar"):
+        return instancias_c(c, r, insts, erros, avisos)
+    return insts, erros, avisos
+
+
+def instancias_c(c, r, insts, erros, avisos):
+    """O controle em C (o SIL), com os mesmos controladores do Python (nomes, medidas, atuações, subcircuitos, a rede): cada
+    um compila o .c dele (raiz_c) com os módulos (os .c e .h que não são de nenhum controlador: um leitura.c usado por
+    dois DSPs entra nos dois, e cada um roda a sua cópia) e um maisim_sinais.h só com as medidas e as atuações dele."""
+    cc, arqs = c["c"], dict((c["c"].get("arquivos") or {}))
+    raizes = {raiz_c(i["arquivo"]) for i in insts} | {"controle.c"}   # o controle.c é sempre de um controlador (o de sempre)
+    modulos = {k: v for k, v in arqs.items() if k not in raizes}
+    glob, out = sinais_do_c(c, r), []
+    for i in insts:
+        arq = raiz_c(i["arquivo"])
+        if arq not in arqs:
+            erros.append(lingua.tr("controle.c_sem_arquivo") if arq == "controle.c" and not c.get("controladores")
+                         else lingua.tr("controle.c_falta_raiz", arq=arq, nome=i["nome"], py=i["arquivo"]))
+            continue
+        out.append({**i, "arquivo": arq, "codigo": arqs[arq], "linguagem": "c", "arquivos_c": {arq: arqs[arq], **modulos},
+                    "precisao": cc.get("precisao", "double"), "modulos": {}, "outros": [],
+                    "sinais": {"m": glob["m"] if i["medidas"] is None else list(i["medidas"]), "p": glob["p"],
+                               "u": glob["u"] if i["atuacoes"] is None else list(i["atuacoes"])}})
+    return out, erros, avisos
+
+
+def confere_c(c, arqs_c, r, precisao="double"):
+    """O C (a proposta da IA) compilado até o objeto, sem rodar: com vários controladores, cada um com os módulos e os
+    índices dele (o maisim_sinais.h só com as medidas e as atuações dele). [] ou [{arquivo, linha, coluna, msg}], sem
+    repetir o erro de um módulo que entra em dois controladores."""
+    if not c.get("controladores"):
+        return sinais_c.confere(arqs_c, sinais_do_c(c, r), precisao)
+    insts, _, _ = instancias_controle({**c, "c": {**(c.get("c") or {}), "usar": True, "arquivos": arqs_c}}, r)
+    erros, feitos, vistos = [], set(), set()
+    for i in insts:
+        chave = (i["arquivo"], tuple(i["sinais"]["m"]), tuple(i["sinais"]["u"]))   # as instâncias de um subcircuito: uma vez
+        if chave in feitos:
+            continue
+        feitos.add(chave)
+        for e in sinais_c.confere(i["arquivos_c"], i["sinais"], precisao):
+            if (e["arquivo"], e["linha"], e["msg"]) not in vistos:
+                vistos.add((e["arquivo"], e["linha"], e["msg"]))
+                erros.append(e)
+    return erros
+
+
+def instancias_py(c, r):
+    """As instâncias em Python (instancias_controle)."""
     if not c.get("controladores"):
         return [{"nome": "controle", "arquivo": "controle.py", "codigo": c["codigo"], "medidas": None, "atuacoes": None,
                  "modulos": modulos_de(c), "outros": []}], [], []
@@ -3464,10 +3510,10 @@ class Controladores:
             for i, tb in zip(insts, self.trabs):        # carregam juntos
                 # scope(): o nome da instância na frente quando há várias — menos o controle.py de sempre ("controle"), que
                 # fica com os nomes de antes (as colunas das rodadas não mudam só por existir outro controlador)
-                sempre = i["nome"] == "controle" and i["arquivo"] == "controle.py"
+                sempre = i["nome"] == "controle" and i["arquivo"] in ("controle.py", "controle.c")
                 tb.manda({"op": "carrega", "codigo": i["codigo"], "arquivo": i["arquivo"], "nome": i["nome"], "atuacoes": i["atuacoes"],
                           "p": dict(params, **({"id": i["nome"], **i["p"]} if i.get("p") is not None else {})), "nomes": nomes,
-                          "prefixar": prefixar and not sempre, "varios": prefixar,
+                          "prefixar": prefixar and not sempre, "varios": prefixar,   # o C também: os mesmos nomes no scope
                           "modulos": i.get("modulos") or {}, "outros": i.get("outros") or [],
                           **({"arquivos_c": i["arquivos_c"], "sinais": i["sinais"], "precisao": i["precisao"]} if i.get("linguagem") == "c" else {})})
             for tb in self.trabs:
@@ -5992,7 +6038,7 @@ def claude_proposta(pasta, antes, dt, chave=None, memoria=""):
         if cod_py != arqs_antes.get(arq_py):
             erros += [dict(x, arquivo=arq_py) for x in verifica_codigo(cod_py)[0]]
     if arqs_c != cc_antes and arqs_c:                    # o C proposto: compila até o objeto (não roda), para o erro na linha
-        erros += sinais_c.confere(arqs_c, sinais_do_c(c2, editor.get("ultimo")), (antes.get("c") or {}).get("precisao", "double"))
+        erros += confere_c(c2, arqs_c, editor.get("ultimo"), (antes.get("c") or {}).get("precisao", "double"))
     erros_m, avisos_m = analisa_modulos(c2)
     erros += erros_m
     avisos += avisos_m
@@ -6012,7 +6058,7 @@ def claude_proposta(pasta, antes, dt, chave=None, memoria=""):
             c2["atuacoes"] = sorted(set(c2["atuacoes"]) | set(novas))
         out["marcar"] = novas
     if c2.get("controladores"):                          # os controladores propostos: dono único de cada atuação, arquivos, medidas
-        _, erros_ctl, avisos_ctl = instancias_controle(c2, ult)
+        _, erros_ctl, avisos_ctl = instancias_controle({**c2, "c": {**(c2.get("c") or {}), "arquivos": arqs_c}}, ult)   # com o C proposto
         erros += [{"arquivo": "controladores.json", "linha": 1, "coluna": 1, "msg": x} for x in erros_ctl]
         avisos += [x for x in avisos_ctl if x not in avisos]
     out.update(erros=erros, avisos=avisos, compartilhados=com_codigo(avisos, "importado_compartilhado"))

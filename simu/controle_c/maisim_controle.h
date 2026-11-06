@@ -29,4 +29,12 @@ void maisim_passo(maisim_real t, const maisim_real m[MAISIM_N_M], const maisim_r
 /* manda uma variável ao Scope (no SIL); no alvo, defina como vazia */
 void maisim_scope(const char *nome, maisim_real valor);
 
+/* as mensagens entre controladores (o envia/recebe do Python; no alvo, a sua comunicação: CAN, SPI, memória comum…).
+   maisim_envia manda chave = valor ao controlador "para"; as chaves enviadas ao mesmo controlador na mesma amostra vão
+   numa mensagem só, que chega na 1ª amostra depois desta com t ≥ agora + a latência da rede (nunca na mesma amostra).
+   maisim_recebeu: 1 e o valor em *valor se chegou, NESTA amostra, a chave mandada por "de" (a mais recente); 0 se não
+   chegou (guarde a última no seu estado). Só números (o Python manda também listas e None). */
+void maisim_envia(const char *para, const char *chave, maisim_real valor);
+int maisim_recebeu(const char *de, const char *chave, maisim_real *valor);
+
 #endif
