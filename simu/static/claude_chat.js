@@ -247,6 +247,7 @@ async function atualizaChat() {
   const quem = cc.estado && cc.estado.ia;                 // um pedido de outra IA terminou: o saldo dela mudou
   if (andava && cc.estado && !cc.estado.andamento && quem && quem !== "claude" && cla.iaUso[quem]) carregaUsoIA(quem, true);
   desenhaChat(); acompanhaChat();
+  if (andava && cc.estado && !cc.estado.andamento && typeof aoFimDoPedido === "function") aoFimDoPedido(cc.estado);   // o Código ⇄ do painel
 }
 const editorPronto = () => !!(ctl.editor || ctl.texto);   // o Monaco ainda carregando: o código na tela seria ""
 function acompanhaChat() {
@@ -419,8 +420,10 @@ async function ccVerMudanca(i) {
 // aplicar só uma parte (Marcelo, 22/10: "aprovar/reprovar arquivo por arquivo"): op.recusados (os arquivos que ficam como
 // estão — o novo recusado nem é criado, o apagado recusado fica) e op.semPars (os parâmetros, acionamentos e controladores
 // ficam como estão). "voltar ao de antes" volta tudo, como sempre
+// os arquivos do editor como a proposta os traz: os .py e os do controle em C (o controle.c) juntos
+const todosArquivos = () => Object.assign(arquivosDoEditor(), arquivosC());
 function propostaParcial(p, op, c) {
-  const rec = op.recusados || new Set(), atual = arquivosDoEditor();
+  const rec = op.recusados || new Set(), atual = todosArquivos();
   let arquivos = p.arquivos;
   if (arquivos && rec.size) { arquivos = Object.assign({}, p.arquivos);
     for (const a of rec) if (a !== "controle.py") { if (a in atual) arquivos[a] = atual[a]; else delete arquivos[a]; } }
@@ -465,7 +468,7 @@ async function ccAplica(op = {}) {
   const ordena = (o) => Object.keys(o || {}).sort().map((k) => [k, o[k]]);
   const mudou = [codigoAtual() !== p.codigo_antes && tr("cc.mudou_codigo"), !igual(c.parametros, p.parametros_antes) && tr("cc.mudou_parametros"),
     !igual(c.acionamentos || [], p.acionamentos_antes || []) && tr("cc.mudou_acionamentos"),
-    p.arquivos && !igual(ordena(arquivosDoEditor()), ordena(p.arquivos_antes)) && tr("cc.mudou_arquivos"),
+    p.arquivos && !igual(ordena(todosArquivos()), ordena(p.arquivos_antes)) && tr("cc.mudou_arquivos"),
     p.controladores && !igual(c.controladores || [], p.controladores_antes || []) && tr("cc.mudou_controladores"),
     temCircuito(p) && (await circuitoPropostoMudou(p)) && tr("cc.mudou_circuito")].filter(Boolean);
   if (mudou.length && !(await confirma(tr("cc.aplicar_titulo"), tr("cc.confirma_mudou", { lista: mudou.join(tr("cc.lista_e")) }), tr("cc.aplicar"), false))) return;
@@ -486,7 +489,7 @@ async function ccAplica(op = {}) {
     }
   }
   cc.antes = { codigo: codigoAtual(), parametros: JSON.parse(JSON.stringify(c.parametros)), acionamentos: JSON.parse(JSON.stringify(c.acionamentos || [])),
-    atuacoes: [...c.atuacoes], ativo: !!c.ativo, arquivos: arquivosDoEditor(),
+    atuacoes: [...c.atuacoes], ativo: !!c.ativo, arquivos: todosArquivos(),
     controladores: JSON.parse(JSON.stringify(c.controladores || [])), rede: JSON.parse(JSON.stringify(c.rede || { latencia: 0 })), circuito: descrCirc };
   if (memMudou) { try { cc.antes.memoria = (await apiClaude("memoria")).texto; } catch (e) { cc.antes.memoria = p.memoria_antes || ""; } }
   poeControle({ codigo: p.codigo, parametros: p.parametros, acionamentos: p.acionamentos, atuacoes: p.atuacoes || c.atuacoes, ativo: p.ligar ? true : c.ativo, arquivos: p.arquivos,
@@ -530,7 +533,8 @@ function poeControle(x) {
     for (const a of ctl.lista.slice()) if (a !== "controle.py" && !(a in x.arquivos)) tiraArquivo(a);
     for (const [a, t] of Object.entries(x.arquivos)) { if (!ctl.lista.includes(a)) criaArquivo(a, t); else if (textoDe(a) !== t) poeCodigo(t, a); }
     ctl.calado = false;
-    ctl.dados.controle.arquivos = Object.assign({}, x.arquivos);
+    ctl.dados.controle.arquivos = Object.fromEntries(Object.entries(x.arquivos).filter(([a]) => !ehC(a)));   // os .py; o C vai no "c"
+    if (ctl.dados.controle.c) ctl.dados.controle.c.arquivos = Object.fromEntries(Object.entries(x.arquivos).filter(([a]) => ehC(a)));
   }
   desenhaLigacoes();
   if (ctl.editor) {
@@ -538,6 +542,7 @@ function poeControle(x) {
     const m = ctl.editor.getModel();
     if (m.getValue() !== x.codigo) { ctl.editor.pushUndoStop(); ctl.editor.executeEdits("claude", [{ range: m.getFullModelRange(), text: x.codigo }]); ctl.editor.pushUndoStop(); }
   } else poeCodigo(x.codigo);
+  if (typeof visaoC === "function" && visaoC() && ctl.lista.includes("controle.c")) mostraArquivo("controle.c", false);   // a visão C: o C à vista
 }
 const memoriaMudou = (p) => p.memoria !== undefined && (p.memoria || "").trim() !== (p.memoria_antes || "").trim();
 // a memória do MaiSim: preferências e lições que valem em todas as conversas; o usuário lê e edita aqui
@@ -604,7 +609,7 @@ function ccDiferenca(p0, op = {}) {
     fundo.querySelectorAll(".cc-dif-arqs button").forEach((b) => b.classList.toggle("ativo", +b.dataset.i === i));
     const ab = fundo.querySelector(`.cc-dif-arqs button[data-i="${i}"]`); if (ab) ab.scrollIntoView({ block: "nearest", inline: "nearest" });
     marca();
-    if (dif) { const novos = [ctl.monaco.editor.createModel(f.antes, "python"), ctl.monaco.editor.createModel(f.depois, "python")];
+    if (dif) { const novos = [ctl.monaco.editor.createModel(f.antes, lingDe(f.arq)), ctl.monaco.editor.createModel(f.depois, lingDe(f.arq))];
       dif.setModel({ original: novos[0], modified: novos[1] }); modelos.forEach((m) => m.dispose()); modelos = novos; }
     else el.innerHTML = htmlDiff(diffLinhas(f.antes, f.depois), 100000);
   };

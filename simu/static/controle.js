@@ -64,6 +64,8 @@ function marcaVisao() {
   const c = visaoC();
   $("painel-controle").classList.toggle("visao-c", c);
   document.querySelectorAll("#ctl-ling [data-ling]").forEach((b) => { const a = b.dataset.ling === (c ? "c" : "py"); b.classList.toggle("ativo", a); b.setAttribute("aria-selected", String(a)); });
+  $("ctl-c-ia").textContent = tr(c ? "ctl.c_ia_c" : "ctl.c_ia_py");
+  marcaSelo();
   if (ctl.lista.length && ehC(ctl.arq) !== c && !ctl.tabela) {   // o arquivo aberto é da outra linguagem (a página abriu já na visão C): troca
     const alvo = c ? ctl.lista.find((a) => a === "controle.c") || ctl.lista.find(ehC) : "controle.py";
     if (alvo) mostraArquivo(alvo, false);
@@ -89,7 +91,7 @@ function poeCodigo(txt, arq = "controle.py") {
 function criaArquivo(arq, txt) {                         // um arquivo novo no editor (sem guardar: quem chama guarda)
   if (!ctl.lista.includes(arq)) ctl.lista = ["controle.py", ...ctl.lista.filter((a) => a !== "controle.py").concat(arq).sort()];
   if (ctl.monaco && ctl.editor) { if (!ctl.modelos[arq]) { ctl.modelos[arq] = ctl.monaco.editor.createModel(txt, lingDe(arq), ctl.monaco.Uri.parse(`file:///maisim/${arq}`));
-    ctl.modelos[arq].onDidChangeContent(() => { if (!ctl.calado) agendaGuardar(); }); } else ctl.modelos[arq].setValue(txt); }
+    ctl.modelos[arq].onDidChangeContent(() => { if (!ctl.calado) { editou(arq); agendaGuardar(); } }); } else ctl.modelos[arq].setValue(txt); }
   else ctl.textos[arq] = txt;
 }
 function tiraArquivo(arq) {
@@ -347,7 +349,7 @@ async function criaEditor(c) {
     $("ctl-editor").innerHTML = "";
     addEventListener("maisim-tema", () => monaco.editor.setTheme(temaAtual() === "escuro" ? "vs-dark" : "vs"));   // o tema do MaiSim
     for (const a of ctl.lista) { ctl.modelos[a] = monaco.editor.createModel(todos[a], lingDe(a), monaco.Uri.parse(`file:///maisim/${a}`));
-      ctl.modelos[a].onDidChangeContent(() => { if (!ctl.calado) agendaGuardar(); }); }
+      ctl.modelos[a].onDidChangeContent(() => { if (!ctl.calado) { editou(a); agendaGuardar(); } }); }
     ctl.editor = monaco.editor.create($("ctl-editor"), { model: ctl.modelos["controle.py"], automaticLayout: true, fontSize: 13, theme: temaAtual() === "escuro" ? "vs-dark" : "vs",
       minimap: { enabled: false }, scrollBeyondLastLine: false, tabSize: 4, insertSpaces: true, lineNumbersMinChars: 3,
       renderLineHighlight: "line", fixedOverflowWidgets: true, wordWrap: ctl.quebra ? "on" : "off", wrappingIndent: "indent" });
@@ -392,7 +394,8 @@ function desenhaLigacoes() {
   const d = ctl.dados; if (!d) return;
   const c = d.controle, dt = Number(sim.par.dt) || 1e-6;
   $("ctl-ativo").checked = !!c.ativo;
-  $("ctl-c-usar").checked = !!(c.c && c.c.usar); $("ctl-c-prec").value = (c.c && c.c.precisao) || "double"; marcaVisao();
+  $("ctl-c-usar").checked = !!(c.c && c.c.usar); $("ctl-c-prec").value = (c.c && c.c.precisao) || "double";
+  $("ctl-c-sinc").checked = !!(c.c && c.c.sinc_auto); marcaVisao();
   if (document.activeElement !== $("ctl-ts")) $("ctl-ts").value = c.Ts;
   campoNumero($("ctl-ts"), { un: "s", positivo: true, apos: $("ctl-ts-i") });   // o Ts com prefixo (50u): "= 50 µs" embaixo
   infoTs();
@@ -1281,7 +1284,8 @@ function coleta() {
   return { ativo: $("ctl-ativo").checked, Ts: ts || c.Ts || 1e-4,
     atuacoes: [...document.querySelectorAll("#ctl-atu [data-atu]")].filter((x) => x.checked).map((x) => x.dataset.atu),
     parametros: pars.filter((q) => q.nome), codigo: codigoAtual(), arquivos: arquivosDoEditor(), controladores: ctls, rede: { latencia: latRede },
-    c: { usar: $("ctl-c-usar").checked, precisao: $("ctl-c-prec").value, arquivos: arquivosC() },
+    c: { usar: $("ctl-c-usar").checked, precisao: $("ctl-c-prec").value, arquivos: arquivosC(), sinc_auto: $("ctl-c-sinc").checked,
+      sinc: (c.c && c.c.sinc) || {} },
     atraso: { modo: $("ctl-atraso").value, tempo: lat }, acionamentos: acs };
 }
 function agendaGuardar() { clearTimeout(ctl.timer); poeEstado(tr("ctl.editando")); ctl.timer = setTimeout(guardaControle, 600); }
@@ -1301,6 +1305,7 @@ async function guardaControle() {
     ctl.dados = j; if (!editandoPar) desenhaLigacoes(); else $("ctl-avisos").innerHTML = avisosDoPainel(j.avisos, j.compartilhados) + avisoSemEsquema();
     if (ctl.idiomaPendente) redesenhaIdioma();          // o idioma trocou com um valor inválido à vista: agora vale para tudo
     marcaErros(j.erros, j.conferencia); estadoCodigo(j); desenhaEntradas();
+    if (ctl.editouLing) { const l = ctl.editouLing; ctl.editouLing = null; if ($("ctl-c-sinc").checked) agendaSinc(l); }   // Código ⇄
     if (editandoPar) desenhaInstancias();
     if (typeof avisa === "function") avisa("controle");       // a outra janela (a do código, ou a do circuito) acompanha
     if (dados) desenha();                                  // as etiquetas dos atuadores no desenho
@@ -1522,6 +1527,7 @@ function tagAtuador(g, x, y, nome, centrada = false) {   // centrada: x é o mei
   $("ctl-c-usar").addEventListener("change", () => { if ($("ctl-c-usar").checked) abreC(false); });   // guarda: o change da coluna
   document.querySelectorAll("#ctl-ling [data-ling]").forEach((b) => { b.onclick = () => { if (!b.disabled) poeVisao(b.dataset.ling === "c"); }; });
   $("ctl-c-comparar").onclick = comparaPyC;
+  $("ctl-c-ia").onclick = () => converteIA(visaoC());
   $("ctl-saida-fecha").onclick = () => { $("ctl-saida-caixa").style.display = "none"; };
   $("ctl-saida-copia").onclick = async () => { const bt = $("ctl-saida-copia"); feito(bt, (await copiaTexto(ctl.saida && ctl.saida.tipo === "erro" ? textoDoErro() : $("ctl-saida").textContent)) ? tr("ctl.copiado") : tr("ctl.nao_deu"), "ctl.saida_copia"); };
   $("ctl-saida-claude").onclick = () => {                  // a conversa abre com o pedido escrito; quem envia é você
@@ -1578,9 +1584,46 @@ async function comparaPyC() {
     const a = await umaRodada(false, 1, "controle.py"), b = await umaRodada(true, 2, "controle.c");
     ctl.compara = { r: await api("editor/controle/compara", { a: a.arquivo, b: b.arquivo }), a: a.nome, b: b.nome };
     mostraComparacao();
+    if (ctl.dados && ctl.dados.controle.c) {             // o selo: as impressões dos dois arquivos que deram este resultado
+      ctl.dados.controle.c.sinc = { py: impressao(textoDe("controle.py")), c: impressao(textoDe("controle.c")), ok: !!ctl.compara.r.iguais };
+      marcaSelo(); await guardaControle(); }
     if (typeof mostraDoca === "function") mostraDoca("controle");   // o fim da rodada levou ao Scope: o resultado está aqui
   } catch (e) { res.innerHTML = `<span class="dif">${escT(tr("ctl.c_falhou", { erro: e.message }))}</span>`; if (typeof mostraDoca === "function") mostraDoca("controle"); }
   finally { bt.disabled = false; }
+}
+// Código ⇄ (Marcelo, 05/11): a IA converte entre o controle.py e o controle.c, e a comparação diz se os dois batem. O selo
+// vale enquanto os dois arquivos forem os da última comparação (as impressões); com a chave ligada, guardar uma mudança num
+// deles pede a outra linguagem à IA (depois de uns segundos parado), aplica a proposta e compara
+const impressao = (t) => { let h = 5381; for (let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0; return `${(h >>> 0).toString(36)}.${t.length.toString(36)}`; };
+function marcaSelo() {
+  const el = $("ctl-c-selo"), sc = ctl.dados && ctl.dados.controle.c && ctl.dados.controle.c.sinc;
+  if (!sc || !sc.py || !ctl.lista.includes("controle.c")) { el.textContent = ""; el.className = ""; el.title = ""; return; }
+  const ok = sc.ok && sc.py === impressao(textoDe("controle.py")) && sc.c === impressao(textoDe("controle.c"));
+  el.textContent = tr(ok ? "ctl.c_em_sinc" : "ctl.c_fora_sinc"); el.className = ok ? "ok" : "fora"; el.title = tr(ok ? "ctl.t_c_em_sinc" : "ctl.t_c_fora_sinc");
+}
+function converteIA(paraC) {                              // a conversa da IA, com o pedido de conversão escrito e enviado
+  if (typeof ccAbre !== "function" || typeof ccEnvia !== "function" || travado()) return;
+  if (paraC && !ctl.lista.includes("controle.c")) abreC(false);
+  ccAbre(true); $("cc-texto").value = tr(paraC ? "ctl.c_pedido_c" : "ctl.c_pedido_py"); ccEnvia();
+}
+function editou(a) {                                      // o usuário mexeu num dos dois (não a IA aplicando uma proposta)
+  if ((ehC(a) || a === "controle.py") && !(typeof cc !== "undefined" && cc.aplicando)) ctl.editouLing = ehC(a) ? "c" : "py";
+}
+function agendaSinc(l) { clearTimeout(ctl.timerSinc); ctl.timerSinc = setTimeout(() => sincAuto(l), 6000); }
+function sincAuto(l) {
+  if (!$("ctl-c-sinc").checked || !ctl.lista.includes("controle.c")) return;
+  const ocupado = travado() || (typeof cc !== "undefined" && (cc.enviando || cc.aplicando || (cc.estado && cc.estado.andamento)));
+  if (ocupado) { agendaSinc(l); return; }
+  ctl.sincPendente = true; $("ctl-c-res").textContent = tr("ctl.c_sinc_pedindo");
+  converteIA(l === "py");                                 // mexeu no Python: gera o C; mexeu no C: gera o Python
+}
+async function aoFimDoPedido(e) {                         // claude_chat.js avisa quando um pedido termina
+  if (!ctl.sincPendente) return;
+  ctl.sincPendente = false;
+  const p = e && e.proposta;
+  if (e && e.erro || (p && (p.erros || []).length) || typeof ccAplica !== "function") { $("ctl-c-res").textContent = ""; return; }   // a conversa mostra o erro
+  if (p && p.mudou) { await ccAplica(); if (!(cc.estado && cc.estado.aplicada)) return; }
+  comparaPyC();                                           // aplicada, ou a outra linguagem já estava certa (nada a mudar): confere
 }
 function mostraComparacao() {
   const k = ctl.compara; if (!k) return;

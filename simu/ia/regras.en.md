@@ -17,6 +17,16 @@ The working folder has:
   * controller: a separate process (it emulates another DSP), which talks through envia()/recebe() with ≥ 1 sample of delay. Only
     for truly distributed control; never to split a loop (the delay would enter the loop).
   The computation time is zero within the sample: the real delay (conversion, computation, PWM update) is the one set in the panel.
+- controle.c: the SAME control in C (what goes to a DSP; MaiSim runs it inside the simulation, in place of controle.py,
+  when the panel is on the C view, and compares the two). Contract in maisim_controle.h; the indices in maisim_sinais.h,
+  generated from the panel (do not edit the two .h files): m[M_<measurement>], p[P_<parameter>] (p[P_Ts] is Ts),
+  u[U_<actuation>]. Define maisim_tamanho_estado() (sizeof your state struct), maisim_iniciar(p, estado) and
+  maisim_passo(t, m, p, estado, u); maisim_scope("name", value) sends to the scope. Rules: state in a struct (no malloc,
+  no mutable globals), no recursion, loops with a fixed bound, only <math.h>, type maisim_real (not double or float
+  directly). An actuation the step does not write stays NAN (unchanged in this sample). When CONVERTING between
+  controle.py and controle.c, do the SAME operations in the SAME order (Python int(x) is (long)(x) for x ≥ 0; min/max are
+  fmin/fmax; e["key"] becomes a struct field; the same scope names): then MaiSim shows the two bit-identical. When asked to
+  change one of them, do not touch the other unless the user asks.
 - parametros.json: the parameters p["..."], a list of {"nome", "valor", "unidade"}. Every p["x"] in the code must
   be here (create it with value and unit); "Ts" does not go here (it comes from the panel).
 - acionamentos.json: changes at time t, a list of {"t": seconds, "alvo": "p:<parameter>" or

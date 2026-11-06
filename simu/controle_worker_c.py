@@ -12,7 +12,6 @@ import ctypes
 import json
 import math
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -22,12 +21,10 @@ _AQUI = os.path.dirname(os.path.abspath(__file__))
 sys.path[:0] = [os.path.join(os.path.dirname(_AQUI), "config"), _AQUI]
 import lingua  # noqa: E402
 import textos  # noqa: E402,F401
+import sinais_c  # noqa: E402
 del sys.path[:2]
 LINGUA = os.environ.get("MAISIM_LINGUA") or "pt"
-DIR_C = os.path.join(_AQUI, "controle_c")
-IDENT_C = re.compile(r"[^A-Za-z0-9_]")
-# controle.c:12:5: error: … (gcc, clang) | controle.c:12: error: … (tcc)
-ERRO_CC = re.compile(r"^(?:.*[/\\])?(?P<arq>[A-Za-z0-9_]+\.[ch]):(?P<linha>\d+):(?:\d+:)?\s*(?:fatal )?(?:error|erro)\s*:?\s*(?P<msg>.*)$", re.M)  # i18n-ok (a saída dos compiladores)
+DIR_C = sinais_c.DIR_C
 
 # o protocolo (no modo pipe: o stdout) fica num descritor só dele, e o fd 1 passa a ser o log (o stderr): um printf() do
 # controle.c, que escreve direto no fd 1, vai para o controle.log em vez de virar uma "resposta" (Codex, #225)
@@ -46,43 +43,11 @@ class ErroC(Exception):
         self.arquivo, self.linha = arquivo, linha
 
 
-def compilador():
-    """O compilador de C: (caminho, é_tcc)."""
-    if os.environ.get("MAISIM_CC"):
-        cc = os.environ["MAISIM_CC"]
-        return cc, "tcc" in os.path.basename(cc).lower()
-    raiz = os.path.dirname(_AQUI)
-    for c in (os.path.join(raiz, "tcc", "tcc.exe" if os.name == "nt" else "tcc"),):
-        if os.path.isfile(c):
-            return c, True
-    for nome, e_tcc in (("tcc", True), ("gcc", False), ("cc", False)):
-        c = shutil.which(nome)
-        if c:
-            return c, e_tcc
-    raise ErroC(lingua.tr("worker_c.sem_compilador"))
-
-
-def ident(nome):
-    """O nome de um sinal como identificador de C (o índice M_<nome>, P_<nome>, U_<nome>)."""
-    return IDENT_C.sub("_", str(nome))
-
-
 def gera_sinais_h(sinais):
-    """O maisim_sinais.h: os índices das medidas, dos parâmetros e das atuações, na ordem do painel."""
-    linhas = ["/* gerado pelo MaiSim a partir do painel de Controle: não edite (muda quando o painel muda) */",  # i18n-ok (o .h gerado)
-              "#ifndef MAISIM_SINAIS_H", "#define MAISIM_SINAIS_H", ""]
-    vistos = {}
-    for pref, chave in (("M", "m"), ("P", "p"), ("U", "u")):
-        linhas.append(f"#define MAISIM_N_{chave.upper()} {max(1, len(sinais[chave]))}")
-        for k, nome in enumerate(sinais[chave]):
-            macro = f"{pref}_{ident(nome)}"
-            if macro in vistos:
-                raise ErroC(lingua.tr("worker_c.nome_repetido", macro=macro, a=vistos[macro], b=nome), "maisim_sinais.h")
-            vistos[macro] = nome
-            linhas.append(f"#define {macro} {k}")
-        linhas.append("")
-    linhas.append("#endif")
-    return "\n".join(linhas) + "\n"
+    try:
+        return sinais_c.gera_sinais_h(sinais)
+    except sinais_c.NomeRepetido as e:
+        raise ErroC(lingua.tr("worker_c.nome_repetido", macro=e.macro, a=e.a, b=e.b), "maisim_sinais.h")
 
 
 def compila(fontes, sinais, precisao):
@@ -94,20 +59,21 @@ def compila(fontes, sinais, precisao):
         f.write(gera_sinais_h(sinais))
     shutil.copy(os.path.join(DIR_C, "maisim_controle.h"), "maisim_controle.h")
     shutil.copy(os.path.join(DIR_C, "maisim_sil.c"), "maisim_sil.c")
-    cc, e_tcc = compilador()
+    cc = sinais_c.compilador()
+    if not cc:
+        raise ErroC(lingua.tr("worker_c.sem_compilador"))
+    cc, e_tcc = cc
     saida_lib = os.path.abspath("controle_c.dll" if os.name == "nt" else "controle_c.so")
     if os.path.exists(saida_lib):
         os.remove(saida_lib)
     cs = sorted(a for a in fontes if a.endswith(".c")) + ["maisim_sil.c"]
-    opts = ["-shared", "-I.", f"-DMAISIM_REAL={precisao}", "-o", saida_lib]
-    if not e_tcc:
-        opts += ["-fPIC", "-O2", "-std=c99", "-ffp-contract=off", "-Werror=implicit-function-declaration"]
+    opts = ["-shared", *sinais_c.opcoes(e_tcc, precisao), "-o", saida_lib] + ([] if e_tcc else ["-fPIC"])
     r = subprocess.run([cc, *opts, *cs, "-lm"] if os.name != "nt" else [cc, *opts, *cs], capture_output=True, text=True, timeout=60)
     if r.returncode != 0:
         msg = (r.stderr or r.stdout).strip()
-        e = ERRO_CC.search(msg)
+        e = sinais_c.primeiro_erro(msg)
         if e:
-            raise ErroC(lingua.tr("worker_c.compilacao", msg=e.group("msg").strip()), e.group("arq"), int(e.group("linha")))
+            raise ErroC(lingua.tr("worker_c.compilacao", msg=e[3]), e[0], e[1])
         raise ErroC(lingua.tr("worker_c.compilacao", msg=msg[-800:] or f"rc={r.returncode}"))
     try:
         dll = ctypes.CDLL(saida_lib)
