@@ -37,6 +37,11 @@ The working folder has:
   The MaiSim library (pi, pwm, passa_baixa, rampa, pll: the comment at the top says "MaiSim library") has the same
   module in Python and in C, with the same operations: if the control already has one, use it (how to use it is in the
   comment at the top) instead of rewriting it; when converting, pi.py becomes the library's pi.h/pi.c, as they are.
+  Several controllers in C: each controller in the list runs the .c named after its .py (aquisicao.py → aquisicao.c), with
+  the same contract, and in the run it only sees its own measurements and actuations (the folder's maisim_sinais.h has
+  them all); the modules (the .h/.c files that belong to no controller) go into each one that includes them. Messages are
+  Python's envia/recebe: maisim_envia("controle", "i", value) and maisim_recebeu("aquisicao", "i", &v), which returns 1
+  if it arrived in this sample (keep the last value in the state); numbers only. When converting, convert every controller.
 - parametros.json: the parameters p["..."], a list of {"nome", "valor", "unidade"}. Every p["x"] in the code must
   be here (create it with value and unit); "Ts" does not go here (it comes from the panel).
 - acionamentos.json: changes at time t, a list of {"t": seconds, "alvo": "p:<parameter>" or

@@ -106,6 +106,25 @@ try:
     erros6 = (e6.get("proposta") or {}).get("erros") or []
     ok(any(x.get("arquivo") == "pwm.c" for x in erros6), f"um erro no módulo volta com o arquivo dele (pwm.c): {erros6[:1]}")
     (CONF / "falso_c_extra.json").unlink()
+    # com a lista de controladores (a aquisição lê o i_L; o controle, não), a proposta compila cada um com os índices dele
+    api("editor/abrir", {"arq": "exemplos/exemplo_controle_pwm.ipes", "modo": "descartar"})
+    c = api("editor/controle")["controle"]
+    c["codigo"] = 'def passo(t, m, p, e):\n    return {"g": 0.0}\n'   # os cartões seguem o código: este controle.py não lê o i_L
+    c["arquivos"] = {**c.get("arquivos", {}), "aquisicao.py": "def passo(t, m, p, e):\n    pass\n"}
+    c["controladores"] = [{"nome": "aquisicao", "arquivo": "aquisicao.py", "todas": False, "medidas": ["i_L"], "atuacoes": [], "subcircuitos": []},
+                          {"nome": "controle", "arquivo": "controle.py", "todas": False, "medidas": [], "atuacoes": ["g"], "subcircuitos": []}]
+    c["c"] = {**c["c"], "usar": True}
+    api("editor/controle", {"controle": c})
+    aq_c = ('#include "maisim_controle.h"\nsize_t maisim_tamanho_estado(void) { return 8; }\n'
+            'void maisim_iniciar(const maisim_real p[MAISIM_N_P], void *e) { (void)p; (void)e; }\n'
+            'void maisim_passo(maisim_real t, const maisim_real m[MAISIM_N_M], const maisim_real p[MAISIM_N_P], void *e, maisim_real u[MAISIM_N_U]) {\n'
+            '    (void)t; (void)p; (void)e; (void)u; maisim_envia("controle", "i", m[M_i_L]);\n}\n')
+    (CONF / "falso_c_extra.json").write_text(json.dumps({"aquisicao.c": aq_c}))
+    e7 = pede(CONTROLE_C, "converta para C")
+    (CONF / "falso_c_extra.json").unlink()
+    erros7 = (e7.get("proposta") or {}).get("erros") or []
+    ok(any(x.get("arquivo") == "controle.c" and "M_i_L" in x.get("msg", "") for x in erros7) and not any(x.get("arquivo") == "aquisicao.c" for x in erros7),
+       f"com controladores, o C da proposta compilado com os índices de cada um (o controle não lê o i_L): {erros7[:1]}")
     # o modelo intocado de um circuito sem C não vira proposta
     api("editor/abrir", {"arq": "exemplos/exemplo_controle_pwm.ipes", "modo": "descartar"})
     modelo = (RAIZ / "simu/controle_c/controle_modelo.c").read_text()

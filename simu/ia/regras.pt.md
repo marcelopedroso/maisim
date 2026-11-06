@@ -37,6 +37,11 @@ A pasta de trabalho tem:
   A biblioteca do MaiSim (pi, pwm, passa_baixa, rampa, pll: o comentário do começo diz "biblioteca do MaiSim") tem o
   mesmo módulo em Python e em C, com as mesmas contas: se o controle já tem um deles, use-o (o uso está no comentário do
   começo) em vez de reescrever; ao converter, o pi.py vira o pi.h/pi.c da biblioteca, como estão.
+  Vários controladores em C: cada controlador da lista roda o .c com o nome do .py dele (aquisicao.py → aquisicao.c), com
+  o mesmo contrato, e na rodada só vê as medidas e as atuações dele (o maisim_sinais.h da pasta tem todas); os módulos
+  (os .h/.c que não são de nenhum controlador) entram em cada um que os inclui. As mensagens são o envia/recebe do Python:
+  maisim_envia("controle", "i", valor) e maisim_recebeu("aquisicao", "i", &v), que dá 1 se chegou nesta amostra (guarde
+  o último valor no estado); só números. Ao converter, converta cada controlador.
 - parametros.json: os parâmetros p["..."], uma lista de {"nome", "valor", "unidade"}. Todo p["x"] do código precisa
   estar aqui (crie com valor e unidade); "Ts" não entra (vem do painel).
 - acionamentos.json: mudanças no instante t, uma lista de {"t": segundos, "alvo": "p:<parâmetro>" ou

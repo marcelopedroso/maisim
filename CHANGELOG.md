@@ -7,6 +7,16 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Added
+- **Several controllers in C, talking over the network**. With the controllers list (acquisition, control, one per subcircuit…), the C view runs the same controllers, each in the `.c` named after its `.py` (`aquisicao.py` → `aquisicao.c`).
+  - Each controller compiles in its own folder, with a `maisim_sinais.h` holding only its own measurements and actuations.
+  - The modules (the `.h`/`.c` files that belong to no controller) go into each controller that includes them, so a `leitura.c` can be reused by several DSPs, each running its own copy.
+  - Messages are `maisim_envia("controle", "i", v)` and `maisim_recebeu("aquisicao", "i", &v)`, Python's `envia`/`recebe` with the same network latency.
+  - In the panel, each controller shows under its `.c` with its card. One without its `.c` yet shows as *missing: create*, and a click creates it from the template.
+  - The Diagram on the C view shows the `.c` files and reads the messages from `maisim_envia`.
+  - MaiSim's AI compiles each controller of its proposal with that controller's indices, and is told how to write several controllers in C.
+  - The acquisition + control example runs bit-identical in C and in Python, with latency 0 and 2.5·Ts.
+
+### Added
 - **Control library: ready-made modules in Python and in C** (`simu/biblioteca_controle`): **PI** (saturation and anti-windup), **PWM** (sawtooth or triangular carrier), **first-order low-pass filter**, **ramp** (rate limiter for a soft start) and **three-phase SRF-PLL** (uses the PI). In the Control panel, **+ File** now offers *Empty* or one of them: on the Python view it creates `pi.py`; on the C view, the pair `pi.h`/`pi.c`, with the modules it uses (the PLL brings the PI). Each module does the same operations in the same order in both languages, so **Compare Python × C** gives bit-identical results; the usage is in the comment at the top of each file, in pt or en. A test runs every module in Python and in C on the same inputs and checks every output bit for bit, and the buck example controlled with the library's PI and PWM runs bit-identical in Python and in C. MaiSim's AI is told to use them instead of rewriting.
 
 ### Fixed
