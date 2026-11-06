@@ -48,7 +48,8 @@ CONFIANCA = re.compile(r"Workspace Trust Required")
 VERSAO = re.compile(r"^(\d{4})\.(\d{1,2})\.(\d{1,2})(?:-(\d{2})-(\d{2})-(\d{2}))?-[a-f0-9]+$")   # a pasta de uma versão (o agent.ps1)
 LOGIN_PRAZO = 5 * 60                                     # o login espera a página do Cursor por até 5 min
 # os arquivos que o MaiSim escreve na pasta da conversa só para a IA ler (as regras negam escrever neles)
-SO_LEITURA = ("CONTEXTO.md", "CONVERSA.md", "GUIA_CONTROLE.md", "ULTIMA_RODADA.md", "AGENTS.md", "CLAUDE.md")
+SO_LEITURA = ("CONTEXTO.md", "CONVERSA.md", "GUIA_CONTROLE.md", "ULTIMA_RODADA.md", "AGENTS.md", "CLAUDE.md",
+              "maisim_sinais.h", "maisim_controle.h")                 # os .h do controle em C, gerados pelo MaiSim
 
 
 def acha_cursor():
@@ -223,7 +224,7 @@ class Cursor(ComChave, IA):
         """As regras do Cursor para uma pasta de trabalho (os caminhos absolutos dela): {"allow", "deny"}."""
         p, casa = str(Path(pasta).resolve()), str(self.pasta.resolve())
         sep = "\\" if WIN else "/"
-        permite = ([f"Write({p}{sep}{f})" for f in editaveis] + [f"Write({p}{sep}*.py)"]) if escreve else []
+        permite = ([f"Write({p}{sep}{f})" for f in editaveis] + [f"Write({p}{sep}*.{x})" for x in ("py", "c", "h")]) if escreve else []
         nega = ["Shell(*)", "WebFetch(*)", "Mcp(*:*)", f"Read({casa}{sep}*)", f"Write({casa}{sep}*)",
                 *[f"Write({p}{sep}{f})" for f in SO_LEITURA], f"Write({p}{sep}*{sep}*)"]   # as subpastas (anexos, contextos…)
         if not escreve:

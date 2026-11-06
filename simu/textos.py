@@ -639,7 +639,7 @@ T = {
     # o controle em C (controle_worker_c.py: o SIL)
     "worker_c.sem_compilador": {"pt": "não achei um compilador de C (tcc, gcc ou cc) para rodar o controle.c",
                                 "en": "no C compiler found (tcc, gcc or cc) to run controle.c"},
-    "worker_c.compilacao": {"pt": "o controle.c não compilou: {msg}", "en": "controle.c did not compile: {msg}"},
+    "worker_c.compilacao": {"pt": "o C não compilou: {msg}", "en": "the C did not compile: {msg}"},   # antes da mensagem vem o arquivo e a linha (controle.c, pwm.c…)
     "worker_c.carregar": {"pt": "o controle.c compilou, mas não carregou (uma função usada e não definida?): {msg}",
                           "en": "controle.c compiled but did not load (a function used but not defined?): {msg}"},
     "worker_c.falta_funcao": {"pt": "o controle.c precisa definir {f}() (veja o maisim_controle.h)",
@@ -652,6 +652,8 @@ T = {
     "worker_c.sem_mensagens": {"pt": "o controle em C ainda não troca mensagens com outros controladores",
                                "en": "the C control does not exchange messages with other controllers yet"},
     "controle.compara_sem_rodada": {"pt": "não achei as duas rodadas para comparar", "en": "could not find the two runs to compare"},
+    "controle.arquivo_c_repetido": {"pt": "{a} e {b}: nomes que só diferem em maiúsculas (no Windows seriam o mesmo arquivo); renomeie um deles",
+                                    "en": "{a} and {b}: names that differ only in case (on Windows they would be the same file); rename one of them"},
     "controle.c_varios": {"pt": "rodar em C vale, por enquanto, para um controlador só (o controle.c, sem a lista de controladores)",
                           "en": "running in C works, for now, with a single controller (controle.c, without a list of controllers)"},
     "controle.c_sem_arquivo": {"pt": "rodar em C está ligado, mas não há controle.c", "en": "running in C is on, but there is no controle.c"},

@@ -95,7 +95,7 @@ function criaArquivo(arq, txt) {                         // um arquivo novo no e
   else ctl.textos[arq] = txt;
 }
 function tiraArquivo(arq) {
-  if (ctl.arq === arq) mostraArquivo("controle.py", false);
+  if (ctl.arq === arq) mostraArquivo(ehC(arq) && arq !== "controle.c" && ctl.lista.includes("controle.c") ? "controle.c" : "controle.py", false);
   ctl.lista = ctl.lista.filter((a) => a !== arq);
   if (ctl.modelos[arq]) { ctl.modelos[arq].dispose(); delete ctl.modelos[arq]; }
   delete ctl.textos[arq]; delete ctl.vistas[arq];
@@ -261,6 +261,7 @@ function buscaModelosCodigo() {                           // ao trocar o idioma 
 // controlador à parte (outro DSP, com atraso nas mensagens), "virar controlador" na árvore
 async function novoArquivo() {
   if (travado() || !ctl.carregado) return;
+  if (visaoC()) { novoModuloC(); return; }
   let k = 1; while (ctl.lista.includes(`modulo${k}.py`)) k++;
   const r = await modal({ titulo: tr("ctl.novo_arq_titulo"), texto: tr("ctl.novo_arq_html"),
     campos: [{ nome: "nome", rotulo: tr("ctl.col_nome"), valor: `modulo${k}.py`, dica: tr("ctl.dica_nome_arq") }], ok: tr("ctl.criar") });
@@ -272,6 +273,32 @@ async function novoArquivo() {
   criaArquivo(nome, modelosCodigo().modelos.modulo || "");
   Object.assign(ctl.dados.controle, c, { arquivos: arquivosDoEditor() }); desenhaLigacoes(); mostraArquivo(nome); guardaControle();
   poeEstado(tr("ctl.modulo_criado", { arq: nome, mod: nomeDoArquivo(nome) }), "ok");
+}
+// um módulo em C: o par nome.h (o que ele oferece: as declarações) e nome.c (o código), como se organiza um firmware; o
+// controle.c faz #include "nome.h" e chama as funções. O nome vira o prefixo das funções (nome_passo)
+function modelosModuloC(mod) {
+  const G = `${mod.toUpperCase()}_H`;
+  return {
+    h: `/* ${tr("ctl.c_mod_h_coment", { mod })} */\n#ifndef ${G}\n#define ${G}\n\n#include "maisim_controle.h"\n\nmaisim_real ${mod}_passo(maisim_real x);\n\n#endif\n`,
+    c: `/* ${tr("ctl.c_mod_c_coment", { mod })} */\n#include "${mod}.h"\n\nmaisim_real ${mod}_passo(maisim_real x) {\n    return x;\n}\n`,
+  };
+}
+async function novoModuloC() {
+  let k = 1; while (ctl.lista.includes(`modulo${k}.c`) || ctl.lista.includes(`modulo${k}.h`)) k++;
+  const r = await modal({ titulo: tr("ctl.novo_arq_titulo"), texto: tr("ctl.novo_arq_c_html"),
+    campos: [{ nome: "nome", rotulo: tr("ctl.col_nome"), valor: `modulo${k}`, dica: tr("ctl.dica_nome_arq_c") }], ok: tr("ctl.criar") });
+  if (!r) return;
+  const mod = r.nome.trim().replace(/\.[ch]$/, "");
+  if (!/^[A-Za-z_][A-Za-z0-9_]{0,38}$/.test(mod) || /^maisim_/i.test(mod) || mod === "controle") { poeEstado(tr("ctl.nome_arq_c_invalido"), "erro"); return; }
+  const h = `${mod}.h`, c_ = `${mod}.c`;                // foo e Foo não: a guarda FOO_H seria a mesma (e no Windows, o mesmo arquivo)
+  const ja = ctl.lista.find((a) => ehC(a) && [h, c_].some((x) => x.toLowerCase() === a.toLowerCase()));
+  if (ja) { poeEstado(tr("ctl.ja_existe", { nome: ja }), "erro"); return; }
+  const c = coleta(); if (c.invalido) return;
+  const m = modelosModuloC(mod);
+  criaArquivo(h, m.h); criaArquivo(c_, m.c);
+  c.c = { ...c.c, arquivos: arquivosC() };
+  Object.assign(ctl.dados.controle, c, { arquivos: arquivosDoEditor() }); desenhaLigacoes(); mostraArquivo(c_); guardaControle();
+  poeEstado(tr("ctl.modulo_c_criado", { h, c: c_, mod }), "ok");
 }
 // circuito de antes dos módulos: cria o leitura.py e o escrita.py dos modelos (o controle.py não muda: quem chama é você ou o Claude)
 function organizaDSP() {
@@ -299,12 +326,13 @@ async function renomeiaArquivo(a) {
   desenhaLigacoes(); mostraArquivo(ativo ? nome : ctl.arq); guardaControle();
 }
 async function apagaArquivo(a) {
-  if (travado() || a === "controle.py") return;
+  if (travado() || a === "controle.py" || a === "controle.c") return;
   const c = coleta(); if (c.invalido) return;
   const usam = c.controladores.filter((q) => q.arquivo === a).map((q) => q.nome);
   if (!(await confirma(tr("ctl.apagar_titulo"), usam.length ? tr("ctl.apagar_texto_ctl_html", { arq: a, ctls: usam.join(", ") }) : tr("ctl.apagar_texto_html", { arq: a }), tr("ctl.apagar"), true))) return;
   c.controladores = c.controladores.filter((q) => q.arquivo !== a); enxuga(c);
-  tiraArquivo(a); Object.assign(ctl.dados.controle, c, { arquivos: arquivosDoEditor() }); desenhaLigacoes(); desenhaAbas(); guardaControle();
+  tiraArquivo(a); if (ehC(a)) c.c = { ...c.c, arquivos: arquivosC() };
+  Object.assign(ctl.dados.controle, c, { arquivos: arquivosDoEditor() }); desenhaLigacoes(); desenhaAbas(); guardaControle();
 }
 function insereNoCodigo(txt) {
   if (document.body.classList.contains("sim-rodando")) return;
@@ -556,7 +584,8 @@ function desenhaControladores() {
   // a árvore pelos imports (Marcelo, 19/10: "a lista já está ficando cheia… busca e hierarquia"): cada controlador na raiz;
   // embaixo, os módulos que ele importa, na ordem em que o passo() os chama (o fluxo); módulo que importa outro fica
   // aninhado; o que já apareceu aparece de novo só como referência (acima); os que ninguém importa vão para "sem uso"
-  const ctlsArq = cs.length ? unico(["controle.py", ...cs.map((q) => q.arquivo)]) : ["controle.py"];
+  const emC = visaoC();                                  // a visão C: o controle.c na raiz (um controlador só, nome fixo)
+  const ctlsArq = emC ? ["controle.c"] : cs.length ? unico(["controle.py", ...cs.map((q) => q.arquivo)]) : ["controle.py"];
   const mostrados = new Set();
   // compartilhados (Marcelo, 19/10: "um lugar do código compartilhado"): entre os arquivos em uso (alcançados a partir dos
   // controladores), o módulo que dois ou mais importam aparece igual em todo lugar (⇄, sem filhos: ninguém é o dono) e uma
@@ -578,8 +607,8 @@ function desenhaControladores() {
     const repetido = !inteiro && mostrados.has(a); mostrados.add(a);
     const fs = repetido ? [] : filhos(a, anc), quem = [...anc].pop();
     return `<div class="ctl-no ctl-mod-no${a === ctl.arq ? " ativo" : ""}${comErro.has(a) ? " com-erro" : ""}${repetido ? " repetido" : ""}" data-abre="${escT(a)}"
-      title="${escT(tr(`ctl.t_mod${quem ? "_chamado" : ""}${repetido ? "_rep" : ""}`, { arq: a, mod: nomeDoArquivo(a), quem }))}">${seta(chave, fs.length)}${ICONE_ARQ}<span class="nome">${escT(a)}</span>${repetido ? `<small>${escT(tr("ctl.acima"))}</small>` : ""}
-      <span class="acoes"><button class="ctl-mini" data-liga="${escT(a)}" title="${escT(tr("ctl.t_virar_ctl"))}">⤴</button><span class="fecha" data-fecha="${escT(a)}" title="${escT(tr("ctl.t_apagar_arq", { arq: a }))}">×</span></span></div>` +
+      title="${escT(tr(`ctl.t_mod${ehC(a) ? "_c" : ""}${quem ? "_chamado" : ""}${repetido ? "_rep" : ""}`, { arq: a, mod: nomeDoArquivo(a), quem, h: a.replace(/\.c$/, ".h") }))}">${seta(chave, fs.length)}${ICONE_ARQ}<span class="nome">${escT(a)}</span>${repetido ? `<small>${escT(tr("ctl.acima"))}</small>` : ""}
+      <span class="acoes">${ehC(a) ? "" : `<button class="ctl-mini" data-liga="${escT(a)}" title="${escT(tr("ctl.t_virar_ctl"))}">⤴</button>`}<span class="fecha" data-fecha="${escT(a)}" title="${escT(tr("ctl.t_apagar_arq", { arq: a }))}">×</span></span></div>` +
       ramo(fs, chave, new Set([...anc, a]));
   };
   const raiz = (a) => {
@@ -590,17 +619,14 @@ function desenhaControladores() {
     const fs = filhos(a, new Set()), semCartao = ctl.cartoesFechados.has(a);
     // dois controles (Marcelo, 19/10): a seta recolhe os códigos (os módulos embaixo); o +/− mostra ou esconde o cartão
     const bt = corpo ? `<button class="ctl-card-bt" data-card="${escT(a)}" title="${escT(semCartao ? tr("ctl.t_cartao_mostra") : tr("ctl.t_cartao_esconde"))}" aria-expanded="${!semCartao}">${semCartao ? "+" : "−"}</button>` : "";
-    return `<div class="ctl-no${a === ctl.arq ? " ativo" : ""}${comErro.has(a) ? " com-erro" : ""}" data-abre="${escT(a)}" title="${escT(tr(a === "controle.py" ? "ctl.t_raiz" : "ctl.t_raiz_renomear", { arq: a }))}">${seta(a, fs.length)}${ICONE_ARQ}<span class="nome">${escT(a)}</span>${bt}${a === "controle.py" ? ""
+    return `<div class="ctl-no${a === ctl.arq ? " ativo" : ""}${comErro.has(a) ? " com-erro" : ""}" data-abre="${escT(a)}" title="${escT(tr(a === "controle.py" ? "ctl.t_raiz" : a === "controle.c" ? "ctl.t_raiz_c" : "ctl.t_raiz_renomear", { arq: a }))}">${seta(a, fs.length)}${ICONE_ARQ}<span class="nome">${escT(a)}</span>${bt}${a === "controle.py" || a === "controle.c" ? ""
         : `<span class="fecha" data-fecha="${escT(a)}" title="${escT(tr("ctl.t_apagar_arq", { arq: a }))}">×</span>`}</div>${corpo ? `<div class="ctl-sub"${semCartao ? " hidden" : ""}>${corpo}</div>` : ""}` + ramo(fs, a, new Set([a]));
   };
   let html = ctlsArq.filter((a) => ctl.lista.includes(a)).map(raiz).join("");
   if (comp.length) html += `<details class="ctl-comp" open><summary title="${escT(tr("ctl.t_compartilhados"))}">${escT(tr("ctl.compartilhados", { n: comp.length }))}</summary>${comp.map((f) =>
     modulo(f, `⇄/${f}`, new Set(), true) + `<div class="ctl-usa">${escT(tr("ctl.usado_por", { quem: quemUsa(f) }))}</div>`).join("")}</details>`;
-  const soltos = ctl.lista.filter((a) => !mostrados.has(a) && !ehC(a));
-  if (visaoC()) html = ctl.lista.filter(ehC).map((a) =>    // a visão C: só os arquivos do C (o controle.c é o controlador; nome fixo)
-    `<div class="ctl-no${a === ctl.arq ? " ativo" : ""}${comErro.has(a) ? " com-erro" : ""}" data-abre="${escT(a)}" title="${escT(a)}">${ICONE_ARQ}<span class="nome">${escT(a)}</span>${a === "controle.c" ? ""
-      : `<span class="fecha" data-fecha="${escT(a)}" title="${escT(tr("ctl.t_apagar_arq", { arq: a }))}">×</span>`}</div>`).join("");
-  if (soltos.length && !visaoC()) {                      // primeiro os que nenhum outro solto importa, com os que eles importam embaixo
+  const soltos = ctl.lista.filter((a) => !mostrados.has(a) && ehC(a) === emC);   // só os da linguagem à vista
+  if (soltos.length) {                      // primeiro os que nenhum outro solto importa, com os que eles importam embaixo
     const importados = new Set(soltos.flatMap((a) => importsDe(a)));
     let h = soltos.filter((a) => !importados.has(a)).map((a) => modulo(a, `~/${a}`, new Set())).join("");
     h += soltos.filter((a) => !mostrados.has(a)).map((a) => modulo(a, `~/${a}`, new Set())).join("");   // os de um ciclo
@@ -613,7 +639,8 @@ function desenhaControladores() {
   $("ctl-rede").style.display = cs.length ? "" : "none";
   if (document.activeElement !== $("ctl-rede-lat")) $("ctl-rede-lat").value = (c.rede && c.rede.latencia) || 0;
   campoNumero($("ctl-rede-lat"), { un: "s", apos: $("ctl-rede-i") });
-  $("ctl-n-arq").textContent = ctl.lista.length > 1 || cs.length ? `${ctl.lista.length}` : "";
+  const nArq = ctl.lista.filter((a) => ehC(a) === emC).length;   // os da linguagem à vista (Python ou C)
+  $("ctl-n-arq").textContent = nArq > 1 || (cs.length && !emC) ? `${nArq}` : "";
   infoRede();
 }
 // as mensagens entre os controladores, lidas do código (Marcelo, 19/10: "mostrar quando um DSP recebe uma variável de
@@ -771,6 +798,7 @@ document.addEventListener("click", (ev) => { if (!ev.target.closest) return;
 // na visão C, os avisos dos módulos .py (que o C não usa) ficam de fora: valem para a visão Python
 const avisosDoPainel = (l, comp) => (l || []).filter((a) => !(comp || []).includes(a) && !(visaoC() && /\.py\b/.test(a))).map((a) => `<div>${escT(a)}</div>`).join("");
 function importsDe(a) {
+  if (ehC(a)) return includesDe(a);
   const t = textoDe(a), nomes = [];
   for (const m of t.matchAll(/^[ \t]*(?:import[ \t]+([\w., \t]+)|from[ \t]+(\w+)[ \t]+import\b)/gm)) {
     const lista = m[1] ? m[1].split(",").map((x) => x.trim().split(/\s+as\s+/)[0].split(".")[0]) : [m[2]];
@@ -780,6 +808,18 @@ function importsDe(a) {
   const pos = (n) => { const i = corpo.search(new RegExp(`\\b${n}\\s*\\.`)); return i < 0 ? Infinity : i; };
   return nomes.map((n) => `${n}.py`).filter((f) => ctl.lista.includes(f)).map((f, k) => [f, pos(nomeDoArquivo(f)), k])
     .sort((x, y) => x[1] - y[1] || x[2] - y[2]).map(([f]) => f);
+}
+// os módulos em C (Marcelo, 06/11): o par nome.h (o que ele oferece) e nome.c (o código); quem usa faz #include "nome.h".
+// Na árvore, o #include "nome.h" leva ao nome.c (o módulo), e o nome.c leva ao seu nome.h; sem o .c, ao .h. Os .h do
+// MaiSim (maisim_controle.h, maisim_sinais.h) não são arquivos do usuário
+function includesDe(a) {
+  const t = textoDe(a).replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, ""), out = [];
+  for (const m of t.matchAll(/^[ \t]*#[ \t]*include[ \t]*"([A-Za-z_][A-Za-z0-9_]*)\.h"/gm)) {
+    const base = m[1], h = `${base}.h`, c = `${base}.c`;
+    const f = a === c ? h : ctl.lista.includes(c) ? c : h;
+    if (f !== a && ctl.lista.includes(f) && !out.includes(f)) out.push(f);
+  }
+  return out;
 }
 ctl.recolhidos = new Set(); try { ctl.recolhidos = new Set(JSON.parse(localStorage.getItem("maisim-simu-ctl-recolhidos") || "[]")); } catch (e) { /* ok */ }
 ctl.cartoesFechados = new Set(); try { ctl.cartoesFechados = new Set(JSON.parse(localStorage.getItem("maisim-simu-ctl-cartoes") || "[]")); } catch (e) { /* ok */ }

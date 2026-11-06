@@ -6,6 +6,9 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Added
+- **C modules in the Control panel**, as C firmware is organized: on the C view, **+ File** creates the pair `name.h` (what the module offers: the declarations, with an include guard) and `name.c` (the code); `controle.c` does `#include "name.h"` and calls its functions in the same sample. The file tree follows the `#include`s (`controle.c` → `pwm.c` → `pwm.h`), like the Python tree follows the imports, and the **Files** count on each view counts only that language's files (the C view showed the Python count). The modules compile together with `controle.c` (a run with the PWM in `pwm.c` matches the single-file one bit for bit), a compile error points at the module's file and line, and MaiSim's AI may write `.c`/`.h` files: converting a `controle.py` with modules gives one `.h`/`.c` pair per module. For now C runs as a single controller (several C controllers, sharing modules between DSPs, come later).
+
 ### Fixed
 - **With the Control panel on C, asking the AI for a control gave Python**: the AI did not know which language the panel runs. Its `CONTEXTO.md` now says “Control language: C” or “Python” (the Python | C selector), and the rules say a control request goes in that language unless you ask for the other; on C, the AI writes `controle.c` (from scratch, if there is only the template) and leaves `controle.py` as it was.
 

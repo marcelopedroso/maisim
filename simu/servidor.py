@@ -3304,6 +3304,9 @@ def confere_controle(c):
             raise ErroMotor(lingua.tr("controle.arquivo_c_invalido", arq=repr(k)))
         if not isinstance(v, str) or len(v) > 200_000:
             raise ErroMotor(lingua.tr("controle.arquivo_grande", arq=k))
+        igual = next((a for a in arqs_c if a.lower() == str(k).lower()), None)
+        if igual:                                      # foo.c e Foo.c: no Windows seriam o mesmo arquivo (e a guarda FOO_H, a mesma)
+            raise ErroMotor(lingua.tr("controle.arquivo_c_repetido", a=igual, b=k))
         arqs_c[str(k)] = v
     if len(arqs_c) > 50:
         raise ErroMotor(lingua.tr("controle.arquivos_demais"))

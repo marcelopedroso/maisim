@@ -111,7 +111,8 @@ def principal():
     esperado = ["-p", "--output-format", "stream-json", "--verbose", "--restricted", "--tools", "Read,Edit,Write,Glob,Grep", "--allowedTools",
                 "Edit(./controle.py)", "Edit(./controle.c)", "Edit(./parametros.json)", "Edit(./acionamentos.json)", "Edit(./controladores.json)", "Edit(./memoria.md)",
                 "Edit(./circuito.json)", "Edit(./*.py)", "Write(./*.py)",          # etapa B (19/10): os módulos (.py da pasta), nada fora dela
-                "Write(./controle.c)", "--permission-mode", "dontAsk",             # o controle em C (05/11): o controle.c, inteiro
+                "Edit(./*.c)", "Write(./*.c)", "Edit(./*.h)", "Write(./*.h)",      # o controle em C (05/11) e os módulos dele (06/11: o par .h/.c)
+                "--permission-mode", "dontAsk",
                 "--permission-prompts", "none", "--strict-mcp-config", "--max-turns", "100", "--append-system-prompt", "--session-id"]
     ok(sem_texto == esperado, f"claude restrito, exatamente estas opções (nada a mais): ferramentas {tools}, edita só {perm}, dontAsk, sem perguntas, sem MCP")
     cwd = Path(ultimo_pedido()["cwd"])
