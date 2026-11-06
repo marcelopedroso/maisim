@@ -31,7 +31,7 @@ const ORQ = 'def iniciar(p, e):\n    pass\n\n\ndef passo(t, m, p, e):\n    envia
       await api("editor/controle", { controle: { ativo: true, Ts: 1e-5, atuacoes: [], parametros: [], acionamentos: [], controladores: [], codigo: orq, arquivos: {} } });
       const j = await api("editor/estado"); dados = j; folhaAtual = "0"; novoEstado(j); await recarregaControle(); mostraDoca("controle"); }, ORQ);
     await pg.waitForFunction(() => ctl.carregado && ctl.editor, null, { timeout: 30000 });
-    await pg.click("#ctl-claude-bt");
+    await pg.click("#bt-ia-flutua");
     await pg.waitForFunction(() => typeof cla !== "undefined" && cla.estado && cla.estado.logado && cc.estado && !$("cc-texto").disabled, null, { timeout: 30000 });
     await pg.fill("#cc-texto", "crie 3 DSPs: o controle manda pela fibra para dsp_a e dsp_b"); await pg.press("#cc-texto", "Control+Enter");
     await pg.waitForSelector(".cc-prop", { timeout: 30000 }); await pg.waitForTimeout(500);

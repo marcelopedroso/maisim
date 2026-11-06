@@ -11,7 +11,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
   - Now a round button in the bottom-right corner opens a drawer on the right, full height below the header, over whatever is on screen (circuit, control or scope).
   - Dragging its left edge changes the width (double click: the default). The dock is back to Scope | Control, and opening or closing the AI does not change it.
   - The button pulses while the AI is answering and shows a dot when a proposal arrived with the drawer closed.
-  - The **AI** button in the Control bar, "ask the AI" on an error and the ✦ window open the same drawer.
+  - On the desktop, the floating button is the only way in (the Control bar's **AI** button is gone; on the phone it stays and leads to the AI view). "Ask the AI" on an error and the ✦ window open the same drawer.
   - The automatic **Code ⇄** request runs behind; if it fails, the Control panel says so, with a button to open the conversation.
   - On the phone, the AI view is the drawer, full screen. The old divider and "beside / below the code" button are gone.
 
