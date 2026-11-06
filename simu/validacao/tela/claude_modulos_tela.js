@@ -37,8 +37,8 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
       `cartão: ${card.split("\n").slice(1, 4).join(" · ")}`);
     const cli = fs.readFileSync(path.join(CONF, "falso_chamadas.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)).filter((x) => x.args.includes("--allowedTools")).pop();
     const tools = cli.args[cli.args.indexOf("--tools") + 1], perm = cli.args.slice(cli.args.indexOf("--allowedTools") + 1, cli.args.indexOf("--permission-mode"));
-    ok(/Write/.test(tools) && perm.includes("Edit(./*.py)") && perm.includes("Write(./*.py)") && !perm.some((x) => /Write\((?!\.\/\*\.py\))/.test(x)),
-      `o CLI: --tools ${tools}; escrever só ./*.py (${perm.filter((x) => /\*\.py/.test(x)).join(", ")})`);
+    ok(/Write/.test(tools) && perm.includes("Edit(./*.py)") && perm.includes("Write(./*.py)") && !perm.some((x) => /Write\((?!\.\/\*\.py\)|\.\/controle\.c\))/.test(x)),
+      `o CLI: --tools ${tools}; escrever só ./*.py e o controle.c (${perm.filter((x) => /\*\.py|controle\.c/.test(x)).join(", ")})`);
     // a janela da diferença: uma aba por arquivo
     await pg.click("#cc-ver"); await pg.waitForSelector(".cc-dif"); await pg.waitForTimeout(800);
     const abas = await pg.evaluate(() => [...document.querySelectorAll(".cc-dif-arqs button")].map((x) => x.textContent.replace(/^[✓✗]/, "")));   // ✓/✗: aceito ou recusado

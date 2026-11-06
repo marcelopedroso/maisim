@@ -5,8 +5,9 @@ O servidor passa ao filho só um ambiente de lista branca, então o cenário vem
 (CLAUDE_CONFIG_DIR, a descartável da instância de teste):
   falso_logado     existe: `auth status` diz conectado (senão, e no login/logout, chama o claude de verdade)
   falso_espera     (cenário circuito) quantos segundos esperar antes de escrever o circuito.json
-  falso_cenario    o que fazer no pedido: ganho | metade | quebra | json_ruim | lento | anexo | erro | recusa | modulos | controladores | dois_donos | autonomo | limite | le_contexto | renova | trava | resumo_falha | le_conversa | circuito
+  falso_cenario    o que fazer no pedido: ganho | metade | quebra | json_ruim | lento | anexo | erro | recusa | modulos | controladores | dois_donos | autonomo | limite | le_contexto | renova | trava | resumo_falha | le_conversa | circuito | converte_c
                    (circuito: escreve no circuito.json o que o teste deixou em falso_circuito.json)
+                   (converte_c: escreve no controle.c o que o teste deixou em falso_controle.c)
                    (falso_resumo_lento: o resumo de um contexto demora N s)
                    (o pedido do resumo de um contexto salvo responde sempre com um resumo, sem mexer em arquivo)
   falso_chamadas.jsonl   cada chamada (argumentos e pasta), para o teste conferir as opções; do ambiente, só se havia
@@ -270,6 +271,15 @@ elif cenario == "le_conversa":                          # a troca de IA: lê o C
         resposta = f"li a conversa: {n} pedido(s)"
     else:
         resposta = "sem CONVERSA.md"
+elif cenario == "converte_c":                           # o controle em C: lê os .h do MaiSim e escreve o controle.c do teste
+    usa("Read", file_path="maisim_sinais.h")
+    h = Path("maisim_sinais.h").read_text() if Path("maisim_sinais.h").exists() else ""
+    modelo = Path("controle.c").read_text() if Path("controle.c").exists() else ""
+    usa("Write", file_path="controle.c")
+    Path("controle.c").write_text((conf / "falso_controle.c").read_text())
+    indices = ", ".join(re.findall(r"#define ([MPU]_\w+)", h)) or "nenhum"
+    tem_h = "sim" if Path("maisim_controle.h").exists() else "não"
+    resposta = f"Converti o controle.py para C no controle.c. Índices: {indices}; havia controle.c: {'sim' if modelo else 'não'}; maisim_controle.h: {tem_h}."
 elif cenario == "anexo":
     nomes = sorted(x.name for x in Path("anexos").iterdir()) if Path("anexos").is_dir() else []
     for n in nomes:

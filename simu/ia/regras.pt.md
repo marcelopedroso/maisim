@@ -17,6 +17,16 @@ A pasta de trabalho tem:
   * controlador: um processo à parte (emula outro DSP), que conversa por envia()/recebe() com ≥ 1 amostra de atraso. Só
     para controle distribuído de verdade; nunca para dividir um laço (o atraso entraria na malha).
   O tempo de cálculo é zero dentro da amostra: o atraso real (conversão, cálculo, atualização do PWM) é o do painel.
+- controle.c: o MESMO controle em C (o que vai para um DSP; o MaiSim o roda dentro da simulação, no lugar do controle.py,
+  quando o painel está na visão C, e compara os dois). Contrato em maisim_controle.h; os índices em maisim_sinais.h,
+  gerado do painel (não edite os dois .h): m[M_<medida>], p[P_<parâmetro>] (p[P_Ts] é o Ts), u[U_<atuação>]. Defina
+  maisim_tamanho_estado() (sizeof do seu struct de estado), maisim_iniciar(p, estado) e maisim_passo(t, m, p, estado, u);
+  maisim_scope("nome", valor) manda ao scope. Regras: estado num struct (sem malloc, sem variáveis globais que mudam), sem
+  recursão, laços com limite fixo, só <math.h>, tipo maisim_real (não double nem float direto). Uma atuação que o passo
+  não escreve fica com NAN (não muda nesta amostra). Ao CONVERTER entre controle.py e controle.c, faça as MESMAS contas
+  na MESMA ordem (int(x) do Python é (long)(x) para x ≥ 0; min/max são fmin/fmax; e["chave"] vira um campo do struct;
+  os mesmos nomes de scope): assim o MaiSim mostra os dois iguais bit a bit. Mudou um dos dois a pedido, não mexa no
+  outro sem o usuário pedir.
 - parametros.json: os parâmetros p["..."], uma lista de {"nome", "valor", "unidade"}. Todo p["x"] do código precisa
   estar aqui (crie com valor e unidade); "Ts" não entra (vem do painel).
 - acionamentos.json: mudanças no instante t, uma lista de {"t": segundos, "alvo": "p:<parâmetro>" ou

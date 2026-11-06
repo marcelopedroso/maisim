@@ -42,6 +42,7 @@ import atualizacao
 import msd
 import processos  # noqa: E402                as IAs e o login: num grupo próprio (Linux e Windows)
 import resumo_rodada
+import sinais_c
 import tf  # noqa: E402                         a função de transferência do bloco TF (ler H(s), as regras do Gecko)
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "scope"))
@@ -1742,7 +1743,7 @@ def controle_padrao():
     return {"ativo": False, "Ts": 1e-4, "atuacoes": [], "parametros": [], "codigo": modelo_codigo("controle"),
             "atraso": {"modo": "logo", "tempo": 0.0}, "acionamentos": [],
             "arquivos": modelos_arquivos(), "controladores": [],
-            "rede": {"latencia": 0.0}, "c": {"usar": False, "precisao": "double", "arquivos": {}}}
+            "rede": {"latencia": 0.0}, "c": {"usar": False, "precisao": "double", "arquivos": {}, "sinc_auto": False, "sinc": {}}}
 
 
 def completa_controle(salvo):
@@ -1961,6 +1962,12 @@ def analisa_modulos(c):
     return erros, avisos
 
 
+def sinais_do_c(c, r):
+    """Os nomes do maisim_sinais.h, na ordem do painel: as medidas "→ Controle", os parâmetros (e o Ts) e as atuações marcadas."""
+    return {"m": [k for _, k in sinais_da_rodada(r, "controle")] if r else [], "p": [q["nome"] for q in c["parametros"]] + ["Ts"],
+            "u": list(c["atuacoes"])}
+
+
 def instancias_controle(c, r):
     """Os controladores como instâncias para o processo do controle: (instâncias, erros, avisos). Sem controladores na
     lista, um só: controle.py, com todas as medidas e as atuações marcadas (o de sempre). Num controlador que vale em
@@ -1972,11 +1979,9 @@ def instancias_controle(c, r):
             return [], [lingua.tr("controle.c_varios")], []
         if "controle.c" not in (cc.get("arquivos") or {}):
             return [], [lingua.tr("controle.c_sem_arquivo")], []
-        entradas = [k for _, k in sinais_da_rodada(r, "controle")] if r else []
         return [{"nome": "controle", "arquivo": "controle.c", "codigo": cc["arquivos"]["controle.c"], "medidas": None,
                  "atuacoes": None, "linguagem": "c", "arquivos_c": dict(cc["arquivos"]), "precisao": cc.get("precisao", "double"),
-                 "sinais": {"m": entradas, "p": [q["nome"] for q in c["parametros"]] + ["Ts"], "u": list(c["atuacoes"])},
-                 "modulos": {}, "outros": []}], [], []
+                 "sinais": sinais_do_c(c, r), "modulos": {}, "outros": []}], [], []
     if not c.get("controladores"):
         return [{"nome": "controle", "arquivo": "controle.py", "codigo": c["codigo"], "medidas": None, "atuacoes": None,
                  "modulos": modulos_de(c), "outros": []}], [], []
@@ -2667,9 +2672,7 @@ def usos_no_controle(c, nomes):
     return usos
 
 
-def ident_c(nome):
-    """O nome de um sinal como identificador de C, como o controle_worker_c.py gera no maisim_sinais.h (M_<nome>…)."""
-    return re.sub(r"[^A-Za-z0-9_]", "_", str(nome))
+ident_c = sinais_c.ident                               # o nome de um sinal em C, como o maisim_sinais.h (M_<nome>…)
 
 
 def renomeia_no_controle(c, pares):
@@ -3304,7 +3307,10 @@ def confere_controle(c):
         arqs_c[str(k)] = v
     if len(arqs_c) > 50:
         raise ErroMotor(lingua.tr("controle.arquivos_demais"))
-    out["c"] = {"usar": bool(cc.get("usar")), "precisao": "float" if cc.get("precisao") == "float" else "double", "arquivos": arqs_c}
+    sinc = cc.get("sinc") if isinstance(cc.get("sinc"), dict) else {}   # a última comparação Python × C (as impressões dos dois)
+    out["c"] = {"usar": bool(cc.get("usar")), "precisao": "float" if cc.get("precisao") == "float" else "double", "arquivos": arqs_c,
+                "sinc_auto": bool(cc.get("sinc_auto")),
+                "sinc": {"py": str(sinc.get("py", ""))[:40], "c": str(sinc.get("c", ""))[:40], "ok": bool(sinc.get("ok"))} if sinc else {}}
     return out
 
 
@@ -4710,7 +4716,7 @@ def ia_conta(ia, acao, *args):
 CLAUDE_CASA = ESTADO.with_name("claude")
 CLAUDE_CONVERSAS = CLAUDE_CASA / "conversas"
 CLAUDE_SESSOES = CLAUDE_CASA / "sessoes.json"
-EDITAVEIS = ("controle.py", "parametros.json", "acionamentos.json", "controladores.json", "memoria.md", "circuito.json")
+EDITAVEIS = ("controle.py", "controle.c", "parametros.json", "acionamentos.json", "controladores.json", "memoria.md", "circuito.json")
 CONTEXTOS = contextos.pasta_padrao()               # os contextos salvos (contextos.py): dados do MaiSim, fora do repositório
 CLAUDE_MEMORIA = CLAUDE_CASA / "memoria.md"      # a memória do MaiSim: vale em todas as conversas (o usuário edita; o Claude propõe)
 ANEXO_TIPOS = {".pdf", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".txt", ".md", ".csv"}
@@ -5453,6 +5459,16 @@ def _claude_comeca(texto, dt, tfim, vez, modelo="", esforco="", ia="claude"):
     for arq_py, cod in (c.get("arquivos") or {}).items():   # os módulos e os outros controladores (etapa B: ele edita e cria)
         if ARQ_PY.match(arq_py):
             (pasta / arq_py).write_text(cod)
+    # o controle em C: o controle.c (o modelo, se ainda não há: a IA o edita), os .c/.h dele, o maisim_sinais.h gerado do
+    # painel (os índices M_/P_/U_) e o maisim_controle.h (o contrato) — só para ler
+    arqs_c = dict((c.get("c") or {}).get("arquivos") or {})
+    for arq_c, cod in ({"controle.c": modelo_c()} | arqs_c).items():
+        (pasta / arq_c).write_text(cod)
+    try:
+        (pasta / "maisim_sinais.h").write_text(sinais_c.gera_sinais_h(sinais_do_c(c, editor.get("ultimo"))))
+    except sinais_c.NomeRepetido:
+        pass
+    shutil.copyfile(Path(sinais_c.DIR_C) / "maisim_controle.h", pasta / "maisim_controle.h")
     (pasta / "parametros.json").write_text(json.dumps(c["parametros"], ensure_ascii=False, indent=1) + "\n")
     (pasta / "acionamentos.json").write_text(json.dumps(c.get("acionamentos") or [], ensure_ascii=False, indent=1) + "\n")
     (pasta / "controladores.json").write_text(json.dumps({"controladores": c.get("controladores") or [], "rede": c.get("rede") or {"latencia": 0.0}},
@@ -5733,7 +5749,7 @@ def _claude_volta_autonoma(antes, dt, chave, pasta, memoria, vez):
     if p.get("controladores") is not None:
         c.update(controladores=p["controladores"], rede=p.get("rede") or c.get("rede"))
     if p.get("arquivos") is not None:
-        c["arquivos"] = p["arquivos"]
+        arquivos_da_proposta(c, p)
     try:
         rodar({"dt": auto["dt"], "tfim": auto["tfim"], "nome": nome, "amostras": 2500}, ctl_de_fora=c)
     except Exception as e:
@@ -5912,9 +5928,15 @@ def claude_proposta(pasta, antes, dt, chave=None, memoria=""):
         mem = memoria
     arqs_antes = dict(antes.get("arquivos") or {})
     arqs = {f.name: f.read_text(errors="replace") for f in sorted(pasta.glob("*.py")) if f.name != "controle.py"}   # os módulos (e os criados)
+    # o controle em C: o controle.c (e outros .c/.h) que a IA deixou; o modelo intocado de um circuito sem C não conta
+    cc_antes = dict((antes.get("c") or {}).get("arquivos") or {})
+    arqs_c = {f.name: f.read_text(errors="replace") for f in sorted(list(pasta.glob("*.c")) + list(pasta.glob("*.h")))
+              if f.name not in sinais_c.GERADOS and ARQ_C.match(f.name)}
+    if not cc_antes and arqs_c.get("controle.c", "").strip() == modelo_c().strip() and len(arqs_c) == 1:
+        arqs_c = {}
     out = {"codigo_antes": antes["codigo"], "codigo": cod, "parametros_antes": antes["parametros"],
            "acionamentos_antes": antes.get("acionamentos") or [], "memoria_antes": memoria, "memoria": mem,
-           "arquivos_antes": arqs_antes, "arquivos": arqs}
+           "arquivos_antes": {**arqs_antes, **cc_antes}, "arquivos": {**arqs, **arqs_c}, "c_mudou": arqs_c != cc_antes}
     ctls_antes, rede_antes = antes.get("controladores") or [], antes.get("rede") or {"latencia": 0.0}
     out.update(controladores_antes=ctls_antes, rede_antes=rede_antes)
     try:
@@ -5945,11 +5967,13 @@ def claude_proposta(pasta, antes, dt, chave=None, memoria=""):
     muda_ctl = c2.get("controladores", []) != ctls_antes or (c2.get("rede") or {}) != rede_antes
     out.update(parametros=c2["parametros"], acionamentos=c2["acionamentos"], controladores=c2.get("controladores", []), rede=c2.get("rede") or rede_antes,
                mudou=(cod != antes["codigo"] or c2["parametros"] != antes["parametros"] or c2["acionamentos"] != (antes.get("acionamentos") or [])
-                      or mem.strip() != memoria.strip() or arqs != arqs_antes or muda_ctl))
+                      or mem.strip() != memoria.strip() or arqs != arqs_antes or muda_ctl or arqs_c != cc_antes))
     erros, avisos = verifica_codigo(cod)
     for arq_py, cod_py in arqs.items():                  # a sintaxe dos outros .py e os riscos do fluxo de módulos
         if cod_py != arqs_antes.get(arq_py):
             erros += [dict(x, arquivo=arq_py) for x in verifica_codigo(cod_py)[0]]
+    if arqs_c != cc_antes and arqs_c:                    # o C proposto: compila até o objeto (não roda), para o erro na linha
+        erros += sinais_c.confere(arqs_c, sinais_do_c(c2, editor.get("ultimo")), (antes.get("c") or {}).get("precisao", "double"))
     erros_m, avisos_m = analisa_modulos(c2)
     erros += erros_m
     avisos += avisos_m
@@ -5976,9 +6000,18 @@ def claude_proposta(pasta, antes, dt, chave=None, memoria=""):
     out["conferencia"] = [] if erros or not ult else confere_codigo(cod, c2["parametros"], c2["atuacoes"], [k for _, k in sinais_da_rodada(ult, "controle")], atu,
                                                                             so_scope=so_scope_de(ult))
     out["atuacoes"] = c2["atuacoes"]
-    so_memoria = cod == antes["codigo"] and c2["parametros"] == antes["parametros"] and c2["acionamentos"] == (antes.get("acionamentos") or []) and arqs == arqs_antes and not muda_ctl
+    so_memoria = cod == antes["codigo"] and c2["parametros"] == antes["parametros"] and c2["acionamentos"] == (antes.get("acionamentos") or []) and arqs == arqs_antes and not muda_ctl and arqs_c == cc_antes
     out["ligar"] = bool(out.get("mudou")) and not so_memoria and not antes["ativo"] and not erros and bool(ult)
     return out
+
+
+def arquivos_da_proposta(c, p, testa_c=False):
+    """Os arquivos de uma proposta da IA na configuração c: os .py em "arquivos", os .c/.h no controle em C ("c"). testa_c:
+    a proposta mexe no C → roda o C (o teste da proposta é o do que ela propõe)."""
+    c["arquivos"] = {k: v for k, v in p["arquivos"].items() if not ARQ_C.match(k)}
+    arqs_c = {k: v for k, v in p["arquivos"].items() if ARQ_C.match(k)}
+    if p.get("c_mudou"):
+        c["c"] = {**(c.get("c") or {}), "arquivos": arqs_c, **({"usar": True} if testa_c and arqs_c else {})}
 
 
 def claude_testa(dt):
@@ -5992,7 +6025,7 @@ def claude_testa(dt):
     if p.get("controladores") is not None:
         c.update(controladores=p["controladores"], rede=p.get("rede") or c.get("rede"))
     if p.get("arquivos") is not None:
-        c["arquivos"] = p["arquivos"]
+        arquivos_da_proposta(c, p, testa_c=True)
     try:
         t = testa_controle(dt, c=c, pasta_nome="teste_claude")
         teste = {"ok": True, "passos": t["passos"], "saida": t["saida"]}

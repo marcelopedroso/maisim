@@ -29,6 +29,7 @@ class Claude(IA):
     def comando(self, prompt, sessao, retoma, regras, modelo="", esforco="", passos=100, editaveis=(), pasta=None):
         cmd = [self.bin, "-p", prompt, "--output-format", "stream-json", "--verbose", "--restricted",
                "--tools", "Read,Edit,Write,Glob,Grep", "--allowedTools", *[f"Edit(./{f})" for f in editaveis], "Edit(./*.py)", "Write(./*.py)",
+               *[f"Write(./{f})" for f in editaveis if f.endswith(".c")],    # o controle.c (o C reescrito inteiro)
                "--permission-mode", "dontAsk", "--permission-prompts", "none", "--strict-mcp-config", "--max-turns", str(passos),
                *(["--model", modelo] if modelo else []), *(["--effort", esforco] if esforco else []),
                "--append-system-prompt", regras]
