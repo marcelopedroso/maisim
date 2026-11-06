@@ -126,6 +126,8 @@ try:
                             .replace("u[U_g] = portadora < e->d ? 1.0 : 0.0;", "u[U_g] = pwm_compara(portadora, e->d);")
         r = guarda(c={"usar": True, "arquivos": {"controle.c": com_mod, "pwm.h": pwm_h, "pwm.c": pwm_c}})
         ok("ERRO" not in r and sorted(r["controle"]["c"]["arquivos"]) == ["controle.c", "pwm.c", "pwm.h"], "o controle.c com um módulo (pwm.h + pwm.c) guardado")
+        rr = guarda(c={"usar": True, "arquivos": {"controle.c": com_mod, "pwm.h": pwm_h, "pwm.c": pwm_c, "PWM.h": pwm_h}})
+        ok("ERRO" in rr and "PWM.h" in rr.get("erro", ""), f"pwm.h e PWM.h recusados (só a maiúscula muda): {rr.get('erro', '')[:120]}")
         jm = roda("controle_c_modulo")
         cpm = api("editor/controle/compara", {"a": jc["arquivo"], "b": jm.get("arquivo", "")}) if jm.get("arquivo") else {}
         ok(jm.get("estado") == "fim" and cpm.get("iguais") is True, f"com o PWM no módulo pwm.c, a rodada é igual bit a bit à do controle.c sozinho: {jm.get('estado')} {jm.get('erro', '')}")

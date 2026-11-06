@@ -55,11 +55,11 @@ const PWM_C = '#include "pwm.h"\nmaisim_real pwm_compara(maisim_real portadora, 
     a = await arv();
     ok(a.filter((x) => x.solto).map((x) => x.a).sort().join(",") === "filtro.c,filtro.h", `sem #include ainda, o par fica em "sem uso": ${a.filter((x) => x.solto).map((x) => x.a).join(", ")}`);
     // 4. nomes recusados
-    for (const nome of ["maisim_x", "controle", "2x", "pwm"]) {
+    for (const nome of ["maisim_x", "controle", "2x", "pwm", "PWM"]) {
       await pg.click("#ctl-arq-novo2"); await pg.waitForSelector(".modal input[name=nome]");
       await pg.fill(".modal input[name=nome]", nome); await pg.click(".modal .m-ok"); await pg.waitForTimeout(500);
     }
-    ok((await pg.evaluate(async () => Object.keys((await api("editor/controle")).controle.c.arquivos).length)) === 5, "maisim_x, controle, 2x e pwm (já existe) recusados");
+    ok((await pg.evaluate(async () => Object.keys((await api("editor/controle")).controle.c.arquivos).length)) === 5, "maisim_x, controle, 2x, pwm (já existe) e PWM (só muda a maiúscula: a guarda PWM_H seria a mesma) recusados");
     // 5. apagar o filtro.c pela lista (o × pede confirmação); o arquivo aberto volta ao controle.c
     await pg.click('#ctl-ctls [data-fecha="filtro.c"]'); await pg.waitForSelector(".modal .m-ok"); await pg.click(".modal .m-ok"); await pg.waitForTimeout(1800);
     const depois = await pg.evaluate(async () => Object.keys((await api("editor/controle")).controle.c.arquivos).sort());

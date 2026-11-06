@@ -652,6 +652,8 @@ T = {
     "worker_c.sem_mensagens": {"pt": "o controle em C ainda não troca mensagens com outros controladores",
                                "en": "the C control does not exchange messages with other controllers yet"},
     "controle.compara_sem_rodada": {"pt": "não achei as duas rodadas para comparar", "en": "could not find the two runs to compare"},
+    "controle.arquivo_c_repetido": {"pt": "{a} e {b}: nomes que só diferem em maiúsculas (no Windows seriam o mesmo arquivo); renomeie um deles",
+                                    "en": "{a} and {b}: names that differ only in case (on Windows they would be the same file); rename one of them"},
     "controle.c_varios": {"pt": "rodar em C vale, por enquanto, para um controlador só (o controle.c, sem a lista de controladores)",
                           "en": "running in C works, for now, with a single controller (controle.c, without a list of controllers)"},
     "controle.c_sem_arquivo": {"pt": "rodar em C está ligado, mas não há controle.c", "en": "running in C is on, but there is no controle.c"},

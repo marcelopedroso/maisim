@@ -290,7 +290,8 @@ async function novoModuloC() {
   if (!r) return;
   const mod = r.nome.trim().replace(/\.[ch]$/, "");
   if (!/^[A-Za-z_][A-Za-z0-9_]{0,38}$/.test(mod) || /^maisim_/i.test(mod) || mod === "controle") { poeEstado(tr("ctl.nome_arq_c_invalido"), "erro"); return; }
-  const h = `${mod}.h`, c_ = `${mod}.c`, ja = [h, c_].find((a) => ctl.lista.includes(a));
+  const h = `${mod}.h`, c_ = `${mod}.c`;                // foo e Foo não: a guarda FOO_H seria a mesma (e no Windows, o mesmo arquivo)
+  const ja = ctl.lista.find((a) => ehC(a) && [h, c_].some((x) => x.toLowerCase() === a.toLowerCase()));
   if (ja) { poeEstado(tr("ctl.ja_existe", { nome: ja }), "erro"); return; }
   const c = coleta(); if (c.invalido) return;
   const m = modelosModuloC(mod);
