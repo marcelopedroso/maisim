@@ -30,7 +30,7 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
   await pg.click("#bt-ctl"); await pg.waitForFunction(() => ctl.carregado && ctl.editor, null, { timeout: 30000 });
   const original = await pg.evaluate(() => codigoAtual());
   // abrir a conversa
-  await pg.click("#ctl-claude-bt"); await pg.waitForTimeout(1500);
+  await pg.click("#bt-ia-flutua"); await pg.waitForTimeout(1500);
   const lay = await pg.evaluate(() => { const r = (id) => $(id).getBoundingClientRect(); return { chat: r("ctl-claude"), ed: r("ctl-editor"), aba: abaDoca,
     gaveta: !$("gaveta-ia").hidden, larg: innerWidth, flutua: getComputedStyle($("bt-ia-flutua")).display, uso: $("cc-uso").textContent, vazio: !!document.querySelector(".cc-vazio li") }; });
   // a conversa fica à parte (Marcelo, 06/11): a gaveta da direita, por cima da tela; o Controle continua aberto embaixo
@@ -42,6 +42,7 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
   ok(fechada.g && fechada.b !== "none" && !fechada.aberto && fechada.aba === "controle" && fechada.ed > 300, `× fecha a gaveta (o botão flutuante volta; o código com ${Math.round(fechada.ed)} px)`);
   await pg.click("#bt-ia-flutua"); await pg.waitForTimeout(500);
   ok(await pg.evaluate(() => cc.aberto && !$("gaveta-ia").hidden), "o botão flutuante abre a conversa");
+  ok(await pg.evaluate(() => getComputedStyle($("ctl-claude-bt")).display === "none"), "no desktop, só o botão flutuante (o \"IA\" da barra do código some)");
   ok(/sessão 42%/.test(lay.uso) && /semana 81%/.test(lay.uso), `uso da conta no topo: "${lay.uso}"`);
   ok(lay.vazio, "conversa vazia mostra exemplos do que pedir");
   await pg.screenshot({ path: "claude_chat_vazio.png" });
@@ -176,7 +177,7 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
   await tema("claro");
   // sem login
   logado(false); await pg.reload(); await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
-  await pg.click("#bt-ctl"); await pg.waitForFunction(() => ctl.carregado, null, { timeout: 30000 }); await pg.click("#ctl-claude-bt");
+  await pg.click("#bt-ctl"); await pg.waitForFunction(() => ctl.carregado, null, { timeout: 30000 }); await pg.click("#bt-ia-flutua");
   const entrar = await pg.waitForSelector("#cc-entrar", { timeout: 20000 }).then(() => true).catch(() => false);   // o auth status de verdade leva uns segundos
   ok(entrar, "sem login: a conversa pede para entrar no Claude do MaiSim");
   const semIA = await pg.evaluate(() => ["cc-texto", "cc-enviar", "cc-modelo", "cc-ia"].map((id) => getComputedStyle($(id)).display === "none"));

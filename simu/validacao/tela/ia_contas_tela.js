@@ -35,7 +35,7 @@ const semChave = (pg) => pg.evaluate((k) => !document.documentElement.outerHTML.
     await pg.reload(); await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
     await pg.click("#bt-editar"); await pg.waitForTimeout(600); while (await pg.$(".modal-fundo")) { await pg.click(".modal .m-extra, .modal .m-ok"); await pg.waitForTimeout(800); }
     await pg.click("#bt-ctl"); await pg.waitForFunction(() => ctl.carregado && ctl.editor, null, { timeout: 30000 });
-    await pg.click("#ctl-claude-bt"); await pg.waitForFunction(() => cla.estado && cla.estado.logado && cc.ias.some((a) => a.id === "eco"), null, { timeout: 20000 });
+    await pg.click("#bt-ia-flutua"); await pg.waitForFunction(() => cla.estado && cla.estado.logado && cc.ias.some((a) => a.id === "eco"), null, { timeout: 20000 });
     const sel = () => pg.evaluate(() => ({ visivel: getComputedStyle($("cc-ia")).display !== "none", ops: [...$("cc-ia").options].map((o) => o.textContent), ia: ccIA(),
       modelos: [...$("cc-modelo").options].map((o) => o.textContent), esforco: getComputedStyle($("cc-esforco")).display !== "none", uso: $("cc-uso").textContent }));
     const s0 = await sel();

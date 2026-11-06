@@ -27,7 +27,7 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
     await pg.evaluate(async () => { const j = await api("editor/estado"); dados = j; folhaAtual = "0"; novoEstado(j); await recarregaControle(); mostraDoca("controle"); });
     await pg.waitForFunction(() => ctl.carregado && ctl.editor, null, { timeout: 30000 });
     const original = await pg.evaluate(() => ({ cod: codigoAtual(), arqs: arquivosDoEditor() }));
-    await pg.click("#ctl-claude-bt");
+    await pg.click("#bt-ia-flutua");
     await pg.waitForFunction(() => typeof cla !== "undefined" && cla.estado && cla.estado.logado && cc.estado && !$("cc-texto").disabled, null, { timeout: 30000 });   /* a conversa pronta (não só aberta) */
     // pedir: o claude de mentira cria o pll.py, chama do controle.py e revisa o leitura.py
     await pg.fill("#cc-texto", "crie um pll em módulo e chame no controle"); await pg.press("#cc-texto", "Control+Enter");

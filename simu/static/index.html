@@ -249,6 +249,7 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   #bt-ia-flutua.trabalhando { animation:ia-pulsa 1.4s ease-in-out infinite; }   /* a IA respondendo */
   @keyframes ia-pulsa { 50% { box-shadow:0 0 0 8px color-mix(in srgb, var(--acento) 25%, transparent), 0 6px 18px var(--sombra); } }
   body.com-ia #bt-ia-flutua { display:none; }
+  body:not(.movel) #ctl-claude-bt { display:none; }   /* no desktop, o botão flutuante (o "IA" da barra do código era o mesmo); no celular, ele leva à aba IA */
   #ctl-claude.cc-sem-ia :is(#cc-uso, #cc-salvar, #cc-exportar, #cc-contextos, #cc-memoria, #cc-nova, #cc-nota, #cc-anexos, #cc-lembrete,
     #cc-texto, #cc-anexar, #cc-aviso, #cc-ia, #cc-modelo, #cc-esforco, #cc-auto, #cc-parar, #cc-enviar) { display:none !important; }
   #ctl-claude-bt.ativo { background:var(--acento-suave); color:var(--acento); border-color:var(--acento-borda); }
