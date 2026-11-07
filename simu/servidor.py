@@ -14,6 +14,8 @@ import sys
 import time
 import os
 import uuid
+import io
+import zipfile
 import random
 import shutil
 import signal
@@ -2019,6 +2021,70 @@ def instancias_c(c, r, insts, erros, avisos):
                     "sinais": {"m": glob["m"] if i["medidas"] is None else list(i["medidas"]), "p": glob["p"],
                                "u": glob["u"] if i["atuacoes"] is None else list(i["atuacoes"])}})
     return out, erros, avisos
+
+
+# o "Exportar C" (Marcelo, 06/11: "bota o seletor + exportar C2000"): o mesmo C do SIL, empacotado para o alvo
+DIR_EXPORTA = Path(sinais_c.DIR_C) / "exportar"
+ALVOS_EXPORTA = ("c2000",)
+
+
+def texto_c(s):
+    """Um texto como literal de C ("…", com \\ e \" escapados)."""
+    return '"' + str(s).replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def parametros_h(nomes_p, valores):
+    """O maisim_parametros.h: o Ts e os valores dos parâmetros do painel, o p[] de partida (na ordem do maisim_sinais.h)."""
+    v = lambda n: repr(float(valores.get(n, 0.0)))
+    return "\n".join([f"/* {lingua.tr('exporta.param_h')} */", "#ifndef MAISIM_PARAMETROS_H", "#define MAISIM_PARAMETROS_H", "",
+                      '#include "maisim_controle.h"', "", f"#define MAISIM_TS {v('Ts')}", "",
+                      "static const maisim_real maisim_p_iniciais[MAISIM_N_P] = {",
+                      *[f"    [P_{sinais_c.ident(n)}] = {v(n)}," for n in nomes_p], "};", "", "#endif", ""])
+
+
+def exporta_c(alvo, precisao="float"):
+    """O pacote do "Exportar C" (um .zip, em bytes, e o nome dele): uma pasta por controlador (um firmware cada), com o C
+    dele e os módulos (os mesmos do SIL), o maisim_controle.h na precisão escolhida, o maisim_sinais.h e o
+    maisim_parametros.h dele, o maisim_alvo.c (scope e mensagens), o esqueleto do alvo (alvos/c2000/c2000_isr.c) e o
+    teste/replay.c (o mesmo controle no PC, a partir de um CSV de medidas); na raiz, o LEIA.md."""
+    if alvo not in ALVOS_EXPORTA:
+        raise ErroMotor(lingua.tr("exporta.alvo", alvo=alvo))
+    precisao = "float" if precisao == "float" else "double"
+    c = completa_controle(le_controle())
+    insts, erros, _ = instancias_controle({**c, "c": {**(c.get("c") or {}), "usar": True}}, editor.get("ultimo"))
+    if erros:
+        raise ErroMotor(erros[0])
+    if not insts:
+        raise ErroMotor(lingua.tr("exporta.sem_c"))
+    en = lingua.atual() == "en"
+    le = lambda arq: (DIR_EXPORTA / (arq.replace(".", ".en.", 1) if en else arq)).read_text()
+    circuito = Path(editor.get("aberto") or "circuito").stem
+    pasta = re.sub(r"[^\w\-]", "_", circuito) + "_" + alvo
+    valores = {q["nome"]: q["valor"] for q in c["parametros"]} | {"Ts": c["Ts"]}
+    contrato = (Path(sinais_c.DIR_C) / "maisim_controle.h").read_text().replace("#define MAISIM_REAL double", f"#define MAISIM_REAL {precisao}")
+    grupos = {}                                         # o controlador (as instâncias de um subcircuito: o mesmo código)
+    for i in insts:
+        grupos.setdefault((i.get("p") or {}).get("controlador") or i["nome"], i)
+    buf, lista = io.BytesIO(), []
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for nome, i in grupos.items():
+            d, m, u = f"{pasta}/{nome}/", i["sinais"]["m"], i["sinais"]["u"]
+            for arq, cod in i["arquivos_c"].items():
+                z.writestr(d + arq, cod)
+            z.writestr(d + "maisim_controle.h", contrato)
+            z.writestr(d + "maisim_sinais.h", sinais_c.gera_sinais_h(i["sinais"]))
+            z.writestr(d + "maisim_parametros.h", parametros_h(i["sinais"]["p"], valores))
+            z.writestr(d + "maisim_alvo.c", le("maisim_alvo.c"))
+            leit = "\n".join(f"    m[M_{sinais_c.ident(k)}] = 0;   /* TODO: {lingua.tr('exporta.todo_m', k=k)} */" for k in m) or "    (void)m;"
+            esc = "\n".join(f"    if (u[U_{sinais_c.ident(k)}] == u[U_{sinais_c.ident(k)}]) {{ /* TODO: {lingua.tr('exporta.todo_u', k=k, u='U_' + sinais_c.ident(k))} */ }}"
+                            for k in u) or "    (void)u;"
+            z.writestr(d + "alvos/c2000/c2000_isr.c", le("c2000_isr.c").replace("{{LEITURAS}}", leit).replace("{{ESCRITAS}}", esc).replace("{{TS}}", num_txt(c["Ts"])))
+            z.writestr(d + "teste/replay.c", le("replay.c").replace("{{NOMES_M}}", ", ".join(map(texto_c, m)) or "0")
+                       .replace("{{NOMES_U}}", ", ".join(map(texto_c, u)) or "0").replace("{{N_M_CSV}}", str(len(m))))
+            lista.append(lingua.tr("exporta.leia_ctl", nome=nome, arq=i["arquivo"], m=", ".join(m) or "—", u=", ".join(u) or "—"))
+        z.writestr(f"{pasta}/LEIA.md", le("LEIA.md").replace("{{CIRCUITO}}", circuito).replace("{{PRECISAO}}", precisao)
+                   .replace("{{CONTROLADORES}}", "\n".join(lista)))
+    return buf.getvalue(), pasta + ".zip"
 
 
 def confere_c(c, arqs_c, r, precisao="double"):
@@ -6482,6 +6548,15 @@ class Manipulador(BaseHTTPRequestHandler):
             return self._resposta(200, r)
         if rota == "/editor/controle":
             return self._resposta(200, painel_controle())
+        if rota == "/editor/controle/exportar":        # o "Exportar C": o .zip para o alvo (?alvo=c2000&precisao=float)
+            if not pedido_local(self, False):
+                return self._resposta(403, {"erro": lingua.tr("servidor.so_local")})
+            q = {k: v[0] for k, v in parse_qs(u.query).items()}
+            try:
+                dados_zip, nome = exporta_c(q.get("alvo", "c2000"), q.get("precisao", "float"))
+            except ErroMotor as e:
+                return self._resposta(409, {"erro": str(e)})
+            return self._resposta(200, dados_zip, "application/zip", {"Content-Disposition": f'attachment; filename="{nome}"'})
         if rota == "/editor/controle/biblioteca":      # os módulos prontos (pi, pwm, passa_baixa, rampa, pll) em Python e em C
             return self._resposta(200, {"modulos": biblioteca_controle()})
         if rota == "/editor/pendente":               # o Gecko do MaiSim tem algo não salvo? (para quem vai derrubá-lo: npm run maisim)

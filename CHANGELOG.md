@@ -12,6 +12,18 @@ Each pull request adds its line under **Unreleased**; a release moves them under
   - On Linux the embedded TinyCC compiles with MaiSim's own minimal C headers (`simu/controle_c/libc`) instead of the system's, and links without the system C library (the functions come from the Python process). It compiles the same on any machine, even without developer tools.
   - With it, the C gives exactly the same results as with gcc, bit for bit, in the buck and with the whole control library (the PLL with sin and cos). A `printf` in the C now reaches the control log as it happens.
   - The package smoke test runs a C control, and the CI builds the TinyCC to test it.
+- **Export the C control to the hardware (TI C2000)**. On the C view, **⤓ Export** builds a `.zip` from the same C that runs in the simulation, with one folder per controller (one firmware each). Each folder has:
+  - the code and its modules, unchanged;
+  - `maisim_controle.h` in the chosen precision (`float` for the C28x FPU, recommended, or `double`);
+  - `maisim_sinais.h` with its indices, and `maisim_parametros.h` with Ts and the panel's parameter values;
+  - `maisim_alvo.c` (scope and messages, to fill in with your communication);
+  - `alvos/c2000/c2000_isr.c`, the ADC interrupt skeleton (read `m[]`, call `maisim_passo`, write `u[]`), with a TODO for each measurement's channel and each actuation;
+  - `teste/replay.c`, the same control on the PC from a CSV of measurements;
+  - a `LEIA.md` with the steps in Code Composer Studio and the caveats (float, TMU, ePWM, timing).
+  - A test checks that the package compiles and that `replay.c` gives exactly the same actuations as the C in the simulation, bit for bit. Other targets (STM32, Typhoon HIL, OPAL-RT/Simulink, PLECS, FPGA via HLS) show as *coming soon*.
+
+### Changed
+- **The language selector is Python | C**: FPGA is not a language but a target (its C goes through HLS), so it moves to the Export targets.
 
 ### Changed
 - **MaiSim's AI stands apart, in a drawer opened by a floating button.** On the desktop, the conversation used to open as a third column inside the Control panel and squeezed the code to half its width.

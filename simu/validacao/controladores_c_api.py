@@ -4,7 +4,7 @@ conversam pela rede (maisim_envia / maisim_recebeu), com um módulo (copia.h/cop
 EXATAMENTE o mesmo que em Python (as mesmas contas na mesma ordem), com latência 0 e 2,5·Ts. E: cada controlador compila
 na sua pasta com um maisim_sinais.h só com os sinais dele; um controlador sem o .c dele não roda (o erro diz qual falta);
 maisim_envia para quem não existe é erro, com o arquivo; a proposta da IA compila cada controlador com os índices dele."""
-import json, os, subprocess, sys, tempfile, time, urllib.request
+import io, json, os, subprocess, sys, tempfile, time, urllib.request, zipfile
 from pathlib import Path
 import numpy as np
 RAIZ_PROJ = str(Path(__file__).resolve().parents[2])
@@ -143,6 +143,22 @@ try:
             ok(mv.get("pares") == {"aquisicao|controle": ["i"]}, f"o que foi nas mensagens, da rodada em C: {mv.get('pares')}")
             cp = api("editor/controle/compara", {"a": jp["arquivo"], "b": jc["arquivo"]})
             ok(cp.get("iguais") is True, f"o 'Comparar Python × C' do painel: iguais em {len(cp.get('colunas', []))} sinais")
+    # o "Exportar C" com dois controladores: uma pasta (um firmware) por controlador, o módulo nos dois, os sinais de cada um;
+    # cada pasta compila no PC com o replay.c dela
+    api("editor/controle", {"controle": dist(0.0, True)})
+    req = urllib.request.Request(B + "editor/controle/exportar?alvo=c2000&precisao=double")
+    z = zipfile.ZipFile(io.BytesIO(urllib.request.urlopen(req, timeout=120).read()))
+    raiz = z.namelist()[0].split("/")[0]
+    tem = lambda p: f"{raiz}/{p}" in z.namelist()
+    h = lambda ctl: z.read(f"{raiz}/{ctl}/maisim_sinais.h").decode()
+    ok(all(tem(f"{c_}/{a}") for c_ in ("aquisicao", "controle") for a in ("copia.c", "copia.h", "maisim_parametros.h", "teste/replay.c"))
+       and tem("aquisicao/aquisicao.c") and tem("controle/controle.c") and not tem("aquisicao/controle.c") and "M_i_L" in h("aquisicao") and "M_i_L" not in h("controle"),
+       "exportar com dois controladores: uma pasta por controlador, o módulo nos dois, os sinais de cada um")
+    with tempfile.TemporaryDirectory() as d:
+        z.extractall(d)
+        comp = [subprocess.run(["gcc", "-std=c99", "-I.", *sorted(f for f in os.listdir(os.path.join(d, raiz, c_)) if f.endswith(".c")), "teste/replay.c", "-lm", "-o", "replay"],
+                               cwd=os.path.join(d, raiz, c_), capture_output=True, text=True) for c_ in ("aquisicao", "controle")]
+        ok(all(x.returncode == 0 for x in comp), f"cada pasta compila no PC (com o replay.c) {' '.join(x.stderr[-150:] for x in comp)}")
     # sem o .c de um controlador: não roda, e o erro diz qual falta
     j, _ = roda2("dist_c_falta", dist(0.0, True, {k: v for k, v in ARQS_C.items() if k != "aquisicao.c"}))
     ok(j.get("estado") != "fim" and "aquisicao.c" in (j.get("erro") or ""), f"sem o aquisicao.c: {(j.get('erro') or '')[:120]}")
