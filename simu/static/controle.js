@@ -1631,6 +1631,7 @@ function tagAtuador(g, x, y, nome, centrada = false) {   // centrada: x é o mei
   document.querySelectorAll("#ctl-ling [data-ling]").forEach((b) => { b.onclick = () => { if (!b.disabled) poeVisao(b.dataset.ling === "c"); }; });
   $("ctl-c-comparar").onclick = comparaPyC;
   $("ctl-c-ia").onclick = () => converteIA(visaoC());
+  $("ctl-c-exportar").onclick = exportaC;
   $("ctl-c-res").addEventListener("click", (ev) => { if (ev.target.closest("[data-abre-ia]") && typeof ccAbre === "function") ccAbre(true); });
   $("ctl-saida-fecha").onclick = () => { $("ctl-saida-caixa").style.display = "none"; };
   $("ctl-saida-copia").onclick = async () => { const bt = $("ctl-saida-copia"); feito(bt, (await copiaTexto(ctl.saida && ctl.saida.tipo === "erro" ? textoDoErro() : $("ctl-saida").textContent)) ? tr("ctl.copiado") : tr("ctl.nao_deu"), "ctl.saida_copia"); };
@@ -1732,6 +1733,27 @@ async function aoFimDoPedido(e) {                         // claude_chat.js avis
   }
   if (p && p.mudou) { await ccAplica({ auto: true }); if (!(cc.estado && cc.estado.aplicada)) { $("ctl-c-res").textContent = ""; return; } }
   comparaPyC();                                           // aplicada, ou a outra linguagem já estava certa (nada a mudar): confere
+}
+// o "Exportar C" (Marcelo, 06/11): o mesmo C do SIL num .zip para o alvo; por enquanto o TI C2000 (os outros: em breve)
+async function exportaC() {
+  if (travado() || !ctl.carregado) return;
+  let prec = $("ctl-c-prec").value === "double" ? "double" : "float";   // o C28x: float é a FPU; o double de 64 bits é emulado
+  const breve = ["STM32", "Typhoon HIL", "OPAL-RT / Simulink", "PLECS", "FPGA (HLS)"];
+  const op = (nome, v, rot, marc, des = false) => `<label><input type="radio" name="${nome}" value="${v}"${marc ? " checked" : ""}${des ? " disabled" : ""}> ${rot}</label>`;
+  const r = await modal({ titulo: tr("ctl.exp_titulo"), texto: tr("ctl.exp_html"), ok: tr("ctl.exportar"), html: `<div class="ctl-bib">
+      <h4>${escT(tr("ctl.exp_alvo"))}</h4>${op("alvo", "c2000", `<b>${escT(tr("ctl.exp_c2000"))}</b>`, true)}${breve.map((b) => op("alvo", "", `${escT(b)} <small>${escT(tr("ctl.exp_breve"))}</small>`, false, true)).join("")}
+      <h4>${escT(tr("ctl.exp_prec"))}</h4>${op("prec", "float", escT(tr("ctl.exp_float")), prec === "float")}${op("prec", "double", escT(tr("ctl.exp_double")), prec === "double")}</div>`,
+    monta: (f) => f.querySelectorAll("input[name=prec]").forEach((x) => x.addEventListener("change", () => { prec = x.value; })) });
+  if (!r) return;
+  if (!(await guardaControle())) return;                  // vai o que está na tela
+  try {
+    const resp = await fetch(`editor/controle/exportar?alvo=c2000&precisao=${prec}`);
+    if (!resp.ok) throw new Error(((await resp.json().catch(() => ({}))).erro) || resp.statusText);
+    const nome = (/filename="([^"]+)"/.exec(resp.headers.get("Content-Disposition") || "") || [])[1] || "controle_c2000.zip";
+    const url = URL.createObjectURL(await resp.blob()), a = document.createElement("a");
+    a.href = url; a.download = nome; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+    poeEstado(tr("ctl.exp_ok", { arq: nome }), "ok");
+  } catch (e) { poeEstado(tr("ctl.exp_erro", { erro: e.message }), "erro"); }
 }
 function mostraComparacao() {
   const k = ctl.compara; if (!k) return;
