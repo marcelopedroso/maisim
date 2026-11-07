@@ -12,11 +12,12 @@
 static const char *nomes_m[] = { {{NOMES_M}} };
 static const char *nomes_u[] = { {{NOMES_U}} };
 static long long estado[1 << 16];
+static char linha[1 << 20];                     /* one CSV line (many columns fit) */
 
 int main(int argc, char **argv) {
     FILE *e = fopen(argc > 1 ? argv[1] : "teste/medidas.csv", "r"), *s = fopen(argc > 2 ? argv[2] : "teste/atuacoes.csv", "w");
-    char linha[65536], *c;
-    int col[256], n_col = 0, k, j;
+    char *c;
+    int *col, n_col = 0, k, j, achou[MAISIM_N_M > 0 ? MAISIM_N_M : 1] = {0};
     maisim_real m[MAISIM_N_M], p[MAISIM_N_P], u[MAISIM_N_U], t;
     if (!e || !s) { fprintf(stderr, "could not open the CSV\n"); return 1; }
     if (maisim_tamanho_estado() > sizeof(estado)) { fprintf(stderr, "state too large\n"); return 1; }
@@ -24,12 +25,16 @@ int main(int argc, char **argv) {
     for (k = 0; k < MAISIM_N_M; k++) m[k] = NAN;
     maisim_iniciar(p, estado);
     if (!fgets(linha, sizeof linha, e)) return 1;
-    for (c = strtok(linha, ",\r\n"); c && n_col < 256; c = strtok(NULL, ",\r\n")) {   /* the column of each measurement (by name) */
+    for (k = 1, c = linha; *c; c++) k += (*c == ',');
+    col = (int *)malloc(sizeof(int) * k);        /* one per header column, however many */
+    for (c = strtok(linha, ",\r\n"); c; c = strtok(NULL, ",\r\n")) {   /* the column of each measurement (by name) */
         col[n_col] = -2;
         if (strcmp(c, "t") == 0) col[n_col] = -1;
-        for (k = 0; k < {{N_M_CSV}}; k++) if (strcmp(c, nomes_m[k]) == 0) col[n_col] = k;
+        for (k = 0; k < {{N_M_CSV}}; k++) if (strcmp(c, nomes_m[k]) == 0) { col[n_col] = k; achou[k] = 1; }
         n_col++;
     }
+    for (k = 0; k < {{N_M_CSV}}; k++)             /* a measurement missing from the CSV would stay NAN: better to stop */
+        if (!achou[k]) { fprintf(stderr, "measurement %s is not in the CSV\n", nomes_m[k]); return 2; }
     fprintf(s, "t");
     for (k = 0; k < (int)(sizeof nomes_u / sizeof *nomes_u) && nomes_u[k]; k++) fprintf(s, ",%s", nomes_u[k]);
     fprintf(s, "\n");

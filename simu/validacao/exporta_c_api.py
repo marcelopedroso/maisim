@@ -98,6 +98,17 @@ try:
         ok(carregou.get("ok") and len(g_replay) == N and not difs and set(g_sil) == {0.0, 1.0},
            f"replay.c ≡ SIL: as {N} atuações iguais bit a bit (g liga e desliga) {rr.stderr[-200:]}"
            + (f"; a 1ª diferença na amostra {difs[0]}: {g_sil[difs[0]]} × {g_replay[difs[0]]}" if difs else ""))
+        # o CSV com 300 colunas a mais (antes, depois da 256ª elas sumiam) e o CSV sem uma medida (antes, NAN calado) (Codex, #235)
+        extra = [f"x{k}" for k in range(300)]
+        (pasta / "teste/largo.csv").write_text("t," + ",".join(extra + nomes_m) + "\n" + "".join(
+            ",".join([repr(a["t"])] + ["0"] * 300 + [repr(a[n]) for n in nomes_m]) + "\n" for a in amostras))
+        rl = subprocess.run(["./replay", "teste/largo.csv", "teste/largo_out.csv"], cwd=pasta, capture_output=True, text=True, timeout=60)
+        g_largo = [float(l.split(",")[1]) if l.split(",")[1] else None for l in (pasta / "teste/largo_out.csv").read_text().splitlines()[1:]] if rl.returncode == 0 else []
+        ok(g_largo == g_replay, f"um CSV com 300 colunas a mais: as mesmas atuações {rl.stderr[-150:]}")
+        (pasta / "teste/falta.csv").write_text("t," + ",".join(nomes_m[:-1]) + "\n" + "".join(
+            ",".join(repr(a[c]) for c in ["t", *nomes_m[:-1]]) + "\n" for a in amostras[:10]))
+        rf = subprocess.run(["./replay", "teste/falta.csv", "teste/falta_out.csv"], cwd=pasta, capture_output=True, text=True, timeout=60)
+        ok(rf.returncode == 2 and nomes_m[-1] in rf.stderr, f"um CSV sem uma medida: o replay para e diz qual ({rf.returncode}: {rf.stderr.strip()[:80]})")
         (pasta / "alvos/c2000/F28x_Project.h").write_text(STUB_TI)
         r = gcc(pasta, "-Ialvos/c2000", "-c", "alvos/c2000/c2000_isr.c", "-o", "isr.o")
         isr = (pasta / "alvos/c2000/c2000_isr.c").read_text()
