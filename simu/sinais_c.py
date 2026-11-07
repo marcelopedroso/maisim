@@ -59,14 +59,37 @@ def compilador(raiz=None):
     return None
 
 
-def opcoes(e_tcc, precisao="double"):
-    """As opções de sempre: os .h na pasta, a precisão e, no gcc/cc, as contas como o Python (sem FMA nem sincos)."""
+def pasta_tcc(cc):
+    """A pasta do TinyCC embutido (o tcc com o libtcc1.a e o include/ dele ao lado: o tcc/ dos pacotes, pacote/tcc.sh) ou
+    None (um tcc do sistema, o gcc…). No Windows, o tcc dos pacotes é o oficial, com os cabeçalhos e a libc dele."""
+    d = os.path.dirname(os.path.abspath(cc or ""))
+    if cc and os.name != "nt" and os.path.isfile(os.path.join(d, "libtcc1.a")) and os.path.isdir(os.path.join(d, "include")):
+        return d
+    return None
+
+
+def opcoes(e_tcc, precisao="double", cc=None):
+    """As opções de sempre: os .h na pasta, a precisão e, no gcc/cc, as contas como o Python (sem FMA nem sincos). O
+    TinyCC embutido usa os cabeçalhos mínimos do MaiSim (controle_c/libc), não os do sistema: compila igual em qualquer
+    Linux, mesmo sem as ferramentas de programador."""
     o = ["-I.", f"-DMAISIM_REAL={precisao}"]
+    d = pasta_tcc(cc) if e_tcc else None
+    if d:
+        o = ["-nostdinc", f"-I{os.path.join(d, 'include')}", f"-I{os.path.join(DIR_C, 'libc')}", f"-B{d}", *o]
     if not e_tcc:
         # -fno-builtin-sin/-cos: sem eles, o gcc junta sin(x) e cos(x) num sincos(), que às vezes difere no último bit do
         # sin() e do cos() que o Python chama (o PLL da biblioteca saía diferente do pll.py)
         o += ["-O2", "-std=c99", "-ffp-contract=off", "-fno-builtin-sin", "-fno-builtin-cos", "-Werror=implicit-function-declaration"]
     return o
+
+
+def ligacao(cc, e_tcc):
+    """O que liga a biblioteca do controle: a libm (o gcc/cc e um tcc do sistema); o TinyCC embutido, sem a libc do
+    sistema (-nostdlib: as funções vêm do processo do Python, que já carregou a libc e a libm) e com o libtcc1.a dele."""
+    if os.name == "nt":
+        return []
+    d = pasta_tcc(cc) if e_tcc else None
+    return ["-nostdlib", os.path.join(d, "libtcc1.a")] if d else ["-lm"]
 
 
 def primeiro_erro(saida):
@@ -95,7 +118,7 @@ def confere(fontes, sinais, precisao="double"):
         shutil.copy(os.path.join(DIR_C, "maisim_controle.h"), os.path.join(d, "maisim_controle.h"))
         erros = []
         for arq in sorted(a for a in fontes if a.endswith(".c")):
-            r = subprocess.run([cc[0], *opcoes(cc[1], precisao), "-c", arq, "-o", arq + ".o"], cwd=d, capture_output=True, text=True, timeout=60)
+            r = subprocess.run([cc[0], *opcoes(cc[1], precisao, cc[0]), "-c", arq, "-o", arq + ".o"], cwd=d, capture_output=True, text=True, timeout=60)
             if r.returncode != 0:
                 e = primeiro_erro(r.stderr or r.stdout)
                 erros.append({"arquivo": e[0], "linha": e[1], "coluna": e[2], "msg": e[3]} if e else
