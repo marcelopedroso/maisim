@@ -5,6 +5,7 @@ Feito sobre:
 - GeckoCIRCUITS (GPL v3): o simulador de circuitos por trás do MaiSim, com modificações do MaiSim (o código e os patches
   acompanham o MaiSim, em gecko/patches).
 - Python e NumPy (BSD); Eclipse Temurin (o Java, GPL v2 com Classpath Exception).
+- TinyCC (LGPL v2.1): compila o controle em C dentro do MaiSim (a licença em maisim\tcc\COPYING).
 - uPlot (MIT): os gráficos do scope. Monaco Editor (MIT): o editor de código. KaTeX (MIT): as equações. marked (MIT).
 - IA: o MaiSim não inclui IA. Ele chama, no seu computador, o programa oficial Claude Code (Anthropic), que você
   instala e usa com a sua própria conta; ele segue os próprios termos de uso. O MaiSim não é afiliado à Anthropic.

@@ -38,6 +38,14 @@ cfg = {"nome": "controle", "arquivo": "controle.c", "atuacoes": None, "nomes": [
 lib = estado = p_arr = None
 nomes = {"m": [], "p": [], "u": []}
 real = ctypes.c_double
+# o printf do controle.c fica no buffer do stdio do C até encher (a saída não é um terminal): esvaziado a cada passo, ele
+# aparece no controle.log na hora (e não se perde quando a rodada acaba)
+# (no Windows, o TinyCC liga a biblioteca do controle à msvcrt.dll: é o stdio dela que se esvazia)
+try:
+    _fflush = (ctypes.cdll.msvcrt if os.name == "nt" else ctypes.CDLL(None)).fflush
+    _fflush.argtypes = [ctypes.c_void_p]
+except (OSError, AttributeError):
+    _fflush = None
 
 
 class ErroC(Exception):
@@ -70,8 +78,8 @@ def compila(fontes, sinais, precisao):
     if os.path.exists(saida_lib):
         os.remove(saida_lib)
     cs = sorted(a for a in fontes if a.endswith(".c")) + ["maisim_sil.c"]
-    opts = ["-shared", *sinais_c.opcoes(e_tcc, precisao), "-o", saida_lib] + ([] if e_tcc else ["-fPIC"])
-    r = subprocess.run([cc, *opts, *cs, "-lm"] if os.name != "nt" else [cc, *opts, *cs], capture_output=True, text=True, timeout=60)
+    opts = ["-shared", *sinais_c.opcoes(e_tcc, precisao, cc), "-o", saida_lib] + ([] if e_tcc else ["-fPIC"])
+    r = subprocess.run([cc, *opts, *cs, *sinais_c.ligacao(cc, e_tcc)], capture_output=True, text=True, timeout=60)
     if r.returncode != 0:
         msg = (r.stderr or r.stdout).strip()
         e = sinais_c.primeiro_erro(msg)
@@ -218,6 +226,8 @@ with lingua.com(LINGUA):
                 lib.maisim_sil_limpa()
                 recebidas(pedido.get("msgs") or [])
                 lib.maisim_passo(float(pedido["t"]), m_arr, p_arr, estado, u_arr)
+                if _fflush:
+                    _fflush(None)
                 out, mapa = {}, cfg["atuacoes"]
                 for k, nome in enumerate(nomes["u"]):
                     v = float(u_arr[k])
