@@ -6,6 +6,9 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Changed
+- **Every run ends about 0.25 s sooner**, a ~30% gain on the examples without Python control (boost 0.84 → 0.58 s; inverters and H-bridge alike). When a simulation ended, GeckoCIRCUITS always waited 300 ms so as not to race the refresh of its own scope windows, which MaiSim never opens. Patch `0014` waits only when a Gecko scope window is on screen. The results are unchanged, bit for bit (A/B on 7 examples).
+
 ### Added
 - **Export the C control to the hardware (TI C2000)**. On the C view, **⤓ Export** builds a `.zip` from the same C that runs in the simulation, with one folder per controller (one firmware each). Each folder has:
   - the code and its modules, unchanged;
