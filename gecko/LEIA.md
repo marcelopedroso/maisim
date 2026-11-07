@@ -43,6 +43,12 @@ trecho, o tempo no fim, os passos feitos e as médias, e depois os valores lidos
 `0011`: `stepControlSampled`, o `stepControl` com as amostras de dentro do período (o STEPCS do motor): a cada k passos, o
 tempo, o passo, os valores lidos e as médias das perdas desde a amostra anterior, e no fim a cauda (as médias desde a última);
 os passos, as escritas e os números dos trechos são os do `stepControl` (as leituras a mais não mudam a simulação).
+`0012`: os blocos de controle giram (o `rotiereSymbol()` do bloco era vazio: eles ficavam sempre para baixo); os terminais
+acompanham a orientação, então um fio ligado a um bloco girado conecta na simulação. `0013`: um nome sem o caminho da folha
+é o da folha principal (com uma peça de mesmo nome dentro de um subcircuito, o Gecko dizia "Name ambiguousness error"; a
+de dentro se chama pelo caminho, `SUBCIRCUIT.1#GATE.2`). `0014`: o fim da simulação sem a espera de 300 ms (o
+`lastUpdateOfScope` dormia para não brigar com a atualização das janelas de scope do Gecko, que o MaiSim nunca abre: só
+espera com uma delas na tela; cada rodada termina ~0,25 s antes, os números iguais bit a bit).
 
 **Tudo de uma vez (recomendado):** em `app/`, `npm run maisim` sobe o scope, o simulador, este Gecko e a página, e o
 Ctrl+C derruba o que ele subiu (o Gecko só se não houver circuito sem salvar; ver `app/scripts/maisim.sh`).

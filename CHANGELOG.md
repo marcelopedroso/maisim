@@ -6,6 +6,9 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Changed
+- **Every run ends about 0.25 s sooner**, a ~30% gain on the examples without Python control (boost 0.84 → 0.58 s; inverters and H-bridge alike). When a simulation ended, GeckoCIRCUITS always waited 300 ms so as not to race the refresh of its own scope windows, which MaiSim never opens. Patch `0014` waits only when a Gecko scope window is on screen. The results are unchanged, bit for bit (A/B on 7 examples).
+
 ### Added
 - **Export the C control to STM32, Simulink / OPAL-RT, Typhoon HIL, PLECS and FPGA (Vitis HLS)**, besides the TI C2000, all from the same C that runs in the simulation. The dialog lists the six targets.
   - **STM32:** the HAL ADC callback skeleton.
