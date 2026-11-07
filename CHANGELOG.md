@@ -10,6 +10,17 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 - **Every run ends about 0.25 s sooner**, a ~30% gain on the examples without Python control (boost 0.84 → 0.58 s; inverters and H-bridge alike). When a simulation ended, GeckoCIRCUITS always waited 300 ms so as not to race the refresh of its own scope windows, which MaiSim never opens. Patch `0014` waits only when a Gecko scope window is on screen. The results are unchanged, bit for bit (A/B on 7 examples).
 
 ### Added
+- **Export the C control to STM32, Simulink / OPAL-RT, Typhoon HIL, PLECS and FPGA (Vitis HLS)**, besides the TI C2000, all from the same C that runs in the simulation. The dialog lists the six targets.
+  - **STM32:** the HAL ADC callback skeleton.
+  - **Simulink / OPAL-RT (RT-LAB) / Simulink Real-Time:** a level-2 C S-function (`mex`), with the measurement and actuation order.
+  - **Typhoon HIL:** the three sections to paste into the C function block, with the control and its modules as one text and the ports named `m_…`/`u_…`.
+  - **PLECS:** the three sections for the C-Script block.
+  - **FPGA:** the `maisim_top` top function for Vitis HLS (HLS generates the VHDL/Verilog from this C) and a testbench that reads the same CSV as `replay.c`.
+  - Each package has a `LEIA.md` section for its tool (pt/en).
+  - The target skeletons compute time as n·Ts. Adding Ts every sample accumulates rounding error and shifts the PWM edges.
+  - A test runs each target's code on the PC (S-function, Typhoon and PLECS blocks, HLS testbench) on the same measurements, and it matches the C in the simulation bit for bit. The STM32 skeleton compiles.
+
+### Added
 - **The packages bring their own C compiler (TinyCC)**, so the C control runs where there is no compiler: the Windows installer, the AppImage (x86_64 and ARM) and the Android app.
   - On Linux the TinyCC 0.9.27 is built from its source (`pacote/tcc.sh`, SHA-256 pinned, without the memory checker that no longer builds with today's glibc). On Windows it is the official win64 build. The license (LGPL v2.1) goes in `maisim/tcc/COPYING`, and the credits name it.
   - On Linux the embedded TinyCC compiles with MaiSim's own minimal C headers (`simu/controle_c/libc`) instead of the system's, and links without the system C library (the functions come from the Python process). It compiles the same on any machine, even without developer tools.

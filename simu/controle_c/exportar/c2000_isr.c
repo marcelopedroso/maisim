@@ -11,14 +11,14 @@
 
 static maisim_real m[MAISIM_N_M], p[MAISIM_N_P], u[MAISIM_N_U];
 static long long estado[MAISIM_ESTADO_MAX / sizeof(long long)];   /* zerado e alinhado */
-static maisim_real t_amostra;
+static unsigned long long n_amostra;   /* t = n·Ts (somar Ts a cada amostra acumula erro de arredondamento) */
 
 /* chame uma vez, depois de configurar o ADC e o ePWM e antes de ligar a interrupção */
 int maisim_alvo_iniciar(void) {
     int k;
     if (maisim_tamanho_estado() > sizeof(estado)) return -1;   /* aumente MAISIM_ESTADO_MAX */
     for (k = 0; k < MAISIM_N_P; k++) p[k] = maisim_p_iniciais[k];
-    t_amostra = 0;
+    n_amostra = 0;
     maisim_iniciar(p, estado);
     return 0;
 }
@@ -29,10 +29,10 @@ __interrupt void maisim_adc_isr(void) {
 {{LEITURAS}}
     /* 2. controlar: o mesmo maisim_passo do SIL (a atuação que ele não escrever fica NAN: não muda) */
     for (k = 0; k < MAISIM_N_U; k++) u[k] = NAN;
-    maisim_passo(t_amostra, m, p, estado, u);
+    maisim_passo((maisim_real)((double)n_amostra * MAISIM_TS), m, p, estado, u);
     /* 3. escrever: as atuações */
 {{ESCRITAS}}
-    t_amostra += MAISIM_TS;
+    n_amostra++;
     AdcaRegs.ADCINTFLGCLR.bit.ADCINT1 = 1;      /* o ADC e o PIE desta interrupção: troque pelos seus */
     PieCtrlRegs.PIEACK.all = PIEACK_GROUP1;
 }
