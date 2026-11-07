@@ -55,6 +55,7 @@ while j.get("estado") in ("rodando", "pausada", "preparando"):
     time.sleep(0.3); j = api("/maisim/simu/editor/rodada")
 assert j.get("estado") == "fim", f"o controle em C não rodou: {j.get('erro', j)}"
 print("fumaça: o controle em C rodou (o TinyCC do pacote)")
+api("/maisim/simu/editor/novo", {"modo": "descartar"})     # o controle mudado não fica sem salvar (o --parar recusaria desligar o Gecko)
 EOF
 ok=$?
 "$A/python/bin/python3" "$A/maisim/app/lancador.py" --produto --parar > "$T/parar.log" 2>&1
