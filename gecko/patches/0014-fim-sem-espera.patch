@@ -1,0 +1,26 @@
+diff --git a/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/SimulationsKern.java b/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/SimulationsKern.java
+--- a/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/SimulationsKern.java
++++ b/src/main/java/ch/technokrat/gecko/geckocircuits/circuit/SimulationsKern.java
+@@ -777,7 +777,21 @@
+     }
+ 
+     private void lastUpdateOfScope() {
+-        this.lastUpdateOfScope(300);
++        // MaiSim: the 300 ms wait only avoids a race with the refresh of the scope windows on screen; with none showing
++        // (MaiSim reads the data through the remote interface), there is nothing to wait for
++        this.lastUpdateOfScope(someScopeShowing() ? 300 : 0);
++    }
++
++    private boolean someScopeShowing() {
++        for (int i1 = 0; i1 < c.length; i1++) {
++            if (c[i1] instanceof ReglerOSZI) {
++                ScopeFrame sf = ((ReglerOSZI) c[i1])._scopeFrame;
++                if (sf != null && sf.isShowing()) {
++                    return true;
++                }
++            }
++        }
++        return false;
+     }
+ 
+     private void lastUpdateOfScope(long sleep) {

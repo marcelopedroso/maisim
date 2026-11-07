@@ -6,6 +6,9 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Changed
+- **Every run ends about 0.25 s sooner**, a ~30% gain on the examples without Python control (boost 0.84 → 0.58 s; inverters and H-bridge alike). When a simulation ended, GeckoCIRCUITS always waited 300 ms so as not to race the refresh of its own scope windows, which MaiSim never opens. Patch `0014` waits only when a Gecko scope window is on screen. The results are unchanged, bit for bit (A/B on 7 examples).
+
 ### Added
 - **The packages bring their own C compiler (TinyCC)**, so the C control runs where there is no compiler: the Windows installer, the AppImage (x86_64 and ARM) and the Android app.
   - On Linux the TinyCC 0.9.27 is built from its source (`pacote/tcc.sh`, SHA-256 pinned, without the memory checker that no longer builds with today's glibc). On Windows it is the official win64 build. The license (LGPL v2.1) goes in `maisim/tcc/COPYING`, and the credits name it.
