@@ -40,10 +40,10 @@ nomes = {"m": [], "p": [], "u": []}
 real = ctypes.c_double
 # o printf do controle.c fica no buffer do stdio do C até encher (a saída não é um terminal): esvaziado a cada passo, ele
 # aparece no controle.log na hora (e não se perde quando a rodada acaba)
+# (no Windows, o TinyCC liga a biblioteca do controle à msvcrt.dll: é o stdio dela que se esvazia)
 try:
-    _fflush = ctypes.CDLL(None).fflush if os.name != "nt" else None
-    if _fflush:
-        _fflush.argtypes = [ctypes.c_void_p]
+    _fflush = (ctypes.cdll.msvcrt if os.name == "nt" else ctypes.CDLL(None)).fflush
+    _fflush.argtypes = [ctypes.c_void_p]
 except (OSError, AttributeError):
     _fflush = None
 
