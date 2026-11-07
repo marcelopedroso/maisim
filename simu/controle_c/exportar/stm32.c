@@ -14,7 +14,7 @@ volatile uint16_t adc_bruto[16];    /* o buffer do DMA do ADC (um por canal) */
 
 static maisim_real m[MAISIM_N_M], p[MAISIM_N_P], u[MAISIM_N_U];
 static long long estado[MAISIM_ESTADO_MAX / sizeof(long long)];
-static unsigned long n_amostra;   /* t = n·Ts (somar Ts a cada amostra acumula erro de arredondamento) */
+static unsigned long long n_amostra;   /* t = n·Ts (somar Ts a cada amostra acumula erro de arredondamento) */
 
 /* chame uma vez, depois do MX_..._Init() e antes de ligar o timer de amostragem */
 int maisim_alvo_iniciar(void) {

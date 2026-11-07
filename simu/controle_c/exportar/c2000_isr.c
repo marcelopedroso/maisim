@@ -11,7 +11,7 @@
 
 static maisim_real m[MAISIM_N_M], p[MAISIM_N_P], u[MAISIM_N_U];
 static long long estado[MAISIM_ESTADO_MAX / sizeof(long long)];   /* zerado e alinhado */
-static unsigned long n_amostra;   /* t = n·Ts (somar Ts a cada amostra acumula erro de arredondamento) */
+static unsigned long long n_amostra;   /* t = n·Ts (somar Ts a cada amostra acumula erro de arredondamento) */
 
 /* chame uma vez, depois de configurar o ADC e o ePWM e antes de ligar a interrupção */
 int maisim_alvo_iniciar(void) {

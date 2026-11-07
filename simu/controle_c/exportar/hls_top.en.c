@@ -6,21 +6,36 @@
 #include "maisim_controle.h"
 #include "maisim_parametros.h"
 
+#ifndef MAISIM_ESTADO_MAX
+#define MAISIM_ESTADO_MAX 8192      /* bytes for the control state (maisim_tamanho_estado() must fit) */
+#endif
+
 void maisim_top(const maisim_real m[MAISIM_N_M], maisim_real u[MAISIM_N_U]) {
 #pragma HLS INTERFACE s_axilite port=return
 #pragma HLS INTERFACE s_axilite port=m
 #pragma HLS INTERFACE s_axilite port=u
-    static long long estado[1 << 10];
-    static maisim_real p[MAISIM_N_P];
-    static unsigned long n;            /* t = n·Ts */
+    static long long estado[MAISIM_ESTADO_MAX / sizeof(long long)];
+    static maisim_real p[MAISIM_N_P], ultima[MAISIM_N_U];   /* each actuation's last value: one the step does not write stays as it was */
+    static unsigned long long n;           /* t = n·Ts */
     static int iniciado = 0;
+    maisim_real nova[MAISIM_N_U];
     int k;
+    if (maisim_tamanho_estado() > sizeof(estado)) {   /* the state does not fit: increase MAISIM_ESTADO_MAX */
+        for (k = 0; k < MAISIM_N_U; k++) u[k] = 0;
+        return;
+    }
     if (!iniciado) {
         for (k = 0; k < MAISIM_N_P; k++) p[k] = maisim_p_iniciais[k];
+        for (k = 0; k < MAISIM_N_U; k++) ultima[k] = 0;
         maisim_iniciar(p, estado);
         n = 0;
         iniciado = 1;
     }
-    maisim_passo((maisim_real)((double)n * MAISIM_TS), m, p, estado, u);
+    for (k = 0; k < MAISIM_N_U; k++) nova[k] = NAN;
+    maisim_passo((maisim_real)((double)n * MAISIM_TS), m, p, estado, nova);
+    for (k = 0; k < MAISIM_N_U; k++) {
+        if (nova[k] == nova[k]) ultima[k] = nova[k];
+        u[k] = ultima[k];
+    }
     n++;
 }

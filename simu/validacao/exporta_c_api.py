@@ -195,6 +195,21 @@ try:
     g_alvo = [float(l.split(",")[1]) for l in (pp / "teste/atuacoes.csv").read_text().splitlines()[1:]] if rr and rr.returncode == 0 else None
     ok(g_alvo == g_sil and "#pragma HLS INTERFACE" in (pp / "alvos/fpga_hls/hls_top.c").read_text(),
        f"FPGA (Vitis HLS): a função de topo maisim_top com o testbench ≡ o SIL nas {N} amostras {r.stderr[-200:]}")
+    # o HLS mantém a atuação que o passo não escreve (a interface não traz a de antes): só nas amostras pares → 0, 0, 2, 2, 4…
+    PARES = ('#include "maisim_controle.h"\ntypedef struct { long n; } Estado;\nsize_t maisim_tamanho_estado(void) { return sizeof(Estado); }\n'
+             'void maisim_iniciar(const maisim_real p[MAISIM_N_P], void *e) { (void)p; ((Estado *)e)->n = 0; }\n'
+             'void maisim_passo(maisim_real t, const maisim_real m[MAISIM_N_M], const maisim_real p[MAISIM_N_P], void *e, maisim_real u[MAISIM_N_U]) {\n'
+             '    Estado *s = (Estado *)e; (void)t; (void)m; (void)p; if (s->n % 2 == 0) u[U_g] = (maisim_real)s->n; s->n++; }\n')
+    api("editor/controle", {"controle": {**ex, "c": {"usar": True, "precisao": "double", "arquivos": {"controle.c": PARES}}}})
+    zz, pp = pacote("fpga_hls")
+    (pp / "teste/medidas.csv").write_text("t," + ",".join(nomes_m) + "\n" + "".join(f"{k * Ts!r}," + ",".join("0" for _ in nomes_m) + "\n" for k in range(6)))
+    r = gcc(pp, "controle.c", "maisim_alvo.c", "alvos/fpga_hls/hls_top.c", "alvos/fpga_hls/hls_tb.c", "-lm", "-o", "tb")
+    rr = subprocess.run(["./tb", "teste/medidas.csv", "teste/atuacoes.csv"], cwd=pp, capture_output=True, text=True, timeout=60) if r.returncode == 0 else None
+    seq = [float(l.split(",")[1]) for l in (pp / "teste/atuacoes.csv").read_text().splitlines()[1:]] if rr and rr.returncode == 0 else None
+    isr = pacote("c2000")[1] / "alvos/c2000/c2000_isr.c"
+    ok(seq == [0.0, 0.0, 2.0, 2.0, 4.0, 4.0] and "unsigned long long n_amostra" in isr.read_text(),
+       f"FPGA: a atuação não escrita mantém a de antes ({seq}); o contador das amostras com 64 bits (não dá a volta) {r.stderr[-200:]}")
+    api("editor/controle", {"controle": {**ex, "c": {"usar": True, "precisao": "double", "arquivos": {"controle.c": CONTROLE_C}}}})
     zf = zipfile.ZipFile(io.BytesIO(api("editor/controle/exportar?alvo=c2000&precisao=float", cru=True)))
     ok("#define MAISIM_REAL float" in zf.read(f"{raiz}/controle/maisim_controle.h").decode(), "em float: o maisim_controle.h já vem em float")
     e = api("editor/controle/exportar?alvo=arduino", cru=True)

@@ -11,7 +11,7 @@
 
 static maisim_real m[MAISIM_N_M], p[MAISIM_N_P], u[MAISIM_N_U];
 static long long estado[MAISIM_ESTADO_MAX / sizeof(long long)];   /* zeroed and aligned */
-static unsigned long n_amostra;   /* t = n·Ts (adding Ts every sample accumulates rounding error) */
+static unsigned long long n_amostra;   /* t = n·Ts (adding Ts every sample accumulates rounding error) */
 
 /* call once, after configuring the ADC and the ePWM and before enabling the interrupt */
 int maisim_alvo_iniciar(void) {
