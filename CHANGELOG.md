@@ -7,6 +7,17 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Added
+- **Export the C control to STM32, Simulink / OPAL-RT, Typhoon HIL, PLECS and FPGA (Vitis HLS)**, besides the TI C2000, all from the same C that runs in the simulation. The dialog lists the six targets.
+  - **STM32:** the HAL ADC callback skeleton.
+  - **Simulink / OPAL-RT (RT-LAB) / Simulink Real-Time:** a level-2 C S-function (`mex`), with the measurement and actuation order.
+  - **Typhoon HIL:** the three sections to paste into the C function block, with the control and its modules as one text and the ports named `m_…`/`u_…`.
+  - **PLECS:** the three sections for the C-Script block.
+  - **FPGA:** the `maisim_top` top function for Vitis HLS (HLS generates the VHDL/Verilog from this C) and a testbench that reads the same CSV as `replay.c`.
+  - Each package has a `LEIA.md` section for its tool (pt/en).
+  - The target skeletons compute time as n·Ts. Adding Ts every sample accumulates rounding error and shifts the PWM edges.
+  - A test runs each target's code on the PC (S-function, Typhoon and PLECS blocks, HLS testbench) on the same measurements, and it matches the C in the simulation bit for bit. The STM32 skeleton compiles.
+
+### Added
 - **Export the C control to the hardware (TI C2000)**. On the C view, **⤓ Export** builds a `.zip` from the same C that runs in the simulation, with one folder per controller (one firmware each). Each folder has:
   - the code and its modules, unchanged;
   - `maisim_controle.h` in the chosen precision (`float` for the C28x FPU, recommended, or `double`);

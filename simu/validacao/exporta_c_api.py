@@ -112,12 +112,93 @@ try:
         (pasta / "alvos/c2000/F28x_Project.h").write_text(STUB_TI)
         r = gcc(pasta, "-Ialvos/c2000", "-c", "alvos/c2000/c2000_isr.c", "-o", "isr.o")
         isr = (pasta / "alvos/c2000/c2000_isr.c").read_text()
-        ok(r.returncode == 0 and "m[M_i_L] = 0;" in isr and "u[U_g] == u[U_g]" in isr and "maisim_passo(t_amostra, m, p, estado, u)" in isr,
+        ok(r.returncode == 0 and "m[M_i_L] = 0;" in isr and "u[U_g] == u[U_g]" in isr and "maisim_passo((maisim_real)((double)n_amostra * MAISIM_TS), m, p, estado, u)" in isr,
            f"o esqueleto do C2000 compila (com um F28x_Project.h de mentira), com o TODO de cada medida e atuação {r.stderr[-300:]}")
+    # os outros alvos: o código de cada um rodando no PC (com os de mentira do alvo), com as mesmas medidas, ≡ o C no SIL
+    csv = "t," + ",".join(nomes_m) + "\n" + "".join(",".join(repr(a[c_]) for c_ in ["t", *nomes_m]) + "\n" for a in amostras)
+    LE_CSV = ("static char maisim_l[1 << 16];\nstatic int maisim_le(FILE *e, double *t, double *v, int n) { char *c; int k;\n"
+              "  if (!fgets(maisim_l, sizeof maisim_l, e)) return 0; *t = strtod(strtok(maisim_l, \",\"), NULL);\n"
+              "  for (k = 0; k < n; k++) v[k] = strtod(strtok(NULL, \",\\n\"), NULL); return 1; }\n")
+    def pacote(alvo):
+        zb = api(f"editor/controle/exportar?alvo={alvo}&precisao=double", cru=True)
+        zz = zipfile.ZipFile(io.BytesIO(zb)); dd = tempfile.mkdtemp(); zz.extractall(dd)
+        pp = Path(dd) / zz.namelist()[0].split("/")[0] / "controle"
+        (pp / "teste/medidas.csv").write_text(csv)
+        return zz, pp
+    def saida(pp, fontes, *extra, args=()):
+        r = gcc(pp, *extra, *fontes, "-lm", "-o", "prog")
+        if r.returncode:
+            return None, r.stderr[-300:]
+        rr = subprocess.run(["./prog", *args], cwd=pp, capture_output=True, text=True, timeout=60)
+        return [float(x) for x in rr.stdout.split()], rr.stderr[-200:]
+    nm = len(nomes_m)
+    # STM32: compila (com um main.h de mentira)
+    zz, pp = pacote("stm32")
+    (pp / "alvos/stm32/main.h").write_text("#include <stdint.h>\n#define HAL_OK 0\ntypedef struct { int x; } ADC_HandleTypeDef;\ntypedef struct { int x; } TIM_HandleTypeDef;\n"
+                                          "static inline int HAL_ADC_Start_DMA(ADC_HandleTypeDef *h, uint32_t *b, int n) { (void)h; (void)b; (void)n; return HAL_OK; }\n"
+                                          "ADC_HandleTypeDef hadc1; TIM_HandleTypeDef htim1;\n")
+    r = gcc(pp, "-Ialvos/stm32", "-c", "alvos/stm32/stm32.c", "-o", "stm32.o")
+    leia = zz.read(zz.namelist()[0].split("/")[0] + "/LEIA.md").decode()
+    ok(r.returncode == 0 and "STM32CubeIDE" in leia and "STM32" in leia.splitlines()[0], f"STM32: o esqueleto (o callback do ADC) compila; o LEIA do STM32 {r.stderr[-200:]}")
+    # Simulink / OPAL-RT: a S-function, com um simstruc.h de mentira, roda no PC
+    zz, pp = pacote("simulink")
+    (pp / "alvos/simulink/simstruc.h").write_text(
+        "#include <stdio.h>\n#include <stdlib.h>\ntypedef double real_T; typedef int int_T; typedef const real_T *const *InputRealPtrsType;\n"
+        "typedef struct { int wIn, wOut; void *pwork[4]; double t; const real_T *ent[512]; real_T sai[512]; } SimStruct;\n"
+        "#define ssSetNumSFcnParams(S, n) ((void)0)\n#define ssSetNumInputPorts(S, n) 1\n#define ssSetNumOutputPorts(S, n) 1\n"
+        "#define ssSetInputPortWidth(S, p, w) ((S)->wIn = (w))\n#define ssSetInputPortDirectFeedThrough(S, p, v) ((void)0)\n"
+        "#define ssSetOutputPortWidth(S, p, w) ((S)->wOut = (w))\n#define ssSetNumSampleTimes(S, n) ((void)0)\n#define ssSetNumPWork(S, n) ((void)0)\n"
+        "#define ssSetOptions(S, o) ((void)0)\n#define SS_OPTION_EXCEPTION_FREE_CODE 0\n#define ssSetSampleTime(S, i, v) ((void)0)\n#define ssSetOffsetTime(S, i, v) ((void)0)\n"
+        "#define ssGetPWork(S) ((S)->pwork)\n#define ssGetInputPortRealSignalPtrs(S, p) ((InputRealPtrsType)(S)->ent)\n"
+        "#define ssGetOutputPortRealSignal(S, p) ((S)->sai)\n#define ssGetT(S) ((S)->t)\n")
+    (pp / "alvos/simulink/cg_sfun.h").write_text("")
+    (pp / "sfun_tb.c").write_text("#include <string.h>\n#include \"alvos/simulink/simulink_sfun.c\"\n" + LE_CSV +
+        f"int main(void) {{ static SimStruct S; double v[{nm}]; int k; FILE *e = fopen(\"teste/medidas.csv\", \"r\");\n"
+        f"  for (k = 0; k < {nm}; k++) S.ent[k] = &v[k];\n  mdlInitializeSizes(&S); mdlInitializeSampleTimes(&S); mdlStart(&S); fgets(maisim_l, sizeof maisim_l, e);\n"
+        f"  while (maisim_le(e, &S.t, v, {nm})) {{ mdlOutputs(&S, 0); printf(\"%.17g\\n\", S.sai[0]); }}\n  mdlTerminate(&S); return 0; }}\n")
+    g_alvo, err = saida(pp, ["sfun_tb.c", "controle.c", "maisim_alvo.c"], "-Ialvos/simulink")
+    ok(g_alvo == g_sil, f"Simulink/OPAL-RT: a S-function (mdlStart, mdlOutputs) ≡ o SIL nas {N} amostras {err}")
+    # Typhoon HIL e PLECS: o texto para colar no bloco, dentro de um programa que faz o papel do bloco
+    def secoes(txt):
+        out, atual = {}, None
+        for l in txt.splitlines():
+            mm = re.match(r"^=+ (.+?) =+$", l)
+            if mm:
+                atual = mm.group(1); out[atual] = []
+            elif atual:
+                out[atual].append(l)
+        return {k: "\n".join(v) for k, v in out.items()}
+    zz, pp = pacote("typhoon")
+    sec = secoes((pp / "alvos/typhoon/typhoon.txt").read_text())
+    ids = [sinais_c.ident(n) for n in nomes_m]
+    (pp / "typhoon_tb.c").write_text("#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n" + LE_CSV +
+        "static double " + ", ".join(f"m_{x}" for x in ids) + ", u_g;\n" + sec["Global variables"] +
+        f"\nint main(void) {{ double v[{nm}], t; FILE *e = fopen(\"teste/medidas.csv\", \"r\"); fgets(maisim_l, sizeof maisim_l, e);\n" + sec["Init function"] +
+        f"\n  while (maisim_le(e, &t, v, {nm})) {{ " + " ".join(f"m_{x} = v[{k}];" for k, x in enumerate(ids)) + "\n" + sec["Output function"] +
+        "\n  printf(\"%.17g\\n\", u_g); }\n  return 0; }\n")
+    g_alvo, err = saida(pp, ["typhoon_tb.c"])
+    ok(set(sec) == {"Global variables", "Init function", "Output function"} and g_alvo == g_sil,
+       f"Typhoon HIL: as 3 seções do bloco C function (o controle num texto só) ≡ o SIL nas {N} amostras {err}")
+    zz, pp = pacote("plecs")
+    sec = secoes((pp / "alvos/plecs/plecs.txt").read_text())
+    (pp / "plecs_tb.c").write_text("#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n" + LE_CSV +
+        "static double maisim_ent[512], maisim_sai[512], CurrentTime;\n#define InputSignal(p, i) maisim_ent[i]\n#define OutputSignal(p, i) maisim_sai[i]\n" +
+        sec["Code declarations"] + f"\nint main(void) {{ FILE *e = fopen(\"teste/medidas.csv\", \"r\"); fgets(maisim_l, sizeof maisim_l, e);\n" + sec["Start function code"] +
+        f"\n  while (maisim_le(e, &CurrentTime, maisim_ent, {nm})) {{\n" + sec["Output function code"] + "\n  printf(\"%.17g\\n\", maisim_sai[0]); }\n  return 0; }\n")
+    g_alvo, err = saida(pp, ["plecs_tb.c"])
+    ok(set(sec) == {"Code declarations", "Start function code", "Output function code"} and g_alvo == g_sil,
+       f"PLECS: as 3 seções do bloco C-Script ≡ o SIL nas {N} amostras {err}")
+    # FPGA (Vitis HLS): a função de topo com o testbench, no PC
+    zz, pp = pacote("fpga_hls")
+    r = gcc(pp, "controle.c", "maisim_alvo.c", "alvos/fpga_hls/hls_top.c", "alvos/fpga_hls/hls_tb.c", "-lm", "-o", "tb")
+    rr = subprocess.run(["./tb", "teste/medidas.csv", "teste/atuacoes.csv"], cwd=pp, capture_output=True, text=True, timeout=60) if r.returncode == 0 else None
+    g_alvo = [float(l.split(",")[1]) for l in (pp / "teste/atuacoes.csv").read_text().splitlines()[1:]] if rr and rr.returncode == 0 else None
+    ok(g_alvo == g_sil and "#pragma HLS INTERFACE" in (pp / "alvos/fpga_hls/hls_top.c").read_text(),
+       f"FPGA (Vitis HLS): a função de topo maisim_top com o testbench ≡ o SIL nas {N} amostras {r.stderr[-200:]}")
     zf = zipfile.ZipFile(io.BytesIO(api("editor/controle/exportar?alvo=c2000&precisao=float", cru=True)))
     ok("#define MAISIM_REAL float" in zf.read(f"{raiz}/controle/maisim_controle.h").decode(), "em float: o maisim_controle.h já vem em float")
-    e = api("editor/controle/exportar?alvo=stm32", cru=True)
-    ok(isinstance(e, dict) and e.get("ERRO") == 409 and "stm32" in e.get("erro", ""), f"um alvo que ainda não existe: {e.get('erro', '') if isinstance(e, dict) else e}")
+    e = api("editor/controle/exportar?alvo=arduino", cru=True)
+    ok(isinstance(e, dict) and e.get("ERRO") == 409 and "arduino" in e.get("erro", ""), f"um alvo que não existe: {e.get('erro', '') if isinstance(e, dict) else e}")
     api("editor/controle", {"controle": {**ex, "c": {"usar": False, "arquivos": {}}}})
     e = api("editor/controle/exportar?alvo=c2000", cru=True)
     ok(isinstance(e, dict) and e.get("ERRO") == 409 and "controle.c" in e.get("erro", ""), f"sem controle em C: {e.get('erro', '') if isinstance(e, dict) else e}")

@@ -1,0 +1,28 @@
+Typhoon HIL — o controle no bloco C function (Schematic Editor), gerado pelo MaiSim.
+O mesmo C do SIL, num texto só (o controle, os módulos e os .h do MaiSim juntos). Configure o bloco assim:
+  - Execution rate: {{TS}} s
+  - Entradas (real): {{ENTRADAS}}
+  - Saídas (real): {{SAIDAS}}
+e copie cada seção abaixo para a aba de mesmo nome do bloco.
+
+==================== Global variables ====================
+{{CODIGO}}
+static maisim_real maisim_m[MAISIM_N_M], maisim_p[MAISIM_N_P], maisim_u[MAISIM_N_U], maisim_ultima[MAISIM_N_U];
+static long long maisim_estado[1 << 12];
+static unsigned long maisim_n;   /* t = n·Ts */
+
+==================== Init function ====================
+{ int k; for (k = 0; k < MAISIM_N_P; k++) maisim_p[k] = maisim_p_iniciais[k]; for (k = 0; k < MAISIM_N_U; k++) maisim_ultima[k] = 0; }
+maisim_n = 0;
+maisim_iniciar(maisim_p, maisim_estado);
+
+==================== Output function ====================
+{
+    int k;
+{{LE_ENTRADAS}}
+    for (k = 0; k < MAISIM_N_U; k++) maisim_u[k] = NAN;
+    maisim_passo((maisim_real)((double)maisim_n * MAISIM_TS), maisim_m, maisim_p, maisim_estado, maisim_u);
+    for (k = 0; k < MAISIM_N_U; k++) if (maisim_u[k] == maisim_u[k]) maisim_ultima[k] = maisim_u[k];
+{{ESCREVE_SAIDAS}}
+    maisim_n++;
+}

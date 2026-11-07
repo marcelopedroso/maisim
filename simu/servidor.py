@@ -2025,7 +2025,32 @@ def instancias_c(c, r, insts, erros, avisos):
 
 # o "Exportar C" (Marcelo, 06/11: "bota o seletor + exportar C2000"): o mesmo C do SIL, empacotado para o alvo
 DIR_EXPORTA = Path(sinais_c.DIR_C) / "exportar"
-ALVOS_EXPORTA = ("c2000",)
+ALVOS_EXPORTA = {"c2000": "TI C2000", "stm32": "STM32", "simulink": "Simulink / OPAL-RT (S-function)", "typhoon": "Typhoon HIL",
+                 "plecs": "PLECS", "fpga_hls": "FPGA (Vitis HLS)"}
+INCLUDE_LOCAL = re.compile(r'^[ \t]*#[ \t]*include[ \t]*"([^"]+)"[ \t]*\n?', re.M)
+
+
+def amalgama_c(i, contrato, sinais_h, params_h, alvo_c):
+    """O controle num texto só (os blocos de código do Typhoon e do PLECS têm um campo só): os .h do MaiSim e os dos módulos,
+    na ordem dos #include (quem é incluído vem antes), depois os .c dos módulos, o do controlador e o maisim_alvo.c, sem
+    os #include locais (os de sistema, como o <math.h>, ficam)."""
+    arqs = i["arquivos_c"]
+    hs = {"maisim_controle.h": contrato.replace('#include "maisim_sinais.h"', sinais_h), "maisim_parametros.h": params_h,
+          **{k: v for k, v in arqs.items() if k.endswith(".h")}}
+    ordem, vistos = [], set()
+
+    def visita(h):
+        if h in vistos or h not in hs:
+            return
+        vistos.add(h)
+        for dep in INCLUDE_LOCAL.findall(hs[h]):
+            visita(dep)
+        ordem.append(h)
+    for h in ["maisim_controle.h", "maisim_parametros.h", *sorted(hs)]:
+        visita(h)
+    cs = [(k, arqs[k]) for k in sorted(arqs) if k.endswith(".c") and k != i["arquivo"]] + [(i["arquivo"], arqs[i["arquivo"]]), ("maisim_alvo.c", alvo_c)]
+    return "\n".join([f"/* ---- {h} ---- */\n" + INCLUDE_LOCAL.sub("", hs[h]) for h in ordem] +
+                     [f"/* ---- {k} ---- */\n" + INCLUDE_LOCAL.sub("", v) for k, v in cs])
 
 
 def texto_c(s):
@@ -2045,8 +2070,8 @@ def parametros_h(nomes_p, valores):
 def exporta_c(alvo, precisao="float"):
     """O pacote do "Exportar C" (um .zip, em bytes, e o nome dele): uma pasta por controlador (um firmware cada), com o C
     dele e os módulos (os mesmos do SIL), o maisim_controle.h na precisão escolhida, o maisim_sinais.h e o
-    maisim_parametros.h dele, o maisim_alvo.c (scope e mensagens), o esqueleto do alvo (alvos/c2000/c2000_isr.c) e o
-    teste/replay.c (o mesmo controle no PC, a partir de um CSV de medidas); na raiz, o LEIA.md."""
+    maisim_parametros.h dele, o maisim_alvo.c (scope e mensagens), o que é do alvo (alvos/<alvo>/: arquivos_do_alvo) e o
+    teste/replay.c (o mesmo controle no PC, a partir de um CSV de medidas); na raiz, o LEIA.md (o comum e o do alvo)."""
     if alvo not in ALVOS_EXPORTA:
         raise ErroMotor(lingua.tr("exporta.alvo", alvo=alvo))
     precisao = "float" if precisao == "float" else "double"
@@ -2075,16 +2100,44 @@ def exporta_c(alvo, precisao="float"):
             z.writestr(d + "maisim_sinais.h", sinais_c.gera_sinais_h(i["sinais"]))
             z.writestr(d + "maisim_parametros.h", parametros_h(i["sinais"]["p"], valores))
             z.writestr(d + "maisim_alvo.c", le("maisim_alvo.c"))
-            leit = "\n".join(f"    m[M_{sinais_c.ident(k)}] = 0;   /* TODO: {lingua.tr('exporta.todo_m', k=k)} */" for k in m) or "    (void)m;"
-            esc = "\n".join(f"    if (u[U_{sinais_c.ident(k)}] == u[U_{sinais_c.ident(k)}]) {{ /* TODO: {lingua.tr('exporta.todo_u', k=k, u='U_' + sinais_c.ident(k))} */ }}"
-                            for k in u) or "    (void)u;"
-            z.writestr(d + "alvos/c2000/c2000_isr.c", le("c2000_isr.c").replace("{{LEITURAS}}", leit).replace("{{ESCRITAS}}", esc).replace("{{TS}}", num_txt(c["Ts"])))
+            for arq, cod in arquivos_do_alvo(alvo, le, i, m, u, c["Ts"], contrato, valores).items():
+                z.writestr(d + arq, cod)
             z.writestr(d + "teste/replay.c", le("replay.c").replace("{{NOMES_M}}", ", ".join(map(texto_c, m)) or "0")
                        .replace("{{NOMES_U}}", ", ".join(map(texto_c, u)) or "0").replace("{{N_M_CSV}}", str(len(m))))
             lista.append(lingua.tr("exporta.leia_ctl", nome=nome, arq=i["arquivo"], m=", ".join(m) or "—", u=", ".join(u) or "—"))
         z.writestr(f"{pasta}/LEIA.md", le("LEIA.md").replace("{{CIRCUITO}}", circuito).replace("{{PRECISAO}}", precisao)
-                   .replace("{{CONTROLADORES}}", "\n".join(lista)))
+                   .replace("{{CONTROLADORES}}", "\n".join(lista)).replace("{{ALVO}}", ALVOS_EXPORTA[alvo])
+                   .replace("{{SECAO_ALVO}}", le(f"LEIA_{alvo}.md")))
     return buf.getvalue(), pasta + ".zip"
+
+
+def arquivos_do_alvo(alvo, le, i, m, u, ts, contrato, valores):
+    """O que é do alvo, na pasta do controlador ({caminho: texto}): o esqueleto (c2000, stm32), a S-function (simulink), o
+    código para colar no bloco (typhoon, plecs: o controle num texto só) ou a função de topo e o testbench (fpga_hls)."""
+    idm, idu = [sinais_c.ident(k) for k in m], [sinais_c.ident(k) for k in u]
+    ordem_m, ordem_u = ", ".join(m) or "—", ", ".join(u) or "—"
+    if alvo in ("c2000", "stm32"):
+        todo_m, todo_u = ("exporta.todo_m", "exporta.todo_u") if alvo == "c2000" else ("exporta.todo_m_stm32", "exporta.todo_u_stm32")
+        leit = "\n".join(f"    m[M_{x}] = 0;   /* TODO: {lingua.tr(todo_m, k=k)} */" for k, x in zip(m, idm)) or "    (void)m;"
+        esc = "\n".join(f"    if (u[U_{x}] == u[U_{x}]) {{ /* TODO: {lingua.tr(todo_u, k=k, u='U_' + x)} */ }}" for k, x in zip(u, idu)) or "    (void)u;"
+        arq = "c2000_isr.c" if alvo == "c2000" else "stm32.c"
+        return {f"alvos/{alvo}/{arq}": le(arq).replace("{{LEITURAS}}", leit).replace("{{ESCRITAS}}", esc).replace("{{TS}}", num_txt(ts))}
+    if alvo == "simulink":
+        return {"alvos/simulink/simulink_sfun.c": le("simulink_sfun.c").replace("{{ORDEM_M}}", ordem_m).replace("{{ORDEM_U}}", ordem_u)}
+    if alvo == "fpga_hls":
+        return {"alvos/fpga_hls/hls_top.c": le("hls_top.c").replace("{{ORDEM_M}}", ordem_m).replace("{{ORDEM_U}}", ordem_u),
+                "alvos/fpga_hls/hls_tb.c": le("hls_tb.c").replace("{{NOMES_M}}", ", ".join(map(texto_c, m)) or "0")
+                .replace("{{NOMES_U}}", ", ".join(map(texto_c, u)) or "0").replace("{{N_M_CSV}}", str(len(m)))}
+    codigo = amalgama_c(i, contrato, sinais_c.gera_sinais_h(i["sinais"]), parametros_h(i["sinais"]["p"], valores), le("maisim_alvo.c"))
+    if alvo == "typhoon":                               # as portas: m_<medida> e u_<atuação> (a medida e a atuação podem ter o mesmo nome)
+        lei = "\n".join(f"    maisim_m[M_{x}] = m_{x};" for x in idm)
+        esc = "\n".join(f"    u_{x} = maisim_ultima[U_{x}];" for x in idu)
+        txt = le("typhoon.txt").replace("{{ENTRADAS}}", ", ".join(f"m_{x}" for x in idm) or "—").replace("{{SAIDAS}}", ", ".join(f"u_{x}" for x in idu) or "—")
+        return {"alvos/typhoon/typhoon.txt": txt.replace("{{CODIGO}}", codigo).replace("{{LE_ENTRADAS}}", lei).replace("{{ESCREVE_SAIDAS}}", esc).replace("{{TS}}", num_txt(ts))}
+    lei = "\n".join(f"    maisim_m[M_{x}] = InputSignal(0, {k});" for k, x in enumerate(idm))
+    esc = "\n".join(f"    OutputSignal(0, {k}) = maisim_ultima[U_{x}];" for k, x in enumerate(idu))
+    return {"alvos/plecs/plecs.txt": le("plecs.txt").replace("{{CODIGO}}", codigo).replace("{{LE_ENTRADAS}}", lei).replace("{{ESCREVE_SAIDAS}}", esc)
+            .replace("{{N_M}}", str(len(m))).replace("{{N_U}}", str(len(u))).replace("{{ORDEM_M}}", ordem_m).replace("{{ORDEM_U}}", ordem_u).replace("{{TS}}", num_txt(ts))}
 
 
 def confere_c(c, arqs_c, r, precisao="double"):
