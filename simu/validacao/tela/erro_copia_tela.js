@@ -51,6 +51,8 @@ const BOM = 'def iniciar(p, e):\n    pass\n\n\ndef passo(t, m, p, e):\n    retur
       pedidos: ((await api("claude/pedido")).conversa || { historico: [] }).historico.length, anda: (await api("claude/pedido")).andamento }));
     ok(chat.aberto && /^Deu este erro no controle\. Explique a causa em uma frase e corrija:/.test(chat.texto) && /▶ 5 \|/.test(chat.texto) && chat.foco
        && chat.pedidos === pedidosAntes && !chat.anda, `pedir à IA: a conversa abre com o pedido escrito (${chat.texto.length} caracteres), o cursor na caixa, nada enviado (${chat.pedidos} = ${pedidosAntes} pedidos)`);
+    // a conversa é a gaveta da direita, por cima da tela (o "▷ testar" fica embaixo dela): fecha antes de seguir
+    await pg.click("#cc-fechar"); await pg.waitForTimeout(300);
     // uma saída que não é erro: só o copiar, com o texto
     await prepara(BOM, null);
     await pg.waitForTimeout(400);
