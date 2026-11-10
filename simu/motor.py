@@ -1,4 +1,5 @@
 """Cliente do motor do editor (motor/src/maisim/MaiSimMotor.java, 127.0.0.1:6120): uma conexão, um pedido de cada vez."""
+import os
 import re
 import socket
 import sys
@@ -30,6 +31,15 @@ def traduz_erro(texto):
         if m:
             return lingua.tr(chave, x=m.group(1))
     return texto
+
+
+def religando():
+    """O lançador está religando o Gecko ou o motor do editor, que caiu (app/lancador.py, a vigia)? O arquivo
+    lancador.religando no cache, com menos de 3 min (o de um lançador que caiu no meio não vale para sempre)."""
+    try:
+        return time.time() - (Path(os.environ["MAISIM_CACHE"]) / "lancador.religando").stat().st_mtime < 180
+    except (KeyError, OSError):
+        return False
 
 
 class ErroMotor(Exception):
@@ -96,7 +106,7 @@ class Motor:
                 except (OSError, ConnectionError) as e:
                     self.f = None
                     if tentativa == 2:
-                        raise ErroMotor(lingua.tr("motor.sem_motor", erro=e))
+                        raise ErroMotor(lingua.tr("motor.religando" if religando() else "motor.sem_motor", erro=e))
         r = r.rstrip("\n")
         if r.startswith("OK"):
             return r[3:]
@@ -109,4 +119,6 @@ class Motor:
                 return self.cmd(linha)
             finally:
                 self._local.repetiu = False
+        if r.startswith("ERR java.rmi.") and religando():     # o Gecko caiu e o lançador o está religando
+            raise ErroMotor(lingua.tr("motor.religando"))
         raise ErroMotor(traduz_erro(r[4:] if r.startswith("ERR ") else r))
