@@ -217,6 +217,10 @@ class Lancador:
         self.parando = False                             # já derrubando: o ícone de novo espera e sobe outro
         self.pronto = False                              # o Gecko e o motor no ar: a página "Abrindo o MaiSim…" segue (/maisim/pronto)
         self.sem_gecko = sem_gecko
+        self.anterior = {}                               # o lancador.json do lançador anterior (adota)
+        self.vigiar = False                              # a vigia religa o Gecko e o motor (depois que subiram)
+        self.faltou = {}                                 # porta fechada na checagem anterior: nome → 1
+        self.religadas = []                              # quando religou (time.monotonic), para o limite
         self.abrir = False                               # aberto com --abrir (a atualização da versão de programador reabre igual)
         # o Java: o do pacote (a pasta jre ao lado do código, no instalador do Windows), o de MAISIM_JAVA (o AppRun do
         # AppImage) ou o do sistema (a versão de programador)
@@ -273,10 +277,34 @@ class Lancador:
             if not WIN and "xvfb" in adotados:
                 self.tela_gecko(self.cache / "gecko", self.cfg["MAISIM_TELA_X"])
             return self.motor() if "motor" in adotados else True
-        if no_ar(pg) or no_ar(pm):
-            fala(f"o Gecko está pela metade (portas {pg}/{pm}): pare com --parar e abra de novo",
-                 f"Gecko is half up (ports {pg}/{pm}): stop it with --parar and start again")
-            return False
+        if no_ar(pg):
+            # pela metade, só o Gecko (o Android matou o motor, ou ele caiu): o Gecko fica (o circuito sem salvar está nele),
+            # adotado se for o do lançador anterior, e só o motor sobe. Antes, o lançador desistia e pedia o --parar — no
+            # celular ninguém o vê, e o MaiSim ficava "sem o motor do editor" a cada abertura (Marcelo, 10/11)
+            fala(f"o Gecko está no ar sem o motor (porta {pm}): subindo só o motor", f"Gecko is running without the engine (port {pm}): starting only the engine")
+            self.subiu.update({n: Morto(pid) for n, pid in self.anterior.get("processos", {}).items()
+                               if n in ("gecko", "xvfb") and n not in self.subiu and do_maisim(pid, n)})
+            self.grava()
+            return self.motor()
+        if no_ar(pm):
+            # pela metade, só o motor (o Gecko caiu): o motor que sobrou sai (só um MaiSimMotor nesta porta: nunca outro
+            # programa) e tudo sobe de novo
+            sobras = motores(pm)
+            if not sobras:
+                fala(f"a porta do motor ({pm}) está ocupada por outro programa: feche-o ou mude MAISIM_PORTA",
+                     f"the engine port ({pm}) is taken by another program: close it or change MAISIM_PORTA")
+                return False
+            fala(f"o motor está no ar sem o Gecko (porta {pg}): religando os dois", f"the engine is running without Gecko (port {pg}): restarting both")
+            for pid in sobras:
+                termina(pid)
+            self.subiu.pop("motor", None)
+            xvfb = self.anterior.get("processos", {}).get("xvfb")   # a tela virtual que sobrou (a nova usa o mesmo número)
+            if not WIN and do_maisim(xvfb, "xvfb"):
+                termina(xvfb)
+                espera(lambda: not vivo(xvfb), 10)
+            if not espera(lambda: not no_ar(pm), 15):
+                fala(f"o motor que sobrou não saiu (porta {pm})", f"the leftover engine did not exit (port {pm})")
+                return False
         if not self.jar.is_file():
             fala(f"falta o Gecko ({self.jar}); na versão de programador: gecko/construir.sh", f"Gecko is missing ({self.jar}); for developers: gecko/construir.sh")
             return False
@@ -384,10 +412,74 @@ class Lancador:
         """O que ficou no ar de um lançador que já saiu (o Gecko que ficou por um circuito sem salvar): passa a ser deste
         (Morto: só o pid), e o fim deste o derruba com a mesma regra. Só com o Gecko e o motor no ar (pids de outro dia, depois
         de reiniciar o computador, podem ser de outros programas)."""
+        self.anterior = anterior
         if vivo(anterior.get("lancador")) or not (no_ar(self.porta("GECKO")) and no_ar(self.porta("MOTOR"))):
             return
         self.subiu.update({n: Morto(pid) for n, pid in anterior.get("processos", {}).items()
                            if n in ("gecko", "motor", "xvfb", "x11vnc", "websockify") and vivo(pid)})
+
+    RELIGA_MAX, RELIGA_JANELA = 3, 600                   # no máximo 3 religadas em 10 min; depois a vigia desiste
+
+    def caiu(self, nome, porta):
+        """O processo saiu, ou a porta dele fechou em duas checagens seguidas (uma piscada não conta)."""
+        p = self.subiu.get(nome)
+        if p is not None and p.poll() is not None:
+            return True
+        if no_ar(porta):
+            self.faltou.pop(nome, None)
+            return False
+        self.faltou[nome] = self.faltou.get(nome, 0) + 1
+        return self.faltou[nome] >= 2
+
+    def vigia(self):
+        """A cada 5 s, do laço do lançador: o Gecko ou o motor do editor caiu (no Android, o sistema mata processos pesados
+        quando falta memória ou o app vai para segundo plano; no PC, falta de memória ou um crash)? Religa. O motor não
+        guarda nada (o simulador reconecta); um Gecko novo é reconhecido pelo simulador, que reabre nele o circuito do editor
+        (confere_gecko). Enquanto religa, o arquivo lancador.religando diz ao simulador para avisar isso, e não "sem o motor"."""
+        if not self.vigiar or self.parando:
+            return
+        gecko = self.caiu("gecko", self.porta("GECKO"))
+        motor = not gecko and self.caiu("motor", self.porta("MOTOR"))
+        if not (gecko or motor):
+            return
+        agora = time.monotonic()
+        self.religadas = [x for x in self.religadas if agora - x < self.RELIGA_JANELA]
+        if len(self.religadas) >= self.RELIGA_MAX:
+            self.vigiar = False
+            fala(f"o {'Gecko' if gecko else 'motor do editor'} caiu de novo: já religado {self.RELIGA_MAX} vezes em "
+                 f"{self.RELIGA_JANELA // 60} min, a vigia parou (veja {self.logs}; feche e abra o MaiSim)",
+                 f"{'Gecko' if gecko else 'the editor engine'} fell again: already restarted {self.RELIGA_MAX} times in "
+                 f"{self.RELIGA_JANELA // 60} min, the watchdog stopped (see {self.logs}; close and open MaiSim)")
+            return
+        self.religadas.append(agora)
+        self.faltou.clear()
+        marca = self.cache / "lancador.religando"
+        try:
+            marca.write_text(str(time.time()))
+        except OSError:
+            pass
+        try:
+            if motor:
+                fala("o motor do editor caiu: religando", "the editor engine fell: restarting it")
+                p = self.subiu.pop("motor", None)
+                if p is not None and p.poll() is None:   # (a porta fechada, o processo ainda lá)
+                    termina(p.pid)
+                ok = self.motor()
+            else:
+                fala("o Gecko caiu: religando o Gecko e o motor (até ~1 min)", "Gecko fell: restarting Gecko and the engine (up to ~1 min)")
+                sobras = [p for p in (self.subiu.pop(n, None) for n in ("motor", "gecko", "websockify", "x11vnc", "xvfb")) if p is not None]
+                for p in sobras:
+                    if p.poll() is None:
+                        termina(p.pid)
+                espera(lambda: all(p.poll() is not None for p in sobras), 10)   # (a tela virtual nova usa o mesmo número)
+                for pid in motores(self.porta("MOTOR")):  # um motor que não é deste lançador (adotado sem o pid)
+                    termina(pid)
+                espera(lambda: not no_ar(self.porta("GECKO")) and not no_ar(self.porta("MOTOR")), 15)
+                ok = self.gecko()
+            fala("religado" if ok else f"não religou (veja {self.logs})", "restarted" if ok else f"did not restart (see {self.logs})")
+        finally:
+            self.grava()
+            marca.unlink(missing_ok=True)
 
     def vida(self):
         """O sinal de vida das páginas (app/pagina.py): {"ultimo", "fechou", "abas"}; None sem a página."""
@@ -502,6 +594,54 @@ def vivo(pid):
         return False
 
 
+def linha_de_comando(pid):
+    """A linha de comando de um processo ("" se não der para ler)."""
+    try:
+        if WIN:
+            r = subprocess.run(["powershell", "-NoProfile", "-Command", f"(Get-CimInstance Win32_Process -Filter 'ProcessId={int(pid)}').CommandLine"],
+                               capture_output=True, text=True, encoding="oem", errors="replace", timeout=30)
+            return r.stdout.strip()
+        return Path(f"/proc/{int(pid)}/cmdline").read_bytes().replace(b"\0", b" ").decode(errors="replace")
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return ""
+
+
+def do_maisim(pid, nome):
+    """O pid (de um lancador.json antigo) ainda é aquele processo do MaiSim? Um pid de outro dia pode ser outro programa."""
+    if not vivo(pid):
+        return False
+    c = linha_de_comando(pid)
+    return {"gecko": "-Dmaisim.dialogos=", "motor": "maisim.MaiSimMotor", "xvfb": "Xvfb"}.get(nome, "\0") in c
+
+
+def motores(porta):
+    """Os pids dos motores do editor (java … maisim.MaiSimMotor … --porta <porta>) no ar: nunca outro programa."""
+    alvo = f"--porta {porta}"
+    if WIN:
+        try:
+            r = subprocess.run(["powershell", "-NoProfile", "-Command",
+                                "Get-CimInstance Win32_Process -Filter \"CommandLine LIKE '%maisim.MaiSimMotor%'\" | "
+                                "ForEach-Object { \"$($_.ProcessId) $($_.CommandLine)\" }"],
+                               capture_output=True, text=True, encoding="oem", errors="replace", timeout=30)
+        except (OSError, subprocess.SubprocessError):
+            return []
+        linhas = r.stdout.splitlines()
+    else:
+        linhas = []
+        for d in Path("/proc").iterdir():
+            if d.name.isdigit():
+                try:
+                    linhas.append(d.name + " " + (d / "cmdline").read_bytes().replace(b"\0", b" ").decode(errors="replace"))
+                except OSError:
+                    pass
+    pids = []
+    for li in linhas:
+        pid, _, c = li.strip().partition(" ")
+        if pid.isdigit() and "maisim.MaiSimMotor" in c and (c.rstrip().endswith(alvo) or f"{alvo} " in c) and int(pid) != os.getpid():
+            pids.append(int(pid))
+    return pids
+
+
 class Morto:
     """Um processo de um lançador que já saiu (só o pid, como os Popen do que ele subiu)."""
     def __init__(self, pid):
@@ -516,7 +656,10 @@ def termina(pid):
         if WIN:
             subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         else:
-            os.killpg(pid, signal.SIGTERM)
+            try:
+                os.killpg(pid, signal.SIGTERM)
+            except ProcessLookupError:               # não é líder de grupo (um motor achado pela porta): só ele
+                os.kill(pid, signal.SIGTERM)
     except (OSError, ProcessLookupError):
         pass
 
@@ -601,8 +744,9 @@ def main():
         fim()
     if a.abrir:
         lc.abre("" if a.sem_gecko else "abrindo.html")   # a janela já abre; a tela inicial vem quando o Gecko estiver no ar
+    lc.estado.with_name("lancador.religando").unlink(missing_ok=True)   # a de um lançador que caiu religando
     if not a.sem_gecko:
-        lc.gecko()
+        lc.vigiar = lc.gecko()                           # a vigia só depois de subir (sem o jar, ela não insistiria à toa)
     lc.pronto = True                                     # (também se o Gecko falhou: a tela inicial mostra o erro)
     lc.grava()
     fala(f"no ar em http://localhost:{lc.porta('PAGINA')}/ — Ctrl+C (ou --parar) derruba o que subiu",
@@ -616,6 +760,8 @@ def main():
             pedido.unlink(missing_ok=True)
             fim()
         n += 1
+        if n % 5 == 0:
+            lc.vigia()                                   # o Gecko ou o motor caiu: religa
         if a.abrir and n % 5 == 0 and lc.sem_janela():   # a janela do MaiSim fechou (e nenhuma outra página dele aberta)
             fala("a janela do MaiSim fechou: desligando", "the MaiSim window was closed: shutting down")
             if not parar["ja"]:

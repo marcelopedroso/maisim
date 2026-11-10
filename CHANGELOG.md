@@ -6,6 +6,14 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Fixed
+- **When Gecko or the editor engine fell, MaiSim did not bring them back**, and the app stayed on "no editor engine" until it was closed. On the phone, after Android killed only one of the two Java processes, it got worse: every new start gave up on the "half up" Gecko and asked for `--parar`, which nobody can run there, so the only way out was to uninstall.
+  - Every 5 s, the launcher now checks Gecko and the engine and restarts whichever fell. A new engine takes seconds. A new Gecko takes up to a minute, and it reopens the circuit the editor had, with a copy of anything unsaved, as before.
+  - While it restarts, the error says the engine is being restarted, not "no editor engine".
+  - It restarts at most 3 times in 10 min and then stops and says so in its log, so a Gecko that keeps crashing does not loop forever.
+  - At start, a Gecko running without its engine is adopted and only the engine starts. An engine left without its Gecko is stopped, but only MaiSim's own engine on that port, never another program, and everything starts again.
+  - New test `religa_gecko_api` kills each process the way Android does, on a throwaway launcher (ports 7480–7486).
+
 ### Changed
 - **Every run ends about 0.25 s sooner**, a ~30% gain on the examples without Python control (boost 0.84 → 0.58 s; inverters and H-bridge alike). When a simulation ended, GeckoCIRCUITS always waited 300 ms so as not to race the refresh of its own scope windows, which MaiSim never opens. Patch `0014` waits only when a Gecko scope window is on screen. The results are unchanged, bit for bit (A/B on 7 examples).
 

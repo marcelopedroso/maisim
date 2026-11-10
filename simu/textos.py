@@ -619,6 +619,8 @@ T = {
     "motor.fechou_conexao": {"pt": "o motor fechou a conexão", "en": "the engine closed the connection"},
     "motor.sem_motor": {"pt": "sem o motor do editor (o Gecko do MaiSim está no ar? gecko/sobe.sh): {erro}",
                         "en": "no editor engine (is MaiSim's Gecko running? gecko/sobe.sh): {erro}"},
+    "motor.religando": {"pt": "o motor do editor caiu e está sendo religado (até ~1 min): tente de novo em instantes",
+                        "en": "the editor engine fell and is being restarted (up to ~1 min): try again in a moment"},
     # PR 10: o resto do servidor (contextos, contas das IAs, controle_worker, catálogo)
     # o processo de um controlador (controle_worker.py): os erros do código do usuário (o idioma vem em MAISIM_LINGUA)
     "worker.envia_lista_longa": {"pt": "envia(): {k} tem {n} números (até 64 numa lista)", "en": "envia(): {k} has {n} numbers (at most 64 in a list)"},
