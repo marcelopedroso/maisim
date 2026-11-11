@@ -7,6 +7,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Fixed
+- **The launcher's watchdog (#241) could kill a running engine during a long run.** The engine serves one connection at a time and the simulator keeps its own open, so each 5 s port check waited in the engine's queue; after ~50 s the queue was full, the port looked closed and the engine was restarted in the middle of the run. The watchdog now watches the processes the launcher started by the process itself, and checks the port only for one it has no process for. The `religa_gecko_api` test now stays idle 70 s with the editor connected and checks nothing is restarted.
 - **When Gecko or the editor engine fell, MaiSim did not bring them back**, and the app stayed on "no editor engine" until it was closed. On the phone, after Android killed only one of the two Java processes, it got worse: every new start gave up on the "half up" Gecko and asked for `--parar`, which nobody can run there, so the only way out was to uninstall.
   - Every 5 s, the launcher now checks Gecko and the engine and restarts whichever fell. A new engine takes seconds. A new Gecko takes up to a minute, and it reopens the circuit the editor had, with a copy of anything unsaved, as before.
   - While it restarts, the error says the engine is being restarted, not "no editor engine".

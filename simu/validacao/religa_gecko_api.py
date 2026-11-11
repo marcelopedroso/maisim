@@ -120,6 +120,14 @@ try:
     rodou, j = roda("religa_0")
     ok(rodou, f"uma rodada antes de cair: {j.get('estado')}")
 
+    # 1b. parado 70 s com o simulador conectado ao motor (a conexão dele fica aberta, como numa rodada longa): a vigia não
+    # mexe — antes, a checagem da porta lotava a fila do motor em ~50 s e ele era derrubado vivo
+    m0 = pids()["motor"]
+    time.sleep(70)
+    ok(pids().get("motor") == m0 and "caiu" not in log1.read_text(), f"70 s com o editor conectado: a vigia não mexeu no motor ({pids().get('motor')})")
+    rodou, j = roda("religa_0b")
+    ok(rodou, f"e uma rodada depois: {j.get('estado')}")
+
     # 2. o motor cai: volta em segundos
     m0 = pids()["motor"]
     mata(m0)

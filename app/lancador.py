@@ -421,10 +421,13 @@ class Lancador:
     RELIGA_MAX, RELIGA_JANELA = 3, 600                   # no máximo 3 religadas em 10 min; depois a vigia desiste
 
     def caiu(self, nome, porta):
-        """O processo saiu, ou a porta dele fechou em duas checagens seguidas (uma piscada não conta)."""
+        """O processo saiu; só sem o processo (nenhum pid dele), a porta fechada em duas checagens seguidas (uma piscada não
+        conta). O processo deste lançador nunca pela porta: o motor atende uma conexão por vez e a do simulador fica aberta,
+        então cada checagem esperava na fila dele (10 lugares) e, em ~50 s de uma rodada longa, a fila lotava, a porta
+        parecia fechada e a vigia derrubava um motor vivo (a bateria completa de 10/11, fecha_pagina_tela)."""
         p = self.subiu.get(nome)
-        if p is not None and p.poll() is not None:
-            return True
+        if p is not None:
+            return p.poll() is not None
         if no_ar(porta):
             self.faltou.pop(nome, None)
             return False
