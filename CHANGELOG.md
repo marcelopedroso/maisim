@@ -6,6 +6,8 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-12
+
 ### Changed
 - **The screen in columns: Circuit, Scope, Control and AI, side by side.** Four buttons in the header turn each column on and off; the columns that are on share the width, with nothing on top of anything.
   - Scope and Control are separate columns now (they were tabs of one dock), so the end of a run opens the Scope next to the code instead of hiding it. The "Scope beside / below" buttons are gone.
