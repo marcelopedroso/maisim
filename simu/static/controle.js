@@ -1332,7 +1332,7 @@ function infoTs() {
   const n = Math.max(1, Math.round(Ts / dt)), N = Math.ceil(passos / n), cada = Math.max(1, Math.ceil(N / am));
   const virgula = maisimI18n.lingua() === "pt";        // o decimal: vírgula em português, ponto em inglês
   const seg = (x) => (x < 60 ? `${x < 10 ? (virgula ? x.toFixed(1).replace(".", ",") : x.toFixed(1)) : Math.round(x)} s` : `${Math.round(x / 60)} min`);
-  const linhas = [[tr("ctl.ts_info", { n, dt: si(dt, "s"), ef: si(n * dt, "s") }), false]];
+  const linhas = [[tr("ctl.ts_o_que"), false], [tr("ctl.ts_info", { n, dt: si(dt, "s"), ef: si(n * dt, "s") }), false]];
   if (Ts < dt * (1 - 1e-9)) linhas.push([tr("ctl.ts_menor", { dt: si(dt, "s") }), true]);
   else if (Math.abs(n * dt - Ts) > 1e-9 * Ts) linhas.push([tr("ctl.ts_multiplo", { n, ef: si(n * dt, "s") }), true]);
   if (tfim > 0) linhas.push([tr("ctl.ts_chamadas", { vezes: maisimI18n.num(N), tfim: si(tfim, "s"), de: seg(N * 1e-3), ate: seg(N * 3e-3) }), N > 2e5]);

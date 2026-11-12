@@ -17,17 +17,19 @@ const S = "http://localhost:7200/maisim/simu/";
     await A.goto(S + "?modelo=" + encodeURIComponent("exemplos/exemplo_buck.ipes"));
     for (let k = 0; k < 60 && !(await A.evaluate(() => typeof dados !== "undefined" && dados && dados.folhas)); k++) { if (await A.$(".modal .m-ok")) await A.click(".modal .m-ok"); await A.waitForTimeout(500); }
     await A.evaluate(() => mostraDoca("scope")); await A.waitForTimeout(500);
-    const larg = () => A.evaluate(() => ({ doca: Math.round($("painel-scope").getBoundingClientRect().width), tela: Math.round($("tela").getBoundingClientRect().width),
+    // (11/11: o Scope e o Controle em colunas próprias: a faixa é a coluna do Scope; o Controle ao lado não muda)
+    const larg = () => A.evaluate(() => ({ doca: Math.round($("col-scope").getBoundingClientRect().width), ctl: Math.round($("col-ctl").getBoundingClientRect().width), tela: Math.round($("tela").getBoundingClientRect().width),
       iframe: getComputedStyle($("if-scope")).display, aviso: getComputedStyle($("scope-fora")).display }));
     const antes = await larg();
     const B = await ctx.newPage(); await B.goto("http://localhost:7200/maisim/scope/?janela=1"); await A.waitForTimeout(3500);
     const fx = await larg();
     await A.evaluate(() => mostraDoca("controle")); await A.waitForTimeout(400); const ct = await larg();
+    await A.evaluate(() => escondeDoca("controle")); await A.waitForTimeout(300);
     await A.evaluate(() => mostraDoca("scope")); await A.click("#scope-fora-bt"); await A.waitForTimeout(400); const aq = await larg();
     await A.evaluate(() => document.body.classList.remove("scope-aqui")); await A.waitForTimeout(300);
     ok(antes.doca > 300 && fx.doca <= 210 && fx.iframe === "none" && fx.aviso === "flex" && fx.tela > antes.tela + 100,
       `com o scope na janela dele: a aba scope vira faixa (${antes.doca} → ${fx.doca} px; o desenho ${antes.tela} → ${fx.tela} px), com o aviso`);
-    ok(ct.doca > 300 && aq.doca > 300 && aq.iframe !== "none", `a aba controle não muda (${ct.doca} px); "ver aqui também" devolve o scope (${aq.doca} px)`);
+    ok(ct.ctl > 300 && ct.doca <= 210 && aq.doca > 300 && aq.iframe !== "none", `a coluna do Controle ao lado (${ct.ctl} px), a faixa do Scope fica (${ct.doca} px); "ver aqui também" devolve o scope (${aq.doca} px)`);
     // duas janelas do scope: fechar uma não devolve a aba (a outra continua lá)
     const C = await ctx.newPage(); await C.goto("http://localhost:7200/maisim/scope/"); await A.waitForTimeout(1500);   // numa aba comum
     await C.close(); await A.waitForTimeout(1500);

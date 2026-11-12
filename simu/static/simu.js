@@ -2309,63 +2309,142 @@ async function novoCircuito() {
     msg(tr("simu.novo_feito", { nome }), "ok");
   } catch (e) { msg(e.message, "erro"); }
 };
-// tela dividida: o /maisim/scope ao lado (dividida na vertical) ou embaixo. Abre na última rodada (ao vivo enquanto simula), com
-// ?so=rodada: só a seção e os sinais da rodada, sem os painéis do MMC
-const tela = { lado: "lado", w: null, h: null };
+// as colunas da tela (Marcelo, 11/11: "circuito, scope, controle, IA… quatro botões; quando selecionar aparece na tela"):
+// cada botão do cabeçalho liga e desliga a sua coluna, e as ligadas dividem a tela lado a lado, sem nada por cima — o
+// circuito à esquerda, depois o Scope, o Controle e a IA. Qualquer combinação, sempre com uma ligada. O /maisim/scope abre
+// na última rodada (ao vivo enquanto simula), com ?so=rodada: só a seção e os sinais da rodada
+const tela = { ws: null, wc: null, wi: null };          // as larguras arrastadas (px): Scope, Controle e IA
 try { Object.assign(tela, JSON.parse(localStorage.getItem("maisim-simu-tela") || "{}")); } catch (e) { /* ok */ }
+try { const w = parseFloat(localStorage.getItem("maisim-simu-ia-w")); if (w > 0 && !tela.wi) tela.wi = w; } catch (e) { /* a de antes */ }
 const urlScope = (arq, so = true) => `/maisim/scope/?${so ? "so=rodada" : ""}${arq ? `${so ? "&" : ""}a=${encodeURIComponent(arq)}` : ""}`.replace(/\?$/, "");
 function guardaTela() { try { localStorage.setItem("maisim-simu-tela", JSON.stringify(tela)); } catch (e) { /* ok */ } }
-function posicionaScope(lado) {
-  tela.lado = lado; guardaTela();
-  const b = document.body.classList; b.toggle("scope-lado", lado === "lado"); b.toggle("scope-baixo", lado === "baixo");
-  $("bt-lado").classList.toggle("ativo", lado === "lado"); $("bt-baixo").classList.toggle("ativo", lado === "baixo");
-  tituloDivisoria();
-  setTimeout(() => dados && ajusta(), 60);
+const col = { circuito: true, scope: false, controle: false };   // a IA: body.com-ia (ccAbre, claude_chat.js)
+const IA_ESTREITA = 440;                                 // a IA estreita; a larga é metade da janela (o ⇔)
+const MIN_COL = { scope: 360, controle: 560, ia: 360 };   // menos que isso, a coluna não serve (o Controle: 240 da coluna + o código)
+// reparte o espaço entre as colunas na proporção do que cada uma pede, sem nenhuma abaixo do mínimo (nem acima do pedido)
+function reparte(w, ks, espaco) {
+  const min = ks.reduce((a, k) => a + MIN_COL[k], 0);
+  if (espaco <= min) { for (const k of ks) w[k] = (MIN_COL[k] * espaco) / (min || 1); return; }
+  let livres = [...ks], resto = espaco;
+  for (let i = 0; i < ks.length; i++) {                  // quem cairia abaixo do mínimo fica no mínimo; as outras repartem o resto
+    const pedido = livres.reduce((a, k) => a + w[k], 0), f = resto / (pedido || 1);
+    const presas = livres.filter((k) => w[k] * f < MIN_COL[k]);
+    if (!presas.length) { for (const k of livres) w[k] = Math.min(w[k], w[k] * f); return; }
+    for (const k of presas) { w[k] = MIN_COL[k]; resto -= MIN_COL[k]; }
+    livres = livres.filter((k) => !presas.includes(k));
+  }
 }
-function tituloDivisoria() { $("divisoria").title = tr(tela.lado === "lado" ? "simu.t_div_largura" : "simu.t_div_altura"); }
-// a doca (tela dividida) tem duas abas: o scope e o painel Controle (controle.js)
-let abaDoca = "scope";
-function marcaDoca() {
-  const aberta = document.body.classList.contains("com-scope");
-  $("bt-scope").classList.toggle("ativo", aberta && abaDoca === "scope"); $("bt-ctl").classList.toggle("ativo", aberta && abaDoca === "controle");
-  document.querySelectorAll("#abas-doca button").forEach((b) => b.classList.toggle("ativo", b.dataset.aba === abaDoca));
-  $("if-scope").classList.toggle("oculto", abaDoca !== "scope"); $("painel-controle").classList.toggle("oculto", abaDoca !== "controle");
-  document.body.classList.toggle("doca-controle", abaDoca === "controle");   // com o código na outra janela, a coluna vira faixa (CSS)
-  document.body.classList.toggle("doca-scope", abaDoca === "scope");         // e com o scope na janela dele, a aba scope também
+let abaDoca = "scope";                                   // a última coluna da doca ligada (o que já usava a "aba")
+let ultimaCol = null;                                    // a última aberta ou arrastada: sem espaço, ela fica com a largura pedida
+function posicionaScope() { /* o Scope embaixo saiu (11/11: só colunas); fica para quem ainda chama */ }
+const pxVar = (nome) => parseFloat(getComputedStyle(document.body).getPropertyValue(nome)) || 0;
+const iaAberta = () => document.body.classList.contains("com-ia");
+const doCodigoFora = (k) => (k === "scope" ? document.body.classList.contains("scope-fora") && !document.body.classList.contains("scope-aqui")
+  : document.body.classList.contains("codigo-fora") && !document.body.classList.contains("codigo-aqui"));   // a faixa de 200 px (a outra janela)
+function marcaColunas() {
+  $("bt-circ").classList.toggle("ativo", col.circuito); $("bt-scope").classList.toggle("ativo", col.scope);
+  $("bt-ctl").classList.toggle("ativo", col.controle); $("bt-ia").classList.toggle("ativo", iaAberta());
+  const bl = $("cc-largura");
+  if (bl) { const larga = iaAberta() && iaExpandida(); bl.title = tr(larga ? "cc.t_recolher" : "cc.t_expandir");
+    bl.setAttribute("aria-label", tr(larga ? "cc.a_recolher" : "cc.a_expandir")); bl.classList.toggle("ativo", larga); }
 }
-function mostraDoca(aba) {
+// as larguras em px. Cada coluna tem um mínimo que ainda serve (MIN_COL: o Controle com a coluna dele e o código). O circuito
+// fica com o resto (360 px; editando, 320 + a paleta + o painel da direita) e é o primeiro a ceder, até 240 px. Sem espaço,
+// a última coluna aberta ou arrastada fica com a largura pedida até onde as outras ainda cabem no mínimo delas, e as outras
+// encolhem na proporção. Sem o circuito, a primeira coluna ligada fica com o resto
+function distribui() {
+  const b = document.body.classList, st = document.body.style;
+  if (VISTA_CODIGO) { col.circuito = false; col.scope = false; col.controle = true; }   // a janela do código: só o Controle (e a IA)
+  if (!col.circuito && !col.scope && !col.controle && !iaAberta()) col.circuito = true;   // nenhuma: o circuito volta
+  const sc = col.scope, ct = col.controle, ia = iaAberta();
+  b.toggle("com-scope", sc || ct); b.toggle("col-scope", sc); b.toggle("col-ctl", ct); b.toggle("circ-oculto", !col.circuito);   // (o sem-circuito é outro: nenhum circuito aberto)
+  $("col-scope").classList.toggle("primeira", !col.circuito && sc);
+  $("col-ctl").classList.toggle("primeira", !col.circuito && !sc && ct);
+  $("gaveta-ia").classList.toggle("primeira", !col.circuito && !sc && !ct);
+  marcaColunas();
+  if (b.contains("movel")) { for (const v of ["--w-sc", "--w-ct", "--w-ia", "--w-scope"]) st.removeProperty(v); return; }   // uma vista de cada vez
+  const total = innerWidth - pxVar("--maisim-nav-w"), uma = (sc ? 1 : 0) + (ct ? 1 : 0) === 1;
+  const w = { scope: sc ? (doCodigoFora("scope") ? 200 : tela.ws || total * (uma ? 0.46 : 0.36)) : 0,
+              controle: ct ? (doCodigoFora("controle") ? 200 : tela.wc || total * (uma ? 0.46 : 0.36)) : 0,
+              ia: ia ? tela.wi || IA_ESTREITA : 0 };
+  const vis = ["scope", "controle", "ia"].filter((k) => w[k] > 0), soma = (ks) => ks.reduce((a, k) => a + w[k], 0);
+  const minDe = (ks) => ks.reduce((a, k) => a + MIN_COL[k], 0);
+  const cabe = (ks, espaco) => {                         // a prioridade primeiro, até onde as outras ainda cabem no mínimo
+    if (soma(ks) <= espaco) return;
+    const p = ks.includes(ultimaCol) ? ultimaCol : null, outras = ks.filter((k) => k !== p);
+    if (p) w[p] = Math.max(MIN_COL[p], Math.min(w[p], espaco - minDe(outras)));
+    reparte(w, outras, espaco - (p ? w[p] : 0));
+    if (p && espaco < minDe(ks)) reparte(w, ks, espaco);  // nem os mínimos cabem: todas na proporção dos mínimos
+  };
+  if (col.circuito) {
+    const circ = b.contains("editando") ? 320 + pxVar("--w-paleta") + pxVar("--w-props") : 360;
+    cabe(vis, Math.max(total - circ, Math.min(minDe(vis), total - 240)));   // o circuito cede primeiro, até 240 px
+  } else if (vis.length) {
+    const resto = vis.slice(1);
+    for (const k of resto) w[k] = Math.max(w[k], MIN_COL[k]);
+    cabe(resto, total - MIN_COL[vis[0]]);
+    w[vis[0]] = total - soma(resto);
+  }
+  for (const k of vis) w[k] = Math.floor(w[k]);
+  st.setProperty("--w-sc", `${w.scope}px`); st.setProperty("--w-ct", `${w.controle}px`); st.setProperty("--w-ia", `${w.ia}px`);
+  st.setProperty("--w-scope", `${w.scope + w.controle}px`);
+}
+const reajusta = () => setTimeout(() => dados && ajusta(), 60);   // o desenho no espaço que sobrou
+function mostraDoca(aba) {                               // liga a coluna (não desliga a outra)
   if (VISTA_CODIGO) aba = "controle";
-  abaDoca = aba; document.body.classList.add("com-scope");
+  if (!col[aba]) ultimaCol = aba;
+  abaDoca = aba; col[aba] = true;
   if (aba === "scope" && !$("if-scope").getAttribute("src")) $("if-scope").src = urlScope(sim.ultimo);
   if (aba === "controle" && typeof abreControle === "function") abreControle();
-  marcaDoca(); setTimeout(() => dados && ajusta(), 60);
+  distribui(); reajusta();
 }
-function mostraScope(on, url) {
-  if (VISTA_CODIGO) { abaDoca = "controle"; document.body.classList.add("com-scope"); marcaDoca(); return; }   // aqui, só o controle
-  document.body.classList.toggle("com-scope", on);
+function escondeDoca(aba) { col[aba] = false; if (abaDoca === aba) abaDoca = col.scope ? "scope" : "controle"; distribui(); reajusta(); }
+function mostraScope(on, url) {                          // liga ou desliga só o Scope (o fim da rodada o abre ao lado do Controle)
+  if (VISTA_CODIGO) { mostraDoca("controle"); return; }
   const f = $("if-scope");
-  if (on) { abaDoca = "scope"; if (url) f.src = url; else if (!f.getAttribute("src")) f.src = urlScope(sim.ultimo); }
-  marcaDoca(); setTimeout(() => dados && ajusta(), 60);
+  if (on) { abaDoca = "scope"; col.scope = true; if (url) f.src = url; else if (!f.getAttribute("src")) f.src = urlScope(sim.ultimo); }
+  else { col.scope = false; if (abaDoca === "scope") abaDoca = "controle"; }
+  distribui(); reajusta();
 }
-const alternaDoca = (aba) => document.body.classList.contains("com-scope") && abaDoca === aba ? mostraScope(false) : mostraDoca(aba);
-$("bt-scope").onclick = () => alternaDoca("scope");
-$("bt-ctl").onclick = () => alternaDoca("controle");
-document.querySelectorAll("#abas-doca button").forEach((b) => b.onclick = () => mostraDoca(b.dataset.aba));
-for (const lado of ["lado", "baixo"]) $(`bt-${lado}`).onclick = () => { posicionaScope(lado); mostraDoca(abaDoca); };
-(() => {
-  if (tela.w) document.body.style.setProperty("--w-escolhida", `${tela.w}px`);
-  if (tela.h) document.body.style.setProperty("--h-escolhida", `${tela.h}px`);
-  posicionaScope(tela.lado === "baixo" ? "baixo" : "lado");
-  let ini = null;
-  $("divisoria").addEventListener("mousedown", (ev) => { const r = $("painel-scope").getBoundingClientRect();
-    ini = { x: ev.clientX, y: ev.clientY, w: r.width, h: r.height }; document.body.classList.add("redimensionando"); ev.preventDefault(); });
-  addEventListener("mousemove", (ev) => {
-    if (!ini) return;
-    if (tela.lado === "lado") { tela.w = Math.round(Math.max(320, Math.min(innerWidth - 360, ini.w + ini.x - ev.clientX))); document.body.style.setProperty("--w-escolhida", `${tela.w}px`); }
-    else { tela.h = Math.round(Math.max(120, Math.min(innerHeight - 160, ini.h + ini.y - ev.clientY))); document.body.style.setProperty("--h-escolhida", `${tela.h}px`); }
+function alternaColuna(nome) {
+  if (nome === "ia") { if (typeof ccAbre === "function") ccAbre(); return; }
+  const ligadas = ["circuito", "scope", "controle"].filter((k) => col[k]).length + (iaAberta() ? 1 : 0);
+  if (col[nome] && ligadas <= 1) return;                 // a última fica
+  if (nome === "circuito") { col.circuito = !col.circuito; distribui(); reajusta(); return; }
+  if (col[nome]) escondeDoca(nome); else mostraDoca(nome);
+}
+const iaLarga = () => Math.round((innerWidth - pxVar("--maisim-nav-w")) / 2);
+function iaExpandida() { return (tela.wi || IA_ESTREITA) > (IA_ESTREITA + iaLarga()) / 2; }   // a pedida (sem espaço, ela pode estar menor)
+function alternaLarguraIA() { tela.wi = iaExpandida() ? IA_ESTREITA : iaLarga(); ultimaCol = "ia"; guardaTela(); distribui(); reajusta(); }
+// arrastar a divisória de uma coluna (e a borda da IA) muda a largura dela. body.redimensionando tira o mouse dos iframes (o
+// Scope) e a captura do ponteiro segura o arraste: antes, passar por cima do Scope perdia o arraste da IA
+function arrastaColuna(alca, nome) {
+  alca.addEventListener("pointerdown", (ev) => {
+    if (ev.button !== 0) return; ev.preventDefault();
+    const el = nome === "ia" ? $("gaveta-ia") : $(nome === "scope" ? "col-scope" : "col-ctl"), chave = { scope: "ws", controle: "wc", ia: "wi" }[nome];
+    const k = el.offsetWidth / (el.getBoundingClientRect().width || 1), x0 = ev.clientX, w0 = el.offsetWidth;   // o zoom do MaiSim
+    ultimaCol = nome; alca.classList.add("arrastando"); document.body.classList.add("redimensionando"); document.body.style.cursor = "col-resize";
+    try { alca.setPointerCapture(ev.pointerId); } catch (e) { /* sem captura: os eventos da janela bastam */ }
+    const mexe = (e) => { tela[chave] = Math.round(Math.max(200, w0 + (x0 - e.clientX) * k)); distribui(); };
+    const solta = () => {
+      removeEventListener("pointermove", mexe); removeEventListener("pointerup", solta); removeEventListener("pointercancel", solta);
+      alca.classList.remove("arrastando"); document.body.classList.remove("redimensionando"); document.body.style.cursor = "";
+      if (el.offsetWidth) tela[chave] = el.offsetWidth;   // a que coube
+      guardaTela(); distribui(); dados && ajusta();
+    };
+    addEventListener("pointermove", mexe); addEventListener("pointerup", solta); addEventListener("pointercancel", solta);
   });
-  addEventListener("mouseup", () => { if (!ini) return; ini = null; document.body.classList.remove("redimensionando"); guardaTela(); dados && ajusta(); });
-})();
+}
+$("bt-circ").onclick = () => alternaColuna("circuito");
+$("bt-scope").onclick = () => alternaColuna("scope");
+$("bt-ctl").onclick = () => alternaColuna("controle");
+$("bt-ia").onclick = () => alternaColuna("ia");
+arrastaColuna($("div-scope"), "scope"); arrastaColuna($("div-ctl"), "controle"); arrastaColuna($("ia-borda"), "ia");
+$("ia-borda").addEventListener("dblclick", alternaLarguraIA);
+$("cc-largura").onclick = alternaLarguraIA;
+addEventListener("resize", distribui);
+new MutationObserver(distribui).observe(document.body, { attributes: true, attributeFilter: ["class"] });   // a paleta, o painel, a outra janela…
+distribui();
 
 $("busca").oninput = () => ed.catalogo && desenhaPaleta();
 async function salvaNaBiblioteca(e) {
@@ -3307,7 +3386,7 @@ addEventListener("storage", (ev) => {                   // Δt e tempo final mud
 maisimI18n.aoMudar(() => {
   titulosCabecalho(); titulosPaineis(); estadoVer(); textosRede();
   document.querySelectorAll(".num-lido").forEach((n) => { if (n._campo && n._campo._confere) n._campo._confere(); });   // as notas dos números
-  if ($("divisoria").title) tituloDivisoria();            // só a que já tem título (o posicionaScope dá o primeiro)
+  if (typeof marcaColunas === "function") marcaColunas();   // os títulos do ⇔ da IA
   const op = $("sel-modelo").querySelector(`option[value="${NOVO}"]`);   // o circuito novo, na lista escondida e no botão do modelo
   if (op && ed.novo) { op.textContent = tr("simu.op_novo", { nome: ed.novo }); if (op.parentElement) op.parentElement.label = tr("simu.grupo_novo"); }
   mostraModelo();

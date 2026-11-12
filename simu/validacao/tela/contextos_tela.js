@@ -29,7 +29,7 @@ const antes = new Set(fs.existsSync(CTX) ? fs.readdirSync(CTX) : []);
     await api(pg, "claude/nova", {});
     await pg.reload(); await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
     await pg.click("#bt-ctl"); await pg.waitForFunction(() => ctl.carregado && editorPronto(), null, { timeout: 30000 });
-    await pg.click("#bt-ia-flutua"); await pg.waitForTimeout(1200);
+    await pg.click("#bt-ia"); await pg.waitForTimeout(1200);
     // uma conversa: um pedido
     await pg.fill("#cc-texto", "dobre o Kp"); await pg.click("#cc-enviar");
     await pg.waitForFunction(() => cc.estado && !cc.estado.andamento && (cc.estado.conversa.historico || []).length === 1, null, { timeout: 60000 })

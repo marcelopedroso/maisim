@@ -30,17 +30,17 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
   await pg.click("#bt-ctl"); await pg.waitForFunction(() => ctl.carregado && ctl.editor, null, { timeout: 30000 });
   const original = await pg.evaluate(() => codigoAtual());
   // abrir a conversa
-  await pg.click("#bt-ia-flutua"); await pg.waitForTimeout(1500);
+  await pg.click("#bt-ia"); await pg.waitForTimeout(1500);
   const lay = await pg.evaluate(() => { const r = (id) => $(id).getBoundingClientRect(); return { chat: r("ctl-claude"), ed: r("ctl-editor"), aba: abaDoca,
-    gaveta: !$("gaveta-ia").hidden, larg: innerWidth, flutua: getComputedStyle($("bt-ia-flutua")).display, uso: $("cc-uso").textContent, vazio: !!document.querySelector(".cc-vazio li") }; });
-  // a conversa fica à parte (Marcelo, 06/11): a gaveta da direita, por cima da tela; o Controle continua aberto embaixo
-  ok(lay.gaveta && lay.aba === "controle" && Math.abs(lay.chat.right - lay.larg) < 2 && lay.chat.width >= 320 && lay.chat.height > 300 && lay.flutua === "none",
-    `a conversa na gaveta da direita (${Math.round(lay.chat.width)}×${Math.round(lay.chat.height)}), a doca no Controle, o botão flutuante escondido`);
-  // fechar: a gaveta some, o botão flutuante volta e abre de novo; a doca não mudou
+    gaveta: !$("gaveta-ia").hidden, larg: innerWidth, flutua: $("bt-ia").classList.contains("ativo"), uso: $("cc-uso").textContent, vazio: !!document.querySelector(".cc-vazio li") }; });
+  // a conversa fica à parte (Marcelo, 06/11), na coluna da direita (11/11: lado a lado); o Controle continua aberto ao lado
+  ok(lay.gaveta && lay.aba === "controle" && Math.abs(lay.chat.right - lay.larg) < 2 && lay.chat.width >= 320 && lay.chat.height > 300 && lay.flutua && lay.ed.right <= lay.chat.left + 2,
+    `a conversa na coluna da direita (${Math.round(lay.chat.width)}×${Math.round(lay.chat.height)}), o Controle ao lado (até ${Math.round(lay.ed.right)}), o botão IA aceso`);
+  // fechar: a coluna some, o botão IA apaga e abre de novo; a doca não mudou
   await pg.click("#cc-fechar"); await pg.waitForTimeout(300);
-  const fechada = await pg.evaluate(() => ({ g: $("gaveta-ia").hidden, b: getComputedStyle($("bt-ia-flutua")).display, aberto: cc.aberto, aba: abaDoca, ed: $("ctl-editor").getBoundingClientRect().width }));
-  ok(fechada.g && fechada.b !== "none" && !fechada.aberto && fechada.aba === "controle" && fechada.ed > 300, `× fecha a gaveta (o botão flutuante volta; o código com ${Math.round(fechada.ed)} px)`);
-  await pg.click("#bt-ia-flutua"); await pg.waitForTimeout(500);
+  const fechada = await pg.evaluate(() => ({ g: $("gaveta-ia").hidden, b: $("bt-ia").classList.contains("ativo"), aberto: cc.aberto, aba: abaDoca, ed: $("ctl-editor").getBoundingClientRect().width }));
+  ok(fechada.g && !fechada.b && !fechada.aberto && fechada.aba === "controle" && fechada.ed > 300, `× fecha a conversa (o botão IA apaga; o código com ${Math.round(fechada.ed)} px)`);
+  await pg.click("#bt-ia"); await pg.waitForTimeout(500);
   ok(await pg.evaluate(() => cc.aberto && !$("gaveta-ia").hidden), "o botão flutuante abre a conversa");
   ok(await pg.evaluate(() => getComputedStyle($("ctl-claude-bt")).display === "none"), "no desktop, só o botão flutuante (o \"IA\" da barra do código some)");
   ok(/sessão 42%/.test(lay.uso) && /semana 81%/.test(lay.uso), `uso da conta no topo: "${lay.uso}"`);
@@ -148,15 +148,15 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
   ok(await pg.evaluate(() => !document.querySelector(".modal-fundo") && !$("gaveta-ia").hidden && cc.aberto && document.activeElement === $("cc-texto")), "pedir ao Claude: abre a conversa (a gaveta), com o cursor na caixa");
   // fechar a gaveta com a IA respondendo: o pedido segue acompanhado; no fim, o botão para de pulsar e mostra a proposta (Codex, #233)
   await pg.evaluate(() => ccAbre(true)); await pg.fill("#cc-texto", "suba o ganho"); await pg.click("#cc-enviar");
-  await pg.waitForFunction(() => $("bt-ia-flutua").classList.contains("trabalhando"), null, { timeout: 10000 }).catch(() => {});
+  await pg.waitForFunction(() => $("bt-ia").classList.contains("trabalhando"), null, { timeout: 10000 }).catch(() => {});
   await pg.click("#cc-fechar");
-  const fim = await pg.waitForFunction(() => cc.estado && !cc.estado.andamento && !$("bt-ia-flutua").classList.contains("trabalhando"), null, { timeout: 30000 }).then(() => true).catch(() => false);
-  ok(fim && await pg.evaluate(() => $("bt-ia-flutua").classList.contains("proposta") && $("gaveta-ia").hidden),
-    `gaveta fechada no meio do pedido: ele termina, o botão para de pulsar e mostra a proposta (${await pg.evaluate(() => $("bt-ia-flutua").className)})`);
-  await pg.click("#bt-ia-flutua"); await pg.waitForTimeout(500);
+  const fim = await pg.waitForFunction(() => cc.estado && !cc.estado.andamento && !$("bt-ia").classList.contains("trabalhando"), null, { timeout: 30000 }).then(() => true).catch(() => false);
+  ok(fim && await pg.evaluate(() => $("bt-ia").classList.contains("proposta") && $("gaveta-ia").hidden),
+    `gaveta fechada no meio do pedido: ele termina, o botão para de pulsar e mostra a proposta (${await pg.evaluate(() => $("bt-ia").className)})`);
+  await pg.click("#bt-ia"); await pg.waitForTimeout(500);
   await pg.evaluate(() => typeof ccDescarta === "function" && ccDescarta()); await pg.waitForTimeout(500);
   // com o Scope na doca: abrir e fechar a IA não mexe nele (a IA fica à parte)
-  await pg.evaluate(() => { ccAbre(false); mostraDoca("scope"); }); await pg.click("#bt-ia-flutua"); await pg.waitForTimeout(300);
+  await pg.evaluate(() => { ccAbre(false); mostraDoca("scope"); }); await pg.click("#bt-ia"); await pg.waitForTimeout(300);
   await pg.click("#cc-fechar"); await pg.waitForTimeout(300);
   ok(await pg.evaluate(() => abaDoca === "scope" && !cc.aberto), "com o Scope na doca, abrir e fechar a IA deixa o Scope como estava");
   // o Código ⇄ automático que falha (a IA deu erro): o Controle diz, com a conversa fechada, e o botão a abre (Codex, #232)
@@ -177,7 +177,7 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
   await tema("claro");
   // sem login
   logado(false); await pg.reload(); await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
-  await pg.click("#bt-ctl"); await pg.waitForFunction(() => ctl.carregado, null, { timeout: 30000 }); await pg.click("#bt-ia-flutua");
+  await pg.click("#bt-ctl"); await pg.waitForFunction(() => ctl.carregado, null, { timeout: 30000 }); await pg.click("#bt-ia");
   const entrar = await pg.waitForSelector("#cc-entrar", { timeout: 20000 }).then(() => true).catch(() => false);   // o auth status de verdade leva uns segundos
   ok(entrar, "sem login: a conversa pede para entrar no Claude do MaiSim");
   const semIA = await pg.evaluate(() => ["cc-texto", "cc-enviar", "cc-modelo", "cc-ia"].map((id) => getComputedStyle($(id)).display === "none"));
