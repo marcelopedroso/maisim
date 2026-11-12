@@ -6,6 +6,15 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Changed
+- **The screen in columns: Circuit, Scope, Control and AI, side by side.** Four buttons in the header turn each column on and off; the columns that are on share the width, with nothing on top of anything.
+  - Scope and Control are separate columns now (they were tabs of one dock), so the end of a run opens the Scope next to the code instead of hiding it. The "Scope beside / below" buttons are gone.
+  - The AI is the fourth column (it used to open over the Scope and the Control) and the fourth button, which carries the proposal dot and the "working" pulse of the old floating button. **⇔** switches it between narrow (440 px) and half the window.
+  - Any combination works, even without the circuit; the last column cannot be turned off.
+  - Each column has its own divider. Each column has a minimum that still works (Control 560 px, Scope and AI 360 px). When space is short, the circuit gives way first, and the column just opened or dragged keeps the width asked for, as far as the others still fit.
+  - Dragging the AI border over the Scope no longer gets lost (the Scope's frame swallowed the mouse).
+- **The Ts info says what Ts is:** sampling and computation of the control (every Ts the measurements are read and `passo()` runs, like the ADC interrupt in a DSP), in three short lines.
+
 ### Fixed
 - **The launcher's watchdog (#241) could kill a running engine during a long run.** The engine serves one connection at a time and the simulator keeps its own open, so each 5 s port check waited in the engine's queue; after ~50 s the queue was full, the port looked closed and the engine was restarted in the middle of the run. The watchdog now watches the processes the launcher started by the process itself, and checks the port only for one it has no process for. The `religa_gecko_api` test now stays idle 70 s with the editor connected and checks nothing is restarted.
 - **When Gecko or the editor engine fell, MaiSim did not bring them back**, and the app stayed on "no editor engine" until it was closed. On the phone, after Android killed only one of the two Java processes, it got worse: every new start gave up on the "half up" Gecko and asked for `--parar`, which nobody can run there, so the only way out was to uninstall.

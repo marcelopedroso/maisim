@@ -91,10 +91,10 @@ async function varre(pg) {
     await simu.waitForTimeout(500);
     const s2 = await simu.evaluate(() => ({ l: maisimI18n.lingua(), rot: document.querySelector('#maisim-nav a[href="/maisim/simu/"]').dataset.rotulo, bt: document.querySelector("#maisim-nav .lingua").textContent,
       vz: document.querySelector("#vz-novo").textContent, novo: document.querySelector("#bt-novo").getAttribute("title"), ph: document.querySelector("#busca").placeholder,
-      ctl: document.querySelector('#abas-doca [data-aba="controle"]').textContent, msg: document.querySelector("#painel-controle").dataset.msg.slice(0, 15),
+      ctl: document.querySelector("#bt-ctl").getAttribute("title"), msg: document.querySelector("#painel-controle").dataset.msg.slice(0, 15),
       fer: ["bt-fio", "bt-conector"].map((id) => document.getElementById(id).textContent.trim()), tcon: document.querySelector("#bt-conector").getAttribute("title") }));
     ok(s2.l === "en" && s2.rot === "Simu · build and simulate" && s2.bt === "EN" && s2.vz === "+ New circuit" && s2.novo === "new circuit (blank sheet)"
-       && s2.ph === "search component…" && s2.ctl === "Control" && s2.msg === "no circuit open", `a outra janela (o simu) acompanha na hora, com a casca: ${JSON.stringify(s2)}`);
+       && s2.ph === "search component…" && /^Control: show or hide/.test(s2.ctl) && s2.msg === "no circuit open", `a outra janela (o simu) acompanha na hora, com a casca: ${JSON.stringify(s2)}`);
     // as duas ferramentas do topo da paleta (conexão W, conector C) em inglês, a dica do conector sem falar de outro programa
     ok(JSON.stringify(s2.fer) === JSON.stringify(["WireW", "ConnectorC"]) && /^Connector \(label\) · click a terminal or a wire point/.test(s2.tcon) && !/PSIM/.test(s2.tcon),
        `as ferramentas em inglês: ${JSON.stringify(s2.fer)}; a dica do conector: ${s2.tcon}`);
