@@ -8,6 +8,9 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [0.4.0] - 2026-11-12
 
+### Fixed
+- **The C control did not run on ARM (the aarch64 AppImage and the Android app):** the released TinyCC 0.9.27 cannot build a shared library on aarch64 ("tcc: error: DLLs unimplemented!"). The Linux packages now build TinyCC from a pinned commit of its development branch (0.9.28rc), which can; on x86_64 the C control gives the same results bit for bit. The package smoke test now prints MaiSim's error message when an API call fails.
+
 ### Changed
 - **The screen in columns: Circuit, Scope, Control and AI, side by side.** Four buttons in the header turn each column on and off; the columns that are on share the width, with nothing on top of anything.
   - Scope and Control are separate columns now (they were tabs of one dock), so the end of a run opens the Scope next to the code instead of hiding it. The "Scope beside / below" buttons are gone.

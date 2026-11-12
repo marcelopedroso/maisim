@@ -31,8 +31,7 @@ pacote/linux/fumaca.sh       # o teste de fumaça do pacote montado: sobe, roda 
 
 - Os runtimes em versões fixas, conferidos pelo SHA-256 guardado em `pacote/linux/sha256.txt` (os oficiais: o
   `SHA256SUMS` do python-build-standalone e o checksum da API da Adoptium): Python 3.11 (python-build-standalone) e JRE
-  Temurin 11; o NumPy pelo pip, na versão fixa do script; o TinyCC 0.9.27 compilado da fonte (`pacote/tcc.sh`, SHA-256
-  no script). O cache dos downloads fica em `pacote/.cache` (fora do git).
+  Temurin 11; o NumPy pelo pip, na versão fixa do script; o TinyCC (mob 0.9.28rc, num commit fixo; o 0.9.27 lançado não gera biblioteca compartilhada no aarch64) compilado da fonte (`pacote/tcc.sh`, o hash do commit confere a fonte). O cache dos downloads fica em `pacote/.cache` (fora do git).
 - Precisa, para montar: git, curl, Java/javac 11 e Maven (o Gecko: `gecko/construir.sh`).
 - Usar: `chmod +x MaiSim-*.AppImage && ./MaiSim-*.AppImage`; parar: o mesmo com `--parar` (ou Ctrl+C no terminal). Sem
   FUSE (o WSL, alguns containers): `./MaiSim-*.AppImage --appimage-extract-and-run`.

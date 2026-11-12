@@ -22,12 +22,15 @@ if ! grep -qE "no ar em|running at" "$T/lancador.log"; then
   fala "fumaça: FALHOU — o MaiSim não subiu" "smoke: FAILED — MaiSim did not start" >&2; tail -20 "$T/lancador.log" >&2
   tail -20 "$MAISIM_CACHE/logs/gecko.log" "$MAISIM_CACHE/logs/motor.log" 2>/dev/null >&2; exit 1; fi
 python3 - "$P" "$R" <<'EOF'
-import json, sys, time, urllib.parse, urllib.request
+import json, sys, time, urllib.error, urllib.parse, urllib.request
 B = f"http://localhost:{sys.argv[1]}"
 def api(rota, corpo=None, cru=False):
     q = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None,
                                headers={"Content-Type": "application/json", "X-MaiSim": "1", "Origin": B})
-    r = urllib.request.urlopen(q, timeout=600).read()
+    try:
+        r = urllib.request.urlopen(q, timeout=600).read()
+    except urllib.error.HTTPError as e:                  # a mensagem do MaiSim, não só o código
+        raise SystemExit(f"fumaça: {rota} → {e.code}: {e.read().decode(errors='replace')[:400]}")
     return r if cru else json.loads(r)
 api("/maisim/simu/editor/abrir", {"arq": "exemplos/exemplo_buck.ipes", "modo": "descartar"})
 t0 = time.time()
