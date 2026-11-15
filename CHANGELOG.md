@@ -8,6 +8,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ### Changed
 - **Every pull request needs one approving review to get into `main`** (`CONTRIBUTING.md`): a collaborator's pull request is verified like any other and then reviewed and approved by the maintainer; the maintainer's own pull requests are approved by Actions once verified, right before it merges them, as before. Larger work starts as an issue. A pull request template lists what every PR needs. (#252)
+- **The verification asks for the changelog line:** a pull request that changes the product and adds nothing to `CHANGELOG.md` fails `tests (quick)` before the tests run. Not asked of pull requests that only change tests, CI, documentation or `VERSION`. (#253)
 
 ### Added
 - **Real-time HIL inside a board (experimental, `simu/hil/rt/`):** `rt_hil` runs the plant (the RL of the `exemplo_controle_pwm` buck, hand-written for now) on one core and the same `controle.c` of the SIL on another, both tied to the same clock and spinning (never sleeping) until the next step; a sample that falls due during the previous step is lost, like the interrupt of a microcontroller. It records, per sample, the start delay, the execution time and the age of the measurement. On a Raspberry Pi 3, with the cores isolated (`isolcpus=2,3`), the samples lost fall from 2.7 % to 0.04 %. The offline test `rt_hil_offline` checks that the loop closes, the `i_ref` step and the sample accounting (the timing-dependent checks are skipped on a busy machine). (#251)
