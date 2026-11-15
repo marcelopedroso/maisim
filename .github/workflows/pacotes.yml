@@ -5,6 +5,8 @@
 # their .sha256 files. "test only" builds and smoke-tests the dispatched branch and attaches nothing. Started by full-suite.yml right after it
 # creates the Release (a Release made with the Actions token does not trigger other workflows; workflow_dispatch does),
 # or by hand: Actions → packages → Run workflow, with the tag (e.g. v0.3.0-rc1).
+# The Windows installer is built on Linux; the "windows" job then installs it silently on a real Windows and runs the same
+# smoke test there (pacote/windows/fumaca.py). It does not hold the Release back yet: if it fails, it opens an issue.
 name: packages
 
 on:
@@ -51,6 +53,13 @@ jobs:
         run: bash pacote/linux/fumaca.sh
       - name: Windows installer
         run: bash pacote/windows/monta.sh
+      - name: hand the installer to the Windows job
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-installer
+          path: pacote/dist/MaiSim-Setup-*.exe
+          retention-days: 1
+          if-no-files-found: error
       - name: attach to the Release
         if: ${{ !inputs.test_only }}
         env:
@@ -62,6 +71,44 @@ jobs:
           cp MaiSim-*-x86_64.AppImage MaiSim-x86_64.AppImage && sha256sum MaiSim-x86_64.AppImage > MaiSim-x86_64.AppImage.sha256
           ls -la
           gh release upload "$TAG" ./* --repo "$GITHUB_REPOSITORY" --clobber
+
+  windows:
+    name: Windows installer on a real Windows (smoke test)
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
+    env:
+      TAG: ${{ inputs.tag }}   # only through the environment, as in the other jobs
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.test_only && github.ref || env.TAG }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: windows-installer
+          path: instalador
+      - name: smoke test (installs silently; the installed MaiSim runs the buck, makes a PDF, runs the C control and stops)
+        run: python pacote/windows/fumaca.py instalador
+      - name: keep the logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-smoke-logs
+          path: fumaca-logs/
+          retention-days: 14
+          if-no-files-found: ignore
+      - name: open an issue with the run link
+        if: ${{ failure() && !inputs.test_only }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "Windows smoke test failed for $TAG" \
+            --body "The Windows installer of $TAG was attached to the Release, but its smoke test on Windows failed (install, start, the buck, a PDF, the C control, stop). Logs: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
   arm:
     name: ARM (aarch64) AppImage and folder
