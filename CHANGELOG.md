@@ -7,6 +7,13 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Added
+- **The ideal transformer works in MaiSim.** It was in the palette ("Ideal Transformer", from GeckoCIRCUITS) but showed up with no terminals, so it could not be wired or drawn.
+  - Its 4 terminals are where Gecko puts them: the primary on the left, the secondary on the right. They turn with it.
+  - A symbol with the two windings, the core and the polarity dots. The turns ratio n1:n2 is shown below it.
+  - The panel names n1, n2, the ratio and the polarity in Portuguese and English.
+  - MaiSim's AI is told which nodes are the primary and the secondary, and the ratio.
+  - Two of them in series, with the primaries in parallel, make a center-tapped secondary (the two-diode full-wave rectifier).
+  - New tests `trafo_api` and `trafo_tela`.
 - **The C control on a real board (HIL board, processor-in-the-loop) (#250):** with a board configured (`MAISIM_HIL` and `MAISIM_HIL_CHAVE`; a Raspberry Pi or any Linux with python3 and gcc running `simu/hil/placa.py`), "on the board" in the C view of the Control panel runs `controle.c` compiled and executed on the board every sample, with the circuit in Gecko on the PC. The waveforms are the same, bit for bit, as the C on the PC; the Scope gets `pil_texec_us`, the time of each step measured on the board. `simu/hil/instala_placa.sh` sets the board up over ssh.
 
 ## [0.4.0] - 2026-11-12

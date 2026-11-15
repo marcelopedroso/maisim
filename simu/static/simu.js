@@ -762,6 +762,31 @@ function desenhaMaquina(g, e) {
   texto(g, e.x, e.y + 2.4, e.mede[0] ? `${tr("simu.carga_curta")} ← ${e.mede[0]}${falta ? " " + tr("simu.carga_falta") : ""}` : tr("simu.sem_carga"),
     { class: "maq-carga", "text-anchor": "middle", fill: e.mede[0] && !falta ? COR.ct : COR.erro, "font-size": 0.45 * G });
 }
+// o transformador ideal (LK_TRANS; os 4 bornes da geometria do Gecko, ipes.py TRAFOS): o primário à esquerda e o secundário à
+// direita, duas bobinas e o núcleo entre elas, os pontos da polaridade (no Gecko, "reversed" = 1 inverte o secundário) e a
+// relação de espiras n1:n2 embaixo. Desenhado no quadro de 503 e girado com a orientação, como as máquinas
+const ehTrafo = (e) => e.dom === "LK" && e.id_gecko === "Trans" && (e.terminais || []).length === 4;
+function desenhaTrafo(g, e) {
+  const a = ANG_DIR[e.dir] || 0, cl = COR.lk, at = { class: "corpo", stroke: cl, "stroke-width": 1.4, fill: "none" };
+  no("rect", { x: (e.x - 1.4) * G, y: (e.y - 2.4) * G, width: 2.8 * G, height: 4.8 * G, fill: "transparent" }, g);   // a área de clique
+  const r = no("g", { transform: `rotate(${a} ${e.x * G} ${e.y * G})` }, g);
+  const P = ([x, y]) => `${(e.x + x) * G},${(e.y + y) * G}`;
+  const L = (pts, o = {}) => no("polyline", Object.assign({ points: pts.map(P).join(" ") }, at, o), r);
+  const bobina = (x, lado) => {                          // 4 voltas de -1,2 a 1,2, abertas para o núcleo (lado: +1 para a direita)
+    let d = `M ${P([x, -1.2])}`; for (let k = 1; k <= 4; k++) d += ` A ${0.3 * G} ${0.3 * G} 0 0 ${lado > 0 ? 1 : 0} ${P([x, -1.2 + 0.6 * k])}`;
+    no("path", Object.assign({ d }, at), r);
+  };
+  for (const s of [-1, 1]) {                            // os fios dos bornes até as bobinas (primário em -1, secundário em +1)
+    L([[s, -2], [s * 0.62, -2], [s * 0.62, -1.2]]); L([[s, 2], [s * 0.62, 2], [s * 0.62, 1.2]]);
+    bobina(s * 0.62, -s);
+    L([[s * 0.13, -1.35], [s * 0.13, 1.35]], { "stroke-width": 1.2 });   // o núcleo
+  }
+  const inv = Number(e.par.reversed) === 1;              // a polaridade: o ponto do secundário embaixo quando invertido
+  for (const [x, y] of [[-1.0, -1.25], [1.0, inv ? 1.25 : -1.25]]) no("circle", { cx: (e.x + x) * G, cy: (e.y + y) * G, r: 0.12 * G, fill: cl }, r);
+  texto(g, e.x, e.y - 2.6, e.nome, { "text-anchor": "middle", fill: COR.nome, "font-size": 0.6 * G });   // acima, longe dos fios dos bornes
+  const n1 = e.par.windings1, n2 = e.par.windings2;
+  if (n1 != null && n2 != null) texto(g, e.x, e.y + 3.0, `${numCurto(n1)}:${numCurto(n2)}`, { "text-anchor": "middle", fill: COR.par, "font-size": 0.55 * G });
+}
 function valorPrincipal(e) {
   const p = e.par, v = (k) => (p[k + "_var"] ? `${p[k + "_var"]}= ` : "") + si(p[k], UNID[k]);
   if (e.dom === "THERM") {                             // K/W, J/K, °C e W sem prefixo (0,5 K/W, não 500 mK/W)
@@ -907,8 +932,8 @@ function desenha() {
     n++;
     const g = no("g", { class: (e.tipo === "SUBCIRCUIT" ? "el sub" : "el") + (ed.sel === e.nome || ed.multi.has(e.nome) ? " sel" : "") + (e.ativo === false ? " desativado" : ""), "data-i": i }, camEl);
     if (e.ativo === false) no("title", {}, g).textContent = tr(e.curto ? "simu.el_curto" : "simu.el_desativado", { nome: e.nome });
-    if (e.dom === "LK" && e.grandezas) {
-      desenhaMaquina(g, e);
+    if (e.dom === "LK" && (e.grandezas || ehTrafo(e))) {
+      if (e.grandezas) desenhaMaquina(g, e); else desenhaTrafo(g, e);
       // o rótulo do borne só quando nenhuma conexão chega nele (a da conexão já o mostra; ligado só pelo nome, como no Gecko)
       if (mostrar.rotulos) e.terminais.forEach((t) => { if (!t.rotulo || ptsFio.has(`${t.x},${t.y}`)) return; const esq = t.x < e.x;
         rotBorne(e, i, t, t.rotulo, t.x + (esq ? -0.25 : 0.25), t.y - 0.42, { "text-anchor": esq ? "end" : "start", fill: COR.rot, "font-size": 0.5 * G }, esq ? "e" : "d"); });
@@ -2216,9 +2241,11 @@ async function montaProps() {
     };
     // nos blocos de controle, o nome legível e a unidade (simu.par.<tipo>.<nome>, PAR_CTL); o do Gecko fica na dica, entre parênteses
     const unPar = (q) => { const uc = ctl ? unidCtl(e.tipo, q.nome) : null; return uc != null ? uc : q.unidade; };
-    const linhaPar = (q) => { const aj = ctl ? ajudaPar(e.tipo, q.nome) : "", un = unPar(q);
+    // e nos do circuito que têm o nome no dicionário (o transformador ideal: n1, n2, a relação e a polaridade)
+    const legivel = (q) => ctl || maisimI18n.tem(`simu.par.${e.tipo}.${q.nome}`);
+    const linhaPar = (q) => { const aj = legivel(q) ? ajudaPar(e.tipo, q.nome) : "", un = unPar(q);
       const dica = aj ? `${aj} (${q.nome}${q.descricao && q.descricao !== q.nome ? ": " + q.descricao : ""})` : q.descricao;
-      return `<label title="${escT(dica)}${q.pode_var && !(kpki && q.nome === "T") ? " · " + escT(tr("simu.t_pode_var")) : ""}"><span>${escT(ctl ? rotuloPar(e.tipo, q.nome) : q.nome)}${un ? ` [${escT(un)}]` : ""}</span>
+      return `<label title="${escT(dica)}${q.pode_var && !(kpki && q.nome === "T") ? " · " + escT(tr("simu.t_pode_var")) : ""}"><span>${escT(legivel(q) ? rotuloPar(e.tipo, q.nome) : q.nome)}${un ? ` [${escT(un)}]` : ""}</span>
       ${q.erro ? `<i>${q.erro}</i>` : campo(q)}</label>`; };
     // num semicondutor, a seção "Perdas": os campos do modo simples do Gecko juntos (uF e rON também valem no circuito: são a
     // queda e a resistência em condução), a conta que ele faz e se há um Pv que use a perda (sem Pv, ela não é calculada)
