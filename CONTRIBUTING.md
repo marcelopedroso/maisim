@@ -2,16 +2,19 @@
 
 1. **Always through a PR.** All work goes on a branch (`git switch -c <topic>`), pushed with `git push -u origin <topic>`
    and opened as a PR against `main` (`gh pr create --fill`). Never push straight to `main`: the branch protection on
-   GitHub blocks it (PR required, the required check, applies to administrators too, linear history, no force-push),
+   GitHub blocks it (PR required, one approving review, the required check, applies to administrators too, linear
+   history, no force-push),
    and the `.githooks/pre-push` hook warns you before that, on your machine (enable it once per clone:
    `git config core.hooksPath .githooks`).
 2. **Every PR is verified** (workflow `verify`, `.github/workflows/verify.yml`; the required check is the job
    `tests (quick)`): GitHub Actions starts the test instance (GeckoCIRCUITS on a virtual display, the simulator, the
    scope, the web page) and runs the quick test set (`simu/validacao/ci.sh rapido`: the offline tests plus the essential
-   API and UI tests, with Playwright). Passed → Actions itself merges the PR into `main` (squash: one commit per PR) and
-   deletes the branch. It does not merge on its own: draft PRs, PRs with the `do-not-merge` label, and PRs from anyone
-   other than the repository owner (those wait for review). The merge only applies to the commit that was tested. A
-   draft that is marked ready runs the verification again (and is merged if it passes).
+   API and UI tests, with Playwright). Passed → Actions itself approves the PR (the `main` protection requires one
+   approving review, and nobody can approve their own PR: for the maintainer's own PRs, the verification is that
+   review), merges it into `main` (squash: one commit per PR) and deletes the branch. It does not approve or merge on
+   its own: draft PRs, PRs with the `do-not-merge` label, and PRs from a collaborator (those get a review first: see
+   [Pull requests from collaborators](#pull-requests-from-collaborators)). The merge only applies to the commit that was
+   tested. A draft that is marked ready runs the verification again (and is merged if it passes).
    **Codex reviews every PR** (the ChatGPT app on GitHub): its comments are answered on the PR itself, either fixed on
    the branch or explained why not, and the conversation is resolved. Before merging, Actions waits for the Codex
    review to finish (up to 10 min; after that it goes on without it) and does not merge while a conversation is open
@@ -25,6 +28,22 @@
    and a green full suite, the tag `vX.Y.Z` and a GitHub Release with notes generated from the PRs.
 5. **Changelog:** every PR adds one line to [`CHANGELOG.md`](CHANGELOG.md) under **Unreleased** (Added, Changed or Fixed,
    with the PR number). The PR that bumps `VERSION` moves those lines under the new version, with the date.
+
+## Pull requests from collaborators
+
+A PR from a collaborator goes through the same verification (`tests (quick)`) and then gets a review, instead of being
+merged by Actions right away:
+
+1. **The maintainer reviews it**, or asks a reviewer. The comments are answered on the PR itself, either fixed on the
+   branch or explained why not, and each conversation is resolved (the same as the Codex comments above).
+2. **It is merged once it is approved** (squash: one commit per PR). The `main` protection requires one approving
+   review, a new commit asks for the approval again, and nobody can approve their own PR. For now the maintainer does
+   the merge: the author, or an AI agent working for the author, opens the PR and leaves it there.
+3. **Larger work starts as an issue.** A new feature, a new module or a change of direction is agreed in an issue before
+   the code is written. A fix or a small improvement goes straight to a PR.
+4. **One at a time when two open PRs touch the same lines** (the test lists in `simu/validacao/ci.sh`, the
+   **Unreleased** block of the changelog): once the first is merged, the second merges `main` into its branch, which
+   runs the verification again.
 
 ## Before opening a PR: what the tests don't catch
 

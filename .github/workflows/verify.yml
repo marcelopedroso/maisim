@@ -7,6 +7,9 @@
 # refuses to merge with open conversations (.github/scripts/wait_for_codex.py). merge_group: also runs in GitHub's merge
 # queue, if it is ever turned on. (A merge made with the Actions token does not trigger "push" in other workflows;
 # workflow_dispatch does.)
+# The main protection requires one approving review and nobody can approve their own PR: for the maintainer's PR, this
+# verification is that review (Actions approves the tested commit right before merging it; the repository setting
+# "Allow GitHub Actions to create and approve pull requests" is on for this). A collaborator's PR needs the maintainer's approval.
 name: verify
 
 on:
@@ -93,6 +96,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
         run: python3 .github/scripts/wait_for_codex.py
+      - name: approve the tested commit (main requires one approving review)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          TESTED: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # only the commit that was tested: one pushed in between is not approved (and the merge below refuses it too)
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/reviews" -f event=APPROVE -f commit_id="$TESTED" \
+            -f body="Verified by Actions: tests passed, the Codex review is done and no conversation is open." > /dev/null
       - name: squash into main
         env:
           GH_TOKEN: ${{ github.token }}
