@@ -45,6 +45,7 @@ import msd
 import processos  # noqa: E402                as IAs e o login: num grupo próprio (Linux e Windows)
 import resumo_rodada
 import sinais_c
+from hil import ligacao as hil_ligacao  # noqa: E402  o controlador na placa do HIL (MAISIM_HIL: um Raspberry Pi pela rede)
 import tf  # noqa: E402                         a função de transferência do bloco TF (ler H(s), as regras do Gecko)
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "scope"))
@@ -1760,7 +1761,7 @@ def controle_padrao():
     return {"ativo": False, "Ts": 1e-4, "atuacoes": [], "parametros": [], "codigo": modelo_codigo("controle"),
             "atraso": {"modo": "logo", "tempo": 0.0}, "acionamentos": [],
             "arquivos": modelos_arquivos(), "controladores": [],
-            "rede": {"latencia": 0.0}, "c": {"usar": False, "precisao": "double", "arquivos": {}, "sinc_auto": False, "sinc": {}}}
+            "rede": {"latencia": 0.0}, "c": {"usar": False, "precisao": "double", "arquivos": {}, "sinc_auto": False, "sinc": {}, "placa": False}}
 
 
 def completa_controle(salvo):
@@ -2017,7 +2018,7 @@ def instancias_c(c, r, insts, erros, avisos):
                          else lingua.tr("controle.c_falta_raiz", arq=arq, nome=i["nome"], py=i["arquivo"]))
             continue
         out.append({**i, "arquivo": arq, "codigo": arqs[arq], "linguagem": "c", "arquivos_c": {arq: arqs[arq], **modulos},
-                    "precisao": cc.get("precisao", "double"), "modulos": {}, "outros": [],
+                    "precisao": cc.get("precisao", "double"), "modulos": {}, "outros": [], "placa": bool(cc.get("placa")),
                     "sinais": {"m": glob["m"] if i["medidas"] is None else list(i["medidas"]), "p": glob["p"],
                                "u": glob["u"] if i["atuacoes"] is None else list(i["atuacoes"])}})
     return out, erros, avisos
@@ -3358,6 +3359,7 @@ def testa_controle(dt, n=3, c=None, pasta_nome="teste_controle"):
     insts, erros_ctl, _ = instancias_controle(c, ult)
     if erros_ctl:
         raise ErroMotor(erros_ctl[0])
+    insts = [{**i, "placa": False} for i in insts]        # o teste roda no PC (o validador não depende da placa ligada)
     erros, _ = verifica_arquivos(c, {i["arquivo"] for i in insts})
     if erros:
         raise ErroControle(erros[0]["msg"], erros[0]["linha"], arquivo=erros[0]["arquivo"])
@@ -3492,7 +3494,7 @@ def confere_controle(c):
         raise ErroMotor(lingua.tr("controle.arquivos_demais"))
     sinc = cc.get("sinc") if isinstance(cc.get("sinc"), dict) else {}   # a última comparação Python × C (as impressões dos dois)
     out["c"] = {"usar": bool(cc.get("usar")), "precisao": "float" if cc.get("precisao") == "float" else "double", "arquivos": arqs_c,
-                "sinc_auto": bool(cc.get("sinc_auto")),
+                "sinc_auto": bool(cc.get("sinc_auto")), "placa": bool(cc.get("placa")),
                 "sinc": {"py": str(sinc.get("py", ""))[:40], "c": str(sinc.get("c", ""))[:40], "ok": bool(sinc.get("ok"))} if sinc else {}}
     return out
 
@@ -3504,13 +3506,54 @@ def confere_controle(c):
 CONEXAO_CONTROLADORES = os.environ.get("MAISIM_CONTROLADORES") or ("pipe" if os.name == "nt" else "conexao")
 
 
+def estado_placa():
+    """A placa do HIL para o painel: {"configurada": False} sem MAISIM_HIL; com ela, o endereço e o que a placa disser de si
+    (ok, modelo, gcc, núcleos) ou o erro (desligada, fora da rede, a chave errada)."""
+    ende = hil_ligacao.endereco()
+    if ende is None:
+        return {"configurada": False}
+    out = {"configurada": True, "endereco": f"{ende[0]}:{ende[1]}"}
+    try:
+        return {**out, "ok": True, **hil_ligacao.info()}
+    except Exception as e:
+        return {**out, "ok": False, "erro": lingua.tr("hil.sem_placa", ende=out["endereco"], msg=f"{type(e).__name__}: {e}")}
+
+
+class _NaPlaca:
+    """No lugar do Popen quando o controlador roda na placa do HIL: o processo é de lá (fechar a conexão o encerra)."""
+    stdin = stdout = None
+    pid = None
+
+    def poll(self):
+        return None
+
+    def kill(self):
+        pass
+
+    def wait(self, timeout=None):
+        return 0
+
+
 class Trabalhador:
     """O processo de um controlador (controle_worker.py): manda um pedido e lê a resposta com prazo (separados, para os
     controladores calcularem juntos). conexao: por multiprocessing.connection (o processo se liga ao endereço que recebe
-    no ambiente; conecta() espera por ele) em vez do stdin/stdout e da thread leitora."""
-    def __init__(self, log, conexao=False, worker="controle_worker.py"):
+    no ambiente; conecta() espera por ele) em vez do stdin/stdout e da thread leitora. placa: o processo roda na placa do
+    HIL (simu/hil/placa.py, pela rede), com a mesma conexão e o mesmo protocolo — o resto do laço não sabe a diferença."""
+    def __init__(self, log, conexao=False, worker="controle_worker.py", placa=False):
         env = {**os.environ, "MAISIM_LINGUA": lingua.atual()}   # as mensagens do controle_worker no idioma do pedido
         self.conn = self.ouvinte = None
+        if placa:
+            ende = hil_ligacao.endereco()
+            if ende is None:
+                raise ErroControle(lingua.tr("hil.sem_config"))
+            try:
+                self.conn = hil_ligacao.conecta("c" if worker == "controle_worker_c.py" else "py")
+            except Exception as e:                       # a placa desligada, fora da rede, a chave errada
+                raise ErroControle(lingua.tr("hil.sem_placa", ende=f"{ende[0]}:{ende[1]}", msg=f"{type(e).__name__}: {e}"))
+            self.proc = _NaPlaca()
+            log.write(f"{worker} na placa do HIL {ende[0]}:{ende[1]} (o controle.log dele fica lá, em ~/.cache/maisim_hil)\n")  # i18n-ok (log)
+            log.flush()
+            return
         if conexao:
             from multiprocessing.connection import Listener
             chave = os.urandom(32)
@@ -3623,7 +3666,8 @@ class Controladores:
         try:
             conexao = CONEXAO_CONTROLADORES == "conexao" if conexao is None else conexao
             for i in insts:                              # os processos sobem juntos; depois, cada um se liga (conexao)
-                self.trabs.append(Trabalhador(log, conexao, "controle_worker_c.py" if i.get("linguagem") == "c" else "controle_worker.py"))
+                self.trabs.append(Trabalhador(log, conexao, "controle_worker_c.py" if i.get("linguagem") == "c" else "controle_worker.py",
+                                              placa=bool(i.get("placa"))))
             for tb in self.trabs:
                 tb.conecta()
             for i, tb in zip(insts, self.trabs):        # carregam juntos
@@ -3764,8 +3808,8 @@ def _rodar(c, ctl_de_fora=None):
     m = max(1, math.ceil(n / amostras))
     por_cima = str(c.get("por_cima", "")).lower() in ("1", "true", "sim") and not ctl_de_fora   # o autônomo sempre cria nova
     ctl = completa_controle(confere_controle(dict(ctl_de_fora))) if ctl_de_fora else le_controle()
-    if c.get("linguagem") in ("python", "c") and ctl.get("c"):   # o "Comparar Python × C": a rodada diz a linguagem (o guardado fica)
-        ctl = {**ctl, "c": {**ctl["c"], "usar": c["linguagem"] == "c"}}
+    if c.get("linguagem") in ("python", "c", "placa") and ctl.get("c"):   # o "Comparar Python × C": a rodada diz a linguagem (o guardado fica)
+        ctl = {**ctl, "c": {**ctl["c"], "usar": c["linguagem"] != "python", "placa": c["linguagem"] == "placa"}}
     # para onde vai cada sinal (as caixinhas "→ Scope" e "→ Controle"): a rodada lê do Gecko os dois juntos (sem controle, só
     # os do scope), grava só os do scope (rodadas menores) e entrega ao m[...] só os do controle
     canais_scope = [k for _, k in sinais_da_rodada(r, "scope")]
@@ -6610,6 +6654,8 @@ class Manipulador(BaseHTTPRequestHandler):
             except ErroMotor as e:
                 return self._resposta(409, {"erro": str(e)})
             return self._resposta(200, dados_zip, "application/zip", {"Content-Disposition": f'attachment; filename="{nome}"'})
+        if rota == "/editor/controle/placa":           # a placa do HIL: configurada? no ar? (o modelo, o gcc, os núcleos)
+            return self._resposta(200, estado_placa())
         if rota == "/editor/controle/biblioteca":      # os módulos prontos (pi, pwm, passa_baixa, rampa, pll) em Python e em C
             return self._resposta(200, {"modulos": biblioteca_controle()})
         if rota == "/editor/pendente":               # o Gecko do MaiSim tem algo não salvo? (para quem vai derrubá-lo: npm run maisim)

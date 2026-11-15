@@ -38,6 +38,9 @@ cfg = {"nome": "controle", "arquivo": "controle.c", "atuacoes": None, "nomes": [
 lib = estado = p_arr = None
 nomes = {"m": [], "p": [], "u": []}
 real = ctypes.c_double
+# na placa do HIL (simu/hil/placa.py): o maisim_passo entre duas leituras do relógio do ARM (controle_c/maisim_pil.c), e o
+# tempo dele vai ao Scope como pil_texec_us
+PIL = os.environ.pop("MAISIM_PIL", "") == "1"
 # o printf do controle.c fica no buffer do stdio do C até encher (a saída não é um terminal): esvaziado a cada passo, ele
 # aparece no controle.log na hora (e não se perde quando a rodada acaba)
 # (no Windows, o TinyCC liga a biblioteca do controle à msvcrt.dll: é o stdio dela que se esvazia)
@@ -70,6 +73,8 @@ def compila(fontes, sinais, precisao):
         f.write(gera_sinais_h(sinais))
     shutil.copy(os.path.join(DIR_C, "maisim_controle.h"), "maisim_controle.h")
     shutil.copy(os.path.join(DIR_C, "maisim_sil.c"), "maisim_sil.c")
+    if PIL:
+        shutil.copy(os.path.join(DIR_C, "maisim_pil.c"), "maisim_pil.c")
     cc = sinais_c.compilador()
     if not cc:
         raise ErroC(lingua.tr("worker_c.sem_compilador"))
@@ -77,7 +82,7 @@ def compila(fontes, sinais, precisao):
     saida_lib = os.path.abspath("controle_c.dll" if os.name == "nt" else "controle_c.so")
     if os.path.exists(saida_lib):
         os.remove(saida_lib)
-    cs = sorted(a for a in fontes if a.endswith(".c")) + ["maisim_sil.c"]
+    cs = sorted(a for a in fontes if a.endswith(".c")) + ["maisim_sil.c"] + (["maisim_pil.c"] if PIL else [])
     opts = ["-shared", *sinais_c.opcoes(e_tcc, precisao, cc), "-o", saida_lib] + ([] if e_tcc else ["-fPIC"])
     r = subprocess.run([cc, *opts, *cs, *sinais_c.ligacao(cc, e_tcc)], capture_output=True, text=True, timeout=60)
     if r.returncode != 0:
@@ -100,6 +105,9 @@ def compila(fontes, sinais, precisao):
     dll.maisim_iniciar.argtypes = [vet, ctypes.c_void_p]
     dll.maisim_passo.restype = None
     dll.maisim_passo.argtypes = [real, vet, vet, ctypes.c_void_p, vet]
+    if PIL:
+        dll.maisim_pil_passo.restype = ctypes.c_double
+        dll.maisim_pil_passo.argtypes = [real, vet, vet, ctypes.c_void_p, vet]
     dll.maisim_sil_n.restype = ctypes.c_int
     dll.maisim_sil_nome.restype = ctypes.c_char_p
     dll.maisim_sil_nome.argtypes = [ctypes.c_int]
@@ -187,8 +195,12 @@ def erro(exc):
 
 _ENDERECO = os.environ.pop("MAISIM_CTL_ENDERECO", None)
 _CHAVE = os.environ.pop("MAISIM_CTL_CHAVE", "")
+_FD = os.environ.pop("MAISIM_CTL_FD", None)
 _conexao = None
-if _ENDERECO:
+if _FD:                                    # na placa do HIL: a conexão já aberta (e com a chave conferida) pelo placa.py
+    from multiprocessing.connection import Connection
+    _conexao = Connection(int(_FD))
+elif _ENDERECO:
     from multiprocessing.connection import Client
     _conexao = Client(_ENDERECO, authkey=bytes.fromhex(_CHAVE))
 
@@ -225,7 +237,10 @@ with lingua.com(LINGUA):
                     u_arr[k] = math.nan
                 lib.maisim_sil_limpa()
                 recebidas(pedido.get("msgs") or [])
-                lib.maisim_passo(float(pedido["t"]), m_arr, p_arr, estado, u_arr)
+                if PIL:
+                    texec = lib.maisim_pil_passo(float(pedido["t"]), m_arr, p_arr, estado, u_arr)
+                else:
+                    lib.maisim_passo(float(pedido["t"]), m_arr, p_arr, estado, u_arr)
                 if _fflush:
                     _fflush(None)
                 out, mapa = {}, cfg["atuacoes"]
@@ -238,6 +253,8 @@ with lingua.com(LINGUA):
                     out[mapa.get(nome, nome) if mapa is not None else nome] = v
                 pre = f"{cfg['nome']}_" if cfg["prefixar"] else ""   # o nome da instância na frente, como no Python
                 sc = {pre + lib.maisim_sil_nome(i).decode("utf-8", "replace"): lib.maisim_sil_valor(i) for i in range(lib.maisim_sil_n())}
+                if PIL:
+                    sc[pre + "pil_texec_us"] = texec / 1000.0
                 responde({"ok": True, "a": out, "s": sc, "env": enviadas()})
             elif pedido["op"] == "parametros":
                 poe_parametros({**{n: p_arr[k] for k, n in enumerate(nomes["p"])}, **pedido["p"]})

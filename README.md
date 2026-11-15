@@ -28,6 +28,10 @@ Ready-made examples live in [`exemplos/`](exemplos/): buck, boost, buck-boost, D
 and three-phase inverters, single-phase, three-phase and controlled three-phase rectifiers (open loop, with the meters in
 place), and digital control (a current PI; a buck with the PWM and the PI in code).
 
+The C control can also run **on a real board** (a Raspberry Pi or another Linux on the network), with the circuit in
+Gecko on the PC: processor-in-the-loop, with the time of each step measured on the board. See
+[`simu/hil/LEIA.md`](simu/hil/LEIA.md) (in Portuguese).
+
 ## Download
 
 | | |
