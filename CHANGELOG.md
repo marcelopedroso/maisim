@@ -7,7 +7,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Changed
-- **How a collaborator's pull request gets in** (`CONTRIBUTING.md`): it is verified like any other, then reviewed and merged by the repository owner; the author, or an AI agent working for the author, does not merge it. Larger work starts as an issue. A pull request template lists what every PR needs. (#252)
+- **Only the repository owner merges, for now** (`CONTRIBUTING.md`): the `main` protection requires one approving review. A collaborator's pull request is verified like any other and then waits for the owner's approval; the owner's own pull requests are approved by Actions once verified, right before it merges them, as before. Larger work starts as an issue. A pull request template lists what every PR needs. (#252)
 
 ### Added
 - **The ideal transformer works in MaiSim.** It was in the palette ("Ideal Transformer", from GeckoCIRCUITS) but showed up with no terminals, so it could not be wired or drawn.

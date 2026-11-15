@@ -2,14 +2,16 @@
 
 1. **Always through a PR.** All work goes on a branch (`git switch -c <topic>`), pushed with `git push -u origin <topic>`
    and opened as a PR against `main` (`gh pr create --fill`). Never push straight to `main`: the branch protection on
-   GitHub blocks it (PR required, the required check, applies to administrators too, linear history, no force-push),
+   GitHub blocks it (PR required, one approving review, the required check, applies to administrators too, linear
+   history, no force-push),
    and the `.githooks/pre-push` hook warns you before that, on your machine (enable it once per clone:
    `git config core.hooksPath .githooks`).
 2. **Every PR is verified** (workflow `verify`, `.github/workflows/verify.yml`; the required check is the job
    `tests (quick)`): GitHub Actions starts the test instance (GeckoCIRCUITS on a virtual display, the simulator, the
    scope, the web page) and runs the quick test set (`simu/validacao/ci.sh rapido`: the offline tests plus the essential
-   API and UI tests, with Playwright). Passed → Actions itself merges the PR into `main` (squash: one commit per PR) and
-   deletes the branch. It does not merge on its own: draft PRs, PRs with the `do-not-merge` label, and PRs from anyone
+   API and UI tests, with Playwright). Passed → Actions itself approves the PR (the `main` protection requires one
+   approving review, and nobody can approve their own PR: for the owner's PR, the verification is that review), merges it
+   into `main` (squash: one commit per PR) and deletes the branch. It does not approve or merge on its own: draft PRs, PRs with the `do-not-merge` label, and PRs from anyone
    other than the repository owner (those wait for the owner: see
    [Pull requests from collaborators](#pull-requests-from-collaborators)). The merge only applies to the commit that was
    tested. A draft that is marked ready runs the verification again (and is merged if it passes).
@@ -34,9 +36,10 @@ the owner, instead of being merged by Actions:
 
 1. **The owner reviews it**, or asks a reviewer. The comments are answered on the PR itself, either fixed on the branch
    or explained why not, and each conversation is resolved (the same as the Codex comments above).
-2. **The owner merges it** (squash: one commit per PR). The author does not merge their own PR, even with a green check
-   and the merge button enabled: write access is for pushing branches. An AI agent working for the author opens the PR
-   and stops there.
+2. **The owner approves it and merges it** (squash: one commit per PR). GitHub does not let it be merged before that:
+   the `main` protection requires one approving review, a new commit dismisses the approval, and the author cannot
+   approve their own PR. Write access is for pushing branches: the author, or an AI agent working for the author, opens
+   the PR and stops there.
 3. **Larger work starts as an issue.** A new feature, a new module or a change of direction is agreed in an issue before
    the code is written. A fix or a small improvement goes straight to a PR.
 4. **One at a time when two open PRs touch the same lines** (the test lists in `simu/validacao/ci.sh`, the
