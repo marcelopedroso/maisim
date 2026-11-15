@@ -3539,17 +3539,17 @@ class Trabalhador:
     controladores calcularem juntos). conexao: por multiprocessing.connection (o processo se liga ao endereço que recebe
     no ambiente; conecta() espera por ele) em vez do stdin/stdout e da thread leitora. placa: o processo roda na placa do
     HIL (simu/hil/placa.py, pela rede), com a mesma conexão e o mesmo protocolo — o resto do laço não sabe a diferença."""
-    def __init__(self, log, conexao=False, worker="controle_worker.py", placa=False):
+    def __init__(self, log, conexao=False, worker="controle_worker.py", placa=False, arquivo=None):
         env = {**os.environ, "MAISIM_LINGUA": lingua.atual()}   # as mensagens do controle_worker no idioma do pedido
         self.conn = self.ouvinte = None
-        if placa:
+        if placa:                                        # o erro diz o arquivo do controlador (o controle.c), não o controle.py
             ende = hil_ligacao.endereco()
             if ende is None:
-                raise ErroControle(lingua.tr("hil.sem_config"))
+                raise ErroControle(lingua.tr("hil.sem_config"), arquivo=arquivo)
             try:
                 self.conn = hil_ligacao.conecta("c" if worker == "controle_worker_c.py" else "py")
             except Exception as e:                       # a placa desligada, fora da rede, a chave errada
-                raise ErroControle(lingua.tr("hil.sem_placa", ende=f"{ende[0]}:{ende[1]}", msg=f"{type(e).__name__}: {e}"))
+                raise ErroControle(lingua.tr("hil.sem_placa", ende=f"{ende[0]}:{ende[1]}", msg=f"{type(e).__name__}: {e}"), arquivo=arquivo)
             self.proc = _NaPlaca()
             log.write(f"{worker} na placa do HIL {ende[0]}:{ende[1]} (o controle.log dele fica lá, em ~/.cache/maisim_hil)\n")  # i18n-ok (log)
             log.flush()
@@ -3667,7 +3667,7 @@ class Controladores:
             conexao = CONEXAO_CONTROLADORES == "conexao" if conexao is None else conexao
             for i in insts:                              # os processos sobem juntos; depois, cada um se liga (conexao)
                 self.trabs.append(Trabalhador(log, conexao, "controle_worker_c.py" if i.get("linguagem") == "c" else "controle_worker.py",
-                                              placa=bool(i.get("placa"))))
+                                              placa=bool(i.get("placa")), arquivo=i.get("arquivo")))
             for tb in self.trabs:
                 tb.conecta()
             for i, tb in zip(insts, self.trabs):        # carregam juntos

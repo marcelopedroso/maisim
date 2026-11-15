@@ -83,7 +83,8 @@ try:
     ok("ERRO" not in t3 and len(t3.get("passos", [])) == 3, f"o testar do painel roda no PC, com a placa fora do ar {t3.get('erro', '')}")
     je = roda("placa_fora")
     ok(je.get("estado") == "erro" or "ERRO" in je, f"a rodada na placa fora do ar acaba em erro: {je.get('erro', '')[:120]}")
-    ok(f"{HOST}:{PORTA}" in je.get("erro", ""), "e o erro diz o endereço da placa (o que conferir)")
+    ok(f"{HOST}:{PORTA}" in je.get("erro", "") and je.get("erro", "").startswith("controle.c"),
+       "e o erro diz o endereço da placa (o que conferir) e o arquivo do controlador (controle.c, não controle.py)")
 
     placa = Placa()
     st = api("editor/controle/placa")
