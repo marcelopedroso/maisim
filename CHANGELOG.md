@@ -7,7 +7,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Added
-- **The C control on a real board (HIL board, processor-in-the-loop):** with a board configured (`MAISIM_HIL` and `MAISIM_HIL_CHAVE`; a Raspberry Pi or any Linux with python3 and gcc running `simu/hil/placa.py`), "on the board" in the C view of the Control panel runs `controle.c` compiled and executed on the board every sample, with the circuit in Gecko on the PC. The waveforms are the same, bit for bit, as the C on the PC; the Scope gets `pil_texec_us`, the time of each step measured on the board. `simu/hil/instala_placa.sh` sets the board up over ssh.
+- **The C control on a real board (HIL board, processor-in-the-loop) (#250):** with a board configured (`MAISIM_HIL` and `MAISIM_HIL_CHAVE`; a Raspberry Pi or any Linux with python3 and gcc running `simu/hil/placa.py`), "on the board" in the C view of the Control panel runs `controle.c` compiled and executed on the board every sample, with the circuit in Gecko on the PC. The waveforms are the same, bit for bit, as the C on the PC; the Scope gets `pil_texec_us`, the time of each step measured on the board. `simu/hil/instala_placa.sh` sets the board up over ssh.
 
 ## [0.4.0] - 2026-11-12
 
