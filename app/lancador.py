@@ -667,6 +667,18 @@ def termina(pid):
         pass
 
 
+def apaga_pedido(pedido):
+    """Apaga o pedido de parar (lancador.parar). No Windows, quem o escreveu (ou o antivírus, que abre todo arquivo novo)
+    pode ainda estar com ele aberto, e apagar dá "em uso por outro processo": o lançador caía aqui, antes de desligar os
+    servidores, e o MaiSim ficava no ar sem ninguém para pará-lo. Tenta por 2 s e segue."""
+    for _ in range(20):
+        try:
+            pedido.unlink(missing_ok=True)
+            return
+        except OSError:
+            time.sleep(0.1)
+
+
 def main():
     ap = argparse.ArgumentParser(description=t("MaiSim: sobe, abre e para (Linux e Windows).", "MaiSim: start, open and stop (Linux and Windows)."))
     ap.add_argument("--produto", action="store_true", help=t("o perfil da versão \"só usar\" (config/produto.env)", "the \"just use it\" profile (config/produto.env)"))
@@ -755,12 +767,12 @@ def main():
     fala(f"no ar em http://localhost:{lc.porta('PAGINA')}/ — Ctrl+C (ou --parar) derruba o que subiu",
          f"running at http://localhost:{lc.porta('PAGINA')}/ — Ctrl+C (or --parar) stops what it started")
     pedido = lc.estado.with_name("lancador.parar")
-    pedido.unlink(missing_ok=True)
+    apaga_pedido(pedido)
     n = 0
     while True:                                          # o --parar (de outro terminal, ou o atalho "Desligar o MaiSim") pede aqui
         time.sleep(1)
         if pedido.exists():
-            pedido.unlink(missing_ok=True)
+            apaga_pedido(pedido)                          # (se não der para apagar, para assim mesmo: o pedido já foi visto)
             fim()
         n += 1
         if n % 5 == 0:

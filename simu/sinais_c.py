@@ -85,9 +85,11 @@ def opcoes(e_tcc, precisao="double", cc=None):
 
 def ligacao(cc, e_tcc):
     """O que liga a biblioteca do controle: a libm (o gcc/cc e um tcc do sistema); o TinyCC embutido, sem a libc do
-    sistema (-nostdlib: as funções vêm do processo do Python, que já carregou a libc e a libm) e com o libtcc1.a dele."""
+    sistema (-nostdlib: as funções vêm do processo do Python, que já carregou a libc e a libm) e com o libtcc1.a dele.
+    No Windows, o tcc só põe na DLL o que tem __declspec(dllexport): o -rdynamic exporta todas as funções globais (sem ele
+    a DLL saía sem nenhuma, e o controle em C do MaiSim instalado parava em "precisa definir maisim_tamanho_estado()")."""
     if os.name == "nt":
-        return []
+        return ["-rdynamic"] if e_tcc else []
     d = pasta_tcc(cc) if e_tcc else None
     return ["-nostdlib", os.path.join(d, "libtcc1.a")] if d else ["-lm"]
 

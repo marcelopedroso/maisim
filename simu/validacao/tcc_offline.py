@@ -22,6 +22,16 @@ if not Path(TCC).is_file():
     print(f"{'FALHA' if os.environ.get('CI') else 'PULADO'} sem o TinyCC embutido em {TCC} (monte: bash pacote/tcc.sh pacote/.build/tcc)")
     raise SystemExit(1 if os.environ.get("CI") else 0)
 ok(sinais_c.pasta_tcc(TCC) is not None and GCC, f"o TinyCC embutido ({TCC}) e o gcc ({GCC})")
+# no Windows, o tcc só exporta da DLL o que tem __declspec(dllexport): a ligação pede o -rdynamic (sem ele, a DLL do controle
+# sai sem nenhuma função). Quem prova de verdade é o teste de fumaça no Windows (pacote/windows/fumaca.py); aqui, só a opção
+import types  # noqa: E402
+_os = sinais_c.os
+sinais_c.os = types.SimpleNamespace(name="nt", path=os.path)
+try:
+    ok(sinais_c.ligacao("tcc.exe", True) == ["-rdynamic"] and sinais_c.ligacao("gcc.exe", False) == [],
+       "no Windows, a biblioteca do controle é ligada com -rdynamic no tcc (e sem nada a mais no gcc)")
+finally:
+    sinais_c.os = _os
 
 src = (RAIZ / "simu/validacao/controle_c_api.py").read_text()
 BUCK = src[src.index('CONTROLE_C = r"""') + len('CONTROLE_C = r"""'):]

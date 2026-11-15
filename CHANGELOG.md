@@ -6,12 +6,17 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Fixed
+- **The C control did not run on an installed Windows:** the bundled TinyCC only puts in a DLL what is marked `__declspec(dllexport)`, so the control library came out with no functions and every run in C stopped at "controle.c must define maisim_tamanho_estado()". On Windows the library is now linked with `-rdynamic`. Found by the new smoke test on a real Windows. (#257)
+- **"Stop MaiSim" on Windows could leave MaiSim running:** the launcher crashed while deleting the stop request, still open by whoever wrote it ("file in use by another process"), before it stopped the servers. It now retries and stops anyway. Found by the same test. (#257)
+
 ### Changed
 - **Every pull request needs one approving review to get into `main`** (`CONTRIBUTING.md`): a collaborator's pull request is verified like any other and then reviewed and approved by the maintainer; the maintainer's own pull requests are approved by Actions once verified, right before it merges them, as before. Larger work starts as an issue. A pull request template lists what every PR needs. (#252)
 - **The verification asks for the changelog line:** a pull request that changes the product and adds nothing to `CHANGELOG.md` fails `tests (quick)` before the tests run. Not asked of pull requests that only change tests, CI, documentation or `VERSION`. (#253)
 - **A new feature answers five questions in its pull request** (`CONTRIBUTING.md`, the pull request template): what is a parameter, what it costs when off, what it costs when on (and how that was measured), where it runs (Windows, Linux, Android, the phone-sized page) and which test covers the default path. (#255)
 
 ### Added
+- **A version is published only after every package passed its smoke test, the Windows installer on a real Windows** (`pacotes.yml`, `full-suite.yml`; `pacote/windows/fumaca.py`): the installer was built and checked only on Linux until now. The CI installs it silently on a Windows runner, starts the installed MaiSim and runs the same checks as on Linux (the buck, a Figures PDF, the C control, stop). The Release is created as a draft and made public by the last job; if a package fails, it stays a draft and nobody sees it, the update check included. (#257)
 - **Real-time HIL inside a board (experimental, `simu/hil/rt/`):** `rt_hil` runs the plant (the RL of the `exemplo_controle_pwm` buck, hand-written for now) on one core and the same `controle.c` of the SIL on another, both tied to the same clock and spinning (never sleeping) until the next step; a sample that falls due during the previous step is lost, like the interrupt of a microcontroller. It records, per sample, the start delay, the execution time and the age of the measurement. On a Raspberry Pi 3, with the cores isolated (`isolcpus=2,3`), the samples lost fall from 2.7 % to 0.04 %. The offline test `rt_hil_offline` checks that the loop closes, the `i_ref` step and the sample accounting (the timing-dependent checks are skipped on a busy machine). (#251)
 - **The ideal transformer works in MaiSim.** It was in the palette ("Ideal Transformer", from GeckoCIRCUITS) but showed up with no terminals, so it could not be wired or drawn.
   - Its 4 terminals are where Gecko puts them: the primary on the left, the secondary on the right. They turn with it.
