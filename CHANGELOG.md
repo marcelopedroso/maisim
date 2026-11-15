@@ -6,6 +6,15 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Added
+- **The ideal transformer works in MaiSim.** It was in the palette ("Ideal Transformer", from GeckoCIRCUITS) but showed up with no terminals, so it could not be wired or drawn.
+  - Its 4 terminals are where Gecko puts them: the primary on the left, the secondary on the right. They turn with it.
+  - A symbol with the two windings, the core and the polarity dots. The turns ratio n1:n2 is shown below it.
+  - The panel names n1, n2, the ratio and the polarity in Portuguese and English.
+  - MaiSim's AI is told which nodes are the primary and the secondary, and the ratio.
+  - Two of them in series, with the primaries in parallel, make a center-tapped secondary (the two-diode full-wave rectifier).
+  - New tests `trafo_api` and `trafo_tela`.
+
 ## [0.4.0] - 2026-11-12
 
 ### Fixed

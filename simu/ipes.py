@@ -81,7 +81,7 @@ def _relativos(lista, n):
 NOMES = ["resistance", "inductance", "capacitance", "initialCurrent", "initialValue", "amplitude", "frequency", "phaseDegrees",
          "dcValue", "offset", "onResistance", "offResistance", "constantValue", "k", "typQuelle", "amplitudeAC", "frequenz",
          "anteilDC", "phase", "tastverhaeltnis", "uForward", "rOn", "rOff", "delayTime", "blockSizeX", "blockSizeY",
-         "worksheetSizeX", "worksheetSizeY", "terminalLocation", "sourceType"]
+         "worksheetSizeX", "worksheetSizeY", "terminalLocation", "sourceType", "windings1", "windings2", "windingsRatio", "reversed"]
 # e os dos blocos de controle (só no domínio CONTROL: o valor embaixo do bloco e a dica, no simu.js; v0.3.1): PI (r0 = Kp,
 # a1 = Ki, T_Value só de exibição), PT1/PT2 (T, a1), INT (a1, y0, min, max), PD (a1), HYS (h), LIMIT (minLimit, maxLimit),
 # DELAY (tDelay), SDFT (windowSpan, freq_1), TF (constant), THYRISTOR_CONTROL (onTime, initFreq, phaseShift)
@@ -261,6 +261,9 @@ def _termicos(e):
 # a armadura; PMSM e IM-CAGE as três fases em (−2, 1), (−2, 0), (−2, −1). Sem eixo mecânico: o torque de carga é um sinal de
 # controle pelo rótulo (parameterString[0], AbstractMotor) e as grandezas internas saem pelo VIEWMOT
 MOTORES = {"M-DC", "PM-DC", "PMSM", "IM-CAGE", "SM-SAL", "SM-RO", "IM", "IM-SAT"}
+# o transformador ideal do Gecko (IdealTransformer, LK_TRANS): os 4 bornes da geometria do Gecko e a relação de espiras
+# (windings1 : windings2; o windingsRatio é a conta, guardada pelo Gecko). Até 11/2026 ele aparecia sem bornes no MaiSim
+TRAFOS = {"Trans"}
 # o que o VIEWMOT lê de cada uma (getParameterStringIntern do Gecko, o texto exato que vai no parameterString[2])
 TRIFASICAS = ["isa [A]", "isb [A]", "isc [A]", "omega", "n [rpm]", "theta [rad]", "Tel [Nm]"]
 GRANDEZAS_MOTOR = {"M-DC": ["ia [A]", "ie [A]", "omega", "n [rpm]", "phi [Vs]", "emf [V]", "Tel [Nm]", "theta [rad]"],
@@ -305,6 +308,11 @@ def monta(caminho):
             term = [dict(x=px, y=py, rotulo=r) for (px, py), r in zip(_dois_pinos(e), (e["entradas"] + [""])[:1] + (e["saidas"] + [""])[:1])]
         elif e["tipo"] == "TERM":
             term = [dict(x=e["x"], y=e["y"], rotulo="")]
+        elif e["dom"] == "LK" and e.get("id_gecko") in TRAFOS and e["id_gecko"] in GEOMETRIA:   # o transformador ideal: 4 bornes
+            geo = GEOMETRIA[e["id_gecko"]]                      # (o primário à esquerda: 1 em cima, 2 embaixo; o secundário à direita)
+            term = [dict(zip(("x", "y"), ponto_gecko(e, *pr)), rotulo=(rots[k] if k < len(rots) else ""), lado=lado)
+                    for lista, rots, lado in ((geo["entradas"], e["entradas"], "e"), (geo["saidas"], e["saidas"], "s"))
+                    for k, pr in enumerate(lista) if isinstance(pr, list)]
         elif e["dom"] == "LK" and e.get("id_gecko") in MOTORES and e["id_gecko"] in GEOMETRIA:   # onde o Gecko põe
             geo = GEOMETRIA[e["id_gecko"]]
             term = [dict(zip(("x", "y"), ponto_gecko(e, *pr)), rotulo=(rots[k] if k < len(rots) else ""), lado=lado)

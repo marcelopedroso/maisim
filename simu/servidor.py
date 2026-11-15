@@ -35,7 +35,7 @@ ler_config.aplica()                          # as portas e as pastas (config/pad
 import lingua  # noqa: E402                    o idioma de cada pedido (português e inglês)
 import textos  # noqa: E402,F401               os textos do simu nos dois idiomas (registra o catálogo)
 
-from ipes import monta, SOLVERS, solver_do_texto, solver_valido, troca_solver
+from ipes import monta, SOLVERS, solver_do_texto, solver_valido, troca_solver, TRAFOS
 from motor import ErroMotor, Motor
 import contextos
 import ia as ias_maisim
@@ -5502,6 +5502,12 @@ def claude_contexto(c, dt, tfim, visto=None):
                     L.append(tr("ia_contexto.elemento" if e.get('ativo', True) else "ia_contexto.elemento_desativado",
                                 nome=e['nome'], tipo=e.get('nome_tipo') or e['tipo'], nos=', '.join(nos.get(e['nome'], [])) or '?')
                              + (f"; {par}" if par else ""))
+                    ns_ = nos.get(e["nome"], [])
+                    if e.get("id_gecko") in TRAFOS and len(ns_) == 4:   # quais nós são o primário e o secundário
+                        pr = e.get("par") or {}
+                        L.append(tr("ia_contexto.trafo", p1=ns_[0], p2=ns_[1], s1=ns_[2], s2=ns_[3], n1=num_txt(pr.get("windings1", 1)),
+                                    n2=num_txt(pr.get("windings2", 1)),
+                                    pol=tr("ia_contexto.trafo_inv" if pr.get("reversed") == 1 else "ia_contexto.trafo_fase")))
                     nome_painel = e["nome"] if fid == "0" else f"{fl.get('nome')}#{e['nome']}"
                     if visto is not None:
                         visto["ativo"][nome_painel] = 2.0 if e.get("curto") else 1.0 if e.get("ativo", True) else 0.0
