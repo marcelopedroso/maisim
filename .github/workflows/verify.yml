@@ -7,9 +7,9 @@
 # refuses to merge with open conversations (.github/scripts/wait_for_codex.py). merge_group: also runs in GitHub's merge
 # queue, if it is ever turned on. (A merge made with the Actions token does not trigger "push" in other workflows;
 # workflow_dispatch does.)
-# The main protection requires one approving review and nobody can approve their own PR: for the owner's PR, this
+# The main protection requires one approving review and nobody can approve their own PR: for the maintainer's PR, this
 # verification is that review (Actions approves the tested commit right before merging it; the repository setting
-# "Allow GitHub Actions to create and approve pull requests" is on for this). Anyone else's PR needs the owner's approval.
+# "Allow GitHub Actions to create and approve pull requests" is on for this). A collaborator's PR needs the maintainer's approval.
 name: verify
 
 on:
