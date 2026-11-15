@@ -199,7 +199,9 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   #ctl-ling button + button { border-left:1px solid var(--borda); }
   #ctl-ling button.ativo { background:var(--acento); color:#fff; font-weight:600; }
   #ctl-ling button:disabled { opacity:.45; cursor:default; }
-  #painel-controle:not(.visao-c) :is(#ctl-c-prec, #ctl-c-exportar) { display:none; }   /* o exportar e a precisão são do C */
+  #painel-controle:not(.visao-c) :is(#ctl-c-prec, #ctl-c-exportar, #ctl-c-placa-l, #ctl-c-placa-st) { display:none; }   /* o exportar, a precisão e a placa são do C */
+  #ctl-c-placa-l.oculto, #ctl-c-placa-st:empty { display:none; }   /* a placa: só com uma configurada (ou já marcada no circuito) */
+  #ctl-c-placa-st { font-size:11.5px; color:var(--sutil); } #ctl-c-placa-st.ok { color:var(--ok, #15803d); } #ctl-c-placa-st.fora { color:var(--aviso, #b45309); }
   .ctl-c-sinc { display:flex; gap:3px; align-items:center; font-weight:600; }
   #ctl-c-selo { font-size:11.5px; font-weight:600; } #ctl-c-selo.ok { color:var(--ok, #15803d); } #ctl-c-selo.fora { color:var(--aviso, #b45309); }
   .ctl-c select, .ctl-c button { font-size:11.5px; padding:1px 6px; }
@@ -822,6 +824,7 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
       <div id="ctl-c" class="ctl-c"><input type="checkbox" id="ctl-c-usar" hidden>
         <span id="ctl-ling" role="tablist" aria-label="a linguagem do controle: a que roda e a que o painel mostra" data-tr-aria="ctl.a_ling"><button data-ling="py" role="tab" title="o controle.py roda na simulação (e o painel mostra os .py)" data-tr-title="ctl.t_ling_py" data-tr="ctl.ling_py">Python</button><button data-ling="c" role="tab" title="o controle.c roda na simulação, compilado em C (o SIL), como ficaria num DSP; o painel mostra os arquivos C" data-tr-title="ctl.t_ling_c" data-tr="ctl.ling_c">C</button></span>
         <select id="ctl-c-prec" title="a precisão do C: double (como o Python) ou float (precisão simples, como o double do C28x)" data-tr-title="ctl.t_c_prec"><option value="double">double</option><option value="float">float</option></select>
+        <label id="ctl-c-placa-l" class="ctl-c-sinc oculto" title="roda o controle.c na placa do HIL (um Raspberry Pi na rede): compilado e executado nela a cada amostra, com o circuito no Gecko daqui; o tempo de cada passo na placa vai ao Scope (pil_texec_us)" data-tr-title="ctl.t_c_placa"><input type="checkbox" id="ctl-c-placa"> <span data-tr="ctl.c_placa">na placa</span></label><span id="ctl-c-placa-st"></span>
         <button id="ctl-c-ia" title="pede à IA do MaiSim o mesmo controle na outra linguagem (com as mesmas contas na mesma ordem); você vê a diferença e aplica" data-tr-title="ctl.t_c_ia"></button>
         <label class="ctl-c-sinc" title="Código ⇄: com a chave ligada, ao guardar uma mudança no controle.py ou no controle.c, o MaiSim pede à IA a outra linguagem, aplica e compara as duas" data-tr-title="ctl.t_c_sinc"><input type="checkbox" id="ctl-c-sinc"> <span data-tr="ctl.c_sinc">Código ⇄</span></label>
         <span id="ctl-c-selo"></span>

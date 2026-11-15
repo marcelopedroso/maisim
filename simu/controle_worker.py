@@ -138,8 +138,12 @@ if sys.path and sys.path[0] and Path_ok(sys.path[0]):           # a pasta do Mai
 # código do usuário não os vê); o stdout, nesse caso, vai para o controle.log, como o stderr
 _ENDERECO = os.environ.pop("MAISIM_CTL_ENDERECO", None)
 _CHAVE = os.environ.pop("MAISIM_CTL_CHAVE", "")
+_FD = os.environ.pop("MAISIM_CTL_FD", None)
 _conexao = None
-if _ENDERECO:
+if _FD:                                    # na placa do HIL: a conexão já aberta (e com a chave conferida) pelo placa.py
+    from multiprocessing.connection import Connection
+    _conexao = Connection(int(_FD))
+elif _ENDERECO:
     from multiprocessing.connection import Client
     _conexao = Client(_ENDERECO, authkey=bytes.fromhex(_CHAVE))
 

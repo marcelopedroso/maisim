@@ -14,6 +14,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
   - MaiSim's AI is told which nodes are the primary and the secondary, and the ratio.
   - Two of them in series, with the primaries in parallel, make a center-tapped secondary (the two-diode full-wave rectifier).
   - New tests `trafo_api` and `trafo_tela`.
+- **The C control on a real board (HIL board, processor-in-the-loop) (#250):** with a board configured (`MAISIM_HIL` and `MAISIM_HIL_CHAVE`; a Raspberry Pi or any Linux with python3 and gcc running `simu/hil/placa.py`), "on the board" in the C view of the Control panel runs `controle.c` compiled and executed on the board every sample, with the circuit in Gecko on the PC. The waveforms are the same, bit for bit, as the C on the PC; the Scope gets `pil_texec_us`, the time of each step measured on the board. `simu/hil/instala_placa.sh` sets the board up over ssh.
 
 ## [0.4.0] - 2026-11-12
 

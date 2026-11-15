@@ -72,6 +72,24 @@ function marcaVisao() {
     if (alvo) mostraArquivo(alvo, false);
   }
 }
+// a placa do HIL (simu/hil): a caixinha só aparece com uma placa configurada neste computador (ou já marcada no circuito, para
+// poder desmarcar); marcada, diz se a placa está no ar e o que ela é (o servidor pergunta a ela: /editor/controle/placa).
+// A resposta vale 30 s (a placa pode cair ou voltar); dois pedidos ao mesmo tempo esperam o mesmo
+async function marcaPlaca(perguntar = false) {
+  if (perguntar || !ctl.placa || Date.now() - ctl.placaT > 30000) {
+    if (!ctl.placaPedido) ctl.placaPedido = api("editor/controle/placa").catch(() => ({ configurada: false }))
+      .then((p) => { ctl.placa = p; ctl.placaT = Date.now(); ctl.placaPedido = null; return p; });
+    await ctl.placaPedido;
+  }
+  const st = $("ctl-c-placa-st"), marcada = $("ctl-c-placa").checked, p = ctl.placa;
+  $("ctl-c-placa-l").classList.toggle("oculto", !p.configurada && !marcada);
+  st.className = ""; st.textContent = ""; st.title = "";
+  if (!marcada) return;
+  if (!p.configurada) { st.className = "fora"; st.textContent = tr("ctl.placa_sem_config"); return; }
+  st.className = p.ok ? "ok" : "fora";
+  st.textContent = p.ok ? tr("ctl.placa_ok", { modelo: p.modelo || "?", gcc: p.gcc || "?" }) : tr("ctl.placa_fora");
+  st.title = p.ok ? `${p.endereco} · ${p.maquina || ""} · python ${p.python || "?"}` : (p.erro || "");
+}
 function poeVisao(c) {                                   // o seletor: troca a linguagem, guarda (o change da coluna) e mostra o arquivo dela
   if (travado() || c === visaoC()) return;
   $("ctl-c-usar").checked = c; marcaVisao();
@@ -467,7 +485,7 @@ function desenhaLigacoes() {
   const c = d.controle, dt = Number(sim.par.dt) || 1e-6;
   $("ctl-ativo").checked = !!c.ativo;
   $("ctl-c-usar").checked = !!(c.c && c.c.usar); $("ctl-c-prec").value = (c.c && c.c.precisao) || "double";
-  $("ctl-c-sinc").checked = !!(c.c && c.c.sinc_auto); marcaVisao();
+  $("ctl-c-sinc").checked = !!(c.c && c.c.sinc_auto); $("ctl-c-placa").checked = !!(c.c && c.c.placa); marcaVisao(); marcaPlaca();
   if (document.activeElement !== $("ctl-ts")) $("ctl-ts").value = c.Ts;
   campoNumero($("ctl-ts"), { un: "s", positivo: true, apos: $("ctl-ts-i") });   // o Ts com prefixo (50u): "= 50 µs" embaixo
   infoTs();
@@ -1386,7 +1404,7 @@ function coleta() {
   return { ativo: $("ctl-ativo").checked, Ts: ts || c.Ts || 1e-4,
     atuacoes: [...document.querySelectorAll("#ctl-atu [data-atu]")].filter((x) => x.checked).map((x) => x.dataset.atu),
     parametros: pars.filter((q) => q.nome), codigo: codigoAtual(), arquivos: arquivosDoEditor(), controladores: ctls, rede: { latencia: latRede },
-    c: { usar: $("ctl-c-usar").checked, precisao: $("ctl-c-prec").value, arquivos: arquivosC(), sinc_auto: $("ctl-c-sinc").checked,
+    c: { usar: $("ctl-c-usar").checked, precisao: $("ctl-c-prec").value, arquivos: arquivosC(), sinc_auto: $("ctl-c-sinc").checked, placa: $("ctl-c-placa").checked,
       sinc: (c.c && c.c.sinc) || {} },
     atraso: { modo: $("ctl-atraso").value, tempo: lat }, acionamentos: acs };
 }
@@ -1628,6 +1646,7 @@ function tagAtuador(g, x, y, nome, centrada = false) {   // centrada: x é o mei
   $("ctl-quebra").classList.toggle("ativo", ctl.quebra); $("ctl-quebra").setAttribute("aria-pressed", String(ctl.quebra));
   $("ctl-testar").onclick = testaControle;
   $("ctl-c-usar").addEventListener("change", () => { if ($("ctl-c-usar").checked) abreC(false); });   // guarda: o change da coluna
+  $("ctl-c-placa").addEventListener("change", () => marcaPlaca(true));   // guarda: o change da coluna; e pergunta de novo à placa
   document.querySelectorAll("#ctl-ling [data-ling]").forEach((b) => { b.onclick = () => { if (!b.disabled) poeVisao(b.dataset.ling === "c"); }; });
   $("ctl-c-comparar").onclick = comparaPyC;
   $("ctl-c-ia").onclick = () => converteIA(visaoC());

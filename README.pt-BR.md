@@ -27,6 +27,9 @@ Exemplos prontos ficam em [`exemplos/`](exemplos/): buck, boost, buck-boost, pon
 ponte completa e trifásico, retificadores monofásico, trifásico e trifásico controlado (em malha aberta, com os medidores
 prontos), e o controle digital (PI de corrente; buck com o PWM e o PI no código).
 
+O controle em C também roda **numa placa de verdade** (um Raspberry Pi ou outro Linux na rede), com o circuito no Gecko do
+PC: o processador no laço, com o tempo de cada passo medido na placa. Veja [`simu/hil/LEIA.md`](simu/hil/LEIA.md).
+
 ## Baixar
 
 | | |
