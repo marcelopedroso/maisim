@@ -8,6 +8,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ### Changed
 - **Every pull request needs one approving review to get into `main`** (`CONTRIBUTING.md`): a collaborator's pull request is verified like any other and then reviewed and approved by the maintainer; the maintainer's own pull requests are approved by Actions once verified, right before it merges them, as before. Larger work starts as an issue. A pull request template lists what every PR needs. (#252)
+- **The verification asks for the changelog line:** a pull request that changes the product and adds nothing to `CHANGELOG.md` fails `tests (quick)` before the tests run. Not asked of pull requests that only change tests, CI, documentation or `VERSION`. (#253)
 
 ### Added
 - **The ideal transformer works in MaiSim.** It was in the palette ("Ideal Transformer", from GeckoCIRCUITS) but showed up with no terminals, so it could not be wired or drawn.
