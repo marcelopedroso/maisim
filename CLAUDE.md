@@ -1,6 +1,8 @@
 # MaiSim — notes for AI coding agents
 
 - Read `CONTRIBUTING.md` first (tests run only on the test instance, one subject per PR).
+- **Open the PR and stop.** Never merge a pull request (`gh pr merge`, the merge button) and never push to `main`:
+  Actions merges the repository owner's PRs once they are verified; every other PR is merged by the owner after review.
 - **Every user-visible text is bilingual (pt-BR + English).** Never add a loose string to a page, a server message or an
   AI instruction: add a key to the dictionary with both languages side by side and use `tr("key", {params})` (pages,
   `textos_*.js`, `data-tr*` attributes) or `lingua.tr("key", **params)` (servers, `simu/textos.py`, `scope/textos_scope.py`).

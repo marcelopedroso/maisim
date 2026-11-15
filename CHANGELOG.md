@@ -6,6 +6,9 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Changed
+- **How a collaborator's pull request gets in** (`CONTRIBUTING.md`): it is verified like any other, then reviewed and merged by the repository owner; the author, or an AI agent working for the author, does not merge it. Larger work starts as an issue. A pull request template lists what every PR needs. (#252)
+
 ### Added
 - **The ideal transformer works in MaiSim.** It was in the palette ("Ideal Transformer", from GeckoCIRCUITS) but showed up with no terminals, so it could not be wired or drawn.
   - Its 4 terminals are where Gecko puts them: the primary on the left, the secondary on the right. They turn with it.
