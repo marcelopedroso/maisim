@@ -103,7 +103,7 @@ if int(subiu.group(1)) != porta:
 fala(f"o MaiSim instalado subiu em {time.time() - t0:.0f} s (http://localhost:{porta}/)")
 
 # 3. o mesmo que o do Linux: o buck, o PDF do Figuras e o controle em C
-ok = subprocess.run([sys.executable, str(RAIZ / "pacote" / "fumaca_api.py"), str(porta), str(RAIZ)]).returncode
+ok = subprocess.run([sys.executable, "-X", "utf8", str(RAIZ / "pacote" / "fumaca_api.py"), str(porta), str(RAIZ)]).returncode
 
 # 4. para e confere as sete portas livres
 log_parar = LOGS / "parar.log"

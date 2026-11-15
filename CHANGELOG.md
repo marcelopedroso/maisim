@@ -6,6 +6,10 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Fixed
+- **The C control did not run on an installed Windows:** the bundled TinyCC only puts in a DLL what is marked `__declspec(dllexport)`, so the control library came out with no functions and every run in C stopped at "controle.c must define maisim_tamanho_estado()". On Windows the library is now linked with `-rdynamic`. Found by the new smoke test on a real Windows. (#256)
+- **"Stop MaiSim" on Windows could leave MaiSim running:** the launcher crashed while deleting the stop request, still open by whoever wrote it ("file in use by another process"), before it stopped the servers. It now retries and stops anyway. Found by the same test. (#256)
+
 ### Changed
 - **Every pull request needs one approving review to get into `main`** (`CONTRIBUTING.md`): a collaborator's pull request is verified like any other and then reviewed and approved by the maintainer; the maintainer's own pull requests are approved by Actions once verified, right before it merges them, as before. Larger work starts as an issue. A pull request template lists what every PR needs. (#252)
 - **The verification asks for the changelog line:** a pull request that changes the product and adds nothing to `CHANGELOG.md` fails `tests (quick)` before the tests run. Not asked of pull requests that only change tests, CI, documentation or `VERSION`. (#253)
