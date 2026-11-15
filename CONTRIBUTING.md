@@ -72,6 +72,23 @@ review your own diff for them before opening the PR (and ask the reviewing agent
 
 For each item that applies, write a test that fails without the fix (run it once without the fix to see it fail).
 
+## A new feature answers five questions
+
+MaiSim runs on Windows, Linux and Android, on other people's machines. A PR that adds a feature, or touches the run loop,
+answers these in its description. "Not tested" is an accepted answer; a blank is not:
+
+1. **Is everything that depends on the installation a parameter?** Addresses, ports, keys and folders are `MAISIM_*`
+   variables in `config/padrao.env` (with the default and a comment) or options of the program, never values from one
+   person's machine in the code, the examples or the documentation.
+2. **What does it cost when it is off?** With the feature off (the default), the usual path is unchanged: nothing new
+   imported at startup, no request, no work per sample. Say how that was checked.
+3. **What does it cost when it is on?** The numbers before and after for what it touches (the run loop, the page, the
+   startup) and how they were measured: the command or script, the machine and the sample size, so that someone else can
+   repeat them.
+4. **Where does it run?** Windows, Linux, Android and the phone-sized page, one by one: tested (and how) or not tested.
+5. **Is the default path tested?** If the test profile (`config/teste.env`) turns the feature on, some test still
+   exercises it off, which is what most people will run.
+
 ## Running the tests on your machine
 
 ```bash
