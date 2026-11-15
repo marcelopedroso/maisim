@@ -25,7 +25,9 @@
    `simu/validacao/ci.sh completo`: UI, API, offline and the live scope). If it fails, it opens an issue with a link to
    the logs and screenshots.
 4. **Version:** the `VERSION` file ([SemVer](https://semver.org)). A PR that changes `VERSION` becomes, after the merge
-   and a green full suite, the tag `vX.Y.Z` and a GitHub Release with notes generated from the PRs.
+   and a green full suite, the tag `vX.Y.Z` and a draft GitHub Release with notes generated from the PRs. The packages are
+   built from the tag and smoke-tested (Linux x86_64 and ARM; the Windows installer on a real Windows; the Android APK is
+   built and its signature checked), and only when every one of them passed is the Release published.
 5. **Changelog:** every PR adds one line to [`CHANGELOG.md`](CHANGELOG.md) under **Unreleased** (Added, Changed or Fixed,
    with the PR number). The verification fails, before running the tests, a PR that changes the product and adds nothing
    to `CHANGELOG.md`; the line is not asked of a PR that only changes tests (`simu/validacao/`), CI (`.github/`),

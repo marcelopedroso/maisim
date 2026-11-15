@@ -6,7 +6,9 @@
 # creates the Release (a Release made with the Actions token does not trigger other workflows; workflow_dispatch does),
 # or by hand: Actions → packages → Run workflow, with the tag (e.g. v0.3.0-rc1).
 # The Windows installer is built on Linux; the "windows" job then installs it silently on a real Windows and runs the same
-# smoke test there (pacote/windows/fumaca.py). It does not hold the Release back yet: if it fails, it opens an issue.
+# smoke test there (pacote/windows/fumaca.py). The Release is a draft (full-suite.yml creates it so): the "publish" job
+# makes it public only when every job here passed. If one fails, the Release stays a draft (nobody sees it, the update
+# check included) and the Windows job opens an issue.
 name: packages
 
 on:
@@ -108,7 +110,7 @@ jobs:
         run: |
           gh issue create --repo "$GITHUB_REPOSITORY" \
             --title "Windows smoke test failed for $TAG" \
-            --body "The Windows installer of $TAG was attached to the Release, but its smoke test on Windows failed (install, start, the buck, a PDF, the C control, stop). Logs: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            --body "The smoke test of the Windows installer of $TAG failed on Windows (install, start, the buck, a PDF, the C control, stop), so the Release was left as a draft: not published. Logs: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
   arm:
     name: ARM (aarch64) AppImage and folder
@@ -205,3 +207,20 @@ jobs:
           for f in MaiSim-Android-*.apk MaiSim-Android.apk; do sha256sum "$f" > "$f.sha256"; done
           ls -la
           gh release upload "$TAG" ./* --repo "$GITHUB_REPOSITORY" --clobber
+
+  publish:
+    name: publish the Release (every package passed its smoke test)
+    needs: [build, windows, arm, android]
+    if: ${{ !inputs.test_only }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      TAG: ${{ inputs.tag }}
+    steps:
+      - name: check the tag
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "not a version tag: $TAG"; exit 1; }
+      - name: publish (a draft until here; a Release that is already public stays as it is)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false

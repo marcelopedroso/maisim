@@ -1,7 +1,7 @@
 # Once a day (and on demand, e.g. before a version): the full test suite (simu/validacao/ci.sh completo — UI, API, offline and the live scope
 # on the isolated instance). Green → a comment on every PR merged since the last green run ("full suite passed"), and,
-# if VERSION changed, the vX.Y.Z tag and a Release with notes (a -rc version: pre-release), then packages.yml builds the
-# AppImage and the Windows installer and attaches them. Red → an issue.
+# if VERSION changed, the vX.Y.Z tag and a draft Release with notes (a -rc version: pre-release), then packages.yml builds
+# the packages, attaches them and, only if every one of them passed its smoke test, publishes the Release. Red → an issue.
 # Runs at 04:00 (Brasília) only if main changed since the last green run, when VERSION changes on main (a new version:
 # tag, Release and packages right away), or by hand (Actions → full suite → Run workflow). Not after every merge: with
 # ~30 PRs a day that spent the month's Actions minutes in one day (24/10/2026); verify.yml already tests each PR.
@@ -86,8 +86,11 @@ jobs:
           v="v$(tr -d ' \n' < VERSION)"
           if git rev-parse -q --verify "refs/tags/$v" > /dev/null; then echo "$v already exists: nothing to do"; exit 0; fi
           pre=""; case "$v" in *-*) pre="--prerelease";; esac
-          gh release create "$v" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "MaiSim $v" --generate-notes $pre
-          gh workflow run pacotes.yml --repo "$GITHUB_REPOSITORY" --ref main -f tag="$v"   # the AppImage and the installer
+          # the tag first (a draft Release does not create it, and the packages are built from it); the Release as a draft:
+          # packages.yml publishes it only after every package passed its smoke test (the Windows installer on a real Windows)
+          git tag "$v" "$GITHUB_SHA" && git push origin "refs/tags/$v"
+          gh release create "$v" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --title "MaiSim $v" --generate-notes $pre
+          gh workflow run pacotes.yml --repo "$GITHUB_REPOSITORY" --ref main -f tag="$v"   # the packages; then it publishes the Release
 
   covered:
     name: tell the PRs it covered

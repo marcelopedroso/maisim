@@ -41,7 +41,7 @@ pacote/linux/fumaca.sh       # o teste de fumaça do pacote montado: sobe, roda 
 
 ```bash
 pacote/windows/monta.sh      # → pacote/dist/MaiSim-Setup-<versão>.exe (+ .sha256)   (no WSL/Linux, com docker)
-python pacote\windows\fumaca.py <instalador>   # o teste de fumaça, num Windows de verdade (o CI): instala em silêncio, sobe, roda o buck, gera um PDF, roda o controle em C, para
+python pacote\windows\fumaca.py <instalador>   # o teste de fumaça, num Windows de verdade (o CI): instala em silêncio, sobe, roda o buck, gera um PDF, roda o controle em C, para; se falhar, a Release fica em rascunho (não é publicada)
 ```
 
 - Dentro: o Python embutível 3.11 (python.org) + NumPy (a wheel win_amd64), o JRE Temurin 11 para Windows (versões fixas,
