@@ -182,10 +182,12 @@ def _unidade_tempo(t0, t1):
     return (1e6, "µs") if fim < 2e-3 else (1e3, "ms") if fim < 2 else (1.0, "s")
 
 
-def figura(pedido, resolve=lambda rel: Path(rel)):
+def figura(pedido, resolve=lambda rel: Path(rel), info=None):
     """O arquivo da figura (bytes, tipo MIME). pedido: {arq, rotuloA?, comparar?: [{arq, rotulo?}], t0?, t1?, paineis: [{sinais: [{canal, cor?, esp?, traco?,
     ganho?, desloc?}], ylabel?, ymin?, ymax?}], estilo: {preset, largura?, altura?, fonte?, corpo?, grade?, legenda?, pb?,
-    letras?, lingua?}, formato}. resolve: o caminho de uma rodada (o servidor confere que é uma gravação permitida)."""
+    letras?, lingua?}, formato}; um painel com legenda_xy: [x, y] (fração dos eixos, 0 a 1) põe a legenda dele nesse ponto.
+    info: um dict que, se vier, recebe "eixos" — onde cada gráfico ficou ([x0, y0, largura, altura] em fração da figura) — para a
+    página saber em que gráfico a pessoa clicou na prévia. resolve: o caminho de uma rodada (o servidor confere que é uma gravação permitida)."""
     try:
         import matplotlib
         matplotlib.use("Agg")
@@ -277,6 +279,11 @@ def figura(pedido, resolve=lambda rel: Path(rel)):
                 if leg == "acima":
                     ax.legend(loc="lower left", bbox_to_anchor=(0, 1.0, 1, 0.2), mode="expand", ncol=min(4, max(1, len(ax.lines))),
                               frameon=False, borderaxespad=0.2, handlelength=1.8)
+                elif _xy(p.get("legenda_xy")):               # onde a pessoa pôs na prévia (arrastou ou clicou): o canto de
+                    x, y = _xy(p.get("legenda_xy"))          # cima à esquerda da legenda exatamente nesse ponto (fração dos eixos)
+                    ax.legend(loc="upper left", bbox_to_anchor=(x, y), borderaxespad=0, frameon=True, framealpha=1.0,
+                              edgecolor="#bbbbbb", fancybox=False, handlelength=1.8).set_in_layout(False)   # o layout não a
+                    # empurra: a legenda fica onde a pessoa soltou, e os gráficos não mudam de tamanho por causa dela
                 else:                                        # automático (o canto mais livre) ou um dos quatro cantos
                     loc = {"sd": "upper right", "se": "upper left", "id": "lower right", "ie": "lower left"}.get(leg, "best")
                     ax.legend(loc=loc, frameon=True, framealpha=1.0, edgecolor="#bbbbbb", fancybox=False, handlelength=1.8)
@@ -290,8 +297,28 @@ def figura(pedido, resolve=lambda rel: Path(rel)):
                 ax.set_xlabel(embaixo)
         ext, tipo = FORMATOS[formato]
         buf = io.BytesIO()
-        extra = {"dpi": 600} if formato in ("png", "tiff") else {"dpi": 150} if formato == "previa" else {}
+        extra = {"dpi": 600} if formato in ("png", "tiff") else {"dpi": 300} if formato == "previa" else {}   # a prévia: 300 para ficar nítida ampliada na tela
         if formato == "tiff":
             extra["pil_kwargs"] = {"compression": "tiff_lzw"}
         fig.savefig(buf, format=ext, **extra)
+        if info is not None:                                 # depois de salvar: o layout já posicionou os gráficos
+            info["eixos"] = [[round(float(b), 4) for b in ax.get_position().bounds] for ax in axs[:n]]
+            inv = fig.transFigure.inverted()                 # e a caixa de cada legenda (para arrastar na prévia), ou None
+            def caixa(ax):
+                lg = ax.get_legend()
+                if lg is None:
+                    return None
+                (a, b), (c, d) = inv.transform(lg.get_window_extent())
+                return [round(float(a), 4), round(float(b), 4), round(float(c - a), 4), round(float(d - b), 4)]
+            info["legendas"] = [caixa(ax) for ax in axs[:n]]
     return buf.getvalue(), tipo
+
+
+def _xy(v):
+    """[x, y] de legenda_xy (o canto de cima à esquerda da legenda, em fração dos eixos; um pouco para fora vale: uma legenda
+    ao lado do gráfico); None se não vier ou não servir."""
+    try:
+        x, y = (float(a) for a in v)
+    except (TypeError, ValueError):
+        return None
+    return (x, y) if -0.5 <= x <= 1.5 and -0.5 <= y <= 1.5 else None

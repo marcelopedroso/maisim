@@ -80,6 +80,18 @@ for nome, kw in casos.items():
         b, _ = gera(formato="previa", **kw); ok(b.startswith(b"\x89PNG"), nome)
     except Exception as e:                               # noqa: BLE001
         ok(False, f"{nome}: {type(e).__name__}: {e}")
+# a legenda onde a pessoa clicou (legenda_xy) e os eixos que voltam para a página saber em que gráfico foi o clique
+info = {}
+PL = [P[0], dict(P[1], legenda_xy=[0.9, 0.1])]
+b, _ = figura.figura({"arq": A, "paineis": PL, "t0": 0.010, "t1": 0.0105, "estilo": {"preset": "ieee1"}, "formato": "previa"}, info=info)
+ex = info.get("eixos") or []
+ok(b.startswith(b"\x89PNG") and len(ex) == 2 and all(len(e) == 4 and 0 <= e[0] < 1 and 0 < e[2] <= 1 for e in ex) and ex[0][1] > ex[1][1],
+   f"a legenda no ponto clicado gera, e os eixos voltam (o 1º em cima): {ex}")
+lgs = info.get("legendas") or []
+ok(len(lgs) == 2 and lgs[0] is None and lgs[1] is not None and abs(lgs[1][0] - (ex[1][0] + 0.9 * ex[1][2])) < 0.005
+   and abs(lgs[1][1] + lgs[1][3] - (ex[1][1] + 0.1 * ex[1][3])) < 0.005,
+   f"a caixa da legenda volta, com o canto de cima à esquerda no ponto pedido (o 1º gráfico, de um sinal, sem legenda): {lgs}")
+ok(figura._xy([0.5, 2]) is None and figura._xy("x") is None and figura._xy([-0.2, 1.3]) == (-0.2, 1.3), "legenda_xy longe demais é ignorada; um pouco fora vale")
 # os pedidos inválidos
 for nome, kw in (("sem sinais", dict(paineis=[{"sinais": []}])), ("a janela vazia", dict(t0=0.01, t1=0.009)), ("um formato desconhecido", dict(formato="doc"))):
     try:
