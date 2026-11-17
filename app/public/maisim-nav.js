@@ -18,6 +18,7 @@
   const TXT = {
     "nav.inicio": { pt: "Início", en: "Home" },
     "nav.simu": { pt: "Simu · monte e simule", en: "Simu · build and simulate" },
+    "nav.script": { pt: "Script · rode um .py e veja no Scope", en: "Script · run a .py and see it in the Scope" },
     "nav.codigo": { pt: "Código · o controle em outra janela", en: "Code · the control in its own window" },
     "nav.scope": { pt: "Scope · rodadas e medição", en: "Scope · runs and measurement" },
     "nav.figuras": { pt: "Figuras · figuras para artigo", en: "Figures · paper figures" },
@@ -129,8 +130,11 @@
       icone: svg('<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>') },
     // a janela do Gecko (/maisim/gecko/, a tela remota dele) saiu do trilho (18/10, Marcelo: "nem precisa mais"): o simu faz tudo
     // pelo Gecko escondido; a página continua no endereço e no cartão da página inicial, para conferir
-    { href: "/maisim/simu/", chave: "nav.simu", ativo: (p, q) => (p.startsWith("/maisim/simu") && !/[?&]vista=codigo/.test(q)) || p.startsWith("/maisim/control"),
+    { href: "/maisim/simu/", chave: "nav.simu", ativo: (p, q) => (p.startsWith("/maisim/simu") && !p.startsWith("/maisim/simu/script") && !/[?&]vista=codigo/.test(q)) || p.startsWith("/maisim/control"),
       icone: svg('<path d="M2.5 8h4.3l1.6-3.6 3 7.2 3-7.2 1.6 3.6h5.5v12.6H2.5z"/><path d="M9.6 13.3l6.2 3.6-6.2 3.6z" fill="currentColor" stroke="none"/>') },   // um circuito (resistor na malha) e o "simular"
+    // o modo script (#258): um .py que roda do começo ao fim e manda os resultados para o Scope, sem circuito
+    { href: "/maisim/simu/script", chave: "nav.script", ativo: (p) => p.startsWith("/maisim/simu/script"),
+      icone: svg('<path d="M6 2.8h8.6L19 7.2V21.2H6z"/><path d="M14.6 2.8v4.4H19"/><path d="M10 11.5l-2.2 2.5 2.2 2.5M13.2 11.5l2.2 2.5-2.2 2.5"/>') },   // uma folha com código
     // o código do controle numa janela só dele (para outro monitor): ligado ao circuito aberto no simu; o ▶ fica no simu
     { href: "/maisim/simu/?vista=codigo", chave: "nav.codigo", janela: "maisim-codigo", ativo: (p, q) => p.startsWith("/maisim/simu") && /[?&]vista=codigo/.test(q),
       icone: svg('<path d="M8.5 7 3.5 12l5 5M15.5 7l5 5-5 5M13.6 4.5 10.4 19.5"/>') },
@@ -310,6 +314,8 @@
     // o código e o scope abrem numa janela à parte (a mesma, se já estiver aberta), para ir ao outro monitor; já nela, o clique fica nela
     nav.querySelectorAll("a[data-janela]").forEach((a) => a.addEventListener("click", (e) => {
       if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || a.classList.contains("ativo")) return;
+      // no modo script, o Scope abre aqui mesmo, com o trilho: o Script do trilho volta ao código (Marcelo, 17/11)
+      if (location.pathname.startsWith("/maisim/simu/script")) return;
       e.preventDefault(); const url = a.href + (a.href.includes("?") ? "&" : "?") + "janela=1";   // janela=1: a janela vem sem o trilho
       const w = window.open(url, a.dataset.janela, "popup,width=1200,height=900"); if (w) w.focus(); else location.href = url; }));
     nav.insertAdjacentHTML("beforeend", `<a class="item ia" href="/maisim/simu/?contas=1" data-rotulo="${tr("nav.ia")}" aria-label="${tr("nav.ia")}">${ICONE_IA}<span class="ponto"></span></a>`

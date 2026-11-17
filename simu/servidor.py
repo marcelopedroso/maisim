@@ -2440,6 +2440,13 @@ def layout_do_arquivo(arq_ipes, l=None):
 
 
 def scope_padrao_le(modelo):
+    if str(modelo or "").endswith(".py"):               # rodada de um script (#258): o layout que ele gravou (paineis=)
+        import modo_script
+        f = modo_script.arquivo_layout(modelo) if modo_script.eh_script(modelo) else None
+        try:
+            return {"layout": limpa_layout(json.loads(f.read_text())) if f and f.is_file() else None}
+        except (ErroMotor, OSError, ValueError):
+            return {"layout": None}
     try:
         return {"layout": layout_do_arquivo(ipes_do_modelo(modelo))}
     except (ErroMotor, OSError, ValueError):
@@ -2447,6 +2454,14 @@ def scope_padrao_le(modelo):
 
 
 def scope_padrao_grava(modelo, layout):
+    if str(modelo or "").endswith(".py"):               # rodada de um script (#258): o "Layout ▾" guarda nos seus scripts
+        import modo_script
+        if not modo_script.eh_script(modelo):
+            raise ErroMotor(lingua.tr("scope.padrao_fora_das_pastas"))
+        f = modo_script.arquivo_layout(modelo)
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(json.dumps(limpa_layout(layout), ensure_ascii=False, indent=1) + "\n")
+        return {"ok": True, "arquivo": str(f)}
     arq = ipes_do_modelo(modelo)
     if not arq.is_file():                                # apagado (ou nunca salvo): o padrão ficaria órfão ao lado de nada
         raise ErroMotor(lingua.tr("scope.padrao_circuito_sumiu"))
@@ -6565,6 +6580,21 @@ class Manipulador(BaseHTTPRequestHandler):
             return self._resposta(200, claude_estado())
         if rota == "/guia":                            # o guia do controle (o "?" do painel o mostra em static/guia.html)
             return self._resposta(200, guia_controle().read_bytes(), "text/markdown; charset=utf-8")
+        if rota == "/script":                          # o modo script (#258): a página
+            return self._resposta(200, (AQUI / "static" / "script.html").read_bytes(), TIPOS[".html"])
+        if rota in ("/scripts", "/scripts/ler", "/scripts/novo"):   # a lista, um script, o modelo de um novo
+            if not pedido_local(self, False):
+                return self._resposta(403, {"erro": lingua.tr("servidor.so_local")})
+            import modo_script                            # só quando usado: desligado, a partida não muda
+            q = {k: v[0] for k, v in parse_qs(u.query).items()}
+            try:
+                if rota == "/scripts":
+                    return self._resposta(200, modo_script.lista())
+                if rota == "/scripts/novo":
+                    return self._resposta(200, {"codigo": modo_script.novo_codigo()})
+                return self._resposta(200, modo_script.le(q.get("nome"), q.get("grupo", "meus")))
+            except modo_script.ErroScript as e:
+                return self._resposta(409, {"erro": str(e)})
         if rota == "/modelos":
             return self._resposta(200, lista_modelos())
         if rota in ("/msd/info", "/msd/exportar"):      # o .msd: o que vai junto; e o arquivo (?arq=…&rodadas=pasta,pasta)
@@ -6734,6 +6764,25 @@ class Manipulador(BaseHTTPRequestHandler):
             corpo = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
         except ValueError:
             return self._resposta(400, {"erro": lingua.tr("servidor.json_invalido")})
+        if rota in ("/scripts/salvar", "/scripts/apagar", "/scripts/rodar", "/scripts/pasta/criar", "/scripts/pasta/apagar",
+                    "/scripts/copiar_exemplo"):          # o modo script (#258): grava e roda código
+            if not pedido_local(self, True):           # aqui: só a página do MaiSim (X-MaiSim)
+                return self._resposta(403, {"erro": lingua.tr("servidor.so_pagina_local")})
+            import modo_script
+            try:
+                if rota == "/scripts/salvar":
+                    return self._resposta(200, modo_script.salva(corpo.get("nome"), corpo.get("codigo"), bool(corpo.get("sobrescrever"))))
+                if rota == "/scripts/apagar":
+                    return self._resposta(200, modo_script.apaga(corpo.get("nome")))
+                if rota == "/scripts/pasta/criar":
+                    return self._resposta(200, modo_script.cria_pasta(corpo.get("nome")))
+                if rota == "/scripts/pasta/apagar":
+                    return self._resposta(200, modo_script.apaga_pasta(corpo.get("nome")))
+                if rota == "/scripts/copiar_exemplo":
+                    return self._resposta(200, modo_script.copia_exemplo(corpo.get("nome")))
+                return self._resposta(200, modo_script.roda(corpo.get("nome"), corpo.get("grupo", "meus")))
+            except modo_script.ErroScript as e:
+                return self._resposta(409, {"erro": str(e)})
         if rota.startswith("/atualizacao/"):           # verificar agora, o canal, atualizar: só a página do MaiSim (X-MaiSim)
             if not pedido_local(self, True):
                 return self._resposta(403, {"erro": lingua.tr("servidor.so_pagina_local")})

@@ -1057,6 +1057,20 @@ T = {
                               "en": "Gecko changes in this update, but the running one was not started by this launcher: close MaiSim, open it again and update"},
     "atualiza.gecko_falhou": {"pt": "não deu para montar o Gecko novo (veja {log}); o código voltou ao {commit}",
                               "en": "could not build the new Gecko (see {log}); the code went back to {commit}"},
+    # o modo script (issue #258): um .py que roda do começo ao fim e manda os resultados para o Scope
+    "script.nome_invalido": {"pt": "nome inválido: use letras, números, _ e - (até 64), com / entre as pastas (até 6 partes)",
+                             "en": "invalid name: use letters, digits, _ and - (up to 64), with / between folders (up to 6 parts)"},
+    "script.e_pasta": {"pt": "{nome} é uma pasta: escolha outro nome para o script", "en": "{nome} is a folder: pick another name for the script"},
+    "script.nao_achei": {"pt": "não achei o script {nome}", "en": "script {nome} not found"},
+    "script.grande": {"pt": "o script passa de {max} caracteres", "en": "the script is longer than {max} characters"},
+    "script.ja_existe": {"pt": "já existe o script {nome}.", "en": "script {nome} already exists."},
+    "script.saida_cortada": {"pt": "[saída cortada: grande demais]", "en": "[output cut: too long]"},
+    "script.modelo_doc": {"pt": "Um script do MaiSim: roda do começo ao fim e manda os resultados para o Scope.",
+                          "en": "A MaiSim script: it runs start to end and sends its results to the Scope."},
+    "script.modelo_t": {"pt": "tempo (s)", "en": "time (s)"},
+    "script.modelo_v": {"pt": "uma senoide de 60 Hz", "en": "a 60 Hz sine"},
+    "script.modelo_scope": {"pt": "vira uma rodada: Ver no Scope", "en": "becomes a run: View in Scope"},
+    "script.prazo": {"pt": "[o script passou de {s} s e foi interrompido]", "en": "[the script took more than {s} s and was stopped]"},
 }
 
 lingua.registra(T)
