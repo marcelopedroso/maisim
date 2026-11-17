@@ -38,7 +38,8 @@
         header img { width:52px; height:48px; }
         h1 { margin:0; font-size:28px; } header p { margin:4px 0 0; color:var(--sutil); }
         header p.frase { margin-top:2px; color:var(--acento); font-weight:600; font-size:14px; letter-spacing:.2px; }
-        .cartoes { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:16px; }
+        .cartoes { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:16px; }   /* 2×2: os dois "novo" em cima, Scope e Exemplos embaixo */
+        @media (max-width:600px) { .cartoes { grid-template-columns:1fr; } }
         .cartao { display:block; padding:18px; border:1px solid var(--borda); border-radius:12px; background:var(--cartao);
                   color:inherit; text-decoration:none; transition:border-color .12s, transform .12s; }
         .cartao:hover { border-color:var(--acento); transform:translateY(-1px); }
@@ -141,6 +142,10 @@
                 <h2 data-tr="inicio.novo_titulo">+ Novo circuito</h2>
                 <p data-tr="inicio.novo_texto">Uma folha em branco no editor: monte pela paleta, meça, simule e escreva o controle digital, com a ajuda da IA.</p>
                 <small data-tr="inicio.novo_dica">para abrir um que já existe: as últimas simulações, logo abaixo</small>
+            </a>
+            <a class="cartao" href="/maisim/simu/script" id="cartao-script">
+                <h2 data-tr="inicio.script_titulo">+ Novo script</h2>
+                <p data-tr="inicio.script_texto">Um script que roda do começo ao fim e manda os resultados para o Scope: teste uma ideia ou um modelo sem montar circuito.</p>
             </a>
             <a class="cartao" href="/maisim/scope/">
                 <h2 data-tr="inicio.scope_titulo">Scope · rodadas e medição</h2>

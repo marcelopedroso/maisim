@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="/favicon.ico?v=2" sizes="16x16 32x32 48x48 256x256">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#6d28d9" data-claro="#ffffff" data-escuro="#171a21">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MaiSim · script</title>
+<script>
+// tema e tamanho do MaiSim (o trilho escolhe e guarda), antes de pintar: o mesmo das outras páginas
+try { const t = localStorage.getItem("maisim-tema") || "sistema";
+  document.documentElement.dataset.tema = t === "escuro" || (t === "sistema" && matchMedia("(prefers-color-scheme: dark)").matches) ? "escuro" : "claro"; }
+catch (e) { document.documentElement.dataset.tema = "claro"; }
+(function (m) { if (m) m.setAttribute("content", m.dataset[document.documentElement.dataset.tema === "escuro" ? "escuro" : "claro"]); })(document.querySelector('meta[name="theme-color"]'));
+try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.top === window.self && [0.8, 0.9, 1.1, 1.25, 1.4].includes(z)) document.documentElement.style.zoom = z; } catch (e) { /* 1 */ }
+</script>
+<script src="static/maisim-i18n.js"></script>
+<script src="static/textos_script.js"></script>
+<style>
+  :root { --fundo:#f7f8fa; --cartao:#fff; --texto:#1b1f24; --sutil:#5b6470; --borda:#d9dde3; --acento:#6d28d9; --campo:#fff;
+          --suave:#eef2f6; --ok:#1b7f2a; --erro:#b42318; --aviso:#8a5300; --aviso-bg:#fff7e6; --aviso-borda:#f5d39b; --acento-suave:#f1edff; color-scheme:light; }
+  :root[data-tema="escuro"] { --fundo:#0f1115; --cartao:#171a21; --texto:#e6e8ec; --sutil:#9aa3ae; --borda:#2c323c; --acento:#8b5cf6; --campo:#1d212a;
+          --suave:#232833; --ok:#4ade80; --erro:#f87171; --aviso:#fcd34d; --aviso-bg:#33280f; --aviso-borda:#6b5419; --acento-suave:#2b2440; color-scheme:dark; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; }
+  body { background:var(--fundo); color:var(--texto); font:14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #pagina { position:absolute; inset:0 0 0 var(--maisim-nav-w, 0px); display:grid; grid-template-columns:240px 1fr; min-width:0; }
+  aside { border-right:1px solid var(--borda); background:var(--cartao); overflow:auto; padding:12px; }
+  aside h2 { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--sutil); margin:14px 4px 6px; font-weight:600; }
+  .novos { display:flex; gap:6px; } .novos button { white-space:nowrap; padding:8px 8px; } .novos #bt-novo { flex:1 1 auto; } .novos #bt-pasta { flex:0 0 auto; width:auto; }
+  aside h2 button.raiz { all:unset; cursor:pointer; padding:1px 4px; border-radius:4px; } aside h2 button.raiz.sel { background:var(--acento-suave); color:var(--acento); }
+  .arvore ul { list-style:none; margin:0; padding:0 0 0 14px; border-left:1px solid var(--borda); margin-left:10px; }
+  .arvore li.pasta > .linha { display:flex; align-items:center; }
+  .arvore li.pasta > .linha > button.abre { flex:1 1 auto; font-weight:600; }
+  .arvore li.pasta > .linha > button.abre.sel { background:var(--acento-suave); color:var(--acento); }
+  .arvore li.pasta:not(.aberta) > ul { display:none; }
+  .arvore .seta { display:inline-block; width:12px; color:var(--sutil); transition:transform .1s; } .arvore li.pasta.aberta > .linha .seta { transform:rotate(90deg); }
+  .arvore button.tira { flex:0 0 auto; width:auto; padding:2px 6px; visibility:hidden; color:var(--sutil); }
+  .arvore li.pasta > .linha:hover button.tira, .arvore button.tira:focus { visibility:visible; } .arvore button.tira:hover { color:var(--erro); }
+  aside button.novo { width:100%; padding:8px 10px; border:1px solid var(--acento); color:var(--acento); background:var(--cartao); border-radius:8px; font:inherit; font-weight:600; cursor:pointer; }
+  aside ul { list-style:none; margin:0; padding:0; }
+  aside li button { width:100%; text-align:left; padding:6px 8px; border:0; background:none; color:inherit; font:inherit; border-radius:6px; cursor:pointer;
+                    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  aside li button:hover { background:var(--suave); }
+  aside li button[aria-current="true"] { background:var(--acento-suave); color:var(--acento); font-weight:600; }
+  aside .vazio { color:var(--sutil); font-size:13px; padding:4px 8px; }
+  main { display:flex; flex-direction:column; min-width:0; min-height:0; }   /* em coluna: sem o aviso, o editor ocupa o lugar dele */
+  .barra { display:flex; gap:8px; align-items:center; padding:10px 12px; border-bottom:1px solid var(--borda); background:var(--cartao); flex-wrap:wrap; }
+  .barra input { flex:1 1 180px; min-width:120px; padding:7px 9px; border:1px solid var(--borda); border-radius:7px; background:var(--campo); color:inherit; font:inherit; font-weight:600; }
+  .barra button { padding:7px 12px; border:1px solid var(--borda); border-radius:7px; background:var(--cartao); color:inherit; font:inherit; cursor:pointer; }
+  .barra button.prim { background:var(--acento); border-color:var(--acento); color:#fff; font-weight:600; }
+  .barra button:disabled { opacity:.5; cursor:default; }
+  #estado { color:var(--sutil); font-size:13px; min-width:60px; }
+  .aviso button { margin-left:10px; padding:1px 8px; border:1px solid var(--aviso-borda); border-radius:6px; background:transparent; color:inherit; font:inherit; cursor:pointer; }
+  .aviso[hidden] { display:none; }
+  .aviso { margin:0; padding:6px 12px; font-size:12.5px; color:var(--aviso); background:var(--aviso-bg); border-bottom:1px solid var(--aviso-borda); }
+  #editor { flex:1 1 0; min-height:0; position:relative; }
+  #editor textarea { position:absolute; inset:0; width:100%; height:100%; border:0; resize:none; padding:10px 12px; background:var(--campo); color:inherit;
+                     font:13px/1.5 ui-monospace, Consolas, monospace; white-space:pre; tab-size:4; outline:none; }
+  #saida-box { border-top:1px solid var(--borda); background:var(--cartao); display:flex; flex-direction:column; flex:0 0 34%; min-height:120px; }
+  #saida-box .cab { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:6px 12px; border-bottom:1px solid var(--borda); }
+  #saida-box .cab b { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--sutil); }
+  #resultado { font-size:13px; } #resultado.ok { color:var(--ok); } #resultado.erro { color:var(--erro); }
+  #saida { margin:0; padding:8px 12px; overflow:auto; flex:1; font:12.5px/1.45 ui-monospace, Consolas, monospace; white-space:pre-wrap; }
+  #saida .err { color:var(--erro); } #saida .dica { color:var(--sutil); font-family:system-ui, sans-serif; }
+  #saida a { color:var(--acento); }
+  @media (max-width:720px) { #pagina { grid-template-columns:1fr; grid-template-rows:auto 1fr; } aside { max-height:30vh; border-right:0; border-bottom:1px solid var(--borda); } }
+</style>
+</head>
+<body>
+<div id="pagina">
+  <aside>
+    <div class="novos">
+      <button type="button" class="novo" id="bt-novo" data-tr="scr.novo" data-tr-title="scr.novo_title">+ Novo script</button>
+      <button type="button" class="novo" id="bt-pasta" data-tr="scr.nova_pasta" data-tr-title="scr.nova_pasta_title">+ Pasta</button>
+    </div>
+    <h2><button type="button" id="raiz-meus" class="raiz" data-tr="scr.meus" data-tr-title="scr.raiz_title">Meus scripts</button></h2>
+    <ul id="lista-meus" class="arvore"></ul>
+    <h2 data-tr="scr.exemplos">Exemplos</h2>
+    <ul id="lista-exemplos" class="arvore"></ul>
+  </aside>
+  <main>
+    <div class="barra">
+      <input id="nome" aria-label="nome do script" data-tr-aria="scr.nome" spellcheck="false" autocomplete="off">
+      <span id="estado"></span>
+      <button type="button" id="bt-salvar" data-tr="scr.salvar" data-tr-title="scr.salvar_title">Salvar</button>
+      <button type="button" id="bt-rodar" class="prim" data-tr="scr.rodar" data-tr-title="scr.rodar_title">▶ Rodar</button>
+      <button type="button" id="bt-scope" data-tr="scr.ver_scope" data-tr-title="scr.ver_scope_title" disabled>Ver no Scope</button>
+      <button type="button" id="bt-apagar" data-tr="scr.apagar">Apagar</button>
+    </div>
+    <p class="aviso" id="aviso"><span data-tr="scr.aviso">O script roda como um programa Python nesta máquina, com acesso aos seus arquivos. Rode só scripts em que você confia.</span>
+      <button type="button" id="bt-aviso" data-tr="scr.aviso_ok">Entendi</button></p>
+    <div id="editor"></div>
+    <div id="saida-box">
+      <div class="cab"><b data-tr="scr.saida">Saída</b><span id="resultado"></span></div>
+      <pre id="saida"></pre>
+    </div>
+  </main>
+</div>
+<script src="static/script.js"></script>
+<script src="/maisim-nav.js" onerror="this.remove()"></script>
+</body>
+</html>

@@ -116,6 +116,7 @@ def difunde(evento, obj):
             q.put(msg)
 
 
+DO_SCRIPT = "maisim-script"                     # rodadas do modo script (#258): maisim.scope() no script do usuário
 DO_SIMU = ("gecko-maisim", "gecko-pew")         # rodadas do simulador (gecko-pew: as gravadas quando ele se chamava PEW)
 
 
@@ -155,7 +156,7 @@ GUARDADA = ".guardada"
 def pasta_da_rodada(f, meta):
     """A pasta inteira da rodada, se a gravação é de uma rodada do simu (senão None: só o .npz)."""
     try:
-        if f.parent.parent.resolve() == RODADAS_SIMU.resolve() and meta.get("planta") in DO_SIMU:
+        if f.parent.parent.resolve() == RODADAS_SIMU.resolve() and (meta.get("planta") in DO_SIMU or meta.get("planta") == DO_SCRIPT):
             return f.parent
     except OSError:
         pass
@@ -209,6 +210,9 @@ def rotulo_rodada(f, meta=None):
     planta = "MaiSim / simu" if meta.get("planta") in DO_SIMU else {"gecko": "Gecko", "python": lingua.tr("scope_srv.planta_python")}.get(meta.get("planta", ""), meta.get("planta", "?"))
     pasta = f.parent.name.replace("2026-10-17_", "").replace("_", " ")
     circuito = ""
+    if meta.get("planta") == DO_SCRIPT:                  # o script de origem no lugar do circuito
+        planta, pasta, circuito = lingua.tr("scope_srv.planta_script"), meta.get("rotulo", pasta), \
+            meta.get("script") or Path(str(meta.get("modelo") or "")).stem   # o caminho dele nos scripts (projeto/main)
     if meta.get("planta") in DO_SIMU:
         pasta = meta.get("rotulo", pasta)
         mod = str(meta.get("modelo") or "")

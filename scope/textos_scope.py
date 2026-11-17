@@ -15,6 +15,7 @@ T = {
     "scope_srv.guardada": {"pt": "guardada", "en": "kept"},
     # o nome de uma rodada gravada na lista (planta · circuito · pasta · data e hora · intervalo)
     "scope_srv.planta_python": {"pt": "planta Python", "en": "Python plant"},
+    "scope_srv.planta_script": {"pt": "MaiSim / script", "en": "MaiSim / script"},
     "scope_srv.quando": {"pt": "{dia}/{mes} {hora}:{min}", "en": "{mes}/{dia} {hora}:{min}"},
     "scope_srv.circuito_novo": {"pt": "novo (sem arquivo)", "en": "new (no file)"},
     # o módulo Figuras (figura.py)
