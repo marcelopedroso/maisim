@@ -156,6 +156,42 @@ def apaga_pasta(nome):
     return {"ok": True}
 
 
+def move(nome, destino):
+    """Leva um script ou uma pasta dos seus scripts para outra pasta (destino "" = a raiz), com o nome que tem. O layout do
+    Scope de cada script vai junto. Recusa: o que não existe, o destino que não é pasta, uma pasta para dentro dela mesma, um
+    nome que já existe no destino (nada é substituído) e um caminho fundo demais. Devolve o caminho novo."""
+    nome = caminho(nome)
+    destino = caminho(destino) if str(destino or "").strip("/ ") else ""
+    raiz_m = pasta_scripts()
+    script, pasta = raiz_m / f"{nome}.py", raiz_m / nome
+    if not script.is_file() and not pasta.is_dir():
+        raise ErroScript(lingua.tr("script.nao_achei", nome=nome))
+    if destino and not (raiz_m / destino).is_dir():
+        raise ErroScript(lingua.tr("script.nao_achei", nome=destino))
+    if pasta.is_dir() and not script.is_file() and (destino == nome or destino.startswith(nome + "/")):
+        raise ErroScript(lingua.tr("script.mover_dentro", nome=nome))
+    base = nome.rsplit("/", 1)[-1]
+    novo = f"{destino}/{base}" if destino else base
+    if novo == nome:
+        return {"ok": True, "nome": novo}
+    eh_script = script.is_file()
+    fundo = novo.count("/") + 1 + (max((len(f.relative_to(pasta).parts) for f in pasta.rglob("*")), default=0) if not eh_script else 0)
+    if fundo > MAX_FUNDO:
+        raise ErroScript(lingua.tr("script.nome_invalido"))
+    alvo = raiz_m / (f"{novo}.py" if eh_script else novo)
+    if alvo.exists() or (raiz_m / (novo if eh_script else f"{novo}.py")).exists():
+        raise ErroScript(lingua.tr("script.mover_existe", nome=base, destino=destino or "/"))
+    # os layouts: os caminhos de antes e de depois de cada script (antes de mover, enquanto os arquivos estão no lugar velho)
+    pares = [(script, alvo)] if eh_script else [(f, alvo / f.relative_to(pasta)) for f in pasta.rglob("*.py")]
+    layouts = [(arquivo_layout(a), arquivo_layout(b)) for a, b in pares]
+    shutil.move(str(script if eh_script else pasta), str(alvo))
+    for a, b in layouts:
+        if a.is_file():
+            b.parent.mkdir(parents=True, exist_ok=True)
+            a.replace(b)
+    return {"ok": True, "nome": novo}
+
+
 def copia_exemplo(nome):
     """Um exemplo para os seus scripts, para editar: copia a pasta de cima dele inteira (os outros arquivos que ele importa
     vêm junto) ou, se está na raiz, só ele. Se o nome já existe nos seus, ganha _copia (_copia2…). Devolve o caminho da cópia."""

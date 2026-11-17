@@ -36,8 +36,10 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   .arvore li.pasta > .linha > button.abre.sel { background:var(--acento-suave); color:var(--acento); }
   .arvore li.pasta:not(.aberta) > ul { display:none; }
   .arvore .seta { display:inline-block; width:12px; color:var(--sutil); transition:transform .1s; } .arvore li.pasta.aberta > .linha .seta { transform:rotate(90deg); }
+  .arvore .alvo, aside h2 button.raiz.alvo { outline:2px dashed var(--acento); outline-offset:-2px; background:var(--acento-suave); }
+  .arvore [draggable="true"] { cursor:grab; }
   .arvore button.tira { flex:0 0 auto; width:auto; padding:2px 6px; visibility:hidden; color:var(--sutil); }
-  .arvore li.pasta > .linha:hover button.tira, .arvore button.tira:focus { visibility:visible; } .arvore button.tira:hover { color:var(--erro); }
+  .arvore li.pasta > .linha:hover button.tira, .arvore button.tira:focus { visibility:visible; } .arvore button.tira:hover { color:var(--erro); } .arvore button.tira.mover:hover { color:var(--acento); }
   aside button.novo { width:100%; padding:8px 10px; border:1px solid var(--acento); color:var(--acento); background:var(--cartao); border-radius:8px; font:inherit; font-weight:600; cursor:pointer; }
   aside ul { list-style:none; margin:0; padding:0; }
   aside li button { width:100%; text-align:left; padding:6px 8px; border:0; background:none; color:inherit; font:inherit; border-radius:6px; cursor:pointer;
@@ -71,6 +73,7 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   .modal { background:var(--cartao); color:var(--texto); border-radius:14px; box-shadow:0 24px 60px rgba(15,23,42,.28); width:min(420px, 92vw); padding:18px 20px 16px; font-size:14px; }
   .modal h3 { margin:0 0 6px; font-size:16px; } .modal p { margin:4px 0 12px; color:var(--sutil); line-height:1.45; }
   .modal input { width:100%; font:inherit; font-size:13.5px; padding:7px 9px; border:1px solid var(--borda); border-radius:7px; background:var(--campo); color:inherit; }
+  .modal select.m-lista { width:100%; font:inherit; font-size:13.5px; padding:7px 9px; border:1px solid var(--borda); border-radius:7px; background:var(--campo); color:inherit; }
   .modal input:focus { outline:2px solid var(--acento-suave); border-color:var(--acento); } .modal input.invalido { border-color:var(--erro); }
   .modal .m-erro { color:var(--erro); font-size:12px; min-height:16px; margin-top:4px; }
   .modal-botoes { display:flex; justify-content:flex-end; gap:8px; margin-top:14px; }
@@ -87,7 +90,7 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
       <button type="button" class="novo" id="bt-novo" data-tr="scr.novo" data-tr-title="scr.novo_title">+ Novo script</button>
       <button type="button" class="novo" id="bt-pasta" data-tr="scr.nova_pasta" data-tr-title="scr.nova_pasta_title">+ Pasta</button>
     </div>
-    <h2><button type="button" id="raiz-meus" class="raiz" data-tr="scr.meus" data-tr-title="scr.raiz_title">Meus scripts</button></h2>
+    <h2><button type="button" id="raiz-meus" class="raiz" data-recebe="" data-tr="scr.meus" data-tr-title="scr.raiz_title">Meus scripts</button></h2>
     <ul id="lista-meus" class="arvore"></ul>
     <h2 data-tr="scr.exemplos">Exemplos</h2>
     <ul id="lista-exemplos" class="arvore"></ul>
@@ -99,6 +102,7 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
       <button type="button" id="bt-salvar" data-tr="scr.salvar" data-tr-title="scr.salvar_title">Salvar</button>
       <button type="button" id="bt-rodar" class="prim" data-tr="scr.rodar" data-tr-title="scr.rodar_title">▶ Rodar</button>
       <button type="button" id="bt-scope" data-tr="scr.ver_scope" data-tr-title="scr.ver_scope_title" disabled>Ver no Scope</button>
+      <button type="button" id="bt-mover" data-tr="scr.mover_bt" data-tr-title="scr.mover_bt_title">Mover…</button>
       <button type="button" id="bt-apagar" data-tr="scr.apagar">Apagar</button>
     </div>
     <p class="aviso" id="aviso"><span data-tr="scr.aviso">O script roda como um programa Python nesta máquina, com acesso aos seus arquivos. Rode só scripts em que você confia.</span>

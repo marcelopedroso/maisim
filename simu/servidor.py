@@ -6765,7 +6765,7 @@ class Manipulador(BaseHTTPRequestHandler):
         except ValueError:
             return self._resposta(400, {"erro": lingua.tr("servidor.json_invalido")})
         if rota in ("/scripts/salvar", "/scripts/apagar", "/scripts/rodar", "/scripts/pasta/criar", "/scripts/pasta/apagar",
-                    "/scripts/copiar_exemplo"):          # o modo script (#258): grava e roda código
+                    "/scripts/copiar_exemplo", "/scripts/mover"):   # o modo script (#258): grava e roda código
             if not pedido_local(self, True):           # aqui: só a página do MaiSim (X-MaiSim)
                 return self._resposta(403, {"erro": lingua.tr("servidor.so_pagina_local")})
             import modo_script
@@ -6778,6 +6778,8 @@ class Manipulador(BaseHTTPRequestHandler):
                     return self._resposta(200, modo_script.cria_pasta(corpo.get("nome")))
                 if rota == "/scripts/pasta/apagar":
                     return self._resposta(200, modo_script.apaga_pasta(corpo.get("nome")))
+                if rota == "/scripts/mover":
+                    return self._resposta(200, modo_script.move(corpo.get("nome"), corpo.get("destino", "")))
                 if rota == "/scripts/copiar_exemplo":
                     return self._resposta(200, modo_script.copia_exemplo(corpo.get("nome")))
                 return self._resposta(200, modo_script.roda(corpo.get("nome"), corpo.get("grupo", "meus")))
