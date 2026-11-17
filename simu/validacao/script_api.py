@@ -155,6 +155,36 @@ try:
     c, j = pede(SIMU + "scripts")
     ok(acha(j["meus"], "teste_proj") is None, "apagar a pasta tira tudo o que estava nela")
 
+    # mover: um script para uma pasta (o layout vai junto), uma pasta para dentro de outra, as recusas
+    for n in ("teste_mv_a", "teste_mv_b"):
+        pede(SIMU + "scripts/pasta/apagar", {"nome": n})
+    pede(SIMU + "scripts/pasta/criar", {"nome": "teste_mv_a"}); pede(SIMU + "scripts/pasta/criar", {"nome": "teste_mv_b/sub"})
+    pede(SIMU + "scripts/salvar", {"nome": "teste_mv_a/s1", "codigo": "import maisim\nmaisim.scope('s1', [0, 1], {'a': [1, 2]}, panels=[['a']])\n"})
+    c, r = pede(SIMU + "scripts/rodar", {"nome": "teste_mv_a/s1"})
+    meta_mod = json.loads(str(np.load(r["rodadas"][0]["arquivo"], allow_pickle=True)["meta"]))["modelo"] if r.get("rodadas") else ""
+    c, j = pede(SIMU + "scripts/mover", {"nome": "teste_mv_a/s1", "destino": "teste_mv_b/sub"})
+    ok(c == 200 and j.get("nome") == "teste_mv_b/sub/s1", f"move um script para outra pasta ({j})")
+    c, L = pede(SIMU + "scripts/ler?nome=teste_mv_b/sub/s1")
+    ok(c == 200 and "maisim.scope" in L.get("codigo", ""), "o script está no lugar novo, com o código")
+    c, L = pede(SIMU + "scope/padrao?modelo=" + urllib.request.quote(meta_mod.replace("teste_mv_a/s1.py", "teste_mv_b/sub/s1.py")))
+    ok([x.get("sinais") for x in (L.get("layout") or {}).get("itens", [])] == [["a"]], "o layout do Scope foi junto")
+    pede(SIMU + "scripts/salvar", {"nome": "teste_mv_a/s1", "codigo": "x\n"})
+    c, j = pede(SIMU + "scripts/mover", {"nome": "teste_mv_a/s1", "destino": "teste_mv_b/sub"})
+    ok(c == 409, f"um nome que já existe no destino é recusado, nada é substituído ({j.get('erro')})")
+    c, j = pede(SIMU + "scripts/mover", {"nome": "teste_mv_b", "destino": "teste_mv_b/sub"})
+    ok(c == 409, f"uma pasta para dentro dela mesma é recusada ({j.get('erro')})")
+    c, j = pede(SIMU + "scripts/mover", {"nome": "teste_mv_b", "destino": "teste_mv_a"})
+    c2, L = pede(SIMU + "scripts/ler?nome=teste_mv_a/teste_mv_b/sub/s1")
+    ok(c == 200 and j.get("nome") == "teste_mv_a/teste_mv_b" and c2 == 200, f"move uma pasta inteira para dentro de outra ({j})")
+    c, j = pede(SIMU + "scripts/mover", {"nome": "teste_mv_a/teste_mv_b", "destino": ""})
+    ok(c == 200 and j.get("nome") == "teste_mv_b", f"e de volta para a raiz ({j})")
+    c, j = pede(SIMU + "scripts/mover", {"nome": "pwm/sine_pwm", "destino": "teste_mv_a"})
+    ok(c == 409, "um exemplo não se move (não está nos seus scripts)")
+    c, _ = pede(SIMU + "scripts/mover", {"nome": "teste_mv_b", "destino": "teste_mv_a"}, maisim=False)
+    ok(c == 403, "mover sem o cabeçalho X-MaiSim é recusado")
+    for n in ("teste_mv_a", "teste_mv_b"):
+        pede(SIMU + "scripts/pasta/apagar", {"nome": n})
+
     # os exemplos: todos rodam; o de projeto copia a pasta inteira e a cópia roda
     for ex in [x for x in exemplos if "/libs/" not in x]:   # os da libs/ são módulos que o main importa, não rodam sozinhos
         c, r = pede(SIMU + "scripts/rodar", {"nome": ex, "grupo": "exemplos"})

@@ -10,17 +10,19 @@ const st = { nome: "", grupo: "meus", pasta: "", salvo: "", editor: null, texto:
 // ----------------------------------------------------------------- as janelas do MaiSim (Marcelo, 17/11: nada de alert/confirm/
 // prompt do navegador): as mesmas do simu (modal). Esc ou clicar fora cancela; Enter confirma; perigo: o botão vermelho e o
 // foco no Cancelar. Com campo: devolve o texto (valida: o erro embaixo do campo, a janela fica aberta); sem: true ou null
-function janela({ titulo, texto = "", campo = null, ok = tr("scr.ok"), perigo = false, valida = null }) {
+function janela({ titulo, texto = "", campo = null, opcoes = null, ok = tr("scr.ok"), perigo = false, valida = null }) {
   return new Promise((res) => {
     const f = document.createElement("div"); f.className = "modal-fundo";
     f.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="m-tit"><h3 id="m-tit">${esc(titulo)}</h3>${texto ? `<p>${esc(texto)}</p>` : ""}`
       + (campo ? `<input class="m-campo" spellcheck="false" autocomplete="off" aria-label="${esc(campo.rotulo || titulo)}" value="${esc(campo.valor || "")}"><div class="m-erro" aria-live="polite"></div>` : "")
+      + (opcoes ? `<select class="m-campo m-lista" aria-label="${esc(titulo)}">${opcoes.map((o) => `<option value="${esc(o.valor)}">${esc(o.rotulo)}</option>`).join("")}</select>` : "")
       + `<div class="modal-botoes"><button type="button" class="m-cancela">${esc(tr("scr.cancelar"))}</button><button type="button" class="m-ok ${perigo ? "perigo" : "primario"}">${esc(ok)}</button></div></div>`;
     document.body.appendChild(f);
     const inp = f.querySelector(".m-campo"), err = f.querySelector(".m-erro");
     const fecha = (v) => { removeEventListener("keydown", tecla, true); f.remove(); res(v); };
     const confirma = () => {
       if (!inp) return fecha(true);
+      if (inp.tagName === "SELECT") return fecha(inp.value);   // a lista: o valor escolhido ("" = a raiz)
       const v = inp.value.trim(), e = v ? (valida ? valida(v) : "") : tr("scr.campo_vazio");
       if (e) { err.textContent = e; inp.classList.add("invalido"); inp.focus(); return; }
       fecha(v);
@@ -31,7 +33,7 @@ function janela({ titulo, texto = "", campo = null, ok = tr("scr.ok"), perigo = 
         if (a && a.tagName === "BUTTON" && f.contains(a)) a.click(); else confirma(); }
     };
     addEventListener("keydown", tecla, true);
-    if (inp) inp.addEventListener("input", () => { err.textContent = ""; inp.classList.remove("invalido"); });
+    if (inp && err) inp.addEventListener("input", () => { err.textContent = ""; inp.classList.remove("invalido"); });
     f.querySelector(".m-cancela").onclick = () => fecha(null); f.querySelector(".m-ok").onclick = confirma;
     f.addEventListener("mousedown", (e) => { if (e.target === f) fecha(null); });
     (inp || f.querySelector(perigo ? ".m-cancela" : ".m-ok")).focus();   // já na hora: Enter logo depois vai para o lugar certo
@@ -93,6 +95,7 @@ function marca() {
   $("estado").textContent = st.grupo === "exemplos" ? tr("scr.exemplo_so_ler") : naoSalvo ? tr("scr.nao_salvo") : tr("scr.salvo");
   $("estado").classList.toggle("nao-salvo", naoSalvo);   // em vermelho, para chamar a atenção (Marcelo, 17/11)
   $("bt-apagar").disabled = st.grupo !== "meus" || !st.nome;
+  $("bt-mover").disabled = st.grupo !== "meus" || !st.nome;
 }
 const sujo = () => codigo() !== st.salvo;
 // a árvore (pastas e scripts): as pastas abertas ficam guardadas neste navegador; a pasta escolhida (st.pasta, nos seus) é
@@ -106,15 +109,16 @@ function ramo(itens, grupo) {
     if (x.tipo === "pasta") {
       const id = `${grupo}:${x.caminho}`;
       return `<li class="pasta${abertas.has(id) ? " aberta" : ""}" data-id="${esc(id)}"><div class="linha">`
-        + `<button type="button" class="abre${grupo === "meus" && st.pasta === x.caminho ? " sel" : ""}" data-pasta="${esc(x.caminho)}" data-grupo="${grupo}"><span class="seta">▸</span> ${esc(x.nome)}</button>`
+        + `<button type="button" class="abre${grupo === "meus" && st.pasta === x.caminho ? " sel" : ""}" data-pasta="${esc(x.caminho)}" data-grupo="${grupo}"${grupo === "meus" ? ` draggable="true" data-arrasta="${esc(x.caminho)}" data-recebe="${esc(x.caminho)}"` : ""}><span class="seta">▸</span> ${esc(x.nome)}</button>`
+        + (grupo === "meus" ? `<button type="button" class="tira mover" data-mover="${esc(x.caminho)}" title="${esc(tr("scr.mover_pasta"))}" aria-label="${esc(tr("scr.mover_pasta"))}">⇄</button>` : "")
         + (grupo === "meus" ? `<button type="button" class="tira" data-tira="${esc(x.caminho)}" data-n="${contaScripts(x.filhos)}" title="${esc(tr("scr.apagar_pasta"))}" aria-label="${esc(tr("scr.apagar_pasta"))}">×</button>` : "")
         + `</div><ul>${ramo(x.filhos, grupo) || `<li class="vazio">${esc(tr("scr.pasta_vazia"))}</li>`}</ul></li>`;
     }
-    return `<li><button type="button" data-nome="${esc(x.caminho)}" data-grupo="${grupo}" title="${esc(x.caminho)}"${x.caminho === st.nome && grupo === st.grupo ? ' aria-current="true"' : ""}>${esc(x.nome)}</button></li>`;
+    return `<li><button type="button" data-nome="${esc(x.caminho)}" data-grupo="${grupo}" title="${esc(x.caminho)}"${grupo === "meus" ? ` draggable="true" data-arrasta="${esc(x.caminho)}"` : ""}${x.caminho === st.nome && grupo === st.grupo ? ' aria-current="true"' : ""}>${esc(x.nome)}</button></li>`;
   }).join("");
 }
 async function lista() {
-  const j = await api("");
+  const j = await api(""); st.arvore = j.meus;
   $("lista-meus").innerHTML = j.meus.length ? ramo(j.meus, "meus") : `<li class="vazio">${esc(tr("scr.nenhum"))}</li>`;
   $("lista-exemplos").innerHTML = ramo(j.exemplos, "exemplos");
   $("raiz-meus").classList.toggle("sel", !st.pasta);
@@ -126,7 +130,59 @@ async function lista() {
     guardaAbertas(); lista();
   };
   for (const b of document.querySelectorAll("aside button[data-tira]")) b.onclick = () => apagaPasta(b.dataset.tira, +b.dataset.n);
+  for (const b of document.querySelectorAll("aside button[data-mover]")) b.onclick = () => pedeDestino(b.dataset.mover);
 }
+
+// ----------------------------------------------------------------- mover (Marcelo, 17/11): arrastar um script ou uma pasta
+// dos seus para outra pasta (ou para "Meus scripts", a raiz); pelo teclado, Mover… (o script aberto) e ⇄ (a pasta) com a
+// lista das pastas. O script aberto acompanha (o que não foi salvo continua no editor)
+const pastasDe = (itens) => itens.filter((x) => x.tipo === "pasta").flatMap((x) => [x.caminho, ...pastasDe(x.filhos)]);
+const paiDe = (c) => (c.includes("/") ? c.slice(0, c.lastIndexOf("/")) : "");
+async function move(nome, destino) {
+  try {
+    const r = await api("/mover", { nome, destino });
+    if (r.nome !== nome) {
+      const segue = (c) => (c === nome ? r.nome : c.startsWith(`${nome}/`) ? r.nome + c.slice(nome.length) : c);
+      if (st.grupo === "meus" && st.nome) {
+        const antes = st.nome; st.nome = segue(st.nome);
+        if ($("nome").value.trim() === antes) $("nome").value = st.nome;
+        if (st.nome !== antes) history.replaceState(null, "", `?nome=${encodeURIComponent(st.nome)}`);
+      }
+      st.pasta = segue(st.pasta);
+      abertas = new Set([...abertas].map((id) => (id.startsWith("meus:") ? `meus:${segue(id.slice(5))}` : id)));
+      if (destino) abertas.add(`meus:${destino}`); guardaAbertas();
+      escreveSaida(tr("scr.movido", { de: nome, para: r.nome }), "dica");
+    }
+    marca(); await lista();
+  } catch (e) { escreveSaida(tr("scr.falhou", { erro: e.message }), "err"); }
+}
+async function pedeDestino(nome) {
+  const ehPasta = pastasDe(st.arvore || []).includes(nome);
+  const ops = ["", ...pastasDe(st.arvore || [])].filter((p) => p !== paiDe(nome) && !(ehPasta && (p === nome || p.startsWith(`${nome}/`))));
+  if (!ops.length) { escreveSaida(tr("scr.mover_sem_destino"), "dica"); return; }
+  const d = await janela({ titulo: tr("scr.mover_t", { nome }), texto: tr("scr.mover_texto"), ok: tr("scr.mover"),
+    opcoes: ops.map((p) => ({ valor: p, rotulo: p || tr("scr.meus") })) });
+  if (d !== null) await move(nome, d);
+}
+$("lista-meus").addEventListener("dragstart", (e) => {
+  const b = e.target.closest("[data-arrasta]"); if (!b) return;
+  e.dataTransfer.setData("text/x-maisim-script", b.dataset.arrasta); e.dataTransfer.effectAllowed = "move";
+});
+const alvoDe = (e) => e.target.closest("[data-recebe]");
+for (const zona of [$("lista-meus"), $("raiz-meus")]) {
+  zona.addEventListener("dragover", (e) => {
+    const a = alvoDe(e); if (!a || !e.dataTransfer.types.includes("text/x-maisim-script")) return;
+    e.preventDefault(); e.dataTransfer.dropEffect = "move";
+    document.querySelectorAll(".alvo").forEach((x) => x !== a && x.classList.remove("alvo")); a.classList.add("alvo");
+  });
+  zona.addEventListener("dragleave", (e) => { const a = alvoDe(e); if (a && !a.contains(e.relatedTarget)) a.classList.remove("alvo"); });
+  zona.addEventListener("drop", (e) => {
+    const a = alvoDe(e), nome = e.dataTransfer.getData("text/x-maisim-script"); if (!a || !nome) return;
+    e.preventDefault(); document.querySelectorAll(".alvo").forEach((x) => x.classList.remove("alvo"));
+    move(nome, a.dataset.recebe);
+  });
+}
+document.addEventListener("dragend", () => document.querySelectorAll(".alvo").forEach((x) => x.classList.remove("alvo")));
 const naPasta = (nome) => (st.pasta ? `${st.pasta}/${nome}` : nome);
 async function abre(nome, grupo) {
   if (!(await descartar())) return;
@@ -138,7 +194,11 @@ async function abre(nome, grupo) {
     guardaAbertas();
     history.replaceState(null, "", `?nome=${encodeURIComponent(j.nome)}${grupo === "exemplos" ? "&grupo=exemplos" : ""}`);
     await lista();
-  } catch (e) { escreveSaida(tr("scr.falhou", { erro: e.message }), "err"); }
+  } catch (e) {                                       // não abriu (apagado, movido): o erro na saída, a lista desenhada mesmo
+    escreveSaida(tr("scr.falhou", { erro: e.message }), "err");
+    if (!st.nome) history.replaceState(null, "", location.pathname);
+    await lista().catch(() => {});
+  }
 }
 async function novo() {
   if (!(await descartar())) return;
@@ -236,6 +296,7 @@ async function rodar() {
 // ----------------------------------------------------------------- início
 document.title = tr("scr.titulo");
 $("bt-novo").onclick = novo; $("bt-pasta").onclick = novaPasta;
+$("bt-mover").onclick = () => { if (st.grupo === "meus" && st.nome) pedeDestino(st.nome); };
 $("raiz-meus").onclick = () => { st.pasta = ""; lista(); }; $("bt-salvar").onclick = salvar; $("bt-rodar").onclick = rodar; $("bt-apagar").onclick = apagar;
 // o Scope na mesma aba, com o trilho (o Script do trilho volta aqui); o Rodar já salvou, então não se perde nada
 $("bt-scope").onclick = () => { if (st.ultimaRodada) location.href = `/maisim/scope/?a=${encodeURIComponent(st.ultimaRodada)}`; };

@@ -1060,6 +1060,8 @@ T = {
     # o modo script (issue #258): um .py que roda do começo ao fim e manda os resultados para o Scope
     "script.nome_invalido": {"pt": "nome inválido: use letras, números, _ e - (até 64), com / entre as pastas (até 6 partes)",
                              "en": "invalid name: use letters, digits, _ and - (up to 64), with / between folders (up to 6 parts)"},
+    "script.mover_dentro": {"pt": "não dá para mover a pasta {nome} para dentro dela mesma", "en": "cannot move folder {nome} into itself"},
+    "script.mover_existe": {"pt": "já existe {nome} em {destino}: renomeie antes de mover", "en": "{nome} already exists in {destino}: rename it before moving"},
     "script.e_pasta": {"pt": "{nome} é uma pasta: escolha outro nome para o script", "en": "{nome} is a folder: pick another name for the script"},
     "script.nao_achei": {"pt": "não achei o script {nome}", "en": "script {nome} not found"},
     "script.grande": {"pt": "o script passa de {max} caracteres", "en": "the script is longer than {max} characters"},

@@ -7,7 +7,7 @@
 //  - Apagar: a janela de perigo (botão vermelho, foco no Cancelar); Cancelar não apaga; Apagar apaga;
 //  - descartar mudanças ao abrir outro: a janela; Cancelar fica; apagar a pasta: a janela com quantos scripts.
 const { chromium } = require("playwright");
-let falhas = 0;
+let falhas = 0, nativasG = [];
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
 const B = "http://localhost:7200/maisim/simu/script";
 const PASTA = "tela_janelas";
@@ -18,7 +18,7 @@ const pede = (pg, rota, corpo) => pg.evaluate(async ([r, c]) => (await fetch(`sc
     b = await chromium.launch();
     const ctx = await b.newContext({ viewport: { width: 1300, height: 800 }, locale: "pt-BR" });
     await ctx.addInitScript(() => { try { localStorage.setItem("maisim-lingua", "pt"); } catch (e) { /* sem */ } });
-    const pg = await ctx.newPage(); const erros = [], nativas = [];
+    const pg = await ctx.newPage(); const erros = [], nativas = nativasG;
     pg.on("pageerror", (e) => erros.push(e.message));
     pg.on("dialog", (d) => { nativas.push(`${d.type()}: ${d.message()}`); d.dismiss().catch(() => {}); });
     await pg.goto(B); await pg.waitForSelector("#lista-exemplos li", { timeout: 30000 });
@@ -61,12 +61,34 @@ const pede = (pg, rota, corpo) => pg.evaluate(async ([r, c]) => (await fetch(`sc
     ok(m && m.tit === "Substituir o script?" && m.perigo, `o nome de outro script que existe: pergunta antes de substituir (${JSON.stringify(m)})`);
     await pg.click(".modal .m-cancela"); await pg.fill("#nome", `${PASTA}/um`); await pg.waitForTimeout(200);
     // Apagar
+    const corAp = await pg.$eval("#bt-apagar", (b) => [b.disabled, getComputedStyle(b).color]);
+    ok(!corAp[0] && /^rgb\((2[0-4]\d|25[0-5]|1[5-9]\d), (\d{1,2}|1[01]\d), (\d{1,2}|1[01]\d)\)$/.test(corAp[1]), `o botão Apagar em vermelho (${corAp[1]})`);
     await pg.click("#bt-apagar"); m = await modal();
     ok(m && m.tit === "Apagar o script?" && m.perigo && m.foco.includes("m-cancela"), `Apagar: a janela de perigo (${JSON.stringify(m)})`);
     await pg.click(".modal .m-cancela"); await pg.waitForTimeout(300);
     ok(!!(await pg.$(`#lista-meus button[data-nome="${PASTA}/um"]`)), "Cancelar não apaga");
     await pg.click("#bt-apagar"); await pg.click(".modal .m-ok"); await pg.waitForTimeout(600);
     ok(!(await pg.$(`#lista-meus button[data-nome="${PASTA}/um"]`)), "Apagar apaga");
+    // mover: arrastar o script aberto para a raiz ("Meus scripts") e, pelo teclado, Mover… de volta para a pasta
+    await pede(pg, "/salvar", { nome: `${PASTA}/mv`, codigo: "print('mv')\n" }); await pg.goto(`${B}?nome=${PASTA}/mv`);
+    await pg.waitForSelector(`#lista-meus button[data-nome="${PASTA}/mv"]`);
+    await pg.evaluate(() => { const m = window.monaco && monaco.editor.getModels()[0]; if (m) m.setValue(m.getValue() + "# sem salvar\n"); });
+    await pg.dragAndDrop(`#lista-meus button[data-nome="${PASTA}/mv"]`, "#raiz-meus");
+    await pg.waitForSelector('#lista-meus button[data-nome="mv"]', { timeout: 10000 }).catch(() => {});
+    const depois = await pg.evaluate(() => ({ nome: document.getElementById("nome").value, url: location.search, sujo: document.getElementById("estado").classList.contains("nao-salvo"),
+      cod: window.monaco ? monaco.editor.getModels()[0].getValue().includes("# sem salvar") : null }));
+    ok(depois.nome === "mv" && /nome=mv$/.test(depois.url) && depois.sujo && depois.cod, `arrastar para a raiz: o aberto acompanha, o não salvo fica no editor (${JSON.stringify(depois)})`);
+    await pg.click("#bt-mover"); m = await modal();
+    const ops = await pg.$$eval(".modal select option", (os) => os.map((o) => o.value));
+    ok(m && m.tit === "Mover mv" && ops.includes(PASTA) && !ops.includes(""), `Mover…: a janela com a lista das pastas, sem a de agora (${JSON.stringify(ops)})`);
+    await pg.selectOption(".modal select", PASTA); await pg.keyboard.press("Enter");
+    await pg.waitForSelector(`#lista-meus button[data-nome="${PASTA}/mv"]`, { timeout: 10000 }).catch(() => {});
+    ok((await pg.inputValue("#nome")) === `${PASTA}/mv`, "pelo teclado (Mover… e Enter): de volta para a pasta");
+    await pg.click("#bt-salvar"); await pg.waitForTimeout(400); await pede(pg, "/apagar", { nome: `${PASTA}/mv` });
+    // o endereço de um script que não existe mais (apagado noutra aba): o erro na saída e a árvore desenhada
+    await pg.reload(); await pg.waitForSelector("#lista-exemplos li", { timeout: 10000 }).catch(() => {});
+    const sumiu = await pg.evaluate(() => ({ ex: document.querySelectorAll("#lista-exemplos li").length, err: !!document.querySelector("#saida .err"), url: location.search }));
+    ok(sumiu.ex > 0 && sumiu.err && sumiu.url === "", `abrir um script que não existe mais: o erro na saída, a árvore desenhada, o endereço limpo (${JSON.stringify(sumiu)})`);
     // apagar a pasta (com dois scripts dentro: o "outro" do passo de substituir e o "dois")
     await pede(pg, "/salvar", { nome: `${PASTA}/dois`, codigo: "print(2)\n" }); await pg.reload(); await pg.waitForSelector("#lista-exemplos li");
     await pg.hover(`#lista-meus li.pasta[data-id="meus:${PASTA}"] > .linha`); await pg.click(`#lista-meus button[data-tira="${PASTA}"]`); m = await modal();
@@ -75,7 +97,7 @@ const pede = (pg, rota, corpo) => pg.evaluate(async ([r, c]) => (await fetch(`sc
     ok(!(await pg.$(`#lista-meus li.pasta[data-id="meus:${PASTA}"]`)), "a pasta saiu da árvore");
     ok(nativas.length === 0, `nenhuma janela do navegador (${nativas.join(" | ") || "nenhuma"})`);
     ok(!erros.length, `sem erros de JS ${erros.join(" ; ")}`);
-  } catch (e) { ok(false, "o teste caiu: " + (e.stack || e).toString().split("\n").slice(0, 3).join(" ")); }
+  } catch (e) { ok(false, "o teste caiu: " + (e.stack || e).toString().split("\n").slice(0, 3).join(" ") + (nativasG.length ? ` (janelas do navegador: ${nativasG.join(" | ")})` : "")); }
   finally { if (b) await b.close(); }
   process.exit(falhas ? 1 : 0);
 })();
