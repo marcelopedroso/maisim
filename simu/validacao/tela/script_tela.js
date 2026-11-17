@@ -61,6 +61,8 @@ const pede = (pg, rota, corpo) => pg.evaluate(async ([r, c]) => (await fetch(`sc
     ok(m && m.tit === "Substituir o script?" && m.perigo, `o nome de outro script que existe: pergunta antes de substituir (${JSON.stringify(m)})`);
     await pg.click(".modal .m-cancela"); await pg.fill("#nome", `${PASTA}/um`); await pg.waitForTimeout(200);
     // Apagar
+    const corAp = await pg.$eval("#bt-apagar", (b) => [b.disabled, getComputedStyle(b).color]);
+    ok(!corAp[0] && /^rgb\((2[0-4]\d|25[0-5]|1[5-9]\d), (\d{1,2}|1[01]\d), (\d{1,2}|1[01]\d)\)$/.test(corAp[1]), `o botão Apagar em vermelho (${corAp[1]})`);
     await pg.click("#bt-apagar"); m = await modal();
     ok(m && m.tit === "Apagar o script?" && m.perigo && m.foco.includes("m-cancela"), `Apagar: a janela de perigo (${JSON.stringify(m)})`);
     await pg.click(".modal .m-cancela"); await pg.waitForTimeout(300);

@@ -53,6 +53,9 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   .barra button { padding:7px 12px; border:1px solid var(--borda); border-radius:7px; background:var(--cartao); color:inherit; font:inherit; cursor:pointer; }
   .barra button.prim { background:var(--acento); border-color:var(--acento); color:#fff; font-weight:600; }
   .barra button:disabled { opacity:.5; cursor:default; }
+  /* Apagar em vermelho, para chamar a atenção (Marcelo, 17/11); cheio ao passar o mouse; desligado continua apagado */
+  .barra button.perigo:not(:disabled) { color:var(--erro); border-color:var(--erro); font-weight:600; }
+  .barra button.perigo:not(:disabled):hover { background:#dc2626; border-color:#dc2626; color:#fff; }
   #estado { color:var(--sutil); font-size:13px; min-width:60px; } #estado.nao-salvo { color:var(--erro); font-weight:600; }
   .aviso button { margin-left:10px; padding:1px 8px; border:1px solid var(--aviso-borda); border-radius:6px; background:transparent; color:inherit; font:inherit; cursor:pointer; }
   .aviso[hidden] { display:none; }
@@ -103,7 +106,7 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
       <button type="button" id="bt-rodar" class="prim" data-tr="scr.rodar" data-tr-title="scr.rodar_title">▶ Rodar</button>
       <button type="button" id="bt-scope" data-tr="scr.ver_scope" data-tr-title="scr.ver_scope_title" disabled>Ver no Scope</button>
       <button type="button" id="bt-mover" data-tr="scr.mover_bt" data-tr-title="scr.mover_bt_title">Mover…</button>
-      <button type="button" id="bt-apagar" data-tr="scr.apagar">Apagar</button>
+      <button type="button" id="bt-apagar" class="perigo" data-tr="scr.apagar">Apagar</button>
     </div>
     <p class="aviso" id="aviso"><span data-tr="scr.aviso">O script roda como um programa Python nesta máquina, com acesso aos seus arquivos. Rode só scripts em que você confia.</span>
       <button type="button" id="bt-aviso" data-tr="scr.aviso_ok">Entendi</button></p>
