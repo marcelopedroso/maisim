@@ -51,7 +51,7 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   .barra button { padding:7px 12px; border:1px solid var(--borda); border-radius:7px; background:var(--cartao); color:inherit; font:inherit; cursor:pointer; }
   .barra button.prim { background:var(--acento); border-color:var(--acento); color:#fff; font-weight:600; }
   .barra button:disabled { opacity:.5; cursor:default; }
-  #estado { color:var(--sutil); font-size:13px; min-width:60px; }
+  #estado { color:var(--sutil); font-size:13px; min-width:60px; } #estado.nao-salvo { color:var(--erro); font-weight:600; }
   .aviso button { margin-left:10px; padding:1px 8px; border:1px solid var(--aviso-borda); border-radius:6px; background:transparent; color:inherit; font:inherit; cursor:pointer; }
   .aviso[hidden] { display:none; }
   .aviso { margin:0; padding:6px 12px; font-size:12.5px; color:var(--aviso); background:var(--aviso-bg); border-bottom:1px solid var(--aviso-borda); }
@@ -65,6 +65,18 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   #saida { margin:0; padding:8px 12px; overflow:auto; flex:1; font:12.5px/1.45 ui-monospace, Consolas, monospace; white-space:pre-wrap; }
   #saida .err { color:var(--erro); } #saida .dica { color:var(--sutil); font-family:system-ui, sans-serif; }
   #saida a { color:var(--acento); }
+  /* as janelas do MaiSim (as mesmas do simu: modal-fundo, modal), no lugar dos confirm()/prompt() do navegador */
+  .modal-fundo { position:fixed; inset:0; z-index:100; background:rgba(15,23,42,.35); display:flex; align-items:flex-start; justify-content:center; padding-top:12vh; animation:aparece .12s ease-out; }
+  @keyframes aparece { from { opacity:0; } to { opacity:1; } }
+  .modal { background:var(--cartao); color:var(--texto); border-radius:14px; box-shadow:0 24px 60px rgba(15,23,42,.28); width:min(420px, 92vw); padding:18px 20px 16px; font-size:14px; }
+  .modal h3 { margin:0 0 6px; font-size:16px; } .modal p { margin:4px 0 12px; color:var(--sutil); line-height:1.45; }
+  .modal input { width:100%; font:inherit; font-size:13.5px; padding:7px 9px; border:1px solid var(--borda); border-radius:7px; background:var(--campo); color:inherit; }
+  .modal input:focus { outline:2px solid var(--acento-suave); border-color:var(--acento); } .modal input.invalido { border-color:var(--erro); }
+  .modal .m-erro { color:var(--erro); font-size:12px; min-height:16px; margin-top:4px; }
+  .modal-botoes { display:flex; justify-content:flex-end; gap:8px; margin-top:14px; }
+  .modal-botoes button { padding:6px 14px; border-radius:8px; font:inherit; font-size:13px; border:1px solid var(--borda); background:var(--cartao); color:inherit; cursor:pointer; }
+  .modal-botoes button.primario { background:var(--acento); border-color:var(--acento); color:#fff; font-weight:600; }
+  .modal-botoes button.perigo { background:#dc2626; border-color:#dc2626; color:#fff; font-weight:600; }
   @media (max-width:720px) { #pagina { grid-template-columns:1fr; grid-template-rows:auto 1fr; } aside { max-height:30vh; border-right:0; border-bottom:1px solid var(--borda); } }
 </style>
 </head>
