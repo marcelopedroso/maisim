@@ -7,6 +7,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Fixed
+- **The script page asked its questions in the browser's own pop-ups** (#261; `alert`/`confirm`/`prompt`): new folder, save without a name, replace, delete, discard changes. They are now MaiSim's windows, the same as the simulator's (Esc or a click outside cancels, Enter confirms, dangerous actions in red with the focus on Cancel, a wrong name shown under the field without closing). Saving the open script again no longer asks to replace it, and deleting the open script (or its folder) no longer asks to discard its changes. "Not saved" is now shown in red. New test `script_tela` (fails if any browser pop-up shows up).
 - **The C control did not run on an installed Windows:** the bundled TinyCC only puts in a DLL what is marked `__declspec(dllexport)`, so the control library came out with no functions and every run in C stopped at "controle.c must define maisim_tamanho_estado()". On Windows the library is now linked with `-rdynamic`. Found by the new smoke test on a real Windows. (#257)
 - **"Stop MaiSim" on Windows could leave MaiSim running:** the launcher crashed while deleting the stop request, still open by whoever wrote it ("file in use by another process"), before it stopped the servers. It now retries and stops anyway. Found by the same test. (#257)
 

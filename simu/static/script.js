@@ -7,6 +7,40 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const st = { nome: "", grupo: "meus", pasta: "", salvo: "", editor: null, texto: null, ultimaRodada: null, rodando: false };
 
+// ----------------------------------------------------------------- as janelas do MaiSim (Marcelo, 17/11: nada de alert/confirm/
+// prompt do navegador): as mesmas do simu (modal). Esc ou clicar fora cancela; Enter confirma; perigo: o botão vermelho e o
+// foco no Cancelar. Com campo: devolve o texto (valida: o erro embaixo do campo, a janela fica aberta); sem: true ou null
+function janela({ titulo, texto = "", campo = null, ok = tr("scr.ok"), perigo = false, valida = null }) {
+  return new Promise((res) => {
+    const f = document.createElement("div"); f.className = "modal-fundo";
+    f.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="m-tit"><h3 id="m-tit">${esc(titulo)}</h3>${texto ? `<p>${esc(texto)}</p>` : ""}`
+      + (campo ? `<input class="m-campo" spellcheck="false" autocomplete="off" aria-label="${esc(campo.rotulo || titulo)}" value="${esc(campo.valor || "")}"><div class="m-erro" aria-live="polite"></div>` : "")
+      + `<div class="modal-botoes"><button type="button" class="m-cancela">${esc(tr("scr.cancelar"))}</button><button type="button" class="m-ok ${perigo ? "perigo" : "primario"}">${esc(ok)}</button></div></div>`;
+    document.body.appendChild(f);
+    const inp = f.querySelector(".m-campo"), err = f.querySelector(".m-erro");
+    const fecha = (v) => { removeEventListener("keydown", tecla, true); f.remove(); res(v); };
+    const confirma = () => {
+      if (!inp) return fecha(true);
+      const v = inp.value.trim(), e = v ? (valida ? valida(v) : "") : tr("scr.campo_vazio");
+      if (e) { err.textContent = e; inp.classList.add("invalido"); inp.focus(); return; }
+      fecha(v);
+    };
+    const tecla = (e) => {
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); fecha(null); }
+      else if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); const a = document.activeElement;
+        if (a && a.tagName === "BUTTON" && f.contains(a)) a.click(); else confirma(); }
+    };
+    addEventListener("keydown", tecla, true);
+    if (inp) inp.addEventListener("input", () => { err.textContent = ""; inp.classList.remove("invalido"); });
+    f.querySelector(".m-cancela").onclick = () => fecha(null); f.querySelector(".m-ok").onclick = confirma;
+    f.addEventListener("mousedown", (e) => { if (e.target === f) fecha(null); });
+    (inp || f.querySelector(perigo ? ".m-cancela" : ".m-ok")).focus();   // já na hora: Enter logo depois vai para o lugar certo
+  });
+}
+const PARTE = /^[A-Za-z0-9_-]{1,64}$/;   // o mesmo do servidor (modo_script.NOME_OK): cada parte do caminho
+const validaNome = (v) => (v.replace(/\.py$/, "").split("/").every((x) => PARTE.test(x)) ? "" : tr("scr.nome_regra"));
+const descartar = async () => !sujo() || !!(await janela({ titulo: tr("scr.descartar_t"), texto: tr("scr.descartar"), ok: tr("scr.descartar_ok"), perigo: true }));
+
 // ----------------------------------------------------------------- servidor
 async function api(rota, corpo) {
   const r = await fetch(`scripts${rota}`, corpo ? { method: "POST", headers: { "Content-Type": "application/json", "X-MaiSim": "1" }, body: JSON.stringify(corpo) }
@@ -55,7 +89,9 @@ async function montaEditor() {
 // ----------------------------------------------------------------- estado e lista
 function marca() {
   const sujo = codigo() !== st.salvo || ($("nome").value.trim() !== st.nome);
-  $("estado").textContent = st.grupo === "exemplos" ? tr("scr.exemplo_so_ler") : sujo ? tr("scr.nao_salvo") : st.nome ? tr("scr.salvo") : tr("scr.nao_salvo");
+  const naoSalvo = st.grupo !== "exemplos" && (sujo || !st.nome);
+  $("estado").textContent = st.grupo === "exemplos" ? tr("scr.exemplo_so_ler") : naoSalvo ? tr("scr.nao_salvo") : tr("scr.salvo");
+  $("estado").classList.toggle("nao-salvo", naoSalvo);   // em vermelho, para chamar a atenção (Marcelo, 17/11)
   $("bt-apagar").disabled = st.grupo !== "meus" || !st.nome;
 }
 const sujo = () => codigo() !== st.salvo;
@@ -93,7 +129,7 @@ async function lista() {
 }
 const naPasta = (nome) => (st.pasta ? `${st.pasta}/${nome}` : nome);
 async function abre(nome, grupo) {
-  if (sujo() && !confirm(tr("scr.descartar"))) return;
+  if (!(await descartar())) return;
   try {
     const j = await api(`/ler?nome=${encodeURIComponent(nome)}&grupo=${encodeURIComponent(grupo)}`);
     st.nome = j.nome; st.grupo = grupo; $("nome").value = j.nome; poeCodigo(j.codigo); st.ultimaRodada = null; $("bt-scope").disabled = true;
@@ -105,13 +141,14 @@ async function abre(nome, grupo) {
   } catch (e) { escreveSaida(tr("scr.falhou", { erro: e.message }), "err"); }
 }
 async function novo() {
-  if (sujo() && !confirm(tr("scr.descartar"))) return;
+  if (!(await descartar())) return;
   const j = await api("/novo");
   st.nome = ""; st.grupo = "meus"; $("nome").value = st.pasta ? `${st.pasta}/` : ""; poeCodigo(j.codigo);
   history.replaceState(null, "", location.pathname); $("nome").focus(); await lista();
 }
 async function novaPasta() {
-  const nome = (prompt(tr("scr.pede_pasta", { onde: st.pasta || tr("scr.meus") })) || "").trim();
+  const nome = await janela({ titulo: tr("scr.pasta_t"), texto: tr("scr.pede_pasta", { onde: st.pasta || tr("scr.meus") }), ok: tr("scr.criar"),
+    campo: { rotulo: tr("scr.pasta_t") }, valida: (v) => (PARTE.test(v) ? "" : tr("scr.pasta_regra")) });
   if (!nome) return;
   try {
     const r = await api("/pasta/criar", { nome: naPasta(nome) });
@@ -119,11 +156,12 @@ async function novaPasta() {
   } catch (e) { escreveSaida(tr("scr.falhou", { erro: e.message }), "err"); }
 }
 async function apagaPasta(caminho, n) {
-  if (!confirm(tr("scr.confirma_apagar_pasta", { nome: caminho, n }))) return;
+  if (!(await janela({ titulo: tr("scr.apagar_pasta_t"), texto: tr("scr.confirma_apagar_pasta", { nome: caminho, n }), ok: tr("scr.apagar"), perigo: true }))) return;
   try {
     await api("/pasta/apagar", { nome: caminho });
     if (st.pasta === caminho || st.pasta.startsWith(`${caminho}/`)) st.pasta = "";
-    if (st.grupo === "meus" && st.nome.startsWith(`${caminho}/`)) { st.nome = ""; st.salvo = ""; await novo(); } else await lista();
+    // o script aberto estava na pasta apagada: nada a descartar (st.salvo = o que está no editor)
+    if (st.grupo === "meus" && st.nome.startsWith(`${caminho}/`)) { st.nome = ""; st.salvo = codigo(); await novo(); } else await lista();
   } catch (e) { escreveSaida(tr("scr.falhou", { erro: e.message }), "err"); }
 }
 
@@ -141,12 +179,17 @@ async function salvar() {
       escreveSaida(tr("scr.copiado", { nome: c.nome }), "dica"); await lista(); return true;
     } catch (e) { escreveSaida(tr("scr.falhou", { erro: e.message }), "err"); return false; }
   }
-  if (!nome || nome.endsWith("/")) { const n = (prompt(tr("scr.pede_nome")) || "").trim(); nome = n ? (nome || (st.pasta ? `${st.pasta}/` : "")) + n : ""; }
+  if (!nome || nome.endsWith("/")) {                 // sem nome: pergunta (dentro da pasta escolhida, se houver)
+    const pre = nome || (st.pasta ? `${st.pasta}/` : "");
+    const n = await janela({ titulo: tr("scr.nome_t"), texto: tr("scr.pede_nome"), ok: tr("scr.salvar"), campo: { rotulo: tr("scr.nome"), valor: pre }, valida: validaNome });
+    nome = n ? n.replace(/\.py$/, "") : "";
+  } else if (validaNome(nome)) { escreveSaida(tr("scr.nome_regra"), "err"); $("nome").focus(); return false; }
   if (!nome) return false;
   try {
-    let r = await api("/salvar", { nome, codigo: codigo() });
+    // o próprio script aberto: grava por cima sem perguntar; um nome que já existe e é outro: pergunta antes de substituir
+    let r = await api("/salvar", { nome, codigo: codigo(), sobrescrever: st.grupo === "meus" && nome === st.nome });
     if (r.codigo === "confirmar") {
-      if (!confirm(tr("scr.confirma_sobrescrever", { pergunta: r.pergunta }))) return false;
+      if (!(await janela({ titulo: tr("scr.sobrescrever_t"), texto: r.pergunta, ok: tr("scr.substituir"), perigo: true }))) return false;
       r = await api("/salvar", { nome, codigo: codigo(), sobrescrever: true });
     }
     st.nome = r.nome; st.grupo = "meus"; $("nome").value = r.nome; st.salvo = codigo(); marca();
@@ -155,8 +198,10 @@ async function salvar() {
   } catch (e) { escreveSaida(tr("scr.falhou", { erro: e.message }), "err"); return false; }
 }
 async function apagar() {
-  if (st.grupo !== "meus" || !st.nome || !confirm(tr("scr.confirma_apagar", { nome: st.nome }))) return;
-  try { await api("/apagar", { nome: st.nome }); st.nome = ""; st.salvo = ""; await novo(); }
+  if (st.grupo !== "meus" || !st.nome) return;
+  if (!(await janela({ titulo: tr("scr.apagar_t"), texto: tr("scr.confirma_apagar", { nome: st.nome }), ok: tr("scr.apagar"), perigo: true }))) return;
+  // o script apagado era o aberto: nada a descartar (st.salvo = o que está no editor)
+  try { await api("/apagar", { nome: st.nome }); st.nome = ""; st.salvo = codigo(); await novo(); }
   catch (e) { escreveSaida(tr("scr.falhou", { erro: e.message }), "err"); }
 }
 function escreveSaida(txt, cls) {
