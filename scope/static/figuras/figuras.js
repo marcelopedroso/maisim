@@ -168,7 +168,7 @@ function desenhaEstilo() {
   const fid = { serif: "stix", sans: "arial" }[estilo.fonte || e.fonte] || estilo.fonte || "stix";
   opcoes($("sel-fonte"), ["stix", "times", "arial", "dejavu"].map((k) => [k, tr(`fig.fonte.${k}`) + (FONTES[k] === false ? ` (${tr("fig.fonte.nao_instalada")})` : "")]), fid);
   opcoes($("sel-colunas"), [["1", "1"], ["2", "2"], ["3", "3"]], String(estilo.colunas || 1));
-  opcoes($("sel-legenda"), ["auto", "sd", "se", "id", "ie", "acima", "nenhuma"].map((k) => [k, tr(`fig.leg.${k}`)]), estilo.legenda === "melhor" ? "auto" : estilo.legenda);
+  opcoes($("sel-legenda"), ["auto", "sd", "se", "id", "ie", "acima", "manual", "nenhuma"].map((k) => [k, tr(`fig.leg.${k}`)]), estilo.legenda === "melhor" ? "auto" : estilo.legenda);
   opcoes($("sel-lingua"), [["", tr("fig.ling.pagina")], ["pt", tr("fig.ling.pt")], ["en", tr("fig.ling.en")]], estilo.lingua || "");
   $("larg").value = String(estilo.largura ?? e.largura ?? "").replace(".", maisimI18n.lingua() === "en" ? "." : ",");
   $("alt").value = estilo.altura == null ? "" : String(estilo.altura);
@@ -179,7 +179,7 @@ function desenhaEstilo() {
 const num = (v) => { const x = parseFloat(String(v).replace(",", ".")); return Number.isFinite(x) && x > 0 ? x : null; };
 $("sel-estilo").addEventListener("change", (e) => { estilo = { ...estilo, preset: e.target.value, largura: null, altura: null, fonte: null, corpo: null }; desenhaEstilo(); mudou(); });
 $("sel-fonte").addEventListener("change", (e) => { estilo.fonte = e.target.value; mudou(); });
-$("sel-legenda").addEventListener("change", (e) => { estilo.legenda = e.target.value; mudou(); });
+$("sel-legenda").addEventListener("change", (e) => { estilo.legenda = e.target.value; paineis.forEach((p) => delete p.legenda_xy); mudou(); });
 $("sel-colunas").addEventListener("change", (e) => { estilo.colunas = parseInt(e.target.value, 10) || 1; mudou(); });
 $("sel-lingua").addEventListener("change", (e) => { estilo.lingua = e.target.value; mudou(); });
 $("larg").addEventListener("input", (e) => { estilo.largura = num(e.target.value); mudou(); });
@@ -256,7 +256,8 @@ $("bt-grandeza").onclick = () => { paineis = porGrandeza(); mudou(true); };
 
 // ---- a prévia e os arquivos
 function pedido(formato) {
-  const ps = paineis.filter((p) => p.sinais.length).map((p) => ({ sinais: p.sinais.map((c) => estiloSinal(c, p)), ylabel: p.ylabel, ymin: p.ymin, ymax: p.ymax }));
+  const ps = paineis.filter((p) => p.sinais.length).map((p) => ({ sinais: p.sinais.map((c) => estiloSinal(c, p)), ylabel: p.ylabel, ymin: p.ymin, ymax: p.ymax,
+    legenda_xy: p.legenda_xy || null }));
   const lg = estilo.lingua || (maisimI18n.lingua() === "en" ? "en" : "pt");
   return { arq: R.arq, rotuloA, comparar: comparar.filter((c) => c.arq), t0: janela.t0, t1: janela.t1, paineis: ps,
     estilo: { ...estilo, lingua: lg, fonte: $("sel-fonte").value || estilo.fonte }, formato };   // a fonte que a lista mostra
@@ -264,8 +265,70 @@ function pedido(formato) {
 async function gera(formato) {
   const r = await fetch("figura", { method: "POST", headers: { "Content-Type": "application/json", "X-MaiSim": "1" }, body: JSON.stringify(pedido(formato)) });
   if (!r.ok) { let m = ""; try { m = (await r.json()).erro; } catch (e) { /* sem corpo */ } throw new Error(m || `HTTP ${r.status}`); }
+  if (formato === "previa") {
+    try { eixos = JSON.parse(r.headers.get("X-Eixos") || "[]"); legendas = JSON.parse(r.headers.get("X-Legendas") || "[]"); }
+    catch (e) { eixos = []; legendas = []; }
+  }
   return r.blob();
 }
+// a legenda onde a pessoa quiser (Marcelo, 17/11: "clicar nela e escolher onde ficar"; "não é tão preciso"): o servidor diz
+// onde está cada gráfico e cada legenda na prévia (X-Eixos, X-Legendas: [x0, y0, largura, altura] em fração da figura, de baixo
+// para cima). Arrastar a legenda a põe onde soltar; um clique num gráfico a centraliza no ponto. Vira legenda_xy do painel (o
+// canto de cima à esquerda, em fração dos eixos) e a lista Legenda passa a "Manual"; escolher outra na lista tira as posições
+let eixos = [], legendas = [];
+const comSinais = () => paineis.filter((p) => p.sinais.length);
+function dicaLegenda() {
+  const pode = estilo.legenda !== "nenhuma" && comSinais().length > 0 && !$("previa").hidden;
+  $("dica-legenda").hidden = !pode || !legendas.some(Boolean); $("previa").classList.toggle("clicavel", pode && legendas.some(Boolean));
+  const L = $("legendas"); L.innerHTML = "";
+  if (!pode) return;
+  legendas.forEach((b, k) => {
+    if (!b) return;
+    const d = document.createElement("div"); d.className = "leg"; d.dataset.k = k; d.title = tr("fig.leg.arraste");
+    d.tabIndex = 0; d.setAttribute("role", "button"); d.setAttribute("aria-label", tr("fig.leg.teclado", { n: k + 1 }));
+    Object.assign(d.style, { left: `${b[0] * 100}%`, top: `${(1 - b[1] - b[3]) * 100}%`, width: `${b[2] * 100}%`, height: `${b[3] * 100}%` });
+    L.appendChild(d);
+    if (focoLegenda === k) { d.focus(); }
+  });
+  focoLegenda = null;
+}
+// põe a legenda do gráfico k com o canto de cima à esquerda em (fx, fy), fração da figura
+function poeLegenda(k, fx, fy) {
+  const p = comSinais()[k], ax = eixos[k]; if (!p || !ax) return;
+  const r = (x) => Math.round(Math.min(1.5, Math.max(-0.5, x)) * 1000) / 1000;
+  p.legenda_xy = [r((fx - ax[0]) / ax[2]), r((fy - ax[1]) / ax[3])];
+  estilo.legenda = "manual"; $("sel-legenda").value = "manual";
+  mudou(false, true);
+}
+$("legendas").addEventListener("pointerdown", (e) => {
+  const d = e.target.closest(".leg"); if (!d) return;
+  e.preventDefault(); d.setPointerCapture(e.pointerId); d.classList.add("arrastando");
+  const caixa = $("previa").getBoundingClientRect(), x0 = e.clientX, y0 = e.clientY, l0 = d.offsetLeft, t0 = d.offsetTop;
+  const move = (ev) => { d.style.left = `${l0 + ev.clientX - x0}px`; d.style.top = `${t0 + ev.clientY - y0}px`; };
+  const solta = (ev) => {
+    d.removeEventListener("pointermove", move); d.removeEventListener("pointerup", solta); d.classList.remove("arrastando");
+    if (Math.abs(ev.clientX - x0) + Math.abs(ev.clientY - y0) < 3) return;   // não arrastou: fica onde estava
+    poeLegenda(+d.dataset.k, (l0 + ev.clientX - x0) / caixa.width, 1 - (t0 + ev.clientY - y0) / caixa.height);
+  };
+  d.addEventListener("pointermove", move); d.addEventListener("pointerup", solta);
+});
+// pelo teclado: Tab chega na legenda; as setas a movem 1 % da figura (Shift: 5 %); o foco volta nela depois do redesenho
+let focoLegenda = null;
+$("legendas").addEventListener("keydown", (e) => {
+  const d = e.target.closest(".leg"), passo = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[e.key];
+  if (!d || !passo) return;
+  e.preventDefault();
+  const k = +d.dataset.k, b = legendas[k], m = e.shiftKey ? 0.05 : 0.01;
+  focoLegenda = k; poeLegenda(k, b[0] + passo[0] * m, b[1] + b[3] + passo[1] * m);
+});
+$("previa").addEventListener("click", (e) => {
+  if (estilo.legenda === "nenhuma") return;
+  const r = e.currentTarget.getBoundingClientRect();
+  const u = (e.clientX - r.left) / r.width, v = 1 - (e.clientY - r.top) / r.height;
+  const k = eixos.findIndex(([x0, y0, w, h]) => u >= x0 && u <= x0 + w && v >= y0 && v <= y0 + h);
+  const b = legendas[k]; if (k < 0 || !b) return;
+  poeLegenda(k, u - b[2] / 2, v + b[3] / 2);      // o centro da legenda no ponto clicado
+});
 function estado(txt, erro) { const e = $("estado"); e.textContent = txt || ""; e.className = erro ? "erro" : ""; }
 let tPrevia = null, nPrevia = 0, urlPrevia = null;
 function mudou(redesenha, ja) {
@@ -273,6 +336,15 @@ function mudou(redesenha, ja) {
   guarda();
   clearTimeout(tPrevia); tPrevia = setTimeout(previa, ja ? 0 : 400);
 }
+// a prévia ocupa a moldura toda (Marcelo, 17/11: "o preview poderia ser maior"): a largura dela, sem passar da altura da tela;
+// é a mesma figura ampliada, o tamanho de verdade (em cm) fica escrito embaixo
+function ajustaPrevia() {
+  const img = $("previa"); if (img.hidden || !img.naturalWidth) return;
+  const caixa = img.closest(".folha-moldura"), alto = window.innerHeight - 52 - 200;   // a coluna é sticky (top 52): o título, a moldura e os botões de baixo
+  const larg = Math.min(caixa.clientWidth - 32, Math.max(240, alto) * img.naturalWidth / img.naturalHeight);
+  img.style.width = `${Math.max(120, larg)}px`;
+}
+window.addEventListener("resize", () => { clearTimeout(ajustaPrevia.t); ajustaPrevia.t = setTimeout(ajustaPrevia, 100); });
 async function previa() {
   if (!R.arq || !paineis.some((p) => p.sinais.length)) { $("previa").hidden = true; estado(tr("fig.previa.vazia")); return; }
   const n = ++nPrevia; estado(tr("fig.previa.gerando"));
@@ -280,8 +352,8 @@ async function previa() {
     const b = await gera("previa"); if (n !== nPrevia) return;
     if (urlPrevia) URL.revokeObjectURL(urlPrevia);
     urlPrevia = URL.createObjectURL(b); const img = $("previa");
-    img.onload = () => { const cm = (px) => (px / 150 * 2.54).toLocaleString(maisimI18n.lingua() === "en" ? "en" : "pt-BR", { maximumFractionDigits: 1 });
-      img.style.width = `${Math.min(img.naturalWidth, img.parentElement.clientWidth - 32)}px`;
+    img.onload = () => { const cm = (px) => (px / 300 * 2.54).toLocaleString(maisimI18n.lingua() === "en" ? "en" : "pt-BR", { maximumFractionDigits: 1 });
+      ajustaPrevia(); dicaLegenda();
       estado(tr("fig.previa.tam", { l: cm(img.naturalWidth), a: cm(img.naturalHeight) })); };
     img.src = urlPrevia; img.hidden = false;
   } catch (e) { if (n === nPrevia) { estado(e.message, true); } }

@@ -43,6 +43,13 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
   button:disabled { opacity:.5; cursor:default; }
   main { display:grid; grid-template-columns:minmax(300px, 420px) 1fr; gap:16px; padding:14px 16px 40px; align-items:start; }
   @media (max-width: 860px) { main { grid-template-columns:1fr; } }
+  /* no desktop, a página não rola: a coluna dos ajustes rola sozinha e a prévia fica parada ao lado (Marcelo, 17/11) */
+  @media (min-width: 861px) {
+    html, body { height:100%; overflow:hidden; } body { display:flex; flex-direction:column; }
+    main { flex:1 1 auto; min-height:0; align-items:stretch; padding-bottom:14px; }
+    #lado-ajustes { overflow-y:auto; min-height:0; padding-right:6px; }
+    #lado-previa { position:static !important; overflow-y:auto; min-height:0; }
+  }
   .cartao { background:var(--cartao); border:1px solid var(--borda); border-radius:10px; padding:10px 12px; margin-bottom:12px; }
   .cartao h2 { font-size:13px; margin:0 0 8px; text-transform:uppercase; letter-spacing:.04em; color:var(--sutil); }
   /* os cartões que recolhem (o título é o botão; guardado no navegador) */
@@ -97,6 +104,12 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
            justify-content:center; align-items:center; min-height:260px; }
   .folha { background:#fff; box-shadow:0 1px 6px rgba(0,0,0,.18); max-width:100%; display:block; }
   .folha[hidden] { display:none; }
+  .folha.clicavel { cursor:crosshair; }
+  #previa-caixa { position:relative; line-height:0; }
+  #legendas .leg { position:absolute; cursor:move; outline:1px dashed transparent; border-radius:2px; touch-action:none; }
+  #legendas .leg:focus-visible { outline:2px solid var(--acento); }
+  #legendas .leg:hover, #legendas .leg.arrastando { outline-color:var(--acento); background:rgba(109,40,217,.06); }
+  #dica-legenda { color:var(--sutil); font-size:12px; margin-top:4px; } #dica-legenda button { font-size:12px; padding:1px 8px; margin-left:6px; }
   #exportar { align-items:center; } .rot-baixar { color:var(--sutil); margin-right:2px; }   /* os formatos: ações iguais, nenhum "escolhido" */
   #estado { color:var(--sutil); margin-top:6px; min-height:1.3em; }
 </style>
@@ -157,8 +170,9 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
   <div id="lado-previa">
     <section class="cartao">
       <h2 data-tr="fig.previa.titulo">Prévia</h2>
-      <div class="folha-moldura"><img id="previa" class="folha" alt="" hidden></div>
+      <div class="folha-moldura"><div id="previa-caixa"><img id="previa" class="folha" alt="" hidden><div id="legendas"></div></div></div>
       <div id="estado"></div>
+      <div id="dica-legenda" hidden data-tr="fig.leg.dica">Arraste a legenda na prévia, ou clique num gráfico para levá-la até ali.</div>
       <div class="botoes" id="exportar"><span class="rot-baixar" data-tr="fig.exp.baixar">Baixar:</span>
         <button type="button" data-formato="pdf">PDF</button>
         <button type="button" data-formato="svg">SVG</button>

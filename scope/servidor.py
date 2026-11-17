@@ -273,10 +273,12 @@ class Manipulador(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
 
-    def _resposta(self, codigo, corpo, tipo="application/json"):
+    def _resposta(self, codigo, corpo, tipo="application/json", extra=None):
         corpo = corpo if isinstance(corpo, bytes) else json.dumps(corpo, separators=(",", ":")).encode()
         self.send_response(codigo)
         self.send_header("Content-Type", tipo)
+        for k, v in (extra or {}).items():
+            self.send_header(k, v)
         self.send_header("Content-Length", str(len(corpo)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
@@ -457,10 +459,12 @@ class Manipulador(BaseHTTPRequestHandler):
                 raise figura.ErroFigura(lingua.tr("scope_srv.arquivo_invalido"))
             return arq
         try:
-            dados, tipo = figura.figura(corpo, resolve)
+            info = {}
+            dados, tipo = figura.figura(corpo, resolve, info)
         except figura.ErroFigura as e:
             return self._resposta(503 if "matplotlib" in str(e) else 400, {"erro": str(e)})
-        return self._resposta(200, dados, tipo)
+        return self._resposta(200, dados, tipo, {"X-Eixos": json.dumps(info.get("eixos") or []),
+                                                     "X-Legendas": json.dumps(info.get("legendas") or [])})   # onde ficou cada gráfico e cada legenda
 
     def _apagar(self):
         """Apaga gravações pedidas pela tela: só scope_*.npz das pastas do scope; de uma rodada do simu, a pasta inteira

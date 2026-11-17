@@ -35,7 +35,7 @@ const espera = (pg, f, arg) => pg.waitForFunction(f, arg ?? null, { timeout: 600
     const g = await pg.$$eval("#paineis .painel", (ps) => ps.map((p) => [...p.querySelectorAll(".chip")].map((c) => c.dataset.c).join(",")));
     ok(pronta && JSON.stringify(g) === JSON.stringify(["v_o,v_sw", "i_L", "g,portadora"]), `a rodada pela URL e os gráficos por grandeza: ${JSON.stringify(g)}`);
     let F = await folha(pg);
-    ok(F.vis && Math.abs(F.w / 150 * 2.54 - 8.89) < 0.15 && F.fundo === "rgb(255, 255, 255)", `a prévia: ${F.w}×${F.h} px (8,9 cm a 150 dpi), na folha branca`);
+    ok(F.vis && Math.abs(F.w / 300 * 2.54 - 8.89) < 0.15 && F.fundo === "rgb(255, 255, 255)", `a prévia: ${F.w}×${F.h} px (8,9 cm a 300 dpi), na folha branca`);
     // a lista dos sinais: o filtro e o marcar
     await pg.click("#paineis .painel:nth-child(2) .mais-sinais"); await pg.fill("#lista-sinais .filtro", "por");
     const vis = await pg.$$eval("#lista-sinais .itens label", (ls) => ls.filter((l) => !l.hidden).map((l) => l.dataset.c));
@@ -52,13 +52,37 @@ const espera = (pg, f, arg) => pg.waitForFunction(f, arg ?? null, { timeout: 600
     // o estilo e a grade
     const w1 = F.w;
     await pg.selectOption("#sel-estilo", "ieee2"); await espera(pg, (w) => document.getElementById("previa").naturalWidth > w * 1.8, w1);
-    F = await folha(pg); ok(Math.abs(F.w / 150 * 2.54 - 18.2) < 0.2, `IEEE 2 colunas: ${(F.w / 150 * 2.54).toFixed(1)} cm de largura`);
+    F = await folha(pg); ok(Math.abs(F.w / 300 * 2.54 - 18.2) < 0.2, `IEEE 2 colunas: ${(F.w / 300 * 2.54).toFixed(1)} cm de largura`);
     const h1 = F.h; await pg.selectOption("#sel-colunas", "2"); await espera(pg, (h) => document.getElementById("previa").naturalHeight < h * 0.8, h1);
     F = await folha(pg); ok(F.h < h1 * 0.8, `2 gráficos por linha: a figura mais baixa (${h1} → ${F.h} px)`);
     // o PDF
     const [dl] = await Promise.all([pg.waitForEvent("download", { timeout: 60000 }), pg.click('#exportar [data-formato="pdf"]')]);
     const p = await dl.path(), cab = fs.readFileSync(p).subarray(0, 5).toString();
     ok(/^figura_maisim_exemplo_buck_\d{8}-\d{4}\.pdf$/.test(dl.suggestedFilename()) && cab === "%PDF-", `o PDF baixado: ${dl.suggestedFilename()} (${cab})`);
+    // a página não rola, só a coluna dos ajustes; a prévia ocupa a moldura (mais larga que o tamanho real)
+    const rola = await pg.evaluate(() => ({ pag: document.documentElement.scrollHeight <= innerHeight + 1, aj: getComputedStyle(document.getElementById("lado-ajustes")).overflowY }));
+    ok(rola.pag && rola.aj === "auto", `a página não rola, a coluna dos ajustes sim (${JSON.stringify(rola)})`);
+    // a legenda: arrastar a põe onde soltar (ao pixel), a lista vira "Manual", as setas a movem e o foco fica nela
+    await pg.selectOption("#sel-colunas", "1"); await pg.selectOption("#sel-estilo", "ieee1");
+    await espera(pg, () => document.querySelectorAll("#legendas .leg").length > 0 && document.getElementById("previa").naturalWidth < 1200);
+    const caixa = async () => pg.evaluate(() => { const l = document.querySelector("#legendas .leg"), i = document.getElementById("previa").getBoundingClientRect(), r = l.getBoundingClientRect();
+      return { x: r.left - i.left, y: r.top - i.top, n: document.getElementById("previa").src }; });
+    const L0 = await caixa(), lr = await (await pg.$("#legendas .leg")).boundingBox();
+    await pg.mouse.move(lr.x + lr.width / 2, lr.y + lr.height / 2); await pg.mouse.down();
+    await pg.mouse.move(lr.x + lr.width / 2 - 60, lr.y + lr.height / 2 + 30, { steps: 6 }); await pg.mouse.up();
+    await espera(pg, (n) => document.getElementById("previa").src !== n && document.querySelector("#legendas .leg"), L0.n);
+    await pg.waitForTimeout(300);
+    const L1 = await caixa(), modo = await pg.$eval("#sel-legenda", (s) => s.value);
+    ok(Math.abs(L1.x - (L0.x - 60)) <= 2 && Math.abs(L1.y - (L0.y + 30)) <= 2 && modo === "manual",
+       `arrastar a legenda: (${L0.x.toFixed(0)}, ${L0.y.toFixed(0)}) → (${L1.x.toFixed(0)}, ${L1.y.toFixed(0)}), esperado 60 à esquerda e 30 abaixo; a lista: ${modo}`);
+    await pg.focus("#legendas .leg"); await pg.keyboard.press("Shift+ArrowRight");
+    await espera(pg, (n) => document.getElementById("previa").src !== n && document.querySelector("#legendas .leg"), L1.n);
+    await pg.waitForTimeout(300);
+    const L2 = await caixa(), foco = await pg.evaluate(() => document.activeElement && document.activeElement.classList.contains("leg"));
+    ok(L2.x > L1.x + 10 && Math.abs(L2.y - L1.y) <= 2 && foco, `Shift+→ move a legenda para a direita (${L1.x.toFixed(0)} → ${L2.x.toFixed(0)}) e o foco fica nela (${foco})`);
+    await pg.selectOption("#sel-legenda", "auto");
+    await espera(pg, (n) => document.getElementById("previa").src !== n, L2.n);
+    ok(await pg.evaluate(() => paineis.every((p) => !p.legenda_xy)), "voltar a lista para Automático tira as posições escolhidas");
     // os cartões que recolhem
     await pg.click('[data-sec="janela"] .dobra'); await pg.reload(); await espera(pg, () => document.querySelector("#previa") && !document.getElementById("previa").hidden);
     ok(await pg.$eval('[data-sec="janela"]', (e) => e.classList.contains("recolhida") && getComputedStyle(e.querySelector(".corpo")).display === "none"),
