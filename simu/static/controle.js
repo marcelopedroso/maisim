@@ -563,6 +563,12 @@ function desenhaEntradas() {                            // a tabela das medidas:
 // com o mesmo código). Cada controlador roda no seu processo, todos juntos a cada amostra; conversam por envia/recebe.
 // Sem nenhum na lista, o controle.py de sempre: lê todas as medidas e escreve as atuações marcadas
 const ICONE_ARQ = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><path d="M4 1.8h5.2L12.5 5v9.2H4z"/><path d="M9 1.8V5h3.5"/></svg>';
+// o ícone de cada arquivo da árvore, pela extensão (como no VS Code e na página de scripts): o Python nos .py, um C azul nos
+// .c e um H roxo nos .h; o resto, a folha de sempre
+const ICONE_PY = '<svg class="ico-arq" viewBox="0 0 16 16" aria-hidden="true"><path fill="#3776ab" d="M7.9 1C5.3 1 5.5 2.1 5.5 2.1v1.2H8v.4H4.4S2.7 3.5 2.7 6.1s1.5 2.5 1.5 2.5h.9V7.4s0-1.5 1.5-1.5h2.5s1.4 0 1.4-1.4V2.5S10.7 1 7.9 1zM6.5 1.8a.45.45 0 1 1 0 .9.45.45 0 0 1 0-.9z"/><path fill="#ffd43b" d="M8.1 15c2.6 0 2.4-1.1 2.4-1.1v-1.2H8v-.4h3.6s1.7.2 1.7-2.4-1.5-2.5-1.5-2.5h-.9v1.2s0 1.5-1.5 1.5H6.9s-1.4 0-1.4 1.4v2.1S5.3 15 8.1 15zm1.4-.8a.45.45 0 1 1 0-.9.45.45 0 0 1 0 .9z"/></svg>';
+const iconeLetra = (letra, cor) => `<svg class="ico-arq" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="13" height="13" rx="3" fill="${cor}"/><text x="8" y="11.6" text-anchor="middle" font-family="system-ui, sans-serif" font-size="10" font-weight="700" fill="#fff">${letra}</text></svg>`;
+const ICONE_C = iconeLetra("C", "#3d7ac4"), ICONE_H = iconeLetra("H", "#8b5cf6");
+const iconeArq = (nome) => (/\.py$/.test(nome) ? ICONE_PY : /\.c$/.test(nome) ? ICONE_C : /\.h$/.test(nome) ? ICONE_H : ICONE_ARQ);
 const nomeDoArquivo = (a) => a.replace(/\.py$/, "");
 const ehModulo = (a) => ((ctl.dados && ctl.dados.modulos) || []).includes(a);
 // o que um destino lê de uma mensagem (a dica da mensagem, no cartão e no diagrama)
@@ -647,12 +653,12 @@ function desenhaControladores() {
   const modulo = (a, chave, anc, inteiro = false) => {   // inteiro: o compartilhado na seção dele (com os filhos)
     if (!inteiro && comp.includes(a)) { mostrados.add(a);
       return `<div class="ctl-no ctl-mod-no compartilhado${a === ctl.arq ? " ativo" : ""}${comErro.has(a) ? " com-erro" : ""}" data-abre="${escT(a)}"
-        title="${escT(tr("ctl.t_compartilhado", { arq: a, quem: quemUsa(a) }))}">${seta(chave, 0)}<span class="comp" aria-hidden="true">⇄</span>${ICONE_ARQ}<span class="nome">${escT(a)}</span>
+        title="${escT(tr("ctl.t_compartilhado", { arq: a, quem: quemUsa(a) }))}">${seta(chave, 0)}<span class="comp" aria-hidden="true">⇄</span>${iconeArq(a)}<span class="nome">${escT(a)}</span>
         <span class="acoes"><span class="fecha" data-fecha="${escT(a)}" title="${escT(tr("ctl.t_apagar_arq", { arq: a }))}">×</span></span></div>`; }
     const repetido = !inteiro && mostrados.has(a); mostrados.add(a);
     const fs = repetido ? [] : filhos(a, anc), quem = [...anc].pop();
     return `<div class="ctl-no ctl-mod-no${a === ctl.arq ? " ativo" : ""}${comErro.has(a) ? " com-erro" : ""}${repetido ? " repetido" : ""}" data-abre="${escT(a)}"
-      title="${escT(tr(`ctl.t_mod${ehC(a) ? "_c" : ""}${quem ? "_chamado" : ""}${repetido ? "_rep" : ""}`, { arq: a, mod: nomeDoArquivo(a), quem, h: a.replace(/\.c$/, ".h") }))}">${seta(chave, fs.length)}${ICONE_ARQ}<span class="nome">${escT(a)}</span>${repetido ? `<small>${escT(tr("ctl.acima"))}</small>` : ""}
+      title="${escT(tr(`ctl.t_mod${ehC(a) ? "_c" : ""}${quem ? "_chamado" : ""}${repetido ? "_rep" : ""}`, { arq: a, mod: nomeDoArquivo(a), quem, h: a.replace(/\.c$/, ".h") }))}">${seta(chave, fs.length)}${iconeArq(a)}<span class="nome">${escT(a)}</span>${repetido ? `<small>${escT(tr("ctl.acima"))}</small>` : ""}
       <span class="acoes">${ehC(a) ? "" : `<button class="ctl-mini" data-liga="${escT(a)}" title="${escT(tr("ctl.t_virar_ctl"))}">⤴</button>`}<span class="fecha" data-fecha="${escT(a)}" title="${escT(tr("ctl.t_apagar_arq", { arq: a }))}">×</span></span></div>` +
       ramo(fs, chave, new Set([...anc, a]));
   };
@@ -665,8 +671,8 @@ function desenhaControladores() {
     // dois controles (Marcelo, 19/10): a seta recolhe os códigos (os módulos embaixo); o +/− mostra ou esconde o cartão
     const bt = corpo ? `<button class="ctl-card-bt" data-card="${escT(a)}" title="${escT(semCartao ? tr("ctl.t_cartao_mostra") : tr("ctl.t_cartao_esconde"))}" aria-expanded="${!semCartao}">${semCartao ? "+" : "−"}</button>` : "";
     if (emC && !ctl.lista.includes(a))                   // um controlador ainda sem o .c dele: um clique cria (o cartão fica: a lista vem dele)
-      return `<div class="ctl-no ctl-falta" data-cria-c="${escT(a)}" title="${escT(tr("ctl.t_c_falta", { arq: a }))}">${seta(a, 0)}${ICONE_ARQ}<span class="nome">${escT(a)}</span><small>${escT(tr("ctl.c_falta"))}</small>${bt}</div>${corpo ? `<div class="ctl-sub"${semCartao ? " hidden" : ""}>${corpo}</div>` : ""}`;
-    return `<div class="ctl-no${a === ctl.arq ? " ativo" : ""}${comErro.has(a) ? " com-erro" : ""}" data-abre="${escT(a)}" title="${escT(tr(a === "controle.py" ? "ctl.t_raiz" : ehC(a) ? "ctl.t_raiz_c" : "ctl.t_raiz_renomear", { arq: a }))}">${seta(a, fs.length)}${ICONE_ARQ}<span class="nome">${escT(a)}</span>${bt}${a === "controle.py" || a === "controle.c" ? ""
+      return `<div class="ctl-no ctl-falta" data-cria-c="${escT(a)}" title="${escT(tr("ctl.t_c_falta", { arq: a }))}">${seta(a, 0)}${iconeArq(a)}<span class="nome">${escT(a)}</span><small>${escT(tr("ctl.c_falta"))}</small>${bt}</div>${corpo ? `<div class="ctl-sub"${semCartao ? " hidden" : ""}>${corpo}</div>` : ""}`;
+    return `<div class="ctl-no${a === ctl.arq ? " ativo" : ""}${comErro.has(a) ? " com-erro" : ""}" data-abre="${escT(a)}" title="${escT(tr(a === "controle.py" ? "ctl.t_raiz" : ehC(a) ? "ctl.t_raiz_c" : "ctl.t_raiz_renomear", { arq: a }))}">${seta(a, fs.length)}${iconeArq(a)}<span class="nome">${escT(a)}</span>${bt}${a === "controle.py" || a === "controle.c" ? ""
         : `<span class="fecha" data-fecha="${escT(a)}" title="${escT(tr("ctl.t_apagar_arq", { arq: a }))}">×</span>`}</div>${corpo ? `<div class="ctl-sub"${semCartao ? " hidden" : ""}>${corpo}</div>` : ""}` + ramo(fs, a, new Set([a]));
   };
   let html = ctlsArq.filter((a) => emC || ctl.lista.includes(a)).map(raiz).join("");
@@ -894,7 +900,7 @@ function buscaArquivos() {
   const arqs = ctl.lista.filter((a) => a.toLowerCase().includes(ql));
   const linhas = [];
   for (const a of ctl.lista) textoDe(a).split("\n").forEach((l, i) => { if (linhas.length < 60 && l.toLowerCase().includes(ql)) linhas.push([a, i + 1, l.trim()]); });
-  res.innerHTML = `<h4>${escT(tr("ctl.busca_arquivos"))}</h4>${arqs.map((a) => `<div class="ctl-no${a === ctl.arq ? " ativo" : ""}" data-abre="${escT(a)}">${ICONE_ARQ}<span class="nome">${marca(a)}</span></div>`).join("") || `<div class="vazio">${escT(tr("ctl.busca_sem_arq"))}</div>`}
+  res.innerHTML = `<h4>${escT(tr("ctl.busca_arquivos"))}</h4>${arqs.map((a) => `<div class="ctl-no${a === ctl.arq ? " ativo" : ""}" data-abre="${escT(a)}">${iconeArq(a)}<span class="nome">${marca(a)}</span></div>`).join("") || `<div class="vazio">${escT(tr("ctl.busca_sem_arq"))}</div>`}
     <h4>${escT(tr("ctl.col_no_codigo"))} <small>${linhas.length >= 60 ? escT(tr("ctl.busca_60")) : linhas.length}</small></h4>${linhas.map(([a, n, l]) => `<a class="r" data-vai="${escT(a)}:${n}" title="${escT(tr("ctl.onde_arq", { arq: a, linha: n }))}"><b>${escT(a)}:${n}</b> ${marca(l)}</a>`).join("") || `<div class="vazio">${escT(tr("ctl.busca_sem_linha"))}</div>`}`;
 }
 // o diagrama da arquitetura (Marcelo, 19/10: "um diagrama, tipo um flow, mostrando o que ele lê e o que sai dele, o que sai
