@@ -77,8 +77,11 @@ function poeCodigo(c) {
 async function montaEditor() {
   try {
     const monaco = await carregaMonaco();
+    const temaEditor = () => (document.documentElement.dataset.tema === "escuro" ? "vs-dark" : "vs");
     st.editor = monaco.editor.create($("editor"), { value: "", language: "python", automaticLayout: true, minimap: { enabled: false },
-      fontSize: 13, tabSize: 4, insertSpaces: true, scrollBeyondLastLine: false, theme: document.documentElement.dataset.tema === "escuro" ? "vs-dark" : "vs" });
+      fontSize: 13, tabSize: 4, insertSpaces: true, scrollBeyondLastLine: false, theme: temaEditor() });
+    // o trilho trocou o tema (aqui ou noutra aba): o editor acompanha (Marcelo, 17/11: "o tema não respeitou")
+    addEventListener("maisim-tema", () => monaco.editor.setTheme(temaEditor()));
     st.editor.onDidChangeModelContent(marca);
     st.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => salvar());
     st.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => rodar());

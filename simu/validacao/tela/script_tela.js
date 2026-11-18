@@ -95,6 +95,16 @@ const pede = (pg, rota, corpo) => pg.evaluate(async ([r, c]) => (await fetch(`sc
     ok(m && m.tit === "Apagar a pasta?" && m.perigo && /com os 2 scripts/.test(await pg.textContent(".modal p")), `apagar a pasta: a janela diz quantos scripts (${await pg.textContent(".modal p").catch(() => "")})`);
     await pg.click(".modal .m-ok"); await pg.waitForTimeout(600);
     ok(!(await pg.$(`#lista-meus li.pasta[data-id="meus:${PASTA}"]`)), "a pasta saiu da árvore");
+    // o tema: trocar pelo trilho troca também o editor (o Monaco)
+    const fundoEd = () => pg.evaluate(() => { const e = document.querySelector("#editor .monaco-editor-background, #editor .monaco-editor"); return e ? getComputedStyle(e).backgroundColor : ""; });
+    const claro = await fundoEd();
+    await pg.evaluate(() => { localStorage.setItem("maisim-tema", "escuro"); window.dispatchEvent(new StorageEvent("storage", { key: "maisim-tema" })); });
+    await pg.waitForTimeout(400);
+    const escuro = await fundoEd();
+    const lum = (c) => { const m = c.match(/\d+/g) || [255, 255, 255]; return (+m[0] + +m[1] + +m[2]) / 3; };
+    ok(lum(claro) > 200 && lum(escuro) < 80, `trocar o tema pelo trilho troca o editor (${claro} → ${escuro})`);
+    await pg.evaluate(() => { localStorage.setItem("maisim-tema", "claro"); window.dispatchEvent(new StorageEvent("storage", { key: "maisim-tema" })); });
+    await pg.waitForTimeout(300);
     // a Saída: arrastar a borda de cima muda a altura (e fica ao recarregar); "−" minimiza; rodar mostra de novo
     const hSaida = () => pg.$eval("#saida-box", (x) => Math.round(x.getBoundingClientRect().height));
     const h0 = await hSaida(), bb = await (await pg.$("#saida-borda")).boundingBox();
