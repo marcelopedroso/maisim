@@ -117,13 +117,15 @@ function ativa(i) {
   guardaAbas(); desenhaAbas(); marca(); marcaArvore();
   if (st.editor) st.editor.focus();
 }
+const ICO_CADEADO = '<svg class="cadeado" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.2" y="7" width="9.6" height="6.8" rx="1.3"/><path d="M5.3 7V5.1a2.7 2.7 0 0 1 5.4 0V7"/></svg>';
+const ICO_ALFINETE = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.6 1.8l4.6 4.6-1.6.6-2.3 2.3.3 2.8-1.4 1.4-2.4-2.4-3.6 3.6M5.2 8.7 7.6 11.1M5.2 8.7 2.8 6.3l1.4-1.4 2.8.3L9.3 2.9z"/></svg>';
 // as abas como no VS Code: um clique na árvore abre em PRÉVIA (itálico: o próximo clique troca o arquivo nela); editar, duplo
 // clique (na aba ou na árvore) ou 📌 a mantém; 📌 também a FIXA à esquerda (sem o ×). Guardadas neste navegador
 const guardaAbas = () => guarda("maisim-script-abas", JSON.stringify(st.abas.filter((a) => a.nome).map((a) => [a.nome, a.grupo, a.fixa ? 1 : 0])));
 function desenhaAbas() {
   $("ctl-abas").innerHTML = st.abas.map((a, i) => `<button type="button" role="tab" class="aba${i === st.ativa ? " ativa" : ""}${a.previa ? " previa" : ""}${a.fixa ? " fixa" : ""}" data-i="${i}" aria-selected="${i === st.ativa}" title="${esc((a.nome ? (a.grupo === "exemplos" ? tr("scr.aba_exemplo", { nome: a.nome }) : a.nome) : tr("scr.sem_nome")) + (a.previa ? " · " + tr("scr.aba_previa") : ""))}">`
-    + `${a.grupo === "exemplos" ? '<span class="cadeado" aria-hidden="true">🔒</span>' : ""}<span class="nome-aba">${esc(a.nome ? a.nome.split("/").pop() + ".py" : tr("scr.sem_nome"))}</span>${sujoAba(a) || !a.nome ? '<span class="ponto-sujo">•</span>' : ""}`
-    + `<span class="fixa-bt" data-fixa="${i}" role="button" title="${esc(tr(a.fixa ? "scr.desafixar_aba" : "scr.fixar_aba"))}" aria-label="${esc(tr(a.fixa ? "scr.desafixar_aba" : "scr.fixar_aba"))}">📌</span>`
+    + `${a.grupo === "exemplos" ? ICO_CADEADO : ""}<span class="nome-aba">${esc(a.nome ? a.nome.split("/").pop() + ".py" : tr("scr.sem_nome"))}</span>${sujoAba(a) || !a.nome ? '<span class="ponto-sujo">•</span>' : ""}`
+    + `<span class="fixa-bt" data-fixa="${i}" role="button" title="${esc(tr(a.fixa ? "scr.desafixar_aba" : "scr.fixar_aba"))}" aria-label="${esc(tr(a.fixa ? "scr.desafixar_aba" : "scr.fixar_aba"))}">${ICO_ALFINETE}</span>`
     + `<span class="fecha" data-fecha="${i}" role="button" aria-label="${esc(tr("scr.fechar_aba"))}">×</span></button>`).join("");
 }
 function fixaAba(i, fixa) { const a = st.abas[i]; if (!a) return; a.previa = false; if (fixa !== undefined) a.fixa = fixa; guardaAbas(); desenhaAbas(); }
@@ -139,7 +141,7 @@ async function fechaAba(i, semPerguntar = false) {
   if (!semPerguntar && !(await descartar(a))) return;
   if (a.model) a.model.dispose();
   st.abas.splice(i, 1);
-  if (!st.abas.length) { st.ativa = -1; await novo(); return; }
+  if (!st.abas.length) { st.ativa = -1; await novoSemNome(); return; }
   ativa(Math.min(i <= st.ativa ? Math.max(0, st.ativa - 1) : st.ativa, st.abas.length - 1));
 }
 
@@ -296,12 +298,24 @@ async function abre(nome, grupo, previa = false) {     // já aberto: vai para a
     escreveSaida(tr("scr.falhou", { erro: e.message }), "err");
     if (!st.nome) history.replaceState(null, "", location.pathname);
     if (st.ativa < 0 && st.abas.length) ativa(0);     // as abas da última vez continuam; senão, um script novo
-    if (!st.abas.length) await novo().catch(() => {}); else await lista().catch(() => {});
+    if (!st.abas.length) await novoSemNome().catch(() => {}); else await lista().catch(() => {});
   }
 }
-async function novo() {
+async function novoSemNome() {                       // (sem nenhuma aba aberta: uma em branco, para começar a escrever)
   const j = await api("/novo");
   ativa(novaAba("", "meus", j.codigo)); await lista();
+}
+async function novo() {                               // + Script (como o novo arquivo do VS Code): o nome na hora, na pasta escolhida
+  const n = await janela({ titulo: tr("scr.novo_t"), texto: tr("scr.novo_texto", { onde: st.pasta || tr("scr.meus") }), ok: tr("scr.criar"),
+    campo: { rotulo: tr("scr.nome"), valor: st.pasta ? `${st.pasta}/` : "" }, valida: (v) => (v.endsWith("/") ? tr("scr.campo_vazio") : validaNome(v)) });
+  if (!n) return;
+  const nome = n.replace(/\.py$/, "");
+  try {
+    const j = await api("/novo");
+    const r = await api("/salvar", { nome, codigo: j.codigo });
+    if (r.codigo === "confirmar") { await janela({ titulo: tr("scr.novo_t"), texto: r.pergunta, ok: tr("scr.ok") }); return; }   // já existe: não substitui
+    await abre(r.nome, "meus");
+  } catch (e) { escreveSaida(tr("scr.falhou", { erro: e.message }), "err"); }
 }
 async function novaPasta() {
   const nome = await janela({ titulo: tr("scr.pasta_t"), texto: tr("scr.pede_pasta", { onde: st.pasta || tr("scr.meus") }), ok: tr("scr.criar"),
@@ -487,5 +501,5 @@ maisimI18n.aoMudar(() => { maisimI18n.aplica(document); desenhaAbas(); marca(); 
   const q = new URLSearchParams(location.search);
   if (q.get("nome")) await abre(q.get("nome"), q.get("grupo") === "exemplos" ? "exemplos" : "meus");
   else if (st.abas.length) { ativa(0); await lista(); }
-  else await novo();
+  else await novoSemNome();
 })();

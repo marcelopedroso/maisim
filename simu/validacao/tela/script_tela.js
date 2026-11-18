@@ -45,12 +45,16 @@ const pede = (pg, rota, corpo) => pg.evaluate(async ([r, c]) => (await fetch(`sc
     await pg.click("#bt-pasta"); await pg.fill(".modal .m-campo", PASTA); await pg.keyboard.press("Enter");
     await pg.waitForSelector(`#lista-meus button.abre.sel[data-pasta="${PASTA}"]`, { timeout: 10000 }).catch(() => {});
     ok(!!(await pg.$(`#lista-meus button.abre.sel[data-pasta="${PASTA}"]`)), "um nome válido cria a pasta, escolhida na árvore");
-    // Salvar sem nome: a janela pede, já com a pasta
-    await pg.click("#bt-novo"); await pg.waitForTimeout(300);   // uma aba nova, sem nome
-    await pg.click("#bt-salvar"); m = await modal();
-    ok(m && m.tit === "Salvar o script" && m.campo === `${PASTA}/`, `Salvar sem nome: a janela pede o nome, já com "${PASTA}/" (${JSON.stringify(m)})`);
+    // + Script (como o novo arquivo do VS Code): pergunta o nome já com a pasta escolhida, cria e abre a aba com o nome
+    await pg.click("#bt-novo2"); m = await modal();
+    ok(m && m.tit === "Novo script" && m.campo === `${PASTA}/`, `+ Script: a janela pede o nome, já com "${PASTA}/" (${JSON.stringify(m)})`);
     await pg.fill(".modal .m-campo", `${PASTA}/um`); await pg.click(".modal .m-ok");
     await pg.waitForSelector(`#lista-meus button[data-nome="${PASTA}/um"]`, { timeout: 10000 }).catch(() => {});
+    const aba1 = await pg.$$eval("#ctl-abas .aba.ativa .nome-aba", (x) => x.map((y) => y.textContent));
+    ok(JSON.stringify(aba1) === '["um.py"]' && (await pg.textContent("#ctl-estado")) === "salvo", `a aba já com o nome e salva (${JSON.stringify(aba1)})`);
+    await pg.click("#bt-novo"); await modal(); await pg.fill(".modal .m-campo", `${PASTA}/um`); await pg.click(".modal .m-ok"); m = await modal();
+    ok(m && /já existe/.test(await pg.textContent(".modal p")), "um nome que já existe: avisa e não substitui");
+    await pg.click(".modal .m-ok");
     ok(!!(await pg.$(`#lista-meus button[data-nome="${PASTA}/um"]`)) && (await pg.textContent("#nome-atual")) === `${PASTA}/um`, "salvou o script dentro da pasta");
     // descartar mudanças
     await pg.evaluate(() => { const ed = window.monaco && monaco.editor.getEditors()[0].getModel(); if (ed) ed.setValue(ed.getValue() + "\n# mudou\n"); else { const t = document.querySelector("#editor textarea"); t.value += "\n# mudou"; t.dispatchEvent(new Event("input")); } });
