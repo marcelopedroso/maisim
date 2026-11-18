@@ -9,6 +9,7 @@ Tudo fica dentro do MaiSim:
 
 Organiza onde as coisas ficam, mas não isola o processo: um script Python abre qualquer arquivo que o usuário abre. A página
 avisa disso. Só biblioteca padrão aqui (o numpy é do script, não do servidor)."""
+import json
 import os
 import re
 import shutil
@@ -16,6 +17,7 @@ import subprocess
 import sys
 import time
 import uuid
+import zipfile
 from pathlib import Path
 
 import lingua
@@ -251,8 +253,164 @@ def roda(nome, grupo="meus"):
         npz = next(iter(d.glob("scope_*.npz")), None) if d.is_dir() and d.name not in ja and _da_vez(d, vez) else None
         if npz is not None:
             novas.append({"pasta": d.name, "arquivo": str(npz)})
-    return {"ok": codigo == 0, "codigo_saida": codigo, "prazo_estourado": estourou, "tempo": round(time.time() - antes, 3),
-            "saida": _corta(saida), "erro": _corta(erro), "rodadas": novas}
+    r = {"ok": codigo == 0, "codigo_saida": codigo, "prazo_estourado": estourou, "tempo": round(time.time() - antes, 3),
+         "saida": _corta(saida), "erro": _corta(erro), "rodadas": novas}
+    if grupo != "exemplos":
+        _guarda_ultima(nome, r)
+    return r
+
+
+ULTIMA_MAX = 6000                            # caracteres da saída e dos erros guardados da última execução (para a IA)
+
+
+def _arquivo_ultima(nome):
+    return pasta_scripts() / ".ultima" / f"{caminho(nome).replace('/', '__')}.json"
+
+
+def _sinais_npz(arq):
+    """Os nomes dos sinais de um scope_*.npz, sem numpy (o servidor só usa a biblioteca padrão): os .npy dentro do zip."""
+    try:
+        with zipfile.ZipFile(arq) as z:
+            return [n[:-4] for n in z.namelist() if n.endswith(".npy") and n[:-4] not in ("t", "meta")]
+    except (OSError, zipfile.BadZipFile):
+        return []
+
+
+def _guarda_ultima(nome, r):
+    """A última execução de um script dos seus (a saída e os erros, cortados; as rodadas e os sinais): o que a IA do script
+    lê para saber o que aconteceu quando a pessoa rodou."""
+    d = {"quando": time.time(), "ok": r["ok"], "codigo_saida": r["codigo_saida"], "prazo_estourado": r["prazo_estourado"],
+         "tempo": r["tempo"], "saida": r["saida"][-ULTIMA_MAX:], "erro": r["erro"][-ULTIMA_MAX:],
+         "rodadas": [{"pasta": x["pasta"], "sinais": _sinais_npz(x["arquivo"])} for x in r["rodadas"]]}
+    f = _arquivo_ultima(nome)
+    try:
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def ultima(nome):
+    try:
+        return json.loads(_arquivo_ultima(nome).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+# ----------------------------------------------------------------- a IA do script (a conversa de um script, no servidor)
+# O MaiSim monta a pasta da conversa com o PROJETO do script: os .py da pasta de cima dele (um script na raiz: só ele),
+# com as subpastas; mais o CONTEXTO.md (qual é o script, os outros arquivos, a última execução) e o GUIA_SCRIPT.md. A IA
+# edita ali; a proposta são os .py que ela mudou ou criou (lidos de volta, a sintaxe conferida SEM executar). Aplicar grava
+# nos seus scripts, só dentro do projeto. Nada roda sozinho: quem roda é a pessoa, depois de ver a diferença.
+GUIA = AQUI / "GUIA_SCRIPT.md"
+PROJETO_MAX = 60                             # arquivos .py de um projeto que vão para a conversa
+ARQ_MAX = 200_000                            # caracteres de um arquivo do projeto
+
+
+def projeto(nome):
+    """(a pasta do projeto nos seus scripts, o caminho do script dentro dela, o prefixo do projeto): a pasta de cima do script
+    ("proj/main" → proj/, "main.py", "proj"); um script na raiz é um projeto de um arquivo só."""
+    nome = caminho(nome)
+    if "/" in nome:
+        topo, resto = nome.split("/", 1)
+        return pasta_scripts() / topo, f"{resto}.py", topo
+    return pasta_scripts(), f"{nome}.py", ""
+
+
+def _arquivos_projeto(base, so=None):
+    """{caminho relativo: código} dos .py do projeto (sem __pycache__ nem pastas ocultas); so: só esse (o script da raiz)."""
+    if so is not None:
+        f = base / so
+        return {so: f.read_text(encoding="utf-8", errors="replace")[:ARQ_MAX]} if f.is_file() else {}
+    out = {}
+    for f in sorted(base.rglob("*.py")):
+        rel = f.relative_to(base).as_posix()
+        if any(p.startswith((".", "__")) for p in rel.split("/")[:-1]) or len(out) >= PROJETO_MAX:
+            continue
+        out[rel] = f.read_text(encoding="utf-8", errors="replace")[:ARQ_MAX]
+    return out
+
+
+def monta_conversa(nome, pasta):
+    """Reescreve a pasta da conversa com o estado de agora (os anexos ficam) e devolve {rel: código} de antes."""
+    base, rel, topo = projeto(nome)
+    if not (base / rel).is_file():
+        raise ErroScript(lingua.tr("script.nao_achei", nome=caminho(nome)))
+    for f in list(pasta.rglob("*")):                 # o estado de antes sai (menos os anexos)
+        if f.is_file() and "anexos" not in f.relative_to(pasta).parts:
+            f.unlink()
+    arqs = _arquivos_projeto(base, None if topo else rel)
+    for r, cod in arqs.items():
+        (pasta / r).parent.mkdir(parents=True, exist_ok=True)
+        (pasta / r).write_text(cod, encoding="utf-8")
+    guia = AQUI / ("GUIA_SCRIPT.en.md" if lingua.atual() == "en" else "GUIA_SCRIPT.md")
+    shutil.copyfile(guia if guia.is_file() else GUIA, pasta / "GUIA_SCRIPT.md")
+    (pasta / "CONTEXTO.md").write_text(_contexto(nome, rel, topo, arqs), encoding="utf-8")
+    return arqs
+
+
+def _contexto(nome, rel, topo, arqs):
+    """O CONTEXTO.md da conversa: o script, os outros arquivos do projeto e a última execução (no idioma do pedido)."""
+    t = lingua.tr
+    linhas = [t("script.ia_ctx_titulo"), "", t("script.ia_ctx_script", arq=rel, nome=caminho(nome))]
+    outros = [r for r in arqs if r != rel]
+    linhas.append(t("script.ia_ctx_projeto", pasta=topo) if topo else t("script.ia_ctx_raiz"))
+    if outros:
+        linhas += ["", t("script.ia_ctx_outros")] + [f"- {r}" for r in outros]
+    u = ultima(nome)
+    linhas += ["", t("script.ia_ctx_ultima_titulo")]
+    if not u:
+        linhas.append(t("script.ia_ctx_nunca"))
+    else:
+        quando = time.strftime("%Y-%m-%d %H:%M", time.localtime(u.get("quando") or 0))
+        linhas.append(t("script.ia_ctx_ultima", quando=quando, tempo=u.get("tempo"),
+                        estado=t("script.ia_ctx_ok") if u.get("ok") else t("script.ia_ctx_prazo") if u.get("prazo_estourado")
+                        else t("script.ia_ctx_erro", c=u.get("codigo_saida"))))
+        for x in u.get("rodadas") or []:
+            linhas.append(t("script.ia_ctx_rodada", pasta=x.get("pasta"), sinais=", ".join(x.get("sinais") or []) or "-"))
+        if u.get("saida"):
+            linhas += ["", t("script.ia_ctx_saida"), "```", u["saida"].rstrip(), "```"]
+        if u.get("erro"):
+            linhas += ["", t("script.ia_ctx_erros"), "```", u["erro"].rstrip(), "```"]
+    return "\n".join(linhas) + "\n"
+
+
+def proposta(pasta, antes, nome):
+    """O que a IA deixou: os .py do projeto que mudaram ou são novos (lidos de volta; nunca executados). A sintaxe é conferida
+    com compile() (só lê). Caminhos que não servem de nome de script (espaço, ..) ficam de fora, em "recusados"."""
+    arqs, recusados = {}, []
+    for f in sorted(pasta.rglob("*.py")):
+        rel = f.relative_to(pasta).as_posix()
+        if "anexos" in rel.split("/")[:1]:
+            continue
+        partes = rel[:-3].split("/")
+        if len(partes) > MAX_FUNDO - 1 or not all(NOME_OK.match(p) and not p.startswith("__") or p == "__init__" for p in partes):
+            recusados.append(rel)
+            continue
+        arqs[rel] = f.read_text(encoding="utf-8", errors="replace")[:ARQ_MAX]
+    mudados = {r: c for r, c in arqs.items() if antes.get(r) != c}
+    sintaxe = {}
+    for r, c in mudados.items():
+        try:
+            compile(c, r, "exec")
+        except SyntaxError as e:
+            sintaxe[r] = lingua.tr("script.ia_sintaxe", msg=e.msg, linha=e.lineno)
+    return {"tipo": "script", "script": caminho(nome), "arquivos_antes": {r: antes.get(r, "") for r in mudados},
+            "arquivos": mudados, "novos": sorted(r for r in mudados if r not in antes), "sintaxe": sintaxe,
+            "recusados": recusados, "mudou": bool(mudados)}
+
+
+def aplica(nome, prop):
+    """Grava nos seus scripts os arquivos da proposta (a guardada no servidor, nunca a da página), só dentro do projeto."""
+    _base, _rel, topo = projeto(nome)
+    feitos = []
+    for r, cod in (prop or {}).get("arquivos", {}).items():
+        alvo = caminho((f"{topo}/" if topo else "") + r)   # confere cada parte do nome de novo (sem "..", sem espaço)
+        f = pasta_scripts() / f"{alvo}.py"
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(cod, encoding="utf-8")
+        feitos.append(alvo)
+    return {"ok": True, "arquivos": feitos}
 
 
 def _relativo(arq_py):

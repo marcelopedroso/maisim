@@ -5081,7 +5081,11 @@ def grava_sessoes(d):
 
 def conversa_atual(nova=False):
     """A conversa do circuito aberto (uma por circuito): {id, iniciada, anexos_vistos} e a pasta dela."""
-    chave = editor.get("aberto") or "(sem arquivo)"  # i18n-ok (a chave da conversa, não é texto)
+    return conversa_de(editor.get("aberto") or "(sem arquivo)", nova)  # i18n-ok (a chave da conversa, não é texto)
+
+
+def conversa_de(chave, nova=False):
+    """A conversa de uma chave (o circuito, ou "script:<caminho>" na IA do script): {id, iniciada, …} e a pasta dela."""
     with trava_sessoes:
         d = le_sessoes()
         if nova or chave not in d or not re.fullmatch(r"[0-9a-f-]{36}", str(d[chave].get("id", ""))):
@@ -5573,6 +5577,123 @@ def claude_contexto(c, dt, tfim, visto=None):
     return "\n".join(L)
 
 
+# ---- a IA do script (modo script, #258): a mesma IA e o mesmo motor do controle (o login, a sessão, um pedido por vez no
+# MaiSim todo, o que ela está fazendo), com a conversa do script ("script:<caminho>"), as regras e o guia do script, e a
+# proposta: os .py do projeto que ela mudou ou criou. Nada roda nem é salvo sozinho: Aplicar grava; quem roda é a pessoa.
+def _chave_script(nome):
+    import modo_script
+    return f"script:{modo_script.caminho(nome)}"
+
+
+def regras_script(a):
+    l = lingua.atual()
+    arq = REGRAS / f"regras_script.{l}.md"
+    if not arq.is_file():
+        arq = REGRAS / "regras_script.pt.md"
+    return arq.read_text(encoding="utf-8").removesuffix("\n")   # "a IA do MaiSim": serve para qualquer IA (sem o nome dela)
+
+
+def script_ia_pede(nome, texto, modelo="", esforco="", ia="claude"):
+    import modo_script
+    chave = _chave_script(nome)
+    ia = str(ia or "claude")
+    if ia not in IAS:
+        raise ErroMotor(lingua.tr("pedido.ia_desconhecida", ia=ia, ias=", ".join(IAS)))
+    a = IAS[ia]
+    modelo, esforco = str(modelo or ""), str(esforco or "")
+    if modelo not in a.modelos or esforco not in a.esforcos:
+        raise ErroMotor(lingua.tr("pedido.modelo_esforco_invalido", modelos=", ".join(m for m in a.modelos if m),
+                                  esforcos=", ".join(e for e in a.esforcos if e)))
+    texto = str(texto or "").strip()
+    if not texto:
+        raise ErroMotor(lingua.tr("pedido.vazio"))
+    if len(texto) > 20_000:
+        raise ErroMotor(lingua.tr("pedido.longo"))
+    if not modo_script.arquivo(nome).is_file():
+        raise ErroMotor(lingua.tr("script.nao_achei", nome=modo_script.caminho(nome)))
+    if not a.instalado():
+        raise ErroMotor(lingua.tr("login.claude_nao_instalado") if ia == "claude" else lingua.tr("pedido.ferramenta_nao_instalada", ia=a.nome))
+    ia_logada(a)
+    vez = uuid.uuid4().hex
+    with trava_claude:                                   # um pedido por vez no MaiSim todo (o do circuito também)
+        if claude_pedido.get("andamento"):
+            raise ErroMotor(lingua.tr("pedido.em_andamento", ia=(IAS.get(claude_pedido.get('ia')) or a).nome))
+        claude_pedido.clear()
+        claude_pedido.update(proc=None, vez=vez, andamento=True, desde=time.time(), pedido=texto, eventos=[], fala="", resposta=None,
+                             proposta=None, erro=None, gasto=None, negados=[], modelo=None, anexos=[], ia=ia, auto=None,
+                             script=modo_script.caminho(nome))
+    try:
+        _chave, conv, pasta = conversa_de(chave)
+        antes = modo_script.monta_conversa(nome, pasta)
+        _base, rel, _topo = modo_script.projeto(nome)
+        prompt = texto + "\n\n" + lingua.tr("script.ia_nota", arq=rel)
+        return _claude_lanca(prompt, antes, 0.0, vez, chave, conv, pasta, [], "", modelo, esforco, ia,
+                             regras_script(a), ("**/*.py",))
+    except Exception as e:
+        with trava_claude:
+            if claude_pedido.get("vez") == vez:
+                claude_pedido.update(andamento=False, erro=lingua.tr("pedido.nao_comecou", erro=e))
+        raise
+
+
+def script_ia_estado(nome):
+    """O que a página do script vê: a conversa dele e, se o pedido de agora (ou o último) é dele, o andamento e a proposta;
+    se a IA está noutro lugar, só que está ocupada (e onde)."""
+    chave = _chave_script(nome)
+    _c, conv, _p = conversa_de(chave)
+    with trava_claude:
+        p = {k: v for k, v in claude_pedido.items() if k not in ("proc", "lancado")}
+    meu = p.get("circuito") == chave or (p.get("script") and f"script:{p['script']}" == chave)
+    hist = [dict({k: v for k, v in x.items() if k != "mudanca"}, i=i) for i, x in enumerate(historico(conv["id"]))][-30:]
+    out = {"historico": hist, "iniciada": conv["iniciada"], "pedido": p if meu else None,
+           "ocupada_noutro": bool(p.get("andamento") and not meu),
+           "onde": (p.get("circuito") or "").removeprefix("script:") if p.get("andamento") and not meu else ""}
+    if meu and p.get("andamento") and p.get("desde"):
+        out["pedido"]["decorrido"] = round(time.time() - p["desde"], 1)
+    return out
+
+
+def script_ia_nova(nome):
+    chave = _chave_script(nome)
+    with trava_claude:
+        meu = claude_pedido.get("circuito") == chave or f"script:{claude_pedido.get('script')}" == chave
+    if meu:
+        claude_para()
+        with trava_claude:
+            claude_pedido.clear()
+    conversa_de(chave, nova=True)
+    return script_ia_estado(nome)
+
+
+def script_ia_aplica(nome):
+    """Grava a proposta guardada no servidor (nunca a da página) nos seus scripts, só dentro do projeto do script."""
+    import modo_script
+    chave = _chave_script(nome)
+    with trava_claude:
+        prop = claude_pedido.get("proposta")
+        if claude_pedido.get("andamento") or not prop or prop.get("tipo") != "script" or f"script:{prop.get('script')}" != chave \
+                or not prop.get("mudou") or claude_pedido.get("aplicada"):
+            raise ErroMotor(lingua.tr("script.ia_nada"))
+        r = modo_script.aplica(nome, prop)
+        claude_pedido["aplicada"] = True
+        pasta = claude_pedido.get("pasta")
+    if pasta:                                            # a conversa: a última resposta foi aplicada
+        h = historico(pasta)
+        if h:
+            h[-1]["aplicada"] = True
+            grava_historico(pasta, h)
+    return r
+
+
+def script_ia_descarta(nome):
+    chave = _chave_script(nome)
+    with trava_claude:
+        if not claude_pedido.get("andamento") and f"script:{claude_pedido.get('script')}" == chave:
+            claude_pedido["proposta"] = None
+            claude_pedido["aplicada"] = False
+    return script_ia_estado(nome)
+
+
 def claude_pedido_estado():
     """O que a tela vê do pedido (sem o processo), a conversa do circuito aberto e o uso guardado."""
     chave, conv, pasta = conversa_atual()
@@ -5751,12 +5872,14 @@ def regras_da(a):
         return r if a.id == "claude" else r.replace(lingua.tr("ia.voce_claude"), lingua.tr("ia.voce_ia", nome=a.nome), 1)
 
 
-def _claude_lanca(prompt, c, dt, vez, chave, conv, pasta, anexos, memoria, modelo="", esforco="", ia="claude"):
-    """Roda a IA (ia/) restrita na pasta da conversa (retomando a sessão dela se existe) e acompanha em segundo plano."""
+def _claude_lanca(prompt, c, dt, vez, chave, conv, pasta, anexos, memoria, modelo="", esforco="", ia="claude", regras=None, editaveis=None):
+    """Roda a IA (ia/) restrita na pasta da conversa (retomando a sessão dela se existe) e acompanha em segundo plano.
+    regras e editaveis: os da IA do script (senão, os do controle)."""
     a = IAS[ia]
     sid = sessao_da_ia(chave, conv, ia)
     try:
-        cmd = a.comando(prompt, sid, a.sessao_existe(sid), regras_da(a), modelo, esforco, CLAUDE_PASSOS, EDITAVEIS, pasta=pasta)
+        cmd = a.comando(prompt, sid, a.sessao_existe(sid), regras if regras is not None else regras_da(a), modelo, esforco,
+                        CLAUDE_PASSOS, EDITAVEIS if editaveis is None else editaveis, pasta=pasta)
     except ValueError as e:                              # a IA não garante as restrições: não roda
         raise ErroMotor(str(e))
     with trava_cli:                                      # espera um `auth status` ou `/usage` que já esteja rodando
@@ -5767,7 +5890,7 @@ def _claude_lanca(prompt, c, dt, vez, chave, conv, pasta, anexos, memoria, model
         nosso = claude_pedido.get("vez") == vez and claude_pedido.get("andamento")
         if nosso:
             claude_pedido.update(proc=proc, circuito=chave, pasta=pasta.name, anexos=anexos,
-                                 lancado=(prompt, c, dt, vez, chave, conv, pasta, anexos, memoria, modelo, esforco, ia))
+                                 lancado=(prompt, c, dt, vez, chave, conv, pasta, anexos, memoria, modelo, esforco, ia, regras, editaveis))
     if not nosso:                                        # parado enquanto preparava
         try:
             processos.encerra(proc.pid)
@@ -5846,7 +5969,13 @@ def _acompanha_claude(proc, antes, dt, chave, pasta, anexos, memoria="", ia="cla
             if resultado.get("limite_passos"):
                 erro = lingua.tr("pedido.limite_passos", ia=a.nome, n=CLAUDE_PASSOS)
         try:
-            proposta = claude_proposta(pasta, antes, dt, chave, memoria)
+            with trava_claude:
+                script = claude_pedido.get("script") if claude_pedido.get("proc") is proc else None
+            if script:                                     # a IA do script: os .py do projeto que ela mudou ou criou
+                import modo_script
+                proposta = modo_script.proposta(pasta, antes, script)
+            else:
+                proposta = claude_proposta(pasta, antes, dt, chave, memoria)
         except Exception as e:                         # a proposta é só leitura de arquivos e teste: não derruba o servidor
             proposta = {"erro": lingua.tr("pedido.proposta_falhou", erro=e)}
         if resultado["erro"] and not proposta.get("mudou"):
@@ -6582,6 +6711,13 @@ class Manipulador(BaseHTTPRequestHandler):
             return self._resposta(200, guia_controle().read_bytes(), "text/markdown; charset=utf-8")
         if rota == "/script":                          # o modo script (#258): a página
             return self._resposta(200, (AQUI / "static" / "script.html").read_bytes(), TIPOS[".html"])
+        if rota == "/scripts/ia":                         # a IA do script: a conversa dele, o andamento e a proposta
+            if not pedido_local(self, False):
+                return self._resposta(403, {"erro": lingua.tr("servidor.so_local")})
+            try:
+                return self._resposta(200, script_ia_estado({k: v[0] for k, v in parse_qs(u.query).items()}.get("nome")))
+            except Exception as e:                       # nome inválido (ErroScript) e afins: 409 com o motivo
+                return self._resposta(409, {"erro": str(e)})
         if rota in ("/scripts", "/scripts/ler", "/scripts/novo"):   # a lista, um script, o modelo de um novo
             if not pedido_local(self, False):
                 return self._resposta(403, {"erro": lingua.tr("servidor.so_local")})
@@ -6764,6 +6900,20 @@ class Manipulador(BaseHTTPRequestHandler):
             corpo = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
         except ValueError:
             return self._resposta(400, {"erro": lingua.tr("servidor.json_invalido")})
+        if rota.startswith("/scripts/ia/"):              # a IA do script: pedir, nova conversa, aplicar, descartar
+            if not pedido_local(self, True):
+                return self._resposta(403, {"erro": lingua.tr("servidor.so_pagina_local")})
+            acoes = {"/scripts/ia/pedir": lambda: script_ia_pede(corpo.get("nome"), corpo.get("texto", ""), corpo.get("modelo", ""),
+                                                                 corpo.get("esforco", ""), corpo.get("ia", "claude")),
+                     "/scripts/ia/nova": lambda: script_ia_nova(corpo.get("nome")),
+                     "/scripts/ia/aplicar": lambda: script_ia_aplica(corpo.get("nome")),
+                     "/scripts/ia/descartar": lambda: script_ia_descarta(corpo.get("nome"))}
+            if rota not in acoes:
+                return self._resposta(404, {"erro": lingua.tr("servidor.rota_desconhecida")})
+            try:
+                return self._resposta(200, acoes[rota]())
+            except Exception as e:                       # ErroMotor, ErroScript: 409 com o motivo
+                return self._resposta(409, {"erro": str(e)})
         if rota in ("/scripts/salvar", "/scripts/apagar", "/scripts/rodar", "/scripts/pasta/criar", "/scripts/pasta/apagar",
                     "/scripts/copiar_exemplo", "/scripts/mover"):   # o modo script (#258): grava e roda código
             if not pedido_local(self, True):           # aqui: só a página do MaiSim (X-MaiSim)

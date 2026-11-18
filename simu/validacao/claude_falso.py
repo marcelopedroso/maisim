@@ -287,6 +287,15 @@ elif cenario == "converte_c":                           # o controle em C: lê o
     ctx = Path("CONTEXTO.md").read_text() if Path("CONTEXTO.md").exists() else ""
     ling = next((l.strip("- ").split(" (")[0] for l in ctx.splitlines() if "Linguagem do controle" in l or "Control language" in l), "sem linguagem")
     resposta = f"Converti o controle.py para C no controle.c. Índices: {indices}; havia controle.c: {'sim' if modelo else 'não'}; maisim_controle.h: {tem_h}; {ling}."
+elif cenario == "script":                               # a IA do script: lê o guia e escreve os .py que o teste deixou
+    usa("Read", file_path="GUIA_SCRIPT.md")             # (falso_script.json: {caminho relativo: código}; "x/y.py" cria a subpasta)
+    guia = Path("GUIA_SCRIPT.md").read_text() if Path("GUIA_SCRIPT.md").exists() else ""
+    for rel, cod in json.loads((conf / "falso_script.json").read_text()).items():
+        usa("Write", file_path=rel)
+        Path(rel).parent.mkdir(parents=True, exist_ok=True)
+        Path(rel).write_text(cod)
+    arqs = sorted(str(f) for f in Path(".").rglob("*.py"))
+    resposta = f"script pronto; guia: {'sim' if 'maisim.scope' in guia else 'não'}; arquivos: {', '.join(arqs)}; ctx: {ctx.count(chr(10))} linhas"
 elif cenario == "anexo":
     nomes = sorted(x.name for x in Path("anexos").iterdir()) if Path("anexos").is_dir() else []
     for n in nomes:

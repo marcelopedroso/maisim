@@ -25,7 +25,7 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   * { box-sizing:border-box; }
   html, body { margin:0; height:100%; }
   body { background:var(--fundo); color:var(--texto); font:14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  #pagina { position:absolute; inset:0 0 0 var(--maisim-nav-w, 0px); display:grid; grid-template-columns:240px 1fr; min-width:0; }
+  #pagina { position:absolute; inset:0 var(--ia-aberta, 0px) 0 var(--maisim-nav-w, 0px); display:grid; grid-template-columns:240px 1fr; min-width:0; }
   aside { border-right:1px solid var(--borda); background:var(--cartao); overflow:auto; padding:12px; }
   aside h2 { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--sutil); margin:14px 4px 6px; font-weight:600; }
   .novos { display:flex; gap:6px; } .novos button { white-space:nowrap; padding:8px 8px; } .novos #bt-novo { flex:1 1 auto; } .novos #bt-pasta { flex:0 0 auto; width:auto; }
@@ -48,15 +48,16 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   aside li button[aria-current="true"] { background:var(--acento-suave); color:var(--acento); font-weight:600; }
   aside .vazio { color:var(--sutil); font-size:13px; padding:4px 8px; }
   main { display:flex; flex-direction:column; min-width:0; min-height:0; }   /* em coluna: sem o aviso, o editor ocupa o lugar dele */
-  .barra { display:flex; gap:8px; align-items:center; padding:10px 12px; border-bottom:1px solid var(--borda); background:var(--cartao); flex-wrap:wrap; }
-  .barra input { flex:1 1 180px; min-width:120px; padding:7px 9px; border:1px solid var(--borda); border-radius:7px; background:var(--campo); color:inherit; font:inherit; font-weight:600; }
+  .barra { display:flex; gap:8px; align-items:center; padding:10px 12px; border-bottom:1px solid var(--borda); background:var(--cartao); flex-wrap:nowrap; }
+  .barra button { flex:0 0 auto; white-space:nowrap; }
+  .barra input { flex:1 1 180px; min-width:90px; padding:7px 9px; border:1px solid var(--borda); border-radius:7px; background:var(--campo); color:inherit; font:inherit; font-weight:600; }
   .barra button { padding:7px 12px; border:1px solid var(--borda); border-radius:7px; background:var(--cartao); color:inherit; font:inherit; cursor:pointer; }
   .barra button.prim { background:var(--acento); border-color:var(--acento); color:#fff; font-weight:600; }
   .barra button:disabled { opacity:.5; cursor:default; }
   /* Apagar em vermelho, para chamar a atenção (Marcelo, 17/11); cheio ao passar o mouse; desligado continua apagado */
   .barra button.perigo:not(:disabled) { color:var(--erro); border-color:var(--erro); font-weight:600; }
   .barra button.perigo:not(:disabled):hover { background:#dc2626; border-color:#dc2626; color:#fff; }
-  #estado { color:var(--sutil); font-size:13px; min-width:60px; } #estado.nao-salvo { color:var(--erro); font-weight:600; }
+  #estado { color:var(--sutil); font-size:13px; min-width:0; flex:0 1 auto; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } #estado.nao-salvo { color:var(--erro); font-weight:600; }
   .aviso button { margin-left:10px; padding:1px 8px; border:1px solid var(--aviso-borda); border-radius:6px; background:transparent; color:inherit; font:inherit; cursor:pointer; }
   .aviso[hidden] { display:none; }
   .aviso { margin:0; padding:6px 12px; font-size:12.5px; color:var(--aviso); background:var(--aviso-bg); border-bottom:1px solid var(--aviso-borda); }
@@ -83,7 +84,44 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   .modal-botoes button { padding:6px 14px; border-radius:8px; font:inherit; font-size:13px; border:1px solid var(--borda); background:var(--cartao); color:inherit; cursor:pointer; }
   .modal-botoes button.primario { background:var(--acento); border-color:var(--acento); color:#fff; font-weight:600; }
   .modal-botoes button.perigo { background:#dc2626; border-color:#dc2626; color:#fff; font-weight:600; }
-  @media (max-width:720px) { #pagina { grid-template-columns:1fr; grid-template-rows:auto 1fr; } aside { max-height:30vh; border-right:0; border-bottom:1px solid var(--borda); } }
+  /* a IA do MaiSim (a mesma do simu: o botão flutuante com o mascote e a gaveta da direita) */
+  #bt-ia { position:fixed; right:18px; bottom:18px; z-index:65; width:52px; height:52px; border-radius:50%; padding:0; display:grid; place-items:center;
+    background:var(--acento); color:#fff; border:0; box-shadow:0 6px 18px rgba(15,23,42,.25); cursor:pointer; }
+  #bt-ia:hover { filter:brightness(1.08); } #bt-ia[hidden] { display:none; }
+  #bt-ia .ponto { position:absolute; top:4px; right:4px; width:12px; height:12px; border-radius:50%; background:#22c55e; border:2px solid var(--cartao); display:none; }
+  #bt-ia.proposta .ponto { display:block; } #bt-ia.trabalhando { animation:ia-pulsa 1.4s ease-in-out infinite; }
+  @keyframes ia-pulsa { 50% { box-shadow:0 0 0 8px color-mix(in srgb, var(--acento) 25%, transparent), 0 6px 18px rgba(15,23,42,.25); } }
+  #gaveta-ia { position:fixed; top:0; right:0; bottom:0; width:var(--w-ia, 420px); max-width:100vw; z-index:70; display:flex; flex-direction:column;
+    background:var(--cartao); border-left:1px solid var(--borda); }
+  #gaveta-ia[hidden] { display:none; }
+  .ia-topo { display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid var(--borda); }
+  .ia-topo b { flex:1; font-size:14px; } .ia-topo button { padding:4px 9px; border:1px solid var(--borda); border-radius:7px; background:var(--cartao); color:inherit; font:inherit; font-size:12.5px; cursor:pointer; }
+  .mascote { color:var(--acento); flex:0 0 auto; }
+  #ia-msgs { flex:1; overflow:auto; padding:10px 12px; display:flex; flex-direction:column; gap:10px; font-size:13.5px; line-height:1.45; }
+  #ia-msgs .vazio { color:var(--sutil); }
+  .ia-eu { align-self:flex-end; max-width:88%; background:var(--acento-suave); border-radius:12px 12px 2px 12px; padding:7px 10px; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .ia-ela { max-width:100%; overflow-wrap:anywhere; } .ia-ela p { margin:0 0 6px; } .ia-ela ul { margin:0 0 6px; padding-left:20px; }
+  .ia-ela pre, .ia-dif pre { margin:4px 0; padding:7px 9px; background:var(--suave); border-radius:7px; overflow:auto; font:12px/1.4 ui-monospace, Consolas, monospace; }
+  .ia-ela code { font:12px ui-monospace, Consolas, monospace; background:var(--suave); padding:0 3px; border-radius:4px; } .ia-ela pre code { background:none; padding:0; }
+  .ia-ela .md-h { font-weight:700; margin:6px 0 4px; }
+  .ia-meta { color:var(--sutil); font-size:11.5px; } .ia-erro { color:var(--erro); } .ia-aplicada { color:var(--ok); font-weight:600; }
+  .ia-andamento { color:var(--sutil); font-size:12.5px; } .ia-andamento ul { margin:4px 0 0; padding-left:18px; }
+  .ia-cartao { border:1px solid var(--borda); border-radius:10px; padding:9px 10px; background:var(--fundo); }
+  .ia-cartao h4 { margin:0 0 6px; font-size:13px; } .ia-arq { margin:6px 0; } .ia-arq summary { cursor:pointer; font:12.5px ui-monospace, Consolas, monospace; }
+  .ia-arq .novo { color:var(--ok); font-family:system-ui, sans-serif; font-size:11px; margin-left:6px; } .ia-arq .sint { color:var(--erro); font-family:system-ui, sans-serif; font-size:11.5px; display:block; }
+  .ia-dif pre { max-height:300px; } .ia-dif .mais { color:var(--ok); background:color-mix(in srgb, var(--ok) 12%, transparent); display:block; }
+  .ia-dif .menos { color:var(--erro); background:color-mix(in srgb, var(--erro) 10%, transparent); display:block; } .ia-dif .igual { display:block; color:var(--sutil); }
+  .ia-bts { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .ia-bts button, .ia-pe button { padding:6px 12px; border-radius:8px; border:1px solid var(--borda); background:var(--cartao); color:inherit; font:inherit; font-size:13px; cursor:pointer; }
+  .ia-bts button.primario, .ia-pe button.primario { background:var(--acento); border-color:var(--acento); color:#fff; font-weight:600; }
+  .ia-bts button:disabled, .ia-pe button:disabled { opacity:.5; cursor:default; }
+  .ia-pe { border-top:1px solid var(--borda); padding:8px 10px; display:flex; flex-direction:column; gap:6px; }
+  .ia-pe textarea { width:100%; min-height:62px; max-height:220px; resize:vertical; font:inherit; font-size:13.5px; padding:7px 9px; border:1px solid var(--borda); border-radius:8px; background:var(--campo); color:inherit; }
+  .ia-pe .linha { display:flex; gap:6px; align-items:center; } .ia-pe select { font:inherit; font-size:12.5px; padding:4px 6px; border:1px solid var(--borda); border-radius:7px; background:var(--campo); color:inherit; }
+  .ia-pe .linha .esp { flex:1; }
+  .ia-aviso { margin:8px 12px 0; padding:7px 10px; font-size:12.5px; border-radius:8px; color:var(--aviso); background:var(--aviso-bg); border:1px solid var(--aviso-borda); }
+  .ia-aviso[hidden] { display:none; } .ia-aviso a { color:inherit; font-weight:600; }
+  @media (max-width:720px) { .barra { flex-wrap:wrap; } #pagina { grid-template-columns:1fr; grid-template-rows:auto 1fr; } aside { max-height:30vh; border-right:0; border-bottom:1px solid var(--borda); } }
 </style>
 </head>
 <body>
@@ -117,7 +155,32 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
     </div>
   </main>
 </div>
+<button type="button" id="bt-ia" data-tr-title="scr.ia_bt" data-tr-aria="scr.ia_titulo" title="IA do MaiSim" aria-label="IA do MaiSim">
+  <svg class="mascote" width="26" height="26" aria-hidden="true" style="color:#fff"><use href="#maisim-claude"/></svg><span class="ponto"></span></button>
+<aside id="gaveta-ia" hidden aria-label="IA do MaiSim" data-tr-aria="scr.ia_titulo">
+  <div class="ia-topo"><svg class="mascote" width="21" height="21" aria-hidden="true"><use href="#maisim-claude"/></svg>
+    <b data-tr="scr.ia_titulo">IA do MaiSim</b>
+    <button type="button" id="ia-nova" data-tr="scr.ia_nova" data-tr-title="scr.ia_nova_title">Nova conversa</button>
+    <button type="button" id="ia-fecha" data-tr-aria="scr.ia_fechar" data-tr-title="scr.ia_fechar" aria-label="Fechar">×</button></div>
+  <div class="ia-aviso" id="ia-aviso" hidden></div>
+  <div id="ia-msgs" aria-live="polite"></div>
+  <div class="ia-pe">
+    <textarea id="ia-texto" data-tr-ph="scr.ia_placeholder" data-tr-aria="scr.ia_placeholder" placeholder="Peça à IA…"></textarea>
+    <div class="linha"><select id="ia-qual" hidden data-tr-aria="scr.ia_qual"></select><select id="ia-modelo" data-tr-aria="scr.ia_modelo"></select><span class="esp"></span>
+      <button type="button" id="ia-parar" hidden data-tr="scr.ia_parar">Parar</button>
+      <button type="button" id="ia-enviar" class="primario" data-tr="scr.ia_enviar">Enviar</button></div>
+  </div>
+</aside>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="maisim-claude" viewBox="0 0 24 24">
+    <path d="M4.5 4.5h15a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-8.5l-4.5 3.6v-3.6h-2a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2z" fill="var(--diodo-fundo, #ede9fe)" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+    <path d="M6 11.2H8.1M13.6 11.2H15.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M8.1 8L13 11.2L8.1 14.4Z" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+    <path d="M13.6 8V14.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+    <path d="M17.6 5.9C17.8 7.3 18.15 7.65 19.55 7.85 18.15 8.05 17.8 8.4 17.6 9.8 17.4 8.4 17.05 8.05 15.65 7.85 17.05 7.65 17.4 7.3 17.6 5.9Z" fill="currentColor"/>
+  </symbol></defs></svg>
 <script src="static/script.js"></script>
+<script src="static/script_ia.js"></script>
 <script src="/maisim-nav.js" onerror="this.remove()"></script>
 </body>
 </html>
