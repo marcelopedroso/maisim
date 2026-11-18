@@ -165,18 +165,22 @@ function marcaArvore() {
 let abertas = new Set();
 try { abertas = new Set(JSON.parse(localStorage.getItem("maisim-script-abertas") || "[]")); } catch (e) { /* nenhuma */ }
 const guardaAbertas = () => guarda("maisim-script-abertas", JSON.stringify([...abertas]));
+// os ícones da árvore (como no VS Code): a pasta fechada e aberta, e o Python nos .py
+const ICO_PASTA = '<svg class="ico-pasta fechada" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 3.5h4.3l1.4 1.5h7.3v7.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z" fill="#dcb67a" stroke="#b8925a" stroke-width=".8" stroke-linejoin="round"/></svg>'
+  + '<svg class="ico-pasta aberta" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 3.5h4.3l1.4 1.5h6.3v2H4.2L2.5 12.5h-1z" fill="#c9a266" stroke="#b8925a" stroke-width=".8" stroke-linejoin="round"/><path d="M3.9 7h11l-2 6.5H1.9z" fill="#dcb67a" stroke="#b8925a" stroke-width=".8" stroke-linejoin="round"/></svg>';
+const ICO_PY = '<svg class="ico-py" viewBox="0 0 16 16" aria-hidden="true"><path fill="#3776ab" d="M7.9 1C5.3 1 5.5 2.1 5.5 2.1v1.2H8v.4H4.4S2.7 3.5 2.7 6.1s1.5 2.5 1.5 2.5h.9V7.4s0-1.5 1.5-1.5h2.5s1.4 0 1.4-1.4V2.5S10.7 1 7.9 1zM6.5 1.8a.45.45 0 1 1 0 .9.45.45 0 0 1 0-.9z"/><path fill="#ffd43b" d="M8.1 15c2.6 0 2.4-1.1 2.4-1.1v-1.2H8v-.4h3.6s1.7.2 1.7-2.4-1.5-2.5-1.5-2.5h-.9v1.2s0 1.5-1.5 1.5H6.9s-1.4 0-1.4 1.4v2.1S5.3 15 8.1 15zm1.4-.8a.45.45 0 1 1 0-.9.45.45 0 0 1 0 .9z"/></svg>';
 const contaScripts = (itens) => itens.reduce((n, x) => n + (x.tipo === "pasta" ? contaScripts(x.filhos) : 1), 0);
 function ramo(itens, grupo) {
   return itens.map((x) => {
     if (x.tipo === "pasta") {
       const id = `${grupo}:${x.caminho}`;
       return `<li class="pasta${abertas.has(id) ? " aberta" : ""}" data-id="${esc(id)}"><div class="linha">`
-        + `<button type="button" class="abre${grupo === "meus" && st.pasta === x.caminho ? " sel" : ""}" data-pasta="${esc(x.caminho)}" data-grupo="${grupo}"${grupo === "meus" ? ` draggable="true" data-arrasta="${esc(x.caminho)}" data-recebe="${esc(x.caminho)}"` : ""}><span class="seta">▸</span> ${esc(x.nome)}</button>`
+        + `<button type="button" class="abre${grupo === "meus" && st.pasta === x.caminho ? " sel" : ""}" data-pasta="${esc(x.caminho)}" data-grupo="${grupo}"${grupo === "meus" ? ` draggable="true" data-arrasta="${esc(x.caminho)}" data-recebe="${esc(x.caminho)}"` : ""}><span class="seta">▸</span>${ICO_PASTA}<span class="nome">${esc(x.nome)}</span></button>`
         + (grupo === "meus" ? `<button type="button" class="tira mover" data-mover="${esc(x.caminho)}" title="${esc(tr("scr.mover_pasta"))}" aria-label="${esc(tr("scr.mover_pasta"))}">⇄</button>` : "")
         + (grupo === "meus" ? `<button type="button" class="tira" data-tira="${esc(x.caminho)}" data-n="${contaScripts(x.filhos)}" title="${esc(tr("scr.apagar_pasta"))}" aria-label="${esc(tr("scr.apagar_pasta"))}">×</button>` : "")
         + `</div><ul>${ramo(x.filhos, grupo) || `<li class="vazio">${esc(tr("scr.pasta_vazia"))}</li>`}</ul></li>`;
     }
-    return `<li><button type="button" data-nome="${esc(x.caminho)}" data-grupo="${grupo}" title="${esc(x.caminho)}"${grupo === "meus" ? ` draggable="true" data-arrasta="${esc(x.caminho)}"` : ""} aria-current="${x.caminho === st.nome && grupo === st.grupo}">${esc(x.nome)}.py</button></li>`;
+    return `<li><button type="button" data-nome="${esc(x.caminho)}" data-grupo="${grupo}" title="${esc(x.caminho)}"${grupo === "meus" ? ` draggable="true" data-arrasta="${esc(x.caminho)}"` : ""} aria-current="${x.caminho === st.nome && grupo === st.grupo}">${ICO_PY}<span class="nome">${esc(x.nome)}.py</span></button></li>`;
   }).join("");
 }
 async function lista() {

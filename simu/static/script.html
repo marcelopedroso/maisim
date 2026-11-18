@@ -73,16 +73,21 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   #col-arq .div-col { left:auto; right:-4px; }
   #arq-busca { width:100%; font-size:12px; padding:4px 7px; margin:2px 0 6px; border:1px solid var(--borda); border-radius:6px; }
   #col-arq h4 { display:flex; align-items:center; gap:6px; margin:12px 0 4px; font-size:11px; color:var(--sutil); text-transform:uppercase; letter-spacing:.04em; }
-  #col-arq h4 button.raiz { all:unset; cursor:pointer; padding:1px 4px; border-radius:4px; } #col-arq h4 button.raiz.sel { background:var(--acento-suave); color:var(--acento); }
+  #col-arq h4 button.raiz { all:unset; cursor:pointer; padding:1px 4px; margin-left:-4px; border-radius:4px; } #col-arq h4 button.raiz:hover { color:var(--texto); }
+  #col-arq h4 button.raiz.sel { color:var(--acento); } #col-arq h4 button.raiz:focus-visible { outline:2px solid var(--acento); }
   .ctl-botoes { display:flex; gap:4px; margin-top:6px; } .ctl-botoes button { font-size:12px; padding:2px 8px; }
   .arvore, .arvore ul { list-style:none; margin:0; padding:0; } .arvore ul { padding-left:12px; border-left:1px solid var(--borda); margin-left:8px; }
-  .arvore li button { width:100%; text-align:left; padding:3px 6px; border:0; background:none; color:inherit; font:12.5px ui-monospace, Consolas, monospace; border-radius:5px;
-                      overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; }
-  .arvore li button:hover { background:var(--suave); } .arvore li button[aria-current="true"] { background:var(--acento-suave); color:var(--acento); font-weight:600; }
-  .arvore li.pasta > .linha { display:flex; align-items:center; } .arvore li.pasta > .linha > button.abre { flex:1 1 auto; font-family:system-ui, sans-serif; font-weight:600; font-size:12.5px; }
+  /* as linhas da árvore: as mesmas do Código (.ctl-no: ícone + nome em fonte de código, 3px 4px, raio 5) */
+  .arvore li button { display:flex; align-items:center; gap:5px; width:100%; text-align:left; padding:3px 4px; margin-top:1px; border:0; background:none; color:var(--texto);
+                      font:500 12px ui-monospace, Consolas, monospace; border-radius:5px; cursor:pointer; min-width:0; }
+  .arvore li button .nome { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .arvore li button svg { width:14px; height:14px; flex:none; }
+  .arvore li button:hover { background:var(--acento-suave); } .arvore li button[aria-current="true"] { background:var(--acento-suave); color:var(--acento); font-weight:600; }
+  .arvore li.pasta > .linha { display:flex; align-items:center; } .arvore li.pasta > .linha > button.abre { flex:1 1 auto; font-weight:600; }
+  .arvore .ico-pasta.aberta, .arvore li.pasta.aberta > .linha .ico-pasta.fechada { display:none; } .arvore li.pasta.aberta > .linha .ico-pasta.aberta { display:block; }
   .arvore li.pasta > .linha > button.abre.sel { background:var(--acento-suave); color:var(--acento); }
   .arvore li.pasta:not(.aberta) > ul { display:none; }
-  .arvore .seta { display:inline-block; width:12px; color:var(--sutil); transition:transform .1s; } .arvore li.pasta.aberta > .linha .seta { transform:rotate(90deg); }
+  .arvore .seta { display:inline-block; width:10px; flex:none; color:var(--sutil); font-size:10px; transition:transform .1s; } .arvore li.pasta.aberta > .linha .seta { transform:rotate(90deg); }
   .arvore button.tira { flex:0 0 auto; width:auto; padding:2px 6px; visibility:hidden; color:var(--sutil); }
   .arvore li.pasta > .linha:hover button.tira, .arvore button.tira:focus { visibility:visible; } .arvore button.tira:hover { color:var(--erro); } .arvore button.tira.mover:hover { color:var(--acento); }
   .arvore .vazio { color:var(--sutil); font-size:12px; padding:3px 6px; } .arvore li[hidden] { display:none; }
