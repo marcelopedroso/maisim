@@ -83,13 +83,13 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   .arvore li button .nome { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .arvore li button svg { width:14px; height:14px; flex:none; }
   .arvore li button:hover { background:var(--acento-suave); } .arvore li button[aria-current="true"] { background:var(--acento-suave); color:var(--acento); font-weight:600; }
-  .arvore li.pasta > .linha { display:flex; align-items:center; } .arvore li.pasta > .linha > button.abre { flex:1 1 auto; font-weight:600; }
+  .arvore li > .linha { display:flex; align-items:center; } .arvore li > .linha > button:first-child { flex:1 1 auto; } .arvore li.pasta > .linha > button.abre { font-weight:600; }
   .arvore .ico-pasta.aberta, .arvore li.pasta.aberta > .linha .ico-pasta.fechada { display:none; } .arvore li.pasta.aberta > .linha .ico-pasta.aberta { display:block; }
   .arvore li.pasta > .linha > button.abre.sel { background:var(--acento-suave); color:var(--acento); }
   .arvore li.pasta:not(.aberta) > ul { display:none; }
   .arvore .seta { display:inline-block; width:10px; flex:none; color:var(--sutil); font-size:10px; transition:transform .1s; } .arvore li.pasta.aberta > .linha .seta { transform:rotate(90deg); }
   .arvore button.tira { flex:0 0 auto; width:auto; padding:2px 6px; visibility:hidden; color:var(--sutil); }
-  .arvore li.pasta > .linha:hover button.tira, .arvore button.tira:focus { visibility:visible; } .arvore button.tira:hover { color:var(--erro); } .arvore button.tira.mover:hover { color:var(--acento); }
+  .arvore li > .linha:hover button.tira, .arvore button.tira:focus { visibility:visible; } .arvore button.tira:hover { color:var(--erro); } .arvore button.tira.mover:hover { color:var(--acento); }
   .arvore .vazio { color:var(--sutil); font-size:12px; padding:3px 6px; } .arvore li[hidden] { display:none; }
   .arvore .alvo, #col-arq h4 button.raiz.alvo { outline:2px dashed var(--acento); outline-offset:-2px; background:var(--acento-suave); }
   .arvore [draggable="true"] { cursor:grab; }

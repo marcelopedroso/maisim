@@ -127,7 +127,18 @@ const pede = (pg, rota, corpo) => pg.evaluate(async ([r, c]) => (await fetch(`sc
     const ren = await pg.evaluate(() => ({ nome: document.getElementById("nome-atual").textContent, aba: [...document.querySelectorAll("#ctl-abas .aba.ativa .nome-aba")].map((x) => x.textContent).join(),
       tip: (document.querySelector('#lista-meus button[data-nome$="/ren_b"]') || {}).title }));
     ok(ren.nome === `${PASTA}/ren_b` && ren.aba === "ren_b.py" && ren.tip === `${PASTA}/ren_b.py`, `renomeado: o nome, a aba e o tooltip com .py (${JSON.stringify(ren)})`);
-    await pede(pg, "/apagar", { nome: `${PASTA}/ren_b` });
+    // pela árvore: o ✎ e o × de um arquivo (aparecem ao passar o mouse)
+    const linha = `#lista-meus li.arq:has(button[data-nome="${PASTA}/ren_b"]) > .linha`;
+    await pg.hover(linha); await pg.click(`#lista-meus button[data-renomear="${PASTA}/ren_b"]`); m = await modal();
+    ok(m && m.tit === "Renomear o script" && m.campo === "ren_b", `✎ de um arquivo na árvore: a janela de renomear (${JSON.stringify(m)})`);
+    await pg.fill(".modal .m-campo", "ren_c"); await pg.keyboard.press("Enter");
+    await pg.waitForSelector(`#lista-meus button[data-nome="${PASTA}/ren_c"]`, { timeout: 10000 }).catch(() => {});
+    ok(!!(await pg.$(`#lista-meus button[data-nome="${PASTA}/ren_c"]`)) && (await pg.textContent("#nome-atual")) === `${PASTA}/ren_c`, "renomeado pela árvore (e a aba aberta acompanha)");
+    await pg.hover(`#lista-meus li.arq:has(button[data-nome="${PASTA}/ren_c"]) > .linha`); await pg.click(`#lista-meus button[data-apaga-script="${PASTA}/ren_c"]`); m = await modal();
+    ok(m && m.tit === "Apagar o script?" && m.perigo, "× de um arquivo na árvore: a janela de perigo");
+    await pg.click(".modal .m-ok"); await pg.waitForTimeout(700);
+    ok(!(await pg.$(`#lista-meus button[data-nome="${PASTA}/ren_c"]`)) && !(await pg.$$eval("#ctl-abas .aba .nome-aba", (x) => x.some((y) => y.textContent === "ren_c.py"))),
+       "apagado pela árvore: sai da lista e a aba dele fecha");
     // a coluna do Scope sem ter rodado nesta tela: a última rodada do script aberto; sem nenhuma, o Scope com a lista
     await pede(pg, "/salvar", { nome: `${PASTA}/ja_rodou`, codigo: "import maisim\nmaisim.scope('jr', [0, 1], {'a': [1, 2]})\n", sobrescrever: true });
     const rj = await pede(pg, "/rodar", { nome: `${PASTA}/ja_rodou` });
