@@ -6718,7 +6718,7 @@ class Manipulador(BaseHTTPRequestHandler):
                 return self._resposta(200, script_ia_estado({k: v[0] for k, v in parse_qs(u.query).items()}.get("nome")))
             except Exception as e:                       # nome inválido (ErroScript) e afins: 409 com o motivo
                 return self._resposta(409, {"erro": str(e)})
-        if rota in ("/scripts", "/scripts/ler", "/scripts/novo"):   # a lista, um script, o modelo de um novo
+        if rota in ("/scripts", "/scripts/ler", "/scripts/novo", "/scripts/ultima"):   # a lista, um script, o modelo de um novo, a última rodada
             if not pedido_local(self, False):
                 return self._resposta(403, {"erro": lingua.tr("servidor.so_local")})
             import modo_script                            # só quando usado: desligado, a partida não muda
@@ -6728,6 +6728,8 @@ class Manipulador(BaseHTTPRequestHandler):
                     return self._resposta(200, modo_script.lista())
                 if rota == "/scripts/novo":
                     return self._resposta(200, {"codigo": modo_script.novo_codigo()})
+                if rota == "/scripts/ultima":            # a rodada que a coluna do Scope abre quando ainda não se rodou nesta tela
+                    return self._resposta(200, modo_script.ultima_rodada(q.get("nome")))
                 return self._resposta(200, modo_script.le(q.get("nome"), q.get("grupo", "meus")))
             except modo_script.ErroScript as e:
                 return self._resposta(409, {"erro": str(e)})

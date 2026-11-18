@@ -287,7 +287,7 @@ def _guarda_ultima(nome, r):
     lê para saber o que aconteceu quando a pessoa rodou."""
     d = {"quando": time.time(), "ok": r["ok"], "codigo_saida": r["codigo_saida"], "prazo_estourado": r["prazo_estourado"],
          "tempo": r["tempo"], "saida": r["saida"][-ULTIMA_MAX:], "erro": r["erro"][-ULTIMA_MAX:],
-         "rodadas": [{"pasta": x["pasta"], "sinais": _sinais_npz(x["arquivo"])} for x in r["rodadas"]]}
+         "rodadas": [{"pasta": x["pasta"], "arquivo": x["arquivo"], "sinais": _sinais_npz(x["arquivo"])} for x in r["rodadas"]]}
     f = _arquivo_ultima(nome)
     try:
         f.parent.mkdir(parents=True, exist_ok=True)
@@ -301,6 +301,15 @@ def ultima(nome):
         return json.loads(_arquivo_ultima(nome).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
+
+
+def ultima_rodada(nome):
+    """O arquivo da rodada mais nova que o script gravou da última vez (se ainda existe: substituída ou apagada, não)."""
+    u = ultima(nome) or {}
+    for x in reversed(u.get("rodadas") or []):
+        if x.get("arquivo") and Path(x["arquivo"]).is_file():
+            return {"arquivo": x["arquivo"], "pasta": x.get("pasta")}
+    return {"arquivo": None}
 
 
 # ----------------------------------------------------------------- a IA do script (a conversa de um script, no servidor)

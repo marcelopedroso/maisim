@@ -117,6 +117,21 @@ const pede = (pg, rota, corpo) => pg.evaluate(async ([r, c]) => (await fetch(`sc
     ok(m && m.tit === "Apagar a pasta?" && m.perigo && /com os 2 scripts/.test(await pg.textContent(".modal p")), `apagar a pasta: a janela diz quantos scripts (${await pg.textContent(".modal p").catch(() => "")})`);
     await pg.click(".modal .m-ok"); await pg.waitForTimeout(600);
     ok(!(await pg.$(`#lista-meus li.pasta[data-id="meus:${PASTA}"]`)), "a pasta saiu da árvore");
+    // a coluna do Scope sem ter rodado nesta tela: a última rodada do script aberto; sem nenhuma, o Scope com a lista
+    await pede(pg, "/salvar", { nome: `${PASTA}/ja_rodou`, codigo: "import maisim\nmaisim.scope('jr', [0, 1], {'a': [1, 2]})\n", sobrescrever: true });
+    const rj = await pede(pg, "/rodar", { nome: `${PASTA}/ja_rodou` });
+    await pg.evaluate(() => localStorage.setItem("maisim-script-col-scope", "0"));
+    await pg.goto(`${B}?nome=${PASTA}/ja_rodou`); await pg.waitForSelector("#ctl-abas .aba"); await pg.waitForTimeout(600);
+    await pg.click("#bt-col-scope"); await pg.waitForTimeout(800);
+    const sc1 = await pg.evaluate(() => ({ src: document.getElementById("if-scope").getAttribute("src") || "", vazio: !document.getElementById("scope-vazio").hidden }));
+    ok(sc1.src.includes(encodeURIComponent(rj.rodadas[0].arquivo)) && !sc1.vazio, `abrir o Scope num script que já rodou: a última rodada dele (${sc1.src.slice(0, 80)}…)`);
+    await pg.click("#bt-col-scope");
+    await pg.evaluate(() => localStorage.setItem("maisim-script-col-scope", "0"));
+    await pg.goto(`${B}?nome=${PASTA}/um`); await pg.waitForSelector("#ctl-abas .aba"); await pg.waitForTimeout(600);
+    await pg.click("#bt-col-scope"); await pg.waitForTimeout(800);
+    const sc2 = await pg.evaluate(() => ({ src: document.getElementById("if-scope").getAttribute("src") || "", vazio: !document.getElementById("scope-vazio").hidden }));
+    ok(sc2.src === "/maisim/scope/" && !sc2.vazio, `num que nunca rodou: o Scope com a lista para escolher uma anterior (${JSON.stringify(sc2)})`);
+    await pg.click("#bt-col-scope");
     // a ⚙: o que fazer com a rodada de antes (substituir é o padrão, como no circuito); a escolha fica guardada por script
     await pg.click("#bt-param"); m = await modal();
     const sel0 = await pg.$eval(".modal select", (x) => x.value);

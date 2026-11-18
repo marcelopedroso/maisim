@@ -387,6 +387,15 @@ function mostraScope(arq) {                            // a rodada na coluna do 
   if (arq) { $("if-scope").src = urlScope(arq); $("if-scope").hidden = false; $("scope-vazio").hidden = true; }
   coluna("scope", true);
 }
+// abrir a coluna sem ter rodado nesta tela: a última rodada do script aberto; sem nenhuma (ou num exemplo), o Scope com a lista
+// das rodadas, para escolher uma anterior (Marcelo, 17/11: "poder abrir para eu selecionar alguma anterior")
+async function abreScopeVazio() {
+  if ($("if-scope").getAttribute("src")) return;
+  let arq = null;
+  if (st.grupo === "meus" && st.nome) { try { arq = (await api(`/ultima?nome=${encodeURIComponent(st.nome)}`)).arquivo; } catch (e) { /* nenhuma */ } }
+  if ($("if-scope").getAttribute("src")) return;       // (rodou enquanto perguntava)
+  $("if-scope").src = arq ? urlScope(arq) : "/maisim/scope/"; $("if-scope").hidden = false; $("scope-vazio").hidden = true;
+}
 async function rodar() {
   const a = atual(); if (st.rodando || !a) return;
   // um exemplo sem mudança roda como está; o resto salva antes (roda sempre o que está no disco)
@@ -437,6 +446,7 @@ function coluna(qual, on) {
   const el = $(qual === "arq" ? "col-arq" : "col-scope"), bt = $(qual === "arq" ? "bt-col-arq" : "bt-col-scope");
   el.hidden = !on; bt.classList.toggle("ativo", on); bt.setAttribute("aria-pressed", String(on));
   guarda(`maisim-script-col-${qual}`, on ? "1" : "0");
+  if (qual === "scope" && on && st.listaFeita !== undefined) abreScopeVazio();
 }
 $("bt-col-arq").onclick = () => coluna("arq", $("col-arq").hidden);
 $("bt-col-scope").onclick = () => coluna("scope", $("col-scope").hidden);
@@ -504,4 +514,5 @@ maisimI18n.aoMudar(() => { maisimI18n.aplica(document); desenhaAbas(); marca(); 
   if (q.get("nome")) await abre(q.get("nome"), q.get("grupo") === "exemplos" ? "exemplos" : "meus");
   else if (st.abas.length) { ativa(0); await lista(); }
   else await novoSemNome();
+  if (!$("col-scope").hidden) abreScopeVazio();
 })();
