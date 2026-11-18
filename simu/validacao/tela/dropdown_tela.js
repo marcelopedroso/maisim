@@ -132,6 +132,8 @@ const lum = (rgb) => { const [r, g, b] = (rgb.match(/\d+/g) || [0, 0, 0]).map(Nu
     ok(e && e.ops.length === n && e.junto && e.largo && e.dentro && e.raio === "10px", `scope A: a lista do MaiSim com as ${n} opções, junto do seletor, da largura dele`);
     await sc.screenshot({ path: "dropdown_scope_a.png" });
     await sc.keyboard.press("Escape"); await sc.waitForTimeout(100);
+    // a lista B só aparece no Comparar (#267: Ao vivo | Carregar | Comparar): entra nele, como a pessoa faria
+    await sc.keyboard.press("Escape"); await sc.click("#bt-comparar"); await sc.waitForSelector("#sel-b", { state: "visible", timeout: 10000 });
     await sc.evaluate(() => { window.__evb = []; document.getElementById("sel-b").addEventListener("change", () => window.__evb.push(document.getElementById("sel-b").value)); });
     await sc.focus("#sel-b"); await sc.keyboard.press("Alt+ArrowDown"); await sc.waitForTimeout(200);
     e = await estado(sc, "#sel-b");
