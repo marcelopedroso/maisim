@@ -64,7 +64,16 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   #editor { flex:1 1 0; min-height:0; position:relative; }
   #editor textarea { position:absolute; inset:0; width:100%; height:100%; border:0; resize:none; padding:10px 12px; background:var(--campo); color:inherit;
                      font:13px/1.5 ui-monospace, Consolas, monospace; white-space:pre; tab-size:4; outline:none; }
-  #saida-box { border-top:1px solid var(--borda); background:var(--cartao); display:flex; flex-direction:column; flex:0 0 34%; min-height:120px; }
+  #saida-box { border-top:1px solid var(--borda); background:var(--cartao); display:flex; flex-direction:column; flex:0 0 var(--h-saida, 34%); min-height:120px; position:relative; }
+  #saida-box.recolhida { flex:0 0 auto; min-height:0; } #saida-box.recolhida #saida { display:none; }
+  /* as bordas de arrastar (Marcelo, 17/11: "como no VS Code"): a de cima da Saída e a da esquerda da gaveta da IA */
+  .borda-arrasta { position:absolute; z-index:5; } .borda-arrasta:hover, .borda-arrasta.arrastando { background:color-mix(in srgb, var(--acento) 35%, transparent); }
+  #saida-borda { left:0; right:0; top:-4px; height:8px; cursor:row-resize; } #saida-box.recolhida #saida-borda { display:none; }
+  #ia-borda { left:-4px; top:0; bottom:0; width:8px; cursor:col-resize; }
+  #saida-box .cab .bts { display:flex; align-items:center; gap:8px; }
+  #bt-saida { border:1px solid var(--borda); background:var(--cartao); color:var(--sutil); border-radius:6px; width:24px; height:22px; padding:0; font:inherit; font-size:15px; line-height:1; cursor:pointer; }
+  #bt-saida:hover { color:var(--texto); }
+  body.arrastando-borda { user-select:none; }
   #saida-box .cab { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:6px 12px; border-bottom:1px solid var(--borda); }
   #saida-box .cab b { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--sutil); }
   #resultado { font-size:13px; } #resultado.ok { color:var(--ok); } #resultado.erro { color:var(--erro); }
@@ -150,7 +159,9 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
       <button type="button" id="bt-aviso" data-tr="scr.aviso_ok">Entendi</button></p>
     <div id="editor"></div>
     <div id="saida-box">
-      <div class="cab"><b data-tr="scr.saida">Saída</b><span id="resultado"></span></div>
+      <div class="borda-arrasta" id="saida-borda" data-tr-title="scr.borda_saida" title="arraste para mudar a altura; duplo clique: volta ao tamanho de antes"></div>
+      <div class="cab"><b data-tr="scr.saida">Saída</b><span class="bts"><span id="resultado"></span>
+        <button type="button" id="bt-saida" data-tr-title="scr.saida_recolher" data-tr-aria="scr.saida_recolher" title="minimizar a saída" aria-expanded="true">−</button></span></div>
       <pre id="saida"></pre>
     </div>
   </main>
@@ -158,6 +169,7 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
 <button type="button" id="bt-ia" data-tr-title="scr.ia_bt" data-tr-aria="scr.ia_titulo" title="IA do MaiSim" aria-label="IA do MaiSim">
   <svg class="mascote" width="26" height="26" aria-hidden="true" style="color:#fff"><use href="#maisim-claude"/></svg><span class="ponto"></span></button>
 <aside id="gaveta-ia" hidden aria-label="IA do MaiSim" data-tr-aria="scr.ia_titulo">
+  <div class="borda-arrasta" id="ia-borda" data-tr-title="scr.borda_ia" title="arraste para mudar a largura; duplo clique: larga ou estreita"></div>
   <div class="ia-topo"><svg class="mascote" width="21" height="21" aria-hidden="true"><use href="#maisim-claude"/></svg>
     <b data-tr="scr.ia_titulo">IA do MaiSim</b>
     <button type="button" id="ia-nova" data-tr="scr.ia_nova" data-tr-title="scr.ia_nova_title">Nova conversa</button>

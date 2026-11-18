@@ -172,6 +172,17 @@ function iaAbre(abre) {
   ia.ultimaChave = "";
   if (abre) { iaContas().then(iaAtualiza); setTimeout(() => $("ia-texto").focus(), 0); } else iaDesenha();
 }
+// a largura da gaveta: arrastar a borda da esquerda (de 300 px a 70 % da janela); duplo clique: larga ↔ estreita
+function larguraIA(px) {
+  const w = Math.round(Math.max(300, Math.min(innerWidth * 0.7, px)));
+  document.documentElement.style.setProperty("--w-ia", `${w}px`); return w;
+}
+arrasta($("ia-borda"), (ev) => larguraIA(innerWidth - ev.clientX), () => guarda("maisim-script-w-ia", document.documentElement.style.getPropertyValue("--w-ia")));
+$("ia-borda").addEventListener("dblclick", () => {
+  const atual = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--w-ia"), 10) || 420;
+  larguraIA(atual < innerWidth * 0.45 ? innerWidth * 0.6 : 420); guarda("maisim-script-w-ia", document.documentElement.style.getPropertyValue("--w-ia"));
+});
+if (lido("maisim-script-w-ia")) document.documentElement.style.setProperty("--w-ia", lido("maisim-script-w-ia"));
 $("bt-ia").onclick = () => iaAbre(true);
 $("ia-fecha").onclick = () => iaAbre(false);
 $("ia-enviar").onclick = iaEnvia;

@@ -274,6 +274,7 @@ async function rodar() {
   if (precisaSalvar && !(await salvar())) return;
   st.rodando = true; $("bt-rodar").disabled = true; $("bt-rodar").textContent = tr("scr.rodando");
   $("saida").textContent = ""; $("resultado").textContent = ""; $("resultado").className = "";
+  if ($("saida-box").classList.contains("recolhida")) recolheSaida(false);   // rodou: a saída aparece
   try {
     const r = await api("/rodar", { nome: st.nome, grupo: st.grupo });
     if (r.saida) escreveSaida(r.saida);
@@ -301,6 +302,38 @@ $("raiz-meus").onclick = () => { st.pasta = ""; lista(); }; $("bt-salvar").oncli
 // o Scope na mesma aba, com o trilho (o Script do trilho volta aqui); o Rodar já salvou, então não se perde nada
 $("bt-scope").onclick = () => { if (st.ultimaRodada) location.href = `/maisim/scope/?a=${encodeURIComponent(st.ultimaRodada)}`; };
 $("nome").oninput = marca;
+// ----------------------------------------------------------------- o tamanho da Saída (arrastar a borda de cima; "−" minimiza,
+// como no VS Code) e da gaveta da IA (arrastar a borda da esquerda): guardados neste navegador
+const guarda = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* só agora */ } };
+const lido = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+function arrasta(borda, aoMover, aoSoltar) {
+  borda.addEventListener("pointerdown", (e) => {
+    e.preventDefault(); borda.setPointerCapture(e.pointerId); borda.classList.add("arrastando"); document.body.classList.add("arrastando-borda");
+    const move = (ev) => aoMover(ev);
+    const solta = () => { borda.removeEventListener("pointermove", move); borda.removeEventListener("pointerup", solta);
+      borda.classList.remove("arrastando"); document.body.classList.remove("arrastando-borda"); if (aoSoltar) aoSoltar(); };
+    borda.addEventListener("pointermove", move); borda.addEventListener("pointerup", solta);
+  });
+}
+const raiz = document.documentElement.style;
+function alturaSaida(px) {
+  const main = document.querySelector("main"), max = main.clientHeight - 140;   // o editor fica com pelo menos ~140 px
+  const h = Math.round(Math.max(90, Math.min(max, px)));
+  raiz.setProperty("--h-saida", `${h}px`); return h;
+}
+arrasta($("saida-borda"), (ev) => { const r = document.querySelector("main").getBoundingClientRect(); alturaSaida(r.bottom - ev.clientY); },
+  () => guarda("maisim-script-h-saida", raiz.getPropertyValue("--h-saida")));
+$("saida-borda").addEventListener("dblclick", () => { raiz.removeProperty("--h-saida"); guarda("maisim-script-h-saida", ""); });
+function recolheSaida(sim) {
+  $("saida-box").classList.toggle("recolhida", sim); $("bt-saida").textContent = sim ? "+" : "−";
+  $("bt-saida").setAttribute("aria-expanded", String(!sim));
+  const k = sim ? "scr.saida_mostrar" : "scr.saida_recolher"; $("bt-saida").dataset.trTitle = k; $("bt-saida").dataset.trAria = k;
+  $("bt-saida").title = tr(k); $("bt-saida").setAttribute("aria-label", tr(k));
+  guarda("maisim-script-saida-recolhida", sim ? "1" : "");
+}
+$("bt-saida").onclick = () => recolheSaida(!$("saida-box").classList.contains("recolhida"));
+if (lido("maisim-script-h-saida")) raiz.setProperty("--h-saida", lido("maisim-script-h-saida"));
+if (lido("maisim-script-saida-recolhida") === "1") recolheSaida(true);
 // o aviso de segurança: aparece até a pessoa dizer "Entendi" (guardado neste navegador)
 try { if (localStorage.getItem("maisim-script-aviso") === "ok") $("aviso").hidden = true; } catch (e) { /* mostra */ }
 $("bt-aviso").onclick = () => { $("aviso").hidden = true; try { localStorage.setItem("maisim-script-aviso", "ok"); } catch (e) { /* só agora */ } };

@@ -34,6 +34,14 @@ const pede = (pg, rota, corpo) => pg.evaluate(async ([r, c]) => (await fetch(r, 
     await pg.goto(`${B}?nome=${PROJ}/main`); await pg.waitForSelector(`#lista-meus button[data-nome="${PROJ}/main"]`);
     // sem conta
     await pg.click("#bt-ia"); await pg.waitForSelector("#gaveta-ia:not([hidden])");
+    // a largura da gaveta: arrastar a borda da esquerda (e o editor encolhe junto)
+    const wG = () => pg.$eval("#gaveta-ia", (x) => Math.round(x.getBoundingClientRect().width));
+    const wPag = () => pg.$eval("#pagina", (x) => Math.round(x.getBoundingClientRect().width));
+    const g0 = await wG(), p0 = await wPag(), bg = await (await pg.$("#ia-borda")).boundingBox();
+    await pg.mouse.move(bg.x + bg.width / 2, bg.y + 200); await pg.mouse.down();
+    await pg.mouse.move(bg.x + bg.width / 2 - 150, bg.y + 200, { steps: 6 }); await pg.mouse.up();
+    const g1 = await wG(), p1 = await wPag();
+    ok(Math.abs(g1 - g0 - 150) <= 6 && Math.abs(p0 - p1 - 150) <= 6, `arrastar a borda da gaveta: ${g0} → ${g1} px, a página ${p0} → ${p1} px`);
     await pg.waitForFunction(() => !document.getElementById("ia-aviso").hidden, null, { timeout: 8000 }).catch(() => {});
     const sem = await pg.evaluate(() => ({ av: document.getElementById("ia-aviso").textContent, link: !!document.querySelector('#ia-aviso a[href*="contas=1"]'), env: document.getElementById("ia-enviar").disabled }));
     ok(/Entre numa conta/.test(sem.av) && sem.link && sem.env, `sem conta: o aviso com Entrar e o Enviar desligado (${JSON.stringify(sem)})`);

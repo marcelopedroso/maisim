@@ -95,6 +95,24 @@ const pede = (pg, rota, corpo) => pg.evaluate(async ([r, c]) => (await fetch(`sc
     ok(m && m.tit === "Apagar a pasta?" && m.perigo && /com os 2 scripts/.test(await pg.textContent(".modal p")), `apagar a pasta: a janela diz quantos scripts (${await pg.textContent(".modal p").catch(() => "")})`);
     await pg.click(".modal .m-ok"); await pg.waitForTimeout(600);
     ok(!(await pg.$(`#lista-meus li.pasta[data-id="meus:${PASTA}"]`)), "a pasta saiu da árvore");
+    // a Saída: arrastar a borda de cima muda a altura (e fica ao recarregar); "−" minimiza; rodar mostra de novo
+    const hSaida = () => pg.$eval("#saida-box", (x) => Math.round(x.getBoundingClientRect().height));
+    const h0 = await hSaida(), bb = await (await pg.$("#saida-borda")).boundingBox();
+    await pg.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2); await pg.mouse.down();
+    await pg.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2 - 120, { steps: 6 }); await pg.mouse.up();
+    const h1 = await hSaida();
+    await pg.reload(); await pg.waitForSelector("#lista-exemplos li");
+    const h2 = await hSaida();
+    ok(Math.abs(h1 - h0 - 120) <= 6 && Math.abs(h2 - h1) <= 6, `arrastar a borda da Saída: ${h0} → ${h1} px, e fica ao recarregar (${h2} px)`);
+    await pg.click("#bt-saida");
+    const rec = await pg.evaluate(() => ({ h: Math.round(document.getElementById("saida-box").getBoundingClientRect().height), vis: getComputedStyle(document.getElementById("saida")).display, bt: document.getElementById("bt-saida").textContent }));
+    ok(rec.h < 50 && rec.vis === "none" && rec.bt === "+", `"−" minimiza a Saída (${JSON.stringify(rec)})`);
+    await pg.click('#lista-exemplos button[data-pasta="circuits"]').catch(() => {});
+    await pg.click('#lista-exemplos button[data-nome="circuits/rlc_step"]'); await pg.waitForTimeout(500);
+    await pg.click("#bt-rodar"); await pg.waitForFunction(() => /terminou/.test(document.getElementById("resultado").textContent), null, { timeout: 30000 }).catch(() => {});
+    ok(!(await pg.$eval("#saida-box", (x) => x.classList.contains("recolhida"))), "rodar com a Saída minimizada: ela aparece sozinha");
+    await pg.dblclick("#saida-borda");
+    ok(Math.abs((await hSaida()) - h0) <= 6, "duplo clique na borda: volta ao tamanho de antes");
     ok(nativas.length === 0, `nenhuma janela do navegador (${nativas.join(" | ") || "nenhuma"})`);
     ok(!erros.length, `sem erros de JS ${erros.join(" ; ")}`);
   } catch (e) { ok(false, "o teste caiu: " + (e.stack || e).toString().split("\n").slice(0, 3).join(" ") + (nativasG.length ? ` (janelas do navegador: ${nativasG.join(" | ")})` : "")); }

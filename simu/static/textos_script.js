@@ -33,6 +33,10 @@ maisimI18n.add({
   "scr.pasta_t": { pt: "Nova pasta", en: "New folder" },
   "scr.pasta_regra": { pt: "Use só letras, números, _ e - (até 64).", en: "Use only letters, digits, _ and - (up to 64)." },
   "scr.campo_vazio": { pt: "Escreva um nome.", en: "Type a name." },
+  "scr.saida_recolher": { pt: "minimizar a saída", en: "minimise the output" },
+  "scr.saida_mostrar": { pt: "mostrar a saída", en: "show the output" },
+  "scr.borda_saida": { pt: "arraste para mudar a altura; duplo clique: volta ao tamanho de antes", en: "drag to change the height; double-click: back to the default size" },
+  "scr.borda_ia": { pt: "arraste para mudar a largura; duplo clique: larga ou estreita", en: "drag to change the width; double-click: wide or narrow" },
   // a IA do MaiSim nos scripts (script_ia.js)
   "scr.ia_titulo": { pt: "IA do MaiSim", en: "MaiSim AI" },
   "scr.ia_bt": { pt: "IA do MaiSim: ela lê o script e propõe mudanças", en: "MaiSim AI: it reads the script and proposes changes" },
