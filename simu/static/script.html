@@ -163,6 +163,20 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   .cc-diff { font:11.5px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; border:1px solid var(--borda); border-radius:6px; overflow:auto; max-height:280px; margin:6px 0; background:var(--campo); }
   .cc-diff > div { white-space:pre; padding:0 8px 0 4px; min-height:1.45em; } .cc-diff span { display:inline-block; width:1.4em; text-align:center; opacity:.75; user-select:none; }
   .cc-dm { background:var(--ok-bg); color:var(--ok); } .cc-dr { background:var(--erro-bg); color:var(--erro); } .cc-dc { color:var(--texto); } .cc-dh { color:var(--sutil); background:var(--suave3); font-size:11px; }
+  /* o Revisar (a janela da diferença, a mesma da IA do circuito) */
+  .modal.cc-dif { width:min(1200px, 95vw); height:min(92vh, 980px); display:flex; flex-direction:column; } .modal.cc-dif > * { flex:none; }
+  .cc-dif-cab { display:flex; align-items:center; gap:12px; } .cc-dif-cab h3 { flex:1; margin:0; }
+  .modal.cc-dif .cc-dif-arqs { display:flex; overflow-x:auto; overflow-y:hidden; margin:6px 0 2px; padding-bottom:3px; scrollbar-width:thin; }
+  .cc-dif-arqs button { flex:none; white-space:nowrap; font-size:12px; padding:2px 9px; } .cc-dif-arqs button.ativo { background:var(--acento-suave); color:var(--acento); border-color:var(--acento-borda); }
+  .cc-dif-arqs button.recusado { text-decoration:line-through; color:var(--erro); }
+  .cc-dif-marca { font-style:normal; margin-right:4px; color:var(--ok); } .cc-dif-arqs button.recusado .cc-dif-marca { color:var(--erro); }
+  .cc-dif-escolha button, .cc-dif-modo button { font-size:12px; padding:2px 10px; }
+  .cc-dif-escolha button[data-aceita="1"].ativo { background:var(--ok-bg); color:var(--ok); border-color:var(--ok); }
+  .cc-dif-escolha button[data-aceita="0"].ativo { background:var(--erro-bg); color:var(--erro); border-color:var(--erro); }
+  .cc-dif-modo button.ativo { background:var(--acento-suave); color:var(--acento); border-color:var(--acento-borda); }
+  .modal.cc-dif .cc-dif-ed { flex:1 1 auto; min-height:180px; border:1px solid var(--borda); border-radius:6px; overflow:hidden; margin-top:8px; }
+  .cc-dif-ed .cc-diff { max-height:none; height:100%; margin:0; border:0; border-radius:0; }
+  .cc-dif-sint { color:var(--erro); font-size:12px; margin-top:4px; } .cc-dif-sint:empty { display:none; }
   .cc-entrada { padding:6px 10px 8px; border-top:1px solid var(--borda); }
   .cc-lembrete { margin:0 0 4px; font-size:10.5px; line-height:1.35; color:var(--sutil); }
   #ia-texto { width:100%; resize:vertical; min-height:52px; max-height:40vh; font:12.5px/1.4 system-ui, sans-serif; border:1px solid var(--borda); border-radius:8px; padding:6px 8px; }

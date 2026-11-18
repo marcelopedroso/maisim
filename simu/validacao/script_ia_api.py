@@ -103,6 +103,15 @@ try:
     ok(r.get("ERRO") == 409, "não aplica duas vezes")
     h = estado(f"{PROJ}/main").get("historico") or []
     ok(len(h) == 1 and h[-1].get("aplicada") and h[-1].get("mudou"), "a conversa guarda o pedido, aplicado")
+    NOVO_MAIN = (SCRIPTS / PROJ / "main.py").read_text()
+
+    # o Revisar: os recusados ficam como estão; recusar todos não aplica nada
+    e = pede(f"{PROJ}/main", "mude os dois", {"main.py": NOVO_MAIN + "# v2\n", "libs/novo.py": "def um():\n    return 2\n"})
+    r = api("scripts/ia/aplicar", {"nome": f"{PROJ}/main", "recusados": ["main.py", "libs/novo.py"]})
+    ok(r.get("ERRO") == 409 and (SCRIPTS / PROJ / "main.py").read_text() == NOVO_MAIN, "recusar todos no Revisar: nada é aplicado")
+    r = api("scripts/ia/aplicar", {"nome": f"{PROJ}/main", "recusados": ["main.py"]})
+    ok(r.get("ok") and r.get("arquivos") == [f"{PROJ}/libs/novo"] and (SCRIPTS / PROJ / "main.py").read_text() == NOVO_MAIN
+       and "return 2" in (SCRIPTS / PROJ / "libs" / "novo.py").read_text(), f"recusar o main no Revisar: só o outro é gravado ({r.get('arquivos')})")
 
     # sintaxe errada: aparece marcada (e não é executada)
     e = pede(f"{PROJ}/main", "quebre", {"main.py": "def (:\n"})

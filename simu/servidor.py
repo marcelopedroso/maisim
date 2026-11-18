@@ -5665,8 +5665,9 @@ def script_ia_nova(nome):
     return script_ia_estado(nome)
 
 
-def script_ia_aplica(nome):
-    """Grava a proposta guardada no servidor (nunca a da página) nos seus scripts, só dentro do projeto do script."""
+def script_ia_aplica(nome, recusados=()):
+    """Grava a proposta guardada no servidor (nunca a da página) nos seus scripts, só dentro do projeto do script; os
+    arquivos recusados no Revisar ficam como estão (todos recusados: nada a aplicar)."""
     import modo_script
     chave = _chave_script(nome)
     with trava_claude:
@@ -5674,7 +5675,10 @@ def script_ia_aplica(nome):
         if claude_pedido.get("andamento") or not prop or prop.get("tipo") != "script" or f"script:{prop.get('script')}" != chave \
                 or not prop.get("mudou") or claude_pedido.get("aplicada"):
             raise ErroMotor(lingua.tr("script.ia_nada"))
-        r = modo_script.aplica(nome, prop)
+        recusados = [str(x) for x in (recusados or []) if isinstance(x, str)]
+        if not set(prop.get("arquivos", {})) - set(recusados):
+            raise ErroMotor(lingua.tr("script.ia_nada"))
+        r = modo_script.aplica(nome, prop, recusados)
         claude_pedido["aplicada"] = True
         pasta = claude_pedido.get("pasta")
     if pasta:                                            # a conversa: a última resposta foi aplicada
@@ -6908,7 +6912,7 @@ class Manipulador(BaseHTTPRequestHandler):
             acoes = {"/scripts/ia/pedir": lambda: script_ia_pede(corpo.get("nome"), corpo.get("texto", ""), corpo.get("modelo", ""),
                                                                  corpo.get("esforco", ""), corpo.get("ia", "claude")),
                      "/scripts/ia/nova": lambda: script_ia_nova(corpo.get("nome")),
-                     "/scripts/ia/aplicar": lambda: script_ia_aplica(corpo.get("nome")),
+                     "/scripts/ia/aplicar": lambda: script_ia_aplica(corpo.get("nome"), corpo.get("recusados") or []),
                      "/scripts/ia/descartar": lambda: script_ia_descarta(corpo.get("nome"))}
             if rota not in acoes:
                 return self._resposta(404, {"erro": lingua.tr("servidor.rota_desconhecida")})

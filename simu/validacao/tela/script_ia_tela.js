@@ -65,6 +65,15 @@ const pede = (pg, rota, corpo) => pg.evaluate(async ([r, c]) => (await fetch(r, 
     ok(card.mais.some((x) => x.includes("print('depois')")) && card.menos.some((x) => x.includes("print('antes')")), "a diferença: − antes, + depois");
     ok(card.eu.includes("troque antes por depois") && card.txt === "", "o pedido aparece na conversa e a caixa esvazia");
     ok(fs.readFileSync(path.join(SCRIPTS, PROJ, "main.py"), "utf8") === MAIN, "nada gravado antes de aplicar");
+    // o Revisar: a janela grande com as abas dos arquivos; recusar um muda o botão para "Aplicar 1 de 2"; fechar não aplica
+    await pg.click('.cc-bts [data-ia="revisar"]'); await pg.waitForSelector(".modal.cc-dif");
+    const rev = await pg.evaluate(() => ({ abas: [...document.querySelectorAll(".cc-dif-arqs button")].map((b) => b.textContent), ed: !!document.querySelector(".cc-dif-ed .monaco-diff-editor, .cc-dif-ed .cc-diff") }));
+    ok(rev.abas.length === 2 && rev.ed, `Revisar: a janela com o editor de diferenças e uma aba por arquivo (${JSON.stringify(rev.abas)})`);
+    await pg.click('.cc-dif-arqs button:has-text("extra")'); await pg.click('.cc-dif-escolha [data-aceita="0"]');
+    const bt = await pg.textContent(".modal .m-aplicar-rodar");
+    ok(/1 de 2/.test(bt), `recusar um arquivo: "${bt}"`);
+    await pg.keyboard.press("Escape");
+    ok(!(await pg.$(".modal.cc-dif")) && fs.readFileSync(path.join(SCRIPTS, PROJ, "main.py"), "utf8") === MAIN, "Esc fecha o Revisar sem aplicar");
     // aplicar e rodar
     await pg.click('.cc-bts [data-ia="aplicar_rodar"]');
     await pg.waitForFunction(() => /terminou/.test(document.getElementById("resultado").textContent), null, { timeout: 30000 }).catch(() => {});

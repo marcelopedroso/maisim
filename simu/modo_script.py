@@ -415,11 +415,14 @@ def proposta(pasta, antes, nome):
             "recusados": recusados, "mudou": bool(mudados)}
 
 
-def aplica(nome, prop):
-    """Grava nos seus scripts os arquivos da proposta (a guardada no servidor, nunca a da página), só dentro do projeto."""
+def aplica(nome, prop, recusados=()):
+    """Grava nos seus scripts os arquivos da proposta (a guardada no servidor, nunca a da página), só dentro do projeto.
+    recusados: os caminhos (da proposta) que a pessoa recusou no Revisar, que ficam como estão."""
     _base, _rel, topo = projeto(nome)
-    feitos = []
+    feitos, fora = [], set(str(x) for x in (recusados or []))
     for r, cod in (prop or {}).get("arquivos", {}).items():
+        if r in fora:
+            continue
         alvo = caminho((f"{topo}/" if topo else "") + r)   # confere cada parte do nome de novo (sem "..", sem espaço)
         f = pasta_scripts() / f"{alvo}.py"
         f.parent.mkdir(parents=True, exist_ok=True)
