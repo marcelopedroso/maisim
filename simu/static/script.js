@@ -20,7 +20,7 @@ function janela({ titulo, texto = "", campo = null, opcoes = null, ok = tr("scr.
     const f = document.createElement("div"); f.className = "modal-fundo";
     f.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="m-tit"><h3 id="m-tit">${esc(titulo)}</h3>${texto ? `<p>${esc(texto)}</p>` : ""}`
       + (campo ? `<input class="m-campo" spellcheck="false" autocomplete="off" aria-label="${esc(campo.rotulo || titulo)}" value="${esc(campo.valor || "")}"><div class="m-erro" aria-live="polite"></div>` : "")
-      + (opcoes ? `<select class="m-campo m-lista" aria-label="${esc(titulo)}">${opcoes.map((o) => `<option value="${esc(o.valor)}">${esc(o.rotulo)}</option>`).join("")}</select>` : "")
+      + (opcoes ? `<select class="m-campo m-lista" aria-label="${esc(titulo)}">${opcoes.map((o) => `<option value="${esc(o.valor)}"${o.sel ? " selected" : ""}>${esc(o.rotulo)}</option>`).join("")}</select>` : "")
       + `<div class="modal-botoes"><button type="button" class="m-cancela">${esc(tr("scr.cancelar"))}</button><button type="button" class="m-ok ${perigo ? "perigo" : "primario"}">${esc(ok)}</button></div></div>`;
     document.body.appendChild(f);
     const inp = f.querySelector(".m-campo"), err = f.querySelector(".m-erro");
@@ -153,6 +153,7 @@ function marca() {
   $("nome-atual").textContent = a ? (a.nome || tr("scr.sem_nome")) : "";
   $("bt-apagar").disabled = !a || a.grupo !== "meus" || !a.nome;
   $("bt-mover").disabled = !a || a.grupo !== "meus" || !a.nome;
+  marcaParam();
   // o "•" da aba acompanha sem redesenhar tudo
   const b = document.querySelector(`#ctl-abas .aba[data-i="${st.ativa}"]`);
   if (b && a) { const tem = !!b.querySelector(".ponto-sujo"), quer = sujoAba(a) || !a.nome; if (tem !== quer) desenhaAbas(); }
@@ -378,7 +379,7 @@ async function rodar() {
   $("saida").textContent = ""; $("resultado").textContent = ""; $("resultado").className = "";
   if ($("saida-box").classList.contains("recolhida")) recolheSaida(false);   // rodou: a saída aparece
   try {
-    const r = await api("/rodar", { nome: atual().nome, grupo: atual().grupo });
+    const r = await api("/rodar", { nome: atual().nome, grupo: atual().grupo, rodada: modoRodada() });
     if (r.saida) escreveSaida(r.saida);
     if (r.erro) escreveSaida(r.erro, "err");
     const res = $("resultado");
@@ -396,6 +397,19 @@ async function rodar() {
   } catch (e) { escreveSaida(tr("scr.falhou", { erro: e.message }), "err"); msg(tr("scr.falhou", { erro: e.message }), "erro"); }
   st.rodando = false; $("bt-rodar").disabled = false; $("bt-rodar").classList.remove("rodando");
 }
+// ⚙ (como a do circuito): o que fazer com a rodada de antes. Substituir a de mesmo nome (o padrão, como no circuito: a
+// guardada no Scope fica) ou gravar sempre uma nova. Guardado por script, neste navegador
+const chaveRodada = (a = atual()) => `maisim-script-rodada:${a ? `${a.grupo}:${a.nome}` : ""}`;
+const modoRodada = (a = atual()) => (lido(chaveRodada(a)) === "nova" ? "nova" : "substitui");
+async function param() {
+  const a = atual(); if (!a) return;
+  const m = modoRodada(a);
+  const v = await janela({ titulo: tr("scr.param_t"), texto: tr("scr.param_texto"), ok: tr("scr.ok"),
+    opcoes: [{ valor: "substitui", rotulo: tr("scr.rodada_substitui"), sel: m === "substitui" }, { valor: "nova", rotulo: tr("scr.rodada_nova"), sel: m === "nova" }] });
+  if (v === null) return;
+  guarda(chaveRodada(a), v); marcaParam();
+}
+function marcaParam() { $("bt-param").title = `${tr("scr.t_param")} · ${tr(modoRodada() === "nova" ? "scr.rodada_nova" : "scr.rodada_substitui")}`; }
 function msg(t, cls) { $("msg").textContent = t || ""; $("msg").className = cls || ""; }
 
 // ----------------------------------------------------------------- as colunas (Arquivos, Scope; a IA em script_ia.js), as
@@ -449,6 +463,7 @@ document.title = tr("scr.titulo");
 $("bt-novo").onclick = novo; $("bt-novo2").onclick = novo; $("bt-pasta").onclick = novaPasta; $("bt-pasta2").onclick = novaPasta;
 $("bt-mover").onclick = () => { if (st.grupo === "meus" && st.nome) pedeDestino(st.nome); };
 $("raiz-meus").onclick = () => { st.pasta = ""; lista(); };
+$("bt-param").onclick = param;
 $("bt-salvar").onclick = salvar; $("bt-salvar-como").onclick = salvarComo; $("bt-rodar").onclick = rodar; $("bt-apagar").onclick = apagar;
 // o aviso de segurança: aparece até a pessoa dizer "Entendi" (guardado neste navegador)
 if (lido("maisim-script-aviso") === "ok") $("aviso").hidden = true;

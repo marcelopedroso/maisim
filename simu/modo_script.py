@@ -218,7 +218,10 @@ def _corta(s):
     return s if len(s) <= MAX_SAIDA else s[:MAX_SAIDA] + "\n" + lingua.tr("script.saida_cortada")
 
 
-def roda(nome, grupo="meus"):
+RODADA_MODOS = ("substitui", "nova")   # a rodada nova substitui a anterior de mesmo nome (como no circuito) ou fica junto
+
+
+def roda(nome, grupo="meus", rodada="substitui"):
     """Roda o script salvo num processo à parte e devolve a saída e as rodadas que ele gravou. Bloqueia até o fim ou o prazo."""
     f = arquivo(nome, grupo)
     if not f.is_file():
@@ -232,6 +235,9 @@ def roda(nome, grupo="meus"):
     rodadas.mkdir(parents=True, exist_ok=True)
     env = dict(os.environ)
     env["PYTHONPATH"] = os.pathsep.join([str(API), str(raiz(grupo))] + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else []))
+    if rodada not in RODADA_MODOS:
+        rodada = "substitui"
+    env["MAISIM_SCRIPT_RODADA"] = rodada              # o maisim.scope apaga as de antes (substitui), menos as guardadas
     vez = uuid.uuid4().hex                           # esta execução: o maisim.scope marca as rodadas dela (MARCA_VEZ)
     env.update({"MAISIM_SCRIPT_NOME": nome, "MAISIM_SCRIPT_VEZ": vez, "PYTHONDONTWRITEBYTECODE": "1", "MAISIM_SCRIPT_ARQ": str(f), "MAISIM_SCRIPT_RODADAS": str(rodadas),
                 "MAISIM_SCRIPT_LAYOUT": str(arquivo_layout(f)), "PYTHONIOENCODING": "utf-8",

@@ -112,6 +112,15 @@ const pede = (pg, rota, corpo) => pg.evaluate(async ([r, c]) => (await fetch(`sc
     ok(m && m.tit === "Apagar a pasta?" && m.perigo && /com os 2 scripts/.test(await pg.textContent(".modal p")), `apagar a pasta: a janela diz quantos scripts (${await pg.textContent(".modal p").catch(() => "")})`);
     await pg.click(".modal .m-ok"); await pg.waitForTimeout(600);
     ok(!(await pg.$(`#lista-meus li.pasta[data-id="meus:${PASTA}"]`)), "a pasta saiu da árvore");
+    // a ⚙: o que fazer com a rodada de antes (substituir é o padrão, como no circuito); a escolha fica guardada por script
+    await pg.click("#bt-param"); m = await modal();
+    const sel0 = await pg.$eval(".modal select", (x) => x.value);
+    ok(m && m.tit === "Rodar este script" && sel0 === "substitui", `⚙: a janela, com "substituir" como padrão (${sel0})`);
+    await pg.selectOption(".modal select", "nova"); await pg.click(".modal .m-ok");
+    await pg.click("#bt-param"); await modal();
+    const sel1 = await pg.$eval(".modal select", (x) => x.value);
+    ok(sel1 === "nova", `a escolha fica guardada (${sel1})`);
+    await pg.selectOption(".modal select", "substitui"); await pg.click(".modal .m-ok");
     // os Exemplos: uma barra no pé da coluna (como o Outline do VS Code), recolhida até clicar; o estado fica ao recarregar
     if (await pg.$("#secao-exemplos.aberta")) await pg.click("#cab-exemplos");
     const fechada = await pg.evaluate(() => ({ h: Math.round(document.getElementById("secao-exemplos").getBoundingClientRect().height), vis: !!document.querySelector("#lista-exemplos").offsetParent }));

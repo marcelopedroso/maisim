@@ -6932,7 +6932,7 @@ class Manipulador(BaseHTTPRequestHandler):
                     return self._resposta(200, modo_script.move(corpo.get("nome"), corpo.get("destino", "")))
                 if rota == "/scripts/copiar_exemplo":
                     return self._resposta(200, modo_script.copia_exemplo(corpo.get("nome")))
-                return self._resposta(200, modo_script.roda(corpo.get("nome"), corpo.get("grupo", "meus")))
+                return self._resposta(200, modo_script.roda(corpo.get("nome"), corpo.get("grupo", "meus"), corpo.get("rodada", "substitui")))
             except modo_script.ErroScript as e:
                 return self._resposta(409, {"erro": str(e)})
         if rota.startswith("/atualizacao/"):           # verificar agora, o canal, atualizar: só a página do MaiSim (X-MaiSim)
