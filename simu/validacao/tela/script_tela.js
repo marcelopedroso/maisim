@@ -117,6 +117,17 @@ const pede = (pg, rota, corpo) => pg.evaluate(async ([r, c]) => (await fetch(`sc
     ok(m && m.tit === "Apagar a pasta?" && m.perigo && /com os 2 scripts/.test(await pg.textContent(".modal p")), `apagar a pasta: a janela diz quantos scripts (${await pg.textContent(".modal p").catch(() => "")})`);
     await pg.click(".modal .m-ok"); await pg.waitForTimeout(600);
     ok(!(await pg.$(`#lista-meus li.pasta[data-id="meus:${PASTA}"]`)), "a pasta saiu da árvore");
+    // renomear o script aberto (o lápis da barra): no mesmo lugar, e a aba acompanha
+    await pede(pg, "/salvar", { nome: `${PASTA}/ren_a`, codigo: "print(1)\n", sobrescrever: true });
+    await pg.goto(`${B}?nome=${PASTA}/ren_a`); await pg.waitForSelector("#ctl-abas .aba"); await pg.waitForTimeout(500);
+    await pg.click("#bt-renomear"); m = await modal();
+    ok(m && m.tit === "Renomear o script" && m.campo === "ren_a", `renomear: a janela com o nome de agora (${JSON.stringify(m)})`);
+    await pg.fill(".modal .m-campo", "ren_b"); await pg.keyboard.press("Enter");
+    await pg.waitForSelector(`#lista-meus button[data-nome="${PASTA}/ren_b"]`, { timeout: 10000 }).catch(() => {});
+    const ren = await pg.evaluate(() => ({ nome: document.getElementById("nome-atual").textContent, aba: [...document.querySelectorAll("#ctl-abas .aba.ativa .nome-aba")].map((x) => x.textContent).join(),
+      tip: (document.querySelector('#lista-meus button[data-nome$="/ren_b"]') || {}).title }));
+    ok(ren.nome === `${PASTA}/ren_b` && ren.aba === "ren_b.py" && ren.tip === `${PASTA}/ren_b.py`, `renomeado: o nome, a aba e o tooltip com .py (${JSON.stringify(ren)})`);
+    await pede(pg, "/apagar", { nome: `${PASTA}/ren_b` });
     // a coluna do Scope sem ter rodado nesta tela: a última rodada do script aberto; sem nenhuma, o Scope com a lista
     await pede(pg, "/salvar", { nome: `${PASTA}/ja_rodou`, codigo: "import maisim\nmaisim.scope('jr', [0, 1], {'a': [1, 2]})\n", sobrescrever: true });
     const rj = await pede(pg, "/rodar", { nome: `${PASTA}/ja_rodou` });

@@ -87,9 +87,13 @@ const pede = (pg, rota, corpo) => pg.evaluate(async ([r, c]) => (await fetch(r, 
     await pg.goto(`${B}?nome=pwm/sine_pwm&grupo=exemplos`); await pg.waitForSelector("#gaveta-ia:not([hidden])");
     fs.writeFileSync(path.join(CONF, "falso_script.json"), JSON.stringify({ "sine_pwm.py": "print('copia')\n" }));
     await pg.fill("#ia-texto", "mude o exemplo"); await pg.press("#ia-texto", "Control+Enter");
+    await pg.waitForSelector(".modal .m-campo", { timeout: 8000 }).catch(() => {});
+    const jc = await pg.evaluate(() => ({ tit: (document.querySelector(".modal h3") || {}).textContent, valor: (document.querySelector(".modal .m-campo") || {}).value, texto: (document.querySelector(".modal p") || {}).textContent }));
+    ok(jc.tit === "Copiar o exemplo" && /^sessao_\d+$/.test(jc.valor || "") && /só para ler/.test(jc.texto || ""), `pedir num exemplo: a janela da cópia, com o nome padrão (${JSON.stringify(jc)})`);
+    await pg.keyboard.press("Enter");
     await pg.waitForSelector(".cc-prop", { timeout: 30000 }).catch(() => {});
     const ex = await pg.evaluate(() => ({ nome: document.getElementById("nome-atual").textContent, card: !!document.querySelector(".cc-prop") }));
-    ok(/^pwm_copia\d*\/sine_pwm$/.test(ex.nome) && ex.card, `pedir num exemplo: a cópia nos seus e a conversa dela (${JSON.stringify(ex)})`);
+    ok(ex.nome === `${jc.valor}/sine_pwm` && ex.card, `Enter aceita o padrão: a cópia e a conversa dela (${JSON.stringify(ex)})`);
     await pede(pg, "scripts/ia/descartar", { nome: ex.nome });
     if (ex.nome.includes("/")) await pede(pg, "scripts/pasta/apagar", { nome: ex.nome.split("/")[0] });
     ok(nativas.length === 0, `nenhuma janela do navegador (${nativas.join(" | ") || "nenhuma"})`);

@@ -184,6 +184,32 @@ try:
     for n in ("teste_rep", "teste_rep_outro"):
         pede(SIMU + "scripts/apagar", {"nome": n})
 
+    # renomear (no mesmo lugar) e a cópia do exemplo com o nome escolhido
+    for n in ("teste_ren", "teste_ren2", "sessao_teste"):
+        pede(SIMU + "scripts/pasta/apagar", {"nome": n})
+    pede(SIMU + "scripts/salvar", {"nome": "teste_ren/a", "codigo": "import maisim\nmaisim.scope('ren', [0, 1], {'a': [1, 2]}, panels=[['a']])\n"})
+    pede(SIMU + "scripts/salvar", {"nome": "teste_ren/b", "codigo": "x = 1\n"})
+    c, r = pede(SIMU + "scripts/rodar", {"nome": "teste_ren/a"})
+    modelo_a = json.loads(str(np.load(r["rodadas"][0]["arquivo"], allow_pickle=True)["meta"]))["modelo"]
+    c, j = pede(SIMU + "scripts/renomear", {"nome": "teste_ren/a", "novo": "c"})
+    c2, L = pede(SIMU + "scope/padrao?modelo=" + urllib.request.quote(modelo_a.replace("teste_ren/a.py", "teste_ren/c.py")))
+    ok(c == 200 and j.get("nome") == "teste_ren/c" and [x.get("sinais") for x in (L.get("layout") or {}).get("itens", [])] == [["a"]],
+       f"renomear um script: no mesmo lugar, e o layout do Scope vai junto ({j})")
+    c, j = pede(SIMU + "scripts/renomear", {"nome": "teste_ren/c", "novo": "b"})
+    ok(c == 409, f"renomear para um nome que já existe ali é recusado ({j.get('erro')})")
+    c, j = pede(SIMU + "scripts/renomear", {"nome": "teste_ren", "novo": "teste_ren2"})
+    c2, L = pede(SIMU + "scripts/ler?nome=teste_ren2/c")
+    ok(c == 200 and j.get("nome") == "teste_ren2" and c2 == 200, f"renomear uma pasta: os scripts vão junto ({j})")
+    c, j = pede(SIMU + "scripts/renomear", {"nome": "teste_ren2", "novo": "nome com espaço"})
+    ok(c == 409, "um nome inválido é recusado")
+    c, j = pede(SIMU + "scripts/copiar_exemplo", {"nome": "pwm/sine_pwm", "destino": "sessao_teste"})
+    ok(c == 200 and j.get("nome") == "sessao_teste/sine_pwm",
+       f"copiar um exemplo com o nome escolhido: a pasta inteira, com esse nome ({j})")
+    c, j = pede(SIMU + "scripts/copiar_exemplo", {"nome": "pwm/sine_pwm", "destino": "sessao_teste"})
+    ok(c == 409, "o mesmo nome de novo: recusado (não mistura com o que já existe)")
+    for n in ("teste_ren2", "sessao_teste"):
+        pede(SIMU + "scripts/pasta/apagar", {"nome": n})
+
     # mover: um script para uma pasta (o layout vai junto), uma pasta para dentro de outra, as recusas
     for n in ("teste_mv_a", "teste_mv_b"):
         pede(SIMU + "scripts/pasta/apagar", {"nome": n})

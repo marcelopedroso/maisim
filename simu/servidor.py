@@ -6921,7 +6921,7 @@ class Manipulador(BaseHTTPRequestHandler):
             except Exception as e:                       # ErroMotor, ErroScript: 409 com o motivo
                 return self._resposta(409, {"erro": str(e)})
         if rota in ("/scripts/salvar", "/scripts/apagar", "/scripts/rodar", "/scripts/pasta/criar", "/scripts/pasta/apagar",
-                    "/scripts/copiar_exemplo", "/scripts/mover"):   # o modo script (#258): grava e roda código
+                    "/scripts/copiar_exemplo", "/scripts/mover", "/scripts/renomear"):   # o modo script (#258): grava e roda código
             if not pedido_local(self, True):           # aqui: só a página do MaiSim (X-MaiSim)
                 return self._resposta(403, {"erro": lingua.tr("servidor.so_pagina_local")})
             import modo_script
@@ -6937,7 +6937,9 @@ class Manipulador(BaseHTTPRequestHandler):
                 if rota == "/scripts/mover":
                     return self._resposta(200, modo_script.move(corpo.get("nome"), corpo.get("destino", "")))
                 if rota == "/scripts/copiar_exemplo":
-                    return self._resposta(200, modo_script.copia_exemplo(corpo.get("nome")))
+                    return self._resposta(200, modo_script.copia_exemplo(corpo.get("nome"), corpo.get("destino", "")))
+                if rota == "/scripts/renomear":
+                    return self._resposta(200, modo_script.renomeia(corpo.get("nome"), corpo.get("novo", "")))
                 return self._resposta(200, modo_script.roda(corpo.get("nome"), corpo.get("grupo", "meus"), corpo.get("rodada", "substitui")))
             except modo_script.ErroScript as e:
                 return self._resposta(409, {"erro": str(e)})
