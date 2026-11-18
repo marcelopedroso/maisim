@@ -26,7 +26,7 @@ const pede = (pg, rota, corpo) => pg.evaluate(async ([r, c]) => (await fetch(r, 
     await ctx.addInitScript(() => { try { if (!sessionStorage.getItem("t")) { localStorage.clear(); localStorage.setItem("maisim-lingua", "pt"); sessionStorage.setItem("t", "1"); } } catch (e) { /* sem */ } });
     const pg = await ctx.newPage(); const erros = [];
     pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { nativas.push(d.message()); d.dismiss().catch(() => {}); });
-    await pg.goto(B); await pg.waitForSelector("#lista-exemplos li", { timeout: 30000 });
+    await pg.goto(B); await pg.waitForSelector("#lista-exemplos li", { state: "attached", timeout: 30000 });
     await pede(pg, "scripts/pasta/apagar", { nome: PROJ });
     const MAIN = "import maisim\nprint('antes')\n";
     await pede(pg, "scripts/salvar", { nome: `${PROJ}/main`, codigo: MAIN });
@@ -36,45 +36,50 @@ const pede = (pg, rota, corpo) => pg.evaluate(async ([r, c]) => (await fetch(r, 
     await pg.click("#bt-ia"); await pg.waitForSelector("#gaveta-ia:not([hidden])");
     // a largura da gaveta: arrastar a borda da esquerda (e o editor encolhe junto)
     const wG = () => pg.$eval("#gaveta-ia", (x) => Math.round(x.getBoundingClientRect().width));
-    const wPag = () => pg.$eval("#pagina", (x) => Math.round(x.getBoundingClientRect().width));
+    const wPag = () => pg.$eval("#col-cod", (x) => Math.round(x.getBoundingClientRect().width));
     const g0 = await wG(), p0 = await wPag(), bg = await (await pg.$("#ia-borda")).boundingBox();
     await pg.mouse.move(bg.x + bg.width / 2, bg.y + 200); await pg.mouse.down();
     await pg.mouse.move(bg.x + bg.width / 2 - 150, bg.y + 200, { steps: 6 }); await pg.mouse.up();
     const g1 = await wG(), p1 = await wPag();
     ok(Math.abs(g1 - g0 - 150) <= 6 && Math.abs(p0 - p1 - 150) <= 6, `arrastar a borda da gaveta: ${g0} → ${g1} px, a página ${p0} → ${p1} px`);
-    await pg.waitForFunction(() => !document.getElementById("ia-aviso").hidden, null, { timeout: 8000 }).catch(() => {});
-    const sem = await pg.evaluate(() => ({ av: document.getElementById("ia-aviso").textContent, link: !!document.querySelector('#ia-aviso a[href*="contas=1"]'), env: document.getElementById("ia-enviar").disabled }));
+    await pg.waitForSelector("#ia-entrar", { timeout: 8000 }).catch(() => {});
+    const sem = await pg.evaluate(() => ({ av: document.getElementById("ia-msgs").textContent, link: !!document.querySelector('#ia-msgs a[href*="contas=1"] #ia-entrar'), env: document.getElementById("ia-enviar").disabled }));
     ok(/Entre numa conta/.test(sem.av) && sem.link && sem.env, `sem conta: o aviso com Entrar e o Enviar desligado (${JSON.stringify(sem)})`);
     // com conta (a de mentira)
     fs.writeFileSync(path.join(CONF, "falso_logado"), "");
     fs.writeFileSync(path.join(CONF, "falso_cenario"), "script");
-    const NOVO = "import maisim\nprint('depois')\n";
+    const NOVO = "import maisim\nprint('depois')\nmaisim.scope('r', [0, 1], {'v_o': [1, 2]})\n";
     fs.writeFileSync(path.join(CONF, "falso_script.json"), JSON.stringify({ "main.py": NOVO, "libs/extra.py": "X = 1\n" }));
     await pg.click("#ia-fecha"); await pg.click("#bt-ia");
-    await pg.waitForFunction(() => document.getElementById("ia-aviso").hidden && !document.getElementById("ia-enviar").disabled, null, { timeout: 8000 }).catch(() => {});
-    await pg.fill("#ia-texto", "troque antes por depois"); await pg.press("#ia-texto", "Enter");
-    await pg.waitForSelector(".ia-cartao", { timeout: 30000 }).catch(() => {});
-    const card = await pg.evaluate(() => ({ arqs: [...document.querySelectorAll(".ia-arq summary")].map((s) => s.textContent),
-      mais: [...document.querySelectorAll(".ia-dif .mais")].map((s) => s.textContent), menos: [...document.querySelectorAll(".ia-dif .menos")].map((s) => s.textContent),
-      eu: [...document.querySelectorAll(".ia-eu")].map((s) => s.textContent), txt: document.getElementById("ia-texto").value }));
+    await pg.waitForFunction(() => !document.getElementById("ia-entrar") && !document.getElementById("ia-enviar").disabled, null, { timeout: 8000 }).catch(() => {});
+    const oi = await pg.evaluate(() => [...document.querySelectorAll("#ia-msgs .cc-vazio li")].length);
+    ok(oi === 3, `as boas-vindas com os exemplos de pedido (${oi})`);
+    await pg.fill("#ia-texto", "troque antes por depois"); await pg.press("#ia-texto", "Enter");   // Enter só quebra a linha
+    ok(!(await pg.$(".cc-eu")), "Enter sozinho não envia (quebra a linha, como na IA do circuito)");
+    await pg.fill("#ia-texto", "troque antes por depois"); await pg.press("#ia-texto", "Control+Enter");
+    await pg.waitForSelector(".cc-prop", { timeout: 30000 }).catch(() => {});
+    const card = await pg.evaluate(() => ({ arqs: [...document.querySelectorAll(".cc-diff-rot")].map((s) => s.textContent),
+      mais: [...document.querySelectorAll(".cc-diff .cc-dm")].map((s) => s.textContent), menos: [...document.querySelectorAll(".cc-diff .cc-dr")].map((s) => s.textContent),
+      eu: [...document.querySelectorAll(".cc-eu")].map((s) => s.textContent), txt: document.getElementById("ia-texto").value }));
     ok(card.arqs.some((x) => /^libs\/extra\.py.*novo/.test(x)) && card.arqs.some((x) => x.startsWith("main.py")), `a proposta: o main e o novo na libs (${JSON.stringify(card.arqs)})`);
     ok(card.mais.some((x) => x.includes("print('depois')")) && card.menos.some((x) => x.includes("print('antes')")), "a diferença: − antes, + depois");
     ok(card.eu.includes("troque antes por depois") && card.txt === "", "o pedido aparece na conversa e a caixa esvazia");
     ok(fs.readFileSync(path.join(SCRIPTS, PROJ, "main.py"), "utf8") === MAIN, "nada gravado antes de aplicar");
     // aplicar e rodar
-    await pg.click('.ia-bts [data-ia="aplicar_rodar"]');
+    await pg.click('.cc-bts [data-ia="aplicar_rodar"]');
     await pg.waitForFunction(() => /terminou/.test(document.getElementById("resultado").textContent), null, { timeout: 30000 }).catch(() => {});
-    const dep = await pg.evaluate(() => ({ cod: window.monaco ? monaco.editor.getModels()[0].getValue() : "", saida: document.getElementById("saida").textContent,
-      apl: !!document.querySelector(".ia-aplicada"), card: !!document.querySelector(".ia-cartao") }));
+    const dep = await pg.evaluate(() => ({ cod: window.monaco ? monaco.editor.getEditors()[0].getValue() : "", saida: document.getElementById("saida").textContent,
+      apl: !!document.querySelector(".ia-aplicada"), card: !!document.querySelector(".cc-prop"), scope: !document.getElementById("col-scope").hidden }));
     ok(dep.cod === NOVO && /depois/.test(dep.saida) && fs.readFileSync(path.join(SCRIPTS, PROJ, "main.py"), "utf8") === NOVO,
        `Aplicar e rodar: gravou, o editor recarregou e rodou (${JSON.stringify(dep.saida.slice(-60))})`);
     ok(dep.apl && !dep.card, "a conversa marca aplicada e o cartão sai");
+    ok(dep.scope, "rodou e gravou uma rodada: a coluna do Scope abre ao lado");
     // a partir de um exemplo: salva uma cópia e pede sobre ela
     await pg.goto(`${B}?nome=pwm/sine_pwm&grupo=exemplos`); await pg.waitForSelector("#gaveta-ia:not([hidden])");
     fs.writeFileSync(path.join(CONF, "falso_script.json"), JSON.stringify({ "sine_pwm.py": "print('copia')\n" }));
-    await pg.fill("#ia-texto", "mude o exemplo"); await pg.press("#ia-texto", "Enter");
-    await pg.waitForSelector(".ia-cartao", { timeout: 30000 }).catch(() => {});
-    const ex = await pg.evaluate(() => ({ nome: document.getElementById("nome").value, card: !!document.querySelector(".ia-cartao") }));
+    await pg.fill("#ia-texto", "mude o exemplo"); await pg.press("#ia-texto", "Control+Enter");
+    await pg.waitForSelector(".cc-prop", { timeout: 30000 }).catch(() => {});
+    const ex = await pg.evaluate(() => ({ nome: document.getElementById("nome-atual").textContent, card: !!document.querySelector(".cc-prop") }));
     ok(/^pwm_copia\d*\/sine_pwm$/.test(ex.nome) && ex.card, `pedir num exemplo: a cópia nos seus e a conversa dela (${JSON.stringify(ex)})`);
     await pede(pg, "scripts/ia/descartar", { nome: ex.nome });
     if (ex.nome.includes("/")) await pede(pg, "scripts/pasta/apagar", { nome: ex.nome.split("/")[0] });

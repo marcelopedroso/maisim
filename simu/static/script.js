@@ -5,7 +5,12 @@ const MONACO_CDN = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs";
 const MONACO_LOCAL = new URL("static/vendor/monaco/vs", location.href).href;
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const st = { nome: "", grupo: "meus", pasta: "", salvo: "", editor: null, texto: null, ultimaRodada: null, rodando: false };
+// as abas (os scripts abertos, como no Código): cada uma com o nome, o grupo (meus | exemplos), o que está salvo e o modelo do
+// Monaco (o que não foi salvo fica nele ao trocar de aba). st.nome e st.grupo são os da aba ativa (a IA usa os dois)
+const st = { abas: [], ativa: -1, pasta: "", editor: null, texto: null, ultimaRodada: null, rodando: false, arvore: [] };
+const atual = () => st.abas[st.ativa] || null;
+Object.defineProperty(st, "nome", { get: () => (atual() ? atual().nome : "") });
+Object.defineProperty(st, "grupo", { get: () => (atual() ? atual().grupo : "meus") });
 
 // ----------------------------------------------------------------- as janelas do MaiSim (Marcelo, 17/11: nada de alert/confirm/
 // prompt do navegador): as mesmas do simu (modal). Esc ou clicar fora cancela; Enter confirma; perigo: o botão vermelho e o
@@ -41,7 +46,7 @@ function janela({ titulo, texto = "", campo = null, opcoes = null, ok = tr("scr.
 }
 const PARTE = /^[A-Za-z0-9_-]{1,64}$/;   // o mesmo do servidor (modo_script.NOME_OK): cada parte do caminho
 const validaNome = (v) => (v.replace(/\.py$/, "").split("/").every((x) => PARTE.test(x)) ? "" : tr("scr.nome_regra"));
-const descartar = async () => !sujo() || !!(await janela({ titulo: tr("scr.descartar_t"), texto: tr("scr.descartar"), ok: tr("scr.descartar_ok"), perigo: true }));
+const descartar = async (a = atual()) => !a || !sujoAba(a) || !!(await janela({ titulo: tr("scr.descartar_t"), texto: tr("scr.descartar_aba", { nome: a.nome || tr("scr.sem_nome") }), ok: tr("scr.descartar_ok"), perigo: true }));
 
 // ----------------------------------------------------------------- servidor
 async function api(rota, corpo) {
@@ -52,7 +57,7 @@ async function api(rota, corpo) {
   return j;
 }
 
-// ----------------------------------------------------------------- editor
+// ----------------------------------------------------------------- editor e abas
 function carregaMonaco() {
   return new Promise((ok, falha) => {
     if (window.monaco) return ok(window.monaco);
@@ -69,16 +74,20 @@ function carregaMonaco() {
     });
   });
 }
-const codigo = () => (st.editor ? st.editor.getValue() : st.texto ? st.texto.value : "");
-function poeCodigo(c) {
-  if (st.editor) st.editor.setValue(c); else if (st.texto) st.texto.value = c;
-  st.salvo = c; marca();
+const conteudo = (a) => (a.model ? a.model.getValue() : a === atual() && st.texto ? st.texto.value : a.codigo);
+const sujoAba = (a) => conteudo(a) !== a.salvo;
+const codigo = () => (atual() ? conteudo(atual()) : "");
+const sujo = () => !!atual() && sujoAba(atual());
+function poeCodigo(c) {                                  // a aba ativa passa a ter c, salvo (vindo do disco)
+  const a = atual(); if (!a) return;
+  if (a.model) a.model.setValue(c); else if (st.texto) st.texto.value = c;
+  a.codigo = c; a.salvo = c; marca();
 }
 async function montaEditor() {
   try {
     const monaco = await carregaMonaco();
     const temaEditor = () => (document.documentElement.dataset.tema === "escuro" ? "vs-dark" : "vs");
-    st.editor = monaco.editor.create($("editor"), { value: "", language: "python", automaticLayout: true, minimap: { enabled: false },
+    st.editor = monaco.editor.create($("editor"), { model: null, automaticLayout: true, minimap: { enabled: false },
       fontSize: 13, tabSize: 4, insertSpaces: true, scrollBeyondLastLine: false, theme: temaEditor() });
     // o trilho trocou o tema (aqui ou noutra aba): o editor acompanha (Marcelo, 17/11: "o tema não respeitou")
     addEventListener("maisim-tema", () => monaco.editor.setTheme(temaEditor()));
@@ -90,22 +99,72 @@ async function montaEditor() {
     $("editor").appendChild(st.texto); escreveSaida(tr("scr.monaco_falhou"), "dica");
   }
 }
+function novaAba(nome, grupo, cod, previa = false, fixa = false) {
+  const a = { nome, grupo, salvo: cod, codigo: cod, model: null, previa, fixa };
+  if (st.editor) { a.model = window.monaco.editor.createModel(cod, "python"); a.model.updateOptions({ tabSize: 4, insertSpaces: true }); }
+  st.abas.push(a); return st.abas.length - 1;
+}
+function ativa(i) {
+  const antes = atual();
+  if (antes && !antes.model && st.texto) antes.codigo = st.texto.value;   // sem o Monaco: guarda o texto da aba que sai
+  st.ativa = i;
+  const a = atual();
+  if (st.editor) st.editor.setModel(a ? a.model : null); else if (st.texto) st.texto.value = a ? a.codigo : "";
+  if (a && a.grupo === "meus" && a.nome) st.pasta = paiDe(a.nome);
+  if (a && a.grupo === "exemplos" && $("secao-exemplos")) secaoExemplos(true, false);
+  if (a && a.nome) { const partes = a.nome.split("/"); for (let k = 1; k < partes.length; k++) abertas.add(`${a.grupo}:${partes.slice(0, k).join("/")}`); guardaAbertas(); }
+  history.replaceState(null, "", a && a.nome ? `?nome=${encodeURIComponent(a.nome)}${a.grupo === "exemplos" ? "&grupo=exemplos" : ""}` : location.pathname);
+  guardaAbas(); desenhaAbas(); marca(); marcaArvore();
+  if (st.editor) st.editor.focus();
+}
+// as abas como no VS Code: um clique na árvore abre em PRÉVIA (itálico: o próximo clique troca o arquivo nela); editar, duplo
+// clique (na aba ou na árvore) ou 📌 a mantém; 📌 também a FIXA à esquerda (sem o ×). Guardadas neste navegador
+const guardaAbas = () => guarda("maisim-script-abas", JSON.stringify(st.abas.filter((a) => a.nome).map((a) => [a.nome, a.grupo, a.fixa ? 1 : 0])));
+function desenhaAbas() {
+  $("ctl-abas").innerHTML = st.abas.map((a, i) => `<button type="button" role="tab" class="aba${i === st.ativa ? " ativa" : ""}${a.previa ? " previa" : ""}${a.fixa ? " fixa" : ""}" data-i="${i}" aria-selected="${i === st.ativa}" title="${esc((a.nome ? (a.grupo === "exemplos" ? tr("scr.aba_exemplo", { nome: a.nome }) : a.nome) : tr("scr.sem_nome")) + (a.previa ? " · " + tr("scr.aba_previa") : ""))}">`
+    + `${a.grupo === "exemplos" ? '<span class="cadeado" aria-hidden="true">🔒</span>' : ""}<span class="nome-aba">${esc(a.nome ? a.nome.split("/").pop() + ".py" : tr("scr.sem_nome"))}</span>${sujoAba(a) || !a.nome ? '<span class="ponto-sujo">•</span>' : ""}`
+    + `<span class="fixa-bt" data-fixa="${i}" role="button" title="${esc(tr(a.fixa ? "scr.desafixar_aba" : "scr.fixar_aba"))}" aria-label="${esc(tr(a.fixa ? "scr.desafixar_aba" : "scr.fixar_aba"))}">📌</span>`
+    + `<span class="fecha" data-fecha="${i}" role="button" aria-label="${esc(tr("scr.fechar_aba"))}">×</span></button>`).join("");
+}
+function fixaAba(i, fixa) { const a = st.abas[i]; if (!a) return; a.previa = false; if (fixa !== undefined) a.fixa = fixa; guardaAbas(); desenhaAbas(); }
+$("ctl-abas").addEventListener("click", (e) => {
+  const f = e.target.closest("[data-fecha]"); if (f) { e.stopPropagation(); fechaAba(+f.dataset.fecha); return; }
+  const p = e.target.closest("[data-fixa]"); if (p) { e.stopPropagation(); fixaAba(+p.dataset.fixa, !st.abas[+p.dataset.fixa].fixa); return; }
+  const b = e.target.closest(".aba"); if (b && +b.dataset.i !== st.ativa) ativa(+b.dataset.i);   // a ativa: não redesenha (o duplo clique precisa do mesmo botão)
+});
+$("ctl-abas").addEventListener("dblclick", (e) => { const b = e.target.closest(".aba"); if (b) fixaAba(+b.dataset.i); });   // duplo clique: sai da prévia
+$("ctl-abas").addEventListener("auxclick", (e) => { const b = e.target.closest(".aba"); if (b && e.button === 1) fechaAba(+b.dataset.i); });   // o botão do meio fecha
+async function fechaAba(i, semPerguntar = false) {
+  const a = st.abas[i]; if (!a) return;
+  if (!semPerguntar && !(await descartar(a))) return;
+  if (a.model) a.model.dispose();
+  st.abas.splice(i, 1);
+  if (!st.abas.length) { st.ativa = -1; await novo(); return; }
+  ativa(Math.min(i <= st.ativa ? Math.max(0, st.ativa - 1) : st.ativa, st.abas.length - 1));
+}
 
 // ----------------------------------------------------------------- estado e lista
 function marca() {
-  const sujo = codigo() !== st.salvo || ($("nome").value.trim() !== st.nome);
-  const naoSalvo = st.grupo !== "exemplos" && (sujo || !st.nome);
-  $("estado").textContent = st.grupo === "exemplos" ? tr("scr.exemplo_so_ler") : naoSalvo ? tr("scr.nao_salvo") : tr("scr.salvo");
-  $("estado").classList.toggle("nao-salvo", naoSalvo);   // em vermelho, para chamar a atenção (Marcelo, 17/11)
-  $("bt-apagar").disabled = st.grupo !== "meus" || !st.nome;
-  $("bt-mover").disabled = st.grupo !== "meus" || !st.nome;
+  const a = atual();
+  if (a && a.previa && sujoAba(a)) { a.previa = false; desenhaAbas(); }   // editou: a aba fica (sai da prévia)
+  const naoSalvo = !!a && a.grupo !== "exemplos" && (sujoAba(a) || !a.nome);
+  $("ctl-estado").textContent = !a ? "" : a.grupo === "exemplos" ? tr("scr.exemplo_so_ler") : naoSalvo ? tr("scr.nao_salvo") : tr("scr.salvo");
+  $("ctl-estado").classList.toggle("nao-salvo", naoSalvo);   // em vermelho, para chamar a atenção (Marcelo, 17/11)
+  $("nome-atual").textContent = a ? (a.nome || tr("scr.sem_nome")) : "";
+  $("bt-apagar").disabled = !a || a.grupo !== "meus" || !a.nome;
+  $("bt-mover").disabled = !a || a.grupo !== "meus" || !a.nome;
+  // o "•" da aba acompanha sem redesenhar tudo
+  const b = document.querySelector(`#ctl-abas .aba[data-i="${st.ativa}"]`);
+  if (b && a) { const tem = !!b.querySelector(".ponto-sujo"), quer = sujoAba(a) || !a.nome; if (tem !== quer) desenhaAbas(); }
 }
-const sujo = () => codigo() !== st.salvo;
+function marcaArvore() {
+  document.querySelectorAll("#col-arq li button[data-nome]").forEach((b) => b.setAttribute("aria-current", String(b.dataset.nome === st.nome && b.dataset.grupo === st.grupo)));
+}
 // a árvore (pastas e scripts): as pastas abertas ficam guardadas neste navegador; a pasta escolhida (st.pasta, nos seus) é
-// onde o "+ Novo script" e o "+ Pasta" criam
+// onde o "+ Script" e o "+ Pasta" criam
 let abertas = new Set();
 try { abertas = new Set(JSON.parse(localStorage.getItem("maisim-script-abertas") || "[]")); } catch (e) { /* nenhuma */ }
-const guardaAbertas = () => { try { localStorage.setItem("maisim-script-abertas", JSON.stringify([...abertas])); } catch (e) { /* só agora */ } };
+const guardaAbertas = () => guarda("maisim-script-abertas", JSON.stringify([...abertas]));
 const contaScripts = (itens) => itens.reduce((n, x) => n + (x.tipo === "pasta" ? contaScripts(x.filhos) : 1), 0);
 function ramo(itens, grupo) {
   return itens.map((x) => {
@@ -117,28 +176,61 @@ function ramo(itens, grupo) {
         + (grupo === "meus" ? `<button type="button" class="tira" data-tira="${esc(x.caminho)}" data-n="${contaScripts(x.filhos)}" title="${esc(tr("scr.apagar_pasta"))}" aria-label="${esc(tr("scr.apagar_pasta"))}">×</button>` : "")
         + `</div><ul>${ramo(x.filhos, grupo) || `<li class="vazio">${esc(tr("scr.pasta_vazia"))}</li>`}</ul></li>`;
     }
-    return `<li><button type="button" data-nome="${esc(x.caminho)}" data-grupo="${grupo}" title="${esc(x.caminho)}"${grupo === "meus" ? ` draggable="true" data-arrasta="${esc(x.caminho)}"` : ""}${x.caminho === st.nome && grupo === st.grupo ? ' aria-current="true"' : ""}>${esc(x.nome)}</button></li>`;
+    return `<li><button type="button" data-nome="${esc(x.caminho)}" data-grupo="${grupo}" title="${esc(x.caminho)}"${grupo === "meus" ? ` draggable="true" data-arrasta="${esc(x.caminho)}"` : ""} aria-current="${x.caminho === st.nome && grupo === st.grupo}">${esc(x.nome)}.py</button></li>`;
   }).join("");
 }
 async function lista() {
-  const j = await api(""); st.arvore = j.meus;
+  const j = await api(""); st.arvore = j.meus; st.listaFeita = true;
   $("lista-meus").innerHTML = j.meus.length ? ramo(j.meus, "meus") : `<li class="vazio">${esc(tr("scr.nenhum"))}</li>`;
   $("lista-exemplos").innerHTML = ramo(j.exemplos, "exemplos");
   $("raiz-meus").classList.toggle("sel", !st.pasta);
-  for (const b of document.querySelectorAll("aside li button[data-nome]")) b.onclick = () => abre(b.dataset.nome, b.dataset.grupo);
-  for (const b of document.querySelectorAll("aside button[data-pasta]")) b.onclick = () => {
+  for (const b of document.querySelectorAll("#col-arq li button[data-nome]")) {
+    b.onclick = () => abre(b.dataset.nome, b.dataset.grupo, true);          // um clique: em prévia
+    b.ondblclick = () => abre(b.dataset.nome, b.dataset.grupo, false);      // duplo clique: a aba fica
+  }
+  for (const b of document.querySelectorAll("#col-arq button[data-pasta]")) b.onclick = () => {
     const li = b.closest("li.pasta"), id = li.dataset.id;
     if (b.dataset.grupo === "meus" && st.pasta !== b.dataset.pasta) { st.pasta = b.dataset.pasta; abertas.add(id); }   // escolher abre
     else if (abertas.has(id)) abertas.delete(id); else abertas.add(id);
     guardaAbertas(); lista();
   };
-  for (const b of document.querySelectorAll("aside button[data-tira]")) b.onclick = () => apagaPasta(b.dataset.tira, +b.dataset.n);
-  for (const b of document.querySelectorAll("aside button[data-mover]")) b.onclick = () => pedeDestino(b.dataset.mover);
+  for (const b of document.querySelectorAll("#col-arq button[data-tira]")) b.onclick = () => apagaPasta(b.dataset.tira, +b.dataset.n);
+  for (const b of document.querySelectorAll("#col-arq button[data-mover]")) b.onclick = () => pedeDestino(b.dataset.mover);
+  filtra();
 }
+// a busca (como a dos Arquivos do Código): só os scripts com o texto no nome, e as pastas deles abertas
+function filtra() {
+  const q = $("arq-busca").value.trim().toLowerCase();
+  const passa = (li) => {
+    const b = li.querySelector(":scope > button[data-nome]");
+    if (b) { const ok = !q || b.dataset.nome.toLowerCase().includes(q); li.hidden = !ok; return ok; }
+    if (li.classList.contains("pasta")) {
+      const algum = [...li.querySelectorAll(":scope > ul > li")].map(passa).some(Boolean);
+      li.hidden = !!q && !algum; if (q) li.classList.toggle("aberta", algum); else li.classList.toggle("aberta", abertas.has(li.dataset.id));
+      return algum;
+    }
+    li.hidden = !!q; return false;                   // "vazio", "nenhum ainda"
+  };
+  document.querySelectorAll("#lista-meus > li, #lista-exemplos > li").forEach(passa);
+}
+$("arq-busca").addEventListener("input", () => {
+  filtra();
+  const q = $("arq-busca").value.trim();
+  if (q && [...document.querySelectorAll("#lista-exemplos li button[data-nome]")].some((b) => !b.closest("li[hidden]"))) secaoExemplos(true, false);
+});
+function secaoExemplos(on, guardar = true) {
+  $("secao-exemplos").classList.toggle("aberta", on); $("cab-exemplos").setAttribute("aria-expanded", String(on));
+  if (guardar) guarda("maisim-script-exemplos", on ? "1" : "");
+}
+$("cab-exemplos").onclick = () => secaoExemplos(!$("secao-exemplos").classList.contains("aberta"));
+$("arq-busca").addEventListener("keydown", (e) => {   // Enter abre o primeiro que sobrou; Esc limpa
+  if (e.key === "Escape") { $("arq-busca").value = ""; filtra(); }
+  if (e.key === "Enter") { const b = [...document.querySelectorAll("#col-arq li button[data-nome]")].find((x) => !x.closest("li[hidden]")); if (b) b.click(); }
+});
 
 // ----------------------------------------------------------------- mover (Marcelo, 17/11): arrastar um script ou uma pasta
-// dos seus para outra pasta (ou para "Meus scripts", a raiz); pelo teclado, Mover… (o script aberto) e ⇄ (a pasta) com a
-// lista das pastas. O script aberto acompanha (o que não foi salvo continua no editor)
+// dos seus para outra pasta (ou para "Meus scripts", a raiz); pelo teclado, mover (o script aberto) e ⇄ (a pasta) com a
+// lista das pastas. As abas acompanham (o que não foi salvo continua no editor)
 const pastasDe = (itens) => itens.filter((x) => x.tipo === "pasta").flatMap((x) => [x.caminho, ...pastasDe(x.filhos)]);
 const paiDe = (c) => (c.includes("/") ? c.slice(0, c.lastIndexOf("/")) : "");
 async function move(nome, destino) {
@@ -146,17 +238,14 @@ async function move(nome, destino) {
     const r = await api("/mover", { nome, destino });
     if (r.nome !== nome) {
       const segue = (c) => (c === nome ? r.nome : c.startsWith(`${nome}/`) ? r.nome + c.slice(nome.length) : c);
-      if (st.grupo === "meus" && st.nome) {
-        const antes = st.nome; st.nome = segue(st.nome);
-        if ($("nome").value.trim() === antes) $("nome").value = st.nome;
-        if (st.nome !== antes) history.replaceState(null, "", `?nome=${encodeURIComponent(st.nome)}`);
-      }
+      st.abas.forEach((a) => { if (a.grupo === "meus" && a.nome) a.nome = segue(a.nome); });
       st.pasta = segue(st.pasta);
       abertas = new Set([...abertas].map((id) => (id.startsWith("meus:") ? `meus:${segue(id.slice(5))}` : id)));
       if (destino) abertas.add(`meus:${destino}`); guardaAbertas();
+      if (atual() && atual().nome) history.replaceState(null, "", `?nome=${encodeURIComponent(atual().nome)}${atual().grupo === "exemplos" ? "&grupo=exemplos" : ""}`);
       escreveSaida(tr("scr.movido", { de: nome, para: r.nome }), "dica");
     }
-    marca(); await lista();
+    guardaAbas(); desenhaAbas(); marca(); await lista();
   } catch (e) { escreveSaida(tr("scr.falhou", { erro: e.message }), "err"); }
 }
 async function pedeDestino(nome) {
@@ -187,27 +276,27 @@ for (const zona of [$("lista-meus"), $("raiz-meus")]) {
 }
 document.addEventListener("dragend", () => document.querySelectorAll(".alvo").forEach((x) => x.classList.remove("alvo")));
 const naPasta = (nome) => (st.pasta ? `${st.pasta}/${nome}` : nome);
-async function abre(nome, grupo) {
-  if (!(await descartar())) return;
+async function abre(nome, grupo, previa = false) {     // já aberto: vai para a aba dele; senão, uma aba nova (ou a de prévia)
+  const k = st.abas.findIndex((a) => a.nome === nome && a.grupo === grupo);
+  if (k >= 0) { if (!previa) st.abas[k].previa = false; ativa(k); if (!st.listaFeita) await lista(); return; }   // (a 1ª vez, a árvore ainda não foi desenhada)
   try {
     const j = await api(`/ler?nome=${encodeURIComponent(nome)}&grupo=${encodeURIComponent(grupo)}`);
-    st.nome = j.nome; st.grupo = grupo; $("nome").value = j.nome; poeCodigo(j.codigo); st.ultimaRodada = null; $("bt-scope").disabled = true;
-    if (grupo === "meus") st.pasta = j.nome.includes("/") ? j.nome.slice(0, j.nome.lastIndexOf("/")) : "";
-    const partes = j.nome.split("/"); for (let i = 1; i < partes.length; i++) abertas.add(`${grupo}:${partes.slice(0, i).join("/")}`);   // a pasta dele aberta
-    guardaAbertas();
-    history.replaceState(null, "", `?nome=${encodeURIComponent(j.nome)}${grupo === "exemplos" ? "&grupo=exemplos" : ""}`);
+    // dá lugar: a aba de prévia intocada (como no VS Code) ou a "sem nome" intocada
+    const sai = st.abas.findIndex((a) => !sujoAba(a) && (a.previa || (!a.nome && a === atual())));
+    if (sai >= 0) { const a = st.abas[sai]; if (a.model) a.model.dispose(); st.abas.splice(sai, 1); if (st.ativa >= sai) st.ativa = Math.max(-1, st.ativa - 1); }
+    const i = novaAba(j.nome, grupo, j.codigo, previa);
+    if (sai >= 0 && sai < st.abas.length - 1) { st.abas.splice(sai, 0, st.abas.pop()); ativa(sai); } else ativa(i);   // no mesmo lugar
     await lista();
   } catch (e) {                                       // não abriu (apagado, movido): o erro na saída, a lista desenhada mesmo
     escreveSaida(tr("scr.falhou", { erro: e.message }), "err");
     if (!st.nome) history.replaceState(null, "", location.pathname);
-    await lista().catch(() => {});
+    if (st.ativa < 0 && st.abas.length) ativa(0);     // as abas da última vez continuam; senão, um script novo
+    if (!st.abas.length) await novo().catch(() => {}); else await lista().catch(() => {});
   }
 }
 async function novo() {
-  if (!(await descartar())) return;
   const j = await api("/novo");
-  st.nome = ""; st.grupo = "meus"; $("nome").value = st.pasta ? `${st.pasta}/` : ""; poeCodigo(j.codigo);
-  history.replaceState(null, "", location.pathname); $("nome").focus(); await lista();
+  ativa(novaAba("", "meus", j.codigo)); await lista();
 }
 async function novaPasta() {
   const nome = await janela({ titulo: tr("scr.pasta_t"), texto: tr("scr.pede_pasta", { onde: st.pasta || tr("scr.meus") }), ok: tr("scr.criar"),
@@ -223,92 +312,101 @@ async function apagaPasta(caminho, n) {
   try {
     await api("/pasta/apagar", { nome: caminho });
     if (st.pasta === caminho || st.pasta.startsWith(`${caminho}/`)) st.pasta = "";
-    // o script aberto estava na pasta apagada: nada a descartar (st.salvo = o que está no editor)
-    if (st.grupo === "meus" && st.nome.startsWith(`${caminho}/`)) { st.nome = ""; st.salvo = codigo(); await novo(); } else await lista();
+    // as abas da pasta apagada fecham sem perguntar (o que estava nelas foi apagado de propósito)
+    for (let i = st.abas.length - 1; i >= 0; i--) if (st.abas[i].grupo === "meus" && st.abas[i].nome.startsWith(`${caminho}/`)) await fechaAba(i, true);
+    await lista();
   } catch (e) { escreveSaida(tr("scr.falhou", { erro: e.message }), "err"); }
 }
 
-// ----------------------------------------------------------------- salvar, apagar, rodar
-async function salvar() {
-  let nome = $("nome").value.trim().replace(/\.py$/, "");
-  if (st.grupo === "exemplos" && nome === st.nome) {   // o exemplo fica como está: salvar faz uma cópia nos seus (a pasta dele
-    try {                                            // inteira, se está numa: os arquivos que ele importa vêm junto)
-      const c = await api("/copiar_exemplo", { nome });
-      await api("/salvar", { nome: c.nome, codigo: codigo(), sobrescrever: true });
-      st.nome = c.nome; st.grupo = "meus"; $("nome").value = c.nome; st.salvo = codigo(); marca();
-      st.pasta = c.nome.includes("/") ? c.nome.slice(0, c.nome.lastIndexOf("/")) : "";
-      const partes = c.nome.split("/"); for (let i = 1; i < partes.length; i++) abertas.add(`meus:${partes.slice(0, i).join("/")}`);
-      guardaAbertas(); history.replaceState(null, "", `?nome=${encodeURIComponent(c.nome)}`);
-      escreveSaida(tr("scr.copiado", { nome: c.nome }), "dica"); await lista(); return true;
-    } catch (e) { escreveSaida(tr("scr.falhou", { erro: e.message }), "err"); return false; }
+// ----------------------------------------------------------------- salvar, salvar como, apagar, rodar
+async function gravaComo(nome, a) {                    // grava o conteúdo da aba a com o nome; pergunta antes de substituir outro
+  let r = await api("/salvar", { nome, codigo: conteudo(a), sobrescrever: a.grupo === "meus" && nome === a.nome });
+  if (r.codigo === "confirmar") {
+    if (!(await janela({ titulo: tr("scr.sobrescrever_t"), texto: r.pergunta, ok: tr("scr.substituir"), perigo: true }))) return false;
+    r = await api("/salvar", { nome, codigo: conteudo(a), sobrescrever: true });
   }
-  if (!nome || nome.endsWith("/")) {                 // sem nome: pergunta (dentro da pasta escolhida, se houver)
-    const pre = nome || (st.pasta ? `${st.pasta}/` : "");
-    const n = await janela({ titulo: tr("scr.nome_t"), texto: tr("scr.pede_nome"), ok: tr("scr.salvar"), campo: { rotulo: tr("scr.nome"), valor: pre }, valida: validaNome });
-    nome = n ? n.replace(/\.py$/, "") : "";
-  } else if (validaNome(nome)) { escreveSaida(tr("scr.nome_regra"), "err"); $("nome").focus(); return false; }
-  if (!nome) return false;
+  a.nome = r.nome; a.grupo = "meus"; a.salvo = conteudo(a);
+  return true;
+}
+async function salvar() {
+  const a = atual(); if (!a) return false;
   try {
-    // o próprio script aberto: grava por cima sem perguntar; um nome que já existe e é outro: pergunta antes de substituir
-    let r = await api("/salvar", { nome, codigo: codigo(), sobrescrever: st.grupo === "meus" && nome === st.nome });
-    if (r.codigo === "confirmar") {
-      if (!(await janela({ titulo: tr("scr.sobrescrever_t"), texto: r.pergunta, ok: tr("scr.substituir"), perigo: true }))) return false;
-      r = await api("/salvar", { nome, codigo: codigo(), sobrescrever: true });
-    }
-    st.nome = r.nome; st.grupo = "meus"; $("nome").value = r.nome; st.salvo = codigo(); marca();
-    history.replaceState(null, "", `?nome=${encodeURIComponent(r.nome)}`);
-    await lista(); return true;
+    if (a.grupo === "exemplos") {                   // o exemplo fica como está: salvar faz uma cópia nos seus (a pasta dele
+      const c = await api("/copiar_exemplo", { nome: a.nome });   // inteira, se está numa: os arquivos que ele importa vêm junto)
+      await api("/salvar", { nome: c.nome, codigo: conteudo(a), sobrescrever: true });
+      a.nome = c.nome; a.grupo = "meus"; a.salvo = conteudo(a);
+      escreveSaida(tr("scr.copiado", { nome: c.nome }), "dica");
+    } else if (!a.nome) {                            // sem nome: pergunta (dentro da pasta escolhida, se houver)
+      const n = await janela({ titulo: tr("scr.nome_t"), texto: tr("scr.pede_nome"), ok: tr("scr.salvar"), campo: { rotulo: tr("scr.nome"), valor: st.pasta ? `${st.pasta}/` : "" }, valida: validaNome });
+      if (!n || !(await gravaComo(n.replace(/\.py$/, ""), a))) return false;
+    } else if (!(await gravaComo(a.nome, a))) return false;
+    ativa(st.ativa); await lista(); return true;
   } catch (e) { escreveSaida(tr("scr.falhou", { erro: e.message }), "err"); return false; }
 }
+async function salvarComo() {
+  const a = atual(); if (!a) return false;
+  const n = await janela({ titulo: tr("scr.salvar_como_t"), texto: tr("scr.pede_nome"), ok: tr("scr.salvar"),
+    campo: { rotulo: tr("scr.nome"), valor: a.nome && a.grupo === "meus" ? a.nome : st.pasta ? `${st.pasta}/` : "" }, valida: validaNome });
+  if (!n) return false;
+  try { if (!(await gravaComo(n.replace(/\.py$/, ""), a))) return false; ativa(st.ativa); await lista(); return true; }
+  catch (e) { escreveSaida(tr("scr.falhou", { erro: e.message }), "err"); return false; }
+}
 async function apagar() {
-  if (st.grupo !== "meus" || !st.nome) return;
-  if (!(await janela({ titulo: tr("scr.apagar_t"), texto: tr("scr.confirma_apagar", { nome: st.nome }), ok: tr("scr.apagar"), perigo: true }))) return;
-  // o script apagado era o aberto: nada a descartar (st.salvo = o que está no editor)
-  try { await api("/apagar", { nome: st.nome }); st.nome = ""; st.salvo = codigo(); await novo(); }
+  const a = atual(); if (!a || a.grupo !== "meus" || !a.nome) return;
+  if (!(await janela({ titulo: tr("scr.apagar_t"), texto: tr("scr.confirma_apagar", { nome: a.nome }), ok: tr("scr.apagar"), perigo: true }))) return;
+  // o script apagado era o aberto: a aba fecha sem perguntar se descarta
+  try { await api("/apagar", { nome: a.nome }); await fechaAba(st.ativa, true); await lista(); }
   catch (e) { escreveSaida(tr("scr.falhou", { erro: e.message }), "err"); }
 }
 function escreveSaida(txt, cls) {
   const s = document.createElement("span"); if (cls) s.className = cls; s.textContent = txt.endsWith("\n") ? txt : txt + "\n"; $("saida").appendChild(s);
 }
+const urlScope = (arq) => `/maisim/scope/?so=rodada&a=${encodeURIComponent(arq)}`;   // o mesmo do simu: só os sinais da rodada
+function mostraScope(arq) {                            // a rodada na coluna do Scope (como o fim da rodada no simu)
+  if (arq) { $("if-scope").src = urlScope(arq); $("if-scope").hidden = false; $("scope-vazio").hidden = true; }
+  coluna("scope", true);
+}
 async function rodar() {
-  if (st.rodando) return;
+  const a = atual(); if (st.rodando || !a) return;
   // um exemplo sem mudança roda como está; o resto salva antes (roda sempre o que está no disco)
-  const precisaSalvar = !(st.grupo === "exemplos" && !sujo() && $("nome").value.trim() === st.nome) && (sujo() || !st.nome || $("nome").value.trim() !== st.nome);
-  if (precisaSalvar && !(await salvar())) return;
-  st.rodando = true; $("bt-rodar").disabled = true; $("bt-rodar").textContent = tr("scr.rodando");
+  if (!(a.grupo === "exemplos" && !sujoAba(a)) && (sujoAba(a) || !a.nome) && !(await salvar())) return;
+  st.rodando = true; $("bt-rodar").disabled = true; $("bt-rodar").classList.add("rodando"); msg(tr("scr.rodando"));
   $("saida").textContent = ""; $("resultado").textContent = ""; $("resultado").className = "";
   if ($("saida-box").classList.contains("recolhida")) recolheSaida(false);   // rodou: a saída aparece
   try {
-    const r = await api("/rodar", { nome: st.nome, grupo: st.grupo });
+    const r = await api("/rodar", { nome: atual().nome, grupo: atual().grupo });
     if (r.saida) escreveSaida(r.saida);
     if (r.erro) escreveSaida(r.erro, "err");
     const res = $("resultado");
     res.textContent = r.prazo_estourado ? tr("scr.resultado_prazo") : r.ok ? tr("scr.resultado_ok", { s: r.tempo }) : tr("scr.resultado_erro", { c: r.codigo_saida, s: r.tempo });
-    res.className = r.ok ? "ok" : "erro";
+    res.className = r.ok ? "ok" : "erro"; msg(res.textContent, r.ok ? "ok" : "erro");
     if (r.rodadas.length) {
       escreveSaida(tr("scr.rodadas", { n: r.rodadas.length }), "dica");
-      for (const x of r.rodadas) {
-        const a = document.createElement("a"); a.href = `/maisim/scope/?a=${encodeURIComponent(x.arquivo)}`; a.textContent = x.pasta;
-        const l = document.createElement("span"); l.className = "dica"; l.append("  ", a, "\n"); $("saida").appendChild(l);
+      for (const x of r.rodadas) {                     // cada rodada: na coluna do Scope (clique) ou no Scope inteiro (nova aba)
+        const a1 = document.createElement("a"); a1.href = "#"; a1.textContent = x.pasta; a1.onclick = (ev) => { ev.preventDefault(); mostraScope(x.arquivo); };
+        const a2 = document.createElement("a"); a2.href = `/maisim/scope/?a=${encodeURIComponent(x.arquivo)}`; a2.target = "_blank"; a2.textContent = tr("scr.scope_inteiro");
+        const l = document.createElement("span"); l.className = "dica"; l.append("  ", a1, " · ", a2, "\n"); $("saida").appendChild(l);
       }
-      st.ultimaRodada = r.rodadas[r.rodadas.length - 1].arquivo; $("bt-scope").disabled = false;
+      st.ultimaRodada = r.rodadas[r.rodadas.length - 1].arquivo; mostraScope(st.ultimaRodada);
     } else if (r.ok) escreveSaida(tr("scr.sem_rodadas"), "dica");
-  } catch (e) { escreveSaida(tr("scr.falhou", { erro: e.message }), "err"); }
-  st.rodando = false; $("bt-rodar").disabled = false; $("bt-rodar").textContent = tr("scr.rodar");
+  } catch (e) { escreveSaida(tr("scr.falhou", { erro: e.message }), "err"); msg(tr("scr.falhou", { erro: e.message }), "erro"); }
+  st.rodando = false; $("bt-rodar").disabled = false; $("bt-rodar").classList.remove("rodando");
 }
+function msg(t, cls) { $("msg").textContent = t || ""; $("msg").className = cls || ""; }
 
-// ----------------------------------------------------------------- início
-document.title = tr("scr.titulo");
-$("bt-novo").onclick = novo; $("bt-pasta").onclick = novaPasta;
-$("bt-mover").onclick = () => { if (st.grupo === "meus" && st.nome) pedeDestino(st.nome); };
-$("raiz-meus").onclick = () => { st.pasta = ""; lista(); }; $("bt-salvar").onclick = salvar; $("bt-rodar").onclick = rodar; $("bt-apagar").onclick = apagar;
-// o Scope na mesma aba, com o trilho (o Script do trilho volta aqui); o Rodar já salvou, então não se perde nada
-$("bt-scope").onclick = () => { if (st.ultimaRodada) location.href = `/maisim/scope/?a=${encodeURIComponent(st.ultimaRodada)}`; };
-$("nome").oninput = marca;
-// ----------------------------------------------------------------- o tamanho da Saída (arrastar a borda de cima; "−" minimiza,
-// como no VS Code) e da gaveta da IA (arrastar a borda da esquerda): guardados neste navegador
+// ----------------------------------------------------------------- as colunas (Arquivos, Scope; a IA em script_ia.js), as
+// bordas de arrastar e a Saída (arrastar a altura; "−" minimiza, como no VS Code): tudo guardado neste navegador
 const guarda = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* só agora */ } };
 const lido = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const raiz = document.documentElement.style;
+function coluna(qual, on) {
+  const el = $(qual === "arq" ? "col-arq" : "col-scope"), bt = $(qual === "arq" ? "bt-col-arq" : "bt-col-scope");
+  el.hidden = !on; bt.classList.toggle("ativo", on); bt.setAttribute("aria-pressed", String(on));
+  guarda(`maisim-script-col-${qual}`, on ? "1" : "0");
+}
+$("bt-col-arq").onclick = () => coluna("arq", $("col-arq").hidden);
+$("bt-col-scope").onclick = () => coluna("scope", $("col-scope").hidden);
+$("bt-modelo").onclick = () => { coluna("arq", true); $("arq-busca").focus(); $("arq-busca").select(); };   // como o ▾ do circuito: procurar outro
 function arrasta(borda, aoMover, aoSoltar) {
   borda.addEventListener("pointerdown", (e) => {
     e.preventDefault(); borda.setPointerCapture(e.pointerId); borda.classList.add("arrastando"); document.body.classList.add("arrastando-borda");
@@ -318,14 +416,13 @@ function arrasta(borda, aoMover, aoSoltar) {
     borda.addEventListener("pointermove", move); borda.addEventListener("pointerup", solta);
   });
 }
-const raiz = document.documentElement.style;
-function alturaSaida(px) {
-  const main = document.querySelector("main"), max = main.clientHeight - 140;   // o editor fica com pelo menos ~140 px
-  const h = Math.round(Math.max(90, Math.min(max, px)));
-  raiz.setProperty("--h-saida", `${h}px`); return h;
-}
-arrasta($("saida-borda"), (ev) => { const r = document.querySelector("main").getBoundingClientRect(); alturaSaida(r.bottom - ev.clientY); },
-  () => guarda("maisim-script-h-saida", raiz.getPropertyValue("--h-saida")));
+const limita = (v, a, b) => Math.round(Math.max(a, Math.min(b, v)));
+arrasta($("div-arq"), (ev) => raiz.setProperty("--w-arq", `${limita(ev.clientX - $("corpo").getBoundingClientRect().left, 180, 520)}px`),
+  () => guarda("maisim-script-w-arq", raiz.getPropertyValue("--w-arq")));
+arrasta($("div-scope"), (ev) => { const fim = $("gaveta-ia").hidden ? innerWidth : $("gaveta-ia").getBoundingClientRect().left;
+  raiz.setProperty("--w-scope", `${limita(fim - ev.clientX, 280, innerWidth * 0.7)}px`); }, () => guarda("maisim-script-w-scope", raiz.getPropertyValue("--w-scope")));
+function alturaSaida(px) { const max = $("col-cod").clientHeight - 140; raiz.setProperty("--h-saida", `${limita(px, 90, max)}px`); }
+arrasta($("saida-borda"), (ev) => alturaSaida($("col-cod").getBoundingClientRect().bottom - ev.clientY), () => guarda("maisim-script-h-saida", raiz.getPropertyValue("--h-saida")));
 $("saida-borda").addEventListener("dblclick", () => { raiz.removeProperty("--h-saida"); guarda("maisim-script-h-saida", ""); });
 function recolheSaida(sim) {
   $("saida-box").classList.toggle("recolhida", sim); $("bt-saida").textContent = sim ? "+" : "−";
@@ -335,22 +432,41 @@ function recolheSaida(sim) {
   guarda("maisim-script-saida-recolhida", sim ? "1" : "");
 }
 $("bt-saida").onclick = () => recolheSaida(!$("saida-box").classList.contains("recolhida"));
-if (lido("maisim-script-h-saida")) raiz.setProperty("--h-saida", lido("maisim-script-h-saida"));
+for (const k of ["w-arq", "w-scope", "h-saida"]) if (lido(`maisim-script-${k}`)) raiz.setProperty(`--${k}`, lido(`maisim-script-${k}`));
 if (lido("maisim-script-saida-recolhida") === "1") recolheSaida(true);
+coluna("arq", lido("maisim-script-col-arq") !== "0"); secaoExemplos(lido("maisim-script-exemplos") === "1", false); coluna("scope", lido("maisim-script-col-scope") === "1");
+// a altura do cabeçalho (ele quebra em linhas numa janela estreita): o corpo começa logo abaixo
+new ResizeObserver(() => raiz.setProperty("--cab", `${$("cab").offsetHeight}px`)).observe($("cab"));
+
+// o Monaco cancela as próprias tarefas ao trocar o modelo de uma aba (a prévia que dá lugar): "Canceled" não é um erro
+addEventListener("unhandledrejection", (e) => { if (e.reason && (e.reason.name === "Canceled" || e.reason.message === "Canceled")) e.preventDefault(); });
+// ----------------------------------------------------------------- início
+document.title = tr("scr.titulo");
+$("bt-novo").onclick = novo; $("bt-novo2").onclick = novo; $("bt-pasta").onclick = novaPasta; $("bt-pasta2").onclick = novaPasta;
+$("bt-mover").onclick = () => { if (st.grupo === "meus" && st.nome) pedeDestino(st.nome); };
+$("raiz-meus").onclick = () => { st.pasta = ""; lista(); };
+$("bt-salvar").onclick = salvar; $("bt-salvar-como").onclick = salvarComo; $("bt-rodar").onclick = rodar; $("bt-apagar").onclick = apagar;
 // o aviso de segurança: aparece até a pessoa dizer "Entendi" (guardado neste navegador)
-try { if (localStorage.getItem("maisim-script-aviso") === "ok") $("aviso").hidden = true; } catch (e) { /* mostra */ }
-$("bt-aviso").onclick = () => { $("aviso").hidden = true; try { localStorage.setItem("maisim-script-aviso", "ok"); } catch (e) { /* só agora */ } };
-document.addEventListener("keydown", (e) => {                 // sem o Monaco: os mesmos atalhos
-  if (!(e.ctrlKey || e.metaKey)) return;
+if (lido("maisim-script-aviso") === "ok") $("aviso").hidden = true;
+$("bt-aviso").onclick = () => { $("aviso").hidden = true; guarda("maisim-script-aviso", "ok"); };
+document.addEventListener("keydown", (e) => {          // os atalhos (o Monaco trata os dele quando tem o foco)
+  if (!(e.ctrlKey || e.metaKey) || e.target.closest("#gaveta-ia")) return;   // na IA, Ctrl+Enter envia (script_ia.js)
   if (e.key === "s") { e.preventDefault(); salvar(); } else if (e.key === "Enter") { e.preventDefault(); rodar(); }
 });
-window.addEventListener("beforeunload", (e) => { if (sujo()) { e.preventDefault(); e.returnValue = ""; } });
-maisimI18n.aoMudar(() => { maisimI18n.aplica(document); marca(); });
+window.addEventListener("beforeunload", (e) => { if (st.abas.some((a) => a.nome && sujoAba(a))) { e.preventDefault(); e.returnValue = ""; } });
+maisimI18n.aoMudar(() => { maisimI18n.aplica(document); desenhaAbas(); marca(); lista(); });
 (async () => {
   maisimI18n.aplica(document);
-  escreveSaida("", ""); $("saida").innerHTML = `<span class="dica">${esc(tr("scr.saida_vazia"))}\n</span><span class="dica">${tr("scr.ajuda_html")}\n</span>`;
+  $("saida").innerHTML = `<span class="dica">${esc(tr("scr.saida_vazia"))}\n</span><span class="dica">${tr("scr.ajuda_html")}\n</span>`;
   await montaEditor();
+  // as abas da última vez (as que ainda existem), e o script do endereço por cima
+  let guardadas = [];
+  try { guardadas = JSON.parse(lido("maisim-script-abas") || "[]"); } catch (e) { /* nenhuma */ }
+  for (const [n, g, f] of guardadas) {
+    try { const j = await api(`/ler?nome=${encodeURIComponent(n)}&grupo=${encodeURIComponent(g)}`); novaAba(j.nome, g, j.codigo, false, !!f); } catch (e) { /* sumiu */ }
+  }
   const q = new URLSearchParams(location.search);
   if (q.get("nome")) await abre(q.get("nome"), q.get("grupo") === "exemplos" ? "exemplos" : "meus");
-  else { await novo(); }
+  else if (st.abas.length) { ativa(0); await lista(); }
+  else await novo();
 })();
