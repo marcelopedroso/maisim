@@ -155,6 +155,35 @@ try:
     c, j = pede(SIMU + "scripts")
     ok(acha(j["meus"], "teste_proj") is None, "apagar a pasta tira tudo o que estava nela")
 
+    # a rodada de antes: substituída pela nova de mesmo nome (o padrão, como no circuito), menos a guardada e a de outro
+    # script; "nova" grava sempre mais uma
+    cod = "import maisim\nmaisim.scope('rep', [0, 1], {'a': [1, 2]})\n"
+    pede(SIMU + "scripts/salvar", {"nome": "teste_rep", "codigo": cod, "sobrescrever": True})
+    pede(SIMU + "scripts/salvar", {"nome": "teste_rep_outro", "codigo": cod, "sobrescrever": True})
+    c, r1 = pede(SIMU + "scripts/rodar", {"nome": "teste_rep"})
+    pasta_rods = Path(r1["rodadas"][0]["arquivo"]).parent.parent
+    do_rep = lambda: sorted(d.name for d in pasta_rods.iterdir() if d.name.endswith("_rep") and (d / "scope_rep.npz").exists()
+                            and '"teste_rep"' in str(np.load(d / "scope_rep.npz", allow_pickle=True)["meta"]))
+    c, ro = pede(SIMU + "scripts/rodar", {"nome": "teste_rep_outro"})
+    time.sleep(1.1)                                       # (o nome da pasta tem o segundo)
+    c, r2 = pede(SIMU + "scripts/rodar", {"nome": "teste_rep"})
+    ok(do_rep() == [r2["rodadas"][0]["pasta"]] and Path(ro["rodadas"][0]["arquivo"]).exists(),
+       f"rodar de novo substitui a rodada de mesmo nome do script; a de outro script fica ({do_rep()})")
+    (Path(r2["rodadas"][0]["arquivo"]).parent / ".guardada").write_text("")
+    time.sleep(1.1)
+    c, r3 = pede(SIMU + "scripts/rodar", {"nome": "teste_rep", "rodada": "nova"})
+    time.sleep(1.1)
+    c, r4 = pede(SIMU + "scripts/rodar", {"nome": "teste_rep", "rodada": "nova"})
+    ok(len(do_rep()) == 3, f"\"sempre nova\": as rodadas ficam todas ({do_rep()})")
+    time.sleep(1.1)
+    c, r5 = pede(SIMU + "scripts/rodar", {"nome": "teste_rep"})
+    ok(do_rep() == sorted([r2["rodadas"][0]["pasta"], r5["rodadas"][0]["pasta"]]), f"substituir apaga as de antes, menos a guardada no Scope ({do_rep()})")
+    import shutil as _sh
+    for x in (r2, r5, ro):
+        _sh.rmtree(Path(x["rodadas"][0]["arquivo"]).parent, ignore_errors=True)
+    for n in ("teste_rep", "teste_rep_outro"):
+        pede(SIMU + "scripts/apagar", {"nome": n})
+
     # mover: um script para uma pasta (o layout vai junto), uma pasta para dentro de outra, as recusas
     for n in ("teste_mv_a", "teste_mv_b"):
         pede(SIMU + "scripts/pasta/apagar", {"nome": n})

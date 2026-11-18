@@ -14,6 +14,7 @@ Messages here are in English: this module runs inside the user's script, outside
 import json
 import os
 import re
+import shutil
 import time
 from pathlib import Path
 
@@ -74,10 +75,33 @@ def scope(name, t, signals, panels=None, paineis=None):
     np.savez_compressed(out, meta=json.dumps(meta, ensure_ascii=False), t=t, **cols)
     if os.environ.get("MAISIM_SCRIPT_VEZ"):                   # which MaiSim run wrote this folder (two runs at once)
         (folder / ".maisim_vez").write_text(os.environ["MAISIM_SCRIPT_VEZ"], encoding="utf-8")
+    if os.environ.get("MAISIM_SCRIPT_RODADA") == "substitui":
+        _replace_previous(folder, run)
     groups = panels if panels is not None else paineis
     if groups is not None:
         _write_layout(groups, cols)
     return out
+
+
+def _replace_previous(new_folder, run):
+    """Like the circuit runs: the new run replaces the earlier ones of the same script with the same run name, except the
+    ones kept in the Scope (the ".guardada" marker) and the ones written by this same execution (two calls, same name)."""
+    script = os.environ.get("MAISIM_SCRIPT_NOME") or ""
+    vez = os.environ.get("MAISIM_SCRIPT_VEZ") or ""
+    pattern = re.compile(r"^\d{4}-\d{2}-\d{2}_\d{6}_" + re.escape(run) + r"(_\d+)?$")
+    for d in new_folder.parent.iterdir():
+        if d == new_folder or not d.is_dir() or not pattern.match(d.name) or (d / ".guardada").exists():
+            continue
+        if vez and (d / ".maisim_vez").is_file() and (d / ".maisim_vez").read_text(encoding="utf-8").strip() == vez:
+            continue
+        npz = d / f"scope_{run}.npz"
+        try:
+            with np.load(npz, allow_pickle=True) as z:
+                meta = json.loads(str(z["meta"]))
+        except (OSError, ValueError, KeyError):
+            continue
+        if meta.get("planta") == "maisim-script" and meta.get("script") == script:
+            shutil.rmtree(d, ignore_errors=True)
 
 
 def _write_layout(groups, cols):

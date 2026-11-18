@@ -18,106 +18,240 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
 <script src="static/maisim-i18n.js"></script>
 <script src="static/textos_script.js"></script>
 <style>
-  :root { --fundo:#f7f8fa; --cartao:#fff; --texto:#1b1f24; --sutil:#5b6470; --borda:#d9dde3; --acento:#6d28d9; --campo:#fff;
-          --suave:#eef2f6; --ok:#1b7f2a; --erro:#b42318; --aviso:#8a5300; --aviso-bg:#fff7e6; --aviso-borda:#f5d39b; --acento-suave:#f1edff; color-scheme:light; }
-  :root[data-tema="escuro"] { --fundo:#0f1115; --cartao:#171a21; --texto:#e6e8ec; --sutil:#9aa3ae; --borda:#2c323c; --acento:#8b5cf6; --campo:#1d212a;
-          --suave:#232833; --ok:#4ade80; --erro:#f87171; --aviso:#fcd34d; --aviso-bg:#33280f; --aviso-borda:#6b5419; --acento-suave:#2b2440; color-scheme:dark; }
+  /* as cores, os botões e as peças são as do simu (simu/static/index.html): a mesma cara do circuito e do Código */
+  :root { --fundo:#f7f8fa; --cartao:#fff; --texto:#1b1f24; --sutil:#5b6470; --borda:#d9dde3; --acento:#6d28d9; --cab:48px;
+          --campo:#fff; --suave:#eef2f6; --suave3:#f5f6f8; --fraco:#8a939d;
+          --ok:#1b7f2a; --ok-bg:#e6f4ea; --erro:#b42318; --erro-bg:#fdeceb; --aviso:#b45309; --aviso2:#8a5300; --aviso-bg:#fff7e6; --aviso-borda:#f5d39b;
+          --acento-suave:#f1edff; --acento-borda:#ddd6fe; --sombra:rgba(15,23,42,.14); color-scheme:light; }
+  :root[data-tema="escuro"] { --fundo:#0f1115; --cartao:#171a21; --texto:#e6e8ec; --sutil:#9aa3ae; --borda:#2c323c; --acento:#8b5cf6;
+          --campo:#1d212a; --suave:#232833; --suave3:#20242d; --fraco:#6b7480;
+          --ok:#4ade80; --ok-bg:#12301c; --erro:#f87171; --erro-bg:#3a1416; --aviso:#fbbf24; --aviso2:#fcd34d; --aviso-bg:#33280f; --aviso-borda:#6b5419;
+          --acento-suave:#2b2440; --acento-borda:#4c3d7a; --sombra:rgba(0,0,0,.45); color-scheme:dark; }
   * { box-sizing:border-box; }
-  html, body { margin:0; height:100%; }
-  body { background:var(--fundo); color:var(--texto); font:14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  #pagina { position:absolute; inset:0 0 0 var(--maisim-nav-w, 0px); display:grid; grid-template-columns:240px 1fr; min-width:0; }
-  aside { border-right:1px solid var(--borda); background:var(--cartao); overflow:auto; padding:12px; }
-  aside h2 { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--sutil); margin:14px 4px 6px; font-weight:600; }
-  .novos { display:flex; gap:6px; } .novos button { white-space:nowrap; padding:8px 8px; } .novos #bt-novo { flex:1 1 auto; } .novos #bt-pasta { flex:0 0 auto; width:auto; }
-  aside h2 button.raiz { all:unset; cursor:pointer; padding:1px 4px; border-radius:4px; } aside h2 button.raiz.sel { background:var(--acento-suave); color:var(--acento); }
-  .arvore ul { list-style:none; margin:0; padding:0 0 0 14px; border-left:1px solid var(--borda); margin-left:10px; }
-  .arvore li.pasta > .linha { display:flex; align-items:center; }
-  .arvore li.pasta > .linha > button.abre { flex:1 1 auto; font-weight:600; }
+  html, body { margin:0; height:100%; background:var(--fundo); color:var(--texto); font-family:system-ui, -apple-system, "Segoe UI", sans-serif; overflow:hidden; }
+  select, button { font:inherit; font-size:13px; padding:3px 8px; border:1px solid var(--borda); border-radius:6px; background:var(--campo); color:var(--texto); }
+  input, select, textarea { background:var(--campo); color:var(--texto); }
+  button { cursor:pointer; } button:disabled { opacity:.45; cursor:default; }
+  button.primario { background:#7c3aed; border-color:#7c3aed; color:#fff; } button.primario:hover { background:#6d28d9; }
+  button.perigo { background:#dc2626; border-color:#dc2626; color:#fff; } button.perigo:hover { background:#b91c1c; }
+  /* o cabeçalho (como o do simu) */
+  header { position:absolute; top:0; left:var(--maisim-nav-w, 0px); right:0; z-index:50; min-height:48px; display:flex; flex-wrap:wrap; align-items:center;
+           gap:6px 12px; padding:7px 14px; background:var(--cartao); border-bottom:1px solid var(--borda); font-size:13px; }
+  .cab-grupo { display:flex; align-items:center; gap:8px; }
+  header button { white-space:nowrap; flex-shrink:0; }
+  .grupo-bt { display:flex; } .grupo-bt button { border-radius:0; margin-left:-1px; } .grupo-bt button:first-child { border-radius:6px 0 0 6px; margin-left:0; }
+  .grupo-bt button:last-child { border-radius:0 6px 6px 0; }
+  .grupo-bt.icones button, #g-cols button { display:inline-flex; align-items:center; justify-content:center; padding:3px 7px; height:28px; }
+  .grupo-bt.icones svg, #g-cols svg { width:16px; height:16px; }
+  #g-cols button.ativo { background:var(--acento-suave); color:var(--acento); border-color:var(--acento-borda); }
+  #bt-apagar:not(:disabled) { color:var(--erro); } #bt-apagar:not(:disabled):hover { background:#dc2626; border-color:#dc2626; color:#fff; }
+  #bt-rodar { color:var(--ok); } #bt-rodar.rodando { color:var(--fraco); }
+  #bt-modelo { display:inline-flex; align-items:center; gap:6px; min-width:11em; max-width:34vw; flex-shrink:1; height:28px; }
+  #bt-modelo svg { width:15px; height:15px; flex:none; color:var(--sutil); } #nome-atual { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+  #bt-ia { position:relative; } #bt-ia .ponto { position:absolute; right:3px; top:3px; width:6px; height:6px; border-radius:50%; display:none; background:#16a34a; }
+  #bt-ia.proposta .ponto { display:block; } #bt-ia.trabalhando .ponto { display:block; background:#f59e0b; animation:pisca 1s ease-in-out infinite; }
+  @keyframes pisca { 50% { opacity:.3; } }
+  #msg { flex:1 1 0; min-width:9em; color:var(--sutil); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #msg.ok { color:var(--ok); } #msg.erro { color:var(--erro); }
+  /* as colunas: Arquivos | Código | Scope | IA (como as do simu) */
+  #corpo { position:absolute; top:var(--cab); left:var(--maisim-nav-w, 0px); right:0; bottom:0; display:flex; min-width:0; }
+  .col-doca { position:relative; flex:0 0 auto; min-width:0; min-height:0; display:flex; flex-direction:column; border-left:1px solid var(--borda); }
+  .col-doca[hidden] { display:none; }
+  .div-col { position:absolute; left:-4px; top:0; bottom:0; width:8px; cursor:col-resize; z-index:3; }
+  .div-col:hover, .div-col.arrastando { background:color-mix(in srgb, var(--acento) 35%, transparent); }
+  body.arrastando-borda { user-select:none; } body.arrastando-borda iframe { pointer-events:none; }
+  /* Arquivos (como a vista Arquivos do Código) */
+  #col-arq { width:var(--w-arq, 250px); border-left:0; border-right:1px solid var(--borda); background:var(--cartao); padding:0; }
+  #arq-meus { flex:1 1 auto; min-height:60px; overflow:auto; padding:8px 10px; }
+  .secao-pe { flex:0 0 auto; display:flex; flex-direction:column; border-top:1px solid var(--borda); min-height:0; }
+  .secao-pe.aberta { flex:0 1 var(--h-exemplos, 40%); }
+  .secao-pe > button.cab-secao { all:unset; box-sizing:border-box; display:flex; align-items:center; gap:6px; width:100%; padding:6px 10px; cursor:pointer;
+    font-size:11px; font-weight:600; color:var(--sutil); text-transform:uppercase; letter-spacing:.04em; background:var(--suave3); }
+  .secao-pe > button.cab-secao:hover { color:var(--texto); } .secao-pe > button.cab-secao:focus-visible { outline:2px solid var(--acento); outline-offset:-2px; }
+  .secao-pe .seta-secao { display:inline-block; transition:transform .1s; } .secao-pe.aberta .seta-secao { transform:rotate(90deg); }
+  .secao-pe .corpo-secao { overflow:auto; padding:4px 10px 8px; min-height:0; flex:1 1 auto; } .secao-pe:not(.aberta) .corpo-secao { display:none; }
+  #col-arq .div-col { left:auto; right:-4px; }
+  #arq-busca { width:100%; font-size:12px; padding:4px 7px; margin:2px 0 6px; border:1px solid var(--borda); border-radius:6px; }
+  #col-arq h4 { display:flex; align-items:center; gap:6px; margin:12px 0 4px; font-size:11px; color:var(--sutil); text-transform:uppercase; letter-spacing:.04em; }
+  #col-arq h4 button.raiz { all:unset; cursor:pointer; padding:1px 4px; margin-left:-4px; border-radius:4px; } #col-arq h4 button.raiz:hover { color:var(--texto); }
+  #col-arq h4 button.raiz.sel { color:var(--acento); } #col-arq h4 button.raiz:focus-visible { outline:2px solid var(--acento); }
+  .ctl-botoes { display:flex; gap:4px; margin-top:6px; } .ctl-botoes button { font-size:12px; padding:2px 8px; }
+  .arvore, .arvore ul { list-style:none; margin:0; padding:0; } .arvore ul { padding-left:12px; border-left:1px solid var(--borda); margin-left:8px; }
+  /* as linhas da árvore: as mesmas do Código (.ctl-no: ícone + nome em fonte de código, 3px 4px, raio 5) */
+  .arvore li button { display:flex; align-items:center; gap:5px; width:100%; text-align:left; padding:3px 4px; margin-top:1px; border:0; background:none; color:var(--texto);
+                      font:500 12px ui-monospace, Consolas, monospace; border-radius:5px; cursor:pointer; min-width:0; }
+  .arvore li button .nome { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .arvore li button svg { width:14px; height:14px; flex:none; }
+  .arvore li button:hover { background:var(--acento-suave); } .arvore li button[aria-current="true"] { background:var(--acento-suave); color:var(--acento); font-weight:600; }
+  .arvore li.pasta > .linha { display:flex; align-items:center; } .arvore li.pasta > .linha > button.abre { flex:1 1 auto; font-weight:600; }
+  .arvore .ico-pasta.aberta, .arvore li.pasta.aberta > .linha .ico-pasta.fechada { display:none; } .arvore li.pasta.aberta > .linha .ico-pasta.aberta { display:block; }
   .arvore li.pasta > .linha > button.abre.sel { background:var(--acento-suave); color:var(--acento); }
   .arvore li.pasta:not(.aberta) > ul { display:none; }
-  .arvore .seta { display:inline-block; width:12px; color:var(--sutil); transition:transform .1s; } .arvore li.pasta.aberta > .linha .seta { transform:rotate(90deg); }
-  .arvore .alvo, aside h2 button.raiz.alvo { outline:2px dashed var(--acento); outline-offset:-2px; background:var(--acento-suave); }
-  .arvore [draggable="true"] { cursor:grab; }
+  .arvore .seta { display:inline-block; width:10px; flex:none; color:var(--sutil); font-size:10px; transition:transform .1s; } .arvore li.pasta.aberta > .linha .seta { transform:rotate(90deg); }
   .arvore button.tira { flex:0 0 auto; width:auto; padding:2px 6px; visibility:hidden; color:var(--sutil); }
   .arvore li.pasta > .linha:hover button.tira, .arvore button.tira:focus { visibility:visible; } .arvore button.tira:hover { color:var(--erro); } .arvore button.tira.mover:hover { color:var(--acento); }
-  aside button.novo { width:100%; padding:8px 10px; border:1px solid var(--acento); color:var(--acento); background:var(--cartao); border-radius:8px; font:inherit; font-weight:600; cursor:pointer; }
-  aside ul { list-style:none; margin:0; padding:0; }
-  aside li button { width:100%; text-align:left; padding:6px 8px; border:0; background:none; color:inherit; font:inherit; border-radius:6px; cursor:pointer;
-                    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  aside li button:hover { background:var(--suave); }
-  aside li button[aria-current="true"] { background:var(--acento-suave); color:var(--acento); font-weight:600; }
-  aside .vazio { color:var(--sutil); font-size:13px; padding:4px 8px; }
-  main { display:flex; flex-direction:column; min-width:0; min-height:0; }   /* em coluna: sem o aviso, o editor ocupa o lugar dele */
-  .barra { display:flex; gap:8px; align-items:center; padding:10px 12px; border-bottom:1px solid var(--borda); background:var(--cartao); flex-wrap:wrap; }
-  .barra input { flex:1 1 180px; min-width:120px; padding:7px 9px; border:1px solid var(--borda); border-radius:7px; background:var(--campo); color:inherit; font:inherit; font-weight:600; }
-  .barra button { padding:7px 12px; border:1px solid var(--borda); border-radius:7px; background:var(--cartao); color:inherit; font:inherit; cursor:pointer; }
-  .barra button.prim { background:var(--acento); border-color:var(--acento); color:#fff; font-weight:600; }
-  .barra button:disabled { opacity:.5; cursor:default; }
-  /* Apagar em vermelho, para chamar a atenção (Marcelo, 17/11); cheio ao passar o mouse; desligado continua apagado */
-  .barra button.perigo:not(:disabled) { color:var(--erro); border-color:var(--erro); font-weight:600; }
-  .barra button.perigo:not(:disabled):hover { background:#dc2626; border-color:#dc2626; color:#fff; }
-  #estado { color:var(--sutil); font-size:13px; min-width:60px; } #estado.nao-salvo { color:var(--erro); font-weight:600; }
-  .aviso button { margin-left:10px; padding:1px 8px; border:1px solid var(--aviso-borda); border-radius:6px; background:transparent; color:inherit; font:inherit; cursor:pointer; }
-  .aviso[hidden] { display:none; }
-  .aviso { margin:0; padding:6px 12px; font-size:12.5px; color:var(--aviso); background:var(--aviso-bg); border-bottom:1px solid var(--aviso-borda); }
+  .arvore .vazio { color:var(--sutil); font-size:12px; padding:3px 6px; } .arvore li[hidden] { display:none; }
+  .arvore .alvo, #col-arq h4 button.raiz.alvo { outline:2px dashed var(--acento); outline-offset:-2px; background:var(--acento-suave); }
+  .arvore [draggable="true"] { cursor:grab; }
+  /* o código: abas + editor + saída (como o Código) */
+  #col-cod { flex:1 1 auto; min-width:280px; display:flex; flex-direction:column; border-left:0; background:var(--cartao); }
+  #ctl-barra { display:flex; align-items:center; gap:10px; padding:4px 10px; border-bottom:1px solid var(--borda); background:var(--suave3); min-height:33px; }
+  #ctl-abas { display:flex; align-items:stretch; gap:2px; min-width:0; overflow-x:auto; flex:0 1 auto; scrollbar-width:thin; align-self:flex-end; margin-bottom:-5px; }
+  #ctl-abas .aba { display:inline-flex; align-items:center; gap:4px; font:600 12px ui-monospace, monospace; padding:3px 8px; border-radius:5px 5px 0 0;
+                   border:1px solid transparent; background:none; color:var(--sutil); white-space:nowrap; cursor:pointer; }
+  #ctl-abas .aba.ativa { background:var(--cartao); color:var(--texto); border-color:var(--borda); border-bottom-color:var(--cartao); }
+  #ctl-abas .aba .fecha { font-weight:400; color:var(--fraco); padding:0 3px; border-radius:3px; } #ctl-abas .aba .fecha:hover { color:var(--erro); background:var(--erro-bg); }
+  #ctl-abas .aba .ponto-sujo { color:var(--erro); } #ctl-abas .aba.previa .nome-aba { font-style:italic; font-weight:400; }
+  #ctl-abas .aba svg { width:12px; height:12px; flex:none; } #ctl-abas .aba .cadeado { color:var(--fraco); } #ctl-abas .aba.fixa { order:-1; }
+  #ctl-abas .aba .fixa-bt { display:inline-flex; color:var(--fraco); padding:1px; border-radius:3px; visibility:hidden; }
+  #ctl-abas .aba .fixa-bt:hover { color:var(--acento); background:var(--acento-suave); }
+  #ctl-abas .aba:hover .fixa-bt, #ctl-abas .aba.fixa .fixa-bt { visibility:visible; } #ctl-abas .aba.fixa .fixa-bt { color:var(--acento); } #ctl-abas .aba.fixa .fecha { display:none; }
+  #ctl-estado { color:var(--sutil); font-size:11.5px; flex:1 1 90px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #ctl-estado.nao-salvo { color:var(--erro); font-weight:600; } #ctl-estado.ok { color:var(--ok); }
+  .aviso { margin:0; padding:5px 12px; font-size:12px; color:var(--aviso); background:var(--aviso-bg); border-bottom:1px solid var(--aviso-borda); }
+  .aviso[hidden] { display:none; } .aviso button { margin-left:10px; padding:1px 8px; border:1px solid var(--aviso-borda); border-radius:6px; background:transparent; color:inherit; font-size:12px; }
   #editor { flex:1 1 0; min-height:0; position:relative; }
   #editor textarea { position:absolute; inset:0; width:100%; height:100%; border:0; resize:none; padding:10px 12px; background:var(--campo); color:inherit;
                      font:13px/1.5 ui-monospace, Consolas, monospace; white-space:pre; tab-size:4; outline:none; }
-  #saida-box { border-top:1px solid var(--borda); background:var(--cartao); display:flex; flex-direction:column; flex:0 0 34%; min-height:120px; }
-  #saida-box .cab { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:6px 12px; border-bottom:1px solid var(--borda); }
-  #saida-box .cab b { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--sutil); }
-  #resultado { font-size:13px; } #resultado.ok { color:var(--ok); } #resultado.erro { color:var(--erro); }
+  #saida-box { border-top:1px solid var(--borda); background:var(--cartao); display:flex; flex-direction:column; flex:0 0 var(--h-saida, 30%); min-height:110px; position:relative; }
+  #saida-box.recolhida { flex:0 0 auto; min-height:0; } #saida-box.recolhida #saida { display:none; }
+  #saida-borda { position:absolute; left:0; right:0; top:-4px; height:8px; cursor:row-resize; z-index:5; }
+  #saida-borda:hover, #saida-borda.arrastando { background:color-mix(in srgb, var(--acento) 35%, transparent); } #saida-box.recolhida #saida-borda { display:none; }
+  #saida-box .cab { display:flex; align-items:center; gap:10px; padding:4px 10px; border-bottom:1px solid var(--borda); background:var(--suave3); }
+  #saida-box .cab b { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--sutil); flex:1; }
+  #resultado { font-size:12px; } #resultado.ok { color:var(--ok); } #resultado.erro { color:var(--erro); }
+  #bt-saida { width:24px; height:22px; padding:0; font-size:15px; line-height:1; color:var(--sutil); }
   #saida { margin:0; padding:8px 12px; overflow:auto; flex:1; font:12.5px/1.45 ui-monospace, Consolas, monospace; white-space:pre-wrap; }
-  #saida .err { color:var(--erro); } #saida .dica { color:var(--sutil); font-family:system-ui, sans-serif; }
-  #saida a { color:var(--acento); }
-  /* as janelas do MaiSim (as mesmas do simu: modal-fundo, modal), no lugar dos confirm()/prompt() do navegador */
-  .modal-fundo { position:fixed; inset:0; z-index:100; background:rgba(15,23,42,.35); display:flex; align-items:flex-start; justify-content:center; padding-top:12vh; animation:aparece .12s ease-out; }
-  @keyframes aparece { from { opacity:0; } to { opacity:1; } }
+  #saida .err { color:var(--erro); } #saida .dica { color:var(--sutil); font-family:system-ui, sans-serif; } #saida a { color:var(--acento); }
+  /* o Scope (a rodada que o script gravou, na mesma janela) */
+  #col-scope { width:var(--w-scope, 42%); background:var(--fundo); }
+  #if-scope { flex:1 1 auto; min-width:0; min-height:0; border:0; display:block; background:var(--cartao); }
+  #scope-vazio[hidden], #if-scope[hidden] { display:none !important; }
+  #scope-vazio { flex:1; display:flex; align-items:center; justify-content:center; text-align:center; padding:20px; color:var(--sutil); font-size:13px; }
+  /* as janelas do MaiSim (as mesmas do simu) */
+  .modal-fundo { position:fixed; inset:0; z-index:100; background:rgba(15,23,42,.35); display:flex; align-items:flex-start; justify-content:center; padding-top:12vh; }
   .modal { background:var(--cartao); color:var(--texto); border-radius:14px; box-shadow:0 24px 60px rgba(15,23,42,.28); width:min(420px, 92vw); padding:18px 20px 16px; font-size:14px; }
   .modal h3 { margin:0 0 6px; font-size:16px; } .modal p { margin:4px 0 12px; color:var(--sutil); line-height:1.45; }
-  .modal input { width:100%; font:inherit; font-size:13.5px; padding:7px 9px; border:1px solid var(--borda); border-radius:7px; background:var(--campo); color:inherit; }
-  .modal select.m-lista { width:100%; font:inherit; font-size:13.5px; padding:7px 9px; border:1px solid var(--borda); border-radius:7px; background:var(--campo); color:inherit; }
+  .modal input, .modal select.m-lista { width:100%; font:inherit; font-size:13.5px; padding:7px 9px; border:1px solid var(--borda); border-radius:7px; }
   .modal input:focus { outline:2px solid var(--acento-suave); border-color:var(--acento); } .modal input.invalido { border-color:var(--erro); }
   .modal .m-erro { color:var(--erro); font-size:12px; min-height:16px; margin-top:4px; }
-  .modal-botoes { display:flex; justify-content:flex-end; gap:8px; margin-top:14px; }
-  .modal-botoes button { padding:6px 14px; border-radius:8px; font:inherit; font-size:13px; border:1px solid var(--borda); background:var(--cartao); color:inherit; cursor:pointer; }
-  .modal-botoes button.primario { background:var(--acento); border-color:var(--acento); color:#fff; font-weight:600; }
-  .modal-botoes button.perigo { background:#dc2626; border-color:#dc2626; color:#fff; font-weight:600; }
-  @media (max-width:720px) { #pagina { grid-template-columns:1fr; grid-template-rows:auto 1fr; } aside { max-height:30vh; border-right:0; border-bottom:1px solid var(--borda); } }
+  .modal-botoes { display:flex; justify-content:flex-end; gap:8px; margin-top:14px; } .modal-botoes button { padding:6px 14px; border-radius:8px; }
+  /* a IA (as mesmas peças da IA do circuito: cc-*) */
+  #gaveta-ia { width:var(--w-ia, 440px); background:var(--cartao); }
+  .cc-topo { display:flex; align-items:center; gap:8px; padding:5px 10px; border-bottom:1px solid var(--borda); background:var(--suave3); }
+  .cc-topo b { font-size:12px; color:var(--acento); white-space:nowrap; } #cc-uso { flex:1; font-size:11px; color:var(--sutil); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #cc-uso .alto { color:var(--erro); font-weight:600; } #cc-uso .medio { color:var(--aviso); font-weight:600; }
+  .cc-topo button { font-size:11px; padding:1px 7px; }
+  .mascote { color:var(--acento); flex:0 0 auto; }
+  #ia-msgs { flex:1; min-height:0; overflow:auto; padding:8px 10px; display:flex; flex-direction:column; gap:8px; font-size:12.5px; line-height:1.45; }
+  .cc-vazio { color:var(--sutil); font-size:12px; } .cc-vazio li { margin:2px 0; } .cc-vazio ul { padding-left:18px; }
+  .cc-oi { display:flex; gap:10px; align-items:center; margin-bottom:6px; } .cc-oi b { color:var(--texto); font-size:13px; }
+  .cc-eu { align-self:flex-end; max-width:88%; background:var(--acento-suave); border:1px solid var(--acento-borda); border-radius:10px 10px 2px 10px; padding:6px 9px; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .cc-ele { align-self:flex-start; max-width:96%; background:var(--suave3); border:1px solid var(--borda); border-radius:10px 10px 10px 2px; padding:6px 9px; overflow-wrap:anywhere; }
+  .cc-ele p { margin:0 0 6px; } .cc-ele p:last-child { margin:0; } .cc-ele pre { margin:4px 0; padding:6px 8px; background:var(--suave); border-radius:6px; overflow:auto; font:11.5px/1.4 ui-monospace, monospace; }
+  .cc-ele code { font:11.5px ui-monospace, monospace; background:var(--suave); padding:0 3px; border-radius:3px; } .cc-ele pre code { background:none; padding:0; }
+  .cc-ele .md-h { font-weight:700; margin:9px 0 3px; } .cc-ele .md-h:first-child { margin-top:0; } .cc-ele ul { margin:3px 0 6px; padding-left:20px; }
+  .cc-meta { display:block; color:var(--fraco); font-size:10.5px; margin-top:-4px; } .cc-meta .cc-ok { color:var(--ok); font-weight:600; }
+  .cc-erro { color:var(--erro); } .cc-aviso-t { color:var(--aviso); } .cc-ok { color:var(--ok); }
+  .cc-andamento { color:var(--sutil); font-size:12px; } .cc-andamento ol { margin:4px 0 0; padding-left:18px; font-size:11.5px; }
+  .cc-andamento .pulso { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--acento); margin-right:6px; animation:pisca 1s ease-in-out infinite; }
+  .cc-prop { border:1px solid var(--acento-borda); border-left:3px solid var(--acento); border-radius:8px; padding:7px 9px; background:var(--cartao); font-size:12px; }
+  .cc-prop h5 { margin:0 0 4px; font-size:12px; } .cc-prop ul { margin:2px 0; padding-left:16px; } .cc-prop li { margin:1px 0; }
+  .cc-prop .cc-bts { display:flex; gap:6px; margin-top:7px; flex-wrap:wrap; } .cc-prop .cc-bts button { font-size:12px; padding:2px 10px; }
+  .cc-diff-rot { font:600 11px ui-monospace, monospace; color:var(--sutil); margin:8px 0 -3px; } .cc-diff-rot .novo { color:var(--ok); font-family:system-ui, sans-serif; font-weight:600; margin-left:6px; }
+  .cc-diff-rot .sint { color:var(--erro); font-family:system-ui, sans-serif; font-weight:400; display:block; }
+  .cc-diff { font:11.5px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; border:1px solid var(--borda); border-radius:6px; overflow:auto; max-height:280px; margin:6px 0; background:var(--campo); }
+  .cc-diff > div { white-space:pre; padding:0 8px 0 4px; min-height:1.45em; } .cc-diff span { display:inline-block; width:1.4em; text-align:center; opacity:.75; user-select:none; }
+  .cc-dm { background:var(--ok-bg); color:var(--ok); } .cc-dr { background:var(--erro-bg); color:var(--erro); } .cc-dc { color:var(--texto); } .cc-dh { color:var(--sutil); background:var(--suave3); font-size:11px; }
+  .cc-entrada { padding:6px 10px 8px; border-top:1px solid var(--borda); }
+  .cc-lembrete { margin:0 0 4px; font-size:10.5px; line-height:1.35; color:var(--sutil); }
+  #ia-texto { width:100%; resize:vertical; min-height:52px; max-height:40vh; font:12.5px/1.4 system-ui, sans-serif; border:1px solid var(--borda); border-radius:8px; padding:6px 8px; }
+  #ia-texto:focus { outline:2px solid var(--acento-borda); border-color:var(--acento); }
+  .cc-botoes { display:flex; flex-wrap:wrap; align-items:center; gap:4px 6px; margin-top:5px; } #cc-aviso { flex:1 1 90px; font-size:11px; color:var(--erro); min-width:0; }
+  .cc-botoes button { font-size:12px; padding:3px 12px; } .cc-botoes select { font-size:11.5px; max-width:130px; padding:2px 6px; }
+  #ia-qual { font-weight:600; color:var(--acento); } #ia-enviar { margin-left:auto; } #ia-parar[hidden], #ia-enviar[hidden], #ia-qual[hidden] { display:none; }
+  @media (max-width:820px) { #col-arq { position:absolute; z-index:20; top:0; bottom:0; left:0; box-shadow:0 8px 24px var(--sombra); } #col-scope, #gaveta-ia { position:absolute; z-index:20; top:0; bottom:0; right:0; width:100% !important; } }
 </style>
 </head>
 <body>
-<div id="pagina">
-  <aside>
-    <div class="novos">
-      <button type="button" class="novo" id="bt-novo" data-tr="scr.novo" data-tr-title="scr.novo_title">+ Novo script</button>
-      <button type="button" class="novo" id="bt-pasta" data-tr="scr.nova_pasta" data-tr-title="scr.nova_pasta_title">+ Pasta</button>
+<header id="cab">
+  <div class="cab-grupo" id="g-arquivo">
+    <button type="button" id="bt-modelo" data-tr-title="scr.t_modelo" title="o script aberto · clique para procurar outro"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M1.5 4.5v8h13v-7H8L6.5 3.5h-5z"/></svg><span id="nome-atual"></span>▾</button>
+    <div class="grupo-bt icones">
+      <button type="button" id="bt-novo" data-tr-title="scr.novo_title" data-tr-aria="scr.novo_title" title="novo script"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 1.5H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V5.5z"/><path d="M9 1.5v4h4"/><path d="M8 8.2v4M6 10.2h4"/></svg></button>
+      <button type="button" id="bt-pasta" data-tr-title="scr.nova_pasta_title" data-tr-aria="scr.nova_pasta_title" title="nova pasta"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 4.5v8h13v-7H8L6.5 3.5h-5z"/><path d="M8 7.3v3.6M6.2 9.1h3.6"/></svg></button>
+      <button type="button" id="bt-salvar" data-tr-title="scr.salvar_title" data-tr-aria="scr.salvar_title" title="salvar (Ctrl+S)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M2.5 2.5h9l2 2v9h-11z"/><path d="M5 2.5v3.5h5.5V2.5"/><rect x="4.5" y="9" width="7" height="4.5" rx=".5"/></svg></button>
+      <button type="button" id="bt-salvar-como" data-tr-title="scr.salvar_como_title" data-tr-aria="scr.salvar_como_title" title="salvar como…"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 13.5H2.5v-11h9l2 2V7"/><path d="M5 2.5v3.5h5.5V2.5"/><path d="M9.5 13.6l.4-1.8 3.4-3.4 1.4 1.4-3.4 3.4z"/></svg></button>
+      <button type="button" id="bt-mover" data-tr-title="scr.mover_bt_title" data-tr-aria="scr.mover_bt_title" title="mover"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 4.5v8h13v-7H8L6.5 3.5h-5z"/><path d="M5.8 9h4.4M8.6 7.2 10.4 9l-1.8 1.8"/></svg></button>
+      <button type="button" id="bt-apagar" data-tr-title="scr.apagar_title" data-tr-aria="scr.apagar_title" title="apagar o script"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.2h11M6 4.2V2.6h4v1.6M4 4.2l.7 9.3h6.6l.7-9.3M6.7 7v4.2M9.3 7v4.2"/></svg></button>
     </div>
-    <h2><button type="button" id="raiz-meus" class="raiz" data-recebe="" data-tr="scr.meus" data-tr-title="scr.raiz_title">Meus scripts</button></h2>
-    <ul id="lista-meus" class="arvore"></ul>
-    <h2 data-tr="scr.exemplos">Exemplos</h2>
-    <ul id="lista-exemplos" class="arvore"></ul>
+  </div>
+  <div class="grupo-bt icones" id="g-sim">
+    <button type="button" id="bt-param" data-tr-title="scr.t_param" data-tr-aria="scr.t_param" title="como rodar este script"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+    <button type="button" id="bt-rodar" data-tr-title="scr.rodar_title" data-tr-aria="scr.rodar_title" title="rodar (Ctrl+Enter)"><svg viewBox="0 0 16 16"><path d="M4.5 2.8v10.4L13 8z" fill="currentColor"/></svg></button>
+  </div>
+  <div class="grupo-bt" id="g-cols">
+    <button type="button" id="bt-col-arq" data-tr-title="scr.t_col_arq" data-tr-aria="scr.t_col_arq" title="Arquivos"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><rect x="1.8" y="2.5" width="12.4" height="11" rx="1.6"/><path d="M6 2.5v11"/></svg></button>
+    <button type="button" id="bt-col-scope" data-tr-title="scr.t_col_scope" data-tr-aria="scr.t_col_scope" title="Scope"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M5 14c2-6 3-6 4 0s2 6 4 0 3-6 4 0 2 4 2 4"/></svg></button>
+    <button type="button" id="bt-ia" data-tr-title="scr.ia_bt" data-tr-aria="scr.ia_titulo" title="IA do MaiSim"><svg width="18" height="18" aria-hidden="true"><use href="#maisim-claude"/></svg><span class="ponto"></span></button>
+  </div>
+  <span id="msg"></span>
+</header>
+<div id="corpo">
+  <aside id="col-arq" class="col-doca">
+    <div class="div-col" id="div-arq" data-tr-title="scr.borda_col" title="arraste para mudar a largura"></div>
+    <div id="arq-meus">
+      <input id="arq-busca" type="search" data-tr-ph="scr.ph_busca" data-tr-aria="scr.ph_busca" placeholder="buscar script…" autocomplete="off">
+      <h4><button type="button" id="raiz-meus" class="raiz" data-recebe="" data-tr="scr.meus" data-tr-title="scr.raiz_title">Meus scripts</button></h4>
+      <ul id="lista-meus" class="arvore"></ul>
+      <div class="ctl-botoes"><button type="button" id="bt-novo2" data-tr="scr.novo">+ Script</button><button type="button" id="bt-pasta2" data-tr="scr.nova_pasta">+ Pasta</button></div>
+    </div>
+    <div class="secao-pe" id="secao-exemplos">
+      <button type="button" class="cab-secao" id="cab-exemplos" aria-expanded="false" aria-controls="corpo-exemplos"><span class="seta-secao">▸</span><span data-tr="scr.exemplos">Exemplos</span></button>
+      <div class="corpo-secao" id="corpo-exemplos"><ul id="lista-exemplos" class="arvore"></ul></div>
+    </div>
   </aside>
-  <main>
-    <div class="barra">
-      <input id="nome" aria-label="nome do script" data-tr-aria="scr.nome" spellcheck="false" autocomplete="off">
-      <span id="estado"></span>
-      <button type="button" id="bt-salvar" data-tr="scr.salvar" data-tr-title="scr.salvar_title">Salvar</button>
-      <button type="button" id="bt-rodar" class="prim" data-tr="scr.rodar" data-tr-title="scr.rodar_title">▶ Rodar</button>
-      <button type="button" id="bt-scope" data-tr="scr.ver_scope" data-tr-title="scr.ver_scope_title" disabled>Ver no Scope</button>
-      <button type="button" id="bt-mover" data-tr="scr.mover_bt" data-tr-title="scr.mover_bt_title">Mover…</button>
-      <button type="button" id="bt-apagar" class="perigo" data-tr="scr.apagar">Apagar</button>
-    </div>
+  <main id="col-cod" class="col-doca">
+    <div id="ctl-barra"><div id="ctl-abas" role="tablist" data-tr-aria="scr.abas" aria-label="scripts abertos"></div><span id="ctl-estado"></span></div>
     <p class="aviso" id="aviso"><span data-tr="scr.aviso">O script roda como um programa Python nesta máquina, com acesso aos seus arquivos. Rode só scripts em que você confia.</span>
       <button type="button" id="bt-aviso" data-tr="scr.aviso_ok">Entendi</button></p>
     <div id="editor"></div>
     <div id="saida-box">
-      <div class="cab"><b data-tr="scr.saida">Saída</b><span id="resultado"></span></div>
+      <div id="saida-borda" data-tr-title="scr.borda_saida" title="arraste para mudar a altura"></div>
+      <div class="cab"><b data-tr="scr.saida">Saída</b><span id="resultado"></span>
+        <button type="button" id="bt-saida" data-tr-title="scr.saida_recolher" data-tr-aria="scr.saida_recolher" title="minimizar a saída" aria-expanded="true">−</button></div>
       <pre id="saida"></pre>
     </div>
   </main>
+  <div id="col-scope" class="col-doca" hidden>
+    <div class="div-col" id="div-scope" data-tr-title="scr.borda_col" title="arraste para mudar a largura"></div>
+    <div id="scope-vazio" data-tr="scr.scope_vazio">Rode um script que chame maisim.scope(...): a rodada aparece aqui.</div>
+    <iframe id="if-scope" title="MaiSim · Scope" hidden></iframe>
+  </div>
+  <aside id="gaveta-ia" class="col-doca" hidden aria-label="IA do MaiSim" data-tr-aria="scr.ia_titulo">
+    <div class="div-col" id="ia-borda" data-tr-title="scr.borda_ia" title="arraste para mudar a largura; duplo clique: larga ou estreita"></div>
+    <div class="cc-topo"><svg class="mascote" width="21" height="21" aria-hidden="true"><use href="#maisim-claude"/></svg><b data-tr="scr.ia_titulo">IA do MaiSim</b><span id="cc-uso"></span>
+      <button type="button" id="ia-nova" data-tr="scr.ia_nova_curto" data-tr-title="scr.ia_nova_title">Nova</button>
+      <button type="button" id="ia-fecha" data-tr-title="scr.ia_fechar" data-tr-aria="scr.ia_fechar" aria-label="Fechar">×</button></div>
+    <div id="ia-msgs" aria-live="polite"></div>
+    <div class="cc-entrada">
+      <p class="cc-lembrete" data-tr="scr.ia_lembrete">A IA pode errar: confira o código e o resultado. Nada muda sem você aplicar.</p>
+      <textarea id="ia-texto" rows="3" data-tr-ph="scr.ia_placeholder" data-tr-aria="scr.ia_placeholder" placeholder="Peça à IA… (Ctrl+Enter envia)"></textarea>
+      <div class="cc-botoes"><span id="cc-aviso"></span><select id="ia-qual" hidden data-tr-aria="scr.ia_qual"></select><select id="ia-modelo" data-tr-aria="scr.ia_modelo"></select>
+        <button type="button" id="ia-parar" hidden data-tr="scr.ia_parar">Parar</button><button type="button" id="ia-enviar" class="primario" data-tr="scr.ia_enviar">Enviar</button></div>
+    </div>
+  </aside>
 </div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="maisim-claude" viewBox="0 0 24 24">
+    <path d="M4.5 4.5h15a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-8.5l-4.5 3.6v-3.6h-2a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2z" fill="var(--diodo-fundo, #ede9fe)" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+    <path d="M6 11.2H8.1M13.6 11.2H15.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M8.1 8L13 11.2L8.1 14.4Z" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+    <path d="M13.6 8V14.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+    <path d="M17.6 5.9C17.8 7.3 18.15 7.65 19.55 7.85 18.15 8.05 17.8 8.4 17.6 9.8 17.4 8.4 17.05 8.05 15.65 7.85 17.05 7.65 17.4 7.3 17.6 5.9Z" fill="currentColor"/>
+  </symbol></defs></svg>
 <script src="static/script.js"></script>
+<script src="static/script_ia.js"></script>
 <script src="/maisim-nav.js" onerror="this.remove()"></script>
 </body>
 </html>
