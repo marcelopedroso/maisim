@@ -6,7 +6,7 @@ maisimI18n.add({
   "scr.nenhum": { pt: "nenhum ainda: + Novo script", en: "none yet: + New script" },
   "scr.novo": { pt: "+ Script", en: "+ Script" },
   "scr.novo_t": { pt: "Novo script", en: "New script" },
-  "scr.novo_texto": { pt: "Em {onde}. Letras, números, _ e -; use / para outra pasta (projeto/main).", en: "In {onde}. Letters, digits, _ and -; use / for another folder (project/main)." },
+  "scr.novo_texto": { pt: "Em {onde}. Só o nome do arquivo (letras, números, _ e -).", en: "In {onde}. Just the file name (letters, digits, _ and -)." },
   "scr.novo_title": { pt: "novo script (na pasta escolhida)", en: "new script (in the selected folder)" },
   "scr.nova_pasta": { pt: "+ Pasta", en: "+ Folder" },
   "scr.nova_pasta_title": { pt: "nova pasta dentro da escolhida (um projeto, uma pasta libs…)", en: "new folder inside the selected one (a project, a libs folder…)" },

@@ -306,10 +306,11 @@ async function novoSemNome() {                       // (sem nenhuma aba aberta:
   ativa(novaAba("", "meus", j.codigo)); await lista();
 }
 async function novo() {                               // + Script (como o novo arquivo do VS Code): o nome na hora, na pasta escolhida
+  // só o nome do arquivo: a pasta escolhida aparece no texto e vai na frente sozinha (um "/" no nome cria a subpasta dentro dela)
   const n = await janela({ titulo: tr("scr.novo_t"), texto: tr("scr.novo_texto", { onde: st.pasta || tr("scr.meus") }), ok: tr("scr.criar"),
-    campo: { rotulo: tr("scr.nome"), valor: st.pasta ? `${st.pasta}/` : "" }, valida: (v) => (v.endsWith("/") ? tr("scr.campo_vazio") : validaNome(v)) });
+    campo: { rotulo: tr("scr.nome") }, valida: (v) => (v.endsWith("/") ? tr("scr.campo_vazio") : validaNome(v)) });
   if (!n) return;
-  const nome = n.replace(/\.py$/, "");
+  const nome = naPasta(n.replace(/\.py$/, ""));
   try {
     const j = await api("/novo");
     const r = await api("/salvar", { nome, codigo: j.codigo });
@@ -356,8 +357,9 @@ async function salvar() {
       a.nome = c.nome; a.grupo = "meus"; a.salvo = conteudo(a);
       escreveSaida(tr("scr.copiado", { nome: c.nome }), "dica");
     } else if (!a.nome) {                            // sem nome: pergunta (dentro da pasta escolhida, se houver)
-      const n = await janela({ titulo: tr("scr.nome_t"), texto: tr("scr.pede_nome"), ok: tr("scr.salvar"), campo: { rotulo: tr("scr.nome"), valor: st.pasta ? `${st.pasta}/` : "" }, valida: validaNome });
-      if (!n || !(await gravaComo(n.replace(/\.py$/, ""), a))) return false;
+      const n = await janela({ titulo: tr("scr.nome_t"), texto: tr("scr.novo_texto", { onde: st.pasta || tr("scr.meus") }), ok: tr("scr.salvar"), campo: { rotulo: tr("scr.nome") },
+        valida: (v) => (v.endsWith("/") ? tr("scr.campo_vazio") : validaNome(v)) });
+      if (!n || !(await gravaComo(naPasta(n.replace(/\.py$/, "")), a))) return false;
     } else if (!(await gravaComo(a.nome, a))) return false;
     ativa(st.ativa); await lista(); return true;
   } catch (e) { escreveSaida(tr("scr.falhou", { erro: e.message }), "err"); return false; }

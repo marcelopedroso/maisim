@@ -47,12 +47,13 @@ const pede = (pg, rota, corpo) => pg.evaluate(async ([r, c]) => (await fetch(`sc
     ok(!!(await pg.$(`#lista-meus button.abre.sel[data-pasta="${PASTA}"]`)), "um nome válido cria a pasta, escolhida na árvore");
     // + Script (como o novo arquivo do VS Code): pergunta o nome já com a pasta escolhida, cria e abre a aba com o nome
     await pg.click("#bt-novo2"); m = await modal();
-    ok(m && m.tit === "Novo script" && m.campo === `${PASTA}/`, `+ Script: a janela pede o nome, já com "${PASTA}/" (${JSON.stringify(m)})`);
-    await pg.fill(".modal .m-campo", `${PASTA}/um`); await pg.click(".modal .m-ok");
+    const txtNovo = await pg.textContent(".modal p");
+    ok(m && m.tit === "Novo script" && m.campo === "" && txtNovo.includes(`Em ${PASTA}.`), `+ Script: a janela pede só o nome; a pasta escolhida no texto (${JSON.stringify(m)} · ${txtNovo})`);
+    await pg.fill(".modal .m-campo", "um"); await pg.click(".modal .m-ok");
     await pg.waitForSelector(`#lista-meus button[data-nome="${PASTA}/um"]`, { timeout: 10000 }).catch(() => {});
     const aba1 = await pg.$$eval("#ctl-abas .aba.ativa .nome-aba", (x) => x.map((y) => y.textContent));
     ok(JSON.stringify(aba1) === '["um.py"]' && (await pg.textContent("#ctl-estado")) === "salvo", `a aba já com o nome e salva (${JSON.stringify(aba1)})`);
-    await pg.click("#bt-novo"); await modal(); await pg.fill(".modal .m-campo", `${PASTA}/um`); await pg.click(".modal .m-ok"); m = await modal();
+    await pg.click("#bt-novo"); await modal(); await pg.fill(".modal .m-campo", "um"); await pg.click(".modal .m-ok"); m = await modal();
     ok(m && /já existe/.test(await pg.textContent(".modal p")), "um nome que já existe: avisa e não substitui");
     await pg.click(".modal .m-ok");
     ok(!!(await pg.$(`#lista-meus button[data-nome="${PASTA}/um"]`)) && (await pg.textContent("#nome-atual")) === `${PASTA}/um`, "salvou o script dentro da pasta");
