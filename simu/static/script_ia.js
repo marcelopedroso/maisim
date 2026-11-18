@@ -150,6 +150,7 @@ function iaCartao(prop) {
   });
   if ((prop.recusados || []).length) h += `<span class="cc-meta">${esc(tr("scr.ia_recusados", { lista: prop.recusados.join(", ") }))}</span>`;
   h += `<div class="cc-bts"><button type="button" class="primario" data-ia="aplicar_rodar">${esc(tr("scr.ia_aplicar_rodar"))}</button>`
+    + `<button type="button" data-ia="revisar" title="${esc(tr("scr.ia_t_revisar"))}">${esc(tr("scr.ia_revisar"))}</button>`
     + `<button type="button" data-ia="aplicar">${esc(tr("scr.ia_aplicar"))}</button><button type="button" data-ia="descartar">${esc(tr("scr.ia_descartar"))}</button></div></div>`;
   return h;
 }
@@ -168,17 +169,68 @@ async function iaEnvia() {
   } catch (e) { $("cc-aviso").textContent = tr("scr.falhou", { erro: e.message }); }
   await iaAtualiza();
 }
-async function iaAcao(qual) {
+// Revisar (como o da IA do circuito): a diferença numa janela grande, com o editor de diferenças do Monaco (Unificado ou Lado a
+// lado), uma aba por arquivo e, com mais de um, ✓ Aceitar / ✗ Recusar cada um; Aplicar grava só os aceitos
+function iaRevisar(prop) {
+  const arqs = Object.keys(prop.arquivos).sort(), recusados = new Set(), porArq = arqs.length > 1;
+  const modoDif = lido("maisim-script-dif-modo") === "lado" ? "lado" : "uni";
+  const f = document.createElement("div"); f.className = "modal-fundo"; f.style.paddingTop = "5vh";
+  f.innerHTML = `<div class="modal cc-dif" role="dialog" aria-modal="true" aria-labelledby="dif-tit"><div class="cc-dif-cab"><h3 id="dif-tit">${esc(tr("scr.ia_proposta"))}${porArq ? "" : ` — ${esc(arqs[0])}`}</h3>`
+    + (porArq ? `<span class="grupo-bt cc-dif-escolha"><button type="button" data-aceita="1">${esc(tr("scr.ia_aceitar"))}</button><button type="button" data-aceita="0">${esc(tr("scr.ia_recusar"))}</button></span>` : "")
+    + `<span class="grupo-bt cc-dif-modo"><button type="button" data-modo="uni">${esc(tr("scr.ia_unificado"))}</button><button type="button" data-modo="lado">${esc(tr("scr.ia_lado"))}</button></span></div>`
+    + (porArq ? `<div class="grupo-bt cc-dif-arqs">${arqs.map((r, i) => `<button type="button" data-i="${i}"><i class="cc-dif-marca">✓</i>${esc(r)}${(prop.novos || []).includes(r) ? ` · ${esc(tr("scr.ia_novo"))}` : ""}</button>`).join("")}</div>` : "")
+    + `<div class="cc-dif-ed"></div><div class="cc-dif-sint"></div>`
+    + `<div class="modal-botoes"><button type="button" class="m-fechar">${esc(tr("scr.ia_fechar"))}</button><button type="button" class="m-aplicar">${esc(tr("scr.ia_aplicar"))}</button>`
+    + `<button type="button" class="m-aplicar-rodar primario">${esc(tr("scr.ia_aplicar_rodar"))}</button></div></div>`;
+  document.body.appendChild(f);
+  const el = f.querySelector(".cc-dif-ed"); let dif = null, modelos = [], atual = 0;
+  const marca = () => {
+    f.querySelectorAll(".cc-dif-arqs button").forEach((b) => { const r = recusados.has(arqs[+b.dataset.i]);
+      b.classList.toggle("recusado", r); b.querySelector(".cc-dif-marca").textContent = r ? "✗" : "✓"; b.classList.toggle("ativo", +b.dataset.i === atual); });
+    f.querySelectorAll(".cc-dif-escolha button").forEach((b) => b.classList.toggle("ativo", (b.dataset.aceita === "1") !== recusados.has(arqs[atual])));
+    const n = arqs.length - recusados.size;
+    for (const c of [".m-aplicar", ".m-aplicar-rodar"]) { const b = f.querySelector(c); b.disabled = !n;
+      b.textContent = recusados.size ? tr(c === ".m-aplicar" ? "scr.ia_aplicar_n" : "scr.ia_aplicar_rodar_n", { n, total: arqs.length }) : tr(c === ".m-aplicar" ? "scr.ia_aplicar" : "scr.ia_aplicar_rodar"); }
+  };
+  const mostra = (i) => {
+    atual = i; const r = arqs[i], antes = prop.arquivos_antes[r] || "", depois = prop.arquivos[r];
+    f.querySelector(".cc-dif-sint").textContent = prop.sintaxe && prop.sintaxe[r] ? tr("scr.ia_sintaxe", { msg: prop.sintaxe[r] }) : "";
+    if (dif) { const novos = [window.monaco.editor.createModel(antes, "python"), window.monaco.editor.createModel(depois, "python")];
+      dif.setModel({ original: novos[0], modified: novos[1] }); modelos.forEach((m) => m.dispose()); modelos = novos; }
+    else { const d = iaDif(antes, depois); el.innerHTML = `<div class="cc-diff">${d === null ? `<div class="cc-dc">${esc(depois)}</div>` : d}</div>`; }
+    marca();
+  };
+  if (window.monaco) dif = window.monaco.editor.createDiffEditor(el, { readOnly: true, automaticLayout: true, renderSideBySide: modoDif === "lado",
+    minimap: { enabled: false }, scrollBeyondLastLine: false, fontSize: 12.5, originalEditable: false });
+  mostra(0);
+  const marcaModo = (m) => f.querySelectorAll(".cc-dif-modo button").forEach((b) => b.classList.toggle("ativo", b.dataset.modo === m));
+  marcaModo(modoDif);
+  f.querySelectorAll(".cc-dif-modo button").forEach((b) => { b.onclick = () => { guarda("maisim-script-dif-modo", b.dataset.modo);
+    if (dif) dif.updateOptions({ renderSideBySide: b.dataset.modo === "lado" }); marcaModo(b.dataset.modo); }; });
+  f.querySelectorAll(".cc-dif-arqs button").forEach((b) => { b.onclick = () => mostra(+b.dataset.i); });
+  f.querySelectorAll(".cc-dif-escolha button").forEach((b) => { b.onclick = () => {
+    if (b.dataset.aceita === "1") recusados.delete(arqs[atual]); else recusados.add(arqs[atual]); marca(); }; });
+  const volta = document.activeElement;
+  const fecha = () => { removeEventListener("keydown", tecla, true); if (dif) dif.dispose(); modelos.forEach((m) => m.dispose()); f.remove(); if (volta && volta.isConnected) volta.focus(); };
+  const tecla = (ev) => { if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); fecha(); } };
+  addEventListener("keydown", tecla, true);
+  f.addEventListener("mousedown", (ev) => { if (ev.target === f) fecha(); });
+  f.querySelector(".m-fechar").onclick = fecha; f.querySelector(".m-fechar").focus();
+  f.querySelector(".m-aplicar").onclick = () => { const r = [...recusados]; fecha(); iaAcao("aplicar", r); };
+  f.querySelector(".m-aplicar-rodar").onclick = () => { const r = [...recusados]; fecha(); iaAcao("aplicar_rodar", r); };
+}
+async function iaAcao(qual, recusados = []) {
   const nome = iaNome(); if (!nome) return;
   try {
     if (qual === "descartar") { await iaApi("scripts/ia/descartar", { nome }); return iaAtualiza(); }
+    if (qual === "revisar") { const prop = ia.est && ia.est.pedido && ia.est.pedido.proposta; if (prop) iaRevisar(prop); return; }
     // aplicar: grava a proposta guardada no servidor; as abas abertas dos arquivos mudados recarregam (o que não foi salvo
     // nelas seria perdido: pergunta antes)
     const prop = ia.est && ia.est.pedido && ia.est.pedido.proposta;
     const base = nome.includes("/") ? nome.split("/")[0] + "/" : "";
-    const afetadas = st.abas.filter((a) => a.grupo === "meus" && prop && Object.keys(prop.arquivos).some((r) => base + r.replace(/\.py$/, "") === a.nome));
+    const afetadas = st.abas.filter((a) => a.grupo === "meus" && prop && Object.keys(prop.arquivos).some((r) => !recusados.includes(r) && base + r.replace(/\.py$/, "") === a.nome));
     if (afetadas.some(sujoAba) && !(await janela({ titulo: tr("scr.ia_aplicar_t"), texto: tr("scr.ia_aplicar_sujo"), ok: tr("scr.ia_aplicar"), perigo: true }))) return;
-    const r = await iaApi("scripts/ia/aplicar", { nome });
+    const r = await iaApi("scripts/ia/aplicar", { nome, recusados });
     escreveSaida(tr("scr.ia_aplicou", { lista: (r.arquivos || []).join(", ") }), "dica");
     for (const a of afetadas) {
       const j = await api(`/ler?nome=${encodeURIComponent(a.nome)}&grupo=meus`);

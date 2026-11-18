@@ -83,13 +83,13 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   .arvore li button .nome { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .arvore li button svg { width:14px; height:14px; flex:none; }
   .arvore li button:hover { background:var(--acento-suave); } .arvore li button[aria-current="true"] { background:var(--acento-suave); color:var(--acento); font-weight:600; }
-  .arvore li.pasta > .linha { display:flex; align-items:center; } .arvore li.pasta > .linha > button.abre { flex:1 1 auto; font-weight:600; }
+  .arvore li > .linha { display:flex; align-items:center; } .arvore li > .linha > button:first-child { flex:1 1 auto; } .arvore li.pasta > .linha > button.abre { font-weight:600; }
   .arvore .ico-pasta.aberta, .arvore li.pasta.aberta > .linha .ico-pasta.fechada { display:none; } .arvore li.pasta.aberta > .linha .ico-pasta.aberta { display:block; }
   .arvore li.pasta > .linha > button.abre.sel { background:var(--acento-suave); color:var(--acento); }
   .arvore li.pasta:not(.aberta) > ul { display:none; }
   .arvore .seta { display:inline-block; width:10px; flex:none; color:var(--sutil); font-size:10px; transition:transform .1s; } .arvore li.pasta.aberta > .linha .seta { transform:rotate(90deg); }
   .arvore button.tira { flex:0 0 auto; width:auto; padding:2px 6px; visibility:hidden; color:var(--sutil); }
-  .arvore li.pasta > .linha:hover button.tira, .arvore button.tira:focus { visibility:visible; } .arvore button.tira:hover { color:var(--erro); } .arvore button.tira.mover:hover { color:var(--acento); }
+  .arvore li > .linha:hover button.tira, .arvore button.tira:focus { visibility:visible; } .arvore button.tira:hover { color:var(--erro); } .arvore button.tira.mover:hover { color:var(--acento); }
   .arvore .vazio { color:var(--sutil); font-size:12px; padding:3px 6px; } .arvore li[hidden] { display:none; }
   .arvore .alvo, #col-arq h4 button.raiz.alvo { outline:2px dashed var(--acento); outline-offset:-2px; background:var(--acento-suave); }
   .arvore [draggable="true"] { cursor:grab; }
@@ -163,6 +163,20 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   .cc-diff { font:11.5px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; border:1px solid var(--borda); border-radius:6px; overflow:auto; max-height:280px; margin:6px 0; background:var(--campo); }
   .cc-diff > div { white-space:pre; padding:0 8px 0 4px; min-height:1.45em; } .cc-diff span { display:inline-block; width:1.4em; text-align:center; opacity:.75; user-select:none; }
   .cc-dm { background:var(--ok-bg); color:var(--ok); } .cc-dr { background:var(--erro-bg); color:var(--erro); } .cc-dc { color:var(--texto); } .cc-dh { color:var(--sutil); background:var(--suave3); font-size:11px; }
+  /* o Revisar (a janela da diferença, a mesma da IA do circuito) */
+  .modal.cc-dif { width:min(1200px, 95vw); height:min(92vh, 980px); display:flex; flex-direction:column; } .modal.cc-dif > * { flex:none; }
+  .cc-dif-cab { display:flex; align-items:center; gap:12px; } .cc-dif-cab h3 { flex:1; margin:0; }
+  .modal.cc-dif .cc-dif-arqs { display:flex; overflow-x:auto; overflow-y:hidden; margin:6px 0 2px; padding-bottom:3px; scrollbar-width:thin; }
+  .cc-dif-arqs button { flex:none; white-space:nowrap; font-size:12px; padding:2px 9px; } .cc-dif-arqs button.ativo { background:var(--acento-suave); color:var(--acento); border-color:var(--acento-borda); }
+  .cc-dif-arqs button.recusado { text-decoration:line-through; color:var(--erro); }
+  .cc-dif-marca { font-style:normal; margin-right:4px; color:var(--ok); } .cc-dif-arqs button.recusado .cc-dif-marca { color:var(--erro); }
+  .cc-dif-escolha button, .cc-dif-modo button { font-size:12px; padding:2px 10px; }
+  .cc-dif-escolha button[data-aceita="1"].ativo { background:var(--ok-bg); color:var(--ok); border-color:var(--ok); }
+  .cc-dif-escolha button[data-aceita="0"].ativo { background:var(--erro-bg); color:var(--erro); border-color:var(--erro); }
+  .cc-dif-modo button.ativo { background:var(--acento-suave); color:var(--acento); border-color:var(--acento-borda); }
+  .modal.cc-dif .cc-dif-ed { flex:1 1 auto; min-height:180px; border:1px solid var(--borda); border-radius:6px; overflow:hidden; margin-top:8px; }
+  .cc-dif-ed .cc-diff { max-height:none; height:100%; margin:0; border:0; border-radius:0; }
+  .cc-dif-sint { color:var(--erro); font-size:12px; margin-top:4px; } .cc-dif-sint:empty { display:none; }
   .cc-entrada { padding:6px 10px 8px; border-top:1px solid var(--borda); }
   .cc-lembrete { margin:0 0 4px; font-size:10.5px; line-height:1.35; color:var(--sutil); }
   #ia-texto { width:100%; resize:vertical; min-height:52px; max-height:40vh; font:12.5px/1.4 system-ui, sans-serif; border:1px solid var(--borda); border-radius:8px; padding:6px 8px; }
@@ -182,6 +196,7 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
       <button type="button" id="bt-pasta" data-tr-title="scr.nova_pasta_title" data-tr-aria="scr.nova_pasta_title" title="nova pasta"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 4.5v8h13v-7H8L6.5 3.5h-5z"/><path d="M8 7.3v3.6M6.2 9.1h3.6"/></svg></button>
       <button type="button" id="bt-salvar" data-tr-title="scr.salvar_title" data-tr-aria="scr.salvar_title" title="salvar (Ctrl+S)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M2.5 2.5h9l2 2v9h-11z"/><path d="M5 2.5v3.5h5.5V2.5"/><rect x="4.5" y="9" width="7" height="4.5" rx=".5"/></svg></button>
       <button type="button" id="bt-salvar-como" data-tr-title="scr.salvar_como_title" data-tr-aria="scr.salvar_como_title" title="salvar como…"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 13.5H2.5v-11h9l2 2V7"/><path d="M5 2.5v3.5h5.5V2.5"/><path d="M9.5 13.6l.4-1.8 3.4-3.4 1.4 1.4-3.4 3.4z"/></svg></button>
+      <button type="button" id="bt-renomear" data-tr-title="scr.renomear_title" data-tr-aria="scr.renomear_title" title="renomear o script"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10.6 2.6l2.8 2.8-7.7 7.7-3.4.6.6-3.4z"/><path d="M9.2 4l2.8 2.8"/></svg></button>
       <button type="button" id="bt-mover" data-tr-title="scr.mover_bt_title" data-tr-aria="scr.mover_bt_title" title="mover"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 4.5v8h13v-7H8L6.5 3.5h-5z"/><path d="M5.8 9h4.4M8.6 7.2 10.4 9l-1.8 1.8"/></svg></button>
       <button type="button" id="bt-apagar" data-tr-title="scr.apagar_title" data-tr-aria="scr.apagar_title" title="apagar o script"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.2h11M6 4.2V2.6h4v1.6M4 4.2l.7 9.3h6.6l.7-9.3M6.7 7v4.2M9.3 7v4.2"/></svg></button>
     </div>

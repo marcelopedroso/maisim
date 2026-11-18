@@ -155,6 +155,7 @@ function marca() {
   $("nome-atual").textContent = a ? (a.nome || tr("scr.sem_nome")) : "";
   $("bt-apagar").disabled = !a || a.grupo !== "meus" || !a.nome;
   $("bt-mover").disabled = !a || a.grupo !== "meus" || !a.nome;
+  $("bt-renomear").disabled = !a || a.grupo !== "meus" || !a.nome;
   marcaParam();
   // o "•" da aba acompanha sem redesenhar tudo
   const b = document.querySelector(`#ctl-abas .aba[data-i="${st.ativa}"]`);
@@ -179,11 +180,16 @@ function ramo(itens, grupo) {
       const id = `${grupo}:${x.caminho}`;
       return `<li class="pasta${abertas.has(id) ? " aberta" : ""}" data-id="${esc(id)}"><div class="linha">`
         + `<button type="button" class="abre${grupo === "meus" && st.pasta === x.caminho ? " sel" : ""}" data-pasta="${esc(x.caminho)}" data-grupo="${grupo}"${grupo === "meus" ? ` draggable="true" data-arrasta="${esc(x.caminho)}" data-recebe="${esc(x.caminho)}"` : ""}><span class="seta">▸</span>${ICO_PASTA}<span class="nome">${esc(x.nome)}</span></button>`
+        + (grupo === "meus" ? `<button type="button" class="tira mover" data-renomear="${esc(x.caminho)}" title="${esc(tr("scr.renomear_pasta_t"))}" aria-label="${esc(tr("scr.renomear_pasta_t"))}">✎</button>` : "")
         + (grupo === "meus" ? `<button type="button" class="tira mover" data-mover="${esc(x.caminho)}" title="${esc(tr("scr.mover_pasta"))}" aria-label="${esc(tr("scr.mover_pasta"))}">⇄</button>` : "")
         + (grupo === "meus" ? `<button type="button" class="tira" data-tira="${esc(x.caminho)}" data-n="${contaScripts(x.filhos)}" title="${esc(tr("scr.apagar_pasta"))}" aria-label="${esc(tr("scr.apagar_pasta"))}">×</button>` : "")
         + `</div><ul>${ramo(x.filhos, grupo) || `<li class="vazio">${esc(tr("scr.pasta_vazia"))}</li>`}</ul></li>`;
     }
-    return `<li><button type="button" data-nome="${esc(x.caminho)}" data-grupo="${grupo}" title="${esc(x.caminho)}"${grupo === "meus" ? ` draggable="true" data-arrasta="${esc(x.caminho)}"` : ""} aria-current="${x.caminho === st.nome && grupo === st.grupo}">${ICO_PY}<span class="nome">${esc(x.nome)}.py</span></button></li>`;
+    // os arquivos dos seus: ✎ renomear, ⇄ mover e × apagar ao passar o mouse (como nas pastas)
+    const acoes = grupo !== "meus" ? "" : `<button type="button" class="tira mover" data-renomear="${esc(x.caminho)}" title="${esc(tr("scr.renomear_t"))}" aria-label="${esc(tr("scr.renomear_t"))}">✎</button>`
+      + `<button type="button" class="tira mover" data-mover="${esc(x.caminho)}" title="${esc(tr("scr.mover_bt_title"))}" aria-label="${esc(tr("scr.mover_bt_title"))}">⇄</button>`
+      + `<button type="button" class="tira" data-apaga-script="${esc(x.caminho)}" title="${esc(tr("scr.apagar_title"))}" aria-label="${esc(tr("scr.apagar_title"))}">×</button>`;
+    return `<li class="arq"><div class="linha"><button type="button" data-nome="${esc(x.caminho)}" data-grupo="${grupo}" title="${esc(x.caminho)}.py"${grupo === "meus" ? ` draggable="true" data-arrasta="${esc(x.caminho)}"` : ""} aria-current="${x.caminho === st.nome && grupo === st.grupo}">${ICO_PY}<span class="nome">${esc(x.nome)}.py</span></button>${acoes}</div></li>`;
   }).join("");
 }
 async function lista() {
@@ -203,13 +209,15 @@ async function lista() {
   };
   for (const b of document.querySelectorAll("#col-arq button[data-tira]")) b.onclick = () => apagaPasta(b.dataset.tira, +b.dataset.n);
   for (const b of document.querySelectorAll("#col-arq button[data-mover]")) b.onclick = () => pedeDestino(b.dataset.mover);
+  for (const b of document.querySelectorAll("#col-arq button[data-renomear]")) b.onclick = () => renomear(b.dataset.renomear);
+  for (const b of document.querySelectorAll("#col-arq button[data-apaga-script]")) b.onclick = () => apagar(b.dataset.apagaScript);
   filtra();
 }
 // a busca (como a dos Arquivos do Código): só os scripts com o texto no nome, e as pastas deles abertas
 function filtra() {
   const q = $("arq-busca").value.trim().toLowerCase();
   const passa = (li) => {
-    const b = li.querySelector(":scope > button[data-nome]");
+    const b = li.querySelector(":scope > .linha > button[data-nome], :scope > button[data-nome]");
     if (b) { const ok = !q || b.dataset.nome.toLowerCase().includes(q); li.hidden = !ok; return ok; }
     if (li.classList.contains("pasta")) {
       const algum = [...li.querySelectorAll(":scope > ul > li")].map(passa).some(Boolean);
@@ -252,6 +260,23 @@ async function move(nome, destino) {
       if (atual() && atual().nome) history.replaceState(null, "", `?nome=${encodeURIComponent(atual().nome)}${atual().grupo === "exemplos" ? "&grupo=exemplos" : ""}`);
       escreveSaida(tr("scr.movido", { de: nome, para: r.nome }), "dica");
     }
+    guardaAbas(); desenhaAbas(); marca(); await lista();
+  } catch (e) { escreveSaida(tr("scr.falhou", { erro: e.message }), "err"); }
+}
+async function renomear(nome) {
+  if (!nome) return;
+  const base = nome.split("/").pop(), ehPasta = pastasDe(st.arvore || []).includes(nome);
+  const n = await janela({ titulo: tr(ehPasta ? "scr.renomear_pasta_t" : "scr.renomear_t"), texto: tr("scr.renomear_texto", { nome }), ok: tr("scr.renomear"),
+    campo: { rotulo: tr("scr.nome"), valor: base }, valida: (v) => (PARTE.test(v.replace(/\.py$/, "")) ? "" : tr("scr.pasta_regra")) });
+  if (!n || n.replace(/\.py$/, "") === base) return;
+  try {
+    const r = await api("/renomear", { nome, novo: n.replace(/\.py$/, "") });
+    const segue = (c) => (c === nome ? r.nome : c.startsWith(`${nome}/`) ? r.nome + c.slice(nome.length) : c);
+    st.abas.forEach((a) => { if (a.grupo === "meus" && a.nome) a.nome = segue(a.nome); });
+    st.pasta = segue(st.pasta);
+    abertas = new Set([...abertas].map((id) => (id.startsWith("meus:") ? `meus:${segue(id.slice(5))}` : id))); guardaAbertas();
+    if (atual() && atual().nome) history.replaceState(null, "", `?nome=${encodeURIComponent(atual().nome)}${atual().grupo === "exemplos" ? "&grupo=exemplos" : ""}`);
+    escreveSaida(tr("scr.renomeado", { de: nome, para: r.nome }), "dica");
     guardaAbas(); desenhaAbas(); marca(); await lista();
   } catch (e) { escreveSaida(tr("scr.falhou", { erro: e.message }), "err"); }
 }
@@ -352,7 +377,13 @@ async function salvar() {
   const a = atual(); if (!a) return false;
   try {
     if (a.grupo === "exemplos") {                   // o exemplo fica como está: salvar faz uma cópia nos seus (a pasta dele
-      const c = await api("/copiar_exemplo", { nome: a.nome });   // inteira, se está numa: os arquivos que ele importa vêm junto)
+      // inteira, se está numa: os arquivos que ele importa vêm junto), com o nome que a pessoa escolher (o padrão: sessao_N)
+      const topo = new Set((st.arvore || []).map((x) => x.caminho));
+      let k = 1; while (topo.has(`sessao_${k}`)) k++;
+      const destino = await janela({ titulo: tr("scr.copia_t"), texto: tr(a.nome.includes("/") ? "scr.copia_texto_pasta" : "scr.copia_texto", { nome: a.nome }),
+        ok: tr("scr.copia_ok"), campo: { rotulo: tr("scr.nome"), valor: `sessao_${k}` }, valida: (v) => (PARTE.test(v) ? "" : tr("scr.pasta_regra")) });
+      if (!destino) return false;
+      const c = await api("/copiar_exemplo", { nome: a.nome, destino });
       await api("/salvar", { nome: c.nome, codigo: conteudo(a), sobrescrever: true });
       a.nome = c.nome; a.grupo = "meus"; a.salvo = conteudo(a);
       escreveSaida(tr("scr.copiado", { nome: c.nome }), "dica");
@@ -372,12 +403,16 @@ async function salvarComo() {
   try { if (!(await gravaComo(n.replace(/\.py$/, ""), a))) return false; ativa(st.ativa); await lista(); return true; }
   catch (e) { escreveSaida(tr("scr.falhou", { erro: e.message }), "err"); return false; }
 }
-async function apagar() {
-  const a = atual(); if (!a || a.grupo !== "meus" || !a.nome) return;
-  if (!(await janela({ titulo: tr("scr.apagar_t"), texto: tr("scr.confirma_apagar", { nome: a.nome }), ok: tr("scr.apagar"), perigo: true }))) return;
-  // o script apagado era o aberto: a aba fecha sem perguntar se descarta
-  try { await api("/apagar", { nome: a.nome }); await fechaAba(st.ativa, true); await lista(); }
-  catch (e) { escreveSaida(tr("scr.falhou", { erro: e.message }), "err"); }
+async function apagar(nome) {                          // o script aberto (a barra) ou um da árvore (×)
+  const a = atual(); nome = typeof nome === "string" ? nome : a && a.grupo === "meus" ? a.nome : "";
+  if (!nome) return;
+  if (!(await janela({ titulo: tr("scr.apagar_t"), texto: tr("scr.confirma_apagar", { nome }), ok: tr("scr.apagar"), perigo: true }))) return;
+  // a aba do script apagado (se estiver aberto) fecha sem perguntar se descarta
+  try {
+    await api("/apagar", { nome });
+    const k = st.abas.findIndex((x) => x.grupo === "meus" && x.nome === nome); if (k >= 0) await fechaAba(k, true);
+    await lista();
+  } catch (e) { escreveSaida(tr("scr.falhou", { erro: e.message }), "err"); }
 }
 function escreveSaida(txt, cls) {
   const s = document.createElement("span"); if (cls) s.className = cls; s.textContent = txt.endsWith("\n") ? txt : txt + "\n"; $("saida").appendChild(s);
@@ -488,9 +523,10 @@ addEventListener("unhandledrejection", (e) => { if (e.reason && (e.reason.name =
 document.title = tr("scr.titulo");
 $("bt-novo").onclick = novo; $("bt-novo2").onclick = novo; $("bt-pasta").onclick = novaPasta; $("bt-pasta2").onclick = novaPasta;
 $("bt-mover").onclick = () => { if (st.grupo === "meus" && st.nome) pedeDestino(st.nome); };
+$("bt-renomear").onclick = () => { if (st.grupo === "meus" && st.nome) renomear(st.nome); };
 $("raiz-meus").onclick = () => { st.pasta = ""; lista(); };
 $("bt-param").onclick = param;
-$("bt-salvar").onclick = salvar; $("bt-salvar-como").onclick = salvarComo; $("bt-rodar").onclick = rodar; $("bt-apagar").onclick = apagar;
+$("bt-salvar").onclick = salvar; $("bt-salvar-como").onclick = salvarComo; $("bt-rodar").onclick = rodar; $("bt-apagar").onclick = () => apagar();
 // o aviso de segurança: aparece até a pessoa dizer "Entendi" (guardado neste navegador)
 if (lido("maisim-script-aviso") === "ok") $("aviso").hidden = true;
 $("bt-aviso").onclick = () => { $("aviso").hidden = true; guarda("maisim-script-aviso", "ok"); };

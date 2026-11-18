@@ -5665,8 +5665,9 @@ def script_ia_nova(nome):
     return script_ia_estado(nome)
 
 
-def script_ia_aplica(nome):
-    """Grava a proposta guardada no servidor (nunca a da página) nos seus scripts, só dentro do projeto do script."""
+def script_ia_aplica(nome, recusados=()):
+    """Grava a proposta guardada no servidor (nunca a da página) nos seus scripts, só dentro do projeto do script; os
+    arquivos recusados no Revisar ficam como estão (todos recusados: nada a aplicar)."""
     import modo_script
     chave = _chave_script(nome)
     with trava_claude:
@@ -5674,7 +5675,10 @@ def script_ia_aplica(nome):
         if claude_pedido.get("andamento") or not prop or prop.get("tipo") != "script" or f"script:{prop.get('script')}" != chave \
                 or not prop.get("mudou") or claude_pedido.get("aplicada"):
             raise ErroMotor(lingua.tr("script.ia_nada"))
-        r = modo_script.aplica(nome, prop)
+        recusados = [str(x) for x in (recusados or []) if isinstance(x, str)]
+        if not set(prop.get("arquivos", {})) - set(recusados):
+            raise ErroMotor(lingua.tr("script.ia_nada"))
+        r = modo_script.aplica(nome, prop, recusados)
         claude_pedido["aplicada"] = True
         pasta = claude_pedido.get("pasta")
     if pasta:                                            # a conversa: a última resposta foi aplicada
@@ -6908,7 +6912,7 @@ class Manipulador(BaseHTTPRequestHandler):
             acoes = {"/scripts/ia/pedir": lambda: script_ia_pede(corpo.get("nome"), corpo.get("texto", ""), corpo.get("modelo", ""),
                                                                  corpo.get("esforco", ""), corpo.get("ia", "claude")),
                      "/scripts/ia/nova": lambda: script_ia_nova(corpo.get("nome")),
-                     "/scripts/ia/aplicar": lambda: script_ia_aplica(corpo.get("nome")),
+                     "/scripts/ia/aplicar": lambda: script_ia_aplica(corpo.get("nome"), corpo.get("recusados") or []),
                      "/scripts/ia/descartar": lambda: script_ia_descarta(corpo.get("nome"))}
             if rota not in acoes:
                 return self._resposta(404, {"erro": lingua.tr("servidor.rota_desconhecida")})
@@ -6917,7 +6921,7 @@ class Manipulador(BaseHTTPRequestHandler):
             except Exception as e:                       # ErroMotor, ErroScript: 409 com o motivo
                 return self._resposta(409, {"erro": str(e)})
         if rota in ("/scripts/salvar", "/scripts/apagar", "/scripts/rodar", "/scripts/pasta/criar", "/scripts/pasta/apagar",
-                    "/scripts/copiar_exemplo", "/scripts/mover"):   # o modo script (#258): grava e roda código
+                    "/scripts/copiar_exemplo", "/scripts/mover", "/scripts/renomear"):   # o modo script (#258): grava e roda código
             if not pedido_local(self, True):           # aqui: só a página do MaiSim (X-MaiSim)
                 return self._resposta(403, {"erro": lingua.tr("servidor.so_pagina_local")})
             import modo_script
@@ -6933,7 +6937,9 @@ class Manipulador(BaseHTTPRequestHandler):
                 if rota == "/scripts/mover":
                     return self._resposta(200, modo_script.move(corpo.get("nome"), corpo.get("destino", "")))
                 if rota == "/scripts/copiar_exemplo":
-                    return self._resposta(200, modo_script.copia_exemplo(corpo.get("nome")))
+                    return self._resposta(200, modo_script.copia_exemplo(corpo.get("nome"), corpo.get("destino", "")))
+                if rota == "/scripts/renomear":
+                    return self._resposta(200, modo_script.renomeia(corpo.get("nome"), corpo.get("novo", "")))
                 return self._resposta(200, modo_script.roda(corpo.get("nome"), corpo.get("grupo", "meus"), corpo.get("rodada", "substitui")))
             except modo_script.ErroScript as e:
                 return self._resposta(409, {"erro": str(e)})

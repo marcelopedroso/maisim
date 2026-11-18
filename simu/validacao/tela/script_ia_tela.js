@@ -65,6 +65,15 @@ const pede = (pg, rota, corpo) => pg.evaluate(async ([r, c]) => (await fetch(r, 
     ok(card.mais.some((x) => x.includes("print('depois')")) && card.menos.some((x) => x.includes("print('antes')")), "a diferença: − antes, + depois");
     ok(card.eu.includes("troque antes por depois") && card.txt === "", "o pedido aparece na conversa e a caixa esvazia");
     ok(fs.readFileSync(path.join(SCRIPTS, PROJ, "main.py"), "utf8") === MAIN, "nada gravado antes de aplicar");
+    // o Revisar: a janela grande com as abas dos arquivos; recusar um muda o botão para "Aplicar 1 de 2"; fechar não aplica
+    await pg.click('.cc-bts [data-ia="revisar"]'); await pg.waitForSelector(".modal.cc-dif");
+    const rev = await pg.evaluate(() => ({ abas: [...document.querySelectorAll(".cc-dif-arqs button")].map((b) => b.textContent), ed: !!document.querySelector(".cc-dif-ed .monaco-diff-editor, .cc-dif-ed .cc-diff") }));
+    ok(rev.abas.length === 2 && rev.ed, `Revisar: a janela com o editor de diferenças e uma aba por arquivo (${JSON.stringify(rev.abas)})`);
+    await pg.click('.cc-dif-arqs button:has-text("extra")'); await pg.click('.cc-dif-escolha [data-aceita="0"]');
+    const bt = await pg.textContent(".modal .m-aplicar-rodar");
+    ok(/1 de 2/.test(bt), `recusar um arquivo: "${bt}"`);
+    await pg.keyboard.press("Escape");
+    ok(!(await pg.$(".modal.cc-dif")) && fs.readFileSync(path.join(SCRIPTS, PROJ, "main.py"), "utf8") === MAIN, "Esc fecha o Revisar sem aplicar");
     // aplicar e rodar
     await pg.click('.cc-bts [data-ia="aplicar_rodar"]');
     await pg.waitForFunction(() => /terminou/.test(document.getElementById("resultado").textContent), null, { timeout: 30000 }).catch(() => {});
@@ -78,9 +87,13 @@ const pede = (pg, rota, corpo) => pg.evaluate(async ([r, c]) => (await fetch(r, 
     await pg.goto(`${B}?nome=pwm/sine_pwm&grupo=exemplos`); await pg.waitForSelector("#gaveta-ia:not([hidden])");
     fs.writeFileSync(path.join(CONF, "falso_script.json"), JSON.stringify({ "sine_pwm.py": "print('copia')\n" }));
     await pg.fill("#ia-texto", "mude o exemplo"); await pg.press("#ia-texto", "Control+Enter");
+    await pg.waitForSelector(".modal .m-campo", { timeout: 8000 }).catch(() => {});
+    const jc = await pg.evaluate(() => ({ tit: (document.querySelector(".modal h3") || {}).textContent, valor: (document.querySelector(".modal .m-campo") || {}).value, texto: (document.querySelector(".modal p") || {}).textContent }));
+    ok(jc.tit === "Copiar o exemplo" && /^sessao_\d+$/.test(jc.valor || "") && /só para ler/.test(jc.texto || ""), `pedir num exemplo: a janela da cópia, com o nome padrão (${JSON.stringify(jc)})`);
+    await pg.keyboard.press("Enter");
     await pg.waitForSelector(".cc-prop", { timeout: 30000 }).catch(() => {});
     const ex = await pg.evaluate(() => ({ nome: document.getElementById("nome-atual").textContent, card: !!document.querySelector(".cc-prop") }));
-    ok(/^pwm_copia\d*\/sine_pwm$/.test(ex.nome) && ex.card, `pedir num exemplo: a cópia nos seus e a conversa dela (${JSON.stringify(ex)})`);
+    ok(ex.nome === `${jc.valor}/sine_pwm` && ex.card, `Enter aceita o padrão: a cópia e a conversa dela (${JSON.stringify(ex)})`);
     await pede(pg, "scripts/ia/descartar", { nome: ex.nome });
     if (ex.nome.includes("/")) await pede(pg, "scripts/pasta/apagar", { nome: ex.nome.split("/")[0] });
     ok(nativas.length === 0, `nenhuma janela do navegador (${nativas.join(" | ") || "nenhuma"})`);

@@ -194,18 +194,56 @@ def move(nome, destino):
     return {"ok": True, "nome": novo}
 
 
-def copia_exemplo(nome):
+def renomeia(nome, novo_nome):
+    """Troca o nome de um script ou de uma pasta dos seus, no mesmo lugar (novo_nome: só o nome, sem pasta). O layout do
+    Scope de cada script vai junto. Recusa um nome que já existe ali. Devolve o caminho novo."""
+    nome = caminho(nome)
+    novo_nome = str(novo_nome or "").strip().removesuffix(".py")
+    if not NOME_OK.match(novo_nome):
+        raise ErroScript(lingua.tr("script.nome_invalido"))
+    pai = nome.rsplit("/", 1)[0] if "/" in nome else ""
+    novo = f"{pai}/{novo_nome}" if pai else novo_nome
+    raiz_m = pasta_scripts()
+    script, pasta = raiz_m / f"{nome}.py", raiz_m / nome
+    if not script.is_file() and not pasta.is_dir():
+        raise ErroScript(lingua.tr("script.nao_achei", nome=nome))
+    if novo == nome:
+        return {"ok": True, "nome": novo}
+    eh_script = script.is_file()
+    alvo = raiz_m / (f"{novo}.py" if eh_script else novo)
+    if alvo.exists() or (raiz_m / (novo if eh_script else f"{novo}.py")).exists():
+        raise ErroScript(lingua.tr("script.ja_existe", nome=novo))
+    pares = [(script, alvo)] if eh_script else [(f, alvo / f.relative_to(pasta)) for f in pasta.rglob("*.py")]
+    layouts = [(arquivo_layout(a), arquivo_layout(b)) for a, b in pares]
+    shutil.move(str(script if eh_script else pasta), str(alvo))
+    for a, b in layouts:
+        if a.is_file():
+            b.parent.mkdir(parents=True, exist_ok=True)
+            a.replace(b)
+    return {"ok": True, "nome": novo}
+
+
+def copia_exemplo(nome, destino=""):
     """Um exemplo para os seus scripts, para editar: copia a pasta de cima dele inteira (os outros arquivos que ele importa
-    vêm junto) ou, se está na raiz, só ele. Se o nome já existe nos seus, ganha _copia (_copia2…). Devolve o caminho da cópia."""
+    vêm junto) ou, se está na raiz, só ele. destino: o nome da cópia nos seus (a pasta, ou o script de um exemplo da raiz),
+    escolhido na página (o padrão dela: sessao_1, sessao_2…); um nome que já existe é recusado. Sem destino: <nome>_copia
+    (_copia2…). Devolve o caminho do script copiado."""
     nome = caminho(nome)
     if not (EXEMPLOS / f"{nome}.py").is_file():
         raise ErroScript(lingua.tr("script.nao_achei", nome=nome))
     topo, _, resto = nome.partition("/")
     origem = EXEMPLOS / topo if resto else EXEMPLOS / f"{topo}.py"
-    n, novo = 1, topo + "_copia"
-    while (pasta_scripts() / novo).exists() or (pasta_scripts() / f"{novo}.py").exists():
-        n += 1
-        novo = f"{topo}_copia{n}"
+    if str(destino or "").strip():
+        novo = caminho(destino)
+        if "/" in novo:
+            raise ErroScript(lingua.tr("script.nome_invalido"))
+        if (pasta_scripts() / novo).exists() or (pasta_scripts() / f"{novo}.py").exists():
+            raise ErroScript(lingua.tr("script.ja_existe", nome=novo))
+    else:
+        n, novo = 1, topo + "_copia"
+        while (pasta_scripts() / novo).exists() or (pasta_scripts() / f"{novo}.py").exists():
+            n += 1
+            novo = f"{topo}_copia{n}"
     pasta_scripts().mkdir(parents=True, exist_ok=True)
     if resto:
         shutil.copytree(origem, pasta_scripts() / novo, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
@@ -415,11 +453,14 @@ def proposta(pasta, antes, nome):
             "recusados": recusados, "mudou": bool(mudados)}
 
 
-def aplica(nome, prop):
-    """Grava nos seus scripts os arquivos da proposta (a guardada no servidor, nunca a da página), só dentro do projeto."""
+def aplica(nome, prop, recusados=()):
+    """Grava nos seus scripts os arquivos da proposta (a guardada no servidor, nunca a da página), só dentro do projeto.
+    recusados: os caminhos (da proposta) que a pessoa recusou no Revisar, que ficam como estão."""
     _base, _rel, topo = projeto(nome)
-    feitos = []
+    feitos, fora = [], set(str(x) for x in (recusados or []))
     for r, cod in (prop or {}).get("arquivos", {}).items():
+        if r in fora:
+            continue
         alvo = caminho((f"{topo}/" if topo else "") + r)   # confere cada parte do nome de novo (sem "..", sem espaço)
         f = pasta_scripts() / f"{alvo}.py"
         f.parent.mkdir(parents=True, exist_ok=True)
