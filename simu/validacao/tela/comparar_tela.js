@@ -42,6 +42,25 @@ np.savez(${JSON.stringify(arq)}, meta=np.array(json.dumps(meta)), t=t, Va=180*np
     // os mesmos instantes: como sempre, sem aviso
     await abre(A, A);
     ok(!/intervalos diferentes/.test(await pg.textContent("#status")) && await pg.evaluate(() => uniao === null), "A × A: os mesmos instantes, sem aviso (casar pela amostra, o de sempre)");
+    // os três modos lado a lado (Ao vivo | Carregar | Comparar): com A e B no endereço, Comparar; Carregar mostra só a lista A
+    // e escolher nela já carrega (sem botão a mais); escolher estando no Ao vivo passa sozinho para o Carregar
+    await abre(A, B);
+    const modo = () => pg.evaluate(() => ({ ativo: ["bt-vivo", "bt-carregar", "bt-comparar"].filter((id) => document.getElementById(id).classList.contains("ativo")),
+      b: !document.getElementById("lb-b").hidden, status: document.getElementById("status").textContent,
+      ordem: [...document.querySelectorAll("#bt-vivo, #bt-carregar, #bt-comparar")].map((x) => x.id) }));
+    let md = await modo();
+    ok(JSON.stringify(md.ordem) === '["bt-vivo","bt-carregar","bt-comparar"]' && JSON.stringify(md.ativo) === '["bt-comparar"]' && md.b,
+       `os modos lado a lado (${md.ordem.join(" | ")}); com A e B no endereço: Comparar, com a lista B (${JSON.stringify(md.ativo)})`);
+    await pg.click("#bt-carregar"); await pg.waitForTimeout(800);
+    md = await modo();
+    ok(JSON.stringify(md.ativo) === '["bt-carregar"]' && !md.b && !/\| B:/.test(md.status) && await pg.evaluate(() => B === null),
+       `Carregar: só a lista A, a B sai da tela e dos gráficos (${md.status.slice(0, 60)})`);
+    await pg.selectOption("#sel-a", B); await pg.waitForTimeout(1200);
+    ok(await pg.evaluate((b) => A && A.arq === b, B), "escolher na lista A já carrega (sem clicar em mais nada)");
+    await pg.click("#bt-vivo"); await pg.waitForTimeout(400);
+    await pg.selectOption("#sel-a", A); await pg.waitForTimeout(1200);
+    md = await modo();
+    ok(JSON.stringify(md.ativo) === '["bt-carregar"]' && await pg.evaluate((a) => A && A.arq === a, A), `escolher uma gravação estando no Ao vivo: passa para o Carregar e abre (${JSON.stringify(md.ativo)})`);
     ok(!erros.length, `sem erros de JS ${erros.join(" ; ")}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message}`); }
   finally { if (b) await b.close(); fs.rmSync(PASTA, { recursive: true, force: true }); }

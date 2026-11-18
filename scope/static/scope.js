@@ -1761,7 +1761,7 @@ const cabecalho = (() => {
   });
   aplica();
   // no celular, o Comparar A/B do cabeçalho recolhido: abre o cabeçalho (a escolha de A e B) e entra no Comparar
-  document.getElementById("bt-ab").addEventListener("click", () => { if (recolhido) bt.click(); document.getElementById("bt-comparar").click(); });
+  document.getElementById("bt-ab").addEventListener("click", () => { if (recolhido) bt.click(); document.getElementById("bt-comparar").click(); });   // (A e B: o Comparar)
   return { aplica };
 })();
 (() => {
@@ -2284,9 +2284,24 @@ async function carrega(arq) {
   }
   return { ...j, arq };
 }
-function entraComparar() {
-  modo = "comparar"; $("bt-comparar").classList.add("ativo"); $("bt-vivo").classList.remove("ativo"); avisaSimu();
+// os modos: "vivo" (a simulação rodando) e "comparar" (gravações), que aparece como Carregar (só A) ou Comparar (A e B)
+let comB = false;
+function marcaModo(qual) {                              // qual: "vivo" | "carregar" | "comparar"
+  for (const [id, m] of [["bt-vivo", "vivo"], ["bt-carregar", "carregar"], ["bt-comparar", "comparar"]]) {
+    $(id).classList.toggle("ativo", m === qual); $(id).setAttribute("aria-pressed", String(m === qual));
+  }
+  comB = qual === "comparar"; $("lb-b").hidden = !comB;
+}
+function entraComparar(qual = comB ? "comparar" : "carregar") {
+  modo = "comparar"; marcaModo(qual); avisaSimu();
   if (fonteEventos) fonteEventos.close();
+}
+// carrega o que está escolhido (A e, no Comparar, B): escolher na lista já carrega (antes, só pelo botão Carregar)
+async function carregaEscolhidas() {
+  if (!$("sel-a").value) { st(comB ? "scope.st.escolha_ab" : "scope.st.escolha_a"); return; }
+  st("scope.st.carregando");
+  A = await carrega($("sel-a").value); B = comB ? await carrega($("sel-b").value) : null; xFaixa = null; preparaGrade();
+  statusAB(); montaTudo();
 }
 // "A: … | B: …": as escolhidas agora, pelo nome que a lista mostra (refeito no idioma, como o aviso dos intervalos)
 function statusAB() {
@@ -2469,16 +2484,13 @@ async function apagaAp(ck, orfas) {
   await listaRodadas(); await abreApagar();
 };
 $("bt-vivo").onclick = () => {
-  modo = "vivo"; $("bt-vivo").classList.add("ativo"); $("bt-comparar").classList.remove("ativo"); avisaSimu();
+  modo = "vivo"; marcaModo("vivo"); avisaSimu();
   A = null; B = null; uniao = null; xFaixa = null; montaTudo(); st("scope.st.sem_rodada"); conectaVivo();
 };
-$("bt-comparar").onclick = async () => { entraComparar(); await listaRodadas(); st("scope.st.escolha_ab"); };
-$("bt-carregar").onclick = async () => {
-  st("scope.st.carregando"); entraComparar();
-  A = await carrega($("sel-a").value); B = await carrega($("sel-b").value); xFaixa = null; preparaGrade();
-  statusAB();
-  montaTudo();
-};
+$("bt-carregar").onclick = async () => { entraComparar("carregar"); await listaRodadas(); await carregaEscolhidas(); };
+$("bt-comparar").onclick = async () => { entraComparar("comparar"); await listaRodadas(); if ($("sel-b").value) await carregaEscolhidas(); else st("scope.st.escolha_ab"); };
+$("sel-a").addEventListener("change", () => { if (modo === "vivo") entraComparar("carregar"); carregaEscolhidas(); });   // escolher já carrega
+$("sel-b").addEventListener("change", () => carregaEscolhidas());
 // clique fora de um menu fecha os menus. O caminho do clique (composedPath) é o da hora do clique: um botão do menu que o
 // próprio clique redesenhou (a paleta de cores, por exemplo) já saiu da página, mas o clique foi dentro do menu
 document.addEventListener("click", (e) => {
@@ -2550,7 +2562,7 @@ window.addEventListener("resize", () => { clearTimeout(tRes); tRes = setTimeout(
   st("scope.st.aguardando");                 // o "aguardando…" do HTML, no idioma
   await listaRodadas();
   if (q.get("a")) {
-    entraComparar();
+    entraComparar(q.get("b") ? "comparar" : "carregar");
     $("sel-a").value = q.get("a"); $("sel-b").value = q.get("b") || "";
     A = await carrega(q.get("a")); B = await carrega(q.get("b")); preparaGrade();
     if (q.get("x")) { const [a, b] = q.get("x").split(",").map(Number); xFaixa = [a, b]; }

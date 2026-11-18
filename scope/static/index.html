@@ -318,9 +318,10 @@ catch (e) { document.documentElement.dataset.tema = "claro"; }
 <header>
   <div class="linha">
     <h1>Scope</h1>
-    <div class="grupo so-aberto"><button id="bt-vivo" class="ativo" data-tr="scope.h.vivo">Ao vivo</button><button id="bt-comparar" data-tr="scope.h.comparar">Comparar</button></div>
+    <!-- os três modos lado a lado (Marcelo, 17/11: o Carregar ficava escondido no fim): Ao vivo | Carregar (uma gravação) | Comparar (A e B) -->
+    <div class="grupo so-aberto" role="group" data-tr-aria="scope.h.modos" aria-label="modo do scope"><button id="bt-vivo" class="ativo" aria-pressed="true" data-tr="scope.h.vivo" data-tr-title="scope.h.t_vivo" title="a simulação rodando agora">Ao vivo</button><button id="bt-carregar" aria-pressed="false" data-tr="scope.h.carregar" data-tr-title="scope.h.t_carregar" title="abrir uma gravação: escolha na lista A">Carregar</button><button id="bt-comparar" aria-pressed="false" data-tr="scope.h.comparar" data-tr-title="scope.h.t_comparar" title="duas gravações juntas: escolha A e B">Comparar</button></div>
     <div class="grupo so-aberto"><label>A <select id="sel-a" class="sel-rodada"></select></label>
-      <label>B <select id="sel-b" class="sel-rodada"></select></label><button id="bt-carregar" data-tr="scope.h.carregar">Carregar</button></div>
+      <label id="lb-b" hidden>B <select id="sel-b" class="sel-rodada"></select></label></div>
     <span id="status">aguardando…</span>   <!-- o scope.js escreve (no idioma) -->
   </div>
   <div class="linha">
