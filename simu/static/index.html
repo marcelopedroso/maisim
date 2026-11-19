@@ -903,10 +903,11 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
 <div id="dica"></div>
 <div id="erro"></div>
 <script src="static/maisim-dica.js"></script>   <!-- as dicas do MaiSim (app/public: a mesma em todas as páginas) -->
+<!-- o KaTeX antes do simu.js e do controle.js: o controle carrega o Monaco, cujo AMD (define) faria o KaTeX virar módulo -->
+<script src="static/katex/katex.min.js"></script>
 <script src="static/simu.js"></script>
 <script src="static/controle.js"></script>
 <script src="static/claude.js"></script>
-<script src="static/katex/katex.min.js"></script>
 <script src="static/md_leve.js"></script>
 <script src="static/claude_chat.js"></script>
 <script src="static/claude_contextos.js"></script>

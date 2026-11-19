@@ -272,8 +272,9 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
     <path d="M13.6 8V14.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
     <path d="M17.6 5.9C17.8 7.3 18.15 7.65 19.55 7.85 18.15 8.05 17.8 8.4 17.6 9.8 17.4 8.4 17.05 8.05 15.65 7.85 17.05 7.65 17.4 7.3 17.6 5.9Z" fill="currentColor"/>
   </symbol></defs></svg>
-<script src="static/script.js"></script>
+<!-- o KaTeX antes do script.js: este carrega o Monaco, cujo AMD (define) faria o KaTeX virar módulo, sem a global katex -->
 <script src="static/katex/katex.min.js"></script>
+<script src="static/script.js"></script>
 <script src="static/md_leve.js"></script>
 <script src="static/script_ia.js"></script>
 <script src="/maisim-nav.js" onerror="this.remove()"></script>
