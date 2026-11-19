@@ -74,10 +74,12 @@ const circuitoDe = (F) => { const m = (F && F.meta) || {}, mod = String(m.modelo
 const MARCA_NOVO = "novo (sem arquivo)";   // i18n-ok (marcador do meta)
 const ehNovo = (F) => { const c = circuitoDe(F); return c === MARCA_NOVO || /^novo:/.test(c); };
 const nomeCircuito = (F) => ehNovo(F) ? tr("scope.circuito_novo") : circuitoDe(F);
-const donoLayout = (F) => { const m = (F && F.meta) || {}; return String(m.chave_layout || m.modelo || m.planta || ""); };
+// a rodada de um script tem o layout dela (um script pode gravar várias rodadas, cada uma com os seus sinais e painéis)
+const donoLayout = (F) => { const m = (F && F.meta) || {}, c = String(m.chave_layout || m.modelo || m.planta || "");
+  return c && m.planta === "maisim-script" && m.rotulo ? `${c}#${m.rotulo}` : c; };
 const chaveLayout = () => { const c = donoLayout(A); return c ? `maisim-scope-layout-v5:${c}` : ""; };
 const chaveV4 = () => { const m = (A && A.meta) || {}, c = circuitoDe(A);   // um circuito novo (sem arquivo) não herda o de outro
-  return c && !/^novo[: ]/.test(String(m.chave_layout || m.modelo || "")) ? `maisim-scope-layout-v4:${c}` : ""; };
+  return c && m.planta !== "maisim-script" && !/^novo[: ]/.test(String(m.chave_layout || m.modelo || "")) ? `maisim-scope-layout-v4:${c}` : ""; };
 // o layout deste circuito mudou noutra página (o simu, ao escolher a seção e o painel de um sinal; outra janela do scope): remonta
 window.addEventListener("storage", (e) => { if (e.key && e.key === chaveLayout()) montaTudo(); });
 // medidas no Gecko a cada passo fino. EA … ECA: tensão PWM do conversor calculada das tensões medidas nas pontas das

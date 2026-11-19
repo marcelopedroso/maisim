@@ -154,6 +154,22 @@ const pede = (pg, rota, corpo) => pg.evaluate(async ([r, c]) => (await fetch(`sc
     const sc2 = await pg.evaluate(() => ({ src: document.getElementById("if-scope").getAttribute("src") || "", vazio: !document.getElementById("scope-vazio").hidden }));
     ok(sc2.src === "/maisim/scope/" && !sc2.vazio, `num que nunca rodou: o Scope com a lista para escolher uma anterior (${JSON.stringify(sc2)})`);
     await pg.click("#bt-col-scope");
+    // um script com duas rodadas de painéis diferentes: a coluna do Scope mostra cada uma com os painéis dela, nas duas ordens
+    await pede(pg, "/salvar", { nome: `${PASTA}/duas`, sobrescrever: true, codigo: "import maisim\nmaisim.scope('ra', [0, 1], {'x': [1, 2], 'y': [0, 1]}, panels=[['x'], ['y']])\n"
+      + "maisim.scope('rb', [0, 1], {'z': [3, 4]}, panels=[['z']])\n" });
+    await pg.goto(`${B}?nome=${PASTA}/duas`); await pg.waitForSelector("#ctl-abas .aba"); await pg.waitForTimeout(600);
+    await pg.click("#bt-rodar"); await pg.waitForFunction(() => document.querySelectorAll("#saida a").length >= 4, null, { timeout: 30000 });
+    const titulos = async (rod) => {
+      await pg.click(`#saida a:text-matches("_${rod}$")`); await pg.waitForTimeout(400);
+      const f = await (await pg.$("#if-scope")).contentFrame();
+      await f.waitForFunction(() => document.querySelectorAll("input.titulo").length > 0, null, { timeout: 15000 }).catch(() => {});
+      await pg.waitForTimeout(800);
+      return f.evaluate(() => [...document.querySelectorAll(".cartao")].filter((c) => c.offsetParent).map((c) => (c.querySelector("input.titulo") || {}).value));
+    };
+    const ta = await titulos("ra"), tb = await titulos("rb"), ta2 = await titulos("ra");
+    ok(JSON.stringify(ta) === '["x","y"]' && JSON.stringify(tb) === '["z"]' && JSON.stringify(ta2) === '["x","y"]',
+       `duas rodadas no mesmo script: cada uma com os painéis dela no Scope (${JSON.stringify([ta, tb, ta2])})`);
+    await pg.click("#bt-col-scope");
     // a ⚙: o que fazer com a rodada de antes (substituir é o padrão, como no circuito); a escolha fica guardada por script
     await pg.click("#bt-param"); m = await modal();
     const sel0 = await pg.$eval(".modal select", (x) => x.value);
