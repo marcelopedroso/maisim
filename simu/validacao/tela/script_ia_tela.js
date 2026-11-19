@@ -28,6 +28,13 @@ const pede = (pg, rota, corpo) => pg.evaluate(async ([r, c]) => (await fetch(r, 
     const pg = await ctx.newPage(); const erros = [];
     pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { nativas.push(d.message()); d.dismiss().catch(() => {}); });
     await pg.goto(B); await pg.waitForSelector("#lista-exemplos li", { state: "attached", timeout: 30000 });
+    // o KaTeX vem antes do script.js (que carrega o Monaco): com o AMD (define) do Monaco já no ar, o KaTeX vira módulo e some
+    // a global katex — as equações da IA saíam cruas, às vezes (uma corrida); a ordem garante, e com o Monaco no ar ela continua
+    const ordem = await pg.evaluate(() => { const s = [...document.querySelectorAll("script[src]")].map((x) => x.getAttribute("src"));
+      return [s.findIndex((x) => /katex\.min\.js/.test(x)), s.findIndex((x) => /static\/script\.js/.test(x))]; });
+    await pg.waitForFunction(() => typeof monaco !== "undefined", null, { timeout: 30000 }).catch(() => {});
+    const glob = await pg.evaluate(() => typeof katex === "object" && typeof katex.renderToString === "function");
+    ok(ordem[0] >= 0 && ordem[0] < ordem[1] && glob, `o KaTeX carrega antes do script.js (Monaco) e fica global (${ordem}, ${glob})`);
     await pede(pg, "scripts/pasta/apagar", { nome: PROJ });
     const MAIN = "import maisim\nprint('antes')\n";
     await pede(pg, "scripts/salvar", { nome: `${PROJ}/main`, codigo: MAIN });

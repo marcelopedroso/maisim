@@ -12,6 +12,11 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
     await pg.goto("http://localhost:7200/maisim/simu/");
     await pg.waitForFunction(() => typeof mdLeve === "function" && typeof katex !== "undefined", null, { timeout: 30000 });
+    // o KaTeX vem antes do controle.js (que carrega o Monaco): com o AMD (define) do Monaco já no ar, o KaTeX vira módulo e
+    // some a global katex — as equações saíam cruas, às vezes (uma corrida); a ordem garante
+    const ordem = await pg.evaluate(() => { const s = [...document.querySelectorAll("script[src]")].map((x) => x.getAttribute("src"));
+      return [s.findIndex((x) => /katex\.min\.js/.test(x)), s.findIndex((x) => /static\/controle\.js/.test(x))]; });
+    ok(ordem[0] >= 0 && ordem[0] < ordem[1], `o KaTeX carrega antes do controle.js, que traz o Monaco (${ordem})`);
     const md = (t) => pg.evaluate((x) => mdLeve(x), t);
     let h = await md("O PI de corrente:\n\n$$G(s) = k_p + \\frac{k_i}{s}$$\n\ncom $k_p = \\omega_c L$ e \\(k_i = k_p R / L\\); em destaque também \\[ \\hat I = \\frac{2P}{3\\hat V} \\]");
     ok((h.match(/katex-display/g) || []).length === 2 && /mfrac/.test(h) && (h.match(/class="katex"/g) || []).length === 4 && !/\$\$|\\frac/.test(h.replace(/<annotation[\s\S]*?<\/annotation>/g, "")),
