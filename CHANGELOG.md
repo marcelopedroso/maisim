@@ -7,6 +7,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Fixed
+- **Gecko did not start after an update when an old virtual display had died without removing its lock** (`app/lancador.py`, `gecko/sobe.sh`): the new Xvfb refused ("Server is already active for display") and the page said "no editor engine". Before starting Xvfb, the launcher now removes `/tmp/.X<n>-lock` (and the old socket) when its owner is dead or a zombie; a live Xvfb is left alone. New offline test `lancador_trava_x_offline`.
 - **Renaming or moving a script lost its AI conversation** (#274; `simu/servidor.py`): the script under its new name started an empty conversation and the old one was orphaned. The conversation now follows the script when it is renamed or moved, as the circuit's does on Save as; a renamed or moved folder takes the conversations of all its scripts. Deleting a script (or its folder) forgets its conversation, so a new script with the same name starts clean. Test `script_ia_api`.
 
 ### Fixed

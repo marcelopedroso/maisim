@@ -204,6 +204,36 @@ def no_log(arq, texto):
         return False
 
 
+def limpa_trava_x(tela, base="/tmp"):
+    """A trava (/tmp/.X<n>-lock) de uma tela virtual cujo Xvfb morreu (ou virou zumbi) sem apagá-la: o Xvfb novo recusa
+    ("Server is already active for display") e o Gecko fica sem tela ("Can't connect to X11", Marcelo em 18/11, depois do
+    Atualizar). Apaga a trava e o socket velho só se o dono não está vivo; um Xvfb vivo fica como está. Devolve True se
+    limpou."""
+    n = str(tela).lstrip(":").split(".")[0]
+    trava = Path(base) / f".X{n}-lock"
+    try:
+        pid = int(trava.read_text().strip())
+    except (OSError, ValueError):
+        return False                                     # sem trava (ou ilegível): nada a fazer
+    vivo = True
+    try:
+        os.kill(pid, 0)
+        estado = (Path("/proc") / str(pid) / "stat").read_text().rsplit(")", 1)[-1].split()[0]
+        vivo = estado != "Z"                             # zumbi: morreu, só falta o pai recolher
+    except ProcessLookupError:
+        vivo = False
+    except (PermissionError, OSError, IndexError):
+        vivo = True                                      # de outro usuário ou sem /proc: não mexe
+    if vivo:
+        return False
+    for f in (trava, Path(base) / ".X11-unix" / f"X{n}"):
+        try:
+            f.unlink()
+        except OSError:
+            pass                                         # (no WSL, o /tmp/.X11-unix é do WSLg e só de leitura)
+    return True
+
+
 class Lancador:
     def __init__(self, sem_gecko=False):
         import ler_config
@@ -323,6 +353,7 @@ class Lancador:
             if not shutil.which("Xvfb"):
                 fala("falta a tela virtual: sudo apt install -y xvfb x11-utils libxtst6", "the virtual display is missing: sudo apt install -y xvfb x11-utils libxtst6")
                 return False
+            limpa_trava_x(tela)                              # a trava de um Xvfb que morreu (senão o novo não sobe e o Gecko fica sem tela)
             self.sobe("xvfb", ["Xvfb", tela, "-screen", "0", "1600x1000x24", "-nolisten", "tcp"], "xvfb.log")
             time.sleep(1)
             env["DISPLAY"] = tela
