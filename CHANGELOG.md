@@ -7,7 +7,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Fixed
-- **A script that writes two runs with different panels showed the second with the first one's panels** (#PR; `simu/script_api/maisim.py`, `simu/servidor.py`, `scope/static/scope.js`): the script kept a single Scope layout, the last `maisim.scope(..., panels=)` written, so the other run showed only the signals it happened to share (or none). Each run name now keeps its own panels, the Scope asks for the layout of the run it shows, and "Layout ▾" saves the default of that run only. Test `script_api`.
+- **A script that writes two runs with different panels showed the second with the first one's panels** (#277; `simu/script_api/maisim.py`, `simu/servidor.py`, `scope/static/scope.js`): the script kept a single Scope layout, the last `maisim.scope(..., panels=)` written, so the other run showed only the signals it happened to share (or none). Each run name now keeps its own panels, the Scope asks for the layout of the run it shows, and "Layout ▾" saves the default of that run only. Test `script_api`.
 
 ### Fixed
 - **Gecko did not start after an update when an old virtual display had died without removing its lock** (`app/lancador.py`, `gecko/sobe.sh`): the new Xvfb refused ("Server is already active for display") and the page said "no editor engine". Before starting Xvfb, the launcher now removes `/tmp/.X<n>-lock` (and the old socket) when its owner is dead or a zombie; a live Xvfb is left alone. New offline test `lancador_trava_x_offline`.
