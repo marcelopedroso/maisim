@@ -79,7 +79,7 @@ def scope(name, t, signals, panels=None, paineis=None):
         _replace_previous(folder, run)
     groups = panels if panels is not None else paineis
     if groups is not None:
-        _write_layout(groups, cols)
+        _write_layout(groups, cols, run)
     return out
 
 
@@ -104,8 +104,10 @@ def _replace_previous(new_folder, run):
             shutil.rmtree(d, ignore_errors=True)
 
 
-def _write_layout(groups, cols):
-    """The panels as the Scope's layout (the same format as a circuit's <name>.scope.json), next to the script."""
+def _write_layout(groups, cols, run=""):
+    """The panels as the Scope's layout (the same format as a circuit's <name>.scope.json), next to the script. Each run name
+    keeps its own panels ("rodadas"), so a script that writes two runs with different signals shows each one right; the
+    top level is the last one written (the script's default)."""
     items = []
     for g in groups:
         names = [_clean(x, "signal") for x in ([g] if isinstance(g, str) else g)]
@@ -118,5 +120,13 @@ def _write_layout(groups, cols):
     dest = os.environ.get("MAISIM_SCRIPT_LAYOUT")
     if not dest:                                              # run by hand, outside MaiSim: no layout file
         return
+    try:
+        old = json.loads(Path(dest).read_text(encoding="utf-8"))
+        by_run = old.get("rodadas") if isinstance(old.get("rodadas"), dict) else {}
+    except (OSError, ValueError, AttributeError):
+        by_run = {}
+    layout = {"itens": items, "colunas": 1}
+    if run:
+        by_run[run] = layout
     Path(dest).parent.mkdir(parents=True, exist_ok=True)
-    Path(dest).write_text(json.dumps({"itens": items, "colunas": 1}, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    Path(dest).write_text(json.dumps({**layout, "rodadas": by_run}, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")

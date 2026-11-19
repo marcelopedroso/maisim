@@ -2439,12 +2439,16 @@ def layout_do_arquivo(arq_ipes, l=None):
     return limpa_layout(d)
 
 
-def scope_padrao_le(modelo):
+def scope_padrao_le(modelo, rodada=""):
     if str(modelo or "").endswith(".py"):               # rodada de um script (#258): o layout que ele gravou (paineis=)
         import modo_script
         f = modo_script.arquivo_layout(modelo) if modo_script.eh_script(modelo) else None
         try:
-            return {"layout": limpa_layout(json.loads(f.read_text())) if f and f.is_file() else None}
+            d = json.loads(f.read_text()) if f and f.is_file() else None
+            por = d.get("rodadas") if isinstance(d, dict) and isinstance(d.get("rodadas"), dict) else {}
+            if rodada and isinstance(por.get(rodada), dict):   # cada rodada com os painéis dela (um script, várias rodadas)
+                d = por[rodada]
+            return {"layout": limpa_layout(d) if d else None}
         except (ErroMotor, OSError, ValueError):
             return {"layout": None}
     try:
@@ -2453,14 +2457,22 @@ def scope_padrao_le(modelo):
         return {"layout": None}
 
 
-def scope_padrao_grava(modelo, layout):
+def scope_padrao_grava(modelo, layout, rodada=""):
     if str(modelo or "").endswith(".py"):               # rodada de um script (#258): o "Layout ▾" guarda nos seus scripts
         import modo_script
         if not modo_script.eh_script(modelo):
             raise ErroMotor(lingua.tr("scope.padrao_fora_das_pastas"))
         f = modo_script.arquivo_layout(modelo)
         f.parent.mkdir(parents=True, exist_ok=True)
-        f.write_text(json.dumps(limpa_layout(layout), ensure_ascii=False, indent=1) + "\n")
+        try:
+            antes = json.loads(f.read_text()) if f.is_file() else {}
+            por = antes.get("rodadas") if isinstance(antes, dict) and isinstance(antes.get("rodadas"), dict) else {}
+        except (OSError, ValueError):
+            por = {}
+        novo = limpa_layout(layout)
+        if rodada:                                       # o padrão desta rodada (as outras rodadas do script ficam como estão)
+            por[str(rodada)] = novo
+        f.write_text(json.dumps({**novo, "rodadas": por} if por else novo, ensure_ascii=False, indent=1) + "\n")
         return {"ok": True, "arquivo": str(f)}
     arq = ipes_do_modelo(modelo)
     if not arq.is_file():                                # apagado (ou nunca salvo): o padrão ficaria órfão ao lado de nada
@@ -6778,7 +6790,8 @@ class Manipulador(BaseHTTPRequestHandler):
         if rota == "/modelos/pastas":                  # onde ficam os circuitos (a tela inicial e o Abrir mostram)
             return self._resposta(200, {"meus": str(SALVOS), "biblioteca": str(LIB), "extras": [[n, str(d)] for n, d in pastas_extras()]})
         if rota == "/scope/padrao":                    # o layout padrão do scope de um circuito (?modelo= o meta.modelo da rodada)
-            return self._resposta(200, scope_padrao_le(parse_qs(u.query).get("modelo", [""])[0]))
+            q = parse_qs(u.query)
+            return self._resposta(200, scope_padrao_le(q.get("modelo", [""])[0], q.get("rodada", [""])[0]))
         if rota == "/editor/aberto":                   # leve (sem pedir nada ao Gecko): o que o editor tem aberto, ou fechado
             return self._resposta(200, {"aberto": editor.get("aberto"), "fechado": bool(editor.get("fechado"))})
         if rota == "/circuito":
@@ -7396,7 +7409,7 @@ class Manipulador(BaseHTTPRequestHandler):
                 return self._resposta(409, {"erro": lingua.tr("editor.nenhum_aberto")})
             return self._editor(lambda: rodar(corpo))
         if rota == "/scope/padrao":                    # {modelo, layout}: guardar como o padrão do scope do circuito
-            return self._editor(lambda: scope_padrao_grava(corpo.get("modelo"), corpo.get("layout")))
+            return self._editor(lambda: scope_padrao_grava(corpo.get("modelo"), corpo.get("layout"), str(corpo.get("rodada") or "")))
         if rota == "/editor/rodada/guardar":          # {arq: o scope_*.npz, guardar: true|false}: "por cima" não a substitui
             return self._editor(lambda: guarda_rodada(str(corpo.get("arq", "")), corpo.get("guardar", True) is not False))
         if rota in ("/editor/pausar", "/editor/continuar", "/editor/parar"):
