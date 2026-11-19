@@ -5585,6 +5585,22 @@ def _chave_script(nome):
     return f"script:{modo_script.caminho(nome)}"
 
 
+def script_conversas_seguem(antigo, novo=None, pasta=False):
+    """Renomear ou mover um script (ou uma pasta): a conversa da IA de cada script vai junto, para o caminho novo, como a
+    do circuito no Salvar como. Apagar (novo=None): a conversa sai da lista, e um script novo com o mesmo nome começa vazio."""
+    import modo_script
+    antigo = modo_script.caminho(antigo)
+    novo = modo_script.caminho(novo) if novo else None
+    pre = f"script:{antigo}"
+    with trava_sessoes:
+        chaves = [k for k in le_sessoes() if k == pre or pasta and k.startswith(pre + "/")]   # uma pasta: os scripts dela
+    for k in chaves:
+        if novo:
+            claude_muda_chave(k, f"script:{novo}{k[len(pre):]}")
+        else:
+            claude_esquece(k)
+
+
 def regras_script(a):
     l = lingua.atual()
     arq = REGRAS / f"regras_script.{l}.md"
@@ -6929,17 +6945,25 @@ class Manipulador(BaseHTTPRequestHandler):
                 if rota == "/scripts/salvar":
                     return self._resposta(200, modo_script.salva(corpo.get("nome"), corpo.get("codigo"), bool(corpo.get("sobrescrever"))))
                 if rota == "/scripts/apagar":
-                    return self._resposta(200, modo_script.apaga(corpo.get("nome")))
+                    r = modo_script.apaga(corpo.get("nome"))
+                    script_conversas_seguem(corpo.get("nome"))
+                    return self._resposta(200, r)
                 if rota == "/scripts/pasta/criar":
                     return self._resposta(200, modo_script.cria_pasta(corpo.get("nome")))
                 if rota == "/scripts/pasta/apagar":
-                    return self._resposta(200, modo_script.apaga_pasta(corpo.get("nome")))
-                if rota == "/scripts/mover":
-                    return self._resposta(200, modo_script.move(corpo.get("nome"), corpo.get("destino", "")))
+                    r = modo_script.apaga_pasta(corpo.get("nome"))
+                    script_conversas_seguem(corpo.get("nome"), pasta=True)
+                    return self._resposta(200, r)
+                if rota == "/scripts/mover":            # a conversa da IA de cada script vai junto
+                    r = modo_script.move(corpo.get("nome"), corpo.get("destino", ""))
+                    script_conversas_seguem(corpo.get("nome"), r["nome"], pasta=not (modo_script.pasta_scripts() / f"{r['nome']}.py").is_file())
+                    return self._resposta(200, r)
                 if rota == "/scripts/copiar_exemplo":
                     return self._resposta(200, modo_script.copia_exemplo(corpo.get("nome"), corpo.get("destino", "")))
                 if rota == "/scripts/renomear":
-                    return self._resposta(200, modo_script.renomeia(corpo.get("nome"), corpo.get("novo", "")))
+                    r = modo_script.renomeia(corpo.get("nome"), corpo.get("novo", ""))
+                    script_conversas_seguem(corpo.get("nome"), r["nome"], pasta=not (modo_script.pasta_scripts() / f"{r['nome']}.py").is_file())
+                    return self._resposta(200, r)
                 return self._resposta(200, modo_script.roda(corpo.get("nome"), corpo.get("grupo", "meus"), corpo.get("rodada", "substitui")))
             except modo_script.ErroScript as e:
                 return self._resposta(409, {"erro": str(e)})

@@ -6,6 +6,7 @@
 - a proposta: os .py mudados e o novo (na subpasta), a sintaxe conferida sem executar; nada é gravado antes de Aplicar;
   Aplicar grava (só no projeto) e não aplica duas vezes; um arquivo com erro de sintaxe aparece marcado;
 - a página do circuito vê que a última proposta é de outro lugar (não a mostra como dela);
+- a conversa segue o script ao renomear e mover (também a pasta); apagar a esquece;
 - nova conversa limpa o histórico; um exemplo (não está nos seus) é recusado; sem X-MaiSim: 403."""
 import json, os, subprocess, time, urllib.parse, urllib.request
 from pathlib import Path
@@ -131,7 +132,30 @@ try:
        f"script na raiz: só ele na conversa e na proposta ({resp[:120]})")
     r = api("scripts/ia/aplicar", {"nome": "teste_ia_raiz"})
     ok(r.get("ok") and (SCRIPTS / "teste_ia_raiz.py").read_text() == "print(2)\n", "aplicar grava o script da raiz")
+    # a conversa segue o script: renomear e mover (também a pasta, com os scripts dela) levam a conversa; apagar a esquece
+    api("scripts/apagar", {"nome": "teste_ia_raiz2"})
+    api("scripts/pasta/apagar", {"nome": "teste_ia_dest"})
+    h_raiz, h_main = estado("teste_ia_raiz").get("historico") or [], estado(f"{PROJ}/main").get("historico") or []
+    r = api("scripts/renomear", {"nome": "teste_ia_raiz", "novo": "teste_ia_raiz2"})
+    ok(r.get("nome") == "teste_ia_raiz2" and h_raiz and estado("teste_ia_raiz2").get("historico") == h_raiz,
+       f"renomear o script: a conversa vai junto ({len(h_raiz)} entrada(s))")
+    api("scripts/salvar", {"nome": "teste_ia_raiz", "codigo": "print(3)\n"})
+    ok(estado("teste_ia_raiz").get("historico") == [], "um script novo com o nome antigo começa com a conversa vazia")
     api("scripts/apagar", {"nome": "teste_ia_raiz"})
+    api("scripts/pasta/criar", {"nome": "teste_ia_dest"})
+    r = api("scripts/mover", {"nome": PROJ, "destino": "teste_ia_dest"})
+    ok(r.get("nome") == f"teste_ia_dest/{PROJ}" and h_main and estado(f"teste_ia_dest/{PROJ}/main").get("historico") == h_main,
+       f"mover a pasta: a conversa de cada script dela vai junto ({len(h_main)} entrada(s))")
+    r = api("scripts/renomear", {"nome": f"teste_ia_dest/{PROJ}", "novo": "teste_ia_x"})
+    ok(estado("teste_ia_dest/teste_ia_x/main").get("historico") == h_main, "renomear a pasta: a conversa vai junto")
+    api("scripts/renomear", {"nome": "teste_ia_dest/teste_ia_x", "novo": PROJ})
+    api("scripts/mover", {"nome": f"teste_ia_dest/{PROJ}", "destino": ""})
+    ok(estado(f"{PROJ}/main").get("historico") == h_main, "e de volta ao lugar, com a conversa")
+    api("scripts/pasta/apagar", {"nome": "teste_ia_dest"})
+    api("scripts/apagar", {"nome": "teste_ia_raiz2"})
+    api("scripts/salvar", {"nome": "teste_ia_raiz2", "codigo": "print(4)\n"})
+    ok(estado("teste_ia_raiz2").get("historico") == [], "apagar o script esquece a conversa: o de mesmo nome, criado depois, começa vazio")
+    api("scripts/apagar", {"nome": "teste_ia_raiz2"})
 
     # recusas e nova conversa
     r = api("scripts/ia/pedir", {"nome": "pwm/sine_pwm", "texto": "oi"})
