@@ -7,6 +7,9 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Fixed
+- **Renaming or moving a script lost its AI conversation** (#274; `simu/servidor.py`): the script under its new name started an empty conversation and the old one was orphaned. The conversation now follows the script when it is renamed or moved, as the circuit's does on Save as; a renamed or moved folder takes the conversations of all its scripts. Deleting a script (or its folder) forgets its conversation, so a new script with the same name starts clean. Test `script_ia_api`.
+
+### Fixed
 - **The script AI still wrote some equations as plain text** (#273; `simu/ia/regras_script.*.md`): in a list or a short sentence it wrote `Vo = D·Vin` instead of LaTeX, so those stayed unformatted. The rule now covers every equation, with a wrong/right example, and keeps backticks for code names. The equations in the script AI drawer are also a little smaller (1.04× the text instead of 1.12×).
 
 ### Added
