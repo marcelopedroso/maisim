@@ -6,6 +6,9 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Added
+- **The script AI shows equations formatted, as the circuit AI does** (#272; `simu/static/md_leve.js`, `script_ia.js`, `simu/ia/regras_script.*.md`). Answers with LaTeX (`$…$` inline, `$$…$$` displayed) come out typeset by KaTeX in the script page's AI drawer, along with tables and quotes. Before, the drawer showed raw LaTeX. The light markdown moved from `claude_chat.js` to a shared `md_leve.js`, so the circuit behaves the same. The script AI's rules and `GUIA_SCRIPT` now ask it to derive in LaTeX first and then write the script that checks it. They also say what the installed MaiSim ships (numpy and matplotlib, but no scipy, sympy or python-control). Test `script_ia_tela`.
+
 ## [0.5.0] - 2026-11-18
 
 ### Fixed

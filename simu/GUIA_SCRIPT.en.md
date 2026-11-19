@@ -42,3 +42,6 @@ MaiSim's Figures module makes the paper figure from the run. For it to come out 
 - Print a short summary at the end (steady-state values, errors, what to check in the Scope).
 - No windows: matplotlib runs headless (Agg); to look, use the Scope (or save an image, if the person asks).
 - No network, no installing packages, no reading or writing outside the script's folder.
+- Libraries: numpy and matplotlib are always there (the installed MaiSim ships both); scipy, sympy and python-control
+  are not. A transfer function becomes state equations integrated with numpy (RK4 with a step well below the smallest
+  time constant); a discrete controller, its difference equation inside the loop.
