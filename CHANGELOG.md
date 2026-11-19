@@ -9,15 +9,15 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ### Fixed
 - **A script that writes two runs with different panels showed the second with the first one's panels** (#277; `simu/script_api/maisim.py`, `simu/servidor.py`, `scope/static/scope.js`): the script kept a single Scope layout, the last `maisim.scope(..., panels=)` written, so the other run showed only the signals it happened to share (or none). Each run name now keeps its own panels, the Scope asks for the layout of the run it shows and remembers each run's layout separately in the browser, and "Layout ▾" saves the default of that run only. Tests `script_api`, `script_tela`.
 
-### Fixed
-- **Gecko did not start after an update when an old virtual display had died without removing its lock** (`app/lancador.py`, `gecko/sobe.sh`): the new Xvfb refused ("Server is already active for display") and the page said "no editor engine". Before starting Xvfb, the launcher now removes `/tmp/.X<n>-lock` (and the old socket) when its owner is dead or a zombie; a live Xvfb is left alone. New offline test `lancador_trava_x_offline`.
-- **Renaming or moving a script lost its AI conversation** (#274; `simu/servidor.py`): the script under its new name started an empty conversation and the old one was orphaned. The conversation now follows the script when it is renamed or moved, as the circuit's does on Save as; a renamed or moved folder takes the conversations of all its scripts. Deleting a script (or its folder) forgets its conversation, so a new script with the same name starts clean. Test `script_ia_api`.
-
-### Fixed
-- **The script AI still wrote some equations as plain text** (#273; `simu/ia/regras_script.*.md`): in a list or a short sentence it wrote `Vo = D·Vin` instead of LaTeX, so those stayed unformatted. The rule now covers every equation, with a wrong/right example, and keeps backticks for code names. The equations in the script AI drawer are also a little smaller (1.04× the text instead of 1.12×).
+## [0.5.1] - 2026-11-19
 
 ### Added
 - **The script AI shows equations formatted, as the circuit AI does** (#272; `simu/static/md_leve.js`, `script_ia.js`, `simu/ia/regras_script.*.md`). Answers with LaTeX (`$…$` inline, `$$…$$` displayed) come out typeset by KaTeX in the script page's AI drawer, along with tables and quotes. Before, the drawer showed raw LaTeX. The light markdown moved from `claude_chat.js` to a shared `md_leve.js`, so the circuit behaves the same. The script AI's rules and `GUIA_SCRIPT` now ask it to derive in LaTeX first and then write the script that checks it. They also say what the installed MaiSim ships (numpy and matplotlib, but no scipy, sympy or python-control). Test `script_ia_tela`.
+
+### Fixed
+- **Gecko did not start after an update when an old virtual display had died without removing its lock** (#276; `app/lancador.py`, `gecko/sobe.sh`): the new Xvfb refused ("Server is already active for display") and the page said "no editor engine". Before starting Xvfb, the launcher now removes `/tmp/.X<n>-lock` (and the old socket) when its owner is dead or a zombie; a live Xvfb is left alone. New offline test `lancador_trava_x_offline`.
+- **Renaming or moving a script lost its AI conversation** (#274; `simu/servidor.py`): the script under its new name started an empty conversation and the old one was orphaned. The conversation now follows the script when it is renamed or moved, as the circuit's does on Save as; a renamed or moved folder takes the conversations of all its scripts. Deleting a script (or its folder) forgets its conversation, so a new script with the same name starts clean. Test `script_ia_api`.
+- **The script AI still wrote some equations as plain text** (#273; `simu/ia/regras_script.*.md`): in a list or a short sentence it wrote `Vo = D·Vin` instead of LaTeX, so those stayed unformatted. The rule now covers every equation, with a wrong/right example, and keeps backticks for code names. The equations in the script AI drawer are also a little smaller (1.04× the text instead of 1.12×).
 
 ## [0.5.0] - 2026-11-18
 
