@@ -184,6 +184,19 @@ try:
     for n in ("teste_rep", "teste_rep_outro"):
         pede(SIMU + "scripts/apagar", {"nome": n})
 
+    # duas rodadas com painéis diferentes no mesmo script: cada uma chega ao Scope com os painéis dela; sem a rodada, a última
+    pede(SIMU + "scripts/pasta/apagar", {"nome": "teste_duas"})
+    pede(SIMU + "scripts/salvar", {"nome": "teste_duas/s", "codigo": "import maisim\nmaisim.scope('ra', [0, 1], {'x': [1, 2], 'y': [0, 1]}, panels=[['x'], ['y']])\n"
+                                                                    "maisim.scope('rb', [0, 1], {'z': [3, 4]}, panels=[['z']])\n"})
+    c, r = pede(SIMU + "scripts/rodar", {"nome": "teste_duas/s"})
+    mod = json.loads(str(np.load(r["rodadas"][0]["arquivo"], allow_pickle=True)["meta"]))["modelo"] if r.get("rodadas") else ""
+    lay = lambda q: [x.get("sinais") for x in (pede(SIMU + "scope/padrao?modelo=" + urllib.request.quote(mod) + q)[1].get("layout") or {}).get("itens", [])]
+    la, lb, l0 = lay("&rodada=ra"), lay("&rodada=rb"), lay("")
+    ok(la == [["x"], ["y"]] and lb == [["z"]] and l0 == [["z"]], f"duas rodadas, cada uma com os painéis dela ({la}, {lb}; sem a rodada: {l0})")
+    pede(SIMU + "scope/padrao", {"modelo": mod, "layout": {"itens": [{"titulo": "y", "sinais": ["y"], "largura": 1}], "colunas": 1}, "rodada": "ra"})
+    ok(lay("&rodada=ra") == [["y"]] and lay("&rodada=rb") == [["z"]], "o Layout ▾ da rodada ra guarda só o dela; o da rb fica")
+    pede(SIMU + "scripts/pasta/apagar", {"nome": "teste_duas"})
+
     # renomear (no mesmo lugar) e a cópia do exemplo com o nome escolhido
     for n in ("teste_ren", "teste_ren2", "sessao_teste"):
         pede(SIMU + "scripts/pasta/apagar", {"nome": n})

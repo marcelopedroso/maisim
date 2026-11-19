@@ -1636,7 +1636,9 @@ function guardaLayout() {
 // o padrão do scope de cada circuito (Marcelo, 23/10): ao lado do .ipes (<nome>.scope.json), pelo simu; "Layout ▾" guarda e
 // volta a ele; um circuito sem layout neste navegador começa por ele
 const padraoVisto = new Set();
-const urlPadrao = () => `/maisim/simu/scope/padrao?modelo=${encodeURIComponent((A && A.meta && A.meta.modelo) || "")}`;
+// a rodada de um script vai junto: um script que grava várias rodadas guarda os painéis de cada uma (maisim.scope)
+const rodadaScript = () => (A && A.meta && A.meta.planta === "maisim-script" && A.meta.rotulo) || "";
+const urlPadrao = () => `/maisim/simu/scope/padrao?modelo=${encodeURIComponent((A && A.meta && A.meta.modelo) || "")}${rodadaScript() ? `&rodada=${encodeURIComponent(rodadaScript())}` : ""}`;
 async function lePadrao() {
   try { const r = await fetch(urlPadrao()); return r.ok ? ((await r.json()).layout || null) : null; } catch (e) { return null; }   // sem o simu: sem padrão
 }
@@ -2338,7 +2340,7 @@ $("ml-guardar").onclick = async () => {
   $("menu-layout").hidden = true;
   if (!A || !A.meta || !A.meta.modelo) { st("scope.st.guardar_sem_rodada"); return; }
   try {
-    const r = await fetch("/maisim/simu/scope/padrao", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ modelo: A.meta.modelo, layout: layoutAtual() }) });
+    const r = await fetch("/maisim/simu/scope/padrao", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ modelo: A.meta.modelo, layout: layoutAtual(), rodada: rodadaScript() }) });
     const j = await r.json().catch(() => ({}));
     const c = nomeCircuito(A);
     if (r.ok) status(() => tr("scope.st.guardou", { c, arq: j.arquivo || tr("scope.st.ao_lado") })); else st("scope.st.guardar_erro", { erro: j.erro || r.statusText });
