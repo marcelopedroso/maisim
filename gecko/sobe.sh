@@ -30,6 +30,11 @@ JAR=${MAISIM_GECKO_JAR:-$AQUI/build/gecko-lote.jar}
 for p in $VNC $WEB $PG $PM; do
   if ss -ltn | grep -q ":$p "; then fala "porta $p ocupada (já está no ar? para.sh derruba)" "port $p is busy (already running? para.sh stops it)"; exit 1; fi
 done
+# a trava de um Xvfb que morreu (ou virou zumbi) sem apagá-la: senão o novo recusa e o Gecko fica sem tela (18/11)
+N=${TELA#:}; N=${N%%.*}; DONO=$(cat "/tmp/.X$N-lock" 2>/dev/null | tr -d ' ')
+if [ -n "$DONO" ] && { ! kill -0 "$DONO" 2>/dev/null || [ "$(awk '{print $3}' "/proc/$DONO/stat" 2>/dev/null)" = Z ]; }; then
+  rm -f "/tmp/.X$N-lock" "/tmp/.X11-unix/X$N" 2>/dev/null || true
+fi
 nohup Xvfb "$TELA" -screen 0 1600x1000x24 -nolisten tcp > "$C/xvfb.log" 2>&1 & echo $! > "$C/xvfb.pid"
 sleep 1
 if command -v openbox > /dev/null; then     # a configuração padrão + maximizar a janela principal do Gecko
