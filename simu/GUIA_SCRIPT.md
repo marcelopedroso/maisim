@@ -42,3 +42,6 @@ O módulo Figuras do MaiSim faz a figura de artigo a partir da rodada. Para ela 
 - Imprima um resumo curto no fim (valores de regime, erros, o que conferir no Scope).
 - Sem janelas: matplotlib roda sem tela (Agg); para ver, use o Scope (ou salve uma imagem, se a pessoa pedir).
 - Sem rede, sem instalar pacotes, sem ler ou escrever fora da pasta do script.
+- Bibliotecas: numpy e matplotlib sempre estão lá (o MaiSim instalado leva as duas); scipy, sympy e python-control não.
+  Uma função de transferência vira equações de estado integradas com numpy (RK4 com passo bem menor que a menor
+  constante de tempo); um controlador discreto, a equação de diferenças dele no laço.

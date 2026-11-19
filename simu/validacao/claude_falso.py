@@ -296,6 +296,8 @@ elif cenario == "script":                               # a IA do script: lê o 
         Path(rel).write_text(cod)
     arqs = sorted(str(f) for f in Path(".").rglob("*.py"))
     resposta = f"script pronto; guia: {'sim' if 'maisim.scope' in guia else 'não'}; arquivos: {', '.join(arqs)}; ctx: {ctx.count(chr(10))} linhas"
+    if (conf / "falso_resposta_script.md").exists():      # a resposta escrita pelo teste (equações em LaTeX, uma resposta real)
+        resposta = (conf / "falso_resposta_script.md").read_text()
 elif cenario == "anexo":
     nomes = sorted(x.name for x in Path("anexos").iterdir()) if Path("anexos").is_dir() else []
     for n in nomes:

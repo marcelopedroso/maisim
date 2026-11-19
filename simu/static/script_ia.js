@@ -13,23 +13,8 @@ const iaApi = async (rota, corpo) => {
 };
 const MASCOTE = (w) => `<svg class="mascote" width="${w}" height="${w}" aria-hidden="true"><use href="#maisim-claude"/></svg>`;
 
-// ----------------------------------------------------------------- markdown leve (tudo escapado): ```código```, `código`,
-// **negrito**, títulos, listas e parágrafos
-function iaMd(txt) {
-  return String(txt || "").split(/```[a-zA-Z]*\n?/).map((p, i) => {
-    if (i % 2) return `<pre><code>${esc(p.replace(/\n$/, ""))}</code></pre>`;
-    const inl = (t) => esc(t).replace(/`([^`\n]+)`/g, "<code>$1</code>").replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>");
-    const out = []; let lista = null;
-    for (const l of p.split("\n")) {
-      const m = l.match(/^\s*(?:[-*+]|\d+[.)])\s+(.*)$/), h = l.match(/^\s{0,3}#{1,6}\s+(.*?)\s*#*\s*$/);
-      if (m) { (lista = lista || []).push(`<li>${inl(m[1])}</li>`); continue; }
-      if (lista) { out.push(`<ul>${lista.join("")}</ul>`); lista = null; }
-      if (h) out.push(`<div class="md-h">${inl(h[1])}</div>`); else if (l.trim()) out.push(`<p>${inl(l)}</p>`);
-    }
-    if (lista) out.push(`<ul>${lista.join("")}</ul>`);
-    return out.join("");
-  }).join("");
-}
+// ----------------------------------------------------------------- markdown leve (tudo escapado): o mesmo markdown da IA do circuito, com equações em LaTeX formatadas pelo KaTeX (md_leve.js); sem ele, só o texto
+function iaMd(txt) { return typeof mdLeve === "function" ? mdLeve(txt) : `<p>${esc(String(txt || ""))}</p>`; }
 
 // ----------------------------------------------------------------- a diferença (linhas, LCS), no formato da IA do circuito
 // (cc-diff: − o que sai, + o que entra, ⋯ o que não mudou); grande demais: só a versão nova
