@@ -1,4 +1,4 @@
-// o dropdown "Controle na simulação" (instância de teste 7200 → 7201), pedido de Marcelo em 21/11 ("como fica definido
+// o dropdown "Controlador digital" (instância de teste 7200 → 7201), pedido de Marcelo em 21/11 ("como fica definido
 // qual controle estou usando? faz um dropdown no lugar do check"): Desligado | Python — controle.py | C — controle.c diz o que
 // a simulação roda (guarda ativo e c.usar); ver um arquivo (a linha "ver em C" / "ver em Python" na árvore, ou abrir um
 // .c) muda só o que o painel mostra; o selo "roda" marca o controlador que roda; Desligado guarda a linguagem que estava
@@ -31,7 +31,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     const escolhe = async (v) => { await pg.selectOption("#ctl-roda", v); await pg.waitForTimeout(1500); };
     // 1. desligado: o dropdown diz Desligado, sem selo; as opções e o rótulo
     let t = await tela(), s = await srv();
-    ok(t.rotulo === "Controle na simulação" && t.ops.join("|") === "off=Desligado|py=Python — controle.py|c=C — controle.c",
+    ok(t.rotulo === "Controlador digital" && t.ops.join("|") === "off=Desligado|py=Python — controle.py|c=C — controle.c",
       `o rótulo e as opções: "${t.rotulo}" · ${t.ops.join(" | ")}`);
     ok(t.roda === "off" && t.off && !s.ativo && !t.selos.length && !t.visaoC && /controle\.c/.test(t.outra) && /ver em C/.test(t.outra),
       `desligado: ${t.roda}, sem selo, visão Python, a linha "${t.outra}" no fim da árvore`);
@@ -61,7 +61,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     ok(t.roda === "c" && t.visaoC, `recarregado: roda ${t.roda}, visão C ${t.visaoC}`);
     // 8. em inglês
     await pg.evaluate(() => maisimI18n.muda("en")); await pg.waitForTimeout(800); t = await tela();
-    ok(t.rotulo === "Control in the simulation" && t.ops.join("|") === "off=Off|py=Python — controle.py|c=C — controle.c" && /view in Python/.test(t.outra)
+    ok(t.rotulo === "Digital controller" && t.ops.join("|") === "off=Off|py=Python — controle.py|c=C — controle.c" && /view in Python/.test(t.outra)
       && (await pg.evaluate(() => (document.querySelector("#ctl-ctls .ctl-roda-selo") || {}).textContent)) === "runs",
       `inglês: "${t.rotulo}" · ${t.ops.join(" | ")} · "${t.outra}"`);
     await pg.evaluate(() => maisimI18n.muda("pt")); await pg.waitForTimeout(300);

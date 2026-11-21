@@ -64,7 +64,7 @@ const PWM_C = '#include "pwm.h"\nmaisim_real pwm_compara(maisim_real portadora, 
     await pg.click('#ctl-ctls [data-fecha="filtro.c"]'); await pg.waitForSelector(".modal .m-ok"); await pg.click(".modal .m-ok"); await pg.waitForTimeout(1800);
     const depois = await pg.evaluate(async () => Object.keys((await api("editor/controle")).controle.c.arquivos).sort());
     ok(depois.join(",") === "controle.c,filtro.h,pwm.c,pwm.h" && await pg.evaluate(() => ctl.arq) === "controle.c", `apagar o filtro.c: ${depois.join(", ")} · aberto: ${await pg.evaluate(() => ctl.arq)}`);
-    // 6. o dropdown Controle na simulação: Desligado | Python | C (FPGA não é linguagem: é um alvo do Exportar); o "⤓ Exportar" na visão C: os 6 alvos, baixa o .zip do escolhido
+    // 6. o dropdown Controlador digital: Desligado | Python | C (FPGA não é linguagem: é um alvo do Exportar); o "⤓ Exportar" na visão C: os 6 alvos, baixa o .zip do escolhido
     ok(await pg.evaluate(() => [...$("ctl-roda").options].map((o) => o.value).join(",")) === "off,py,c", "o dropdown: Desligado | Python | C");
     await pg.click("#ctl-c-exportar"); await pg.waitForSelector(".modal input[name=alvo]");
     const jan = await pg.evaluate(() => ({ alvos: [...document.querySelectorAll(".modal input[name=alvo]")].map((x) => `${x.value || "breve"}${x.checked ? "*" : ""}${x.disabled ? "-" : ""}`),

@@ -60,7 +60,7 @@ const ehC = (a) => /\.[ch]$/.test(a);
 const raizC = (a) => a.replace(/\.py$/, ".c");        // o arquivo em C de um controlador: o nome do .py dele (aquisicao.py → aquisicao.c)
 const lingDe = (a) => ehC(a) ? "c" : "python";
 // o que roda e o que se vê (Marcelo, 21/11: "como fica definido qual controle estou usando? faz um dropdown"): o dropdown
-// "Controle na simulação" diz o que a simulação roda (Desligado | Python | C: o ativo e o c.usar guardados); a visão é a
+// "Controlador digital" diz o que a simulação roda (Desligado | Python | C: o ativo e o c.usar guardados); a visão é a
 // linguagem que o painel mostra (as abas, a árvore, o "+ Arquivo") e segue o arquivo aberto: abrir um .c na árvore mostra
 // o C sem mudar o que roda. Escolher Python ou C no dropdown leva a visão junto
 const rodaDe = (c) => !c.ativo ? "off" : c.c && c.c.usar ? "c" : "py";

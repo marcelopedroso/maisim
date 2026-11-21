@@ -821,7 +821,7 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
 </div></div><div id="col-ctl" class="col-doca"><div class="div-col" id="div-ctl" title="arraste para mudar a largura do Controle" data-tr-title="simu.t_div_ctl"></div><div class="col-corpo">
   <div id="painel-controle" data-msg="nenhum circuito aberto: abra um ou comece um novo para escrever o controle" data-tr-msg="ctl.sem_circuito">
     <div id="ctl-lado">
-      <label class="ctl-ativo" title="o que a simulação roda: nada, o controle.py ou o controle.c (compilado em C, o SIL). Ver e editar um arquivo não muda isso: clique nele na árvore" data-tr-title="ctl.t_roda"><span data-tr="ctl.roda">Controle na simulação</span>
+      <label class="ctl-ativo" title="o dispositivo digital (DSP, microcontrolador, FPGA) ligado ao circuito: lê as medidas e escreve as atuações; pode ser só acionamento ou controle em malha fechada. Aqui, o que a simulação roda: nada (o circuito sozinho), o controle.py ou o controle.c (compilado em C, o SIL). Ver e editar um arquivo não muda isso: clique nele na árvore" data-tr-title="ctl.t_roda"><span data-tr="ctl.roda">Controlador digital</span>
         <select id="ctl-roda"><option value="off" data-tr="ctl.roda_off">Desligado</option><option value="py" data-tr="ctl.roda_py">Python — controle.py</option><option value="c" data-tr="ctl.roda_c">C — controle.c</option></select></label>
       <div id="ctl-c" class="ctl-c">
         <select id="ctl-c-prec" title="a precisão do C: double (como o Python) ou float (precisão simples, como o double do C28x)" data-tr-title="ctl.t_c_prec"><option value="double">double</option><option value="float">float</option></select>
