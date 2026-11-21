@@ -1979,9 +1979,33 @@ def analisa_modulos(c):
     return erros, avisos
 
 
+# o PWM do controle como no ePWM de um DSP: os registradores são parâmetros do painel (nomes do C2000), e o período da
+# interrupção sai deles. Período do PWM: 2·TBPRD/f_clk no sobe-desce (CTRMODE 2), (TBPRD + 1)/f_clk no crescente ou no
+# decrescente (CTRMODE 0 ou 1); a interrupção a cada período (INTSEL 1: CTR = 0; 2: CTR = PRD) ou nos dois (3): o período/2
+REGISTRADORES_PWM = ("f_clk", "TBPRD", "CTRMODE", "SHDWAMODE", "INTSEL", "DB", "TBPHS")
+
+
+def ts_do_pwm(parametros):
+    """O Ts amarrado aos registradores do PWM ({ts, periodo, f_pwm, ctrmode, intsel}), ou None se o painel não tem f_clk e
+    TBPRD (o Ts digitado vale)."""
+    v = {q["nome"]: float(q["valor"]) for q in parametros if q.get("nome") in REGISTRADORES_PWM}
+    if "f_clk" not in v or "TBPRD" not in v or not (v["f_clk"] > 0 and v["TBPRD"] >= 1):
+        return None
+    ctrmode, intsel = int(v.get("CTRMODE", 2)), int(v.get("INTSEL", 1))
+    periodo = (2 * v["TBPRD"] if ctrmode == 2 else v["TBPRD"] + 1) / v["f_clk"]
+    return {"ts": periodo / 2 if intsel == 3 else periodo, "periodo": periodo, "f_pwm": 1 / periodo, "ctrmode": ctrmode, "intsel": intsel}
+
+
+def ts_efetivo(c):
+    """O Ts do controle: o dos registradores do PWM, se o painel os tem; senão, o digitado."""
+    am = ts_do_pwm(c.get("parametros") or [])
+    return am["ts"] if am else c["Ts"]
+
+
 def sinais_do_c(c, r):
     """Os nomes do maisim_sinais.h, na ordem do painel: as medidas "→ Controle", os parâmetros (e o Ts) e as atuações marcadas."""
-    return {"m": [k for _, k in sinais_da_rodada(r, "controle")] if r else [], "p": [q["nome"] for q in c["parametros"]] + ["Ts"],
+    nomes_p = [q["nome"] for q in c["parametros"]]
+    return {"m": [k for _, k in sinais_da_rodada(r, "controle")] if r else [], "p": nomes_p + ["Ts"] + ([] if "dt" in nomes_p else ["dt"]),
             "u": list(c["atuacoes"])}
 
 
@@ -2085,7 +2109,8 @@ def exporta_c(alvo, precisao="float"):
     le = lambda arq: (DIR_EXPORTA / (arq.replace(".", ".en.", 1) if en else arq)).read_text()
     circuito = Path(editor.get("aberto") or "circuito").stem
     pasta = re.sub(r"[^\w\-]", "_", circuito) + "_" + alvo
-    valores = {q["nome"]: q["valor"] for q in c["parametros"]} | {"Ts": c["Ts"]}
+    valores = {q["nome"]: q["valor"] for q in c["parametros"]} | {"Ts": ts_efetivo(c)}
+    valores.setdefault("dt", float(((editor.get("ultimo") or {}).get("simulacao") or {}).get("dt") or 1e-6))   # o passo do SIL
     contrato = (Path(sinais_c.DIR_C) / "maisim_controle.h").read_text().replace("#define MAISIM_REAL double", f"#define MAISIM_REAL {precisao}")
     grupos = {}                                         # o controlador (as instâncias de um subcircuito: o mesmo código)
     for i in insts:
@@ -2529,7 +2554,7 @@ def confere_codigo(codigo, parametros, atuacoes, entradas=None, atuadores=None, 
         return []
     import ast
     funcs = {n.name: n for n in arvore.body if isinstance(n, ast.FunctionDef)}
-    pars = {q["nome"] for q in parametros} | {"Ts"} | set(extras)
+    pars = {q["nome"] for q in parametros} | {"Ts", "dt"} | set(extras)
     out, linhas_cod = [], codigo.split("\n")
     def col(lin, off):                                   # o ast dá a coluna em bytes UTF-8; o editor conta caracteres
         t = linhas_cod[lin - 1] if 0 < lin <= len(linhas_cod) else ""
@@ -3392,9 +3417,10 @@ def testa_controle(dt, n=3, c=None, pasta_nome="teste_controle"):
         raise ErroMotor(lingua.tr("controle.dt_invalido"))
     entradas = [k for _, k in sinais_da_rodada(ult, "controle")]
     marcadas = set(c["atuacoes"]) & {a["nome"] for a in atuadores_disponiveis(ult)}
-    Ts = max(1, arred(c["Ts"] / dt)) * dt
+    Ts = max(1, arred(ts_efetivo(c) / dt)) * dt
     params = {q["nome"]: q["valor"] for q in c["parametros"]}
     params["Ts"] = Ts
+    params.setdefault("dt", dt)                          # o passo da simulação (o PWM no código conta por ele)
     pasta.mkdir(parents=True, exist_ok=True)
     log = open(pasta / "controle.log", "w")
     passos, trab = [], None
@@ -3828,9 +3854,12 @@ def _rodar(c, ctl_de_fora=None):
         faltam = [a for a in ctl["atuacoes"] if a not in atu]
         if faltam:
             raise ErroMotor(lingua.tr("rodada.atuadores_faltam", lista=", ".join(faltam)))
-        nTs = max(1, arred(ctl["Ts"] / dt))
-        if abs(nTs * dt - ctl["Ts"]) > 1e-9 * ctl["Ts"]:
-            avisos_rodada.append(lingua.tr("rodada.ts_nao_multiplo", Ts=f"{ctl['Ts']:g}", dt=f"{dt:g}", n=nTs, efetivo=f"{nTs * dt:g}"))
+        ts_ctl = ts_efetivo(ctl)                       # com os registradores do PWM no painel, o Ts sai deles
+        nTs = max(1, arred(ts_ctl / dt))
+        if abs(nTs * dt - ts_ctl) > 1e-9 * ts_ctl:
+            avisos_rodada.append(lingua.tr("rodada.ts_nao_multiplo", Ts=f"{ts_ctl:g}", dt=f"{dt:g}", n=nTs, efetivo=f"{nTs * dt:g}"))
+        if ts_do_pwm(ctl["parametros"]) and ctl["atraso"].get("modo") != "logo":
+            avisos_rodada.append(lingua.tr("rodada.pwm_atraso_logo"))
         d_atu = passos_de_atraso(ctl["atraso"], nTs, dt)
         # cada atuação é escrita antes do passo k·n + desl: o circuito sente em k·n + d em todos os destinos que der
         desl = {x: max(0, d_atu - lag[x]) for x in ctl["atuacoes"]}
@@ -3909,6 +3938,7 @@ def _rodar(c, ctl_de_fora=None):
         log = open(pasta / "controle.log", "w")
         params = {q["nome"]: q["valor"] for q in ctl["parametros"]}
         params["Ts"] = nTs * dt
+        params.setdefault("dt", dt)                      # o passo da simulação (o PWM no código conta por ele)
         try:
             trab = Controladores(insts, params, log, ctl["rede"]["latencia"], conexao=None if laco == "novo" else False)
         except ErroControle:
@@ -5437,13 +5467,17 @@ def claude_contexto(c, dt, tfim, visto=None):
     L = [tr("ia_contexto.titulo"), "", tr("ia_contexto.gerado"), ""]
     L += [tr("ia_contexto.circuito", arq=editor.get('aberto') or tr("ia_contexto.sem_arquivo")),
           tr("ia_contexto.passo", dt=num_txt(dt), tfim=num_txt(tfim))]
-    nTs = max(1, arred(c["Ts"] / dt)) if dt > 0 else 1
+    nTs = max(1, arred(ts_efetivo(c) / dt)) if dt > 0 else 1
+    am_pwm = ts_do_pwm(c.get("parametros") or [])
     at = c.get("atraso") or {}
     d_at = passos_de_atraso(at, nTs, dt) if dt > 0 else 1   # o atraso efetivo, em Δt (a latência fica entre Δt e Ts)
     modo = at.get('modo', 'logo')
     modo_txt = tr(f"ia_contexto.modo_{modo}") if modo in ("logo", "amostra", "tempo") else str(modo)
-    L += [tr("ia_contexto.ts", ts=num_txt(c['Ts']), ef=num_txt(nTs * dt), nts=nTs,
+    L += [tr("ia_contexto.ts", ts=num_txt(ts_efetivo(c)), ef=num_txt(nTs * dt), nts=nTs,
              vezes=int(tfim / (nTs * dt)) if dt > 0 and tfim > 0 else '?'),
+          *([tr("ia_contexto.ts_pwm", f=num_txt(am_pwm["f_pwm"]), ts=num_txt(am_pwm["ts"]),
+                onde=tr({1: "ia_contexto.int_zero", 2: "ia_contexto.int_prd", 3: "ia_contexto.int_ambos"}.get(am_pwm["intsel"], "ia_contexto.int_zero")))]
+            if am_pwm else []),
           tr("ia_contexto.atraso_tempo", modo=modo_txt, d=d_at, tau=num_txt(at.get('tempo'))) if at.get("modo") == "tempo"
           else tr("ia_contexto.atraso", modo=modo_txt, d=d_at),
           tr("ia_contexto.ligado_sim" if c["ativo"] else "ia_contexto.ligado_nao"),

@@ -279,6 +279,8 @@ T = {
                                 "en": "checked actuators that do not exist in the circuit: {lista}"},
     "rodada.ts_nao_multiplo": {"pt": "Ts = {Ts} s não é múltiplo de Δt = {dt} s: o controle roda com Ts = {n} × Δt = {efetivo} s (é o p[\"Ts\"] que o código recebe)",
                                "en": "Ts = {Ts} s is not a multiple of Δt = {dt} s: the control runs with Ts = {n} × Δt = {efetivo} s (this is the p[\"Ts\"] the code receives)"},
+    "rodada.pwm_atraso_logo": {"pt": "com os registradores do PWM nos parâmetros, use a Atuação \"Logo\": o atraso de verdade é o do registrador sombra (o CMPA só vale no evento de carga), e o pulso que o código devolve já conta a partir do próximo passo",
+                               "en": "with the PWM registers in the parameters, use the \"Right away\" actuation: the actual delay is the shadow register's (CMPA only takes effect at the load event), and the pulse the code returns already counts from the next step"},
     "rodada.atuacao_sem_destino": {"pt": "a atuação {nome} não chega a chave nem a fonte controlada (pelo traçado do MaiSim): o atraso é tratado como o de uma fonte (1 Δt do Gecko), sem garantia",
                                    "en": "the actuation {nome} reaches no switch or controlled source (by MaiSim's tracing): the delay is treated as a source's (1 Δt in Gecko), with no guarantee"},
     "rodada.atuacao_destino_motivo": {"pt": "atuação {nome} → {alvo}: {motivo}", "en": "actuation {nome} → {alvo}: {motivo}"},
@@ -819,6 +821,11 @@ T = {
                           "en": "- Gecko step: Δt = {dt} s; final simulation time: tfim = {tfim} s"},
     "ia_contexto.ts": {"pt": "- Ts (período de amostragem do controle) = {ts} s → efetivo {ef} s ({nts} × Δt); passo() é chamado ≈ {vezes} vezes",
                        "en": "- Ts (control sampling period) = {ts} s → effective {ef} s ({nts} × Δt); passo() is called ≈ {vezes} times"},
+    "ia_contexto.ts_pwm": {"pt": "- O Ts sai dos registradores do PWM nos parâmetros (f_clk, TBPRD, CTRMODE, INTSEL): PWM de {f} Hz, interrupção {onde} → Ts = {ts} s. O PWM fica no código (módulo pwm, pwm.iniciar_registradores e pwm.pulsos): o código escreve o CMPA e devolve o pulso do intervalo",
+                           "en": "- Ts comes from the PWM registers in the parameters (f_clk, TBPRD, CTRMODE, INTSEL): {f} Hz PWM, interrupt {onde} → Ts = {ts} s. The PWM is in the code (pwm module, pwm.iniciar_registradores and pwm.pulsos): the code writes CMPA and returns the pulse of the interval"},
+    "ia_contexto.int_zero": {"pt": "em CTR = 0", "en": "at CTR = 0"},
+    "ia_contexto.int_prd": {"pt": "em CTR = PRD", "en": "at CTR = PRD"},
+    "ia_contexto.int_ambos": {"pt": "em CTR = 0 e em CTR = PRD", "en": "at CTR = 0 and at CTR = PRD"},
     "ia_contexto.atraso": {"pt": "- Atraso da atuação: {modo} → o circuito sente a atuação calculada em t no instante t + {d} × Δt"
                                  " (logo = t + Δt; amostra = t + Ts, como num DSP; tempo = t + τ)",
                            "en": "- Actuation delay: {modo} → the circuit feels the actuation computed at t at the instant t + {d} × Δt"
