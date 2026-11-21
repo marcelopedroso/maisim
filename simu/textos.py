@@ -664,6 +664,8 @@ T = {
     "worker_c.sem_controle_c": {"pt": "não há {arq}: crie o controle em C antes de rodar em C",
                                 "en": "there is no {arq}: write the C control before running in C"},
     "worker_c.estado_grande": {"pt": "o estado do controle.c tem {n} bytes: grande demais", "en": "the controle.c state has {n} bytes: too large"},
+    "worker_c.padrao_fora": {"pt": "maisim_padrao(u, o, valor) com u ou o fora da faixa (o vai de 0 a Ts/Δt − 1 = {n} − 1)",
+                             "en": "maisim_padrao(u, o, value) with u or o out of range (o goes from 0 to Ts/Δt − 1 = {n} − 1)"},
     "worker_c.msg_lista": {"pt": "a mensagem de {de} traz uma lista em {k}: o controle em C só recebe números",
                            "en": "the message from {de} carries a list in {k}: the C control only receives numbers"},
     "worker_c.msgs_demais": {"pt": "mensagens demais numa amostra (o máximo são 256 chaves enviadas e 256 recebidas)",

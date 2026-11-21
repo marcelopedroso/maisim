@@ -112,6 +112,13 @@ def compila(fontes, sinais, precisao):
     dll.maisim_sil_env_valor.argtypes = [ctypes.c_int]
     dll.maisim_sil_recebida.restype = None
     dll.maisim_sil_recebida.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_double]
+    dll.maisim_sil_passos.restype = ctypes.c_int            # o padrão dentro da amostra (maisim_padrao)
+    dll.maisim_sil_passos.argtypes = [ctypes.c_int]
+    dll.maisim_sil_padrao_usado.restype = ctypes.c_int
+    dll.maisim_sil_padrao_usado.argtypes = [ctypes.c_int]
+    dll.maisim_sil_padrao_valor.restype = ctypes.c_double
+    dll.maisim_sil_padrao_valor.argtypes = [ctypes.c_int, ctypes.c_int]
+    dll.maisim_sil_padrao_fora.restype = ctypes.c_int
     return dll
 
 
@@ -194,6 +201,7 @@ if _ENDERECO:
 
 with lingua.com(LINGUA):
     m_arr = u_arr = None
+    n_passos = 1
     for pedido_txt in pedidos():
         try:
             pedido = json.loads(pedido_txt)
@@ -215,6 +223,10 @@ with lingua.com(LINGUA):
                 estado = (ctypes.c_double * (n // 8 + 2))()   # zerado e alinhado a 8 bytes
                 p_arr, m_arr, u_arr = vetor(len(nomes["p"])), vetor(len(nomes["m"])), vetor(len(nomes["u"]))
                 poe_parametros(pedido["p"])
+                pp = pedido["p"]                         # os passos de uma amostra (Ts/Δt): o tamanho do padrão dentro dela
+                n_passos = max(1, int(math.floor(float(pp.get("Ts", 0.0)) / float(pp["dt"]) + 0.5))) if pp.get("dt") else 1
+                if not lib.maisim_sil_passos(n_passos):
+                    raise ErroC(lingua.tr("worker_c.estado_grande", n=n_passos * 8 * max(1, len(nomes["u"]))))
                 lib.maisim_iniciar(p_arr, estado)
                 responde({"ok": True})
             elif pedido["op"] == "passo":
@@ -229,7 +241,15 @@ with lingua.com(LINGUA):
                 if _fflush:
                     _fflush(None)
                 out, mapa = {}, cfg["atuacoes"]
+                if lib.maisim_sil_padrao_fora():
+                    raise ErroC(lingua.tr("worker_c.padrao_fora", n=n_passos))
                 for k, nome in enumerate(nomes["u"]):
+                    if lib.maisim_sil_padrao_usado(k):    # o padrão dentro da amostra (o pulso de um PWM no código)
+                        vs = [lib.maisim_sil_padrao_valor(k, o) for o in range(n_passos)]
+                        if not all(math.isfinite(x) for x in vs):
+                            raise ErroC(lingua.tr("worker.nao_finito", k=nome, v=next(x for x in vs if not math.isfinite(x))))
+                        out[mapa.get(nome, nome) if mapa is not None else nome] = vs
+                        continue
                     v = float(u_arr[k])
                     if math.isnan(v):                 # não escrita nesta amostra: fica como estava
                         continue

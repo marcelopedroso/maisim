@@ -3,6 +3,7 @@
    com o maisim_envia, para o worker levar à rede). Compilado junto com o controle.c, só dentro do MaiSim (no alvo, o
    maisim_scope e as mensagens são do usuário). */
 #include <string.h>
+#include <stdlib.h>
 #include "maisim_controle.h"
 
 #define MAISIM_SIL_MAX 256
@@ -72,4 +73,34 @@ void maisim_sil_recebida(const char *de, const char *chave, double valor) {
     if (rec_n >= MAISIM_SIL_MAX) return;
     copia(rec_de[rec_n], de); copia(rec_chave[rec_n], chave); rec_valor[rec_n++] = valor;
 }
-void maisim_sil_limpa(void) { sil_n = 0; env_n = 0; env_estouro = 0; rec_n = 0; nome_longo = 0; }
+/* o padrão dentro da amostra (maisim_padrao): Ts/Δt valores por atuação, guardados aqui até o worker ler */
+static double *pad_valor[MAISIM_N_U];
+static int pad_usado[MAISIM_N_U], pad_n, pad_fora;
+
+int maisim_sil_passos(int n) {                     /* o worker diz quantos passos tem a amostra (Ts/Δt) */
+    int u;
+    if (n < 1) n = 1;
+    for (u = 0; u < MAISIM_N_U; u++) {
+        free(pad_valor[u]);
+        pad_valor[u] = (double *)calloc((size_t)n, sizeof(double));
+        if (!pad_valor[u]) return 0;
+    }
+    pad_n = n;
+    return 1;
+}
+
+void maisim_padrao(int u, int o, maisim_real valor) {
+    if (u < 0 || u >= MAISIM_N_U || o < 0 || o >= pad_n || !pad_valor[u]) { pad_fora = 1; return; }
+    pad_valor[u][o] = (double)valor;
+    pad_usado[u] = 1;
+}
+
+int maisim_sil_padrao_usado(int u) { return u >= 0 && u < MAISIM_N_U ? pad_usado[u] : 0; }
+double maisim_sil_padrao_valor(int u, int o) { return pad_valor[u][o]; }
+int maisim_sil_padrao_fora(void) { return pad_fora; }
+
+void maisim_sil_limpa(void) {
+    int u;
+    sil_n = 0; env_n = 0; env_estouro = 0; rec_n = 0; nome_longo = 0; pad_fora = 0;
+    for (u = 0; u < MAISIM_N_U; u++) pad_usado[u] = 0;
+}
