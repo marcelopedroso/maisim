@@ -15,6 +15,8 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } });
     await pg.goto("http://localhost:7201/maisim/simu/");
     await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
+    // o cadeado começa fechado: o editor com o mesmo circuito da tela (com outro, o painel do controle fica coberto)
+    await pg.evaluate(async () => { await api("editor/abrir", { arq: $("sel-modelo").value, modo: "descartar" }); await confereControleDoCircuito(); });
     await pg.click("#bt-ctl"); await pg.waitForFunction(() => ctl.carregado, null, { timeout: 30000 });
     await pg.waitForFunction(() => window.monaco && document.querySelector("#ctl-codigo .monaco-editor, .monaco-editor"), null, { timeout: 30000 }).catch(() => {});
     const m = await pg.evaluate(() => ({ monaco: !!window.monaco, local: typeof MONACO === "string" && MONACO.startsWith(location.origin), editor: !!document.querySelector(".monaco-editor"),

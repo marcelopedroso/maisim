@@ -1683,6 +1683,7 @@ function tagAtuador(g, x, y, nome, centrada = false) {   // centrada: x é o mei
     if (v === "c" && !ctl.lista.includes("controle.c")) abreC(false);
     if (v !== "off") poeVisao(v === "c");
   });
+  $("ctl-abrir-edicao").onclick = () => { if (typeof liga === "function") liga(true); };   // o cadeado: abre o circuito à vista na edição (e o controle dele vem junto)
   $("ctl-c-comparar").onclick = comparaPyC;
   $("ctl-c-ia").onclick = () => converteIA(visaoC());
   $("ctl-c-exportar").onclick = exportaC;

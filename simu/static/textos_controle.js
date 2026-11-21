@@ -146,6 +146,10 @@ maisimI18n.add({
   "ctl.t_fora_ir": { pt: "trazer a janela do código para a frente", en: "bring the code window to the front" },
   "ctl.t_fora_bt": { pt: "editar o código também nesta janela (vale o que for guardado por último)", en: "edit the code in this window too (the last one saved wins)" },
   "ctl.fora_bt": { pt: "Editar aqui também", en: "Edit here too" },
+  "ctl.de_outro": { pt: "o cadeado está fechado: o circuito na tela não está aberto na edição, e o controle dele só aparece aqui com a edição aberta",
+    en: "the padlock is closed: the circuit on screen is not open for editing, and its control only shows here with editing open" },
+  "ctl.abrir_edicao": { pt: "Abrir a edição", en: "Open editing" },
+  "ctl.t_abrir_edicao": { pt: "abre o cadeado: o circuito na tela passa a ser o da edição, com o controle dele", en: "opens the padlock: the circuit on screen becomes the one being edited, with its control" },
   "ctl.sem_circuito": { pt: "nenhum circuito aberto: abra um ou comece um novo para escrever o controle", en: "no circuit open: open one or start a new one to write the control" },
 });
 

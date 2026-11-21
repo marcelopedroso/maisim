@@ -9,6 +9,9 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ### Changed
 - **The examples on the start page say which ones come with the digital controller, and can be filtered by it** (#283; `app/index.html`, `app/public/textos_inicio.js`, `simu/servidor.py`): a "digital controller" tag marks the examples whose control code is on (the list of models now says so for the examples, read from each `<name>.controle.json`), and a filter above the grid shows All, Digital controller or Circuit and blocks only. The choice is remembered in the browser.
 
+### Fixed
+- **With the padlock closed, the Control panel showed another circuit's control** (#284; `simu/static/simu.js`, `index.html`, `controle.js`): a browser with the padlock closed shows a circuit without opening it in the editor, so the panel showed whatever the editor had (another circuit's control, or an empty one) and changing it answered "no circuit open". The panel is now covered with a note and an "Open editing" button when the circuit on screen is not the one open in the editor; locking a circuit that is open keeps the panel visible.
+
 ## [0.6.0] - 2026-11-21
 
 ### Added

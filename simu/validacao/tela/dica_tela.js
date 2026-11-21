@@ -3,6 +3,8 @@ const { chromium } = require("playwright");
 (async () => {
   const b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1500, height: 900 } })).newPage(); await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
   await pg.goto("http://localhost:7200/maisim/simu/"); await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
+  // o cadeado começa fechado: o editor com o mesmo circuito da tela (com outro, o painel do controle fica coberto)
+  await pg.evaluate(async () => { await api("editor/abrir", { arq: $("sel-modelo").value, modo: "descartar" }); await confereControleDoCircuito(); });
   await pg.click("#bt-ctl"); await pg.waitForTimeout(1500);
   const larg = async (sel) => { await pg.hover(sel); await pg.waitForTimeout(600); const r = await pg.evaluate(() => { const c = document.getElementById("dica-ui").getBoundingClientRect(); return [Math.round(c.width), Math.round(c.left), Math.round(c.right)]; }); await pg.mouse.move(5, 5); await pg.waitForTimeout(200); return r; };
   await pg.evaluate(() => { const x = document.createElement("button"); x.id = "curta"; x.title = "ok"; x.textContent = "·";

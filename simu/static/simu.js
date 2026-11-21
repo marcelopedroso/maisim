@@ -1637,6 +1637,7 @@ async function perguntaNaoSalvo(e, acao) {
 function poeCadeado(on) { $("bt-editar").classList.toggle("ativo", on); $("bt-editar").title = tr(on ? "simu.t_cadeado_aberto" : "simu.t_cadeado_fechado"); }
 async function liga(on) {
   ed.ligado = on; document.body.classList.toggle("editando", on); poeCadeado(on);
+  if (on) document.body.classList.remove("ctl-de-outro");   // (ao fechar, o carrega() confere; se o abrir falhar, o catch)
   if (ed.fio.modo) modoFio(false);
   if (ed.conector) modoConector(false);
   seleciona(null); escolhe(null);
@@ -1674,7 +1675,7 @@ async function liga(on) {
     if (typeof recarregaControle === "function") recarregaControle();
     avisa("circuito", { arq: alvo, outro: true, sujo: ed.sujo });
   }
-  catch (e) { msg(e.message, "erro"); ed.ligado = false; document.body.classList.remove("editando"); poeCadeado(false); }
+  catch (e) { msg(e.message, "erro"); ed.ligado = false; document.body.classList.remove("editando"); poeCadeado(false); confereControleDoCircuito(); }
   setTimeout(() => dados && ajusta(), 50);
 }
 // a integração no Gecko (o solverType do .ipes): 0 Euler implícito, 1 trapézio, 2 Gear (BDF2). É do circuito, como uma
@@ -3203,6 +3204,18 @@ function icone(it) {
 }
 
 // ---------------------------------------------------------------- carregar
+// o cadeado fechado mostra o circuito sem abri-lo no editor (Marcelo, 21/11: o exemplo na tela e o painel do controle
+// vazio, "nenhum circuito aberto"): se o editor tem outro circuito aberto, ou nenhum, o controle que o painel mostraria
+// não é o do circuito à vista — o painel fica coberto, com o botão que abre a edição
+async function confereControleDoCircuito() {
+  const arq = $("sel-modelo").value; let e = null;
+  if (!VISTA_CODIGO && !ed.ligado && arq && arq !== NOVO) {
+    try { e = await api("editor/aberto"); } catch (er) { /* sem resposta: fica como estava */ return; }
+  }
+  // a resposta chega depois: se nesse meio a edição abriu (a carga da página abre o cadeado logo em seguida) ou o circuito
+  // à vista mudou, ela não vale mais
+  document.body.classList.toggle("ctl-de-outro", !!e && !ed.ligado && $("sel-modelo").value === arq && (!!e.fechado || e.aberto !== arq));
+}
 async function carrega(arq) {
   $("erro").textContent = ""; $("svg").innerHTML = ""; $("info").textContent = tr("simu.lendo_modelo");
   let j; try { j = await api("circuito?arq=" + encodeURIComponent(arq)); }   // leitura: repete uma vez se a conexão cair
@@ -3210,6 +3223,7 @@ async function carrega(arq) {
   dados = j; folhaAtual = "0"; desenha(); ajusta();
   try { localStorage.setItem("maisim-simu-modelo", arq); } catch (e) { /* ok */ }
   const q = new URLSearchParams(location.search); q.set("modelo", arq); history.replaceState(null, "", "?" + q.toString());
+  confereControleDoCircuito();
 }
 $("bt-ajustar").onclick = ajusta;
 // o que se vê: um botão por camada e o olho, que mostra tudo (se algo está escondido) ou esconde tudo
