@@ -16,3 +16,8 @@ int maisim_recebeu(const char *de, const char *chave, maisim_real *valor) {
     (void)de; (void)chave; (void)valor;    /* TODO: 1 and the value if it arrived in this sample */
     return 0;
 }
+
+/* the pulse within the sample (the SIL's pwm_pulsos): on the target, the PWM peripheral generates the pulse from CMPA */
+void maisim_padrao(int u, int o, maisim_real valor) {
+    (void)u; (void)o; (void)valor;
+}

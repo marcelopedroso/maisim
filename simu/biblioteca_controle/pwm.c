@@ -55,6 +55,11 @@ maisim_real pwm_passo(PwmEstado *e, maisim_real t, maisim_real d) {
 #else
 #define PWM_DT 0.0
 #endif
+#ifdef P_Ts
+#define PWM_TS p[P_Ts]
+#else
+#define PWM_TS 0.0
+#endif
 
 void pwm_iniciar_registradores(PwmRegistradores *e, const maisim_real p[MAISIM_N_P]) {
     int intsel = (int)PWM_INTSEL;
@@ -66,7 +71,7 @@ void pwm_iniciar_registradores(PwmRegistradores *e, const maisim_real p[MAISIM_N
     e->periodo = e->modo == 2 ? 2.0 * e->tbprd : e->tbprd + 1.0;
     e->cps = PWM_DT * PWM_FCLK;                    /* contagens por passo da simulação */
     e->dt = PWM_DT;
-    e->n = e->dt > 0.0 ? (int)floor(p[P_Ts] / e->dt + 0.5) : 0;
+    e->n = e->dt > 0.0 ? (int)floor(PWM_TS / e->dt + 0.5) : 0;
     if (e->n < 1 || e->tbprd < 1.0 || !(e->cps > 0.0)) e->n = 0;    /* sem os registradores: o pwm_pulsos não faz nada */
     e->cmpa = 0.0; e->n_sombra = 0; e->bruto = 0; e->borda = -1e300; e->contador = 0.0;
     /* o contador começa de modo que o evento da interrupção caia em t = k·Ts (no PRD, o contador adiantado de TBPRD) */

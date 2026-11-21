@@ -213,5 +213,31 @@ if j.get("estado") == "fim":
     ok(abs(media - 8.0) < 0.15 and 0.5 < onda < 4, f"o exemplo segue a referência: i_L médio {media:.3f} A (i_ref = 8 A), ondulação {onda:.2f} A, em {j.get('segundos')} s")
 else:
     ok(False, f"o exemplo: {j.get('erro') or j}")
+# 10. o Exportar C do exemplo (C2000): os registradores no maisim_parametros.h, o aviso do pwm_pulsos → CMPA no esqueleto, e o
+# pacote compila e liga no PC (o pwm.c chama o maisim_padrao, que no alvo é o do maisim_alvo.c)
+import io, subprocess, sys, tempfile, zipfile
+from pathlib import Path
+RAIZ = Path(__file__).resolve().parents[2]
+sys.path[:0] = [str(RAIZ / "simu")]
+import sinais_c  # noqa: E402
+try:
+    zb = urllib.request.urlopen(B + "editor/controle/exportar?alvo=c2000&precisao=double", timeout=120).read()
+    zz = zipfile.ZipFile(io.BytesIO(zb))
+    par = next(zz.read(n).decode() for n in zz.namelist() if n.endswith("maisim_parametros.h"))
+    isr = next(zz.read(n).decode() for n in zz.namelist() if n.endswith("c2000_isr.c"))
+    ok("[P_TBPRD] = 5000.0" in par and "#define MAISIM_TS 0.0001" in par and "EPwmxRegs.CMPA" in isr,
+       "Exportar C (C2000): os registradores no maisim_parametros.h, o Ts deles e, no esqueleto, o pwm_pulsos → CMPA do ePWM")
+    cc = sinais_c.compilador()
+    if cc:
+        with tempfile.TemporaryDirectory() as tmp:
+            zz.extractall(tmp)
+            pasta = next(Path(tmp).glob("*/controle"))
+            fontes = [str(p.relative_to(pasta)) for p in pasta.glob("*.c")] + ["teste/replay.c"]
+            rc = subprocess.run([cc[0], "-std=c99", "-I.", *fontes, "-lm", "-o", "replay"], cwd=pasta, capture_output=True, text=True, timeout=120)
+            ok(rc.returncode == 0, f"o pacote exportado (controle.c + pwm.c + maisim_alvo.c + replay.c) compila e liga no PC {rc.stderr[-300:]}")
+    else:
+        print("(sem compilador de C: o pacote não foi compilado)")
+except Exception as e:
+    ok(False, f"Exportar C do exemplo: {e}")
 api("editor/novo", {"modo": "descartar"})
 raise SystemExit(1 if falhas else 0)
