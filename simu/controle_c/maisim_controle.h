@@ -28,6 +28,10 @@ void maisim_passo(maisim_real t, const maisim_real m[MAISIM_N_M], const maisim_r
                   maisim_real u[MAISIM_N_U]);
 /* manda uma variável ao Scope (no SIL); no alvo, defina como vazia */
 void maisim_scope(const char *nome, maisim_real valor);
+/* o padrão dentro da amostra (o pulso de um PWM no código: o módulo pwm da biblioteca usa): o valor o (0 … Ts/Δt − 1) da
+   atuação u nesta amostra, sentido no passo seguinte à amostra + o. Uma atuação com padrão vale por ele (não pelo u[]).
+   No SIL o MaiSim guarda; no alvo quem gera o pulso é o periférico de PWM (o pwm.c escreve o CMPA). */
+void maisim_padrao(int u, int o, maisim_real valor);
 
 /* as mensagens entre controladores (o envia/recebe do Python; no alvo, a sua comunicação: CAN, SPI, memória comum…).
    maisim_envia manda chave = valor ao controlador "para"; as chaves enviadas ao mesmo controlador na mesma amostra vão

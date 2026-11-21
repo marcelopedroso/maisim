@@ -274,11 +274,44 @@ the SM).
 The measurements in `m` are those at the instant t_k, already including the effect of what was applied up to t_k. Watch
 out for switched quantities: sampling the inductor current always at the start of the switching period catches the
 valley of the ripple, not the average. The buck example takes the period average in the code itself. Another option is
-to sample in the middle of the on-time.
+to sample in the middle of the on-time: with the register-based PWM (4.4) in up-down and the interrupt at CTR = 0, the
+sample falls in the middle of the pulse, where the current is the average.
 
 **Losses** (the FLOW meters of a Pv: `Pv_…`, `Pcond_…`, `Psw_…`) are the exception: `m` gets the **average over the last
 Ts**, not the instant value. Gecko's switching loss is E/Δt on a single step (the commutation one), so the instant value
 would be zero almost always and a spike now and then. Temperature (`Tj_…`) comes at the instant, like the rest.
+
+### 4.4 The DSP's PWM in the code: the registers, Ts and the delay
+
+On a DSP, the PWM is a peripheral (the C2000 ePWM): a counter at f_clk generates the pulses, its event triggers the
+interrupt (the ADC and the control) and the code only writes the comparator. MaiSim does the same: the PWM is in the code
+(the library's `pwm` module) and its registers are **parameters** of the panel, with the C2000 names:
+
+| parameter | what it is |
+|---|---|
+| `f_clk` | the counter clock (TBCLK), in Hz |
+| `TBPRD` | the period, in counts |
+| `CTRMODE` | 0 = up (period TBPRD + 1), 1 = down, 2 = up-down (period 2·TBPRD, pulse centered on zero) |
+| `SHDWAMODE` | when the written CMPA takes effect (shadow register): 0 = at CTR = 0, 1 = at CTR = PRD, 2 = at both |
+| `INTSEL` | the interrupt event: 1 = CTR = 0, 2 = CTR = PRD, 3 = both |
+| `DB` | the dead time, in counts (delays the rising edge of output A and of the complementary B) |
+
+- **Ts comes from the registers**: with `f_clk` and `TBPRD` in the panel, Ts = the PWM period (2·TBPRD/f_clk in up-down,
+  (TBPRD + 1)/f_clk in up count), or half of it with INTSEL = 3. The Ts field becomes read-only and shows the math.
+- **In the code**: `e["pwm"] = pwm.iniciar_registradores(p)` in `iniciar`; in `passo`, `a, b = pwm.pulsos(e["pwm"], t,
+  CMPA)` and `return {"g": a}`. `a` and `b` are the pulse of the whole interval, one value per Δt (the pattern within the
+  sample), counted by the counter: the edges fall where the counter says (rounded to Δt), not on the Ts grid. In C, the
+  same `pwm.c`: `pwm_pulsos(&e->pwm, t, CMPA, U_g, U_g_baixo)` (the pulse goes to the actuations through `maisim_padrao`).
+- **The timeline of a sample**, the one that goes into the gain design:
+  - at t = k·Ts (the interrupt event) the ADC reads `m`;
+  - `passo()` computes and writes CMPA;
+  - the new CMPA only takes effect at the next load event (SHDWAMODE).
+  With the interrupt and the load at CTR = 0, the loop delay is about 1.5·Ts (the sample, the load at the next zero and
+  half a pulse). At the crossover fc it takes 360°·fc·1.5·Ts of phase: at 500 Hz with Ts = 100 µs, 27°; at 1 kHz,
+  54°. With SHDWAMODE = 2 and INTSEL = 3, the delay is halved.
+- Use the **Right away** actuation: the delay is the shadow register's, and the pulse the code returns starts at the step
+  after the sample (the run warns if not).
+- Example: `exemplo_buck_pwm_interrupcao` (10 kHz, interrupt at CTR = 0, Ts = 100 µs, PI with a 500 Hz crossover).
 
 ## 5. How not to go wrong (checklist)
 
@@ -288,15 +321,15 @@ would be zero almost always and a spike now and then. Temperature (`Tj_…`) com
 2. **Ts a multiple of Δt**: the panel warns; the code gets the effective Ts in `p["Ts"]`.
 3. **PWM done in the code**: the edges fall on the Ts grid, and the duty-cycle resolution is Ts·fsw (Ts = 2 µs at
    5 kHz gives 1 %). The PI then alternates d between two neighboring steps to get the average right. In the example
-   buck, on the 10 A plateau, the on-time alternates between 40 and 42 µs.
+   buck, on the 10 A plateau, the on-time alternates between 40 and 42 µs. The register-based PWM (4.4) avoids this: the
+   counter runs at f_clk, the edges fall on the Δt grid and Ts is the sampling period again.
 4. **Cost**: `passo()` runs tfim/Ts times, and each call costs 1 to 3 ms in the example buck (measured, Gecko included,
    which is fast for a small circuit; in a large MMC Gecko weighs more). The panel does the math. The example buck
    (5,000 calls) took 5 to 13 s, and once 19 s with the machine busy. In one measurement, the "At the next sample" delay
    took 5 s against 10 s for "Right away": the write falls at the start of the stretch and Gecko advances the whole
    period at once.
-5. **Cheaper alternative for PWM** (no ready-made example in this MaiSim yet): carrier and comparator in Gecko blocks,
-   with the code writing only the duty cycle, once per period (Ts = 1/fsw). The block in between enters the
-   compensation (+1 step).
+5. **A cheaper PWM with the right timing**: the register-based PWM (4.4), with the interrupt once per period (Ts = 1/fsw)
+   and the pulse counted at f_clk. In the test, 18× faster than the PWM compared every Ts = 1 µs.
 6. **Component parameters (R, L, …) do not change mid-run** in Gecko: the change has no effect. For a load step, use a
    switch driven by a CONST (like `CONST_CARGA` in circuit 03) or a controlled source.
 7. **GATE**: an input > 0.5 turns the switch on and ≤ 0.5 turns it off (S, MOSFET, IGBT;

@@ -90,6 +90,7 @@ prog = "\n".join([
     arr("erros_pi", erros_pi), arr("pwm_t", pwm_t), arr("pwm_d", pwm_d), arr("pb_x", pb_x), arr("rampa_ref", rampa_ref),
     arr("pll_a", [v[0] for v in pll_v]), arr("pll_b", [v[1] for v in pll_v]), arr("pll_c", [v[2] for v in pll_v]),
     "#define P(x) printf(\"%a\\n\", (double)(x))",
+    "void maisim_padrao(int u, int o, maisim_real v) { (void)u; (void)o; (void)v; }   /* o pwm_pulsos (no SIL, o calço do MaiSim) */",
     "int main(void) {", "  int k, tipo;",
     f"  {{ PiEstado e; pi_iniciar(&e, {H(0.8)}, {H(120.0)}, {H(TS)}, -1.0, 1.0, 0.0); for (k = 0; k < {N}; k++) P(pi_passo(&e, erros_pi[k])); }}",
     f"  for (tipo = PWM_SERRA; tipo <= PWM_TRIANGULAR; tipo++) {{ PwmEstado e; pwm_iniciar(&e, 5000.0, tipo);"

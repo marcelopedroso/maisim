@@ -29,6 +29,7 @@
 
 /* o alvo não tem Scope nem rede entre controladores */
 void maisim_scope(const char *n, maisim_real v) { (void)n; (void)v; }
+void maisim_padrao(int u, int o, maisim_real v) { (void)u; (void)o; (void)v; }   /* o pulso do pwm_pulsos: aqui não há (o PWM é da planta) */
 void maisim_envia(const char *a, const char *b, maisim_real v) { (void)a; (void)b; (void)v; }
 int maisim_recebeu(const char *a, const char *b, maisim_real *v) { (void)a; (void)b; (void)v; return 0; }
 

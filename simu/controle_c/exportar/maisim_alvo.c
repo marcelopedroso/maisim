@@ -16,3 +16,8 @@ int maisim_recebeu(const char *de, const char *chave, maisim_real *valor) {
     (void)de; (void)chave; (void)valor;    /* TODO: 1 e o valor se chegou nesta amostra */
     return 0;
 }
+
+/* o pulso dentro da amostra (o pwm_pulsos do SIL): no alvo, quem gera o pulso é o periférico de PWM, a partir do CMPA */
+void maisim_padrao(int u, int o, maisim_real valor) {
+    (void)u; (void)o; (void)valor;
+}
