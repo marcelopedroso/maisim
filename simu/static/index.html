@@ -194,11 +194,13 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   #ctl-lado h4 small { text-transform:none; letter-spacing:0; font-weight:400; font-family:ui-monospace, monospace; }
   .ctl-ativo { display:flex; gap:6px; align-items:center; font-weight:600; color:var(--acento); margin-bottom:6px; }
   .ctl-c { display:flex; flex-wrap:wrap; gap:4px 6px; align-items:center; margin:-2px 0 8px; font-size:12px; }
-  #ctl-ling { display:inline-flex; border:1px solid var(--borda); border-radius:7px; overflow:hidden; }
-  #ctl-ling button { border:0; border-radius:0; padding:2px 10px; font-size:12px; background:none; color:var(--sutil); }
-  #ctl-ling button + button { border-left:1px solid var(--borda); }
-  #ctl-ling button.ativo { background:var(--acento); color:#fff; font-weight:600; }
-  #ctl-ling button:disabled { opacity:.45; cursor:default; }
+  .ctl-ativo { flex-wrap:wrap; } .ctl-ativo span { white-space:nowrap; }
+  #ctl-roda { flex:1 1 150px; min-width:150px; max-width:240px; font-weight:600; }
+  #ctl-roda.off { color:var(--sutil); font-weight:400; }
+  .ctl-no .ctl-roda-selo, .ctl-outra .ctl-roda-selo { flex:none; padding:0 5px; border-radius:6px; font:600 10.5px system-ui, sans-serif; background:var(--acento); color:#fff; }
+  .ctl-outra { width:100%; text-align:left; background:none; border:0; border-radius:0; display:flex; align-items:center; gap:5px; padding:6px 4px 3px; margin-top:8px; border-top:1px dashed var(--borda); cursor:pointer; font:500 12px ui-monospace, monospace; color:var(--sutil); }
+  .ctl-outra:hover { background:var(--acento-suave); color:var(--texto); } .ctl-outra svg { width:14px; height:14px; flex:none; }
+  .ctl-outra small { color:var(--fraco); font:400 10.5px system-ui, sans-serif; }
   #painel-controle:not(.visao-c) :is(#ctl-c-prec, #ctl-c-exportar) { display:none; }   /* o exportar e a precisão são do C */
   .ctl-c-sinc { display:flex; gap:3px; align-items:center; font-weight:600; }
   #ctl-c-selo { font-size:11.5px; font-weight:600; } #ctl-c-selo.ok { color:var(--ok, #15803d); } #ctl-c-selo.fora { color:var(--aviso, #b45309); }
@@ -819,9 +821,9 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
 </div></div><div id="col-ctl" class="col-doca"><div class="div-col" id="div-ctl" title="arraste para mudar a largura do Controle" data-tr-title="simu.t_div_ctl"></div><div class="col-corpo">
   <div id="painel-controle" data-msg="nenhum circuito aberto: abra um ou comece um novo para escrever o controle" data-tr-msg="ctl.sem_circuito">
     <div id="ctl-lado">
-      <label class="ctl-ativo" data-tr="ctl.ativo" title="a simulação chama o seu passo() a cada Ts e escreve as atuações" data-tr-title="ctl.t_ativo"><input type="checkbox" id="ctl-ativo"> Usar este controle ao simular</label>
-      <div id="ctl-c" class="ctl-c"><input type="checkbox" id="ctl-c-usar" hidden>
-        <span id="ctl-ling" role="tablist" aria-label="a linguagem do controle: a que roda e a que o painel mostra" data-tr-aria="ctl.a_ling"><button data-ling="py" role="tab" title="o controle.py roda na simulação (e o painel mostra os .py)" data-tr-title="ctl.t_ling_py" data-tr="ctl.ling_py">Python</button><button data-ling="c" role="tab" title="o controle.c roda na simulação, compilado em C (o SIL), como ficaria num DSP; o painel mostra os arquivos C" data-tr-title="ctl.t_ling_c" data-tr="ctl.ling_c">C</button></span>
+      <label class="ctl-ativo" title="o dispositivo digital (DSP, microcontrolador, FPGA) ligado ao circuito: lê as medidas e escreve as atuações; pode ser só acionamento ou controle em malha fechada. Aqui, o que a simulação roda: nada (o circuito sozinho), o controle.py ou o controle.c (compilado em C, o SIL). Ver e editar um arquivo não muda isso: clique nele na árvore" data-tr-title="ctl.t_roda"><span data-tr="ctl.roda">Controlador digital</span>
+        <select id="ctl-roda"><option value="off" data-tr="ctl.roda_off">Desligado</option><option value="py" data-tr="ctl.roda_py">Python — controle.py</option><option value="c" data-tr="ctl.roda_c">C — controle.c</option></select></label>
+      <div id="ctl-c" class="ctl-c">
         <select id="ctl-c-prec" title="a precisão do C: double (como o Python) ou float (precisão simples, como o double do C28x)" data-tr-title="ctl.t_c_prec"><option value="double">double</option><option value="float">float</option></select>
         <button id="ctl-c-ia" title="pede à IA do MaiSim o mesmo controle na outra linguagem (com as mesmas contas na mesma ordem); você vê a diferença e aplica" data-tr-title="ctl.t_c_ia"></button>
         <label class="ctl-c-sinc" title="Código ⇄: com a chave ligada, ao guardar uma mudança no controle.py ou no controle.c, o MaiSim pede à IA a outra linguagem, aplica e compara as duas" data-tr-title="ctl.t_c_sinc"><input type="checkbox" id="ctl-c-sinc"> <span data-tr="ctl.c_sinc">Código ⇄</span></label>

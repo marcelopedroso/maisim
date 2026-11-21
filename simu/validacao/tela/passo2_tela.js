@@ -15,7 +15,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   await pg.waitForFunction(() => dados && dados.editor, null, { timeout: 30000 });
   await pg.evaluate(() => { sim.par.dt = "1e-6"; sim.par.tfim = "0.04"; sim.par.nome = "exemplo_tela"; sim.par.amostras = "4000"; });
   await pg.click("#bt-ctl"); await pg.waitForFunction(() => ctl.carregado && ctl.editor, null, { timeout: 30000 }); await pg.waitForTimeout(400);
-  const p = await pg.evaluate(() => ({ ativo: $("ctl-ativo").checked, atraso: $("ctl-atraso").value, info: (($("ctl-atraso-i").getAttribute("title") || $("ctl-atraso-i").dataset.dica || "") + "\n" + $("ctl-atraso-info").innerText),
+  const p = await pg.evaluate(() => ({ ativo: $("ctl-roda").value !== "off", atraso: $("ctl-atraso").value, info: (($("ctl-atraso-i").getAttribute("title") || $("ctl-atraso-i").dataset.dica || "") + "\n" + $("ctl-atraso-info").innerText),
     acs: [...document.querySelectorAll("#ctl-ac .ctl-ac")].map((r) => `${r.querySelector('[data-k="t"]').value} ${r.querySelector('[data-k="alvo"]').value} ${r.querySelector('[data-k="valor"]').value}`),
     alvos: [...document.querySelectorAll('#ctl-ac .ctl-ac:first-child [data-k="alvo"] option')].map((o) => o.value), linha1: codigoAtual().split("\n")[0] }));
   ok(p.ativo && p.atraso === "amostra" && /100 × Δt/.test(p.info), `exemplo aberto com o controle: atraso "${p.atraso}" · ${p.info}`);

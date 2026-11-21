@@ -59,12 +59,15 @@ const codigoAtual = () => textoDe("controle.py");
 const ehC = (a) => /\.[ch]$/.test(a);
 const raizC = (a) => a.replace(/\.py$/, ".c");        // o arquivo em C de um controlador: o nome do .py dele (aquisicao.py → aquisicao.c)
 const lingDe = (a) => ehC(a) ? "c" : "python";
-// a visão (Python | C): a linguagem que roda e a que o painel mostra (as abas, a árvore dos arquivos); a comparação usa as duas
-const visaoC = () => $("ctl-c-usar").checked;
+// o que roda e o que se vê (Marcelo, 21/11: "como fica definido qual controle estou usando? faz um dropdown"): o dropdown
+// "Controlador digital" diz o que a simulação roda (Desligado | Python | C: o ativo e o c.usar guardados); a visão é a
+// linguagem que o painel mostra (as abas, a árvore, o "+ Arquivo") e segue o arquivo aberto: abrir um .c na árvore mostra
+// o C sem mudar o que roda. Escolher Python ou C no dropdown leva a visão junto
+const rodaDe = (c) => !c.ativo ? "off" : c.c && c.c.usar ? "c" : "py";
+const visaoC = () => !!ctl.verC;
 function marcaVisao() {
   const c = visaoC();
   $("painel-controle").classList.toggle("visao-c", c);
-  document.querySelectorAll("#ctl-ling [data-ling]").forEach((b) => { const a = b.dataset.ling === (c ? "c" : "py"); b.classList.toggle("ativo", a); b.setAttribute("aria-selected", String(a)); });
   $("ctl-c-ia").textContent = tr(c ? "ctl.c_ia_c" : "ctl.c_ia_py");
   marcaSelo();
   if (ctl.lista.length && ehC(ctl.arq) !== c && !ctl.tabela) {   // o arquivo aberto é da outra linguagem (a página abriu já na visão C): troca
@@ -72,13 +75,17 @@ function marcaVisao() {
     if (alvo) mostraArquivo(alvo, false);
   }
 }
-function poeVisao(c) {                                   // o seletor: troca a linguagem, guarda (o change da coluna) e mostra o arquivo dela
-  if (travado() || c === visaoC()) return;
-  $("ctl-c-usar").checked = c; marcaVisao();
-  $("ctl-c-usar").dispatchEvent(new Event("change", { bubbles: true }));
-  mostraArquivo(c ? "controle.c" : "controle.py", false);
+function poeVisao(c) {                                   // a linguagem à vista (não muda o que roda) e o arquivo principal dela
+  if (c === visaoC() || (c && !ctl.lista.includes("controle.c") && travado())) return;
+  ctl.verC = c; marcaVisao();
+  if (c && !ctl.lista.includes("controle.c")) abreC();   // ainda sem o controle.c: cria do modelo (e guarda)
+  else mostraArquivo(c ? "controle.c" : "controle.py", false);
   desenhaControladores(); desenhaAbas();
   if (ctl.tabela === "diag") desenhaDiagrama();
+}
+function marcaRoda() {                                   // o dropdown mostra o que está guardado
+  const v = ctl.dados ? rodaDe(ctl.dados.controle) : "off";
+  $("ctl-roda").value = v; $("ctl-roda").classList.toggle("off", v === "off");
 }
 const travado = () => document.body.classList.contains("sim-rodando");
 function arquivosDoEditor() { const o = {}; for (const a of ctl.lista) if (a !== "controle.py" && !ehC(a)) o[a] = textoDe(a); return o; }
@@ -118,6 +125,7 @@ function mostraArquivo(arq, vaiAoCodigo = true) {        // troca a aba (o que e
       if (ctl.vistas[arq]) ctl.editor.restoreViewState(ctl.vistas[arq]); }
   } else if (ctl.texto && arq !== ctl.arq) { ctl.textos[ctl.arq] = ctl.texto.value; ctl.texto.value = ctl.textos[arq] ?? ""; }
   ctl.arq = arq;
+  if (ehC(arq) !== visaoC()) { ctl.verC = ehC(arq); marcaVisao(); if (ctl.dados) desenhaControladores(); if (ctl.tabela === "diag") desenhaDiagrama(); }   // a visão segue o arquivo aberto
   desenhaAbas(); desenhaEntradas();
   if (ctl.dados) marcaErros(ctl.dados.erros, ctl.dados.conferencia, false);
 }
@@ -132,7 +140,7 @@ function fechaAba(a) {
   if (a === "controle.py" || !ctl.lista.includes(a)) return;
   const abertas = abasAbertas(), i = abertas.indexOf(a);
   ctl.fechadas.add(a);
-  if (ctl.arq === a) mostraArquivo(abertas[i - 1] || abertas[i + 1] || "controle.py", false); else desenhaAbas();
+  if (ctl.arq === a) mostraArquivo(abertas[i - 1] || abertas[i + 1] || (ehC(a) && a !== "controle.c" && ctl.lista.includes("controle.c") ? "controle.c" : "controle.py"), false); else desenhaAbas();
 }
 function desenhaAbas() {
   const d = ctl.dados || {}, comErro = new Set((d.erros || []).map(arquivoDe)), comAviso = new Set((d.conferencia || []).map(arquivoDe));
@@ -465,8 +473,8 @@ async function criaEditor(c) {
 function desenhaLigacoes() {
   const d = ctl.dados; if (!d) return;
   const c = d.controle, dt = Number(sim.par.dt) || 1e-6;
-  $("ctl-ativo").checked = !!c.ativo;
-  $("ctl-c-usar").checked = !!(c.c && c.c.usar); $("ctl-c-prec").value = (c.c && c.c.precisao) || "double";
+  if (ctl.verC == null) ctl.verC = !!(c.c && c.c.usar);   // a visão começa na linguagem guardada (a que roda, ou a última escolhida)
+  marcaRoda(); $("ctl-c-prec").value = (c.c && c.c.precisao) || "double";
   $("ctl-c-sinc").checked = !!(c.c && c.c.sinc_auto); marcaVisao();
   if (document.activeElement !== $("ctl-ts")) $("ctl-ts").value = c.Ts;
   ctl.tsLivre = c.Ts;                                    // o Ts digitado (vale de novo se os registradores do PWM saírem)
@@ -664,6 +672,8 @@ function desenhaControladores() {
       <span class="acoes">${ehC(a) ? "" : `<button class="ctl-mini" data-liga="${escT(a)}" title="${escT(tr("ctl.t_virar_ctl"))}">⤴</button>`}<span class="fecha" data-fecha="${escT(a)}" title="${escT(tr("ctl.t_apagar_arq", { arq: a }))}">×</span></span></div>` +
       ramo(fs, chave, new Set([...anc, a]));
   };
+  // o selo "roda": os controladores da linguagem que a simulação roda (o dropdown); a outra linguagem numa linha no fim
+  const roda = rodaDe(c), selo = (a) => roda === (ehC(a) ? "c" : "py") ? `<small class="ctl-roda-selo" title="${escT(tr("ctl.t_roda_selo", { arq: a }))}">${escT(tr("ctl.roda_selo"))}</small>` : "";
   const raiz = (a) => {
     mostrados.add(a);
     const deles = cs.map((q, i) => [q, i]).filter(([q]) => arqDe(q) === a);
@@ -673,8 +683,8 @@ function desenhaControladores() {
     // dois controles (Marcelo, 19/10): a seta recolhe os códigos (os módulos embaixo); o +/− mostra ou esconde o cartão
     const bt = corpo ? `<button class="ctl-card-bt" data-card="${escT(a)}" title="${escT(semCartao ? tr("ctl.t_cartao_mostra") : tr("ctl.t_cartao_esconde"))}" aria-expanded="${!semCartao}">${semCartao ? "+" : "−"}</button>` : "";
     if (emC && !ctl.lista.includes(a))                   // um controlador ainda sem o .c dele: um clique cria (o cartão fica: a lista vem dele)
-      return `<div class="ctl-no ctl-falta" data-cria-c="${escT(a)}" title="${escT(tr("ctl.t_c_falta", { arq: a }))}">${seta(a, 0)}${iconeArq(a)}<span class="nome">${escT(a)}</span><small>${escT(tr("ctl.c_falta"))}</small>${bt}</div>${corpo ? `<div class="ctl-sub"${semCartao ? " hidden" : ""}>${corpo}</div>` : ""}`;
-    return `<div class="ctl-no${a === ctl.arq ? " ativo" : ""}${comErro.has(a) ? " com-erro" : ""}" data-abre="${escT(a)}" title="${escT(tr(a === "controle.py" ? "ctl.t_raiz" : ehC(a) ? "ctl.t_raiz_c" : "ctl.t_raiz_renomear", { arq: a }))}">${seta(a, fs.length)}${iconeArq(a)}<span class="nome">${escT(a)}</span>${bt}${a === "controle.py" || a === "controle.c" ? ""
+      return `<div class="ctl-no ctl-falta" data-cria-c="${escT(a)}" title="${escT(tr("ctl.t_c_falta", { arq: a }))}">${seta(a, 0)}${iconeArq(a)}<span class="nome">${escT(a)}</span>${selo(a)}<small>${escT(tr("ctl.c_falta"))}</small>${bt}</div>${corpo ? `<div class="ctl-sub"${semCartao ? " hidden" : ""}>${corpo}</div>` : ""}`;
+    return `<div class="ctl-no${a === ctl.arq ? " ativo" : ""}${comErro.has(a) ? " com-erro" : ""}" data-abre="${escT(a)}" title="${escT(tr(a === "controle.py" ? "ctl.t_raiz" : ehC(a) ? "ctl.t_raiz_c" : "ctl.t_raiz_renomear", { arq: a }))}">${seta(a, fs.length)}${iconeArq(a)}<span class="nome">${escT(a)}</span>${selo(a)}${bt}${a === "controle.py" || a === "controle.c" ? ""
         : `<span class="fecha" data-fecha="${escT(a)}" title="${escT(tr("ctl.t_apagar_arq", { arq: a }))}">×</span>`}</div>${corpo ? `<div class="ctl-sub"${semCartao ? " hidden" : ""}>${corpo}</div>` : ""}` + ramo(fs, a, new Set([a]));
   };
   let html = ctlsArq.filter((a) => emC || ctl.lista.includes(a)).map(raiz).join("");
@@ -687,6 +697,8 @@ function desenhaControladores() {
     h += soltos.filter((a) => !mostrados.has(a)).map((a) => modulo(a, `~/${a}`, new Set())).join("");   // os de um ciclo
     html += `<details class="ctl-soltos" open><summary title="${escT(tr("ctl.t_soltos"))}">${escT(tr("ctl.soltos", { n: soltos.length }))}</summary>${h}</details>`;
   }
+  const outra = emC ? "controle.py" : "controle.c";        // ver a outra linguagem: um clique (não muda o que roda)
+  html += `<button type="button" class="ctl-outra" data-ver-ling="${emC ? "py" : "c"}" title="${escT(tr(emC ? "ctl.t_ver_py" : "ctl.t_ver_c"))}">${iconeArq(outra)}<span class="nome">${escT(outra)}</span>${selo(outra)}<small>${escT(tr(emC ? "ctl.ver_py" : "ctl.ver_c"))}</small></button>`;
   $("ctl-ctls").innerHTML = html;
   buscaArquivos();
   if (ctl.pick) corpoPicker();
@@ -1418,11 +1430,12 @@ function coleta() {
   const ctls = [...document.querySelectorAll("#ctl-ctls .ctl-ctl")].sort((a, b) => a.dataset.i - b.dataset.i).map((r) => {
     const todas = !!(r.querySelector("[data-todas]") || {}).checked;
     return { nome: r.dataset.nome, arquivo: r.dataset.arquivo, todas, medidas: todas ? [] : marcados(r, "data-med"), atuacoes: marcados(r, "data-atu-ctl"), subcircuitos: marcados(r, "data-sub") }; });
+  const roda = $("ctl-roda").value;                      // Desligado guarda a linguagem que estava (volta nela ao ligar)
   // com os registradores do PWM, o campo mostra o Ts tirado deles: o guardado continua o digitado
-  return { ativo: $("ctl-ativo").checked, Ts: ($("ctl-ts").dataset.pwm === "1" ? ctl.tsLivre : ts) || c.Ts || 1e-4,
+  return { ativo: roda !== "off", Ts: ($("ctl-ts").dataset.pwm === "1" ? ctl.tsLivre : ts) || c.Ts || 1e-4,
     atuacoes: [...document.querySelectorAll("#ctl-atu [data-atu]")].filter((x) => x.checked).map((x) => x.dataset.atu),
     parametros: pars.filter((q) => q.nome), codigo: codigoAtual(), arquivos: arquivosDoEditor(), controladores: ctls, rede: { latencia: latRede },
-    c: { usar: $("ctl-c-usar").checked, precisao: $("ctl-c-prec").value, arquivos: arquivosC(), sinc_auto: $("ctl-c-sinc").checked,
+    c: { usar: roda === "off" ? !!(c.c && c.c.usar) : roda === "c", precisao: $("ctl-c-prec").value, arquivos: arquivosC(), sinc_auto: $("ctl-c-sinc").checked,
       sinc: (c.c && c.c.sinc) || {} },
     atraso: { modo: $("ctl-atraso").value, tempo: lat }, acionamentos: acs };
 }
@@ -1506,7 +1519,7 @@ async function abreControle() {
 }
 async function recarregaControle() {                    // outro circuito (Abrir, Novo): o controle dele
   if (!ctl.carregado) { try { ctl.dados = await api("editor/controle"); if (dados) desenha(); } catch (e) { /* ok */ } return; }
-  try { ctl.dados = await api("editor/controle"); poeArquivos(ctl.dados.controle); desenhaLigacoes(); marcaErros(ctl.dados.erros); estadoCodigo(ctl.dados); saidaControle("");
+  try { ctl.dados = await api("editor/controle"); poeArquivos(ctl.dados.controle); ctl.verC = null; desenhaLigacoes(); marcaErros(ctl.dados.erros); estadoCodigo(ctl.dados); saidaControle("");
     if (dados) desenha(); } catch (e) { /* ok */ }
   if (typeof cc !== "undefined" && cc.aberto) { cc.antes = null; atualizaChat(); }   // a conversa é por circuito
 }
@@ -1615,6 +1628,7 @@ function tagAtuador(g, x, y, nome, centrada = false) {   // centrada: x é o mei
     if (st) { const k = st.dataset.seta; ctl.recolhidos.has(k) ? ctl.recolhidos.delete(k) : ctl.recolhidos.add(k);
       try { localStorage.setItem("maisim-simu-ctl-recolhidos", JSON.stringify([...ctl.recolhidos])); } catch (e) { /* ok */ } desenhaControladores(); return; }
     const f = ev.target.closest("#ctl-ctls [data-fecha]"); if (f) { apagaArquivo(f.dataset.fecha); return; }
+    const outra = ev.target.closest("#ctl-ctls [data-ver-ling]"); if (outra) { poeVisao(outra.dataset.verLing === "c"); return; }
     const falta = ev.target.closest("#ctl-ctls [data-cria-c]"); if (falta) { criaRaizC(falta.dataset.criaC); return; }
     const vai = ev.target.closest("#ctl-busca-res [data-vai]"); if (vai) { const i = vai.dataset.vai.lastIndexOf(":"); vaiParaLinha(vai.dataset.vai.slice(0, i), +vai.dataset.vai.slice(i + 1)); return; }
     const no_ = ev.target.closest("#ctl-ctls .ctl-no, #ctl-busca-res .ctl-no"); if (no_ && !ev.target.closest("[data-liga], [data-desliga]")) { mostraArquivo(no_.dataset.abre); return; }   // i18n-ok: um seletor
@@ -1664,8 +1678,11 @@ function tagAtuador(g, x, y, nome, centrada = false) {   // centrada: x é o mei
   $("ctl-quebra").onclick = () => poeQuebra(!ctl.quebra);
   $("ctl-quebra").classList.toggle("ativo", ctl.quebra); $("ctl-quebra").setAttribute("aria-pressed", String(ctl.quebra));
   $("ctl-testar").onclick = testaControle;
-  $("ctl-c-usar").addEventListener("change", () => { if ($("ctl-c-usar").checked) abreC(false); });   // guarda: o change da coluna
-  document.querySelectorAll("#ctl-ling [data-ling]").forEach((b) => { b.onclick = () => { if (!b.disabled) poeVisao(b.dataset.ling === "c"); }; });
+  $("ctl-roda").addEventListener("change", () => {        // guarda: o change da coluna (depois deste); a visão vai junto
+    const v = $("ctl-roda").value; $("ctl-roda").classList.toggle("off", v === "off");
+    if (v === "c" && !ctl.lista.includes("controle.c")) abreC(false);
+    if (v !== "off") poeVisao(v === "c");
+  });
   $("ctl-c-comparar").onclick = comparaPyC;
   $("ctl-c-ia").onclick = () => converteIA(visaoC());
   $("ctl-c-exportar").onclick = exportaC;
