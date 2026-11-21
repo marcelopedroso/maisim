@@ -67,5 +67,10 @@
  "controladores": [],
  "rede": {
   "latencia": 0.0
+ },
+ "c": {
+  "usar": false,
+  "precisao": "double",
+  "arquivos": {}
  }
 }
