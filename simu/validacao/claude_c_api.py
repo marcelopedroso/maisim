@@ -48,12 +48,24 @@ def pede(controle_c, texto="Converta o controle.py para C, no controle.c."):
     return e
 
 
+# o circuito do exemplo do buck com o controle de antes (a portadora comparada no controle.py, só em Python, com o
+# parâmetro fsw): é sobre ele que este teste pede o C à IA (o exemplo de hoje já vem em C, com os registradores do PWM)
+SIMPLES = json.loads((RAIZ / "simu/validacao/dados/controle_pwm_simples.controle.json").read_text())
+
+
+def abre_buck():
+    r = api("editor/abrir", {"arq": "exemplos/exemplo_controle_pwm.ipes", "modo": "descartar"})
+    if "ERRO" not in r:
+        api("editor/controle", {"controle": SIMPLES})
+    return r
+
+
 # o C do exemplo do buck (o mesmo do controle_c_api.py)
 src = (RAIZ / "simu/validacao/controle_c_api.py").read_text()
 CONTROLE_C = src[src.index('CONTROLE_C = r"""') + len('CONTROLE_C = r"""'):]
 CONTROLE_C = CONTROLE_C[:CONTROLE_C.index('"""')]
 try:
-    r = api("editor/abrir", {"arq": "exemplos/exemplo_controle_pwm.ipes", "modo": "descartar"})
+    r = abre_buck()
     ok("ERRO" not in r, "abre o exemplo do buck com PWM no controle")
     api("claude/nova", {})
     e = pede(CONTROLE_C)
@@ -80,7 +92,7 @@ try:
     ok(any(x.get("arquivo") == "controle.c" and x.get("linha") == 38 for x in erros), f"a proposta com C errado traz o erro na linha 38: {erros[:1]}")
     # a IA sabe a linguagem do painel (o seletor Python | C): o CONTEXTO.md diz qual roda
     ok("Linguagem do controle: Python" in resp, f"com o painel em Python, o CONTEXTO.md diz Python: {resp[-80:]}")
-    api("editor/abrir", {"arq": "exemplos/exemplo_controle_pwm.ipes", "modo": "descartar"})
+    abre_buck()
     c = api("editor/controle")["controle"]
     c["c"] = {**c["c"], "usar": True}                    # o painel em C, ainda sem controle.c no circuito
     api("editor/controle", {"controle": c})
@@ -107,7 +119,7 @@ try:
     ok(any(x.get("arquivo") == "pwm.c" for x in erros6), f"um erro no módulo volta com o arquivo dele (pwm.c): {erros6[:1]}")
     (CONF / "falso_c_extra.json").unlink()
     # com a lista de controladores (a aquisição lê o i_L; o controle, não), a proposta compila cada um com os índices dele
-    api("editor/abrir", {"arq": "exemplos/exemplo_controle_pwm.ipes", "modo": "descartar"})
+    abre_buck()
     c = api("editor/controle")["controle"]
     c["codigo"] = 'def passo(t, m, p, e):\n    return {"g": 0.0}\n'   # os cartões seguem o código: este controle.py não lê o i_L
     c["arquivos"] = {**c.get("arquivos", {}), "aquisicao.py": "def passo(t, m, p, e):\n    pass\n"}
@@ -126,7 +138,7 @@ try:
     ok(any(x.get("arquivo") == "controle.c" and "M_i_L" in x.get("msg", "") for x in erros7) and not any(x.get("arquivo") == "aquisicao.c" for x in erros7),
        f"com controladores, o C da proposta compilado com os índices de cada um (o controle não lê o i_L): {erros7[:1]}")
     # o modelo intocado de um circuito sem C não vira proposta
-    api("editor/abrir", {"arq": "exemplos/exemplo_controle_pwm.ipes", "modo": "descartar"})
+    abre_buck()
     modelo = (RAIZ / "simu/controle_c/controle_modelo.c").read_text()
     e3 = pede(modelo, "explique o controle")
     p3 = e3.get("proposta") or {}

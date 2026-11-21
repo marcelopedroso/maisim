@@ -15,6 +15,9 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   await pg.waitForFunction(() => dados && dados.editor, null, { timeout: 30000 }); await pg.waitForTimeout(300);
   const a = await pg.evaluate(() => ({ dt: sim.par.dt, tfim: sim.par.tfim, msg: $("msg").textContent }));
   ok(Number(a.dt) === 1e-6 && Number(a.tfim) === 0.01 && /Δt = 1 µs/.test(a.msg), `ao abrir, Δt e tempo final vêm do arquivo: dt ${a.dt}, tfim ${a.tfim} · "${a.msg}"`);
+  // o controle de antes do exemplo (a portadora comparada no controle.py, com o Ts digitado): é ele que este teste confere
+  await pg.evaluate(async (c) => { await api("editor/controle", { controle: c }); if (typeof ctl !== "undefined" && ctl.carregado) await recarregaControle(); },
+    JSON.parse(require("fs").readFileSync(require("path").join(__dirname, "..", "dados", "controle_pwm_simples.controle.json"), "utf8")));
   await pg.click("#bt-ctl"); await pg.waitForFunction(() => ctl.carregado && ctl.editor, null, { timeout: 30000 }); await pg.waitForTimeout(400);
   const p = await pg.evaluate(() => ({ atu: [...document.querySelectorAll("#ctl-atu .ctl-item")].map((x) => x.textContent.replace(/\s+/g, " ").trim()),
     ts: (($("ctl-ts-i").getAttribute("title") || $("ctl-ts-i").dataset.dica || "") + "\n" + $("ctl-ts-info").innerText), at: (($("ctl-atraso-i").getAttribute("title") || $("ctl-atraso-i").dataset.dica || "") + "\n" + $("ctl-atraso-info").innerText), alertas: document.querySelectorAll("#ctl-lado .ctl-alerta, .ctl-lado .ctl-alerta, .ctl-alerta").length }));

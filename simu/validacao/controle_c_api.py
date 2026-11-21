@@ -81,7 +81,7 @@ void maisim_passo(maisim_real t, const maisim_real m[MAISIM_N_M], const maisim_r
 }
 """
 
-ex = json.loads((RAIZ / "exemplos/exemplo_controle_pwm.controle.json").read_text())
+ex = json.loads((RAIZ / "simu/validacao/dados/controle_pwm_simples.controle.json").read_text())
 
 
 def roda(nome):

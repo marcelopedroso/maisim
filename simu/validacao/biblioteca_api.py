@@ -82,7 +82,7 @@ void maisim_passo(maisim_real t, const maisim_real m[MAISIM_N_M], const maisim_r
     maisim_scope("portadora", e->pwm.portadora);
 }
 '''
-ex = json.loads((RAIZ / "exemplos/exemplo_controle_pwm.controle.json").read_text())
+ex = json.loads((RAIZ / "simu/validacao/dados/controle_pwm_simples.controle.json").read_text())
 try:
     b = api("editor/controle/biblioteca").get("modulos") or {}
     ok(sorted(b) == ["passa_baixa", "pi", "pll", "pwm", "rampa"] and all(set(b[m]["py"]) == {f"{m}.py"} and set(b[m]["c"]) == {f"{m}.h", f"{m}.c"} for m in b)

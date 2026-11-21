@@ -152,6 +152,9 @@ const BUCK = "exemplos/exemplo_buck.ipes";
       else if (await pg.evaluate(() => /exemplo_controle_pwm/.test((dados && dados.arq) || "") && dados.editor && document.querySelectorAll("#svg .el").length >= 10)) break;
       await pg.waitForTimeout(500); }
     await pg.waitForFunction(() => dados && dados.editor, null, { timeout: 30000 });
+    // o controle de antes do exemplo (a portadora comparada no controle.py, com o Ts digitado): é ele que este teste confere
+    await pg.evaluate(async (c) => { await api("editor/controle", { controle: c }); if (typeof ctl !== "undefined" && ctl.carregado) await recarregaControle(); },
+      JSON.parse(require("fs").readFileSync(require("path").join(__dirname, "..", "dados", "controle_pwm_simples.controle.json"), "utf8")));
     if (!(await pg.evaluate(() => document.body.classList.contains("com-controle") && ctl.carregado))) await pg.click("#bt-ctl");
     await pg.waitForFunction(() => ctl.carregado && ctl.dados, null, { timeout: 30000 }); await pg.waitForTimeout(400);
     tsAntes = (await pg.evaluate(() => api("editor/controle"))).controle.Ts;

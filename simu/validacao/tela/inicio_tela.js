@@ -51,12 +51,12 @@ const espera = (ms) => new Promise((r) => setTimeout(r, ms));
       visTag: [...document.querySelectorAll("#exemplos .ex")].filter((a) => a.getClientRects().length && a.querySelector(".ex-tag")).length }));
     let e0 = await etq();
     const srvDig = await pg.evaluate(async () => (await (await fetch("/maisim/simu/modelos")).json()).filter((m) => m.controlador).map((m) => m.arq.replace(/.*exemplo_|\.ipes$/g, "")).sort());
-    ok(e0.com.join() === "buck_pwm_interrupcao,controle_pi,controle_pwm,motor_cc,pmsm" && e0.com.join() === srvDig.join() && e0.vis === e0.n
-       && e0.bts.join("|") === `Todos (${e0.n})*|Controlador digital (5)|Só circuito e blocos (${e0.n - 5})`,
+    ok(e0.com.join() === "controle_pi,controle_pwm,motor_cc,pmsm" && e0.com.join() === srvDig.join() && e0.vis === e0.n
+       && e0.bts.join("|") === `Todos (${e0.n})*|Controlador digital (4)|Só circuito e blocos (${e0.n - 4})`,
       `a etiqueta "controlador digital" nos exemplos com o código ligado: ${e0.com.join(", ")} · o filtro: ${e0.bts.join(" | ")}`);
     await pg.click('#exemplos .ex-filtro [data-f="digital"]'); await pg.waitForTimeout(100); const eD = await etq();
     await pg.click('#exemplos .ex-filtro [data-f="blocos"]'); await pg.waitForTimeout(100); const eB = await etq();
-    ok(eD.vis === 5 && eD.visTag === 5 && eB.vis === e0.n - 5 && eB.visTag === 0 && /blocos \(\d+\)\*$/.test(eB.bts[2]),
+    ok(eD.vis === 4 && eD.visTag === 4 && eB.vis === e0.n - 4 && eB.visTag === 0 && /blocos \(\d+\)\*$/.test(eB.bts[2]),
       `o filtro: Controlador digital mostra ${eD.vis} (todos com a etiqueta); Só circuito e blocos mostra ${eB.vis} (nenhum com ela)`);
     await pg.click('#exemplos .ex-filtro [data-f="todos"]'); await pg.waitForTimeout(100);
     await pg.click("#cartao-exemplos"); await pg.waitForTimeout(150);

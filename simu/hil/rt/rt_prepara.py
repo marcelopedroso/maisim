@@ -14,7 +14,7 @@ import sinais_c  # noqa: E402
 
 saida = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else "build")
 os.makedirs(saida, exist_ok=True)
-ex = json.load(open(os.path.join(RAIZ, "exemplos/exemplo_controle_pwm.controle.json"), encoding="utf-8"))
+ex = json.load(open(os.path.join(RAIZ, "simu/validacao/dados/controle_pwm_simples.controle.json"), encoding="utf-8"))
 controle = re.search(r'CONTROLE_C = r"""(.*?)"""', open(os.path.join(RAIZ, "simu/validacao/controle_c_api.py"), encoding="utf-8").read(), re.S).group(1)
 p = {x["nome"]: float(x["valor"]) for x in ex["parametros"]} | {"Ts": float(ex["Ts"])}
 sinais = {"m": ["i_L"], "p": list(p), "u": ["g"]}

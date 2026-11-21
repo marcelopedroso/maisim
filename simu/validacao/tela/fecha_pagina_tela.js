@@ -52,7 +52,7 @@ const lanca = () => { const p = spawn("python3", ["app/lancador.py", "--abrir"],
     // no ar; a rodada é parada à mão no fim
     const ex = path.join(T, "d", "circuitos"); fs.mkdirSync(ex, { recursive: true });
     for (const f of ["exemplo_controle_pwm.ipes", "exemplo_controle_pwm.aparencia.json"]) fs.copyFileSync(path.join(RAIZ, "exemplos", f), path.join(ex, f));
-    const ctl = JSON.parse(fs.readFileSync(path.join(RAIZ, "exemplos", "exemplo_controle_pwm.controle.json"), "utf8"));
+    const ctl = JSON.parse(fs.readFileSync(path.join(RAIZ, "simu", "validacao", "dados", "controle_pwm_simples.controle.json"), "utf8"));   // o controle de antes (o Ts digitado: 1e-7 deixa a rodada longa)
     fs.writeFileSync(path.join(ex, "exemplo_controle_pwm.controle.json"), JSON.stringify({ ...ctl, Ts: 1e-7 }));
     let r = await json(URL0 + "/maisim/simu/editor/abrir", { arq: path.join(ex, "exemplo_controle_pwm.ipes"), modo: "descartar" });
     ok(!r.erro, `abre a cópia do exemplo (${r.erro || "ok"})`);
