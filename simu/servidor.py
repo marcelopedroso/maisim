@@ -1811,7 +1811,18 @@ def controle_do_arquivo(arq_ipes):
             d["codigo"] = troca("controle.py", d["codigo"])
         if isinstance(d.get("arquivos"), dict):
             d["arquivos"] = {k: troca(k, v) for k, v in d["arquivos"].items()}
+        cc = d.get("c")                                  # os .c/.h do exemplo: a mesma regra (o código igual, só os comentários mudam)
+        if isinstance(cc, dict) and isinstance(cc.get("arquivos"), dict):
+            troca_c = lambda arq, orig: cod[arq] if isinstance(orig, str) and isinstance(cod.get(arq), str) and \
+                sem_comentario_c(orig) == sem_comentario_c(cod[arq]) else orig
+            d["c"] = {**cc, "arquivos": {k: troca_c(k, v) for k, v in cc["arquivos"].items()}}
     return completa_controle(d)
+
+
+def sem_comentario_c(txt):
+    """O C sem os comentários (/* … */ e // …) e sem os espaços: para ver se a tradução de um exemplo é o mesmo código."""
+    sem = re.sub(r"//[^\n]*", "", re.sub(r"/\*.*?\*/", "", txt, flags=re.S))
+    return re.sub(r"\s+", "", sem)
 
 
 # Vários controladores (passo 1 do controle distribuído): além do controle.py, outros arquivos .py ("arquivos"); cada

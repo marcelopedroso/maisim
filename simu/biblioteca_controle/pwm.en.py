@@ -41,15 +41,15 @@ def passo(estado, t, d):
 
 def iniciar_registradores(p):
     tbprd = float(p["TBPRD"])
-    modo = int(p.get("CTRMODE", 2))
-    intsel = int(p.get("INTSEL", 1))
-    e = {"tbprd": tbprd, "modo": modo, "shdw": int(p.get("SHDWAMODE", 0)), "db": float(p.get("DB", 0.0)),
+    modo = int(p["CTRMODE"]) if "CTRMODE" in p else 2
+    intsel = int(p["INTSEL"]) if "INTSEL" in p else 1
+    e = {"tbprd": tbprd, "modo": modo, "shdw": int(p["SHDWAMODE"]) if "SHDWAMODE" in p else 0, "db": float(p["DB"]) if "DB" in p else 0.0,
          "periodo": 2.0 * tbprd if modo == 2 else tbprd + 1.0,
          "cps": float(p["dt"]) * float(p["f_clk"]),               # counts per simulation step
          "dt": float(p["dt"]), "n": max(1, int(math.floor(float(p["Ts"]) / float(p["dt"]) + 0.5))),
          "cmpa": 0.0, "sombra": [], "bruto": 0, "borda": -1e300, "contador": 0.0}
     # the counter starts so that the interrupt event falls at t = k·Ts (at PRD, the counter advanced by TBPRD)
-    e["fase"] = float(p.get("TBPHS", 0.0)) + (tbprd if intsel == 2 else 0.0)
+    e["fase"] = (float(p["TBPHS"]) if "TBPHS" in p else 0.0) + (tbprd if intsel == 2 else 0.0)
     return e
 
 
