@@ -41,7 +41,7 @@ print(f"fumaça: o PDF do Figuras ({nomes[0]}, {len(pdf)} bytes)", flush=True)
 src = open(RAIZ + "/simu/validacao/controle_c_api.py", encoding="utf-8").read()
 cod = src[src.index('CONTROLE_C = r"""') + len('CONTROLE_C = r"""'):]
 cod = cod[:cod.index('"""')]
-ex = json.load(open(RAIZ + "/exemplos/exemplo_controle_pwm.controle.json", encoding="utf-8"))
+ex = json.load(open(RAIZ + "/simu/validacao/dados/controle_pwm_simples.controle.json", encoding="utf-8"))   # o controle para o qual esse controle.c foi escrito (o fsw)
 api("/maisim/simu/editor/abrir", {"arq": "exemplos/exemplo_controle_pwm.ipes", "modo": "descartar"})
 api("/maisim/simu/editor/controle", {"controle": {**ex, "c": {"usar": True, "precisao": "double", "arquivos": {"controle.c": cod}}}})
 j = espera(api("/maisim/simu/editor/rodar", {"dt": "1e-06", "tfim": "0.002", "nome": "fumaca_c", "amostras": "500"}))
