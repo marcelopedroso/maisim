@@ -7,6 +7,8 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   const pg = await ctx.newPage(); await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */ const erros = []; pg.on("pageerror", (e) => erros.push(e.message));
   await pg.goto("http://localhost:7201/maisim/simu/");
   await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
+  // o cadeado começa fechado: o editor com o mesmo circuito da tela (com outro, o painel do controle fica coberto)
+  await pg.evaluate(async () => { await api("editor/abrir", { arq: $("sel-modelo").value, modo: "descartar" }); await confereControleDoCircuito(); });
   await pg.click("#bt-ctl"); await pg.waitForFunction(() => ctl.carregado, null, { timeout: 30000 });
   const [guia] = await Promise.all([ctx.waitForEvent("page"), pg.click("#ctl-guia")]);
   await guia.waitForFunction(() => document.querySelectorAll("#guia h2").length > 3, null, { timeout: 20000 });

@@ -693,7 +693,7 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   body.sem-circuito #vazio { display:flex; }
   /* e o controle fechado também: sem circuito, nada a controlar (o código escrito ali se perderia ao abrir outro) */
   /* o cadeado fechado com outro circuito (ou nenhum) na edição: o controle à vista não seria o deste circuito */
-  #ctl-de-outro { display:none; position:absolute; inset:0; z-index:6; align-items:center; justify-content:center; text-align:center; padding:20px;
+  #ctl-de-outro { display:none; position:absolute; inset:0 0 0 5px; z-index:6;   /* os 5 px da esquerda: a divisória da coluna continua arrastável */ align-items:center; justify-content:center; text-align:center; padding:20px;
     background:var(--cartao); color:var(--sutil); font-size:13px; line-height:1.5; }
   #ctl-de-outro > div { max-width:420px; } #ctl-de-outro button { margin-top:12px; }
   body.ctl-de-outro:not(.sem-circuito) #ctl-de-outro { display:flex; }

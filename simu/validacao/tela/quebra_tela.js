@@ -10,6 +10,8 @@ const URL = "http://localhost:7200/maisim/simu/?modelo=" + encodeURIComponent(re
   const abre = async () => {
     await pg.goto(URL);
     await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
+    // o cadeado começa fechado: o editor com o mesmo circuito da tela (com outro, o painel do controle fica coberto)
+    await pg.evaluate(async () => { await api("editor/abrir", { arq: $("sel-modelo").value, modo: "descartar" }); await confereControleDoCircuito(); });
     await pg.click("#bt-ctl"); await pg.waitForFunction(() => ctl.carregado && ctl.editor, null, { timeout: 30000 }); await pg.waitForTimeout(400);
   };
   const estado = () => pg.evaluate(() => { const bt = $("ctl-quebra"), ed = ctl.editor, L = ed.getLayoutInfo();
@@ -63,6 +65,8 @@ const URL = "http://localhost:7200/maisim/simu/?modelo=" + encodeURIComponent(re
   await p2.goto(URL); await p2.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
   await p2.evaluate(() => { try { localStorage.setItem("maisim-simu-quebra", "1"); } catch (e) {} });
   await p2.reload(); await p2.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
+  // o cadeado começa fechado: o editor com o mesmo circuito da tela (com outro, o painel do controle fica coberto)
+  await p2.evaluate(async () => { await api("editor/abrir", { arq: $("sel-modelo").value, modo: "descartar" }); await confereControleDoCircuito(); });
   await p2.click("#bt-ctl"); await p2.waitForFunction(() => ctl.carregado && ctl.texto, null, { timeout: 40000 });
   const ws = () => p2.evaluate(() => ({ ws: getComputedStyle(ctl.texto).whiteSpace, ativo: $("ctl-quebra").classList.contains("ativo"), cod: ctl.texto.value }));
   const t0 = await ws();
