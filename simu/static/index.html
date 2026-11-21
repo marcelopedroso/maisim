@@ -194,8 +194,8 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   #ctl-lado h4 small { text-transform:none; letter-spacing:0; font-weight:400; font-family:ui-monospace, monospace; }
   .ctl-ativo { display:flex; gap:6px; align-items:center; font-weight:600; color:var(--acento); margin-bottom:6px; }
   .ctl-c { display:flex; flex-wrap:wrap; gap:4px 6px; align-items:center; margin:-2px 0 8px; font-size:12px; }
-  .ctl-ativo span { white-space:nowrap; }
-  #ctl-roda { min-width:0; flex:1; max-width:220px; font-weight:600; }
+  .ctl-ativo { flex-wrap:wrap; } .ctl-ativo span { white-space:nowrap; }
+  #ctl-roda { flex:1 1 150px; min-width:150px; max-width:240px; font-weight:600; }
   #ctl-roda.off { color:var(--sutil); font-weight:400; }
   .ctl-no .ctl-roda-selo, .ctl-outra .ctl-roda-selo { flex:none; padding:0 5px; border-radius:6px; font:600 10.5px system-ui, sans-serif; background:var(--acento); color:#fff; }
   .ctl-outra { width:100%; text-align:left; background:none; border:0; border-radius:0; display:flex; align-items:center; gap:5px; padding:6px 4px 3px; margin-top:8px; border-top:1px dashed var(--borda); cursor:pointer; font:500 12px ui-monospace, monospace; color:var(--sutil); }
