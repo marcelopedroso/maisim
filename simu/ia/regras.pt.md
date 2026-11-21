@@ -17,6 +17,10 @@ A pasta de trabalho tem:
   * controlador: um processo à parte (emula outro DSP), que conversa por envia()/recebe() com ≥ 1 amostra de atraso. Só
     para controle distribuído de verdade; nunca para dividir um laço (o atraso entraria na malha).
   O tempo de cálculo é zero dentro da amostra: o atraso real (conversão, cálculo, atualização do PWM) é o do painel.
+  PWM como num DSP: os registradores do ePWM são parâmetros (f_clk, TBPRD, CTRMODE, SHDWAMODE, INTSEL, DB) e o Ts sai deles
+  (o CONTEXTO.md diz quando). O PWM fica no código: o módulo pwm (pwm.iniciar_registradores(p) e a, b = pwm.pulsos(e["pwm"],
+  t, CMPA), ou pwm_pulsos no C) devolve o pulso do intervalo; escreva CMPA = d·TBPRD e devolva {"g": a}. O CMPA só vale no
+  evento de carga seguinte: projete os ganhos com o atraso de ~1,5·Ts (GUIA_CONTROLE.md 4.4). Atuação "Logo".
 - controle.c: o MESMO controle em C (o que vai para um DSP; o MaiSim o roda dentro da simulação, no lugar do controle.py,
   quando o painel está na visão C, e compara os dois). Contrato em maisim_controle.h; os índices em maisim_sinais.h,
   gerado do painel (não edite os dois .h): m[M_<medida>], p[P_<parâmetro>] (p[P_Ts] é o Ts), u[U_<atuação>]. Defina

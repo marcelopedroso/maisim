@@ -1983,6 +1983,8 @@ def analisa_modulos(c):
 # interrupção sai deles. Período do PWM: 2·TBPRD/f_clk no sobe-desce (CTRMODE 2), (TBPRD + 1)/f_clk no crescente ou no
 # decrescente (CTRMODE 0 ou 1); a interrupção a cada período (INTSEL 1: CTR = 0; 2: CTR = PRD) ou nos dois (3): o período/2
 REGISTRADORES_PWM = ("f_clk", "TBPRD", "CTRMODE", "SHDWAMODE", "INTSEL", "DB", "TBPHS")
+# no Exportar C, o que o pwm_pulsos do SIL vira no alvo (o CMPA no periférico de PWM)
+CHAVE_PWM_REGS = {"c2000": "exporta.pwm_regs_c2000", "stm32": "exporta.pwm_regs_stm32"}
 
 
 def ts_do_pwm(parametros):
@@ -2145,6 +2147,8 @@ def arquivos_do_alvo(alvo, le, i, m, u, ts, contrato, valores):
         todo_m, todo_u = ("exporta.todo_m", "exporta.todo_u") if alvo == "c2000" else ("exporta.todo_m_stm32", "exporta.todo_u_stm32")
         leit = "\n".join(f"    m[M_{x}] = 0;   /* TODO: {lingua.tr(todo_m, k=k)} */" for k, x in zip(m, idm)) or "    (void)m;"
         esc = "\n".join(f"    if (u[U_{x}] == u[U_{x}]) {{ /* TODO: {lingua.tr(todo_u, k=k, u='U_' + x)} */ }}" for k, x in zip(u, idu)) or "    (void)u;"
+        if "TBPRD" in valores and "f_clk" in valores:      # o PWM dos registradores: no alvo, o pwm_pulsos vira o CMPA do periférico
+            esc = f"    /* {lingua.tr(CHAVE_PWM_REGS[alvo])} */\n" + esc
         arq = "c2000_isr.c" if alvo == "c2000" else "stm32.c"
         return {f"alvos/{alvo}/{arq}": le(arq).replace("{{LEITURAS}}", leit).replace("{{ESCRITAS}}", esc).replace("{{TS}}", num_txt(ts))}
     if alvo == "simulink":

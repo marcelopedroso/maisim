@@ -17,6 +17,10 @@ The working folder has:
   * controller: a separate process (it emulates another DSP), which talks through envia()/recebe() with ≥ 1 sample of delay. Only
     for truly distributed control; never to split a loop (the delay would enter the loop).
   The computation time is zero within the sample: the real delay (conversion, computation, PWM update) is the one set in the panel.
+  PWM as on a DSP: the ePWM registers are parameters (f_clk, TBPRD, CTRMODE, SHDWAMODE, INTSEL, DB) and Ts comes from them
+  (CONTEXTO.md says when). The PWM is in the code: the pwm module (pwm.iniciar_registradores(p) and a, b = pwm.pulsos(e["pwm"],
+  t, CMPA), or pwm_pulsos in C) returns the pulse of the interval; write CMPA = d·TBPRD and return {"g": a}. CMPA only takes
+  effect at the next load event: design the gains with the ~1.5·Ts delay (GUIA_CONTROLE.md 4.4). "Right away" actuation.
 - controle.c: the SAME control in C (what goes to a DSP; MaiSim runs it inside the simulation, in place of controle.py,
   when the panel is on the C view, and compares the two). Contract in maisim_controle.h; the indices in maisim_sinais.h,
   generated from the panel (do not edit the two .h files): m[M_<measurement>], p[P_<parameter>] (p[P_Ts] is Ts),

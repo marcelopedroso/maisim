@@ -257,11 +257,44 @@ Os blocos do seu circuito continuam agindo por cima (por exemplo, o tempo morto 
 
 As medidas em `m` são as do instante t_k, já com o efeito do que foi aplicado até t_k. Atenção às grandezas chaveadas:
 amostrar a corrente do indutor sempre no começo do período de chaveamento pega o vale da ondulação, não a média. O
-exemplo do buck tira a média do período no próprio código. Outra saída é amostrar no meio do tempo ligado.
+exemplo do buck tira a média do período no próprio código. Outra saída é amostrar no meio do tempo ligado: com o PWM dos
+registradores (4.4) no sobe-desce e a interrupção em CTR = 0, a amostra cai no meio do pulso, onde a corrente é a média.
 
 As **perdas** (os medidores FLOW de um Pv: `Pv_…`, `Pcond_…`, `Psw_…`) são a exceção: em `m` vem a **média do último
 Ts**, não o valor do instante. A perda de chaveamento do Gecko é E/Δt num passo só (o da comutação), e o valor do instante
 seria zero quase sempre e um pico às vezes. A temperatura (`Tj_…`) vem no instante, como as outras.
+
+### 4.4 O PWM do DSP no código: os registradores, o Ts e o atraso
+
+Num DSP, o PWM é um periférico (o ePWM do C2000): um contador a f_clk gera os pulsos, o evento dele dispara a interrupção
+(o ADC e o controle) e o código só escreve o comparador. No MaiSim é igual: o PWM fica no código (o módulo `pwm` da
+biblioteca) e os registradores dele são **parâmetros** do painel, com os nomes do C2000:
+
+| parâmetro | o que é |
+|---|---|
+| `f_clk` | o clock do contador (TBCLK), em Hz |
+| `TBPRD` | o período, em contagens |
+| `CTRMODE` | 0 = crescente (período TBPRD + 1), 1 = decrescente, 2 = sobe-desce (período 2·TBPRD, pulso centrado no zero) |
+| `SHDWAMODE` | quando o CMPA escrito entra em vigor (registrador sombra): 0 = em CTR = 0, 1 = em CTR = PRD, 2 = nos dois |
+| `INTSEL` | o evento da interrupção: 1 = CTR = 0, 2 = CTR = PRD, 3 = os dois |
+| `DB` | o tempo morto, em contagens (atrasa a subida da saída A e da complementar B) |
+
+- **O Ts sai dos registradores**: com `f_clk` e `TBPRD` no painel, Ts = o período do PWM (2·TBPRD/f_clk no sobe-desce,
+  (TBPRD + 1)/f_clk no crescente), ou a metade com INTSEL = 3. O campo do Ts fica só leitura e mostra a conta.
+- **No código**: `e["pwm"] = pwm.iniciar_registradores(p)` no `iniciar`; no `passo`, `a, b = pwm.pulsos(e["pwm"], t,
+  CMPA)` e `return {"g": a}`. `a` e `b` são o pulso do intervalo inteiro, um valor por Δt (o padrão dentro da amostra),
+  contado pelo contador: as bordas caem onde o contador manda (arredondadas ao Δt), não na grade do Ts. Em C, o mesmo
+  `pwm.c`: `pwm_pulsos(&e->pwm, t, CMPA, U_g, U_g_baixo)` (o pulso vai às atuações pelo `maisim_padrao`).
+- **A linha do tempo de uma amostra**, a que entra no projeto dos ganhos:
+  - em t = k·Ts (o evento da interrupção) o ADC lê `m`;
+  - o `passo()` calcula e escreve o CMPA;
+  - o CMPA novo só vale no evento de carga seguinte (SHDWAMODE).
+  Com a interrupção e a carga em CTR = 0, o atraso da malha fica em cerca de 1,5·Ts (a amostra, a carga no zero
+  seguinte e o meio pulso). No cruzamento fc, ele tira 360°·fc·1,5·Ts de fase: a 500 Hz com Ts = 100 µs, 27°; a 1 kHz,
+  54°. Com SHDWAMODE = 2 e INTSEL = 3, o atraso cai pela metade.
+- Use a Atuação **Logo**: o atraso é o do registrador sombra, e o pulso que o código devolve começa no passo seguinte à
+  amostra (a rodada avisa se não for).
+- Exemplo: `exemplo_buck_pwm_interrupcao` (10 kHz, interrupção em CTR = 0, Ts = 100 µs, PI com cruzamento em 500 Hz).
 
 ## 5. Como não errar (lista de conferência)
 
@@ -271,14 +304,14 @@ seria zero quase sempre e um pico às vezes. A temperatura (`Tj_…`) vem no ins
 2. **Ts múltiplo de Δt**: o painel avisa; o código recebe o Ts efetivo em `p["Ts"]`.
 3. **PWM feito no código**: as bordas caem na grade de Ts, e a resolução do ciclo de trabalho é Ts·fsw (Ts = 2 µs a
    5 kHz dá 1 %). O PI então alterna d entre dois degraus vizinhos para acertar a média. No buck do exemplo, no patamar
-   de 10 A, o tempo ligado alterna entre 40 e 42 µs.
+   de 10 A, o tempo ligado alterna entre 40 e 42 µs. O PWM dos registradores (4.4) evita isso: o contador anda a f_clk,
+   as bordas caem na grade de Δt e o Ts volta a ser a amostragem.
 4. **Custo**: `passo()` roda tfim/Ts vezes, e cada chamada custa de 1 a 3 ms no buck do exemplo (medido, já com o
    Gecko, que num circuito pequeno é rápido; num MMC grande o Gecko pesa mais). O painel faz a conta. O buck do exemplo
    (5 000 chamadas) levou de 5 a 13 s, e uma vez 19 s com a máquina ocupada. Numa medição, o atraso "amostra" levou
    5 s contra 10 s do "logo": a escrita cai no começo do trecho e o Gecko anda o período de uma vez.
-5. **Alternativa mais barata para PWM** (ainda sem exemplo pronto neste MaiSim): portadora e comparador em blocos do Gecko,
-   com o código escrevendo só o ciclo de trabalho, uma vez por período (Ts = 1/fsw). O bloco no meio entra na
-   compensação (+1 passo).
+5. **PWM mais barato e com o tempo certo**: o PWM dos registradores (4.4), com a interrupção uma vez por período
+   (Ts = 1/fsw) e o pulso contado a f_clk. No teste, 18× mais rápido que o PWM comparado a cada Ts = 1 µs.
 6. **Parâmetros de componente (R, L, …) não mudam no meio da rodada** no Gecko: a mudança não tem efeito. Para um
    degrau de carga, use uma chave comandada por um CONST (como o `CONST_CARGA` do modelo 03) ou uma fonte controlada.
 7. **GATE**: entrada > 0,5 liga a chave e ≤ 0,5 desliga (S, MOSFET, IGBT; `SimulationsKern.checkForSwitchAction`). O
