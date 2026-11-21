@@ -117,6 +117,11 @@
         #exemplos h2 { font-size:15px; margin:0 0 10px; color:var(--sutil); font-weight:600; letter-spacing:.3px; text-transform:uppercase; }
         .ex-grade { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:10px; }
         .ex { display:block; padding:12px 14px; border:1px solid var(--borda); border-radius:10px; background:var(--cartao); color:inherit; text-decoration:none; }
+        .ex[hidden], .ex-filtro[hidden] { display:none; }
+        #exemplos .cab { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; } #exemplos .cab h2 { flex:1; }
+        .ex .ex-tag { display:inline-block; margin-top:7px; padding:1px 7px; border-radius:8px; font-size:11px; font-weight:600; line-height:1.5; background:var(--acento); color:#fff; }
+        .ex-filtro { display:inline-flex; gap:6px; flex-wrap:wrap; } .ex-filtro button { font-size:12.5px; padding:3px 10px; border-radius:14px; border:1px solid var(--borda); background:var(--cartao); color:var(--sutil); cursor:pointer; }
+        .ex-filtro button[aria-pressed="true"] { background:var(--acento); border-color:var(--acento); color:#fff; font-weight:600; }
         .ex:hover { border-color:var(--acento); } .ex b { display:block; color:var(--acento); font-size:14px; } .ex span { display:block; color:var(--sutil); font-size:12.5px; margin-top:3px; line-height:1.4; }
         /* sobre e créditos: no rodapé (Marcelo, 22/10: as ferramentas saem dos cartões e ficam aqui) */
         footer { margin-top:36px; padding-top:14px; border-top:1px solid var(--borda); font-size:13px; color:var(--sutil); }
@@ -158,7 +163,8 @@
             </a>
         </div>
         <section id="exemplos" hidden>
-            <h2 data-tr="inicio.exemplos">Exemplos</h2>
+            <div class="cab"><h2 data-tr="inicio.exemplos">Exemplos</h2>
+                <span class="ex-filtro" role="group" aria-label="filtrar os exemplos" data-tr-aria="inicio.ex_a_filtro"><button type="button" data-f="todos" aria-pressed="true"></button><button type="button" data-f="digital" aria-pressed="false" title="exemplos com o controlador digital: o código (DSP, microcontrolador) que lê as medidas e escreve as atuações, só acionando ou em malha fechada" data-tr-title="inicio.ex_t_digital"></button><button type="button" data-f="blocos" aria-pressed="false" title="exemplos só com o circuito e os blocos dele, sem código" data-tr-title="inicio.ex_t_blocos"></button></span></div>
             <div class="ex-grade"></div>
         </section>
         <section id="circuitos" hidden>
@@ -227,7 +233,20 @@
                 document.querySelector("#exemplos .ex-grade").innerHTML = mods.sort((a, b) => pos(a) - pos(b)).map((m) => {
                     const nome = m.arq.split("/").pop().replace(/\.ipes$/, ""), conhecido = maisimI18n.tem(`inicio.ex.${nome}`);
                     const t = conhecido ? tr(`inicio.ex.${nome}`) : nome.replace(/^exemplo_/, "").replace(/_/g, " "), d = conhecido ? tr(`inicio.ex.${nome}.d`) : "";
-                    return `<a class="ex" href="/maisim/simu/?modelo=${encodeURIComponent(m.arq)}" title="${esc(tr("inicio.ex_abrir", { arq: m.arq }))}"><b>${esc(t)}</b><span>${esc(d)}</span></a>`; }).join("");
+                    return `<a class="ex" data-digital="${m.controlador ? 1 : 0}" href="/maisim/simu/?modelo=${encodeURIComponent(m.arq)}" title="${esc(tr("inicio.ex_abrir", { arq: m.arq }))}"><b>${esc(t)}</b><span>${esc(d)}</span>${m.controlador ? `<span class="ex-tag">${esc(tr("inicio.ex_tag_digital"))}</span>` : ""}</a>`; }).join("");
+                // a etiqueta e o filtro (Marcelo, 21/11: "separar o que é exemplo com dispositivo digital e o que não tem"):
+                // os exemplos com o controlador digital ligado (o código) × os só de circuito e blocos; a escolha fica neste navegador
+                const nDig = mods.filter((m) => m.controlador).length, filtro = document.querySelector("#exemplos .ex-filtro");
+                const rotulos = { todos: tr("inicio.ex_f_todos", { n: mods.length }), digital: tr("inicio.ex_f_digital", { n: nDig }), blocos: tr("inicio.ex_f_blocos", { n: mods.length - nDig }) };
+                const filtra = (f) => {
+                    filtro.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.f === f)));
+                    document.querySelectorAll("#exemplos .ex").forEach((a) => { a.hidden = f === "digital" ? a.dataset.digital !== "1" : f === "blocos" ? a.dataset.digital === "1" : false; });
+                    try { localStorage.setItem("maisim-inicio-ex-filtro", f); } catch (e) { /* vale até recarregar */ }
+                };
+                filtro.querySelectorAll("button").forEach((b) => { b.textContent = rotulos[b.dataset.f]; b.onclick = () => filtra(b.dataset.f); });
+                filtro.hidden = !nDig || nDig === mods.length;      // todos iguais: nada a filtrar
+                let guardado = "todos"; try { guardado = localStorage.getItem("maisim-inicio-ex-filtro") || "todos"; } catch (e) { /* ok */ }
+                filtra(filtro.hidden || !(guardado in rotulos) ? "todos" : guardado);
                 // o cartão "Exemplos", ao lado do Scope (Marcelo, 22/10: "um card Exemplos ao lado do Scope fica até melhor"):
                 // abre e fecha a lista logo abaixo dos cartões
                 const cartao = document.getElementById("cartao-exemplos"), sec = document.getElementById("exemplos");
