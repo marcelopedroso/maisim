@@ -196,13 +196,13 @@ if a is not None and b is not None:
     ok(tb < ta, f"tempo, 20 ms: PWM comparado a cada Ts (Ts = 1 µs) {ta:.2f} s × registradores (Ts = 100 µs) {tb:.2f} s ({ta / max(tb, 1e-9):.1f}× mais rápido)")
 else:
     ok(False, f"tempo: {err_a or err_b}")
-# 9. o exemplo (exemplos/exemplo_buck_pwm_interrupcao): os registradores nos parâmetros, o pwm.py junto, o Ts de 100 µs, e a
+# 9. o exemplo (exemplos/exemplo_controle_pwm): os registradores nos parâmetros, o pwm.py junto, o Ts de 100 µs, e a
 # corrente segue a referência (o último degrau de i_ref é para 8 A, em 7,5 ms)
-r = api("editor/abrir", {"arq": "exemplos/exemplo_buck_pwm_interrupcao.ipes", "modo": "descartar"})
+r = api("editor/abrir", {"arq": "exemplos/exemplo_controle_pwm.ipes", "modo": "descartar"})
 ctl = api("editor/controle").get("controle", {})
 nomes_p = [q["nome"] for q in ctl.get("parametros", [])]
 ok("ERRO" not in r and {"f_clk", "TBPRD", "CTRMODE", "SHDWAMODE", "INTSEL", "DB"} <= set(nomes_p) and "pwm.py" in (ctl.get("arquivos") or {}),
-   f"exemplo_buck_pwm_interrupcao abre com os registradores nos parâmetros e o pwm.py ({r.get('ERRO', 'ok')})")
+   f"exemplo_controle_pwm abre com os registradores nos parâmetros e o pwm.py ({r.get('ERRO', 'ok')})")
 j = api("editor/rodar", {"dt": "1e-06", "tfim": "0.01", "nome": "exemplo_pwm_interrupcao", "amostras": "100000"})
 while j.get("estado") in ("rodando", "pausada", "preparando"):
     time.sleep(0.2); j = api("editor/rodada")

@@ -294,7 +294,7 @@ biblioteca) e os registradores dele são **parâmetros** do painel, com os nomes
   54°. Com SHDWAMODE = 2 e INTSEL = 3, o atraso cai pela metade.
 - Use a Atuação **Logo**: o atraso é o do registrador sombra, e o pulso que o código devolve começa no passo seguinte à
   amostra (a rodada avisa se não for).
-- Exemplo: `exemplo_buck_pwm_interrupcao` (10 kHz, interrupção em CTR = 0, Ts = 100 µs, PI com cruzamento em 500 Hz).
+- Exemplo: `exemplo_controle_pwm` (10 kHz, interrupção em CTR = 0, Ts = 100 µs, PI com cruzamento em 500 Hz).
 
 ## 5. Como não errar (lista de conferência)
 
