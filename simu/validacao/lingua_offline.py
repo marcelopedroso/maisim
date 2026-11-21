@@ -503,6 +503,12 @@ def confere_exemplos():
         if l not in ("en",) or tipo not in TRAD_EXEMPLO or not isinstance(t, dict) or set(t) - TRAD_EXEMPLO[tipo]:
             ok(False, f"{nome}: tradução desconhecida (só <nome>.controle.en.json com codigo e <nome>.scope.en.json com titulos)"); continue
         for arq, cod in (t.get("codigo") or {}).items():
+            if arq.endswith((".c", ".h")):               # o controle em C do exemplo: o mesmo código sem os comentários (servidor.sem_comentario_c)
+                o = ((d.get("c") or {}).get("arquivos") or {}).get(arq)
+                sem_c = lambda x: re.sub(r"\s+", "", re.sub(r"//[^\n]*", "", re.sub(r"/\*.*?\*/", "", x, flags=re.S)))
+                if not isinstance(o, str) or not isinstance(cod, str) or sem_c(o) != sem_c(cod):
+                    ruins.append(f"o {arq} não é o mesmo código de {orig.name} (o servidor fica com o original)")
+                continue
             o = d.get("codigo") if arq == "controle.py" else (d.get("arquivos") or {}).get(arq)
             if not isinstance(o, str) or not isinstance(cod, str) or sem_comentarios_py(o) is None or sem_comentarios_py(o) != sem_comentarios_py(cod):
                 ruins.append(f"o {arq} não é o mesmo código de {orig.name} (o servidor fica com o original)")
