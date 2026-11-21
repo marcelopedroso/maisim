@@ -1,0 +1,98 @@
+{
+ "ativo": true,
+ "Ts": 0.0001,
+ "atuacoes": [
+  "g"
+ ],
+ "parametros": [
+  {
+   "nome": "f_clk",
+   "valor": 100000000.0,
+   "unidade": "Hz"
+  },
+  {
+   "nome": "TBPRD",
+   "valor": 5000.0,
+   "unidade": ""
+  },
+  {
+   "nome": "CTRMODE",
+   "valor": 2.0,
+   "unidade": ""
+  },
+  {
+   "nome": "SHDWAMODE",
+   "valor": 0.0,
+   "unidade": ""
+  },
+  {
+   "nome": "INTSEL",
+   "valor": 1.0,
+   "unidade": ""
+  },
+  {
+   "nome": "DB",
+   "valor": 0.0,
+   "unidade": ""
+  },
+  {
+   "nome": "Vdc",
+   "valor": 100.0,
+   "unidade": "V"
+  },
+  {
+   "nome": "i_ref",
+   "valor": 10.0,
+   "unidade": "A"
+  },
+  {
+   "nome": "Kp",
+   "valor": 3.1416,
+   "unidade": "V/A"
+  },
+  {
+   "nome": "Ki",
+   "valor": 6283.2,
+   "unidade": "V/(A·s)"
+  },
+  {
+   "nome": "R",
+   "valor": 2.0,
+   "unidade": "Ohm"
+  },
+  {
+   "nome": "k_ff",
+   "valor": 1.0,
+   "unidade": ""
+  },
+  {
+   "nome": "dmax",
+   "valor": 0.95,
+   "unidade": ""
+  }
+ ],
+ "codigo": "# Buck (chopper) com carga RL, com o controle como num DSP: o PWM fica aqui no código (o módulo pwm da biblioteca, que\n# faz o papel do ePWM), e os registradores dele estão nos parâmetros do painel:\n#   f_clk = 100 MHz (o clock do contador), TBPRD = 5000, CTRMODE = 2 (sobe-desce) → PWM de 2·TBPRD/f_clk = 100 µs (10 kHz);\n#   INTSEL = 1: a interrupção em CTR = 0 → o MaiSim tira daí o Ts = 100 µs (o campo Ts fica só leitura);\n#   SHDWAMODE = 0: o CMPA escrito agora só vale no próximo CTR = 0 (o registrador sombra).\n#\n# A linha do tempo de cada amostra (é ela que entra no projeto dos ganhos):\n#   t = k·Ts (CTR = 0): o ADC lê i_L. No sobe-desce o zero do contador cai no meio do pulso, onde a corrente do indutor é\n#                       a média do período (sem somar amostras);\n#   o passo() calcula d e escreve CMPA = d·TBPRD;\n#   t = (k + 1)·Ts: o CMPA novo entra em vigor; o pulso dele é centrado nesse zero.\n# O atraso da malha fica em ~1,5·Ts = 150 µs (a amostra, a carga no zero seguinte e o meio pulso). No cruzamento de\n# 500 Hz isso tira 2π·500·150e-6 ≈ 27° de fase: sobra margem. A 1 kHz (fsw/10), tiraria 54°, e a malha oscilaria.\n#\n# Ajuste (planta i_L/d = Vdc/(R + sL); o 1/Vdc do controlador cancela o ganho do conversor):\n#   Ki/Kp = R/L (o zero do PI cancela o polo da carga) e Kp = 2π·500·L = 3,1416, Ki = 6283;\n#   feedforward d_ff = k_ff·R·i_ref/Vdc e anti-windup por recálculo.\nimport pwm\n\n\ndef iniciar(p, e):\n    e[\"pwm\"] = pwm.iniciar_registradores(p)        # o ePWM: lê f_clk, TBPRD, CTRMODE, SHDWAMODE, INTSEL e DB\n    e[\"integral\"] = 0.0\n    e[\"d\"] = 0.0\n\n\ndef passo(t, m, p, e):\n    erro = p[\"i_ref\"] - m[\"i_L\"]                   # a amostra em CTR = 0: a média do período\n    d_ff = p[\"k_ff\"] * p[\"R\"] * p[\"i_ref\"] / p[\"Vdc\"]\n    integral = e[\"integral\"] + erro * p[\"Ts\"]\n    d = d_ff + (p[\"Kp\"] * erro + p[\"Ki\"] * integral) / p[\"Vdc\"]\n    d_sat = min(p[\"dmax\"], max(0.0, d))\n    if d != d_sat and p[\"Ki\"] != 0.0:              # anti-windup: refaz a integral pelo duty saturado\n        integral = (p[\"Vdc\"] * (d_sat - d_ff) - p[\"Kp\"] * erro) / p[\"Ki\"]\n    e[\"integral\"], e[\"d\"] = integral, d_sat\n    a, b = pwm.pulsos(e[\"pwm\"], t, d_sat * p[\"TBPRD\"])   # CMPA = d·TBPRD: o pulso do intervalo, contado a f_clk\n    scope(\"d\", d_sat)\n    scope(\"i_ref\", p[\"i_ref\"])\n    scope(\"erro\", erro)\n    return {\"g\": a}                                # o pulso sai do código, como do pino do ePWM\n",
+ "atraso": {
+  "modo": "logo",
+  "tempo": 0.0
+ },
+ "acionamentos": [
+  {
+   "t": 0.005,
+   "alvo": "p:i_ref",
+   "valor": 15.0
+  },
+  {
+   "t": 0.0075,
+   "alvo": "p:i_ref",
+   "valor": 8.0
+  }
+ ],
+ "arquivos": {
+  "pwm.py": "# pwm — biblioteca do MaiSim: o PWM digital. As mesmas contas, na mesma ordem, do pwm.c. Dois jeitos:\n#\n# 1. O ePWM de um DSP (o contador a f_clk, os registradores nos parâmetros do painel, nomes do C2000):\n#      f_clk      o clock do contador (TBCLK), em Hz\n#      TBPRD      o período, em contagens\n#      CTRMODE    0 = crescente (período TBPRD + 1), 1 = decrescente, 2 = sobe-desce (período 2·TBPRD, pulso centrado no zero)\n#      SHDWAMODE  quando o CMPA escrito entra em vigor (registrador sombra): 0 = em CTR = 0, 1 = em CTR = PRD, 2 = nos dois\n#      INTSEL     o evento que dispara a interrupção (o passo()): 1 = CTR = 0, 2 = CTR = PRD, 3 = os dois\n#      DB         o tempo morto, em contagens (atrasa a subida da saída A e da complementar B)\n#      TBPHS      a fase do contador, em contagens (opcional)\n#    Com f_clk e TBPRD no painel, o MaiSim tira o Ts deles (o período, ou a metade com INTSEL 3). Uso, no controle.py:\n#      import pwm\n#      no iniciar: e[\"pwm\"] = pwm.iniciar_registradores(p)\n#      no passo:   a, b = pwm.pulsos(e[\"pwm\"], t, CMPA)        # CMPA em contagens (ex.: d * p[\"TBPRD\"])\n#                  return {\"g\": a}                              # (e {\"g_baixo\": b}, a complementar com o tempo morto)\n#    a e b são o pulso do intervalo inteiro, um valor por Δt (o padrão dentro da amostra): a saída fica em 1 enquanto o\n#    contador está abaixo do CMPA em vigor. O CMPA escrito agora só vale no evento de carga seguinte (o atraso de uma\n#    amostra do DSP). Use a Atuação \"Logo\": o atraso é o do registrador sombra.\n#\n# 2. O PWM comparado a cada Ts (o de antes; a resolução do PWM é o Ts):\n#      no iniciar: e[\"pwm\"] = pwm.iniciar(fsw=p[\"fsw\"], portadora=pwm.SERRA)   # ou pwm.TRIANGULAR\n#      no passo:   g = pwm.passo(e[\"pwm\"], t, d)   # 1.0 ou 0.0; e[\"pwm\"][\"portadora\"] vai ao scope\nimport math\n\nSERRA = 0\nTRIANGULAR = 1\n\n\ndef iniciar(fsw, portadora=SERRA):\n    return {\"fsw\": fsw, \"tipo\": portadora, \"portadora\": 0.0}\n\n\ndef passo(estado, t, d):\n    x = t * estado[\"fsw\"]\n    c = x - math.floor(x + 1e-9)  # a fração do período (o 1e-9 segura t·fsw que cai exato num inteiro)\n    if estado[\"tipo\"] == TRIANGULAR:\n        c = 1.0 - abs(2.0 * c - 1.0)\n    estado[\"portadora\"] = c\n    return 1.0 if c < d else 0.0\n\n\ndef iniciar_registradores(p):\n    tbprd = float(p[\"TBPRD\"])\n    modo = int(p.get(\"CTRMODE\", 2))\n    intsel = int(p.get(\"INTSEL\", 1))\n    e = {\"tbprd\": tbprd, \"modo\": modo, \"shdw\": int(p.get(\"SHDWAMODE\", 0)), \"db\": float(p.get(\"DB\", 0.0)),\n         \"periodo\": 2.0 * tbprd if modo == 2 else tbprd + 1.0,\n         \"cps\": float(p[\"dt\"]) * float(p[\"f_clk\"]),               # contagens por passo da simulação\n         \"dt\": float(p[\"dt\"]), \"n\": max(1, int(math.floor(float(p[\"Ts\"]) / float(p[\"dt\"]) + 0.5))),\n         \"cmpa\": 0.0, \"sombra\": [], \"bruto\": 0, \"borda\": -1e300, \"contador\": 0.0}\n    # o contador começa de modo que o evento da interrupção caia em t = k·Ts (no PRD, o contador adiantado de TBPRD)\n    e[\"fase\"] = float(p.get(\"TBPHS\", 0.0)) + (tbprd if intsel == 2 else 0.0)\n    return e\n\n\ndef _contagem(e, j):\n    return j * e[\"cps\"] + e[\"fase\"]\n\n\ndef _valor(e, N):\n    x = N - e[\"periodo\"] * math.floor(N / e[\"periodo\"] + 1e-12)     # a posição no período, de 0 a período\n    if e[\"modo\"] == 2:\n        return x if x <= e[\"tbprd\"] else e[\"periodo\"] - x\n    if e[\"modo\"] == 1:\n        return e[\"tbprd\"] - x\n    return x\n\n\ndef _eventos(e, N):\n    # quantos eventos de carga já passaram até a contagem N (o zero e/ou o PRD, conforme o SHDWAMODE)\n    z = math.floor(N / e[\"periodo\"] + 1e-12)\n    pr = math.floor((N - e[\"tbprd\"]) / e[\"periodo\"] + 1e-12)\n    if e[\"shdw\"] == 0:\n        return z\n    if e[\"shdw\"] == 1:\n        return pr\n    return z + pr\n\n\ndef pulsos(e, t, CMPA):\n    k = int(math.floor(t / e[\"dt\"] + 0.5))\n    Nw = _contagem(e, k)\n    e[\"sombra\"].append((_eventos(e, Nw), float(CMPA)))   # o CMPA escrito vai ao registrador sombra\n    a, b = [], []\n    for o in range(e[\"n\"]):\n        N = _contagem(e, k + 1 + o)                        # o passo k + 1 + o (o primeiro depois da escrita)\n        ev = _eventos(e, N)\n        while e[\"sombra\"] and e[\"sombra\"][0][0] < ev:      # um evento de carga depois da escrita: o CMPA entra em vigor\n            if len(e[\"sombra\"]) == 1 or e[\"sombra\"][1][0] >= ev:\n                e[\"cmpa\"] = e[\"sombra\"][0][1]\n            e[\"sombra\"].pop(0)\n        c = _valor(e, N)\n        # o comparador: liga quando o contador descendo chega ao CMPA (c ≤ CMPA) e desliga quando o contador subindo chega\n        # a ele (c < CMPA): o pulso tem 2·CMPA contagens no sobe-desce e CMPA no crescente\n        desce = e[\"modo\"] == 1 or (e[\"modo\"] == 2 and N - e[\"periodo\"] * math.floor(N / e[\"periodo\"] + 1e-12) >= e[\"tbprd\"])\n        bruto = 1 if (c <= e[\"cmpa\"] if desce else c < e[\"cmpa\"]) and e[\"cmpa\"] > 0 else 0\n        if bruto != e[\"bruto\"]:\n            e[\"bruto\"], e[\"borda\"] = bruto, N\n        pronto = N - e[\"borda\"] >= e[\"db\"]                 # o tempo morto: a subida de cada saída espera DB contagens\n        a.append(1.0 if bruto and pronto else 0.0)\n        b.append(1.0 if (not bruto) and pronto else 0.0)\n        e[\"contador\"] = c\n    return a, b\n"
+ },
+ "controladores": [],
+ "rede": {
+  "latencia": 0.0
+ }
+}

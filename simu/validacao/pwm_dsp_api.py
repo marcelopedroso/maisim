@@ -196,5 +196,22 @@ if a is not None and b is not None:
     ok(tb < ta, f"tempo, 20 ms: PWM comparado a cada Ts (Ts = 1 µs) {ta:.2f} s × registradores (Ts = 100 µs) {tb:.2f} s ({ta / max(tb, 1e-9):.1f}× mais rápido)")
 else:
     ok(False, f"tempo: {err_a or err_b}")
+# 9. o exemplo (exemplos/exemplo_buck_pwm_interrupcao): os registradores nos parâmetros, o pwm.py junto, o Ts de 100 µs, e a
+# corrente segue a referência (o último degrau de i_ref é para 8 A, em 7,5 ms)
+r = api("editor/abrir", {"arq": "exemplos/exemplo_buck_pwm_interrupcao.ipes", "modo": "descartar"})
+ctl = api("editor/controle").get("controle", {})
+nomes_p = [q["nome"] for q in ctl.get("parametros", [])]
+ok("ERRO" not in r and {"f_clk", "TBPRD", "CTRMODE", "SHDWAMODE", "INTSEL", "DB"} <= set(nomes_p) and "pwm.py" in (ctl.get("arquivos") or {}),
+   f"exemplo_buck_pwm_interrupcao abre com os registradores nos parâmetros e o pwm.py ({r.get('ERRO', 'ok')})")
+j = api("editor/rodar", {"dt": "1e-06", "tfim": "0.01", "nome": "exemplo_pwm_interrupcao", "amostras": "100000"})
+while j.get("estado") in ("rodando", "pausada", "preparando"):
+    time.sleep(0.2); j = api("editor/rodada")
+if j.get("estado") == "fim":
+    ze = np.load(j["arquivo"]); t, iL = ze["t"], ze["i_L"]
+    sel = (t >= 0.009 - 1e-9) & (t < 0.0099 - 1e-9)
+    media, onda = float(iL[sel].mean()), float(iL[sel].max() - iL[sel].min())
+    ok(abs(media - 8.0) < 0.15 and 0.5 < onda < 4, f"o exemplo segue a referência: i_L médio {media:.3f} A (i_ref = 8 A), ondulação {onda:.2f} A, em {j.get('segundos')} s")
+else:
+    ok(False, f"o exemplo: {j.get('erro') or j}")
 api("editor/novo", {"modo": "descartar"})
 raise SystemExit(1 if falhas else 0)

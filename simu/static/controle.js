@@ -469,6 +469,8 @@ function desenhaLigacoes() {
   $("ctl-c-usar").checked = !!(c.c && c.c.usar); $("ctl-c-prec").value = (c.c && c.c.precisao) || "double";
   $("ctl-c-sinc").checked = !!(c.c && c.c.sinc_auto); marcaVisao();
   if (document.activeElement !== $("ctl-ts")) $("ctl-ts").value = c.Ts;
+  ctl.tsLivre = c.Ts;                                    // o Ts digitado (vale de novo se os registradores do PWM saírem)
+  atualizaTsPwm(c.parametros);
   campoNumero($("ctl-ts"), { un: "s", positivo: true, apos: $("ctl-ts-i") });   // o Ts com prefixo (50u): "= 50 µs" embaixo
   infoTs();
   const marcados = new Set(c.atuacoes), vazio = (n, txt) => `<tr><td colspan="${n}" class="vazio">${txt}</td></tr>`;
@@ -1329,6 +1331,31 @@ function poeInfo(id, linhas) {
   el.innerHTML = linhas.filter(([, a]) => a).map(([t]) => `<span class="ctl-alerta">${escT(t)}</span>`).join("<br>");
   if (i) { i.title = linhas.map(([t, a]) => (a ? "⚠ " : "") + t).join("\n"); i.classList.toggle("alerta", linhas.some(([, a]) => a)); }
 }
+// o PWM do controle como no ePWM de um DSP (simu/servidor.py, ts_do_pwm): com f_clk e TBPRD nos parâmetros, o período da
+// interrupção sai dos registradores: 2·TBPRD/f_clk no sobe-desce (CTRMODE 2), (TBPRD + 1)/f_clk no crescente; a interrupção
+// em CTR = 0 ou CTR = PRD (INTSEL 1, 2) a cada período, ou nos dois (3) a cada meio período
+function tsDosRegistradores(pars) {
+  const v = {}; for (const q of pars || []) if (q && q.nome) v[q.nome] = Number(q.valor);
+  if (!(v.f_clk > 0) || !(v.TBPRD >= 1)) return null;
+  const modo = Number.isFinite(v.CTRMODE) ? Math.trunc(v.CTRMODE) : 2, intsel = Number.isFinite(v.INTSEL) ? Math.trunc(v.INTSEL) : 1;
+  const periodo = (modo === 2 ? 2 * v.TBPRD : v.TBPRD + 1) / v.f_clk, ts = intsel === 3 ? periodo / 2 : periodo;
+  const conta = (modo === 2 ? "2·TBPRD/f_clk" : "(TBPRD + 1)/f_clk") + (intsel === 3 ? "/2" : "");
+  return { ts, f_pwm: 1 / periodo, conta, onde: { 1: "ctl.int_zero", 2: "ctl.int_prd", 3: "ctl.int_ambos" }[intsel] || "ctl.int_zero" };
+}
+function parametrosDoPainel() {                       // os parâmetros como estão nos campos (o que está sendo digitado conta)
+  const linhas = [...document.querySelectorAll("#ctl-par .ctl-par")];
+  if (!linhas.length) return ctl.dados ? ctl.dados.controle.parametros : [];
+  return linhas.map((r) => ({ nome: r.querySelector('[data-k="nome"]').value.trim(), valor: lerNumero(r.querySelector('[data-k="valor"]').value) }));
+}
+function atualizaTsPwm(pars) {                        // com os registradores, o campo do Ts mostra o tirado deles e fica só leitura
+  const am = tsDosRegistradores(pars || parametrosDoPainel()), el = $("ctl-ts");
+  el.readOnly = !!am; el.classList.toggle("amarrado", !!am);
+  if (am) el.value = +am.ts.toPrecision(9);
+  else if (el.dataset.pwm === "1" && ctl.tsLivre) el.value = ctl.tsLivre;
+  el.dataset.pwm = am ? "1" : "";
+  if (el._confere) el._confere();
+  infoTs();
+}
 // Ts × Δt: quantos passos do Gecko por amostra, quantas chamadas de passo() na rodada, quanto chega ao scope
 function infoTs() {
   const dt = Number(sim.par.dt) || 1e-6, tfim = Number(sim.par.tfim) || 0, passos = Math.round(tfim / dt);
@@ -1339,6 +1366,8 @@ function infoTs() {
   const virgula = maisimI18n.lingua() === "pt";        // o decimal: vírgula em português, ponto em inglês
   const seg = (x) => (x < 60 ? `${x < 10 ? (virgula ? x.toFixed(1).replace(".", ",") : x.toFixed(1)) : Math.round(x)} s` : `${Math.round(x / 60)} min`);
   const linhas = [[tr("ctl.ts_o_que"), false], [tr("ctl.ts_info", { n, dt: si(dt, "s"), ef: si(n * dt, "s") }), false]];
+  const regs = tsDosRegistradores(parametrosDoPainel());
+  if (regs) linhas.splice(1, 0, [tr("ctl.ts_pwm", { conta: regs.conta, f: si(regs.f_pwm, "Hz"), onde: tr(regs.onde) }), false]);
   if (Ts < dt * (1 - 1e-9)) linhas.push([tr("ctl.ts_menor", { dt: si(dt, "s") }), true]);
   else if (Math.abs(n * dt - Ts) > 1e-9 * Ts) linhas.push([tr("ctl.ts_multiplo", { n, ef: si(n * dt, "s") }), true]);
   if (tfim > 0) linhas.push([tr("ctl.ts_chamadas", { vezes: maisimI18n.num(N), tfim: si(tfim, "s"), de: seg(N * 1e-3), ate: seg(N * 3e-3) }), N > 2e5]);
@@ -1389,7 +1418,8 @@ function coleta() {
   const ctls = [...document.querySelectorAll("#ctl-ctls .ctl-ctl")].sort((a, b) => a.dataset.i - b.dataset.i).map((r) => {
     const todas = !!(r.querySelector("[data-todas]") || {}).checked;
     return { nome: r.dataset.nome, arquivo: r.dataset.arquivo, todas, medidas: todas ? [] : marcados(r, "data-med"), atuacoes: marcados(r, "data-atu-ctl"), subcircuitos: marcados(r, "data-sub") }; });
-  return { ativo: $("ctl-ativo").checked, Ts: ts || c.Ts || 1e-4,
+  // com os registradores do PWM, o campo mostra o Ts tirado deles: o guardado continua o digitado
+  return { ativo: $("ctl-ativo").checked, Ts: ($("ctl-ts").dataset.pwm === "1" ? ctl.tsLivre : ts) || c.Ts || 1e-4,
     atuacoes: [...document.querySelectorAll("#ctl-atu [data-atu]")].filter((x) => x.checked).map((x) => x.dataset.atu),
     parametros: pars.filter((q) => q.nome), codigo: codigoAtual(), arquivos: arquivosDoEditor(), controladores: ctls, rede: { latencia: latRede },
     c: { usar: $("ctl-c-usar").checked, precisao: $("ctl-c-prec").value, arquivos: arquivosC(), sinc_auto: $("ctl-c-sinc").checked,
@@ -1556,6 +1586,7 @@ function tagAtuador(g, x, y, nome, centrada = false) {   // centrada: x é o mei
   lado.addEventListener("keydown", (ev) => { const vi = ev.target.closest("#ctl-var-lista [data-tabela]"); if (vi && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); alterna(vi.dataset.tabela); } });
   $("ct-fecha").onclick = fechaTabela;
   // a notação ao lado do nome do parâmetro acompanha o que se digita (o redesenho espera o campo perder o foco)
+  $("ctl-par").addEventListener("input", () => atualizaTsPwm());   // um registrador do PWM mudou: o Ts acompanha
   $("ctl-par").addEventListener("input", (e) => { const i = e.target;
     if (i.dataset && i.dataset.k === "nome") { const s = i.closest(".ct-par-nome") && i.closest(".ct-par-nome").querySelector(".ct-mat"); if (s) s.innerHTML = htmlMat(i.value.trim()); } });
   $("ctl-par-novo").onclick = () => { if (!ctl.dados) return; const c = coleta(); let k = 1; while (c.parametros.some((q) => q.nome === `k${k}`)) k++;

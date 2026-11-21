@@ -135,6 +135,8 @@ maisimI18n.add({
   "inicio.ex.exemplo_controle_pi.d": { pt: "PI de corrente num RL, com anti-windup e acionamentos", en: "current PI on an RL load, with anti-windup and triggers" },
   "inicio.ex.exemplo_controle_pwm": { pt: "Buck com controle digital", en: "Buck with digital control" },
   "inicio.ex.exemplo_controle_pwm.d": { pt: "o PWM e o PI no código do controle (discreto, como num DSP)", en: "the PWM and the PI in the control code (discrete, as on a DSP)" },
+  "inicio.ex.exemplo_buck_pwm_interrupcao": { pt: "Buck com PWM e interrupção", en: "Buck with PWM and interrupt" },
+  "inicio.ex.exemplo_buck_pwm_interrupcao.d": { pt: "os registradores do PWM nos parâmetros; o Ts sai deles; a amostra em CTR = 0", en: "the PWM registers in the parameters; Ts comes from them; the sample at CTR = 0" },
   "inicio.ex.exemplo_motor_cc": { pt: "Motor CC — controle de velocidade", en: "DC motor — speed control" },
   "inicio.ex.exemplo_motor_cc.d": { pt: "meia ponte e máquina CC: PI de velocidade e de corrente no controle.py, degrau de referência e de carga",
     en: "half bridge and DC machine: speed and current PIs in controle.py, reference and load steps" },
