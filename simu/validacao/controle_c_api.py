@@ -82,6 +82,7 @@ void maisim_passo(maisim_real t, const maisim_real m[MAISIM_N_M], const maisim_r
 """
 
 ex = json.loads((RAIZ / "simu/validacao/dados/controle_pwm_simples.controle.json").read_text())
+ex.pop("c", None)   # como o painel de antes do C guardava: sem o campo (o teste confere que isso não apaga o controle.c)
 
 
 def roda(nome):
