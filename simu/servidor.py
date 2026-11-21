@@ -1607,6 +1607,11 @@ def lista_modelos():
         recentes = {k.replace("\\", "/"): x for k, x in recentes.items()}   # idem
     except (OSError, ValueError):
         recentes = {}
+    def tem_controlador(f):                          # o exemplo vem com o controlador digital ligado (o <nome>.controle.json ao lado)?
+        try:
+            return bool(json.loads(f.with_suffix(".controle.json").read_text(encoding="utf-8")).get("ativo"))
+        except (OSError, ValueError, AttributeError):
+            return False
     def poe(grupo, pasta, arqs, gravacao=None, id_grupo="extra"):   # id_grupo: o que a página confere (o grupo é texto)
         for f in sorted(arqs):
             if f.resolve() in vistos or any(s.startswith(".") for s in f.relative_to(pasta).parts):
@@ -1617,7 +1622,8 @@ def lista_modelos():
             except OSError:
                 alterado = None
             itens.append(dict(arq=relativo(f), nome=f.relative_to(pasta).as_posix(), grupo=grupo, id_grupo=id_grupo, apagavel=bool(gravacao), pasta=gravacao,
-                              alterado=alterado, aberto_em=recentes.get(relativo(f))))
+                              alterado=alterado, aberto_em=recentes.get(relativo(f)),
+                              **({"controlador": tem_controlador(f)} if id_grupo == "exemplos" else {})))   # só os exemplos (a etiqueta da página inicial)
     poe(lingua.tr("modelos.grupo_exemplos"), MODELOS, MODELOS.glob("*.ipes"), id_grupo="exemplos")
     poe(lingua.tr("modelos.grupo_meus"), SALVOS, SALVOS.glob("*.ipes"), "circuitos", "circuitos")
     poe(lingua.tr("modelos.grupo_biblioteca"), LIB, LIB.glob("*.ipes"), "subcircuitos", "subcircuitos")

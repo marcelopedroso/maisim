@@ -6,6 +6,9 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Changed
+- **The examples on the start page say which ones come with the digital controller, and can be filtered by it** (#283; `app/index.html`, `app/public/textos_inicio.js`, `simu/servidor.py`): a "digital controller" tag marks the examples whose control code is on (the list of models now says so for the examples, read from each `<name>.controle.json`), and a filter above the grid shows All, Digital controller or Circuit and blocks only. The choice is remembered in the browser.
+
 ## [0.6.0] - 2026-11-21
 
 ### Added
