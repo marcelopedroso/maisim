@@ -6,6 +6,9 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Changed
+- **One "Control in the simulation" dropdown says what runs: Off, Python — controle.py or C — controle.c** (#PR; `simu/static/controle.js`, `index.html`, `textos_controle.js`): it replaces the "Use this control when simulating" checkbox and the Python | C buttons, which chose at the same time what the panel showed and what ran. Viewing a file no longer changes what runs: the tree ends with a "view in C" / "view in Python" line, opening a file brings its language into view, and a "runs" badge marks the controller that runs. Off keeps the language that was chosen.
+
 ### Added
 - **The DSP's PWM in the control code, with its registers as parameters and Ts taken from them** (#280; `simu/biblioteca_controle/pwm.*`, `simu/servidor.py`, `simu/controle_c/`, `simu/static/controle.js`, `GUIA_CONTROLE` 4.4). The library's `pwm` module now plays the ePWM: a counter at `f_clk` with `TBPRD`, `CTRMODE` (up or up-down), `SHDWAMODE` (the shadow register: the written CMPA only takes effect at the next CTR = 0 or CTR = PRD), `INTSEL` (the interrupt event) and the dead time `DB`, all as panel parameters with C2000 names. `pwm.pulsos(e["pwm"], t, CMPA)` returns the pulse of the whole sample interval counted at f_clk (the edges fall on the Δt grid, not on the Ts grid), and the code returns it as the actuation. With `f_clk` and `TBPRD` in the panel, Ts is the PWM period (or half of it) and the Ts field shows the math, read-only, so the sampling instant and the one-sample update delay that the digital controller's gains have to account for are the hardware's. The C contract gains `maisim_padrao` so `pwm.c` returns the same pulse (C ≡ Python step by step); the code gets `p["dt"]`. A 10 kHz PWM with Ts = 100 µs ran 18× faster than the PWM compared every Ts = 1 µs. New example `exemplo_buck_pwm_interrupcao`. Tests `pwm_dsp_api`, `pwm_dsp_tela`.
 

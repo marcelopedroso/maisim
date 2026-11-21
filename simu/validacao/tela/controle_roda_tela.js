@@ -13,7 +13,8 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     await pg.goto("http://localhost:7200/maisim/simu/");
     for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof dados !== "undefined" && dados && dados.editor)); k++) {
       if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }
-    // o circuito novo, com o controle desligado e sem controle.c
+    // o circuito novo, com o controle desligado e sem controle.c (em português)
+    await pg.evaluate(() => maisimI18n.muda("pt")); await pg.waitForTimeout(300);
     await pg.evaluate(async () => {
       const j = await api("editor/novo", { modo: "descartar" }); dados = j; folhaAtual = "0"; novoEstado(j);
       const cfg = (await api("editor/controle")).controle;
@@ -52,11 +53,10 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     // 6. Desligado guarda a linguagem que estava (c.usar) e tira o selo; ligar de novo em C volta ao C
     await escolhe("off"); t = await tela(); s = await srv();
     ok(!s.ativo && s.usar && t.roda === "off" && t.off && !t.selos.length, `Desligado: ativo ${s.ativo}, usar ${s.usar} (a linguagem fica), sem selo`);
-    // 7. recarregar: o dropdown e a visão vêm do guardado
-    await escolhe("c"); await pg.reload();
-    for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof dados !== "undefined" && dados && dados.editor)); k++) {
-      if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }
-    await pg.evaluate(() => mostraDoca("controle")); await pg.waitForFunction(() => ctl.carregado && ctl.editor, null, { timeout: 30000 }); await pg.waitForTimeout(800);
+    // 7. ler de novo do servidor (o que Abrir faz; recarregar a página com o circuito novo sem salvar pediria a recuperação):
+    // o dropdown e a visão vêm do guardado
+    await escolhe("c"); await pg.evaluate(() => poeVisao(false)); await pg.waitForTimeout(500);
+    await pg.evaluate(() => recarregaControle()); await pg.waitForTimeout(800);
     t = await tela();
     ok(t.roda === "c" && t.visaoC, `recarregado: roda ${t.roda}, visão C ${t.visaoC}`);
     // 8. em inglês
