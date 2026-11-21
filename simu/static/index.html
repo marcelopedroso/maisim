@@ -692,6 +692,11 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   #vazio .primario { background:var(--acento, #6d28d9); border-color:var(--acento, #6d28d9); color:#fff; }
   body.sem-circuito #vazio { display:flex; }
   /* e o controle fechado também: sem circuito, nada a controlar (o código escrito ali se perderia ao abrir outro) */
+  /* o cadeado fechado com outro circuito (ou nenhum) na edição: o controle à vista não seria o deste circuito */
+  #ctl-de-outro { display:none; position:absolute; inset:0; z-index:6; align-items:center; justify-content:center; text-align:center; padding:20px;
+    background:var(--cartao); color:var(--sutil); font-size:13px; line-height:1.5; }
+  #ctl-de-outro > div { max-width:420px; } #ctl-de-outro button { margin-top:12px; }
+  body.ctl-de-outro:not(.sem-circuito) #ctl-de-outro { display:flex; }
   body.sem-circuito #painel-controle::after { content:attr(data-msg); position:absolute; inset:0; z-index:6;
     display:flex; align-items:center; justify-content:center; text-align:center; padding:20px; background:var(--cartao); color:var(--sutil); font-size:13px; }
   body.sem-circuito #paleta > * { visibility:hidden; }   /* sem circuito, nada a pôr: o caminho é o "+ Novo circuito" */
@@ -820,6 +825,7 @@ try { const z = parseFloat(localStorage.getItem("maisim-escala")); if (window.to
   <div id="scope-fora"><div><span data-tr-html="simu.scope_fora_html">o scope está na <b>janela do scope</b><br>(ao vivo lá também)</span><br><button id="scope-fora-ir" title="trazer a janela do scope para a frente" data-tr-title="simu.t_scope_fora_ir" data-tr="simu.ir_la">Ir para lá</button><button id="scope-fora-bt" title="ver o scope também nesta janela" data-tr-title="simu.t_scope_fora_bt" data-tr="simu.scope_fora_bt">Ver aqui também</button></div></div>
 </div></div><div id="col-ctl" class="col-doca"><div class="div-col" id="div-ctl" title="arraste para mudar a largura do Controle" data-tr-title="simu.t_div_ctl"></div><div class="col-corpo">
   <div id="painel-controle" data-msg="nenhum circuito aberto: abra um ou comece um novo para escrever o controle" data-tr-msg="ctl.sem_circuito">
+    <div id="ctl-de-outro" role="status"><div><span data-tr="ctl.de_outro">o cadeado está fechado: o circuito na tela não está aberto na edição, e o controle dele só aparece aqui com a edição aberta</span><br><button id="ctl-abrir-edicao" title="abre o cadeado: o circuito na tela passa a ser o da edição, com o controle dele" data-tr-title="ctl.t_abrir_edicao" data-tr="ctl.abrir_edicao">Abrir a edição</button></div></div>
     <div id="ctl-lado">
       <label class="ctl-ativo" title="o dispositivo digital (DSP, microcontrolador, FPGA) ligado ao circuito: lê as medidas e escreve as atuações; pode ser só acionamento ou controle em malha fechada. Aqui, o que a simulação roda: nada (o circuito sozinho), o controle.py ou o controle.c (compilado em C, o SIL). Ver e editar um arquivo não muda isso: clique nele na árvore" data-tr-title="ctl.t_roda"><span data-tr="ctl.roda">Controlador digital</span>
         <select id="ctl-roda"><option value="off" data-tr="ctl.roda_off">Desligado</option><option value="py" data-tr="ctl.roda_py">Python — controle.py</option><option value="c" data-tr="ctl.roda_c">C — controle.c</option></select></label>
