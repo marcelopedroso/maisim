@@ -1519,7 +1519,7 @@ async function abreControle() {
 }
 async function recarregaControle() {                    // outro circuito (Abrir, Novo): o controle dele
   if (!ctl.carregado) { try { ctl.dados = await api("editor/controle"); if (dados) desenha(); } catch (e) { /* ok */ } return; }
-  try { ctl.dados = await api("editor/controle"); ctl.verC = null; poeArquivos(ctl.dados.controle); desenhaLigacoes(); marcaErros(ctl.dados.erros); estadoCodigo(ctl.dados); saidaControle("");
+  try { ctl.dados = await api("editor/controle"); poeArquivos(ctl.dados.controle); ctl.verC = null; desenhaLigacoes(); marcaErros(ctl.dados.erros); estadoCodigo(ctl.dados); saidaControle("");
     if (dados) desenha(); } catch (e) { /* ok */ }
   if (typeof cc !== "undefined" && cc.aberto) { cc.antes = null; atualizaChat(); }   // a conversa é por circuito
 }

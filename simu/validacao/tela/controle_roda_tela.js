@@ -59,6 +59,11 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     await pg.evaluate(() => recarregaControle()); await pg.waitForTimeout(800);
     t = await tela();
     ok(t.roda === "c" && t.visaoC, `recarregado: roda ${t.roda}, visão C ${t.visaoC}`);
+    // 7b. outro circuito com um .c aberto na tela: a visão vem do guardado dele (Python), não do arquivo que estava aberto
+    await pg.evaluate(async () => { const c = (await api("editor/controle")).controle; await api("editor/controle", { controle: { ...c, ativo: true, c: { ...c.c, usar: false } } }); });
+    await pg.evaluate(() => recarregaControle()); await pg.waitForTimeout(800); t = await tela();
+    ok(t.roda === "py" && !t.visaoC && t.arq === "controle.py", `outro circuito (roda Python) com o controle.c aberto: roda ${t.roda}, visão C ${t.visaoC}, aberto ${t.arq}`);
+    await escolhe("c");
     // 8. em inglês
     await pg.evaluate(() => maisimI18n.muda("en")); await pg.waitForTimeout(800); t = await tela();
     ok(t.rotulo === "Digital controller" && t.ops.join("|") === "off=Off|py=Python — controle.py|c=C — controle.c" && /view in Python/.test(t.outra)
