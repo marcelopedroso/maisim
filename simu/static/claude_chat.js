@@ -466,13 +466,14 @@ function poeControle(x) {
     ctl.dados.controle.arquivos = Object.fromEntries(Object.entries(x.arquivos).filter(([a]) => !ehC(a)));   // os .py; o C vai no "c"
     if (ctl.dados.controle.c) ctl.dados.controle.c.arquivos = Object.fromEntries(Object.entries(x.arquivos).filter(([a]) => ehC(a)));
   }
+  const emC = typeof visaoC === "function" && visaoC();  // a visão de antes (abrir o controle.py leva a visão ao Python)
   desenhaLigacoes();
   if (ctl.editor) {
     mostraArquivo("controle.py");                        // a proposta é do controle.py (a aba aberta pode ser outra)
     const m = ctl.editor.getModel();
     if (m.getValue() !== x.codigo) { ctl.editor.pushUndoStop(); ctl.editor.executeEdits("claude", [{ range: m.getFullModelRange(), text: x.codigo }]); ctl.editor.pushUndoStop(); }
   } else poeCodigo(x.codigo);
-  if (typeof visaoC === "function" && visaoC() && ctl.lista.includes("controle.c")) mostraArquivo("controle.c", false);   // a visão C: o C à vista
+  if (emC && ctl.lista.includes("controle.c")) mostraArquivo("controle.c", false);   // a visão C: o C à vista
 }
 const memoriaMudou = (p) => p.memoria !== undefined && (p.memoria || "").trim() !== (p.memoria_antes || "").trim();
 // a memória do MaiSim: preferências e lições que valem em todas as conversas; o usuário lê e edita aqui

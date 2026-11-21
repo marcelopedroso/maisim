@@ -47,7 +47,7 @@ def passo(t, m, p, e):
   await pg.waitForFunction(() => ctl.carregado && (ctl.editor || ctl.texto), null, { timeout: 30000 });
   const temMonaco = await pg.evaluate(() => !!ctl.editor);
   ok(temMonaco, `editor ${temMonaco ? "Monaco (o do VS Code)" : "caixa de texto (sem Monaco)"} com o código: ${(await pg.evaluate(() => codigoAtual().split("\n")[6])).trim()}`);
-  const lado = await pg.evaluate(() => ({ ativo: $("ctl-ativo").checked, atu: [...document.querySelectorAll("#ctl-atu [data-atu]")].map((x) => x.dataset.atu + (x.checked ? "✓" : "")),
+  const lado = await pg.evaluate(() => ({ ativo: $("ctl-roda").value !== "off", atu: [...document.querySelectorAll("#ctl-atu [data-atu]")].map((x) => x.dataset.atu + (x.checked ? "✓" : "")),
     ent: [...document.querySelectorAll("#ctl-ent code")].map((x) => x.textContent), par: [...document.querySelectorAll('#ctl-par [data-k="nome"]')].map((x) => x.value), ts: (($("ctl-ts-i").getAttribute("title") || $("ctl-ts-i").dataset.dica || "") + "\n" + $("ctl-ts-info").innerText) }));
   ok(lado.ativo && lado.atu.join() === "u_ctrl✓" && lado.ent.includes("i_L") && lado.par.join() === "Kp,Ki,i_ref,Vmax",
      `painel: ativo, atuações ${lado.atu}, medidas ${lado.ent}, parâmetros ${lado.par}, Ts ${lado.ts}`);
