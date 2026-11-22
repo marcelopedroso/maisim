@@ -125,8 +125,10 @@ with tempfile.TemporaryDirectory() as d:
         i = 0
         for nome, n in partes:
             a, b = py[i:i + n], c_out[i:i + n]
-            dif = [k for k in range(min(len(a), len(b))) if not (a[k] == b[k] or (a[k] != a[k] and b[k] != b[k]))]
-            ok(len(a) == len(b) == n and not dif, f"{nome}: Python × C iguais bit a bit em {n} saídas"
+            # no Windows o sin/cos do C é o da msvcrt e o do Python é o da ucrt: podem diferir no último bit (o pll); lá vale 1e-12
+            igual = (lambda x, y: x == y) if os.name != "nt" else (lambda x, y: abs(x - y) <= 1e-12 * max(1.0, abs(x), abs(y)))
+            dif = [k for k in range(min(len(a), len(b))) if not (igual(a[k], b[k]) or (a[k] != a[k] and b[k] != b[k]))]
+            ok(len(a) == len(b) == n and not dif, f"{nome}: Python × C iguais {'bit a bit' if os.name != 'nt' else 'até 1e-12'} em {n} saídas"
                + (f" (a 1ª diferença na saída {dif[0]}: {a[dif[0]]!r} × {b[dif[0]]!r})" if dif else ""))
             i += n
 

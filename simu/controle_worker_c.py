@@ -35,11 +35,20 @@ saida = os.fdopen(os.dup(1), "w", buffering=1)
 os.dup2(2, 1)
 sys.stdout = sys.stderr
 # no Windows a DLL do controle (TinyCC) escreve pela msvcrt.dll, que tem a sua própria tabela de descritores: o dup2 acima
-# (o do Python, na ucrt) não chega lá, e o printf do controle.c se perdia. A msvcrt abre o stdout dela no STD_OUTPUT_HANDLE
-# do processo quando carrega (logo abaixo, a primeira vez): apontado para o log antes, o printf vai para o controle.log
+# (o do Python, na ucrt) não chega lá, e o printf do controle.c se perdia. Aqui o fd 1 da msvcrt passa a ser o log (o
+# _dup2 dela, valha ela carregada antes ou depois), e o STD_OUTPUT_HANDLE do processo também: o printf vai ao controle.log
 if os.name == "nt":
     import msvcrt as _msvcrt_py
-    ctypes.windll.kernel32.SetStdHandle(-11, _msvcrt_py.get_osfhandle(2))   # STD_OUTPUT_HANDLE → o log
+    _log = _msvcrt_py.get_osfhandle(2)                                      # o log (o stderr do worker)
+    ctypes.windll.kernel32.SetStdHandle(-11, ctypes.c_void_p(_log))         # STD_OUTPUT_HANDLE → o log (se a msvcrt carregar depois)
+    try:                                                                    # e, se ela já estava carregada, o fd 1 dela → o log
+        _crt = ctypes.cdll.msvcrt
+        _crt._open_osfhandle.argtypes, _crt._open_osfhandle.restype = [ctypes.c_void_p, ctypes.c_int], ctypes.c_int
+        _fd = _crt._open_osfhandle(ctypes.c_void_p(_log), 0)
+        if _fd >= 0:
+            _crt._dup2(_fd, 1)
+    except (OSError, AttributeError):
+        pass
 cfg = {"nome": "controle", "arquivo": "controle.c", "atuacoes": None, "nomes": [], "prefixar": False, "varios": False}
 lib = estado = p_arr = None
 nomes = {"m": [], "p": [], "u": []}

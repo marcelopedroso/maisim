@@ -5017,13 +5017,24 @@ def limpa_trava_login(idade=5, ia=None):
     except OSError:
         return False
     alvo = f"{ia.variavel_pasta}={ia.pasta}".encode()
-    for p in Path("/proc").iterdir():
-        if p.name.isdigit():
-            try:
-                if alvo in (p / "environ").read_bytes().split(b"\0"):
-                    return False
-            except OSError:
-                pass
+    if Path("/proc").is_dir():
+        for p in Path("/proc").iterdir():
+            if p.name.isdigit():
+                try:
+                    if alvo in (p / "environ").read_bytes().split(b"\0"):
+                        return False
+                except OSError:
+                    pass
+    else:
+        # sem /proc (o Windows) não dá para ler o ambiente dos outros processos: a trava só sai se não há nenhum claude.exe
+        # rodando. Antes, a leitura do /proc estourava e TODO pedido à IA falhava enquanto a trava órfã existisse
+        try:
+            r = subprocess.run(["tasklist", "/FI", "IMAGENAME eq claude.exe", "/FO", "CSV", "/NH"], capture_output=True, text=True,
+                               timeout=15, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)) if os.name == "nt" else None
+        except (OSError, subprocess.SubprocessError):
+            return False
+        if r is None or r.returncode != 0 or "claude.exe" in r.stdout.lower():
+            return False
     shutil.rmtree(t, ignore_errors=True)
     print(f"a trava de login órfã {t} foi tirada", flush=True)  # i18n-ok (log)
     return True
@@ -5974,6 +5985,7 @@ def _claude_lanca(prompt, c, dt, vez, chave, conv, pasta, anexos, memoria, model
     with trava_cli:                                      # espera um `auth status` ou `/usage` que já esteja rodando
         limpa_trava_login(ia=a)
         proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                                encoding="utf-8", errors="replace",   # um byte fora do UTF-8 não derruba quem acompanha a saída
                                 cwd=str(pasta), env=a.ambiente(), **processos.GRUPO)
     with trava_claude:
         nosso = claude_pedido.get("vez") == vez and claude_pedido.get("andamento")

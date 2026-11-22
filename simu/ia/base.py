@@ -84,7 +84,7 @@ class IA:
     def argv0(self):
         """O começo do comando da ferramenta. Um .py (as IAs de mentira da instância de teste) vai pelo Python: no Windows um
         .py não é um programa (o sistema recusa: "not a valid Win32 application")."""
-        return [sys.executable, self.bin] if self.bin.endswith(".py") else [self.bin]
+        return [sys.executable, "-X", "utf8", self.bin] if self.bin.endswith(".py") else [self.bin]
 
     def instalado(self):
         if self.acha and not Path(self.bin).exists():
