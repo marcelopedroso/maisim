@@ -37,7 +37,7 @@ const PI = require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_con
     // simular: a coluna "corrente" é o i_L
     const j = await pg.evaluate(async () => { let r = await api("editor/rodar", { dt: "1e-06", tfim: "0.005", nome: "tag_tela", amostras: "1000" });
       for (let k = 0; k < 120 && ["rodando", "pausada", "preparando"].includes(r.estado); k++) { await new Promise((ok) => setTimeout(ok, 300)); r = await api("editor/rodada"); } return r; });
-    const cmp = j.estado === "fim" ? execFileSync("python3", ["-c", `import numpy as np, os; p=${JSON.stringify(j.arquivo)}; p=p if os.path.isabs(p) else os.path.join(${JSON.stringify(path.resolve(__dirname, "../../.."))}, p); d=np.load(p, allow_pickle=True); print(int(np.array_equal(d['corrente'], d['i_L'])), len(d['corrente']), float(np.max(np.abs(d['i_L']))))`]).toString().trim() : "0";
+    const cmp = j.estado === "fim" ? execFileSync(process.env.MAISIM_PYTHON || "python3", ["-c", `import numpy as np, os; p=${JSON.stringify(j.arquivo)}; p=p if os.path.isabs(p) else os.path.join(${JSON.stringify(path.resolve(__dirname, "../../.."))}, p); d=np.load(p, allow_pickle=True); print(int(np.array_equal(d['corrente'], d['i_L'])), len(d['corrente']), float(np.max(np.abs(d['i_L']))))`]).toString().trim() : "0";
     ok(cmp.startsWith("1 "), `simulado: a coluna "corrente" no scope é igual ao i_L (iguais, amostras, |i_L| máx: ${cmp}) ${j.erro || ""}`);
     // dentro de um subcircuito: o prefixo dele (como os medidores)
     const r = await pg.evaluate(async () => { novoEstado(await api("editor/cmd", { op: "CREATE", args: ["SUBCIRCUIT.1", 70, 10, "SUBCIRCUIT"] }));

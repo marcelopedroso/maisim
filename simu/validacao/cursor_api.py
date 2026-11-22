@@ -9,9 +9,9 @@
   registro do de mentira)."""
 import json, re, stat, subprocess, time, urllib.request
 from pathlib import Path
-B = "http://localhost:7201/maisim/simu/"
-PID = subprocess.run("ss -ltnp | grep ':7201 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1", shell=True, capture_output=True, text=True).stdout.strip()
-ENV = dict(x.split("=", 1) for x in Path(f"/proc/{PID}/environ").read_bytes().decode().split("\0") if "=" in x)
+B = "http://127.0.0.1:7201/maisim/simu/"
+from _servidor import ambiente  # noqa: E402
+ENV = ambiente()
 assert ENV.get("MAISIM_CURSOR_BIN", "").endswith("cursor_falso.py") and ENV.get("MAISIM_IA_TESTE") == "1", "suba o servidor de teste (reinicia_servidor_teste.sh)"
 CASA_CUR = Path(ENV["MAISIM_CURSOR_DIR"])
 assert CASA_CUR.resolve() != (Path.home() / ".cursor-maisim").resolve(), "a instância de teste nunca usa o ~/.cursor-maisim"
@@ -56,14 +56,8 @@ def pede(texto, ia="cursor", **extra):
 def cur():
     return next((a for a in api("claude/ias") if a["id"] == "cursor"), {})
 def vivos():
-    out = []
-    for d in Path("/proc").iterdir():
-        try:
-            if d.name.isdigit() and any(x.endswith(b"cursor_falso.py") for x in (d / "cmdline").read_bytes().split(b"\0")):
-                out.append(d.name)
-        except OSError:
-            pass
-    return out
+    from _servidor import processos_com
+    return processos_com("cursor_falso.py")
 def ate(cond, seg=20):
     fim = time.time() + seg
     while time.time() < fim:

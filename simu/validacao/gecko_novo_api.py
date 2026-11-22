@@ -14,7 +14,7 @@ depois da última leitura, com outra coisa, é. Reinicia o Gecko e o motor de te
 teste (reinicia_servidor_teste.sh); nunca os do MaiSim de uso. ~1,5 min."""
 import hashlib, json, os, re, signal, subprocess, sys, time, urllib.request
 from pathlib import Path
-B = "http://localhost:7201/maisim/simu/"
+B = "http://127.0.0.1:7201/maisim/simu/"
 AQUI = Path(__file__).resolve().parent
 sys.path.insert(0, str(AQUI.parent))
 import ipes  # noqa: E402
@@ -94,7 +94,7 @@ ok(r.get("codigo") == "gecko_novo" and x_de(e, "R.1") == 10 and api("editor/pend
 r = c("MOVE", "R.1", 20, 10); ok("ERRO" not in r and x_de(r, "R.1") == 20, "repetida, a edição vale")
 
 # 3. só o servidor reiniciado (o Gecko é o mesmo): a mudança não salva fica
-subprocess.run([str(AQUI / "reinicia_servidor_teste.sh")], check=True)
+subprocess.run([sys.executable, str(AQUI / "reinicia.py")], check=True)
 r = estado_depois()
 ok(x_de(r, "R.1") == 20 and not r.get("aviso_gecko") and linhas_log() == 0,
    f"servidor reiniciado, o mesmo Gecko: a mudança fica (R.1 em x = {x_de(r, 'R.1')}) e nada é reaberto")
@@ -102,7 +102,7 @@ ok(x_de(r, "R.1") == 20 and not r.get("aviso_gecko") and linhas_log() == 0,
 # 4. o servidor antes do Gecko (como no maisim.sh), com os CONST de uma rodada do Gecko de antes: refaz sozinho, sem os CONST
 api("editor/abrir", {"arq": str(A), "modo": "descartar"})
 para_gecko(); (T / "devolver.json").write_text(json.dumps({"CONST.1": 7.0}))
-subprocess.run([str(AQUI / "reinicia_servidor_teste.sh")], check=True)
+subprocess.run([sys.executable, str(AQUI / "reinicia.py")], check=True)
 t0 = time.monotonic(); gecko_novo()
 while linhas_log() == 0 and time.monotonic() - t0 < 120: time.sleep(0.5)
 time.sleep(1)
@@ -120,10 +120,10 @@ ok(nomes(r) == [] and api("editor/aberto").get("aberto") is None and "vazio" in 
 
 # 6. sem o registro do Gecko conhecido (a 1ª partida com esta conferência)
 api("editor/abrir", {"arq": str(A), "modo": "descartar"}); c("MOVE", "R.1", 18, 10); api("editor/estado")
-(T / "gecko_visto.txt").unlink(missing_ok=True); subprocess.run([str(AQUI / "reinicia_servidor_teste.sh")], check=True)
+(T / "gecko_visto.txt").unlink(missing_ok=True); subprocess.run([sys.executable, str(AQUI / "reinicia.py")], check=True)
 ok(x_de(estado_depois(), "R.1") == 18, "sem registro, o mesmo Gecko, servidor reiniciado: a mudança fica")
 (T / "gecko_visto.txt").unlink(missing_ok=True); os.utime(ESTADO, (time.time() - 3600,) * 2)   # o relógio "pulou" 1 h
-subprocess.run([str(AQUI / "reinicia_servidor_teste.sh")], check=True)
+subprocess.run([sys.executable, str(AQUI / "reinicia.py")], check=True)
 ok(x_de(estado_depois(), "R.1") == 18, "sem registro, o mesmo Gecko e a última leitura de 1 h atrás: o que ele tem é o que o editor viu, fica")
 (T / "gecko_visto.txt").unlink(missing_ok=True)
 gecko_novo(); os.utime(ESTADO, (time.time() - 3600,) * 2)
@@ -139,7 +139,7 @@ for pid in set(re.findall(r"pid=(\d+)", s7203)): os.kill(int(pid), signal.SIGTER
 for _ in range(30):
     if not subprocess.run(["ss", "-ltnH", "sport = :7203"], capture_output=True, text=True).stdout.strip(): break
     time.sleep(0.3)
-cfg = dict(re.findall(r"(MAISIM_\w+)='?([^'\n]*)'?", subprocess.run(["python3", str(AQUI.parents[1] / "config" / "ler_config.py"), "--shell", "teste"], capture_output=True, text=True).stdout))
+cfg = dict(re.findall(r"(MAISIM_\w+)='?([^'\n]*)'?", subprocess.run([sys.executable, str(AQUI.parents[1] / "config" / "ler_config.py"), "--shell", "teste"], capture_output=True, text=True).stdout))
 T = Path(cfg["MAISIM_DADOS"]); jar = cfg.get("MAISIM_GECKO_JAR") or str(AQUI.parents[1] / "gecko" / "build" / "gecko-lote.jar")
 (T / "gecko.log").write_text("")
 subprocess.Popen(["setsid", "nohup", "java", f"-Duser.home={T}/home", "-Dpolyglot.js.nashorn-compat=true", "-jar", jar, str(T / "modelo.ipes"), "-p", cfg["MAISIM_PORTA_GECKO"]],

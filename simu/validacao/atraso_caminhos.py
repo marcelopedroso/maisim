@@ -3,7 +3,7 @@ chave) e CONST → fonte, CONST → GAIN → fonte (RL). Um acionamento do CONST
 circuito a partir do passo 8 nos quatro (sem a compensação: passos 7, 8, 8 e 9). Instância de teste (7201)."""
 import json, urllib.request, subprocess, sys
 import numpy as np
-B = "http://localhost:7201/maisim/simu/"
+B = "http://127.0.0.1:7201/maisim/simu/"
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(req, timeout=300).read())

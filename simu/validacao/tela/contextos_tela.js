@@ -7,8 +7,7 @@ const { chromium } = require("playwright");
 const fs = require("fs"), path = require("path"), { execSync } = require("child_process");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
-const pid = execSync(`ss -ltnp | grep ':7201 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1`).toString().trim();
-const ENV = Object.fromEntries(fs.readFileSync(`/proc/${pid}/environ`).toString().split("\0").filter((x) => x.includes("=")).map((x) => [x.slice(0, x.indexOf("=")), x.slice(x.indexOf("=") + 1)]));
+const ENV = require("./_servidor.js").ambiente();   // as pastas do simulador de teste (Linux: o /proc dele; Windows: o perfil)
 if (!(ENV.MAISIM_CLAUDE_BIN || "").endsWith("claude_falso.py") || !/maisim_teste/.test(ENV.MAISIM_CONTEXTOS || "")) { console.log("FALHA suba o servidor de teste (reinicia_servidor_teste.sh)"); process.exit(1); }
 const CONF = ENV.MAISIM_CLAUDE_DIR, CTX = ENV.MAISIM_CONTEXTOS;
 fs.mkdirSync(CONF, { recursive: true }); fs.writeFileSync(path.join(CONF, "falso_cenario"), "ganho"); fs.writeFileSync(path.join(CONF, "falso_logado"), "");
@@ -121,7 +120,7 @@ const antes = new Set(fs.existsSync(CTX) ? fs.readdirSync(CTX) : []);
     const dj = await espDown;
     const novo = novos().find((x) => JSON.parse(fs.readFileSync(path.join(CTX, x, "meta.json"), "utf8")).continua_de);
     const zipJ = path.join(require("os").tmpdir(), `teste_junta_${novo}.maisimctx`); await dj.saveAs(zipJ);
-    const noZip = JSON.parse(execSync(`python3 -I -c "import sys, zipfile, json; z = zipfile.ZipFile(sys.argv[1]); print(json.dumps({n.split('/', 1)[1]: (z.read(n).decode() if n.endswith('resumo_ia.md') else '') for n in z.namelist()}))" "${zipJ}"`).toString());
+    const noZip = JSON.parse(execSync(`"${process.env.MAISIM_PYTHON || "python3"}" -I -c "import sys, zipfile, json; z = zipfile.ZipFile(sys.argv[1]); print(json.dumps({n.split('/', 1)[1]: (z.read(n).decode() if n.endswith('resumo_ia.md') else '') for n in z.namelist()}))" "${zipJ}"`).toString());
     await pg.waitForTimeout(300);
     const avJ = await pg.evaluate(() => ({ modal: !!document.querySelector(".cx-salvar"), aviso: $("cc-aviso").textContent }));
     ok(novo && dj.suggestedFilename() === `${novo}.maisimctx` && "anterior.md" in noZip && /li anterior\.md: Buck — Kp dobrado \(rev\)/.test(noZip["resumo_ia.md"] || "")

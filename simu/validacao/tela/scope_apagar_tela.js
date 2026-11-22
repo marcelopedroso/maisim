@@ -9,7 +9,7 @@ let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
 const RODADAS = path.join(os.homedir(), ".cache/maisim_teste/rodadas"), FORA = path.join(__dirname, "..", "tmp_scope_apagar");
 const P = (n) => path.join(RODADAS, `2026-01-01_00000${n}_ap_teste_${n}`);
-const npz = (arq, rotulo) => execFileSync("python3", ["-c", `import numpy as np, json
+const npz = (arq, rotulo) => execFileSync(process.env.MAISIM_PYTHON || "python3", ["-c", `import numpy as np, json
 t = np.arange(0, 0.01, 1e-4)
 meta = {"planta": "gecko-maisim", "rotulo": ${JSON.stringify(rotulo)}, "modelo": "x/circuito_ap.ipes", "dt": 1e-4, "Ts": 1e-4, "tfim": 0.01,
         "sinais": [{"canal": "v", "elemento": "VOLT.1"}], "acionamentos": []}

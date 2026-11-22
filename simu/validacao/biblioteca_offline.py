@@ -14,6 +14,8 @@ RAIZ = Path(__file__).resolve().parents[2]
 BIB = RAIZ / "simu" / "biblioteca_controle"
 sys.path[:0] = [str(RAIZ / "simu"), str(BIB)]
 import sinais_c  # noqa: E402
+import os  # noqa: E402
+LM, X = ([], ".exe") if os.name == "nt" else (["-lm"], "")   # no Windows: a matemática vem na msvcrt (sem -lm) e o programa é .exe
 
 MODULOS = ("pi", "pwm", "passa_baixa", "rampa", "pll")
 falhas = 0
@@ -82,14 +84,14 @@ for va, vb, vc in pll_v:
     py += [mods["pll"].passo(e, va, vb, vc), e["vd"], e["vq"], e["w"]]
 pll_fim = dict(e)
 
-# 4. o C: o mesmo, num programa que imprime cada número em hexadecimal (%a: exato)
+# 4. o C: o mesmo, num programa que imprime cada número em hexadecimal (%.13a: exato)
 H = float.hex
 arr = lambda nome, xs: f"static const double {nome}[{len(xs)}] = {{{', '.join(H(float(x)) for x in xs)}}};"
 prog = "\n".join([
     "#include <stdio.h>", *[f'#include "{m}.h"' for m in MODULOS],
     arr("erros_pi", erros_pi), arr("pwm_t", pwm_t), arr("pwm_d", pwm_d), arr("pb_x", pb_x), arr("rampa_ref", rampa_ref),
     arr("pll_a", [v[0] for v in pll_v]), arr("pll_b", [v[1] for v in pll_v]), arr("pll_c", [v[2] for v in pll_v]),
-    "#define P(x) printf(\"%a\\n\", (double)(x))",
+    "#define P(x) printf(\"%.13a\\n\", (double)(x))",   # %.13a: exato também na msvcrt do Windows, cujo %a para em 6 dígitos
     "void maisim_padrao(int u, int o, maisim_real v) { (void)u; (void)o; (void)v; }   /* o pwm_pulsos (no SIL, o calço do MaiSim) */",
     "int main(void) {", "  int k, tipo;",
     f"  {{ PiEstado e; pi_iniciar(&e, {H(0.8)}, {H(120.0)}, {H(TS)}, -1.0, 1.0, 0.0); for (k = 0; k < {N}; k++) P(pi_passo(&e, erros_pi[k])); }}",
@@ -113,18 +115,20 @@ with tempfile.TemporaryDirectory() as d:
     (d / "maisim_controle.h").write_text((Path(sinais_c.DIR_C) / "maisim_controle.h").read_text())
     (d / "teste.c").write_text(prog)
     fontes = [f"{m}.c" for m in MODULOS] + ["teste.c"]
-    r = subprocess.run([cc[0], *sinais_c.opcoes(cc[1]), *fontes, "-o", "teste", "-lm"], cwd=d, capture_output=True, text=True, timeout=120)
+    r = subprocess.run([cc[0], *sinais_c.opcoes(cc[1]), *fontes, "-o", "teste" + X, *LM], cwd=d, capture_output=True, text=True, timeout=120)
     ok(r.returncode == 0, f"a biblioteca compila (em double) com {Path(cc[0]).name}: {(r.stderr or '')[-300:]}")
     rf = subprocess.run([cc[0], *sinais_c.opcoes(cc[1], "float"), "-c", *[f"{m}.c" for m in MODULOS]], cwd=d, capture_output=True, text=True, timeout=120)
     ok(rf.returncode == 0, f"e em float (como num C28x): {(rf.stderr or '')[-300:]}")
     if r.returncode == 0:
-        c_out = [float.fromhex(l) for l in subprocess.run([str(d / "teste")], capture_output=True, text=True, timeout=60).stdout.split()]
+        c_out = [float.fromhex(l) for l in subprocess.run([str(d / ("teste" + X))], capture_output=True, text=True, timeout=60).stdout.split()]
         partes = [("pi", N), ("pwm serra", 2 * N), ("pwm triangular", 2 * N), ("passa_baixa", N), ("rampa", N), ("pll", 4 * N)]
         i = 0
         for nome, n in partes:
             a, b = py[i:i + n], c_out[i:i + n]
-            dif = [k for k in range(min(len(a), len(b))) if not (a[k] == b[k] or (a[k] != a[k] and b[k] != b[k]))]
-            ok(len(a) == len(b) == n and not dif, f"{nome}: Python × C iguais bit a bit em {n} saídas"
+            # no Windows o sin/cos do C é o da msvcrt e o do Python é o da ucrt: podem diferir no último bit (o pll); lá vale 1e-12
+            igual = (lambda x, y: x == y) if os.name != "nt" else (lambda x, y: abs(x - y) <= 1e-12 * max(1.0, abs(x), abs(y)))
+            dif = [k for k in range(min(len(a), len(b))) if not (igual(a[k], b[k]) or (a[k] != a[k] and b[k] != b[k]))]
+            ok(len(a) == len(b) == n and not dif, f"{nome}: Python × C iguais {'bit a bit' if os.name != 'nt' else 'até 1e-12'} em {n} saídas"
                + (f" (a 1ª diferença na saída {dif[0]}: {a[dif[0]]!r} × {b[dif[0]]!r})" if dif else ""))
             i += n
 

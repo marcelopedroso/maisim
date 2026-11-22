@@ -1,9 +1,9 @@
 """Mudanças não salvas (circuito, controle, cores) ao abrir, no novo e no pendente — instância de teste (7201)."""
 import json, urllib.request, subprocess, os, sys
 from pathlib import Path
-B = "http://localhost:7201/maisim/simu/"
+B = "http://127.0.0.1:7201/maisim/simu/"
 SOBE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "..", "..", "tmp")   # (não usado)
-REINICIA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reinicia_servidor_teste.sh")
+REINICIA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reinicia.py")
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(req, timeout=300).read())
@@ -51,11 +51,11 @@ r = api("editor/novo", {}); ok(r.get("ERRO") == 409 and "circuito novo" in r.get
 r = api("editor/novo", {"modo": "descartar"}); ok("ERRO" not in r, "descartar e criar")
 # 6. reiniciar o servidor: o que o editor viu fica em disco — não pergunta à toa
 api("editor/abrir", {"arq": A, "modo": "descartar"}); c("MOVE", ["R.1", 14, 10])
-subprocess.run([REINICIA])
+subprocess.run([sys.executable, REINICIA])
 r = api("editor/abrir", {"arq": A}); ok("ERRO" not in r and r.get("mantido"), "edição do editor, servidor reiniciado, reabrir: fica, sem perguntar")
 # 7. mudança que o editor não viu (simulada: o "visto" apagado e o servidor reiniciado): pergunta manter/descartar
 (Path.home() / ".cache/maisim_teste/visto.txt").write_text("outro")
-subprocess.run([REINICIA])
+subprocess.run([sys.executable, REINICIA])
 r = api("editor/abrir", {"arq": A}); ok(r.get("ERRO") == 409 and r.get("mesmo") is True, f"mudança não vista: pergunta ({r.get('erro')})")
 r = api("editor/abrir", {"arq": A, "modo": "manter"}); x = next(e["x"] for e in r["folhas"]["0"]["elementos"] if e["nome"] == "R.1")
 ok(r.get("mantido") and x == 14, f"manter: fica o que está no Gecko (x = {x})")

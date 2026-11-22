@@ -9,7 +9,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
 const PASTA = path.join(__dirname, "..", "tmp_scope_notacao"), RAIZ = path.resolve(__dirname, "../../..");
 fs.mkdirSync(PASTA, { recursive: true });
 const NPZ = path.join(PASTA, "scope_notacao.npz");
-require("child_process").execFileSync("python3", ["-c", `import numpy as np, json
+require("child_process").execFileSync(process.env.MAISIM_PYTHON || "python3", ["-c", `import numpy as np, json
 t = np.arange(0, 0.01, 1e-4)
 meta = {"planta": "gecko-maisim", "rotulo": "notacao", "modelo": "x/circuito_notacao.ipes", "dt": 1e-4, "Ts": 1e-4, "tfim": 0.01, "sinais": [], "acionamentos": [], "media_intervalo": ["i_Lf_a"]}
 np.savez(${JSON.stringify(NPZ)}, meta=np.array(json.dumps(meta)), t=t, v_o=np.sin(t), i_Lf_a=np.cos(t), portadora=t)`]);

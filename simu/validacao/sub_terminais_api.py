@@ -2,8 +2,8 @@
 lado do borne no bloco), nunca cai num borne ocupado (vai para o livre mais perto; sem livre, erro antes de mexer), anda
 com dx == dy (o Gecko ignora esse passo) e pode ser criado já num lado que não é o padrão; renomear e apagar; tamanho do
 bloco (não deixa juntar bornes); e a prova: fios de fora até os bornes desenhados e a corrente sai V/R."""
-import json, subprocess, time, urllib.request
-B = "http://localhost:7201/maisim/simu/"
+import json, subprocess, sys, time, urllib.request
+B = "http://127.0.0.1:7201/maisim/simu/"
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(req, timeout=300).read())
@@ -110,7 +110,7 @@ api("editor/cmd", {"op": "CREATE", "args": ["AMP.1", 5, 5, "AMP"]})
 api("editor/mede", {"nome": "AMP.1", "tipo": "I", "componente": "U.1"}); cmd("OUTNODE", "AMP.1", 0, "i_U")
 j = api("editor/rodar", {"dt": "1e-06", "tfim": "0.001", "nome": "sub_terminais_api", "amostras": "1000"})
 while j.get("estado") in ("rodando", "pausada", "preparando"): time.sleep(0.3); j = api("editor/rodada")
-i = float(subprocess.check_output(["python3", "-c", f"import numpy as np; d=np.load({json.dumps(j.get('arquivo', ''))}); i=d['i_U']; print(float(np.mean(i[len(i)//2:])))"]).decode())
+i = float(subprocess.check_output([sys.executable, "-c", f"import numpy as np; d=np.load({json.dumps(j.get('arquivo', ''))}); i=d['i_U']; print(float(np.mean(i[len(i)//2:])))"]).decode())
 ok(j.get("estado") == "fim" and abs(abs(i) - 10) < 1e-6, f"simulado pelos fios até os bornes (bloco 8 × 6): |i| = {abs(i):.6f} A (100 V / 10 Ω = 10 A)")
 
 # arquivo de antes desta regra, com dois terminais no mesmo borne (o caso do Marcelo, 18/10): a tela avisa; arrastar resolve

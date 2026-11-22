@@ -20,7 +20,7 @@ def config(chave, padrao):                               # do perfil de teste (c
         return padrao
 
 
-B = f"http://localhost:{config('MAISIM_PORTA_SIMU', '7201')}/maisim/simu/"
+B = f"http://127.0.0.1:{config('MAISIM_PORTA_SIMU', '7201')}/maisim/simu/"
 CIRC = Path(config("MAISIM_SALVOS", str(Path.home() / ".cache/maisim_teste/circuitos")))
 SALVO = CIRC / "gira_controle_api_t.ipes"
 

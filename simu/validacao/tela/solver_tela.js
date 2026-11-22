@@ -14,7 +14,7 @@ const abre = () => fetch(S + "editor/abrir", { method: "POST", headers: { "Conte
   body: JSON.stringify({ arq: ARQ, modo: "descartar" }) }).then((r) => r.text());
 // uma gravação de mentira com o solver no meta (null: uma rodada de antes, sem ele)
 const grava = (nome, solver) => { const arq = path.join(PASTA, `scope_${nome}.npz`);
-  execFileSync("python3", ["-c", `import numpy as np, json
+  execFileSync(process.env.MAISIM_PYTHON || "python3", ["-c", `import numpy as np, json
 t = np.arange(0, 0.01 + 1e-12, 1e-4)
 meta = {"planta": "gecko-maisim", "rotulo": "${nome}", "modelo": "circuito_teste.ipes", "dt": 1e-4, "Ts": 1e-4, "n_fino": 1, "dt_gecko": 1e-6, "tfim": 0.01,
         "sinais": [{"canal": "Va", "elemento": "VOLT.1"}], "acionamentos": []${solver ? `, "solver": "${solver}"` : ""}}
@@ -64,7 +64,7 @@ np.savez(${JSON.stringify(arq)}, meta=np.array(json.dumps(meta)), t=t, Va=np.sin
     const rod = await pg.evaluate(async () => api("editor/rodada"));
     const pastaRod = rod.arquivo ? path.dirname(rod.arquivo) : "";
     const resumo = pastaRod && fs.existsSync(path.join(pastaRod, "resumo.md")) ? fs.readFileSync(path.join(pastaRod, "resumo.md"), "utf8") : "";
-    const meta = rod.arquivo ? JSON.parse(execFileSync("python3", ["-c", `import numpy as np; print(str(np.load(${JSON.stringify(rod.arquivo)})["meta"]))`]).toString()) : {};
+    const meta = rod.arquivo ? JSON.parse(execFileSync(process.env.MAISIM_PYTHON || "python3", ["-c", `import numpy as np; print(str(np.load(${JSON.stringify(rod.arquivo)})["meta"]))`]).toString()) : {};
     ok(rod.estado === "fim" && meta.solver === "trapezoidal" && /integração \(solverType do Gecko\): trapézio/.test(resumo),
       `a rodada: ${rod.estado}, meta.solver = ${meta.solver}; resumo.md: "${(resumo.match(/.*integração.*/) || [""])[0]}"`);
     const est = await pg.evaluate(async () => (await api("editor/estado")).simulacao);

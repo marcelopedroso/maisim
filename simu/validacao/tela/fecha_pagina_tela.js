@@ -25,7 +25,7 @@ const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.st
 Object.assign(env, { MAISIM_PORTA: String(B), MAISIM_TELA_X: ":73", MAISIM_DADOS: `${T}/d`, MAISIM_CACHE: `${T}/c`, MAISIM_NAVEGADOR: "nenhum",
   MAISIM_CLAUDE_DIR: `${T}/claude`, MAISIM_CURSOR_DIR: `${T}/cursor`, MAISIM_EXEMPLOS_GECKO: "0" });
 ["PAGINA", "SIMU", "SCOPE", "GECKO", "MOTOR", "TELA", "VNC"].forEach((k, i) => { env[`MAISIM_PORTA_${k}`] = String(B + i); });   // nem um .env da raiz muda
-const lanca = () => { const p = spawn("python3", ["app/lancador.py", "--abrir"], { cwd: RAIZ, env, stdio: ["ignore", "pipe", "pipe"] });
+const lanca = () => { const p = spawn(process.env.MAISIM_PYTHON || "python3", ["app/lancador.py", "--abrir"], { cwd: RAIZ, env, stdio: ["ignore", "pipe", "pipe"] });
   p.saida = ""; p.fim = null; p.stdout.on("data", (d) => { p.saida += d; }); p.stderr.on("data", (d) => { p.saida += d; });
   p.on("exit", (c) => { p.fim = c; }); return p; };
 

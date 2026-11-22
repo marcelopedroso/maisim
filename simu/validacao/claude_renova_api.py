@@ -4,9 +4,9 @@ estado (auth status) e o uso (/usage) enquanto o pedido partia. Agora: durante u
 guardado, sem outro `claude`; e o erro passageiro da renovação tenta de novo sozinho, uma vez (uma entrada só na conversa)."""
 import json, os, subprocess, time, urllib.request
 from pathlib import Path
-B = "http://localhost:7201/maisim/simu/"
-PID = subprocess.run("ss -ltnp | grep ':7201 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1", shell=True, capture_output=True, text=True).stdout.strip()
-ENV = dict(x.split("=", 1) for x in Path(f"/proc/{PID}/environ").read_bytes().decode().split("\0") if "=" in x)
+B = "http://127.0.0.1:7201/maisim/simu/"
+from _servidor import ambiente  # noqa: E402
+ENV = ambiente()
 assert ENV.get("MAISIM_CLAUDE_BIN", "").endswith("claude_falso.py"), "suba o servidor de teste com o claude de mentira (reinicia_servidor_teste.sh)"
 CONF, SALVOS = Path(ENV["MAISIM_CLAUDE_DIR"]), Path(ENV["MAISIM_SALVOS"])
 

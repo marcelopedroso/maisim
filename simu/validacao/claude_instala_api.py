@@ -5,9 +5,9 @@ o POST recusa sem rodar nada. O fluxo inteiro (começa, acompanha, termina, acha
 claude novo) roda com um instalador de mentira em claude_instala_offline.py."""
 import json, subprocess, urllib.request
 from pathlib import Path
-B = "http://localhost:7201/maisim/simu/"
-PID = subprocess.run("ss -ltnp | grep ':7201 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1", shell=True, capture_output=True, text=True).stdout.strip()
-ENV = dict(x.split("=", 1) for x in Path(f"/proc/{PID}/environ").read_bytes().decode().split("\0") if "=" in x)
+B = "http://127.0.0.1:7201/maisim/simu/"
+from _servidor import ambiente  # noqa: E402
+ENV = ambiente()
 assert ENV.get("MAISIM_IA_TESTE") == "1" and not ENV.get("MAISIM_INSTALA_CLAUDE_CMD"), "suba o servidor de teste (reinicia_servidor_teste.sh)"
 falhas = 0
 def ok(c, t):

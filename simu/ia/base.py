@@ -81,6 +81,11 @@ class IA:
         env.update({"NO_COLOR": "1", "TERM": "dumb", **extra})   # extra pode trocar o TERM
         return env
 
+    def argv0(self):
+        """O começo do comando da ferramenta. Um .py (as IAs de mentira da instância de teste) vai pelo Python: no Windows um
+        .py não é um programa (o sistema recusa: "not a valid Win32 application")."""
+        return [sys.executable, "-X", "utf8", self.bin] if self.bin.endswith(".py") else [self.bin]
+
     def instalado(self):
         if self.acha and not Path(self.bin).exists():
             self.bin = str(self.acha())

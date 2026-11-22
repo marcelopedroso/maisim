@@ -27,7 +27,7 @@ class Claude(IA):
         return super().ambiente(FORCE_HYPERLINK="0", **extra)
 
     def comando(self, prompt, sessao, retoma, regras, modelo="", esforco="", passos=100, editaveis=(), pasta=None):
-        cmd = [self.bin, "-p", prompt, "--output-format", "stream-json", "--verbose", "--restricted",
+        cmd = [*self.argv0(), "-p", prompt, "--output-format", "stream-json", "--verbose", "--restricted",
                "--tools", "Read,Edit,Write,Glob,Grep", "--allowedTools", *[f"Edit(./{f})" for f in editaveis], "Edit(./*.py)", "Write(./*.py)",
                "Edit(./*.c)", "Write(./*.c)", "Edit(./*.h)", "Write(./*.h)",   # o controle em C e os módulos dele (o par nome.h/nome.c)
                "--permission-mode", "dontAsk", "--permission-prompts", "none", "--strict-mcp-config", "--max-turns", str(passos),
@@ -38,7 +38,7 @@ class Claude(IA):
         return cmd + (["--resume", sessao] if retoma else ["--session-id", sessao])
 
     def comando_resumo(self, prompt, modelo="", esforco="", pasta=None):
-        return [self.bin, "-p", prompt, "--output-format", "json", "--restricted", "--tools", "Read,Glob,Grep",
+        return [*self.argv0(), "-p", prompt, "--output-format", "json", "--restricted", "--tools", "Read,Glob,Grep",
                 "--permission-mode", "dontAsk", "--permission-prompts", "none", "--strict-mcp-config", "--no-session-persistence",
                 "--max-turns", "30", *(["--model", modelo] if modelo else []), *(["--effort", esforco] if esforco else [])]
 
@@ -56,14 +56,14 @@ class Claude(IA):
                 "$ProgressPreference='SilentlyContinue'; irm https://claude.ai/install.ps1 | iex"]
 
     def comando_estado(self):
-        return [self.bin, "auth", "status", "--json"]
+        return [*self.argv0(), "auth", "status", "--json"]
 
     def le_estado(self, st):
         return dict(logado=bool(st.get("loggedIn")), metodo=st.get("authMethod"), email=st.get("email"),
                     plano=st.get("subscriptionType"), organizacao=st.get("orgName"))
 
     def comando_uso(self):
-        return [self.bin, "-p", "/usage", "--output-format", "json", "--tools", "", "--no-session-persistence"]
+        return [*self.argv0(), "-p", "/usage", "--output-format", "json", "--tools", "", "--no-session-persistence"]
 
     def sessao_existe(self, sid):
         return any((self.pasta / "projects").glob(f"*/{sid}.jsonl"))

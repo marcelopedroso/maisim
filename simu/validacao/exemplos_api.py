@@ -6,7 +6,7 @@ TAG.1 do PWM; as variáveis $ do MMC)."""
 import gzip, json, os, re, time, urllib.request
 from pathlib import Path
 import numpy as np
-B = "http://localhost:7201/maisim/simu/"
+B = "http://127.0.0.1:7201/maisim/simu/"
 RAIZ = Path(__file__).resolve().parents[2]
 
 

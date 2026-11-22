@@ -6,7 +6,7 @@ o cartão lê o que o código lê (o nome entre aspas, também por NOME = "x" nu
 atuações escritas ficam marcadas; o aviso que fica é o da variável do código que não existe no esquema (arquivo:linha);
 trocar por um nome que existe (editor/controle/renomeia) tira o aviso."""
 import json, urllib.request
-B = "http://localhost:7201/maisim/simu/"
+B = "http://127.0.0.1:7201/maisim/simu/"
 def api(rota, corpo=None):
     q = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(q, timeout=180).read())

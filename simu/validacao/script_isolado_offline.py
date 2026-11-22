@@ -28,7 +28,7 @@ with tempfile.TemporaryDirectory() as d:
         "import sys\nimport maisim\nimport vizinho\n"
         "print('maisim', hasattr(maisim, 'scope'), 'vizinho', vizinho.X, __name__, sys.argv[0].endswith('usa_maisim.py'))\n",
         encoding="utf-8")
-    (pasta / "com_erro.py").write_text("x = 1\n\nraise ValueError('erro de propósito')\n", encoding="utf-8")
+    (pasta / "com_erro.py").write_text("x = 1\n\nraise ValueError('erro de teste')\n", encoding="utf-8")
     real = subprocess.run
 
     def isolado(cmd, *a, **k):                     # o Python do modo_script com -I: sem PYTHONPATH, sem a pasta do script
@@ -43,7 +43,7 @@ with tempfile.TemporaryDirectory() as d:
            + (f"; erro: {r['erro'].strip().splitlines()[-1]!r}" if r["erro"].strip() else "") + ")")
         r = modo_script.roda("com_erro")
         e = r["erro"]
-        ok(not r["ok"] and 'com_erro.py", line 3' in e and "ValueError: erro de propósito" in e and "runpy" not in e and "<string>" not in e,
+        ok(not r["ok"] and 'com_erro.py", line 3' in e and "ValueError: erro de teste" in e and "runpy" not in e and "<string>" not in e,
            "o erro sai como o de um \"python script.py\": o arquivo e a linha, sem os quadros do começo ("
            + " · ".join(l.strip() for l in e.strip().splitlines() if "line" in l or "Error" in l)[-200:] + ")")
     finally:

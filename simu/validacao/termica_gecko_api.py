@@ -24,7 +24,7 @@ def config(chave, padrao):                               # do perfil de teste (c
         return padrao
 
 
-B = f"http://localhost:{config('MAISIM_PORTA_SIMU', '7201')}/maisim/simu/"
+B = f"http://127.0.0.1:{config('MAISIM_PORTA_SIMU', '7201')}/maisim/simu/"
 PORTA_GECKO = int(config("MAISIM_PORTA_GECKO", "7203"))
 CIRC = Path(config("MAISIM_SALVOS", str(Path.home() / ".cache/maisim_teste/circuitos")))
 ORIGEM = RAIZ / "gecko/build/GeckoCIRCUITS/resources/Topologies/BuckBoost_thermal.ipes"

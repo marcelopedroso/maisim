@@ -13,7 +13,7 @@ de abrir e 0,0 nas outras; a perda de chaveamento do 1º passo, 3,6 W, aparecia 
 import json, time, urllib.request
 from pathlib import Path
 import numpy as np
-B = "http://localhost:7201/maisim/simu/"
+B = "http://127.0.0.1:7201/maisim/simu/"
 T = Path.home() / ".cache/maisim_teste"
 
 

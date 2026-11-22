@@ -32,7 +32,7 @@ escolhidos por rodada ("laco": "novo" | "antigo" no editor/rodar; MAISIM_LACO d√
 import gzip, json, re, statistics, sys, time, urllib.request
 from pathlib import Path
 import numpy as np
-B = "http://localhost:7201/maisim/simu/"
+B = "http://127.0.0.1:7201/maisim/simu/"
 RAIZ = Path(__file__).resolve().parents[2]
 LIMITE = 1.5
 LIMITE_PY = 1.1

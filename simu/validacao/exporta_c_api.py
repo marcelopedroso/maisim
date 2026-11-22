@@ -10,6 +10,8 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(RAIZ / "simu")]
 import sinais_c  # noqa: E402
+import os  # noqa: E402
+LM, X = ([], ".exe") if os.name == "nt" else (["-lm"], "")   # no Windows: a matemática vem na msvcrt (sem -lm) e o programa é .exe
 
 
 def config(chave, padrao):                               # do perfil de teste (config/teste.env)
@@ -20,7 +22,7 @@ def config(chave, padrao):                               # do perfil de teste (c
         return padrao
 
 
-B = f"http://localhost:{config('MAISIM_PORTA_SIMU', '7201')}/maisim/simu/"
+B = f"http://127.0.0.1:{config('MAISIM_PORTA_SIMU', '7201')}/maisim/simu/"
 
 
 def api(rota, corpo=None, cru=False):
@@ -71,7 +73,7 @@ try:
     with tempfile.TemporaryDirectory() as d:
         z.extractall(d)
         pasta = Path(d) / raiz / "controle"
-        r = gcc(pasta, "controle.c", "maisim_alvo.c", "teste/replay.c", "-lm", "-o", "replay")
+        r = gcc(pasta, "controle.c", "maisim_alvo.c", "teste/replay.c", *LM, "-o", "replay" + X)
         ok(r.returncode == 0, f"o pacote compila no PC (o replay.c com o controle) {r.stderr[-300:]}")
         # as mesmas medidas no replay.c e no worker do SIL: as atuações iguais bit a bit
         nomes_m = json.loads("[" + re.search(r"nomes_m\[\] = \{ (.*) \};", (pasta / "teste/replay.c").read_text()).group(1) + "]")
@@ -79,7 +81,7 @@ try:
         amostras = [{"t": k * Ts, **{n: 10.0 + 3.0 * math.sin(2 * math.pi * 5000 * k * Ts + j) for j, n in enumerate(nomes_m)}} for k in range(N)]
         (pasta / "teste/medidas.csv").write_text("t," + ",".join(nomes_m) + "\n" + "".join(
             ",".join(repr(a[c]) for c in ["t", *nomes_m]) + "\n" for a in amostras))
-        rr = subprocess.run(["./replay", "teste/medidas.csv", "teste/atuacoes.csv"], cwd=pasta, capture_output=True, text=True, timeout=60)
+        rr = subprocess.run([os.path.join(pasta, "replay" + X), "teste/medidas.csv", "teste/atuacoes.csv"], cwd=pasta, capture_output=True, text=True, timeout=60)
         linhas = (pasta / "teste/atuacoes.csv").read_text().splitlines() if rr.returncode == 0 else []
         g_replay = [float(l.split(",")[1]) if l.split(",")[1] else None for l in linhas[1:]]
         params = {q["nome"]: q["valor"] for q in ex["parametros"]} | {"Ts": Ts}
@@ -102,12 +104,12 @@ try:
         extra = [f"x{k}" for k in range(300)]
         (pasta / "teste/largo.csv").write_text("t," + ",".join(extra + nomes_m) + "\n" + "".join(
             ",".join([repr(a["t"])] + ["0"] * 300 + [repr(a[n]) for n in nomes_m]) + "\n" for a in amostras))
-        rl = subprocess.run(["./replay", "teste/largo.csv", "teste/largo_out.csv"], cwd=pasta, capture_output=True, text=True, timeout=60)
+        rl = subprocess.run([os.path.join(pasta, "replay" + X), "teste/largo.csv", "teste/largo_out.csv"], cwd=pasta, capture_output=True, text=True, timeout=60)
         g_largo = [float(l.split(",")[1]) if l.split(",")[1] else None for l in (pasta / "teste/largo_out.csv").read_text().splitlines()[1:]] if rl.returncode == 0 else []
         ok(g_largo == g_replay, f"um CSV com 300 colunas a mais: as mesmas atuações {rl.stderr[-150:]}")
         (pasta / "teste/falta.csv").write_text("t," + ",".join(nomes_m[:-1]) + "\n" + "".join(
             ",".join(repr(a[c]) for c in ["t", *nomes_m[:-1]]) + "\n" for a in amostras[:10]))
-        rf = subprocess.run(["./replay", "teste/falta.csv", "teste/falta_out.csv"], cwd=pasta, capture_output=True, text=True, timeout=60)
+        rf = subprocess.run([os.path.join(pasta, "replay" + X), "teste/falta.csv", "teste/falta_out.csv"], cwd=pasta, capture_output=True, text=True, timeout=60)
         ok(rf.returncode == 2 and nomes_m[-1] in rf.stderr, f"um CSV sem uma medida: o replay para e diz qual ({rf.returncode}: {rf.stderr.strip()[:80]})")
         (pasta / "alvos/c2000/F28x_Project.h").write_text(STUB_TI)
         r = gcc(pasta, "-Ialvos/c2000", "-c", "alvos/c2000/c2000_isr.c", "-o", "isr.o")
@@ -126,10 +128,10 @@ try:
         (pp / "teste/medidas.csv").write_text(csv)
         return zz, pp
     def saida(pp, fontes, *extra, args=()):
-        r = gcc(pp, *extra, *fontes, "-lm", "-o", "prog")
+        r = gcc(pp, *extra, *fontes, *LM, "-o", "prog" + X)
         if r.returncode:
             return None, r.stderr[-300:]
-        rr = subprocess.run(["./prog", *args], cwd=pp, capture_output=True, text=True, timeout=60)
+        rr = subprocess.run([os.path.join(pp, "prog" + X), *args], cwd=pp, capture_output=True, text=True, timeout=60)
         return [float(x) for x in rr.stdout.split()], rr.stderr[-200:]
     nm = len(nomes_m)
     # STM32: compila (com um main.h de mentira)
@@ -190,8 +192,8 @@ try:
        f"PLECS: as 3 seções do bloco C-Script ≡ o SIL nas {N} amostras {err}")
     # FPGA (Vitis HLS): a função de topo com o testbench, no PC
     zz, pp = pacote("fpga_hls")
-    r = gcc(pp, "controle.c", "maisim_alvo.c", "alvos/fpga_hls/hls_top.c", "alvos/fpga_hls/hls_tb.c", "-lm", "-o", "tb")
-    rr = subprocess.run(["./tb", "teste/medidas.csv", "teste/atuacoes.csv"], cwd=pp, capture_output=True, text=True, timeout=60) if r.returncode == 0 else None
+    r = gcc(pp, "controle.c", "maisim_alvo.c", "alvos/fpga_hls/hls_top.c", "alvos/fpga_hls/hls_tb.c", *LM, "-o", "tb" + X)
+    rr = subprocess.run([os.path.join(pp, "tb" + X), "teste/medidas.csv", "teste/atuacoes.csv"], cwd=pp, capture_output=True, text=True, timeout=60) if r.returncode == 0 else None
     g_alvo = [float(l.split(",")[1]) for l in (pp / "teste/atuacoes.csv").read_text().splitlines()[1:]] if rr and rr.returncode == 0 else None
     ok(g_alvo == g_sil and "#pragma HLS INTERFACE" in (pp / "alvos/fpga_hls/hls_top.c").read_text(),
        f"FPGA (Vitis HLS): a função de topo maisim_top com o testbench ≡ o SIL nas {N} amostras {r.stderr[-200:]}")
@@ -203,8 +205,8 @@ try:
     api("editor/controle", {"controle": {**ex, "c": {"usar": True, "precisao": "double", "arquivos": {"controle.c": PARES}}}})
     zz, pp = pacote("fpga_hls")
     (pp / "teste/medidas.csv").write_text("t," + ",".join(nomes_m) + "\n" + "".join(f"{k * Ts!r}," + ",".join("0" for _ in nomes_m) + "\n" for k in range(6)))
-    r = gcc(pp, "controle.c", "maisim_alvo.c", "alvos/fpga_hls/hls_top.c", "alvos/fpga_hls/hls_tb.c", "-lm", "-o", "tb")
-    rr = subprocess.run(["./tb", "teste/medidas.csv", "teste/atuacoes.csv"], cwd=pp, capture_output=True, text=True, timeout=60) if r.returncode == 0 else None
+    r = gcc(pp, "controle.c", "maisim_alvo.c", "alvos/fpga_hls/hls_top.c", "alvos/fpga_hls/hls_tb.c", *LM, "-o", "tb" + X)
+    rr = subprocess.run([os.path.join(pp, "tb" + X), "teste/medidas.csv", "teste/atuacoes.csv"], cwd=pp, capture_output=True, text=True, timeout=60) if r.returncode == 0 else None
     seq = [float(l.split(",")[1]) for l in (pp / "teste/atuacoes.csv").read_text().splitlines()[1:]] if rr and rr.returncode == 0 else None
     isr = pacote("c2000")[1] / "alvos/c2000/c2000_isr.c"
     ok(seq == [0.0, 0.0, 2.0, 2.0, 4.0, 4.0] and "unsigned long long n_amostra" in isr.read_text(),

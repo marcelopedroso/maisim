@@ -16,7 +16,7 @@ import numpy as np
 
 RAIZ = Path(__file__).resolve().parents[2]
 _P = re.search(r"(?m)^MAISIM_PORTA_SIMU=(\d+)", (RAIZ / "config/teste.env").read_text())
-B = f"http://localhost:{_P.group(1) if _P else 7201}/maisim/simu/"
+B = f"http://127.0.0.1:{_P.group(1) if _P else 7201}/maisim/simu/"
 SALVOS = Path.home() / ".cache/maisim_teste/circuitos"
 
 

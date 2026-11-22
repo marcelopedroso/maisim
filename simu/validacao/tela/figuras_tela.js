@@ -13,7 +13,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
 const B = "http://localhost:7200", PASTA = path.join(__dirname, "..", "tmp_figuras_tela"), RAIZ = path.resolve(__dirname, "../../..");
 fs.mkdirSync(PASTA, { recursive: true });
 const ARQ = path.join(PASTA, "scope_figuras_tela.npz");
-execFileSync("python3", ["-c", `
+execFileSync(process.env.MAISIM_PYTHON || "python3", ["-c", `
 import json, numpy as np
 t = np.arange(0, 0.01, 1e-6); car = (t * 20e3) % 1
 np.savez(${JSON.stringify(ARQ)}, meta=json.dumps({"planta": "gecko", "modelo": "exemplos/exemplo_buck.ipes", "chave_layout": "teste_figuras_tela"}),

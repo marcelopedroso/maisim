@@ -8,9 +8,9 @@ conversa, nas chamadas nem no registro do servidor; sair apaga a chave. E, sem s
 da chave com respostas de mentira da DeepSeek (o saldo em dólar, guardado 60 s; 401 recusa; sem rede, a chave fica)."""
 import json, os, stat, subprocess, sys, tempfile, time, urllib.request
 from pathlib import Path
-B = "http://localhost:7201/maisim/simu/"
-PID = subprocess.run("ss -ltnp | grep ':7201 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1", shell=True, capture_output=True, text=True).stdout.strip()
-ENV = dict(x.split("=", 1) for x in Path(f"/proc/{PID}/environ").read_bytes().decode().split("\0") if "=" in x)
+B = "http://127.0.0.1:7201/maisim/simu/"
+from _servidor import ambiente  # noqa: E402
+ENV = ambiente()
 assert ENV.get("MAISIM_CLAUDE_BIN", "").endswith("claude_falso.py") and ENV.get("MAISIM_DEEPSEEK_SEM_REDE") == "1" and ENV.get("MAISIM_DEEPSEEK_DIR"), \
     "suba o servidor de teste (reinicia_servidor_teste.sh)"
 CONF, DS = Path(ENV["MAISIM_CLAUDE_DIR"]), Path(ENV["MAISIM_DEEPSEEK_DIR"])
@@ -69,8 +69,9 @@ try:
     ok(all(x.get("ERRO") == 409 and "sk-" in x.get("erro", "") for x in rs) and not ARQ.exists(), f"chave mal formada: recusada sem guardar ({rs[0].get('erro')})")
     r = api("claude/ia/codigo", {"ia": "deepseek", "codigo": f"\n {CHAVE} \n"})
     modo = stat.S_IMODE(os.stat(ARQ).st_mode) if ARQ.exists() else 0
-    ok(r.get("logado") and r.get("chave") == "sk-••••••••••9f3a" and CHAVE not in json.dumps(r) and modo == 0o600
-       and stat.S_IMODE(os.stat(ARQ.parent).st_mode) == 0o700 and ARQ.read_text().strip() == CHAVE,
+    ok(r.get("logado") and r.get("chave") == "sk-••••••••••9f3a" and CHAVE not in json.dumps(r)
+       and (os.name == "nt" or (modo == 0o600 and stat.S_IMODE(os.stat(ARQ.parent).st_mode) == 0o700))   # (no Windows não há modo Unix: vale a pasta do usuário)
+       and ARQ.read_text().strip() == CHAVE,
        f"chave salva: {r.get('chave')}, arquivo {oct(modo)} na pasta 0700 (sem rede: não conferida)")
     vistos = json.dumps([api("claude/ias"), api("claude/estado"), api("claude/ia/uso?ia=deepseek"), api("claude/pedido")], ensure_ascii=False)
     u = api("claude/ia/uso?ia=deepseek")

@@ -5,7 +5,7 @@ import json
 import urllib.request
 from pathlib import Path
 
-B = "http://localhost:7201/maisim/simu/"
+B = "http://127.0.0.1:7201/maisim/simu/"
 falhas = 0
 
 

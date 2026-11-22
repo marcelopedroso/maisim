@@ -5,7 +5,7 @@ fica na pasta de circuitos do servidor de teste só durante o ensaio. Resultado:
 tabela em ~/.cache/maisim_teste/exemplos_gecko.json."""
 import hashlib, json, math, os, shutil, sys, time, urllib.request
 from pathlib import Path
-B = "http://localhost:7201/maisim/simu/"
+B = "http://127.0.0.1:7201/maisim/simu/"
 RAIZ = Path(__file__).resolve().parents[2]
 FONTE = RAIZ / "gecko" / "build" / "GeckoCIRCUITS"
 T = Path.home() / ".cache" / "maisim_teste"
