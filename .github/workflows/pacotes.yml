@@ -23,7 +23,7 @@ on:
         default: false
 
 permissions:
-  contents: write
+  contents: read   # read-only by default; each job that writes asks for it
 
 jobs:
   build:
@@ -41,10 +41,10 @@ jobs:
         if: ${{ !inputs.test_only }}
         run: |
           [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "not a version tag: $TAG"; exit 1; }
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.test_only && github.ref || env.TAG }}
-      - uses: actions/setup-java@v6
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version: "11"   # sem cache: maven — o pom.xml do Gecko só existe depois do gecko/construir.sh (fora do git)
@@ -60,15 +60,15 @@ jobs:
       - name: Windows installer
         run: bash pacote/windows/monta.sh
       - name: hand the installer to the Windows job
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: windows-installer
           path: pacote/dist/MaiSim-Setup-*.exe
           retention-days: 1
           if-no-files-found: error
       - name: provenance attestation (signed by GitHub; proves this file was built here, from this commit)
-        if: ${{ !inputs.test_only }}
-        uses: actions/attest-build-provenance@v2
+        id: atestado   # também no test_only: confere o passo antes de uma versão (o atestado diz o commit da branch)
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
         with:
           subject-path: |
             pacote/dist/MaiSim-Setup-*.exe
@@ -77,7 +77,10 @@ jobs:
         if: ${{ !inputs.test_only }}
         env:
           GH_TOKEN: ${{ github.token }}
+          ATESTADO: ${{ steps.atestado.outputs.bundle-path }}   # (pelo ambiente, nunca colado no script)
         run: |
+          # a assinatura (sigstore) do atestado de procedência ao lado dos pacotes: quem baixa confere com o cosign ou o gh
+          cp "$ATESTADO" "pacote/dist/MaiSim-${TAG#v}-x86_64-windows.sigstore.json"
           # também com nome fixo (sem a versão): o link .../releases/latest/download/MaiSim-Setup.exe nunca muda (README, site)
           cd pacote/dist
           cp MaiSim-Setup-*.exe MaiSim-Setup.exe && sha256sum MaiSim-Setup.exe > MaiSim-Setup.exe.sha256
@@ -96,10 +99,10 @@ jobs:
     env:
       TAG: ${{ inputs.tag }}   # only through the environment, as in the other jobs
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.test_only && github.ref || env.TAG }}
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: windows-installer
           path: instalador
@@ -117,7 +120,7 @@ jobs:
         run: python pacote/windows/fumaca.py instalador
       - name: keep the logs
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: windows-smoke-logs
           path: fumaca-logs/
@@ -148,10 +151,10 @@ jobs:
         if: ${{ !inputs.test_only }}
         run: |
           [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "not a version tag: $TAG"; exit 1; }
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.test_only && github.ref || env.TAG }}
-      - uses: actions/setup-java@v6
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version: "11"
@@ -164,8 +167,8 @@ jobs:
       - name: smoke test on ARM (the AppImage's MaiSim runs the buck and makes a PDF)
         run: bash pacote/linux/fumaca.sh
       - name: provenance attestation (signed by GitHub; proves this file was built here, from this commit)
-        if: ${{ !inputs.test_only }}
-        uses: actions/attest-build-provenance@v2
+        id: atestado   # também no test_only: confere o passo antes de uma versão (o atestado diz o commit da branch)
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
         with:
           subject-path: |
             pacote/dist/MaiSim-*-aarch64.AppImage
@@ -174,7 +177,10 @@ jobs:
         if: ${{ !inputs.test_only }}
         env:
           GH_TOKEN: ${{ github.token }}
+          ATESTADO: ${{ steps.atestado.outputs.bundle-path }}   # (pelo ambiente, nunca colado no script)
         run: |
+          # a assinatura (sigstore) do atestado de procedência ao lado dos pacotes: quem baixa confere com o cosign ou o gh
+          cp "$ATESTADO" "pacote/dist/MaiSim-${TAG#v}-aarch64.sigstore.json"
           # também com nome fixo (sem a versão), como o x86_64: os links .../releases/latest/download/... nunca mudam
           cd pacote/dist
           cp MaiSim-*-aarch64.AppImage MaiSim-aarch64.AppImage && sha256sum MaiSim-aarch64.AppImage > MaiSim-aarch64.AppImage.sha256
@@ -197,10 +203,12 @@ jobs:
         if: ${{ !inputs.test_only }}
         run: |
           [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "not a version tag: $TAG"; exit 1; }
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.test_only && github.ref || env.TAG }}
-      - uses: actions/setup-java@v6
+      - name: the Gradle wrapper in the repository is the official one (its checksum against gradle.org)
+        uses: gradle/actions/wrapper-validation@48b5f213c81028ace310571dc5ec0fbbca0b2947 # v4.4.4
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version: "17"
@@ -233,8 +241,8 @@ jobs:
             echo "the APK is not signed with the registered key (chave.sha256)"; exit 1
           fi
       - name: provenance attestation (signed by GitHub; proves this file was built here, from this commit)
-        if: ${{ !inputs.test_only }}
-        uses: actions/attest-build-provenance@v2
+        id: atestado   # também no test_only: confere o passo antes de uma versão (o atestado diz o commit da branch)
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
         with:
           subject-path: |
             pacote/dist/MaiSim-Android-*.apk
@@ -242,7 +250,10 @@ jobs:
         if: ${{ !inputs.test_only }}
         env:
           GH_TOKEN: ${{ github.token }}
+          ATESTADO: ${{ steps.atestado.outputs.bundle-path }}   # (pelo ambiente, nunca colado no script)
         run: |
+          # a assinatura (sigstore) do atestado de procedência ao lado dos pacotes: quem baixa confere com o cosign ou o gh
+          cp "$ATESTADO" "pacote/dist/MaiSim-${TAG#v}-android.sigstore.json"
           # também com nome fixo (sem a versão): o link .../releases/latest/download/MaiSim-Android.apk nunca muda (site)
           cd pacote/dist
           cp MaiSim-Android-*.apk MaiSim-Android.apk
@@ -256,6 +267,8 @@ jobs:
     if: ${{ !inputs.test_only }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      contents: write       # make the draft Release public
     env:
       TAG: ${{ inputs.tag }}
     steps:

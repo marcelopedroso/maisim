@@ -67,7 +67,7 @@ jobs:
           [ -n "$arquivos" ] || { echo "could not read the PR's files"; exit 1; }
           outros=$(printf '%s\n' "$arquivos" | grep -vE '^(CHANGELOG\.md|README[^/]*\.md|CONTRIBUTING\.md|pacote/LEIA\.md)$' || true)
           if [ -z "$outros" ]; then echo "only text: no tests"; echo "so_texto=true" >> "$GITHUB_OUTPUT"; fi
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: steps.texto.outputs.so_texto != 'true'
       - uses: ./.github/actions/prepare
         if: steps.texto.outputs.so_texto != 'true'
@@ -80,7 +80,7 @@ jobs:
           { echo '```'; cat ~/.cache/maisim_teste/bateria/resumo.txt 2>/dev/null || echo "(no summary)"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - name: upload logs and screenshots
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: logs-verify
           path: |
@@ -107,7 +107,7 @@ jobs:
       issues: write
       actions: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           sparse-checkout: .github/scripts
       - name: wait for the Codex review and check conversations
@@ -143,3 +143,6 @@ jobs:
           if gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json files -q '.files[].path' | grep -qx VERSION; then
             gh workflow run full-suite.yml --repo "$GITHUB_REPOSITORY" --ref main
           fi
+          # the same for the code scanning and the Scorecard on main (a merge by this token does not trigger their push)
+          gh workflow run codeql.yml --repo "$GITHUB_REPOSITORY" --ref main || true
+          gh workflow run scorecard.yml --repo "$GITHUB_REPOSITORY" --ref main || true
