@@ -20,8 +20,12 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   await api("editor/controle", { controle: { ativo: true, Ts: 1e-4, atuacoes: ["CONST_1"], parametros: [], codigo: "def passo(t, m, p, e):\n    return {}\n" } });
   const salvo = await api("editor/salvar", { nome: "valida_tela", pasta: "circuitos", sobrescrever: true });
   ok(!salvo.erro && salvo.salvo, `circuito do teste salvo: ${salvo.salvo || salvo.erro}`);
-  await pg.goto(`http://localhost:7201/maisim/simu/?modelo=${encodeURIComponent(ARQ)}`);
+  // o endereço com o caminho como o servidor o lista (sempre com "/"; no Windows o os.homedir() vem com "\\" e a página
+  // não acharia o circuito na lista: abriria o último deste navegador)
+  await pg.goto(`http://localhost:7201/maisim/simu/?modelo=${encodeURIComponent(salvo.salvo || ARQ.replace(/\\/g, "/"))}`);
   await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
+  const aberto = await pg.evaluate(() => $("sel-modelo").value);
+  ok(/valida_tela\.ipes$/.test(aberto || ""), `a página abriu o circuito do teste (${aberto})`);
   await pg.click("#bt-editar"); await pg.waitForTimeout(500); if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok");
   await pg.waitForFunction(() => dados && dados.editor, null, { timeout: 30000 });
   await pg.evaluate(() => { sim.par.dt = "1e-6"; });
