@@ -7,6 +7,7 @@
 // parâmetros com nome legível (Kp, Ki [1/s]) e o do Gecko na dica; o T do PI derivado (Kp/Ki), só de leitura; a forma
 // "Importada (arquivo)" fora da lista do SIGNAL; as abas da paleta em pt e en. Fotos: blocos_pt.png e blocos_en.png.
 const { chromium } = require("playwright");
+const { esperaNovo } = require("./_edicao");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
 const ABAS = ["Control", "Digital", "Math", "Source/Sink", "Special"];
@@ -30,9 +31,9 @@ const SIMB = { INT: "∫", PI: "PI", PD: "d/dt", PT1: "PT1", PT2: "PT2", TF: "H(
     b = await chromium.launch(); pg = await (await b.newContext({ viewport: { width: 1600, height: 950 } })).newPage();
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
     await pg.goto("http://localhost:7200/maisim/simu/?novo=1");
-    for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof ed !== "undefined" && ed.catalogo && ed.ligado && document.querySelectorAll("#abas button").length)); k++) {
-      if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }
-    for (let k = 0; k < 10 && await pg.$(".modal-fundo"); k++) { await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }   // o nome do novo
+    // o nome do novo (e, antes, a pergunta das mudanças não salvas) respondidos quando aparecem, até o circuito novo estar aberto
+    // (no Windows a janela do nome vinha depois do laço que a procurava e ficava por cima da paleta)
+    await esperaNovo(pg);
     const espera = async (f, arg, ms = 30000) => { for (const t0 = Date.now(); Date.now() - t0 < ms;) { if (await pg.evaluate(f, arg)) return true; await pg.waitForTimeout(250); } return false; };
 
     // 1. os blocos à vista, do catálogo da paleta; todos com nome e explicação nos dois idiomas
@@ -68,9 +69,16 @@ const SIMB = { INT: "∫", PI: "PI", PD: "d/dt", PT1: "PT1", PT2: "PT2", TF: "H(
       const bb = (n) => n.getBoundingClientRect(), cruza = (a, c) => a.left < c.right - 0.5 && c.left < a.right - 0.5 && a.top < c.bottom - 0.5 && c.top < a.bottom - 0.5;
       const caixa = bb(g.querySelector(".corpo")), dentro = (r) => r.left >= caixa.left - 0.5 && r.right <= caixa.right + 0.5 && r.top >= caixa.top - 0.5 && r.bottom <= caixa.bottom + 0.5;
       const simb = g.querySelector(".simbolo"), pinos = [...g.querySelectorAll(".pino, .pino-ext")], val = g.querySelector(".valor-bloco");
-      const vazam = [simb, ...pinos].filter((n) => n && !dentro(bb(n))).map((n) => n.textContent);
-      // o símbolo contra os nomes dos bornes: a tinta, 70 % da altura da caixa do texto (a mesma conta do ajustaSimbolo)
+      // a tinta do texto: 70 % da altura da caixa dele (a mesma conta do ajustaSimbolo, que põe essa faixa dentro da caixa do
+      // bloco; com entradas externas, a caixa inteira). A caixa do texto inteira tem o espaço das ascendentes e descendentes da
+      // fonte: nas do Windows (Segoe UI, 1,33 em) ela passa da caixa de um quadrado de altura sem a tinta passar (a foto
+      // blocos_pt.png do Windows: todos os símbolos dentro, com folga). A largura conta inteira
       const tinta = (r) => ({ left: r.left, right: r.right, top: r.top + 0.15 * r.height, bottom: r.bottom - 0.15 * r.height });
+      const cheia = !!g.querySelector(".pino-ext"), faixa = (n) => (n === simb && !cheia ? tinta(bb(n)) : bb(n));
+      // o quanto passa de cada lado (px) e a fonte: o que a linha de FALHA diz
+      const passa = (n) => { const r = faixa(n), f = getComputedStyle(n), d = [["←", caixa.left - r.left], ["→", r.right - caixa.right], ["↑", caixa.top - r.top], ["↓", r.bottom - caixa.bottom]]
+        .filter(([, v]) => v > 0.5).map(([k, v]) => `${k}${v.toFixed(1)}`); return `${n.textContent} (${d.join(" ")} px; ${f.fontFamily.split(",")[0]} ${(+n.getAttribute("font-size") || 0).toFixed(1)})`; };
+      const vazam = [simb, ...pinos].filter((n) => n && !dentro(faixa(n))).map(passa);
       return { id, tipo: e.tipo, simb: simb && simb.textContent, vazam, cobre: !!simb && pinos.some((n) => cruza(bb(n), tinta(bb(simb)))),
         pinos: [...g.querySelectorAll(".pino")].map((n) => n.textContent).join(" "), valor: val ? val.textContent : "",
         valorFora: !val || bb(val).top >= caixa.bottom - 1 };
