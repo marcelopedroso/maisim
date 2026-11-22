@@ -21,7 +21,8 @@ for saida in (sys.stdout, sys.stderr):
     saida.reconfigure(encoding="utf-8", errors="replace")
 
 SO_LINUX = {
-    # a instância isolada do scope ao vivo (sobe_fila.sh/desce_fila.sh, em bash): ISOLADOS
+    # (a instância isolada do scope ao vivo, ISOLADOS, entra aqui no main(): sobe por bash, sobe_fila.sh)
+    "gecko_novo_api": "derruba e sobe o Gecko da instância de teste pelo reinicia_gecko_teste.sh",
 }
 
 

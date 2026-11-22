@@ -112,7 +112,7 @@ import os; os.environ.setdefault("MAISIM_PERFIL", "teste")   # (o import lê a c
 sys.path.insert(0, str(AQUI.parent)); import servidor as srv, ipes as ip   # noqa: E402 (só as funções puras)
 antiga = srv.hash_assinatura(srv.assinatura(ip.monta(T / "estado.ipes"))[:3])
 (T / "base.txt").write_text(antiga); (T / "visto.txt").write_text(antiga)
-subprocess.run([str(AQUI / "reinicia_servidor_teste.sh")], check=True, capture_output=True)
+subprocess.run([sys.executable, str(AQUI / "reinicia.py")], check=True, capture_output=True)
 p = api("editor/pendente")
 ok(p.get("pendente") is False, f"BASE da versão anterior (sem o método), servidor reiniciado, Gear no arquivo e no Gecko: nada pendente ({p.get('itens')})")
 r = api("editor/solver", {"solver": 1})

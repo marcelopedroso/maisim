@@ -94,7 +94,7 @@ ok(r.get("codigo") == "gecko_novo" and x_de(e, "R.1") == 10 and api("editor/pend
 r = c("MOVE", "R.1", 20, 10); ok("ERRO" not in r and x_de(r, "R.1") == 20, "repetida, a edição vale")
 
 # 3. só o servidor reiniciado (o Gecko é o mesmo): a mudança não salva fica
-subprocess.run([str(AQUI / "reinicia_servidor_teste.sh")], check=True)
+subprocess.run([sys.executable, str(AQUI / "reinicia.py")], check=True)
 r = estado_depois()
 ok(x_de(r, "R.1") == 20 and not r.get("aviso_gecko") and linhas_log() == 0,
    f"servidor reiniciado, o mesmo Gecko: a mudança fica (R.1 em x = {x_de(r, 'R.1')}) e nada é reaberto")
@@ -102,7 +102,7 @@ ok(x_de(r, "R.1") == 20 and not r.get("aviso_gecko") and linhas_log() == 0,
 # 4. o servidor antes do Gecko (como no maisim.sh), com os CONST de uma rodada do Gecko de antes: refaz sozinho, sem os CONST
 api("editor/abrir", {"arq": str(A), "modo": "descartar"})
 para_gecko(); (T / "devolver.json").write_text(json.dumps({"CONST.1": 7.0}))
-subprocess.run([str(AQUI / "reinicia_servidor_teste.sh")], check=True)
+subprocess.run([sys.executable, str(AQUI / "reinicia.py")], check=True)
 t0 = time.monotonic(); gecko_novo()
 while linhas_log() == 0 and time.monotonic() - t0 < 120: time.sleep(0.5)
 time.sleep(1)
@@ -120,10 +120,10 @@ ok(nomes(r) == [] and api("editor/aberto").get("aberto") is None and "vazio" in 
 
 # 6. sem o registro do Gecko conhecido (a 1ª partida com esta conferência)
 api("editor/abrir", {"arq": str(A), "modo": "descartar"}); c("MOVE", "R.1", 18, 10); api("editor/estado")
-(T / "gecko_visto.txt").unlink(missing_ok=True); subprocess.run([str(AQUI / "reinicia_servidor_teste.sh")], check=True)
+(T / "gecko_visto.txt").unlink(missing_ok=True); subprocess.run([sys.executable, str(AQUI / "reinicia.py")], check=True)
 ok(x_de(estado_depois(), "R.1") == 18, "sem registro, o mesmo Gecko, servidor reiniciado: a mudança fica")
 (T / "gecko_visto.txt").unlink(missing_ok=True); os.utime(ESTADO, (time.time() - 3600,) * 2)   # o relógio "pulou" 1 h
-subprocess.run([str(AQUI / "reinicia_servidor_teste.sh")], check=True)
+subprocess.run([sys.executable, str(AQUI / "reinicia.py")], check=True)
 ok(x_de(estado_depois(), "R.1") == 18, "sem registro, o mesmo Gecko e a última leitura de 1 h atrás: o que ele tem é o que o editor viu, fica")
 (T / "gecko_visto.txt").unlink(missing_ok=True)
 gecko_novo(); os.utime(ESTADO, (time.time() - 3600,) * 2)

@@ -86,7 +86,7 @@ try: mo.cmd("QUIT")
 except Exception: pass
 fora.unlink(missing_ok=True)
 for f in fotos: f.unlink(missing_ok=True)
-subprocess.run(["bash", str(AQUI / "reinicia_servidor_teste.sh")])
+subprocess.run([sys.executable, str(AQUI / "reinicia.py")])
 r = api("editor/novo", {"modo": "descartar"})
 ok(not r.get("ERRO"), "o servidor de teste de volta")
 sys.exit(1 if falhas else 0)

@@ -1,7 +1,7 @@
 // validador do controle (sublinhados + testar) e a janela de conflito ao abrir (manter / salvar e abrir / descartar)
 const { chromium } = require("playwright");
 const { execFileSync } = require("child_process");
-const REINICIA = require("path").resolve(__dirname, "../reinicia_servidor_teste.sh");   // (re)sobe só o servidor de teste
+const REINICIA = require("path").resolve(__dirname, "../reinicia.py");   // (re)sobe só o servidor de teste
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
 (async () => {
@@ -52,12 +52,12 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   ok(!m1.modal && m1.x === 22 && m1.sujo, `sair e voltar à edição: sem pergunta, a mudança fica (x = ${m1.x}), disquete marcado`);
   // reiniciar o servidor não faz perguntar à toa (ele lembra o que o editor viu)
   await pg.click("#bt-editar"); await pg.waitForTimeout(500);
-  execFileSync(REINICIA);
+  execFileSync(process.env.MAISIM_PYTHON || "python3", [REINICIA]);
   await pg.click("#bt-editar"); await pg.waitForTimeout(2500);
   ok(!(await pg.$(".modal-fundo")) && await pg.evaluate(() => dados.folhas["0"].elementos.find((e) => e.nome === "R.1").x) === 22, "servidor reiniciado: entra na edição sem perguntar, com a mudança");
   // mudança que o editor não viu (simulada: a lembrança apagada): pergunta; o foco começa em "manter" e Enter mantém
   await pg.click("#bt-editar"); await pg.waitForTimeout(500);
-  require("fs").writeFileSync(require("os").homedir() + "/.cache/maisim_teste/visto.txt", "outro"); execFileSync(REINICIA);
+  require("fs").writeFileSync(require("os").homedir() + "/.cache/maisim_teste/visto.txt", "outro"); execFileSync(process.env.MAISIM_PYTHON || "python3", [REINICIA]);
   await pg.click("#bt-editar"); await pg.waitForSelector(".modal .m-extra", { timeout: 30000 }); await pg.waitForTimeout(200);
   const bts = await pg.$$eval(".modal .modal-botoes button", (l) => l.map((x) => x.textContent));
   const foco = await pg.evaluate(() => document.activeElement && document.activeElement.textContent);
