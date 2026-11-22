@@ -15,6 +15,8 @@ no sobe-desce: 10 kHz, 100 passos por período. Confere:
 - o tempo: o PWM comparado a cada Ts (Ts = 1 µs) × o PWM com os registradores (Ts = 100 µs)."""
 import json, time, urllib.request
 import numpy as np
+import os  # noqa: E402
+LM, X = ([], ".exe") if os.name == "nt" else (["-lm"], "")   # no Windows: a matemática vem na msvcrt (sem -lm) e o programa é .exe
 B = "http://127.0.0.1:7201/maisim/simu/"
 
 
@@ -233,7 +235,7 @@ try:
             zz.extractall(tmp)
             pasta = next(Path(tmp).glob("*/controle"))
             fontes = [str(p.relative_to(pasta)) for p in pasta.glob("*.c")] + ["teste/replay.c"]
-            rc = subprocess.run([cc[0], "-std=c99", "-I.", *fontes, "-lm", "-o", "replay"], cwd=pasta, capture_output=True, text=True, timeout=120)
+            rc = subprocess.run([cc[0], "-std=c99", "-I.", *fontes, *LM, "-o", "replay" + X], cwd=pasta, capture_output=True, text=True, timeout=120)
             ok(rc.returncode == 0, f"o pacote exportado (controle.c + pwm.c + maisim_alvo.c + replay.c) compila e liga no PC {rc.stderr[-300:]}")
     else:
         print("(sem compilador de C: o pacote não foi compilado)")

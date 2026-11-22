@@ -14,6 +14,8 @@ RAIZ = Path(__file__).resolve().parents[2]
 BIB = RAIZ / "simu" / "biblioteca_controle"
 sys.path[:0] = [str(RAIZ / "simu"), str(BIB)]
 import sinais_c  # noqa: E402
+import os  # noqa: E402
+LM, X = ([], ".exe") if os.name == "nt" else (["-lm"], "")   # no Windows: a matemática vem na msvcrt (sem -lm) e o programa é .exe
 
 MODULOS = ("pi", "pwm", "passa_baixa", "rampa", "pll")
 falhas = 0
@@ -113,12 +115,12 @@ with tempfile.TemporaryDirectory() as d:
     (d / "maisim_controle.h").write_text((Path(sinais_c.DIR_C) / "maisim_controle.h").read_text())
     (d / "teste.c").write_text(prog)
     fontes = [f"{m}.c" for m in MODULOS] + ["teste.c"]
-    r = subprocess.run([cc[0], *sinais_c.opcoes(cc[1]), *fontes, "-o", "teste", "-lm"], cwd=d, capture_output=True, text=True, timeout=120)
+    r = subprocess.run([cc[0], *sinais_c.opcoes(cc[1]), *fontes, "-o", "teste" + X, *LM], cwd=d, capture_output=True, text=True, timeout=120)
     ok(r.returncode == 0, f"a biblioteca compila (em double) com {Path(cc[0]).name}: {(r.stderr or '')[-300:]}")
     rf = subprocess.run([cc[0], *sinais_c.opcoes(cc[1], "float"), "-c", *[f"{m}.c" for m in MODULOS]], cwd=d, capture_output=True, text=True, timeout=120)
     ok(rf.returncode == 0, f"e em float (como num C28x): {(rf.stderr or '')[-300:]}")
     if r.returncode == 0:
-        c_out = [float.fromhex(l) for l in subprocess.run([str(d / "teste")], capture_output=True, text=True, timeout=60).stdout.split()]
+        c_out = [float.fromhex(l) for l in subprocess.run([str(d / ("teste" + X))], capture_output=True, text=True, timeout=60).stdout.split()]
         partes = [("pi", N), ("pwm serra", 2 * N), ("pwm triangular", 2 * N), ("passa_baixa", N), ("rampa", N), ("pll", 4 * N)]
         i = 0
         for nome, n in partes:
