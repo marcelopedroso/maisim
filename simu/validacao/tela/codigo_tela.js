@@ -5,7 +5,8 @@
 const { chromium } = require("playwright");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
-const PI = require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_controle_pi.ipes";
+// com "/" como o servidor lista (no Windows o os.homedir() vem com "\\": o ?modelo= não batia e a página abria outro circuito)
+const PI = require("path").join(require("os").homedir(), ".cache/maisim_teste/circuitos/exemplo_controle_pi.ipes").split(require("path").sep).join("/");
 const S = "http://localhost:7200/maisim/simu/";
 (async () => {
   let b;
@@ -90,7 +91,7 @@ const S = "http://localhost:7200/maisim/simu/";
     await A.evaluate(() => iniciaSim());
     await A.waitForFunction(() => !document.body.classList.contains("sim-rodando") && sim.estado !== "rodando", null, { timeout: 120000 }); await B.waitForTimeout(1500);
     const rb = await B.evaluate(() => ({ travou: window.__travou, agora: document.body.classList.contains("sim-rodando"), estado: sim.estado }));
-    ok(rb.travou && !rb.agora && rb.estado === "fim", `a rodada pelo ▶ do circuito travou a janela do código e destravou no fim (${rb.estado})`);
+    ok(rb.travou && !rb.agora && rb.estado === "fim", `a rodada pelo ▶ do circuito travou a janela do código e destravou no fim (${rb.estado}; travou ${rb.travou}, agora ${rb.agora})`);
     // 8. fechar a janela do código: o aviso some
     await B.evaluate(() => ctl.modelos["controle.py"].setValue(ctl.modelos["controle.py"].getValue().replace("\n# da janela do código\n", ""))); await B.waitForTimeout(1500);
     await B.close(); await A.waitForTimeout(1500);
