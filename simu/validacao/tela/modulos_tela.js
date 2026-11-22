@@ -3,9 +3,10 @@
 // "▷ testar" roda o fluxo; "virar controlador" e "virar módulo"; num controle de antes dos módulos, "organizar como um DSP"
 // cria os dois arquivos sem mexer no controle.py
 const { chromium } = require("playwright");
+const { caminho } = require("./_edicao");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
-const PI = require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_controle_pi.ipes";
+const PI = caminho(require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_controle_pi.ipes");
 (async () => {
   let b;
   try {

@@ -30,6 +30,32 @@ def sem_janelas():
 sem_janelas()                                            # quem importa este módulo (o simu) já fica assim
 
 
+def vivo(pid):
+    """O processo pid existe? No Windows não pode ser o os.kill(pid, 0) do Linux: lá o sinal 0 é o CTRL_C_EVENT, e o
+    os.kill manda um Ctrl+C de verdade para o grupo do console (na suíte no Windows, derrubou quem rodava os testes).
+    Lá: OpenProcess e o código de saída (STILL_ACTIVE), sem abrir outro programa."""
+    if not pid:
+        return False
+    if WIN:
+        import ctypes
+        k = ctypes.windll.kernel32
+        h = k.OpenProcess(0x1000, False, int(pid))         # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return False
+        try:
+            codigo = ctypes.c_ulong()
+            return bool(k.GetExitCodeProcess(h, ctypes.byref(codigo))) and codigo.value == 259   # STILL_ACTIVE
+        finally:
+            k.CloseHandle(h)
+    try:
+        os.kill(int(pid), 0)
+        return True
+    except PermissionError:                              # existe, de outro usuário
+        return True
+    except (OSError, ProcessLookupError, ValueError):
+        return False
+
+
 def encerra(pid, forte=False):
     """Encerra o grupo de pid (ele e o que ele abriu); forte: sem esperar (SIGKILL / taskkill /F). Já encerrado: nada.
     No Windows é sempre o /F: sem ele o taskkill só manda o "feche a janela" (WM_CLOSE), que um programa de console sem

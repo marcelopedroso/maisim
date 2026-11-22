@@ -1,5 +1,6 @@
 // instância de teste (7201): o exemplo do buck com PWM no controle.py — Δt do arquivo, destino das atuações, Ts × Δt, GATE
 const { chromium } = require("playwright");
+const { entraNaEdicao } = require("./_edicao");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
 (async () => {
@@ -11,8 +12,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   await pg.evaluate(() => { sim.par.dt = "5e-5"; sim.par.tfim = "0.04"; sim.par.nome = "pwm_tela"; sim.par.amostras = "100000"; });   // o que "sobrou" de outro modelo
   await pg.click("#bt-modelo"); await pg.waitForSelector(".lista-abrir .op"); await pg.fill(".busca-abrir", "exemplo_controle_pwm"); await pg.keyboard.press("Enter");
   await pg.waitForFunction(() => /exemplo_controle_pwm/.test($("bt-modelo").textContent) && document.querySelectorAll("#svg .el").length >= 10, null, { timeout: 90000 });
-  await pg.click("#bt-editar"); await pg.waitForTimeout(500); if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok");
-  await pg.waitForFunction(() => dados && dados.editor, null, { timeout: 30000 }); await pg.waitForTimeout(300);
+  await entraNaEdicao(pg, { ok: ".modal .m-ok" });   // espera a pergunta das mudanças não salvas, que no Windows vem depois await pg.waitForTimeout(300);
   const a = await pg.evaluate(() => ({ dt: sim.par.dt, tfim: sim.par.tfim, msg: $("msg").textContent }));
   ok(Number(a.dt) === 1e-6 && Number(a.tfim) === 0.01 && /Δt = 1 µs/.test(a.msg), `ao abrir, Δt e tempo final vêm do arquivo: dt ${a.dt}, tfim ${a.tfim} · "${a.msg}"`);
   // o controle de antes do exemplo (a portadora comparada no controle.py, com o Ts digitado): é ele que este teste confere

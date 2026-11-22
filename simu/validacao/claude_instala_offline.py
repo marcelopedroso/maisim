@@ -3,7 +3,7 @@
   claude sem .exe nem o claude.cmd do npm); procurado de novo quando aparece depois (sem reiniciar); o ambiente do filho com as
   variáveis do Windows; o comando do instalador (o PowerShell oficial) só no Windows; e o fluxo inteiro com um instalador de
   mentira (MAISIM_INSTALA_CLAUDE_CMD): começa, um por vez, a saída, termina, acha o claude novo; o erro, o prazo, o "não achou"."""
-import importlib, importlib.util, os, shutil, sys, tempfile, time, types
+import importlib, importlib.util, os, shlex, shutil, sys, tempfile, time, types
 from pathlib import Path
 P = Path(__file__).resolve().parents[1]                        # simu/
 sys.path.insert(0, str(P))
@@ -21,7 +21,7 @@ import ia.base as base  # noqa: E402
 # ---- o caminho do claude, com o Windows de mentira: um os com name = "nt" só para o ia/ (o pathlib e o shutil.which seguem
 # os do Linux: o Path do Python 3.10 confere o os.name de verdade)
 os_win = types.ModuleType("os"); os_win.__dict__.update(os.__dict__); os_win.name = "nt"
-path_antes = os.environ.get("PATH", "")
+env_antes = dict(os.environ)          # devolvido inteiro no fim (num Windows de verdade, sem SYSTEMROOT/TEMP nenhum filho sobe)
 try:
     ias.os = os_win
     os.environ["USERPROFILE"] = str(casa)
@@ -51,16 +51,20 @@ try:
        f"Windows: o ambiente do filho leva {sorted(k for k in amb if k.isupper())[:8]}…, sem a chave de API")
 finally:
     ias.os = os
-    os.environ["PATH"] = path_antes
-    for k in ("USERPROFILE", "SYSTEMROOT", "APPDATA", "TEMP", "ANTHROPIC_API_KEY"):
-        os.environ.pop(k, None)
+    os.environ.clear(); os.environ.update(env_antes)
     importlib.reload(base)
-ok("SYSTEMROOT" not in base.ENV_BRANCA, "no Linux, a lista branca de antes")
-ok(ias.acha_claude() in (shutil.which("claude"), str(Path.home() / ".local" / "bin" / "claude"), str(base.FERRAMENTAS / ".local" / "bin" / "claude")),
-   f"Linux: o do PATH, o da pasta pessoal ou o da pasta de ferramentas do MaiSim ({ias.acha_claude()})")
+# de volta ao sistema de verdade (este teste roda no Linux e no Windows)
+WIN = os.name == "nt"
+ok(("SYSTEMROOT" in base.ENV_BRANCA) == WIN, f"{'Windows' if WIN else 'Linux'} de verdade: a lista branca do sistema de novo")
+if WIN:
+    lugares = (shutil.which("claude.exe"), str(Path(os.environ.get("USERPROFILE") or Path.home()) / ".local" / "bin" / "claude.exe"))
+else:
+    lugares = (shutil.which("claude"), str(Path.home() / ".local" / "bin" / "claude"), str(base.FERRAMENTAS / ".local" / "bin" / "claude"))
+ok(ias.acha_claude() in lugares, f"{'Windows: o claude.exe do PATH ou o do instalador oficial' if WIN else 'Linux: o do PATH, o da pasta pessoal ou o da pasta de ferramentas do MaiSim'} ({ias.acha_claude()})")
 
 # ---- o servidor, com um claude ainda não instalado e um instalador de mentira (que põe um claude de mentira no lugar)
-alvo = T / "inst" / "claude"
+# no Windows, o claude de mentira é um .py (o servidor o roda pelo Python: argv0); fora dele, um programa com #!
+alvo = T / "inst" / ("claude.py" if WIN else "claude")
 falso_claude = '#!/usr/bin/env python3\nimport json; print(json.dumps({"loggedIn": False}))\n'
 instalador = T / "instalador.py"
 instalador.write_text("import sys, time, pathlib, os\n"
@@ -73,8 +77,8 @@ instalador.write_text("import sys, time, pathlib, os\n"
                       "print('Installation complete!', flush=True)\n")
 os.environ.update(MAISIM_PERFIL="teste", MAISIM_CLAUDE_BIN=str(alvo), MAISIM_CLAUDE_DIR=str(T / "claude-maisim"), MAISIM_CURSOR_DIR=str(T / "cursor-maisim"),
                   MAISIM_SIMU_CACHE=str(T / "cache"), MAISIM_CACHE=str(T / "cache"))
-def cmd(modo):
-    return f"{sys.executable} {instalador} {alvo} {modo}"
+def cmd(modo):   # com as aspas do shlex: o servidor separa o comando com shlex.split, que come as "\\" de um caminho do Windows
+    return shlex.join([sys.executable, str(instalador), str(alvo), modo])
 os.environ["MAISIM_INSTALA_CLAUDE_CMD"] = cmd("ok")
 spec = importlib.util.spec_from_file_location("srv", P / "servidor.py"); srv = importlib.util.module_from_spec(spec); spec.loader.exec_module(srv)
 def espera_fim(seg=20):
@@ -85,7 +89,8 @@ def espera_fim(seg=20):
         time.sleep(0.1)
     return st
 e = srv.claude_estado()
-ok(not e["instalado"] and e["pode_instalar"] and e["sistema"] == "linux" and "instalacao" not in e, f"antes: não instalado, pode instalar ({e['sistema']})")
+SISTEMA = "windows" if WIN else "mac" if sys.platform == "darwin" else "linux"
+ok(not e["instalado"] and e["pode_instalar"] and e["sistema"] == SISTEMA and "instalacao" not in e, f"antes: não instalado, pode instalar ({e['sistema']})")
 st = srv.claude_instala_inicia()
 pid = srv.claude_instala["proc"].pid
 st2 = srv.claude_instala_inicia()
@@ -128,14 +133,20 @@ alvo.unlink(missing_ok=True)
 # fora do Windows, sem o instalador de mentira: o instalador oficial (curl … | bash) com a casa na pasta de ferramentas do
 # MaiSim — o programa fica fora da pasta pessoal (não roda aqui: só o comando é conferido)
 del os.environ["MAISIM_INSTALA_CLAUDE_CMD"]
-c = srv.CLAUDE.comando_instala()
+win_antes = srv.processos.WIN
+srv.processos.WIN = False                 # o comando de fora do Windows, conferido também num Windows de verdade
+try:
+    c = srv.CLAUDE.comando_instala()
+finally:
+    srv.processos.WIN = win_antes
 ok(c and c[0] == "env" and f"HOME={base.FERRAMENTAS}" in c and c[-1].endswith("curl -fsSL https://claude.ai/install.sh | bash")
-   and "XDG_DATA_HOME" in c and srv.claude_estado()["pode_instalar"], f"Linux: o instalador oficial com HOME na pasta do MaiSim ({c and c[-1]})")
+   and "XDG_DATA_HOME" in c, f"Linux: o instalador oficial com HOME na pasta do MaiSim ({c and c[-1]})")
+ok(srv.claude_estado()["pode_instalar"], "sem o instalador de mentira: o botão Instalar continua (o instalador oficial)")
 srv.processos.WIN = True
 try:
     c = srv.CLAUDE.comando_instala()
 finally:
-    srv.processos.WIN = False
+    srv.processos.WIN = win_antes
 ok(c and c[0].endswith("powershell.exe") and c[-1].endswith("irm https://claude.ai/install.ps1 | iex") and "-NoProfile" in c
    and not any("runas" in x.lower() or "verb" in x.lower() for x in c), f"Windows: o instalador oficial no PowerShell, sem pedir administrador ({c[-1]})")
 shutil.rmtree(T, ignore_errors=True)

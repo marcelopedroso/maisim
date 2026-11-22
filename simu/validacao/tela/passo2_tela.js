@@ -1,5 +1,6 @@
 // instância de teste (7201): abrir o exemplo pelo Abrir, painel com atraso e acionamentos, trava durante a rodada
 const { chromium } = require("playwright");
+const { entraNaEdicao } = require("./_edicao");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
 (async () => {
@@ -11,8 +12,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   // abrir o exemplo pelo Abrir (com busca)
   await pg.click("#bt-modelo"); await pg.waitForSelector(".lista-abrir .op"); await pg.fill(".busca-abrir", "exemplo_controle_pi"); await pg.keyboard.press("Enter");
   await pg.waitForFunction(() => /exemplo_controle_pi/.test($("bt-modelo").textContent) && document.querySelectorAll("#svg .el").length >= 6, null, { timeout: 90000 });
-  await pg.click("#bt-editar"); await pg.waitForTimeout(500); if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok");
-  await pg.waitForFunction(() => dados && dados.editor, null, { timeout: 30000 });
+  await entraNaEdicao(pg);   // o cadeado; a pergunta das mudanças não salvas (descartar) quando ela vier
   await pg.evaluate(() => { sim.par.dt = "1e-6"; sim.par.tfim = "0.04"; sim.par.nome = "exemplo_tela"; sim.par.amostras = "4000"; });
   await pg.click("#bt-ctl"); await pg.waitForFunction(() => ctl.carregado && ctl.editor, null, { timeout: 30000 }); await pg.waitForTimeout(400);
   const p = await pg.evaluate(() => ({ ativo: $("ctl-roda").value !== "off", atraso: $("ctl-atraso").value, info: (($("ctl-atraso-i").getAttribute("title") || $("ctl-atraso-i").dataset.dica || "") + "\n" + $("ctl-atraso-info").innerText),
@@ -76,7 +76,12 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   // simulando, o circuito só para ver (Marcelo, 22/10): clicar seleciona e mostra os dados (travados, com o aviso); girar (R),
   // arrastar, salvar, abrir, fio e a paleta não mudam nada; o servidor recusa também a ponta, o "fora", a cor e apagar arquivo
   const pos = (n) => pg.evaluate((n) => { const e = dados.folhas[folhaAtual].elementos.find((x) => x.nome === n); return e && JSON.stringify([e.x, e.y, (e.terminais || []).map((t) => [t.x, t.y])]); }, n);
-  const bb = await (await pg.$("#svg .el")).boundingBox(), cx = bb.x + bb.width / 2, cy = bb.y + bb.height / 2;
+  // um ponto que acerta mesmo um componente (o meio da caixa do grupo pode cair num vazio entre o desenho e os rótulos: no Windows
+  // caiu, e o clique não selecionava nada)
+  const pt = await pg.evaluate(() => { for (const el of document.querySelectorAll("#svg .el")) for (const s of el.querySelectorAll("*")) {
+    const r = s.getBoundingClientRect(); if (r.width < 3 || r.height < 3) continue;
+    const x = r.x + r.width / 2, y = r.y + r.height / 2, h = document.elementFromPoint(x, y); if (h && el.contains(h)) return { x, y }; } return null; });
+  const cx = pt ? pt.x : 0, cy = pt ? pt.y : 0;
   await pg.mouse.click(cx, cy); await pg.waitForTimeout(500);
   const circ = await pg.evaluate(async () => { const P = $("props"), r = (rota, corpo) => api(rota, corpo).then(() => "aceitou", (e) => e.message);
     const srv = [await r("editor/cor", { canal: "x", cor: "" }), await r("editor/fora", { uid: "x", fora: true }), await r("editor/ponta", { canal: "x", sinal: "+", componente: "" }), await r("editor/apagar_arquivo", { arq: "nada.ipes" })];

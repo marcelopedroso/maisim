@@ -4,13 +4,14 @@
 // desliga, exclui o W, põe no domínio do ponto clicado, liga ao nó do mesmo nome, desfaz, o nome que o ponto já tem no
 // campo e o aviso antes de juntar dois nós, Esc)
 const { chromium } = require("playwright");
+const { entraNaEdicao, caminho } = require("./_edicao");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
 (async () => {
   const b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1500, height: 900 } })).newPage();
   await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } });   // começa travado (o padrão é editando)
   const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-  const ARQ = require("os").homedir() + "/.cache/maisim_teste/circuitos/conectores_teste.ipes";
+  const ARQ = caminho(require("os").homedir() + "/.cache/maisim_teste/circuitos/conectores_teste.ipes");   // com "/", como o servidor o lista: o ?modelo= compara o texto (no Windows, o homedir vem com "\")
   // o circuito, montado aqui: R.1 e R.2 em pé, cada um com uma conexão "a" que sai do borne de cima e termina solta (a do
   // R.1 para a direita; a do R.2 para cima, começando na ponta solta: a marca automática do voltímetro vai nela); "p"
   // liga os dois bornes de baixo (ligada dos dois lados: fica o texto); "q" desce solta do R.3 (em pé: a casinha para baixo);
@@ -77,8 +78,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   ok(await pg.evaluate(() => !document.querySelector("#svg .realce")), "o mouse saiu: o realce apaga");
 
   // editando: clicar na bandeirinha seleciona a conexão (como clicar nela)
-  await pg.click("#bt-editar"); await pg.waitForTimeout(600); while (await pg.$(".modal-fundo")) { await pg.click(".modal .m-ok"); await pg.waitForTimeout(800); }
-  await pg.waitForFunction(() => dados && dados.editor && ed.ligado, null, { timeout: 30000 });
+  await entraNaEdicao(pg);
   await pg.click('#svg .conector-rot[data-rot="q"]'); await pg.waitForTimeout(400);
   const sel = await pg.evaluate(() => { const w = fioSelecionado(); return w && [w.rotulo, w.pts[0], w.pts[w.pts.length - 1]]; });
   ok(sel && sel[0] === "q", `clicar na bandeirinha "q" seleciona a conexão dela: ${JSON.stringify(sel)}`);

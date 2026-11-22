@@ -54,11 +54,14 @@ const apagaNovo = () => { for (const f of fs.readdirSync(CIRC)) if (f.startsWith
     await pg.click(".msd-imp .m-imp");
     await pg.waitForSelector(".msd-imp .m-abrir", { timeout: 20000 });
     const href = await pg.getAttribute(".msd-imp .m-abrir", "href");
-    ok(href === `/maisim/simu/?modelo=${encodeURIComponent(path.join(CIRC, NOVO + ".ipes"))}` && /1 rodada/.test(await pg.textContent(".msd-imp")),
+    // o servidor devolve os caminhos sempre com "/" (no Windows também: C:/Users/…); o path.join do Windows dá "\\"
+    ok(href === `/maisim/simu/?modelo=${encodeURIComponent(path.join(CIRC, NOVO + ".ipes").split(path.sep).join("/"))}` && /1 rodada/.test(await pg.textContent(".msd-imp")),
        `importado: o Abrir leva ao circuito novo (${href})`);
     await pg.click(".msd-imp .m-nao");
-    const topo = await pg.$eval("#lista-circ .rodada b", (x) => x.textContent);
-    ok(topo === NOVO, `o circuito importado em cima nos Recentes (${topo})`);
+    // a lista se refaz depois que o "importado" aparece (pede /modelos de novo): espera por ela (no Windows demora mais)
+    await pg.waitForFunction((n) => { const x = document.querySelector("#lista-circ .rodada b"); return x && x.textContent === n; }, NOVO, { timeout: 10000 }).catch(() => {});
+    const topo = await pg.$$eval("#lista-circ .rodada", (ls) => ls.slice(0, 3).map((l) => l.querySelector("b").textContent + " (" + l.querySelector(".det").textContent + ")"));
+    ok(topo.length && topo[0].startsWith(NOVO + " ("), `o circuito importado em cima nos Recentes (${topo.join(" · ")})`);
     for (const d of fs.readdirSync(RODADAS)) if (d.startsWith(pasta + "_")) pastas.push(d);
     ok(pastas.length === 2 && fs.existsSync(path.join(CIRC, NOVO + ".controle.json")), `no disco: o circuito com o controle e a rodada ${pastas[1]}`);
     ok(!erros.length, `sem erros de JS ${erros.join(" ; ")}`);
@@ -66,6 +69,6 @@ const apagaNovo = () => { for (const f of fs.readdirSync(CIRC)) if (f.startsWith
   if (b) await b.close();
   for (const p of pastas) fs.rmSync(path.join(RODADAS, p), { recursive: true, force: true });
   apagaNovo(); fs.rmSync(tmp, { recursive: true, force: true });
-  try { const f = path.join(DADOS, "recentes.json"), r = JSON.parse(fs.readFileSync(f, "utf8")); delete r[path.join(CIRC, NOVO + ".ipes")]; fs.writeFileSync(f, JSON.stringify(r)); } catch (e) { /* sem recentes */ }
+  try { const f = path.join(DADOS, "recentes.json"), r = JSON.parse(fs.readFileSync(f, "utf8")); for (const k of Object.keys(r)) if (k.replace(/\\/g, "/") === path.join(CIRC, NOVO + ".ipes").split(path.sep).join("/")) delete r[k]; fs.writeFileSync(f, JSON.stringify(r)); } catch (e) { /* sem recentes */ }
   process.exit(falhas ? 1 : 0);
 })();

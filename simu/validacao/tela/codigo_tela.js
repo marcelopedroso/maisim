@@ -5,7 +5,8 @@
 const { chromium } = require("playwright");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
-const PI = require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_controle_pi.ipes";
+// com "/" como o servidor lista (no Windows o os.homedir() vem com "\\": o ?modelo= não batia e a página abria outro circuito)
+const PI = require("path").join(require("os").homedir(), ".cache/maisim_teste/circuitos/exemplo_controle_pi.ipes").split(require("path").sep).join("/");
 const S = "http://localhost:7200/maisim/simu/";
 (async () => {
   let b;
@@ -85,12 +86,21 @@ const S = "http://localhost:7200/maisim/simu/";
     ok(await B.evaluate(() => ctl.dados.atuadores.some((a) => a.bloco === "CONST.9") && dados.folhas["0"].elementos.some((e) => e.nome === "CONST.9")),
       "um CONST posto na janela do circuito aparece na janela do código (atuadores do controle)");
     await A.evaluate(async () => { novoEstado(await api("editor/cmd", { op: "DELETE", args: ["CONST.9"] })); }); await B.waitForTimeout(1500);
-    // 7. a rodada (▶ na janela do circuito) trava a janela do código e destrava no fim
+    // 7. a rodada (▶ na janela do circuito) trava a janela do código e destrava no fim. Uma rodada longa, pausada logo que roda e
+    // depois parada: a de 5 ms acabava (no Windows, com as rodadas rápidas depois do #292) antes de a janela do código ver o
+    // servidor rodando
     await B.evaluate(() => { window.__travou = false; new MutationObserver(() => { if (document.body.classList.contains("sim-rodando")) window.__travou = true; }).observe(document.body, { attributes: true }); });
-    await A.evaluate(() => iniciaSim());
-    await A.waitForFunction(() => !document.body.classList.contains("sim-rodando") && sim.estado !== "rodando", null, { timeout: 120000 }); await B.waitForTimeout(1500);
+    const par0 = await A.evaluate(() => ({ ...sim.par }));
+    await A.evaluate(() => { sim.par.tfim = "2"; sim.par.amostras = "2000"; iniciaSim(); });
+    await A.waitForFunction(() => sim.estado === "rodando", null, { timeout: 60000 });
+    await A.click("#bt-pausa"); await A.waitForFunction(() => sim.estado === "pausada", null, { timeout: 30000 });
+    const viu = await B.waitForFunction(() => document.body.classList.contains("sim-rodando"), null, { timeout: 30000 }).then(() => true, () => false);
+    await A.click("#bt-parar");
+    await A.waitForFunction(() => !document.body.classList.contains("sim-rodando") && !["preparando", "rodando", "pausada"].includes(sim.estado), null, { timeout: 120000 });
+    await B.waitForFunction(() => !document.body.classList.contains("sim-rodando"), null, { timeout: 30000 }).catch(() => {});
     const rb = await B.evaluate(() => ({ travou: window.__travou, agora: document.body.classList.contains("sim-rodando"), estado: sim.estado }));
-    ok(rb.travou && !rb.agora && rb.estado === "fim", `a rodada pelo ▶ do circuito travou a janela do código e destravou no fim (${rb.estado})`);
+    await A.evaluate((p) => { Object.assign(sim.par, p); localStorage.setItem("maisim-simu-sim", JSON.stringify(sim.par)); }, par0);
+    ok(viu && rb.travou && !rb.agora, `a rodada pelo ▶ do circuito travou a janela do código e destravou no fim (${rb.estado}; travou ${rb.travou}, agora ${rb.agora})`);
     // 8. fechar a janela do código: o aviso some
     await B.evaluate(() => ctl.modelos["controle.py"].setValue(ctl.modelos["controle.py"].getValue().replace("\n# da janela do código\n", ""))); await B.waitForTimeout(1500);
     await B.close(); await A.waitForTimeout(1500);

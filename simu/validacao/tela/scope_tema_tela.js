@@ -3,6 +3,7 @@
 // pintar e acompanha as trocas (o trilho de outra página grava; aqui chega o evento storage): a página, os eixos e a grade
 // do uPlot e o espectro. Uma gravação feita aqui (apagada no fim). Sem fotos.
 const { chromium } = require("playwright");
+const { caminho } = require("./_edicao");
 const { execFileSync } = require("child_process");
 const fs = require("fs"), path = require("path");
 const SM = path.resolve(__dirname, "../../.."), PASTA = path.join(__dirname, "..", "tmp_scope_tema");
@@ -50,7 +51,7 @@ np.savez(${JSON.stringify(arq)}, meta=np.array(json.dumps(meta)), t=t, Va=180*np
     // 2) dentro do simu (a aba scope): o simu escuro → o scope escuro; o botão de tema do trilho → os dois mudam juntos
     const ps = await ctx.newPage(); ps.on("pageerror", (e) => erros.push(e.message));
     await ps.addInitScript(() => { try { localStorage.setItem("maisim-tema", "escuro"); } catch (e) { /* ok */ } });
-    await ps.goto(`${B}/maisim/simu/?modelo=` + encodeURIComponent(require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_controle_pwm.ipes"));
+    await ps.goto(`${B}/maisim/simu/?modelo=` + encodeURIComponent(caminho(require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_controle_pwm.ipes")));
     await ps.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas && document.getElementById("maisim-nav"), null, { timeout: 30000 });
     await ps.evaluate((u) => mostraScope(true, u), url);
     let fr = null;

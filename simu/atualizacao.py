@@ -554,11 +554,8 @@ def lancador_no_ar():
         pid = int(e.get("lancador") or 0)
     except (KeyError, OSError, ValueError, TypeError):
         return None
-    try:
-        os.kill(pid, 0)
-    except OSError:
-        return None
-    return e if pid else None
+    import processos                                   # (no Windows, o os.kill(pid, 0) mandaria um Ctrl+C: processos.vivo)
+    return e if processos.vivo(pid) else None
 
 
 def reinicia_fonte(modo, log):

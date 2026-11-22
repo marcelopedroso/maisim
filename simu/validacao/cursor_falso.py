@@ -33,7 +33,11 @@ VERSAO = "2026.10.22-27dcf5f"
 args = sys.argv[1:]
 casa = Path(os.environ.get("HOME", "."))
 conf_dir = Path(os.environ.get("CURSOR_CONFIG_DIR") or casa / ".cursor")
-token = Path(os.environ.get("XDG_CONFIG_HOME") or casa / ".config") / "cursor" / "auth.json"
+# o login, onde o `agent` de verdade o grava (e onde o MaiSim o procura, Cursor._token): no Windows, %APPDATA%\Cursor\auth.json
+if os.name == "nt":
+    token = Path(os.environ.get("APPDATA") or casa / "AppData" / "Roaming") / "Cursor" / "auth.json"
+else:
+    token = Path(os.environ.get("XDG_CONFIG_HOME") or casa / ".config") / "cursor" / "auth.json"
 chave = os.environ.get("CURSOR_API_KEY") or ""
 conf_arq = conf_dir / "cli-config.json"
 try:
@@ -184,7 +188,7 @@ def pode(tipo, alvo):
         return (True, None) if dentro or boundary != "workspace" else (False, "This reads a file outside your workspace.")
     if not dentro:
         return False, "Out of workspace"
-    if "/.cursor/" in alvo + "/":
+    if f"{os.sep}.cursor{os.sep}" in alvo + os.sep:
         return False, "Protected config file"
     return True, None
 

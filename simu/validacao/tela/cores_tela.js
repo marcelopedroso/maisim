@@ -1,15 +1,15 @@
 // cores das medições (instância de teste 7201): V+ vermelho, V− preto, A azul Hall, borda = cor do canal; seletor; meta; salvar/reabrir
 const { chromium } = require("playwright");
+const { entraNaEdicao, caminho } = require("./_edicao");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
 (async () => {
   const b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1500, height: 900 } })).newPage(); await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
   const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-  const ARQ = require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_controle_pwm.ipes";
+  const ARQ = caminho(require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_controle_pwm.ipes");
   await pg.goto(`http://localhost:7201/maisim/simu/?modelo=${encodeURIComponent(ARQ)}`);
   await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
-  await pg.click("#bt-editar"); await pg.waitForTimeout(500); while (await pg.$(".modal-fundo")) { await pg.click(".modal .m-ok"); await pg.waitForTimeout(800); }
-  await pg.waitForFunction(() => dados && dados.editor, null, { timeout: 30000 });
+  await entraNaEdicao(pg, { ok: ".modal .m-ok" });   // espera a pergunta das mudanças não salvas, que no Windows vem depois
   await pg.evaluate(() => api("editor/cor", { canal: "v_sw", cor: "" }).then(() => api("editor/cor", { canal: "v_o", cor: "" })).then(() => api("editor/cor", { canal: "i_L", cor: "" })).then((j) => { dados = j; desenha(); }));
   let c = await pg.evaluate(() => dados.cores);
   ok(c.v_sw === "#eab308" && c.v_o === "#06b6d4" && c.i_L === "#0ea5e9", `cores padrão: ${JSON.stringify(c)}`);
@@ -57,10 +57,10 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   const sv = await pg.evaluate(() => api("editor/salvar", { nome: "cores_teste", pasta: "circuitos", sobrescrever: true }));   // uma cópia: o exemplo não muda
   ok(!!sv.salvo, `salvar: ${sv.salvo}`);
   await pg.evaluate(() => api("editor/cor", { canal: "v_sw", cor: "" }));       // muda no trabalho; reabrir o arquivo traz o salvo
-  const re = await pg.evaluate((a) => api("editor/abrir", { arq: a, modo: "descartar" }), require("os").homedir() + "/.cache/maisim_teste/circuitos/cores_teste.ipes");
+  const re = await pg.evaluate((a) => api("editor/abrir", { arq: a, modo: "descartar" }), caminho(require("os").homedir() + "/.cache/maisim_teste/circuitos/cores_teste.ipes"));
   ok(re.cores.v_sw === "#d946ef" && re.cores_escolhidas.v_sw === "#d946ef", `reabrir traz a cor salva junto: ${re.cores.v_sw}`);
   await pg.evaluate(() => api("editor/cor", { canal: "v_sw", cor: "" }));
-  const zerou = await pg.evaluate((a) => api("editor/salvar", { nome: "cores_teste", pasta: "circuitos", sobrescrever: true }).then(() => api("editor/abrir", { arq: a, modo: "descartar" })), require("os").homedir() + "/.cache/maisim_teste/circuitos/cores_teste.ipes");
+  const zerou = await pg.evaluate((a) => api("editor/salvar", { nome: "cores_teste", pasta: "circuitos", sobrescrever: true }).then(() => api("editor/abrir", { arq: a, modo: "descartar" })), caminho(require("os").homedir() + "/.cache/maisim_teste/circuitos/cores_teste.ipes"));
   ok(!zerou.cores_escolhidas.v_sw, "todas no padrão + salvar: o .cores.json antigo sai (não volta ao reabrir)");
   ok(!erros.length, `sem erros de JS nem diálogos ${erros.join(" ; ")}`);
   await b.close(); process.exit(falhas ? 1 : 0);

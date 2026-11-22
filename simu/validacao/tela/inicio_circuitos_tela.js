@@ -35,10 +35,14 @@ const api = (rota, corpo) => fetch("http://localhost:7201/maisim/simu/" + rota, 
     await pg.fill("#filtro-circ", "zzz_nada_assim");
     ok(/nenhum circuito/.test(await pg.textContent("#lista-circ")), "nada achado: o aviso");
     ok((await pg.textContent("#pasta-circ")).includes(pastas.meus), `o caminho da pasta: ${await pg.textContent("#pasta-circ")}`);
-    await pg.evaluate(() => maisimI18n.muda("en")); await pg.waitForSelector("#circuitos:not([hidden])");
+    // trocar o idioma recarrega a página inicial (maisimI18n.aoMudar → location.reload): espera a página nova carregar (um
+    // reload do teste por cima do dela dava net::ERR_ABORTED no Windows, mais lento)
+    const lingua = async (l) => { await Promise.all([pg.waitForEvent("load", { timeout: 20000 }), pg.evaluate((l) => maisimI18n.muda(l), l).catch(() => { /* o reload no meio */ })]);
+      await pg.waitForSelector("#circuitos:not([hidden])", { timeout: 20000 }); };
+    await lingua("en");
     ok((await pg.textContent("#circuitos h2")) === "Circuits" && (await pg.textContent('.abas-circ button[data-aba="todos"]')) === "All circuits"
        && /opened/.test(await pg.textContent("#lista-circ .rodada .det")), "em inglês: Circuits, All circuits, opened …");
-    await pg.evaluate(() => maisimI18n.muda("pt"));
+    await lingua("pt");
     // um exemplo aberto também entra em Recentes (Codex no #85); em "Todos" não (a grade dos exemplos já está acima)
     const ex = (await api("modelos")).find((m) => m.id_grupo === "exemplos");
     await api("editor/abrir", { arq: ex.arq, modo: "descartar" });

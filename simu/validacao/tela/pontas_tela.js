@@ -1,11 +1,12 @@
 // pontas do voltímetro no componente escolhido (instância de teste 7201, com uma cópia do circuito do Marcelo)
 const { chromium } = require("playwright");
+const { entraNaEdicao, caminho } = require("./_edicao");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
 (async () => {
   const b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1500, height: 900 } })).newPage(); await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
   const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-  const ARQ = require("os").homedir() + "/.cache/maisim_teste/circuitos/pontas_teste.ipes";
+  const ARQ = caminho(require("os").homedir() + "/.cache/maisim_teste/circuitos/pontas_teste.ipes");   // com "/", como o servidor o lista: o ?modelo= compara o texto (no Windows, o homedir vem com "\")
   // o circuito do teste, montado aqui: antes era uma cópia de um circuito do Marcelo, só na pasta de teste — e um teste
   // rodando junto com outro (19/10) o sobrescreveu com um circuito vazio. Fonte U.1 e resistor R.1 em paralelo (nós + e
   // −, como no circuito dele), o voltímetro VOLT.1 entre eles; salvo como pontas_teste (o resto do teste abre, mexe e salva por cima)
@@ -18,8 +19,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   if (!mont.salvo) { console.log("FALHA não deu para montar o circuito do teste", JSON.stringify(mont).slice(0, 200)); process.exit(1); }
   await pg.goto(`http://localhost:7201/maisim/simu/?modelo=${encodeURIComponent(ARQ)}`);
   await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
-  await pg.click("#bt-editar"); await pg.waitForTimeout(600); while (await pg.$(".modal-fundo")) { await pg.click(".modal .m-ok"); await pg.waitForTimeout(800); }
-  await pg.waitForFunction(() => dados && dados.editor, null, { timeout: 30000 });
+  await entraNaEdicao(pg);
   await pg.evaluate(async () => { const canal = canalScope(dados.folhas["0"].elementos.find((x) => x.nome === "VOLT.1"));   // em sequência (o mesmo arquivo)
     for (const s of ["+", "-"]) await api("editor/ponta", { canal, sinal: s, componente: "" }); dados = await api("editor/estado"); desenha(); });
   const nos = await pg.evaluate(() => dados.nos_medidos["0"]);

@@ -2,7 +2,7 @@
 depois do F5 caiu em "Failed to refresh OAuth token: another Claude Code process is refreshing it" — a página pedia o
 estado (auth status) e o uso (/usage) enquanto o pedido partia. Agora: durante um pedido, o estado e o uso respondem com o
 guardado, sem outro `claude`; e o erro passageiro da renovação tenta de novo sozinho, uma vez (uma entrada só na conversa)."""
-import json, os, subprocess, time, urllib.request
+import json, os, shutil, subprocess, tempfile, time, urllib.request
 from pathlib import Path
 B = "http://127.0.0.1:7201/maisim/simu/"
 from _servidor import ambiente  # noqa: E402
@@ -90,16 +90,38 @@ try:
     ok(not trava.exists() and len(pedidos) == 1 and e["conversa"]["historico"][-1].get("resposta") == "pronto",
        f"trava órfã (60 s, sem dono): tirada antes de lançar, o pedido passa de primeira ({len(pedidos)} chamada)")
     trava.mkdir(exist_ok=True); os.utime(trava, (time.time() - 60, time.time() - 60))
-    dono = subprocess.Popen(["sleep", "40"], env={"CLAUDE_CONFIG_DIR": str(CONF), "PATH": "/usr/bin:/bin"})
+    pasta_dono = None
+    if os.name == "nt":
+        # sem /proc o MaiSim não lê o ambiente dos outros processos: no Windows, o dono é qualquer claude.exe rodando
+        # (limpa_trava_login, pelo tasklist). O dono de mentira: o ping do sistema copiado com o nome claude.exe
+        sis = Path(os.environ.get("SYSTEMROOT") or r"C:\Windows") / "System32"
+        pasta_dono = Path(tempfile.mkdtemp(prefix="maisim-dono-"))
+        shutil.copy(sis / "PING.EXE", pasta_dono / "claude.exe")
+        for mui in sis.glob("*-*/PING.EXE.mui"):                   # as mensagens dele (en-US…), com o nome novo
+            (pasta_dono / mui.parent.name).mkdir(exist_ok=True)
+            shutil.copy(mui, pasta_dono / mui.parent.name / "claude.exe.mui")
+        dono = subprocess.Popen([str(pasta_dono / "claude.exe"), "-n", "41", "127.0.0.1"], stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        time.sleep(1)
+        visto = subprocess.run(["tasklist", "/FI", "IMAGENAME eq claude.exe", "/FO", "CSV", "/NH"], capture_output=True,
+                               text=True, timeout=15).stdout.strip()
+        visto = f"dono vivo: {dono.poll() is None}, tasklist: {visto[:120]!r}"
+    else:
+        dono = subprocess.Popen(["sleep", "40"], env={"CLAUDE_CONFIG_DIR": str(CONF), "PATH": "/usr/bin:/bin"})
+        visto = f"dono vivo: {dono.poll() is None}"
     try:
         (CONF / "falso_chamadas.jsonl").unlink(missing_ok=True)
         api("claude/pedir", {"texto": "com a trava de um processo vivo", "dt": 1e-6, "tfim": 0.002})
         e = espera()
-        ok(trava.exists() and "Failed to refresh OAuth token" in (e["conversa"]["historico"][-1].get("erro") or ""),
-           "trava com um processo vivo usando a pasta: o MaiSim não mexe (o erro aparece, depois de tentar de novo)")
+        erro = ((e.get("conversa") or {}).get("historico") or [{}])[-1].get("erro") or ""
+        ok(trava.exists() and "Failed to refresh OAuth token" in erro,
+           f"trava com um processo vivo usando a pasta: o MaiSim não mexe (o erro aparece, depois de tentar de novo) "
+           f"(trava {'lá' if trava.exists() else 'tirada'}, erro {erro[:80]!r}, {visto})")
     finally:
-        dono.kill()
-        trava.rmdir()
+        dono.kill(); dono.wait(10)
+        shutil.rmtree(trava, ignore_errors=True)
+        if pasta_dono:
+            shutil.rmtree(pasta_dono, ignore_errors=True)
 finally:
     for f in ("falso_logado", "falso_cenario", "falso_renovou"):
         (CONF / f).unlink(missing_ok=True)

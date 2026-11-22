@@ -5,6 +5,7 @@
 // CISPR16, a relutância inteira (a aba Reluctance some, e os seus medidores e terminais) e, das máquinas, SM-SAL, SM-RO, IM,
 // IM-SAT e a LISN; ficam M-DC, PM-DC, PMSM e IM-CAGE, e o VIEWMOT com o nome do MaiSim ("Grandeza da máquina")
 const { chromium } = require("playwright");
+const { esperaNovo } = require("./_edicao");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
 const FORA = ["ToEXT", "FromEXT", "DataExport", "FILE", "JAVA", "C DLL", "ANALYSIS", "SPARSEMATRIX", "PMSM_CTRL", "PMSM_MOD",
@@ -18,9 +19,9 @@ const FICA = ["ABCDQ", "DQABC", "TIME", "TEXT", "THYRISTOR_CONTROL", "RANDOM", "
     b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1500, height: 900 } })).newPage();
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
     await pg.goto("http://localhost:7200/maisim/simu/?novo=1");
-    for (let k = 0; k < 60 && !(await pg.evaluate(() => typeof ed !== "undefined" && ed.catalogo && document.querySelectorAll("#abas button").length)); k++) {
-      if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }
-    for (let k = 0; k < 10 && await pg.$(".modal-fundo"); k++) { await pg.click(".modal .m-ok"); await pg.waitForTimeout(500); }   // o nome do novo
+    // o nome do novo (e, antes, a pergunta das mudanças não salvas) respondidos quando aparecem, até o circuito novo estar aberto
+    // (no Windows a janela do nome vinha depois do laço que a procurava e ficava por cima da paleta)
+    await esperaNovo(pg);
     const ids = new Set();
     const abas = await pg.$$eval("#abas button", (bs) => bs.map((b) => b.textContent));
     for (const a of abas) {

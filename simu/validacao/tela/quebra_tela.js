@@ -1,9 +1,10 @@
 // quebra de linha no editor do controle (página de teste 7200 → 7201): o botão ao lado do "?" e Alt+Z ligam e desligam a
 // quebra; a escolha fica no navegador; o código não muda; a trava da simulação não desliga o botão
 const { chromium } = require("playwright");
+const { caminho } = require("./_edicao");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
-const URL = "http://localhost:7200/maisim/simu/?modelo=" + encodeURIComponent(require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_controle_pwm.ipes");
+const URL = "http://localhost:7200/maisim/simu/?modelo=" + encodeURIComponent(caminho(require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_controle_pwm.ipes"));
 (async () => {
   const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1400, height: 900 }, colorScheme: "light" }); const pg = await ctx.newPage(); await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
   const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });

@@ -28,6 +28,7 @@ SO_LINUX = {
     "config_offline": "confere as pastas do perfil produto do Linux (~/MaiSim, ~/.cache/maisim); as do Windows o teste do instalador confere",
     "atualizacao_git_api": "clona o repositório para testar o Atualizar da versão de desenvolvimento (a pasta instalada não é um clone git)",
     "religa_gecko_api": "derruba o Gecko e o motor com SIGKILL, um sinal do Linux, para conferir a vigia do lançador",
+    "lancador_trava_x_offline": "a trava da tela virtual (Xvfb, /tmp/.X<n>-lock) só existe no Linux; o lançador nem a procura no Windows",
 }
 
 

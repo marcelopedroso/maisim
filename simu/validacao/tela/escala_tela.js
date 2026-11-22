@@ -2,9 +2,10 @@
 // guardado no navegador e aplicado antes de pintar; o desenho acerta o clique com o zoom; o scope embutido não escala de
 // novo; o seminário (sem trilho) fica sem o zoom; o ícone novo do simu no trilho
 const { chromium } = require("playwright");
+const { entraNaEdicao, caminho } = require("./_edicao");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
-const URL = "http://localhost:7200/maisim/simu/?modelo=" + encodeURIComponent(require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_controle_pwm.ipes");
+const URL = "http://localhost:7200/maisim/simu/?modelo=" + encodeURIComponent(caminho(require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_controle_pwm.ipes"));
 (async () => {
   let b;
   try {
@@ -34,8 +35,7 @@ const URL = "http://localhost:7200/maisim/simu/?modelo=" + encodeURIComponent(re
     await carrega(URL);
     ok(await pg.evaluate(() => window.__zoomCedo) === "1.25" && (await est()).pct === "125%", "ao recarregar: 125% já no começo da página (sem piscar em 100%)");
     // o desenho acerta o clique com o zoom
-    await pg.click("#bt-editar"); await pg.waitForTimeout(600); while (await pg.$(".modal-fundo")) { await pg.click(".modal .m-extra, .modal .m-ok"); await pg.waitForTimeout(800); }
-    await pg.waitForFunction(() => dados && dados.editor, null, { timeout: 30000 });
+    await entraNaEdicao(pg, { ok: ".modal .m-extra, .modal .m-ok" });   // espera a pergunta das mudanças não salvas, que no Windows vem depois
     await pg.click('#abas button[data-aba="Circuit"]');
     const alvo = await pg.evaluate(() => { const gx = Math.round((ver.x + ver.w * 0.5) / G), gy = Math.round((ver.y + ver.h * 0.85) / G);
       const s = $("svg"), c = document.createElementNS("http://www.w3.org/2000/svg", "circle"); c.setAttribute("cx", gx * G); c.setAttribute("cy", gy * G); c.setAttribute("r", 1); s.appendChild(c);

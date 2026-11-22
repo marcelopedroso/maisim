@@ -2,6 +2,7 @@
 // (duplo clique; antes, a folha de um SM vazio não existia e não dava para entrar), pôr dois terminais e um resistor,
 // rotular os bornes de fora, ligar uma fonte e simular: a corrente tem de ser V/R. Depois, salvar na biblioteca.
 const { chromium } = require("playwright");
+const { entraNaEdicao } = require("./_edicao");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
 const B = "http://localhost:7200/maisim/simu/";
@@ -12,8 +13,7 @@ const B = "http://localhost:7200/maisim/simu/";
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
     const api = (rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(c) } : {}).then((x) => x.json()), [rota, corpo]);
     await pg.goto(B); await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
-    await pg.click("#bt-editar"); await pg.waitForTimeout(600); while (await pg.$(".modal-fundo")) { await pg.click(".modal .m-extra, .modal .m-ok"); await pg.waitForTimeout(800); }
-    await pg.waitForFunction(() => dados && dados.editor, null, { timeout: 30000 });
+    await entraNaEdicao(pg, { ok: ".modal .m-extra, .modal .m-ok" });   // espera a pergunta das mudanças não salvas, que no Windows vem depois
     // folha em branco, como o botão "novo" (entrar na edição abre no editor o circuito que a tela mostrava)
     const nv = await api("editor/novo", { modo: "descartar" });
     await pg.evaluate((j) => { ed.novo = "sub_novo"; dados = Object.assign(j, { arq: "sub_novo" }); folhaAtual = "0"; seleciona(null); novoEstado(j); }, nv);

@@ -13,8 +13,11 @@ const B = "http://localhost:7200/maisim/simu/script";
 const ENV = require("./_servidor.js").ambiente();   // as pastas do simulador de teste (Linux: o /proc dele; Windows: o perfil)
 const CONF = ENV.MAISIM_CLAUDE_DIR;
 if (!/maisim_teste|\/tmp\//.test(CONF || "")) { console.log("FALHA MAISIM_CLAUDE_DIR não é uma pasta descartável"); process.exit(1); }
-const SCRIPTS = (ENV.MAISIM_SCRIPTS || path.join(ENV.MAISIM_DADOS, "scripts")).replace(/^~/, process.env.HOME);
+const SCRIPTS = (ENV.MAISIM_SCRIPTS || path.join(ENV.MAISIM_DADOS, "scripts")).replace(/^~/, require("os").homedir());
 const PROJ = "tela_ia";
+// o main.py no disco: o servidor grava em modo texto (no Windows, "\r\n" no fim das linhas, como os outros programas de lá; ele
+// mesmo lê de volta com "\n"): compara o texto, linha a linha
+const noDisco = () => fs.readFileSync(path.join(SCRIPTS, PROJ, "main.py"), "utf8").replace(/\r\n/g, "\n");
 const pede = (pg, rota, corpo) => pg.evaluate(async ([r, c]) => (await fetch(r, { method: "POST", headers: { "Content-Type": "application/json", "X-MaiSim": "1" }, body: JSON.stringify(c) })).json(), [rota, corpo]);
 (async () => {
   let b; const nativas = [];
@@ -72,7 +75,7 @@ const pede = (pg, rota, corpo) => pg.evaluate(async ([r, c]) => (await fetch(r, 
     ok(card.arqs.some((x) => /^libs\/extra\.py.*novo/.test(x)) && card.arqs.some((x) => x.startsWith("main.py")), `a proposta: o main e o novo na libs (${JSON.stringify(card.arqs)})`);
     ok(card.mais.some((x) => x.includes("print('depois')")) && card.menos.some((x) => x.includes("print('antes')")), "a diferença: − antes, + depois");
     ok(card.eu.includes("troque antes por depois") && card.txt === "", "o pedido aparece na conversa e a caixa esvazia");
-    ok(fs.readFileSync(path.join(SCRIPTS, PROJ, "main.py"), "utf8") === MAIN, "nada gravado antes de aplicar");
+    const d0 = noDisco(); ok(d0 === MAIN, `nada gravado antes de aplicar${d0 === MAIN ? "" : ` (no disco: ${JSON.stringify(d0)})`}`);
     // as equações da resposta (LaTeX) saem formatadas pelo KaTeX, como na IA do circuito: em destaque e na linha, sem o TeX cru
     const eq = await pg.evaluate(() => { const e = [...document.querySelectorAll("#ia-msgs .cc-ele")].pop();
       return { dest: !!(e && e.querySelector(".katex-display .katex")), linha: e ? e.querySelectorAll(".katex").length : 0,
@@ -86,18 +89,22 @@ const pede = (pg, rota, corpo) => pg.evaluate(async ([r, c]) => (await fetch(r, 
     const bt = await pg.textContent(".modal .m-aplicar-rodar");
     ok(/1 de 2/.test(bt), `recusar um arquivo: "${bt}"`);
     await pg.keyboard.press("Escape");
-    ok(!(await pg.$(".modal.cc-dif")) && fs.readFileSync(path.join(SCRIPTS, PROJ, "main.py"), "utf8") === MAIN, "Esc fecha o Revisar sem aplicar");
+    const d1 = noDisco(); ok(!(await pg.$(".modal.cc-dif")) && d1 === MAIN, `Esc fecha o Revisar sem aplicar${d1 === MAIN ? "" : ` (no disco: ${JSON.stringify(d1)})`}`);
     // aplicar e rodar
     await pg.click('.cc-bts [data-ia="aplicar_rodar"]');
     await pg.waitForFunction(() => /terminou/.test(document.getElementById("resultado").textContent), null, { timeout: 30000 }).catch(() => {});
     const dep = await pg.evaluate(() => ({ cod: window.monaco ? monaco.editor.getEditors()[0].getValue() : "", saida: document.getElementById("saida").textContent,
       apl: !!document.querySelector(".ia-aplicada"), card: !!document.querySelector(".cc-prop"), scope: !document.getElementById("col-scope").hidden }));
-    ok(dep.cod === NOVO && /depois/.test(dep.saida) && fs.readFileSync(path.join(SCRIPTS, PROJ, "main.py"), "utf8") === NOVO,
-       `Aplicar e rodar: gravou, o editor recarregou e rodou (${JSON.stringify(dep.saida.slice(-60))})`);
+    const d2 = noDisco();
+    ok(dep.cod === NOVO && /depois/.test(dep.saida) && d2 === NOVO,
+       `Aplicar e rodar: gravou, o editor recarregou e rodou (${JSON.stringify(dep.saida.slice(-60))}; editor ${dep.cod === NOVO ? "ok" : JSON.stringify(dep.cod)}; disco ${d2 === NOVO ? "ok" : JSON.stringify(d2)})`);
     ok(dep.apl && !dep.card, "a conversa marca aplicada e o cartão sai");
     ok(dep.scope, "rodou e gravou uma rodada: a coluna do Scope abre ao lado");
     // a partir de um exemplo: salva uma cópia e pede sobre ela
     await pg.goto(`${B}?nome=pwm/sine_pwm&grupo=exemplos`); await pg.waitForSelector("#gaveta-ia:not([hidden])");
+    // o exemplo aberto e a conta vista (antes disso, o pedido não tem o que copiar; no Windows a página demora mais a abrir)
+    await pg.waitForFunction(() => document.getElementById("nome-atual").textContent === "pwm/sine_pwm" && !document.getElementById("ia-entrar")
+      && !document.getElementById("ia-enviar").disabled, null, { timeout: 30000 }).catch(() => {});
     fs.writeFileSync(path.join(CONF, "falso_script.json"), JSON.stringify({ "sine_pwm.py": "print('copia')\n" }));
     await pg.fill("#ia-texto", "mude o exemplo"); await pg.press("#ia-texto", "Control+Enter");
     await pg.waitForSelector(".modal .m-campo", { timeout: 8000 }).catch(() => {});

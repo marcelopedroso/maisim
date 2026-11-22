@@ -124,7 +124,9 @@ finally:
     C.WIN = os.name == "nt"
 ok(argv == [str(raiz / "versions" / "2026.10.22-27dcf5f" / "node.exe"), str(raiz / "versions" / "2026.10.22-27dcf5f" / "index.js")],
    f"Windows: o node.exe e o index.js da versão mais nova direto (nunca o agent.cmd): {[Path(x).parent.name for x in argv]}")
-ok(envw["USERPROFILE"] == str((T / "win-casa").resolve()) and envw["APPDATA"].endswith("AppData/Roaming") and "HOMEPATH" not in envw,
+wcasa = (T / "win-casa").resolve()
+ok(envw["USERPROFILE"] == str(wcasa) and envw["APPDATA"] == str(wcasa / "AppData" / "Roaming") and envw["LOCALAPPDATA"] == str(wcasa / "AppData" / "Local")
+   and "HOMEPATH" not in envw,
    "Windows: USERPROFILE, APPDATA e LOCALAPPDATA na casa do MaiSim")
 ok(any(x.endswith("\\controle.py)") for x in pw["allow"]) and any(x.endswith("\\*\\*)") for x in pw["deny"]), "Windows: as regras com \\")
 vazio = C.Cursor(str(T / "vazio" / "cursor-agent.cmd"), T / "c2")
@@ -146,7 +148,12 @@ for ruim in (Path.home(), Path.home() / ".cursor"):
         ok("pasta só do MaiSim" in str(e), f"a casa não pode ser {ruim} (recusa: o pedido não roda)")
 conv = T / "conversa"
 conv.mkdir()
-cmd = a.comando("-v", "s", False, "regras", editaveis=("controle.py",), pasta=conv)
+# o `agent` de `a` não existe (no Windows, sem a pasta versions o argv recusa): o comando dele como o dos testes, MAISIM_CURSOR_BIN
+os.environ["MAISIM_CURSOR_BIN"] = a.bin
+try:
+    cmd = a.comando("-v", "s", False, "regras", editaveis=("controle.py",), pasta=conv)
+finally:
+    os.environ.pop("MAISIM_CURSOR_BIN", None)
 ok(cmd[-1] == " -v" and "--force" not in cmd and "-f" not in cmd and (conv / "AGENTS.md").read_text() == "regras"
    and json.loads((conv / ".cursor" / "cli.json").read_text())["permissions"] == a.politica(conv, ("controle.py",)),
    "um pedido que começa com \"-\" não vira opção; sem --force; as regras no AGENTS.md e a política na pasta")

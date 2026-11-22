@@ -2,11 +2,12 @@
 // pela paleta (Measure), ligada ao i_L pelo rótulo, com o nome "corrente": aparece no scope com esse nome e é igual ao i_L,
 // é uma medida do controle (m["corrente"]); dentro de um subcircuito, ganha o prefixo dele (como os medidores)
 const { chromium } = require("playwright");
+const { caminho } = require("./_edicao");
 const path = require("path");
 const { execFileSync } = require("child_process");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
-const PI = require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_controle_pi.ipes";
+const PI = caminho(require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_controle_pi.ipes");
 (async () => {
   let b;
   try {

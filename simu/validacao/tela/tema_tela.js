@@ -1,17 +1,17 @@
 // tema do MaiSim (página de teste 7200 → 7201): o botão do trilho alterna sistema → claro → escuro; o simu e o desenho seguem
 const { chromium } = require("playwright");
+const { entraNaEdicao, caminho } = require("./_edicao");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
 (async () => {
   const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1600, height: 900 }, colorScheme: "light" }); const pg = await ctx.newPage(); await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
   const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-  await pg.goto("http://localhost:7200/maisim/simu/?modelo=" + encodeURIComponent(require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_controle_pwm.ipes"));
+  await pg.goto("http://localhost:7200/maisim/simu/?modelo=" + encodeURIComponent(caminho(require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_controle_pwm.ipes")));
   await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas && document.getElementById("maisim-nav"), null, { timeout: 30000 });
   await pg.evaluate(() => { try { localStorage.removeItem("maisim-tema"); } catch (e) {} window.maisimNav.aplicaTema(); });
   const t0 = await pg.evaluate(() => ({ tema: document.documentElement.dataset.tema, rot: document.querySelector("#maisim-nav .tema").dataset.rotulo }));
   ok(t0.tema === "claro" && /como o sistema/.test(t0.rot), `sistema (o navegador claro): ${t0.tema} · "${t0.rot}"`);
-  await pg.click("#bt-editar"); await pg.waitForTimeout(600); while (await pg.$(".modal-fundo")) { await pg.click(".modal .m-extra, .modal .m-ok"); await pg.waitForTimeout(800); }
-  await pg.waitForFunction(() => dados && dados.editor, null, { timeout: 30000 });
+  await entraNaEdicao(pg, { ok: ".modal .m-extra, .modal .m-ok" });   // espera a pergunta das mudanças não salvas, que no Windows vem depois
   await pg.click("#bt-ctl"); await pg.waitForFunction(() => ctl.carregado && ctl.editor, null, { timeout: 30000 });
   await pg.screenshot({ path: "tema_claro.png" });
   // toda variável do tema tem valor no tema atual (uma que aponta para si mesma fica vazia: a cor some) e todo var(--x) sem
