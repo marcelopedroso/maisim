@@ -48,6 +48,10 @@ jobs:
         with:
           distribution: temurin
           java-version: "11"   # sem cache: maven — o pom.xml do Gecko só existe depois do gecko/construir.sh (fora do git)
+      - name: a Python 3.12 for the build scripts (the Pillow that draws the installer images needs 3.11 or newer)
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
       - name: tools
         run: |
           # (o que o AppRun confere no sistema: a tela virtual e as bibliotecas de janela do Java)
