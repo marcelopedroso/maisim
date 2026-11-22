@@ -1,0 +1,79 @@
+# The proof that we own the Android signing key, for registering the package app.maisim in Google's Android Developer
+# Console (developer verification: since 30/09/2026 in Brazil, apps on certified devices must come from verified
+# developers). The console gives a small file to put in the APK's assets and asks for an APK signed with the app's key.
+# The key never leaves the repository secrets: this workflow builds the app with that file in its assets, signs it with
+# the official key (checked against pacote/android/apk/chave.sha256, like every release APK) and keeps the APK as an
+# artifact for one day, to be downloaded and uploaded to the console.
+# How: put the file's content in the repository secret ANDROID_ADI_SNIPPET, then Actions → "Android key proof" → Run
+# workflow, with the file name the console shows.
+name: Android key proof
+
+on:
+  workflow_dispatch:
+    inputs:
+      arquivo:
+        description: "the file name the console asks for in the APK's assets (as shown there)"
+        required: true
+        default: "adi-registration.properties"
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    name: APK with the console's file, signed with the official key
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: the Gradle wrapper in the repository is the official one (its checksum against gradle.org)
+        uses: gradle/actions/wrapper-validation@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: proot (prebuilt, checked by SHA-256)
+        run: bash pacote/android/apk/proot.sh
+      - name: the console's file in the APK's assets
+        env:
+          ARQUIVO: ${{ inputs.arquivo }}            # only through the environment, never pasted into the script
+          CONTEUDO: ${{ secrets.ANDROID_ADI_SNIPPET }}
+        run: |
+          [[ "$ARQUIVO" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "not a plain file name: $ARQUIVO"; exit 1; }
+          [ -n "$CONTEUDO" ] || { echo "the secret ANDROID_ADI_SNIPPET is empty: paste the console's file content there first"; exit 1; }
+          mkdir -p pacote/android/apk/app/src/main/assets
+          printf '%s\n' "$CONTEUDO" > "pacote/android/apk/app/src/main/assets/$ARQUIVO"
+          echo "assets/$ARQUIVO: $(wc -c < "pacote/android/apk/app/src/main/assets/$ARQUIVO") bytes"
+      - name: APK signed with the official key, checked against the registered fingerprint
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          ANDROID_KEYSTORE_SENHA: ${{ secrets.ANDROID_KEYSTORE_SENHA }}
+          ANDROID_CHAVE_NOME: ${{ secrets.ANDROID_CHAVE_NOME }}
+          ANDROID_CHAVE_SENHA: ${{ secrets.ANDROID_CHAVE_SENHA }}
+          ARQUIVO: ${{ inputs.arquivo }}
+        run: |
+          cd pacote/android/apk
+          trap 'rm -f "$RUNNER_TEMP/maisim.keystore"' EXIT     # the key exists only in this step
+          [ -n "$ANDROID_KEYSTORE_B64" ] || { echo "no signing key (secrets)"; exit 1; }
+          printf '%s' "$ANDROID_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/maisim.keystore"
+          export MAISIM_KEYSTORE="$RUNNER_TEMP/maisim.keystore" MAISIM_KEYSTORE_SENHA="$ANDROID_KEYSTORE_SENHA" \
+                 MAISIM_CHAVE_NOME="$ANDROID_CHAVE_NOME" MAISIM_CHAVE_SENHA="$ANDROID_CHAVE_SENHA"
+          for tentativa in 1 2 3; do                          # the same retry as the release APK (Maven sometimes fails)
+            if ./gradlew assembleRelease --no-daemon -q > "$RUNNER_TEMP/gradle.log" 2>&1; then cat "$RUNNER_TEMP/gradle.log"; break; fi
+            cat "$RUNNER_TEMP/gradle.log"
+            grep -qE "Could not (find|resolve|GET|HEAD|parse POM|download)" "$RUNNER_TEMP/gradle.log" && [ "$tentativa" -lt 3 ] || exit 1
+            echo "::warning::Gradle could not fetch a dependency (try $tentativa of 3): trying again in 30 s"; sleep 30
+          done
+          mkdir -p "$RUNNER_TEMP/prova" && cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/prova/MaiSim-prova-chave.apk"
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          IMP=$("$BT/apksigner" verify --print-certs "$RUNNER_TEMP/prova/MaiSim-prova-chave.apk" | sed -n 's/.*SHA-256 digest: //p' | head -1 | tr a-f A-F | sed 's/../&:/g; s/:$//')
+          echo "certificate SHA-256: $IMP"
+          [ "$IMP" = "$(cat chave.sha256)" ] || { echo "the APK is not signed with the registered key (chave.sha256)"; exit 1; }
+          unzip -l "$RUNNER_TEMP/prova/MaiSim-prova-chave.apk" | grep -q "assets/$ARQUIVO" || { echo "assets/$ARQUIVO is not in the APK"; exit 1; }
+          echo "ok: package app.maisim, signed with the registered key, with assets/$ARQUIVO"
+      - name: keep the APK for the console (one day)
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: maisim-prova-chave
+          path: ${{ runner.temp }}/prova/MaiSim-prova-chave.apk
+          retention-days: 1
