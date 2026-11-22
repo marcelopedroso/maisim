@@ -83,8 +83,11 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     ok(/^= 42/.test(c) && !d.var && d.v === 5 && d.campo === "5", `antes "${c}"; o número 5 no campo desliga: uDC = ${d.v}, sem variável`);
     // nome inválido no campo: recusa e volta
     await pg.fill('#p-params input[data-p="uDC"]', "$1x"); await pg.press('#p-params input[data-p="uDC"]', "Tab");
-    await pg.waitForFunction(() => /nome da variável/.test($("msg").textContent), null, { timeout: 10000 }).catch(() => {});   // a resposta do servidor (não um tempo fixo: no Actions, 600 ms às vezes não bastava)
-    ok(/nome da variável/.test(await pg.textContent("#msg")) && (await pg.inputValue('#p-params input[data-p="uDC"]')) === "5", "$1x no campo: recusado, o campo volta ao 5");
+    // a resposta do servidor e o campo de volta (não um tempo fixo: no Actions, 600 ms às vezes não bastava; no Windows o campo
+    // voltava ao 5 um instante depois da mensagem)
+    await pg.waitForFunction(() => /nome da variável/.test($("msg").textContent) && document.querySelector('#p-params input[data-p="uDC"]').value === "5", null, { timeout: 10000 }).catch(() => {});
+    const r1x = { msg: await pg.textContent("#msg"), campo: await pg.inputValue('#p-params input[data-p="uDC"]') };
+    ok(/nome da variável/.test(r1x.msg) && r1x.campo === "5", `$1x no campo: recusado, o campo volta ao 5 (campo "${r1x.campo}"; "${r1x.msg.slice(0, 80)}")`);
     // limpa: o circuito em branco e as variáveis que o teste criou saem (o "novo" não apaga variáveis)
     await pg.evaluate(async () => { await api("editor/novo", { modo: "descartar" }); });
     const gs = await pg.evaluate(async () => Object.keys((await api("editor/estado")).globais));

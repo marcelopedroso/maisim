@@ -36,6 +36,12 @@ import processos  # noqa: E402,F401   no Windows: o tasklist/taskkill e o javac 
 # no Windows, o padrão dos arquivos e do texto é o cp1252 (um "≈" no resumo da rodada derrubava a gravação): os servidores
 # Python em UTF-8 (PYTHONUTF8) e os Java também (-Dfile.encoding), como no Linux
 UTF8_JAVA = ["-Dfile.encoding=UTF-8"] if WIN else []
+
+
+def opcoes_java(cfg, chave):
+    """As opções de memória de um dos Javas (MAISIM_JAVA_GECKO, MAISIM_JAVA_MOTOR: config/padrao.env), uma por item. Só as que
+    começam com "-" (o que vier escrito errado não vira um argumento solto antes do -jar)."""
+    return [x for x in shlex.split(str(cfg.get(chave) or ""), posix=True) if x.startswith("-")]
 NOVNC = "/usr/share/novnc"                               # o noVNC do sistema (a tela do Gecko no navegador)
 if WIN:
     os.environ.setdefault("PYTHONUTF8", "1")
@@ -363,7 +369,7 @@ class Lancador:
         # a vigia do próprio Gecko (patch 0003) fecha os diálogos e anota em gecko/dialogos.txt (o simu lê); no Windows, sem
         # a tela virtual, a janela principal fica escondida (o MaiSim é a tela)
         extra = [f"-Dmaisim.dialogos={c / 'dialogos.txt'}"] + (["-Dmaisim.oculto=true"] if WIN else [])
-        self.sobe("gecko", [self.java, *UTF8_JAVA, f"-Duser.home={c / 'home'}", "-Dpolyglot.js.nashorn-compat=true", *extra, "-jar", str(self.jar), str(modelo), "-p", str(pg)],
+        self.sobe("gecko", [self.java, *opcoes_java(self.cfg, "MAISIM_JAVA_GECKO"), *UTF8_JAVA, f"-Duser.home={c / 'home'}", "-Dpolyglot.js.nashorn-compat=true", *extra, "-jar", str(self.jar), str(modelo), "-p", str(pg)],
                   "gecko.log", env)
         fala("subindo o Gecko (até ~1 min)…", "starting Gecko (up to ~1 min)…")
         if not espera(lambda: no_log(log, "GeckoCIRCUITS is ready"), 120):
@@ -412,7 +418,7 @@ class Lancador:
                            stdout=subprocess.DEVNULL, stderr=open(self.logs / "motor_javac.log", "w"))
         mlog = self.logs / "motor.log"
         mlog.write_text("")
-        self.sobe("motor", [self.java, *UTF8_JAVA, "-cp", os.pathsep.join([str(self.jar), str(m / "bin")]), "maisim.MaiSimMotor",
+        self.sobe("motor", [self.java, *opcoes_java(self.cfg, "MAISIM_JAVA_MOTOR"), *UTF8_JAVA, "-cp", os.pathsep.join([str(self.jar), str(m / "bin")]), "maisim.MaiSimMotor",
                             "--gecko-port", str(pg), "--porta", str(pm)], "motor.log")
         if not espera(lambda: no_log(mlog, "ouvindo"), 30):     # "ouvindo": o que o motor escreve ao subir
             fala(f"o motor do editor não subiu (veja {mlog})", f"the editor engine did not start (see {mlog})")

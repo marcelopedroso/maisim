@@ -44,7 +44,10 @@ const CHAVE = "crsr_" + "tela0123456789abcdef" + "WXYZ";   // de mentira
   let t = await sec();
   ok(/Cursor CLI não está instalado/.test(t) && t.includes("curl https://cursor.com/install -fsS | bash") && /Procurar de novo/.test(t) && !(await pg.$("#iac-cursor [data-ia-acao=instalar]")),
     `Linux, não instalado: o comando oficial do terminal e "Procurar de novo", sem botão de instalar (${t.slice(0, 80)}…)`);
-  Object.assign(sv, { sistema: "windows", pode: true }); await pg.evaluate(() => atualizaClaude()); await reabre();
+  // o estado do Claude e a lista das IAs relidos (o botão Instalar do Cursor vem do pode_instalar da lista: só o atualizaClaude
+  // às vezes deixava a lista de antes, e o botão não aparecia), e o botão esperado em vez de lido na hora
+  Object.assign(sv, { sistema: "windows", pode: true }); await pg.evaluate(() => Promise.all([atualizaClaude(), atualizaIAs()])); await reabre();
+  await pg.waitForSelector("#iac-cursor [data-ia-acao=instalar]", { timeout: 15000 }).catch(() => {});
   t = await sec();
   ok((await pg.textContent("#iac-cursor [data-ia-acao=instalar]")) === "Instalar o Cursor CLI" && !/curl/.test(t), "Windows, não instalado: o botão Instalar genérico, sem o curl … | bash");
   await pg.click("#iac-cursor [data-ia-acao=instalar]");

@@ -109,7 +109,7 @@ try:
     r = api("claude/contexto/salvar", {"titulo": "Buck: continuação", "resumo": "nota da continuação", "juntar": cid, "incluir": {"conversa": False}})
     cid5 = r.get("id", ""); ids.append(cid5)
     d5 = CTX / cid5
-    for _ in range(60):
+    for _ in range(240):                                  # o resumo pela IA (a de mentira): até 2 min (no Windows, às vezes passava de 30 s)
         m5 = json.loads((d5 / "meta.json").read_text()) if cid5 else {}
         if m5.get("resumo_ia", {}).get("estado") != "gerando":
             break
@@ -118,7 +118,7 @@ try:
     conv5, ant5, ctx5, res5 = txt("conversa.md"), txt("anterior.md"), txt("contexto.md"), txt("resumo_ia.md")
     ok(cid5 and m5.get("continua_de") == {"id": cid, "titulo": "Buck — Kp dobrado (rev)"} and m5.get("conversa") == sid2 and m5.get("pedidos") == 2
        and f"- continua de: Buck — Kp dobrado (rev) ({cid})" in ctx5 and "- anterior.md:" in ctx5 and "## Resumo pela IA" in ctx5,
-       f"juntar: um contexto novo ({cid5}), \"continua de\" no meta e no contexto.md, 2 pedidos")
+       f"juntar: um contexto novo ({cid5}), \"continua de\" no meta e no contexto.md, 2 pedidos (o resumo pela IA: {m5.get('resumo_ia', {}).get('estado')})")
     i1, i2 = conv5.find("## 1. Pedido"), conv5.find("## 2. Pedido")
     ok(0 <= i1 < conv5.find("dobre o Kp") < i2 < conv5.find("continue daquele contexto") and "continua de “Buck — Kp dobrado (rev)”" in conv5
        and ant5.startswith("# Buck — Kp dobrado (rev)") and "## O que lembrar" in ant5 and "Arquivos deste contexto" not in ant5

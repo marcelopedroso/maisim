@@ -1,0 +1,50 @@
+# Stress test of memory and speed (simu/validacao/estresse_api.py): the whole class (every example in a row), a leak check
+# (the same circuit 30 times), a giant run (the PMSM with 10× its final time and 200 001 samples) and the Scope serving that
+# giant recording. Two variants side by side on the same kind of machine: "antes" (the two Java processes without a memory
+# ceiling, as MaiSim was until 22/11/2026) and "depois" (the configuration in config/padrao.env), so each memory cut is
+# measured against the previous behaviour, and its speed too. By hand (Actions → stress → Run workflow) and weekly; free on
+# a public repository. The numbers go to the job summary and to estresse.json in the artifact.
+name: stress
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 8 * * 6"   # Saturdays, 05:00 in Brasília
+
+permissions:
+  contents: read
+
+jobs:
+  estresse:
+    name: stress (${{ matrix.variante }})
+    strategy:
+      fail-fast: false
+      matrix:
+        variante: [antes, depois]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: the Java processes as before (no memory options), only in "antes"
+        if: matrix.variante == 'antes'
+        run: sed -i -E 's/^(MAISIM_JAVA_(GECKO|MOTOR))=.*/\1=/' config/padrao.env && grep -n "^MAISIM_JAVA_" config/padrao.env
+      - uses: ./.github/actions/prepare
+      - name: the stress test
+        run: set -o pipefail; python3 simu/validacao/estresse_api.py | tee "$RUNNER_TEMP/estresse.log"
+      - name: summary
+        if: always()
+        run: |
+          { echo "### stress (${{ matrix.variante }})"; echo '```'; grep -E "^(OK|FALHA|==)|heap do Java|Java do Gecko" "$RUNNER_TEMP/estresse.log" | cut -c1-260; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: keep the numbers and the logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: estresse-${{ matrix.variante }}
+          path: |
+            ~/.cache/maisim_teste/bateria/estresse.json
+            ~/.cache/maisim_teste/*.log
+            ~/.cache/maisim_teste/**/gecko.log
+            ~/.cache/maisim_teste/**/motor.log
+            ${{ runner.temp }}/estresse.log
+          retention-days: 30
+          if-no-files-found: ignore

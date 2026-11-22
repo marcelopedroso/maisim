@@ -62,7 +62,9 @@ if [ -f "$AB" ]; then mkdir -p "$C/backups"; mv "$AB" "$C/backups/autoBackup_$(d
   fala "autoBackup anterior guardado em $C/backups/ (abrir pelo File > Open do Gecko, se precisar)" \
        "previous autoBackup kept in $C/backups/ (open it with Gecko's File > Open, if needed)"; fi
 # -Dmaisim.dialogos: a vigia do próprio Gecko (patch 0003) fecha os diálogos e anota em dialogos.txt (o simu lê)
-DISPLAY=$TELA nohup java -Duser.home="$C/home" -Dpolyglot.js.nashorn-compat=true -Dmaisim.dialogos="$C/dialogos.txt" -jar "$JAR" "$MODELO" -p "$PG" > "$C/gecko.log" 2>&1 &
+# $MAISIM_JAVA_GECKO / $MAISIM_JAVA_MOTOR: as opções de memória (config/padrao.env), sem aspas de propósito (uma por palavra)
+# shellcheck disable=SC2086
+DISPLAY=$TELA nohup java $MAISIM_JAVA_GECKO -Duser.home="$C/home" -Dpolyglot.js.nashorn-compat=true -Dmaisim.dialogos="$C/dialogos.txt" -jar "$JAR" "$MODELO" -p "$PG" > "$C/gecko.log" 2>&1 &
 echo $! > "$C/gecko.pid"
 fala "tela $TELA, VNC $VNC, noVNC $WEB; Gecko $(basename "$JAR") na porta $PG com $MODELO" \
      "display $TELA, VNC $VNC, noVNC $WEB; Gecko $(basename "$JAR") on port $PG with $MODELO"
@@ -75,7 +77,8 @@ if grep -q "GeckoCIRCUITS is ready" "$C/gecko.log"; then
     javac -nowarn -encoding UTF-8 -cp "$JAR" -d "$M/bin" "$M/src/maisim/MaiSimMotor.java" 2> "$C/motor_javac.log" || \
       fala "o motor não compilou (veja $C/motor_javac.log)" "the engine did not compile (see $C/motor_javac.log)"
   fi
-  nohup java -cp "$JAR:$M/bin" maisim.MaiSimMotor --gecko-port "$PG" --porta "$PM" > "$C/motor.log" 2>&1 & echo $! > "$C/motor.pid"
+  # shellcheck disable=SC2086
+  nohup java $MAISIM_JAVA_MOTOR -cp "$JAR:$M/bin" maisim.MaiSimMotor --gecko-port "$PG" --porta "$PM" > "$C/motor.log" 2>&1 & echo $! > "$C/motor.pid"
   for _ in $(seq 1 15); do grep -q "ouvindo" "$C/motor.log" 2>/dev/null && break; sleep 1; done
   if grep -q "ouvindo" "$C/motor.log"; then fala "motor do editor em 127.0.0.1:$PM" "editor engine at 127.0.0.1:$PM"   # "ouvindo": o que o motor escreve ao subir
   else fala "o motor não subiu (veja $C/motor.log)" "the engine did not start (see $C/motor.log)"; fi
