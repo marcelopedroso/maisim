@@ -290,7 +290,14 @@ jobs:
           elif [ "${{ inputs.test_only }}" != "true" ]; then
             echo "no signing key (secrets): a release APK must be signed with the official key"; exit 1
           fi
-          ./gradlew lintRelease assembleRelease --no-daemon -q   # (o lint barra API que não existe no Android 10, a versão mínima)
+          # (o lint barra API que não existe no Android 10, a versão mínima). O Maven às vezes falha ao entregar uma dependência
+          # ("Could not find/resolve ...": na v0.6.1 e de novo em 22/11, e passou ao rodar de novo): até 3 tentativas, só nesse caso
+          for tentativa in 1 2 3; do
+            if ./gradlew lintRelease assembleRelease --no-daemon -q > "$RUNNER_TEMP/gradle.log" 2>&1; then cat "$RUNNER_TEMP/gradle.log"; break; fi
+            cat "$RUNNER_TEMP/gradle.log"
+            grep -qE "Could not (find|resolve|GET|HEAD|parse POM|download)" "$RUNNER_TEMP/gradle.log" && [ "$tentativa" -lt 3 ] || exit 1
+            echo "::warning::Gradle could not fetch a dependency (try $tentativa of 3): trying again in 30 s"; sleep 30
+          done
           V=$(cat ../../../VERSION); mkdir -p ../../dist
           cp app/build/outputs/apk/release/app-release.apk "../../dist/MaiSim-Android-$V.apk"
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
