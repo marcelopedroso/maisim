@@ -177,7 +177,7 @@ def rodando_agora():
     """A pasta da rodada que o simu está rodando (o .npz só é escrito no fim): ela fica fora de qualquer apagar. None se
     não há; "?" se o simu não respondeu."""
     try:
-        url = f"http://localhost:{os.environ['MAISIM_PORTA_SIMU']}/maisim/simu/editor/rodada"
+        url = f"http://127.0.0.1:{os.environ['MAISIM_PORTA_SIMU']}/maisim/simu/editor/rodada"   # 127.0.0.1: no Windows o localhost tenta o ::1 antes (~2 s, mais que o timeout)
         r = json.loads(urllib.request.urlopen(url, timeout=2).read())
     except Exception:
         return "?"
