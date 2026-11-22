@@ -50,7 +50,7 @@ jobs:
           distribution: temurin
           java-version: "11"   # sem cache: maven — o pom.xml do Gecko só existe depois do gecko/construir.sh (fora do git)
       - name: a Python 3.12 for the build scripts (the Pillow that draws the installer images needs 3.11 or newer)
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
       - name: tools
@@ -278,7 +278,7 @@ jobs:
         with:
           ref: ${{ inputs.test_only && github.ref || env.TAG }}
       - name: the Gradle wrapper in the repository is the official one (its checksum against gradle.org)
-        uses: gradle/actions/wrapper-validation@48b5f213c81028ace310571dc5ec0fbbca0b2947 # v4.4.4
+        uses: gradle/actions/wrapper-validation@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.4
       - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
