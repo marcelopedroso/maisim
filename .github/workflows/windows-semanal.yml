@@ -1,0 +1,59 @@
+# Once a week, the whole test suite on a real Windows, on the MaiSim installed from main: the packages workflow in "test
+# only" mode (the installer built from main, installed silently, the smoke test and simu/validacao/ci.py completo). Without
+# this, Windows was only tested when a version was being packaged, and something that broke there in between would show
+# up only on release day. This job dispatches the packages run, waits for it and fails with it (GitHub then emails the
+# maintainer), and opens an issue with the run link. Free on a public repository (standard runners).
+name: Windows weekly
+
+on:
+  schedule:
+    - cron: "0 6 * * 3"   # Wednesdays, 03:00 in Brasília
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-semanal
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    name: the packages, the smoke test and the whole suite on Windows (main)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    permissions:
+      actions: write   # dispatch and watch the packages run
+    steps:
+      - name: dispatch the packages workflow in test-only mode on main and wait for it
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          antes=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          gh workflow run pacotes.yml --repo "$GITHUB_REPOSITORY" --ref main -f tag=v0.0.0 -f test_only=true
+          run=""
+          for _ in $(seq 1 30); do
+            sleep 10
+            run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow pacotes.yml --branch main --event workflow_dispatch \
+                  --created ">=$antes" --limit 1 --json databaseId -q '.[0].databaseId')
+            [ -n "$run" ] && break
+          done
+          [ -n "$run" ] || { echo "the packages run did not start"; exit 1; }
+          echo "packages run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$run"
+          gh run watch "$run" --repo "$GITHUB_REPOSITORY" --interval 60 --exit-status > /dev/null
+
+  report:
+    name: report failure
+    needs: windows
+    if: failure()
+    runs-on: ubuntu-24.04
+    permissions:
+      issues: write
+    steps:
+      - name: open an issue with the run link
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "Windows weekly run failed on main (${GITHUB_SHA::7})" \
+            --body "The weekly run on a real Windows (installer, smoke test, whole test suite) failed on main at ${GITHUB_SHA::7}. This run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID (it links the packages run, with the summary, the logs and the screenshots)."
