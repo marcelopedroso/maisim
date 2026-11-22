@@ -156,7 +156,9 @@ const BUCK = "exemplos/exemplo_buck.ipes";
     await pg.evaluate(async (c) => { await api("editor/controle", { controle: c }); if (typeof ctl !== "undefined" && ctl.carregado) await recarregaControle(); },
       JSON.parse(require("fs").readFileSync(require("path").join(__dirname, "..", "dados", "controle_pwm_simples.controle.json"), "utf8")));
     if (!(await pg.evaluate(() => document.body.classList.contains("com-controle") && ctl.carregado))) await pg.click("#bt-ctl");
-    await pg.waitForFunction(() => ctl.carregado && ctl.dados, null, { timeout: 30000 }); await pg.waitForTimeout(400);
+    // o painel inteiro: o abreControle marca carregado antes de criar o editor (o Monaco) e, criado, redesenha o painel (o Ts
+    // volta ao guardado se o campo não estiver em foco); no Windows o Monaco demora e esse redesenho caía em cima do "2x"
+    await pg.waitForFunction(() => ctl.carregado && ctl.dados && (ctl.editor || ctl.texto), null, { timeout: 30000 }); await pg.waitForTimeout(400);
     tsAntes = (await pg.evaluate(() => api("editor/controle"))).controle.Ts;
     const notasTs = [];
     for (const [txt, esp] of [["2000000p", "= 2 µs"], ["5000n", "= 5 µs"], ["50u", "= 50 µs"], ["50µs", "= 50 µs"], ["0,1ms", "= 100 µs"], ["0.00002k", "= 20 ms"], ["1e-12M", "= 1 µs"], ["1e-15G", "= 1 µs"], ["5e-5", "= 50 µs"]]) {
@@ -166,7 +168,7 @@ const BUCK = "exemplos/exemplo_buck.ipes";
     ok(/= 50 × Δt de 1 µs · efetivo 50 µs/.test(info), `e o Ts × Δt lê o prefixo: ${info.split("\n")[0]}`);
     await pg.fill("#ctl-ts", "2x"); await pg.press("#ctl-ts", "Tab"); await pg.waitForTimeout(900);
     n.ts = await nota("#ctl-ts");
-    const est = await pg.evaluate(() => $("ctl-estado").textContent);
+    const est = await pg.evaluate(() => $("ctl-estado").textContent + ` (no campo: "${$("ctl-ts").value}")`);
     ok(n.ts.erro && n.ts.inv && (await pg.evaluate(() => api("editor/controle"))).controle.Ts === tsAntes && /valor inválido/.test(est), `Ts "2x": "${n.ts.txt}", não guardado (${tsAntes}) · "${est}"`);
     await pg.fill("#ctl-ts", "2u"); await pg.press("#ctl-ts", "Tab"); await pg.waitForTimeout(900);
     ok((await pg.evaluate(() => api("editor/controle"))).controle.Ts === 2e-6, "Ts \"2u\": guardado como 2e-6");
