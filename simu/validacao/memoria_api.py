@@ -176,8 +176,23 @@ def pico_da_rodada(rz, corpo):
     return (pico, pico_total, n), r
 
 
+def xmx_mb(chave):
+    """O -Xmx de MAISIM_JAVA_GECKO / MAISIM_JAVA_MOTOR (config/padrao.env), em MB; None sem ele."""
+    m = re.search(r"-Xmx(\d+)([kKmMgG]?)", str(CFG.get(chave) or ""))
+    if not m:
+        return None
+    return round(int(m.group(1)) * {"k": 1 / 1024, "m": 1, "g": 1024, "": 1 / MB}[m.group(2).lower()])
+
+
 res = {"sistema": "windows" if WIN else "linux", "momentos": {}}
 rz = raizes()
+hj0 = heap_java(rz)
+if hj0:                                                   # o teto de cada Java segue a configuração (sem ela: 1/4 da RAM, ~4 GB no Actions)
+    for rot, chave in (("gecko", "MAISIM_JAVA_GECKO"), ("motor", "MAISIM_JAVA_MOTOR")):
+        quer, tem = xmx_mb(chave), (hj0.get(rot) or {}).get("teto_mb")
+        ok(quer is not None and tem == quer, f"o teto do heap do {rot} segue {chave}: {tem} MB (pedido {quer} MB)")
+elif not INICIO:
+    print("     (sem o jcmd aqui — o JRE dos pacotes não tem —: o teto do heap não é conferido nesta máquina)")
 ok(all(k in rz for k in ("página", "simu", "scope", "gecko", "motor")),
    f"os processos da instância de teste: {', '.join(f'{k} {v}' for k, v in rz.items())}")
 if all(k in rz for k in ("simu", "gecko", "motor")) and INICIO:
