@@ -27,6 +27,16 @@ the tagged commit. With the [GitHub CLI](https://cli.github.com):
 gh attestation verify MaiSim-Setup.exe --repo marcelopedroso/maisim
 ```
 
+Releases up to 0.6.1 were published before the attestations existed. Their files were signed afterwards by this
+repository's workflow (`<file>.sigstore.json`, a keyless Sigstore signature): it proves the file is the one this
+repository published, not how it was built. With [cosign](https://docs.sigstore.dev):
+
+```
+cosign verify-blob --bundle MaiSim-Setup.exe.sigstore.json \
+  --certificate-identity-regexp 'https://github.com/marcelopedroso/maisim/.github/workflows/assina-versoes.yml@.*' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com MaiSim-Setup.exe
+```
+
 ---
 
 # Política de segurança (português)
@@ -40,4 +50,6 @@ com o que você achou, como reproduzir, a versão do MaiSim e o sistema.
 
 **Conferir um download:** cada pacote da Release tem o `.sha256` e um atestado de procedência assinado pelo GitHub (o
 arquivo foi montado pelo Actions deste repositório, a partir do commit da versão):
-`gh attestation verify MaiSim-Setup.exe --repo marcelopedroso/maisim`.
+`gh attestation verify MaiSim-Setup.exe --repo marcelopedroso/maisim`. As versões até a 0.6.1 saíram antes dos atestados: os arquivos
+delas foram assinados depois pelo workflow do repositório (o `.sigstore.json`), o que prova que são os que o repositório
+publicou, mas não como foram montados.
