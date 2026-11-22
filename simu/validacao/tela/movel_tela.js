@@ -247,11 +247,18 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
       `⋯ → Fechar o circuito: pergunta o que fazer com a mudança, fecha no servidor (fechado ${fechado}) e volta ao Início`);
     // e reabrir: uma peça posta logo depois de abrir (antes da 1ª conferida, a cada 700 ms) também muda a contagem (Codex, #217)
     await pg.locator("#l-exemplos .linha", { hasText: "exemplo_boost" }).first().tap();
-    for (let k = 0; k < 80 && !/editando · \d+ elementos/.test(await pg.locator("#sub").textContent()); k++) await pg.waitForTimeout(100);
+    // (o "editando · N elementos" só vem com o circuito aberto no editor do servidor: no Windows o abrir demora, e a peça posta
+    // antes ia para o circuito de antes, fechado — "13 → editando · 1 elemento")
+    for (const t0 = Date.now(); Date.now() - t0 < 60000 && !/editando · \d+ elementos/.test(await pg.locator("#sub").textContent());) await pg.waitForTimeout(100);
     const n0 = +((await pg.locator("#sub").textContent()).match(/(\d+) elementos/) || [0, -1])[1];
-    await pg.frames().find((f) => /\/maisim\/simu\/\?movel=1/.test(f.url())).evaluate(() => pede("CREATE", ["R.99", 60, 40, "R"], "teste"));
-    await pg.waitForTimeout(1800); const subLogo = await pg.locator("#sub").textContent();
-    ok(n0 > 0 && subLogo.includes(`${n0 + 1} elementos`), `uma peça posta logo depois de abrir muda a contagem (${n0} → "${subLogo}")`);
+    const fr = () => pg.frames().find((f) => /\/maisim\/simu\/\?movel=1/.test(f.url()));
+    const antesR = await fr().evaluate(() => ({ arq: dados && dados.arq, editor: !!(dados && dados.editor), ligado: ed.ligado, n: dados && dados.folhas[folhaAtual].elementos.length }));
+    await fr().evaluate(() => pede("CREATE", ["R.99", 60, 40, "R"], "teste"));
+    for (const t0 = Date.now(); Date.now() - t0 < 10000 && !(await pg.locator("#sub").textContent()).includes(`${n0 + 1} elementos`);) await pg.waitForTimeout(100);
+    const subLogo = await pg.locator("#sub").textContent();
+    const ok99 = n0 > 0 && subLogo.includes(`${n0 + 1} elementos`);
+    const visto = ok99 ? "" : ` · a página antes da peça: ${JSON.stringify(antesR)}; o servidor: ${JSON.stringify(await pg.evaluate(async () => (await (await fetch("/maisim/simu/editor/aberto", { cache: "no-store" })).json())).catch((e) => e.message))}`;
+    ok(ok99, `uma peça posta logo depois de abrir muda a contagem (${n0} → "${subLogo}")${visto}`);
     await pg.frames().find((f) => /\/maisim\/simu\/\?movel=1/.test(f.url())).evaluate(() => desfazer()); await pg.waitForTimeout(1200);   // (o próximo teste começa com o circuito como estava)
     ok(!erros.length, `sem erros na casca${erros.length ? ": " + erros.join(" · ") : ""}`);
   } catch (e) { ok(false, `o teste caiu: ${e.message}`); }

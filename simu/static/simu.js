@@ -1635,7 +1635,10 @@ async function perguntaNaoSalvo(e, acao) {
 }
 // o cadeado (aberto: editando, o padrão; fechado: só ver) — a escolha fica no navegador
 function poeCadeado(on) { $("bt-editar").classList.toggle("ativo", on); $("bt-editar").title = tr(on ? "simu.t_cadeado_aberto" : "simu.t_cadeado_fechado"); }
-async function liga(on) {
+// a edição sendo ligada ou desligada (o abrir no servidor ainda indo): quem só pode seguir com o circuito aberto de verdade no
+// editor do servidor espera por ela (o celular conta o circuito como aberto; uma peça posta antes ia para o circuito de antes)
+function liga(on) { const p = ligaJa(on); ed.ligando = p; return p; }
+async function ligaJa(on) {
   ed.ligado = on; document.body.classList.toggle("editando", on); poeCadeado(on);
   if (on) document.body.classList.remove("ctl-de-outro");   // (ao fechar, o carrega() confere; se o abrir falhar, o catch)
   if (ed.fio.modo) modoFio(false);
@@ -3603,17 +3606,19 @@ if (MOVEL) (() => {
   (async function avisaAberto() {
     for (let k = 0; k < 200 && !dados; k++) await new Promise((ok) => setTimeout(ok, 100));
     if (!dados) return;
+    // uma janela do editor aberta (a ⚙, as contas de IA, uma pergunta): o + da casca sai da frente (já
+    // na abertura: a pergunta das mudanças não salvas vem enquanto a edição liga)
+    let janela = false;
+    new MutationObserver(() => { const j = !!document.querySelector(".modal"); if (j !== janela) { janela = j; casca({ tipo: "janela", on: j }); } })
+      .observe(document.body, { childList: true, subtree: true });
     if (!ed.ligado) { try { await liga(true); } catch (e) { /* só ver */ } }
+    else if (ed.ligando) { try { await ed.ligando; } catch (e) { /* só ver */ } }   // a página já está abrindo a edição: o "aberto" vai quando o servidor abriu
     if (typeof ccAbre === "function") { const ccAbreOriginal = ccAbre;   // (o claude_chat.js carrega depois deste arquivo: aqui ele já está)
       ccAbre = function (on) { const r = ccAbreOriginal.apply(this, arguments); if (typeof cc !== "undefined" && cc.aberto && document.body.classList.contains("vm-controle")) casca({ tipo: "aba", aba: "ia" }); return r; }; }
     casca({ tipo: "aberto", arq: $("sel-modelo").value || "", nome: $("sel-modelo").value === NOVO ? ed.novo : "", scope: urlScope(sim.ultimo), elementos: dados.folhas[folhaAtual].elementos.length, camadas: ["bt-controle", "bt-rotulos", "bt-medicoes", "bt-corrente"].map((id) => ({ id, on: $(id).classList.contains("ativo") })) });
     setTimeout(ajusta, 80);
     // o arquivo do circuito muda sem a casca pedir (Salvar como…, Novo, abrir outro aqui dentro): ela fica sabendo (o título,
     // o Exportar .msd e o Início usam o arquivo de agora)
-    // uma janela do editor aberta (a ⚙, as contas de IA, uma pergunta): o + da casca sai da frente
-    let janela = false;
-    new MutationObserver(() => { const j = !!document.querySelector(".modal"); if (j !== janela) { janela = j; casca({ tipo: "janela", on: j }); } })
-      .observe(document.body, { childList: true, subtree: true });
     let arq = "";                                          // o arquivo e, num circuito novo, o nome dele (de um novo para outro novo o arquivo não muda)
     let nEls = dados.folhas[folhaAtual].elementos.length;   // as peças que o "aberto" já contou: a 1ª diferença já vai (Codex, #217)
     setInterval(() => { const a = $("sel-modelo").value || "", k = a + "|" + (a === NOVO ? ed.novo || "" : "");
