@@ -1,9 +1,9 @@
-"""A instalação do Claude Code pela janela das contas, na instância de teste (7201, Linux, sem MAISIM_INSTALA_CLAUDE_CMD): as
-rotas só para a página do MaiSim (X-MaiSim no POST; Host, Origin e Sec-Fetch de fora recusados) e, no Linux, o botão também
-(pode_instalar: o instalador oficial com a casa na pasta de ferramentas do MaiSim); com o claude (de mentira) já instalado,
+"""A instalação do Claude Code pela janela das contas, na instância de teste (7201, sem MAISIM_INSTALA_CLAUDE_CMD): as
+rotas só para a página do MaiSim (X-MaiSim no POST; Host, Origin e Sec-Fetch de fora recusados) e o botão (pode_instalar: no
+Linux, o instalador oficial com a casa na pasta de ferramentas do MaiSim; no Windows, o PowerShell oficial); com o claude (de mentira) já instalado,
 o POST recusa sem rodar nada. O fluxo inteiro (começa, acompanha, termina, acha o
 claude novo) roda com um instalador de mentira em claude_instala_offline.py."""
-import json, subprocess, urllib.request
+import json, os, subprocess, sys, urllib.request
 from pathlib import Path
 B = "http://127.0.0.1:7201/maisim/simu/"
 from _servidor import ambiente  # noqa: E402
@@ -28,8 +28,10 @@ for nome, cab in (("sem X-MaiSim", dict(X_MaiSim=None)), ("Origin de fora", dict
 for nome, cab in (("Origin de fora", dict(Origin="https://evil.example", Sec_Fetch_Site="cross-site")), ("Host de fora", dict(Host="evil.example:7201"))):
     c, j = pede("claude/instalacao", **cab)
     ok(c == (421 if "Host" in cab else 403), f"GET claude/instalacao, {nome}: {c}")
+# o servidor de teste roda nesta mesma máquina: o sistema dele é o deste processo (o nome que o servidor usa, SISTEMA)
+SISTEMA = "windows" if os.name == "nt" else "mac" if sys.platform == "darwin" else "linux"
 c, e = pede("claude/estado")
-ok(c == 200 and e.get("sistema") == "linux" and e.get("pode_instalar") is True and "instalacao" not in e, f"estado: sistema {e.get('sistema')}, pode_instalar {e.get('pode_instalar')}")
+ok(c == 200 and e.get("sistema") == SISTEMA and e.get("pode_instalar") is True and "instalacao" not in e, f"estado: sistema {e.get('sistema')}, pode_instalar {e.get('pode_instalar')}")
 c, j = pede("claude/instalacao")
 ok(c == 200 and j.get("pode") is True and not j.get("andamento") and j.get("saida") == "", f"instalacao (GET local): {j}")
 c, j = pede("claude/instalar", {})
