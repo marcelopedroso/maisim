@@ -10,7 +10,7 @@ memória privada (Win32_Process). Os momentos:
 1. parado (como a suíte o deixou até aqui);
 2. com um circuito aberto no editor: o exemplo com controle em Python, o com controle em C, o buck sem controle;
 3. o pico de cada um numa rodada longa (muitas amostras), amostrando a cada 0,25 s, e logo depois."""
-import json, os, re, subprocess, sys, time, urllib.request
+import json, os, re, shutil, subprocess, sys, time, urllib.request
 from pathlib import Path
 
 AQUI = Path(__file__).resolve().parent
@@ -23,6 +23,8 @@ B = f"http://127.0.0.1:{CFG['MAISIM_PORTA_SIMU']}/maisim/simu/"
 PORTAS = {"página": "MAISIM_PORTA_PAGINA", "simu": "MAISIM_PORTA_SIMU", "scope": "MAISIM_PORTA_SCOPE",
           "gecko": "MAISIM_PORTA_GECKO", "motor": "MAISIM_PORTA_MOTOR", "tela": "MAISIM_PORTA_TELA"}
 MB = 1024 * 1024
+# só a foto de logo depois de subir (memoria_inicio_api.py, o 1º teste da suíte): o que o MaiSim usa antes de qualquer uso
+INICIO = os.environ.get("MAISIM_MEMORIA_INICIO") == "1"
 falhas = 0
 
 
@@ -122,15 +124,40 @@ def foto(rz):
     return out
 
 
+def heap_java(rz):
+    """O heap de cada Java (Gecko, motor): usado e reservado (committed), pelo jcmd (o do JDK; o JRE dos pacotes não tem):
+    o quanto um teto (-Xmx) economizaria sem faltar. {} sem jcmd."""
+    jcmd, out = shutil.which("jcmd"), {}
+    if not jcmd:
+        return out
+    for rot in ("gecko", "motor"):
+        if rot not in rz:
+            continue
+        try:
+            txt = subprocess.run([jcmd, str(rz[rot]), "GC.heap_info"], capture_output=True, text=True, timeout=30).stdout
+            m = re.search(r"total (\d+)K, used (\d+)K", txt)
+            mx = subprocess.run([jcmd, str(rz[rot]), "VM.flags"], capture_output=True, text=True, timeout=30).stdout
+            teto = re.search(r"MaxHeapSize=(\d+)", mx)
+            if m:
+                out[rot] = {"heap_usado_mb": round(int(m.group(2)) / 1024, 1), "heap_reservado_mb": round(int(m.group(1)) / 1024, 1),
+                            "teto_mb": round(int(teto.group(1)) / MB) if teto else None}
+        except (OSError, subprocess.SubprocessError):
+            pass
+    return out
+
+
 def soma(f):
     return round(sum(v[0] for v in f.values()), 1), round(sum(v[1] for v in f.values()), 1)
 
 
-def mostra(nome, f):
+def mostra(nome, f, rz=None):
     rss, priv = soma(f)
+    hj = heap_java(rz) if rz else {}
+    if hj:
+        print("     heap do Java: " + " · ".join(f"{k} {v['heap_usado_mb']:.0f} MB usado de {v['heap_reservado_mb']:.0f} MB reservado (teto {v['teto_mb']} MB)" for k, v in hj.items()))
     det = " · ".join(f"{k} {v[0]:.0f}" + (f" ({v[2]} proc.)" if v[2] > 1 else "") for k, v in sorted(f.items(), key=lambda kv: -kv[1][0]))
     ok(True, f"{nome}: {rss:.0f} MB ({'privada' if WIN else 'PSS'} {priv:.0f} MB) — {det}")
-    return {"rss_mb": rss, ("privada_mb" if WIN else "pss_mb"): priv, "processos": {k: {"rss_mb": v[0], "outra_mb": v[1], "n": v[2]} for k, v in f.items()}}
+    return {"rss_mb": rss, ("privada_mb" if WIN else "pss_mb"): priv, "heap_java": hj, "processos": {k: {"rss_mb": v[0], "outra_mb": v[1], "n": v[2]} for k, v in f.items()}}
 
 
 def pico_da_rodada(rz, corpo):
@@ -153,8 +180,13 @@ res = {"sistema": "windows" if WIN else "linux", "momentos": {}}
 rz = raizes()
 ok(all(k in rz for k in ("página", "simu", "scope", "gecko", "motor")),
    f"os processos da instância de teste: {', '.join(f'{k} {v}' for k, v in rz.items())}")
-if all(k in rz for k in ("simu", "gecko", "motor")):
-    res["momentos"]["parado"] = mostra("parado", foto(rz))
+if all(k in rz for k in ("simu", "gecko", "motor")) and INICIO:
+    res["momentos"]["logo depois de subir"] = mostra("logo depois de subir (antes de qualquer teste)", foto(rz), rz)
+    pasta = Path(CFG["MAISIM_DADOS"]).expanduser() / "bateria"
+    pasta.mkdir(parents=True, exist_ok=True)
+    (pasta / "memoria_inicio.json").write_text(json.dumps(res, indent=1, ensure_ascii=False), encoding="utf-8")
+elif all(k in rz for k in ("simu", "gecko", "motor")):
+    res["momentos"]["parado"] = mostra("parado (depois dos testes de tela)", foto(rz), rz)
     casos = [("com controle em Python", "exemplos/exemplo_controle_pi.ipes", "0.2", "20001"),     # o controle.py do exemplo
              ("com controle em C", "exemplos/exemplo_controle_pwm.ipes", "0.2", "20001"),         # o controle.c (e o PWM em C)
              ("sem controle (o buck)", "exemplos/exemplo_buck.ipes", "0.5", "50001")]
@@ -169,7 +201,7 @@ if all(k in rz for k in ("simu", "gecko", "motor")):
         pico, total, n = p
         res["momentos"][f"pico {nome}"] = {**mostra(f"pico da rodada {nome} ({tfim} s, {am} amostras; {n} medidas; {r.get('estado')})", pico),
                                            "pico_soma_mb": total, "estado": r.get("estado"), "segundos": r.get("segundos")}
-        res["momentos"][f"depois {nome}"] = mostra(f"logo depois da rodada {nome}", foto(rz))
+        res["momentos"][f"depois {nome}"] = mostra(f"logo depois da rodada {nome}", foto(rz), rz)
         ok(r.get("estado") == "fim", f"{nome}: a rodada terminou ({r.get('estado')}, {r.get('segundos')} s)")
     api("editor/abrir", {"arq": "exemplos/exemplo_controle_pwm.ipes", "modo": "descartar"})   # o circuito de sempre da suíte
     pasta = Path(CFG["MAISIM_DADOS"]).expanduser() / "bateria"
