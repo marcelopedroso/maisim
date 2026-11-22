@@ -7,7 +7,7 @@
   os erros conhecidos (o limite, o login perdido, o modelo que a conta não tem, um erro qualquer), o resumo de um contexto,
   sair, e a chave de API (a forma, a recusada, a aceita: guardada 0600, só no ambiente do Cursor, nunca na página nem no
   registro do de mentira)."""
-import json, re, stat, subprocess, time, urllib.request
+import json, os, re, stat, subprocess, time, urllib.request
 from pathlib import Path
 B = "http://127.0.0.1:7201/maisim/simu/"
 from _servidor import ambiente  # noqa: E402
@@ -15,7 +15,9 @@ ENV = ambiente()
 assert ENV.get("MAISIM_CURSOR_BIN", "").endswith("cursor_falso.py") and ENV.get("MAISIM_IA_TESTE") == "1", "suba o servidor de teste (reinicia_servidor_teste.sh)"
 CASA_CUR = Path(ENV["MAISIM_CURSOR_DIR"])
 assert CASA_CUR.resolve() != (Path.home() / ".cursor-maisim").resolve(), "a instância de teste nunca usa o ~/.cursor-maisim"
-TOKEN = CASA_CUR / ".config" / "cursor" / "auth.json"
+# o login do `agent` (o de mentira o grava onde o de verdade grava: no Windows, em %APPDATA%; o MaiSim só vê se existe)
+TOKEN = CASA_CUR / "AppData" / "Roaming" / "Cursor" / "auth.json" if os.name == "nt" else CASA_CUR / ".config" / "cursor" / "auth.json"
+S = os.sep                                        # as regras da política usam o separador do sistema (Cursor.politica)
 CONF = Path(ENV["MAISIM_CLAUDE_DIR"])
 SALVOS, CASA, CTX = Path(ENV["MAISIM_SALVOS"]), Path(ENV["MAISIM_SIMU_CACHE"]) / "claude", Path(ENV["MAISIM_CONTEXTOS"])
 CHAVE_BOA = "crsr_bom_0123456789abcdefWXYZ"
@@ -124,8 +126,9 @@ try:
     ok(p.get("mudou") and par.get("K2") == 7.5 and "Cursor falso" in str(p.get("codigo")), f"proposta: K2 = {par.get('K2')}, controle.py mudado")
     ok(e.get("resposta") == "Vou ler o CONTEXTO.md.\n\nDobrei o **Kp** e criei o `K2`.", f"a resposta: as duas mensagens do agent, um parágrafo cada ({e.get('resposta')!r})")
     ok(e.get("eventos", [])[:3] == ["lendo CONTEXTO.md", "editando parametros.json", "editando controle.py"], f"o que ele fez: {e.get('eventos')}")
-    h = e["conversa"]["historico"][-1]
-    ok(h.get("ia") == "cursor" and h.get("modelo") == "GPT Falso" and e["gasto"]["entrada"] == 3000 and e["gasto"]["saida"] == 240,
+    h = ((e.get("conversa") or {}).get("historico") or [{}])[-1]   # (um pedido recusado não traz a conversa: a FALHA mostra o resto)
+    g = e.get("gasto") or {}
+    ok(h.get("ia") == "cursor" and h.get("modelo") == "GPT Falso" and g.get("entrada") == 3000 and g.get("saida") == 240,
        f"marcada \"cursor\", o modelo e o gasto ({h.get('modelo')}, {e.get('gasto')})")
     pasta = CASA / "conversas" / sid_conv
     sem_texto = a_[:-1]
@@ -138,9 +141,9 @@ try:
     pol = (c["config"] or {}).get("permissions") or {}
     P = str(pasta.resolve())
     ok(c["config"].get("approvalMode") == "allowlist" and (c["config"].get("sandbox") or {}).get("readBoundary") == "workspace"
-       and {"Shell(*)", "WebFetch(*)", "Mcp(*:*)", f"Read({CASA_CUR.resolve()}/*)", f"Write({P}/CONTEXTO.md)", f"Write({P}/*/*)"} <= set(pol.get("deny", []))
-       and f"Write({P}/controle.py)" in pol.get("allow", []) and f"Write({P}/*.py)" in pol.get("allow", []) and "Shell(ls)" not in pol.get("allow", [])
-       and f"Write({P}/*.c)" in pol.get("allow", []) and f"Write({P}/*.h)" in pol.get("allow", []) and f"Write({P}/maisim_sinais.h)" in pol.get("deny", [])
+       and {"Shell(*)", "WebFetch(*)", "Mcp(*:*)", f"Read({CASA_CUR.resolve()}{S}*)", f"Write({P}{S}CONTEXTO.md)", f"Write({P}{S}*{S}*)"} <= set(pol.get("deny", []))
+       and f"Write({P}{S}controle.py)" in pol.get("allow", []) and f"Write({P}{S}*.py)" in pol.get("allow", []) and "Shell(ls)" not in pol.get("allow", [])
+       and f"Write({P}{S}*.c)" in pol.get("allow", []) and f"Write({P}{S}*.h)" in pol.get("allow", []) and f"Write({P}{S}maisim_sinais.h)" in pol.get("deny", [])
        and (c["projeto"] or {}).get("permissions") == pol,
        "a política do MaiSim na configuração da casa e na da pasta: allowlist, ler só na pasta, escrever só nos editáveis, sem terminal/web/MCP")
     ok("Você é a IA do MaiSim (Cursor)" in str(c.get("agents_md")), "as regras do MaiSim no AGENTS.md da pasta (com o nome do Cursor)")
@@ -205,7 +208,7 @@ try:
     rc = [c for c in chamadas() if "-p" in c["args"] and "json" in c["args"]]
     ok(m.get("resumo_ia", {}).get("estado") == "pronto" and re.search(r"Cursor leu conversa\.md: \d+ pedido\(s\)", res) and m.get("ia") == "cursor"
        and rc and "--mode" in rc[-1]["args"] and not (CTX / cid / ".cursor").exists()
-       and f"Write({(CTX / cid).resolve()}/*)" in rc[-1]["config"]["permissions"]["deny"],
+       and f"Write({(CTX / cid).resolve()}{S}*)" in rc[-1]["config"]["permissions"]["deny"],
        f"o resumo de um contexto pelo Cursor (modo ask, nenhuma escrita, nada a mais na pasta do contexto): {m.get('resumo_ia', {}).get('estado')}")
 
     # ---------------------------------------------------------------- o login perdido e sair
@@ -228,8 +231,8 @@ try:
     e = api("claude/ia/codigo", {"ia": "cursor", "codigo": f"  {CHAVE_BOA}\n"})
     arq = CASA_CUR / "maisim" / "chave"
     ok(e.get("logado") and e.get("modo") == "chave" and e.get("chave") == "••••••••••WXYZ" and CHAVE_BOA not in json.dumps(e)
-       and arq.read_text().strip() == CHAVE_BOA and stat.S_IMODE(arq.stat().st_mode) == 0o600,
-       f"a chave aceita: guardada 0600, a tela vê só os 4 últimos ({e.get('chave')})")
+       and arq.read_text().strip() == CHAVE_BOA and (os.name == "nt" or stat.S_IMODE(arq.stat().st_mode) == 0o600),   # (no Windows não há modo Unix)
+       f"a chave aceita: guardada 0600 (no Linux), a tela vê só os 4 últimos ({e.get('chave')})")
     ok(CHAVE_BOA not in json.dumps(api("claude/ias")), "a chave nunca volta na lista das IAs")
     cenario("ganho")
     e = pede("com a chave")
