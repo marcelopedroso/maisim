@@ -259,6 +259,27 @@ def _corta(s):
 RODADA_MODOS = ("substitui", "nova")   # a rodada nova substitui a anterior de mesmo nome (como no circuito) ou fica junto
 
 
+# o script roda por este começo (python -c), e não como "python script.py": ele põe no caminho dos imports a pasta do
+# script, o `maisim` e a raiz dos scripts, e roda o arquivo como __main__. O PYTHONPATH sozinho não basta: o Python
+# embutido do MaiSim instalado no Windows (o ._pth) ignora o PYTHONPATH e não põe a pasta do script no caminho, e o
+# `import maisim` falhava lá. O erro sai como o de um "python script.py" (sem os quadros deste começo).
+INICIO = """# i18n-ok: código Python que o script roda, não texto da tela
+import os, runpy, sys, traceback
+sys.path[:0] = [c for c in os.environ["MAISIM_SCRIPT_CAMINHOS"].split(os.pathsep) if c and c not in sys.path]
+sys.argv = [os.environ["MAISIM_SCRIPT_ARQ"]]
+try:
+    runpy.run_path(sys.argv[0], run_name="__main__")
+except SystemExit:
+    raise
+except BaseException:
+    t, v, tb = sys.exc_info()
+    while tb is not None and tb.tb_frame.f_code.co_filename != sys.argv[0]:
+        tb = tb.tb_next
+    traceback.print_exception(t, v, tb)
+    sys.exit(1)
+"""
+
+
 def roda(nome, grupo="meus", rodada="substitui"):
     """Roda o script salvo num processo à parte e devolve a saída e as rodadas que ele gravou. Bloqueia até o fim ou o prazo."""
     f = arquivo(nome, grupo)
@@ -273,6 +294,7 @@ def roda(nome, grupo="meus", rodada="substitui"):
     rodadas.mkdir(parents=True, exist_ok=True)
     env = dict(os.environ)
     env["PYTHONPATH"] = os.pathsep.join([str(API), str(raiz(grupo))] + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else []))
+    env["MAISIM_SCRIPT_CAMINHOS"] = os.pathsep.join([str(f.parent), str(API), str(raiz(grupo))])   # o INICIO os põe no sys.path
     if rodada not in RODADA_MODOS:
         rodada = "substitui"
     env["MAISIM_SCRIPT_RODADA"] = rodada              # o maisim.scope apaga as de antes (substitui), menos as guardadas
@@ -283,7 +305,7 @@ def roda(nome, grupo="meus", rodada="substitui"):
     ja = {d.name for d in rodadas.iterdir()}         # as pastas de antes: as novas são as que o script gravou
     antes = time.time()
     try:
-        p = subprocess.run([sys.executable, str(f)], cwd=str(pasta), env=env, capture_output=True, text=True,
+        p = subprocess.run([sys.executable, "-c", INICIO], cwd=str(pasta), env=env, capture_output=True, text=True,
                            encoding="utf-8", errors="replace", timeout=prazo())
         codigo, saida, erro, estourou = p.returncode, p.stdout, p.stderr, False
     except subprocess.TimeoutExpired as e:
