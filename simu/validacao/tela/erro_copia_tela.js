@@ -6,8 +6,7 @@ const { chromium } = require("playwright");
 const fs = require("fs"), path = require("path"), { execSync } = require("child_process");
 // o "pedir à IA" escreve o pedido na caixa da conversa — que só aparece com uma IA logada (#105): o Claude falso dos
 // testes fica logado durante o teste (como no claude_chat_tela)
-const pidSimu = execSync(`ss -ltnp | grep ':7201 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1`).toString().trim();
-const ENV = Object.fromEntries(fs.readFileSync(`/proc/${pidSimu}/environ`).toString().split("\0").filter((x) => x.includes("=")).map((x) => [x.slice(0, x.indexOf("=")), x.slice(x.indexOf("=") + 1)]));
+const ENV = require("./_servidor.js").ambiente();   // as pastas do simulador de teste (Linux: o /proc dele; Windows: o perfil)
 const LOGADO = path.join(ENV.MAISIM_CLAUDE_DIR, "falso_logado");
 fs.mkdirSync(ENV.MAISIM_CLAUDE_DIR, { recursive: true }); fs.writeFileSync(LOGADO, "");
 let falhas = 0;

@@ -81,11 +81,11 @@ try:
         ok(z["v_s"][k] > 49, f"em fase (os pontos em cima): no pico de v1, v2 = {z['v_s'][k]:.2f} V")
     # o que a IA do MaiSim lê (CONTEXTO.md): quais nós são o primário e o secundário e a relação (com o claude de mentira)
     import json as _json, os as _os, subprocess as _sp
-    pid = _sp.run("ss -ltnp | grep ':7201 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1", shell=True, capture_output=True, text=True).stdout.strip()
-    env = dict(x.split("=", 1) for x in Path(f"/proc/{pid}/environ").read_bytes().decode().split("\0") if "=" in x)
+    from _servidor import ambiente
+    env = ambiente()
     import urllib.request as _ur
     def api_ia(rota, corpo=None):                          # as rotas da IA só aceitam a página do MaiSim (o X-MaiSim)
-        q = _ur.Request(f"http://localhost:7201/maisim/simu/{rota}", data=_json.dumps(corpo).encode() if corpo is not None else None,
+        q = _ur.Request(f"http://127.0.0.1:7201/maisim/simu/{rota}", data=_json.dumps(corpo).encode() if corpo is not None else None,
                         headers={"Content-Type": "application/json", "X-MaiSim": "1"})
         return _json.loads(_ur.urlopen(q, timeout=120).read())
     if env.get("MAISIM_CLAUDE_BIN", "").endswith("claude_falso.py"):

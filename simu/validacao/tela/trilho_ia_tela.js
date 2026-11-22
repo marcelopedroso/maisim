@@ -5,8 +5,7 @@ const { chromium } = require("playwright");
 const fs = require("fs"), path = require("path"), { execSync } = require("child_process");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
-const pid = execSync(`ss -ltnp | grep ':7201 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1`).toString().trim();
-const ENV = Object.fromEntries(fs.readFileSync(`/proc/${pid}/environ`).toString().split("\0").filter((x) => x.includes("=")).map((x) => [x.slice(0, x.indexOf("=")), x.slice(x.indexOf("=") + 1)]));
+const ENV = require("./_servidor.js").ambiente();   // as pastas do simulador de teste (Linux: o /proc dele; Windows: o perfil)
 const CONF = ENV.MAISIM_CLAUDE_DIR, LOGADO = path.join(CONF, "falso_logado");
 const situacao = (pg) => pg.evaluate(() => { const a = document.querySelector("#maisim-nav .item.ia"); return { rot: a.dataset.rotulo, verde: a.classList.contains("conectada") }; });
 (async () => {

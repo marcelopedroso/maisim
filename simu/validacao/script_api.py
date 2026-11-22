@@ -21,9 +21,9 @@ import numpy as np
 RAIZ = Path(__file__).resolve().parents[2]
 CONF = (RAIZ / "config/teste.env").read_text()
 porta = lambda k, d: int((re.search(rf"(?m)^{k}=(\d+)", CONF) or [None, d])[1])
-SIMU = f"http://localhost:{porta('MAISIM_PORTA_SIMU', 7201)}/maisim/simu/"
-SCOPE = f"http://localhost:{porta('MAISIM_PORTA_SCOPE', 7202)}/maisim/scope/"
-PAGINA = f"http://localhost:{porta('MAISIM_PORTA_PAGINA', 7200)}/"
+SIMU = f"http://127.0.0.1:{porta('MAISIM_PORTA_SIMU', 7201)}/maisim/simu/"
+SCOPE = f"http://127.0.0.1:{porta('MAISIM_PORTA_SCOPE', 7202)}/maisim/scope/"
+PAGINA = f"http://127.0.0.1:{porta('MAISIM_PORTA_PAGINA', 7200)}/"
 
 falhas = 0
 

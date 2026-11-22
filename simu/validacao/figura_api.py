@@ -7,7 +7,7 @@ import json, re, shutil, urllib.request
 from pathlib import Path
 import numpy as np
 R = Path(__file__).resolve().parents[2]
-B = "http://localhost:7200/maisim/figuras/"
+B = "http://127.0.0.1:7200/maisim/figuras/"
 PASTA = Path(__file__).resolve().parent / "tmp_figuras"
 falhas = 0
 def ok(c, t):
@@ -29,7 +29,7 @@ try:
     st, tipo, corpo = pede("")
     ok(st == 200 and "text/html" in tipo and b"textos_figuras.js" in corpo, f"a página do Figuras ({st})")
     try:
-        r = urllib.request.urlopen(urllib.request.Request("http://localhost:7200/maisim/figuras", method="GET"), timeout=30)
+        r = urllib.request.urlopen(urllib.request.Request("http://127.0.0.1:7200/maisim/figuras", method="GET"), timeout=30)
         ok(r.geturl().endswith("/maisim/figuras/"), f"/maisim/figuras redireciona para a página ({r.geturl()})")
     except urllib.error.HTTPError as e:
         ok(False, f"/maisim/figuras: {e.code}")

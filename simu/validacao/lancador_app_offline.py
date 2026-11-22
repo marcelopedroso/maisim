@@ -26,7 +26,7 @@ def abre(nav, app_id=None):
     os.environ.pop("MAISIM_APP_ID", None)
     if app_id is not None: os.environ["MAISIM_APP_ID"] = app_id
     lc.abre("abrindo.html"); return abertos[0] if abertos else None
-URL = "http://localhost:7390/abrindo.html"
+URL = "http://127.0.0.1:7390/abrindo.html"
 c = abre("/bin/true")
 ok(c == ["/bin/true", f"--app={URL}"], f"sem MAISIM_APP_ID: a janela --app ({c})")
 c = abre("/bin/true", "kloknaljbhbdmmnembbaklkjdkcbfkgk")
@@ -69,7 +69,7 @@ x11 = next((s for s in subidos if s[0] == "x11vnc"), None); ws = next((s for s i
 ok(x11 and "-viewonly" in x11[1] and "-nopw" not in x11[1] and "-localhost" in x11[1] and x11[1][x11[1].index("-passwdfile") + 1] == str(senha)
    and x11[2] == {"WAYLAND_DISPLAY": None, "XDG_SESSION_TYPE": None}, f"o x11vnc: com senha, só para ver, sem as variáveis do Wayland ({x11})")
 ok(senha.is_file() and stat.S_IMODE(senha.stat().st_mode) == 0o600 and len(senha.read_text().strip()) == 8, "a senha: 8 caracteres, no arquivo só do dono (600)")
-ok(ws and "websockify.auth_plugins.ExpectOrigin" in ws[1] and ws[1][ws[1].index("--auth-source") + 1].split() == ["http://localhost:7390", "http://127.0.0.1:7390", "http://[::1]:7390"],
+ok(ws and "websockify.auth_plugins.ExpectOrigin" in ws[1] and ws[1][ws[1].index("--auth-source") + 1].split() == ["http://127.0.0.1:7390", "http://127.0.0.1:7390", "http://[::1]:7390"],
    f"o websockify: só a origem da página ({ws[1] if ws else None})")
 sobe_sh = (R / "gecko" / "sobe.sh").read_text()
 ok("-nopw" not in sobe_sh and "-viewonly" in sobe_sh and "-passwdfile" in sobe_sh and "ExpectOrigin" in sobe_sh, "o gecko/sobe.sh: com senha, só para ver e só a origem da página")

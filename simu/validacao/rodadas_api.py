@@ -3,7 +3,7 @@ por_cima, a rodada nova, depois de terminar bem, tira a anterior com o mesmo nom
 erro, a anterior fica; sem por_cima (o padrão da API), cria outra; o mesmo nome em outro circuito não é tocado."""
 import json, os, shutil, time, urllib.request
 from pathlib import Path
-B = "http://localhost:7201/maisim/simu/"
+B = "http://127.0.0.1:7201/maisim/simu/"
 RODADAS = Path.home() / ".cache/maisim_teste/rodadas"
 CIRC = Path.home() / ".cache/maisim_teste/circuitos"
 NOME = "pc_teste"

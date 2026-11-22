@@ -3,7 +3,7 @@
 # anda o que faltar, a peça fica onde foi solta em relação às outras, as conexões vão junto; um passo do desfazer; o grupo
 # também; dentro do subcircuito (folha de tamanho fixo) nada anda
 import json, urllib.request
-B = "http://localhost:7201/maisim/simu/"
+B = "http://127.0.0.1:7201/maisim/simu/"
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(req, timeout=180).read())

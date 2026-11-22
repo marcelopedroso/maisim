@@ -10,7 +10,7 @@ from pathlib import Path
 
 _CONF = Path(__file__).resolve().parents[2] / "config/teste.env"     # a porta do simulador de teste (o perfil config/teste.env)
 _PORTA = re.search(r"(?m)^MAISIM_PORTA_SIMU=(\d+)", _CONF.read_text()) if _CONF.exists() else None
-B = f"http://localhost:{_PORTA.group(1) if _PORTA else 7201}/maisim/simu/"
+B = f"http://127.0.0.1:{_PORTA.group(1) if _PORTA else 7201}/maisim/simu/"
 CIRC = Path.home() / ".cache/maisim_teste/circuitos"
 EXEMPLOS = Path(__file__).resolve().parents[2] / "exemplos"
 

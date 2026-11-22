@@ -27,7 +27,7 @@ def no_ar(p):
 
 
 def api(rota, corpo=None, timeout=120):
-    req = urllib.request.Request(f"http://localhost:{B + 1}/maisim/simu/{rota}", data=json.dumps(corpo).encode() if corpo is not None else None,
+    req = urllib.request.Request(f"http://127.0.0.1:{B + 1}/maisim/simu/{rota}", data=json.dumps(corpo).encode() if corpo is not None else None,
                                  headers={"Content-Type": "application/json", "Accept-Language": "pt-BR", **({"X-MaiSim": "1"} if corpo is not None else {})})
     try:
         return json.loads(urllib.request.urlopen(req, timeout=timeout).read())

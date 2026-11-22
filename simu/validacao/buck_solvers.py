@@ -14,7 +14,7 @@ from pathlib import Path
 import numpy as np
 
 AQUI = Path(__file__).resolve().parent
-B = "http://localhost:7201/maisim/simu/"
+B = "http://127.0.0.1:7201/maisim/simu/"
 V, L, RT, DT, T_ABRE, TFIM = 100.0, 1e-3, 2.0 + 0.01, 1e-6, 2e-4, 3e-3   # RT: a carga e o rON da chave
 NOMES = {0: "backward-euler", 1: "trapezoidal", 2: "gear-shichman"}
 

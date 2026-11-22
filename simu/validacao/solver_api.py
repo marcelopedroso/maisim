@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 
 AQUI = Path(__file__).resolve().parent
-B = "http://localhost:7201/maisim/simu/"
+B = "http://127.0.0.1:7201/maisim/simu/"
 T = Path.home() / ".cache/maisim_teste"
 
 

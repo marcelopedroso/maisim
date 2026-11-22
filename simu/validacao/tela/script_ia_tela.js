@@ -10,8 +10,7 @@ const fs = require("fs"), path = require("path"), { execSync } = require("child_
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
 const B = "http://localhost:7200/maisim/simu/script";
-const pid = execSync("ss -ltnp | grep ':7201 ' | grep -o 'pid=[0-9]*' | cut -d= -f2 | head -1").toString().trim();
-const ENV = Object.fromEntries(fs.readFileSync(`/proc/${pid}/environ`).toString().split("\0").filter((x) => x.includes("=")).map((x) => [x.slice(0, x.indexOf("=")), x.slice(x.indexOf("=") + 1)]));
+const ENV = require("./_servidor.js").ambiente();   // as pastas do simulador de teste (Linux: o /proc dele; Windows: o perfil)
 const CONF = ENV.MAISIM_CLAUDE_DIR;
 if (!/maisim_teste|\/tmp\//.test(CONF || "")) { console.log("FALHA MAISIM_CLAUDE_DIR não é uma pasta descartável"); process.exit(1); }
 const SCRIPTS = (ENV.MAISIM_SCRIPTS || path.join(ENV.MAISIM_DADOS, "scripts")).replace(/^~/, process.env.HOME);

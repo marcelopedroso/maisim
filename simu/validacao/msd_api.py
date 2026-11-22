@@ -6,8 +6,8 @@ o token não serve duas vezes; abrir o _2 e rodar: a simulação termina."""
 import io, json, time, urllib.request, zipfile
 from pathlib import Path
 import numpy as np
-B = "http://localhost:7201/maisim/simu/"
-S = "http://localhost:7202/maisim/scope/"
+B = "http://127.0.0.1:7201/maisim/simu/"
+S = "http://127.0.0.1:7202/maisim/scope/"
 DADOS = Path.home() / ".cache/maisim_teste"
 CIRC, RODADAS = DADOS / "circuitos", DADOS / "rodadas"
 ORIG = CIRC / "exemplo_controle_pwm.ipes"

@@ -93,11 +93,13 @@ def roda(t, pasta_log, resumo, so_na_maquina):
     ini = time.time()
     amb = dict(os.environ)
     if t.endswith("_tela"):
-        amb["NODE_OPTIONS"] = f'--require "{V / "tela" / "_lingua.js"}"' + (" " + amb["NODE_OPTIONS"] if amb.get("NODE_OPTIONS") else "")
+        # o caminho com "/" (no NODE_OPTIONS a "\\" do Windows é escape e some)
+        amb["NODE_OPTIONS"] = f'--require "{(V / "tela" / "_lingua.js").as_posix()}"' + (" " + amb["NODE_OPTIONS"] if amb.get("NODE_OPTIONS") else "")
         cmd, cwd, prazo = [shutil.which("node") or "node", f"{t}.js"], V / "tela", 600
     else:
         cmd, cwd, prazo = [sys.executable, "-X", "utf8", f"{t}.py"], V, 900
     amb.setdefault("PYTHONIOENCODING", "utf-8")
+    amb["MAISIM_PYTHON"] = sys.executable                  # o Python que os testes de tela usam para ler o ambiente do servidor (tela/_servidor.js)
     with open(log, "wb") as f:
         try:
             cod = subprocess.run(cmd, cwd=cwd, stdout=f, stderr=subprocess.STDOUT, env=amb, timeout=prazo).returncode

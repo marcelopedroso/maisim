@@ -21,7 +21,7 @@ def porta():                                             # a do simu no perfil d
         return 7201
 
 
-B = f"http://localhost:{porta()}/maisim/simu/"
+B = f"http://127.0.0.1:{porta()}/maisim/simu/"
 CIRC = Path.home() / ".cache/maisim_teste/circuitos"
 PWM = str(CIRC / "exemplo_controle_pwm.ipes")
 SALVO = CIRC / "destino_api_t.ipes"                     # a cópia salva pelo teste (sai no fim)

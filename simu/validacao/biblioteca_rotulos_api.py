@@ -5,7 +5,7 @@ terminais). Confere: inserir da biblioteca (um arquivo de antes, com os nomes), 
 biblioteca — o bloco e os terminais de dentro sem os nomes de fora; o SM original continua com os dele."""
 import json, os, shutil, urllib.request
 from pathlib import Path
-B = "http://localhost:7201/maisim/simu/"
+B = "http://127.0.0.1:7201/maisim/simu/"
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(req, timeout=300).read())

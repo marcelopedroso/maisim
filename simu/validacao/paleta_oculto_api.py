@@ -6,7 +6,7 @@ elementos da relutância, a máquina de indução IM e a LISN. Se houver o códi
 exemplo dele da ponte com o Simulink (resources/GeckoSimulink/vr1_simulink.ipes), copiado para a pasta de circuitos."""
 import json, shutil, time, urllib.request
 from pathlib import Path
-B = "http://localhost:7201/maisim/simu/"
+B = "http://127.0.0.1:7201/maisim/simu/"
 RAIZ = Path(__file__).resolve().parents[2]
 def api(rota, corpo=None):
     q = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})

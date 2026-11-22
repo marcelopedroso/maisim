@@ -4,7 +4,7 @@ renomeava por fora do registro: os dois nomes ficavam "em uso" para sempre (com 
 até depois de um circuito novo), e criar uma fonte U.1 dava "The component name is already in use". Achado da vistoria
 dos componentes (24/10). Confere: com a NLRel na folha, U.1 e U.2 entram; depois do Novo, U.1 entra de novo."""
 import json, urllib.request
-B = "http://localhost:7201/maisim/simu/"
+B = "http://127.0.0.1:7201/maisim/simu/"
 def api(rota, corpo=None):
     q = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(q, timeout=300).read())

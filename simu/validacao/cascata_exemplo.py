@@ -9,7 +9,7 @@ testes (antes eles usavam um MMC da tese) e um exemplo para quem usa o simulador
   vo → L.1 → o → R.1 → gnd; o → S.1 → c → R.2 → gnd (CONST.1 → CONST_CARGA → GATE.1 → S.1: o degrau de carga)
   medidas: v_o (vo − gnd), i_o (corrente de L.1) e, de cada célula, vCSm e vSm (os medidores de dentro do SM-HB)"""
 import json, urllib.request, sys
-B = "http://localhost:7201/maisim/simu/"
+B = "http://127.0.0.1:7201/maisim/simu/"
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(req, timeout=300).read())

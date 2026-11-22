@@ -4,7 +4,7 @@ alertar num modal e confirmar" — os cartões dos controladores tinham ficado c
 SMs passaram a se chamar SM.ap.1…): a resposta da edição diz o nome de antes, o novo e onde o controle o usa; a rota
 editor/controle/renomeia troca no código (só entre aspas), nos cartões, nas atuações e nos acionamentos."""
 import json, urllib.request
-B = "http://localhost:7201/maisim/simu/"
+B = "http://127.0.0.1:7201/maisim/simu/"
 def api(rota, corpo=None):
     q = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(q, timeout=180).read())

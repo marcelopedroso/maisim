@@ -1,7 +1,7 @@
 """Mudanças não salvas (circuito, controle, cores) ao abrir, no novo e no pendente — instância de teste (7201)."""
 import json, urllib.request, subprocess, os, sys
 from pathlib import Path
-B = "http://localhost:7201/maisim/simu/"
+B = "http://127.0.0.1:7201/maisim/simu/"
 SOBE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "..", "..", "tmp")   # (não usado)
 REINICIA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reinicia_servidor_teste.sh")
 def api(rota, corpo=None):

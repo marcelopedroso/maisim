@@ -30,7 +30,7 @@ def porta():                                             # a do simu no perfil d
         return 7201
 
 
-B = f"http://localhost:{porta()}/maisim/simu/"
+B = f"http://127.0.0.1:{porta()}/maisim/simu/"
 
 
 def api(rota, corpo=None):

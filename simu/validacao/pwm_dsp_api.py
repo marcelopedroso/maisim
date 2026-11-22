@@ -15,7 +15,7 @@ no sobe-desce: 10 kHz, 100 passos por período. Confere:
 - o tempo: o PWM comparado a cada Ts (Ts = 1 µs) × o PWM com os registradores (Ts = 100 µs)."""
 import json, time, urllib.request
 import numpy as np
-B = "http://localhost:7201/maisim/simu/"
+B = "http://127.0.0.1:7201/maisim/simu/"
 
 
 def api(rota, corpo=None):

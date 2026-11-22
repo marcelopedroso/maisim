@@ -29,7 +29,7 @@ abrir janela de erro na rodada (C/C++ sem biblioteca, exportar dados, falta de m
 fecha com OK e avisa (aviso_gecko, registrado aqui).
 
 uso: python3 simu/validacao/vistoria_componentes.py [--so <trecho do nome ou id>] [--json-only] [--prazo 60]
-     [--base http://localhost:7201/maisim/simu/] [--manter-rodadas]
+     [--base http://127.0.0.1:7201/maisim/simu/] [--manter-rodadas]
 Uma vistoria inteira leva uns minutos (116 componentes). Só na instância de teste (./sobe_teste.sh); não está no ci.sh.
 """
 import argparse
@@ -76,7 +76,7 @@ def pasta_rodadas():
     return Path(v.replace("$HOME", "~", 1)).expanduser()
 
 
-B = f"http://localhost:{porta()}/maisim/simu/"
+B = f"http://127.0.0.1:{porta()}/maisim/simu/"
 
 
 def api(rota, corpo=None, prazo=180):

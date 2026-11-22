@@ -13,7 +13,7 @@ todas as amostras):
 - as duas chaves de um braço nunca ligadas juntas."""
 import json, time, urllib.request
 import numpy as np
-B = "http://localhost:7201/maisim/simu/"
+B = "http://127.0.0.1:7201/maisim/simu/"
 
 
 def api(rota, corpo=None):

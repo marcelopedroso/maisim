@@ -3,7 +3,7 @@ lado do borne no bloco), nunca cai num borne ocupado (vai para o livre mais pert
 com dx == dy (o Gecko ignora esse passo) e pode ser criado já num lado que não é o padrão; renomear e apagar; tamanho do
 bloco (não deixa juntar bornes); e a prova: fios de fora até os bornes desenhados e a corrente sai V/R."""
 import json, subprocess, time, urllib.request
-B = "http://localhost:7201/maisim/simu/"
+B = "http://127.0.0.1:7201/maisim/simu/"
 def api(rota, corpo=None):
     req = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(req, timeout=300).read())

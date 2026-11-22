@@ -14,7 +14,7 @@ depois da última leitura, com outra coisa, é. Reinicia o Gecko e o motor de te
 teste (reinicia_servidor_teste.sh); nunca os do MaiSim de uso. ~1,5 min."""
 import hashlib, json, os, re, signal, subprocess, sys, time, urllib.request
 from pathlib import Path
-B = "http://localhost:7201/maisim/simu/"
+B = "http://127.0.0.1:7201/maisim/simu/"
 AQUI = Path(__file__).resolve().parent
 sys.path.insert(0, str(AQUI.parent))
 import ipes  # noqa: E402

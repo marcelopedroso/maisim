@@ -3,7 +3,7 @@ ao gravar o vídeo em inglês: com tudo em inglês, a rodada se chamava "rodada"
 arquivo) · rodada · …". Confere: rodar sem nome com o cookie en → a rodada "run"; com pt → "rodada"; e a lista do scope com o
 circuito novo como "new (no file)" (en) e "novo (sem arquivo)" (pt) — o meta continua com a marca de sempre."""
 import json, time, urllib.request
-B, SC = "http://localhost:7201/maisim/simu/", "http://localhost:7202/"
+B, SC = "http://127.0.0.1:7201/maisim/simu/", "http://127.0.0.1:7202/"
 def api(rota, corpo=None, lingua="pt", base=B):
     h = {"Content-Type": "application/json", "Cookie": f"maisim-lingua={lingua}"}
     req = urllib.request.Request(base + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers=h)

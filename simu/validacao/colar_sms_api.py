@@ -3,7 +3,7 @@ ia para o SM aberto, e ele deixava de ser igual aos outros (as mudanças seguint
 "mudar os N juntos", a página manda as folhas iguais e a cópia vai para todas: o mesmo nome e a mesma posição em cada uma
 (continuam iguais), um passo do desfazer; colar numa folha só continua como antes."""
 import json, urllib.request
-B = "http://localhost:7201/maisim/simu/"
+B = "http://127.0.0.1:7201/maisim/simu/"
 def api(rota, corpo=None):
     q = urllib.request.Request(B + rota, data=json.dumps(corpo).encode() if corpo is not None else None, headers={"Content-Type": "application/json"})
     try: return json.loads(urllib.request.urlopen(q, timeout=180).read())
