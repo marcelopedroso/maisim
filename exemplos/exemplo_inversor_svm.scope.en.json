@@ -1,0 +1,11 @@
+{
+ "titulos": {
+  "Inversor trifásico — SVM": "Three-phase inverter — SVM",
+  "Setor (1 a 6) e vetor aplicado (V0 a V7)": "Sector (1 to 6) and applied vector (V0 to V7)",
+  "Tempos T1, T2 e T0 (µs)": "Times T1, T2 and T0 (µs)",
+  "Razões cíclicas das fases": "Phase duty cycles",
+  "Pulsos das chaves de cima": "Pulses of the upper switches",
+  "Tensão de linha v_ab (V)": "Line voltage v_ab (V)",
+  "Correntes de fase (A)": "Phase currents (A)"
+ }
+}
