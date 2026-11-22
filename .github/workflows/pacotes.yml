@@ -137,6 +137,55 @@ jobs:
             --title "Windows smoke test failed for $TAG" \
             --body "The smoke test of the Windows installer of $TAG failed on Windows (install, start, the buck, a PDF, the C control, stop), so the Release was left as a draft: not published. Logs: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
+  windows-suite:
+    name: the whole test suite on a real Windows, on the installed MaiSim (measuring; does not block the Release yet)
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 180
+    continue-on-error: true
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.test_only && github.ref || inputs.tag }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: windows-installer
+          path: instalador
+      - name: install MaiSim silently (as a user would) and put the tests next to it
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem instalador\MaiSim-Setup-*.exe | Select-Object -First 1
+          Start-Process -Wait -FilePath $exe.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-','/LANG=en'
+          $prog = Join-Path $env:LOCALAPPDATA 'Programs\MaiSim'
+          if (-not (Test-Path "$prog\python\python.exe")) { throw "MaiSim did not install in $prog" }
+          Copy-Item -Recurse -Force simu\validacao "$prog\maisim\simu\validacao"   # the package leaves the tests out
+          "PROG=$prog" >> $env:GITHUB_ENV
+          "BATERIA=$HOME\.cache\maisim_teste\bateria" >> $env:GITHUB_ENV
+      - name: browser for the screen tests (Playwright's Chromium; the same version the suite uses)
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/ns-test" && cd "$RUNNER_TEMP/ns-test"
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund playwright@1.62.0 > /dev/null
+          npx playwright install chromium > /dev/null
+          echo "NODE_PATH=$(cygpath -w "$RUNNER_TEMP/ns-test/node_modules")" >> "$GITHUB_ENV"
+      - name: the whole suite (the test instance of the installed MaiSim, with its Python, Java and TinyCC)
+        shell: pwsh
+        env:
+          CI: "true"
+        run: |
+          & "$env:PROG\python\python.exe" -X utf8 "$env:PROG\maisim\simu\validacao\ci.py" completo --sobe --maisim "$env:PROG\maisim"
+      - name: keep the summary and the logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-suite-logs
+          path: ${{ env.BATERIA }}
+          retention-days: 14
+          if-no-files-found: ignore
+
   arm:
     name: ARM (aarch64) AppImage and folder
     runs-on: ubuntu-24.04-arm   # free for public repositories; builds natively (the portable Python installs NumPy/matplotlib here)
