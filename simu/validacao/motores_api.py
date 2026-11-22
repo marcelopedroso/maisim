@@ -123,7 +123,8 @@ try:
        f"exemplo_motor_cc: M-DC.1 com os 4 bornes ligados (armadura a/gnd, campo vf/gnd), carga Tm, pontas soltas {r['encaixe']['soltas']}")
     ctl = api("editor/controle")
     ctl = ctl.get("controle", ctl)
-    ok(ctl.get("ativo") and ctl.get("atuacoes") == ["d"] and "n_MDC1" in ctl.get("codigo", ""), "o controle do exemplo vem junto (ativo, atua em d, lê n_MDC1)")
+    ok(ctl.get("ativo") and ctl.get("atuacoes") == ["g", "gn"] and "n_MDC1" in ctl.get("codigo", "") and "pwm.py" in ctl.get("arquivos", {}),
+       "o controle do exemplo vem junto (ativo, escreve os pulsos g e gn com o pwm.py, lê n_MDC1)")
     # nada "sem salvar" ao abrir nem depois de rodar (o VIEWMOT guarda "M-DC.1.n [rpm]" igual antes e depois: patch 0006)
     p0 = api("editor/pendente").get("pendente")
     rr, _ = roda("motores_curta", 1e-6, 0.002, 40)
