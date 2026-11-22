@@ -104,6 +104,16 @@ if int(subiu.group(1)) != porta:
     falhou(f"subiu na porta {subiu.group(1)}, e o instalador gravou a {porta}", log_lanc)
 fala(f"o MaiSim instalado subiu em {time.time() - t0:.0f} s (http://localhost:{porta}/)")
 
+# a conexão de um cliente em Python aos servidores do MaiSim (todos escutam só em 127.0.0.1): por "localhost" o Windows
+# tenta o ::1 primeiro; a recusa ali custava ~2 s por conexão (o simulador publicava cada rodada no Scope por localhost)
+def conecta(host, p):
+    t = time.time()
+    with socket.create_connection((host, p), timeout=10):
+        pass
+    return time.time() - t
+for nome, p in (("página", porta), ("simulador", porta + 1), ("scope", porta + 2)):
+    fala(f"conectar ao {nome}: por localhost {conecta('localhost', p) * 1e3:.0f} ms, por 127.0.0.1 {conecta('127.0.0.1', p) * 1e3:.0f} ms")
+
 # 3. o mesmo que o do Linux: o buck, o PDF do Figuras e o controle em C
 ok = subprocess.run([sys.executable, "-X", "utf8", str(RAIZ / "pacote" / "fumaca_api.py"), str(porta), str(RAIZ)]).returncode
 # 3b. as telas num navegador de verdade (pacote/fumaca_tela.js; o CI põe o Node e o Playwright e liga MAISIM_FUMACA_TELAS)

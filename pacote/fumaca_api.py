@@ -29,7 +29,7 @@ api("/maisim/simu/editor/abrir", {"arq": "exemplos/exemplo_buck.ipes", "modo": "
 t0 = time.time()
 j = espera(api("/maisim/simu/editor/rodar", {"dt": "1e-06", "tfim": "0.005", "nome": "fumaca", "amostras": "500"}))
 assert j.get("estado") == "fim", f"a rodada não terminou: {j}"
-print(f"fumaça: o buck rodou em {time.time() - t0:.1f} s ({j['arquivo']})", flush=True)
+print(f"fumaça: o buck rodou em {time.time() - t0:.1f} s (no simulador: {j.get('segundos', '?')} s; {j['arquivo']})", flush=True)
 arq = j["arquivo"]
 canais = api("/maisim/figuras/canais?arq=" + urllib.parse.quote(arq))
 nomes = [c["nome"] if isinstance(c, dict) else c for c in (canais.get("canais") or canais.get("sinais") or [])]
@@ -65,6 +65,7 @@ for m in sorted(mods, key=lambda x: x["arq"]):
     t0 = time.time()
     j = espera(api("/maisim/simu/editor/rodar", {"dt": repr(dt), "tfim": repr(tfim), "nome": "fumaca_exemplo", "amostras": "500", "por_cima": "1"}))
     assert j.get("estado") == "fim", f"{m['arq']} não rodou: {j.get('erro', j)}"
-    print(f"fumaça: {m['arq'].split('/')[-1]:44s} {tfim * 1e3:5.1f} ms em {time.time() - t0:5.1f} s{' (controlador digital)' if m.get('controlador') else ''}", flush=True)
+    print(f"fumaça: {m['arq'].split('/')[-1]:44s} {tfim * 1e3:5.1f} ms em {time.time() - t0:5.1f} s (no simulador: {j.get('segundos', '?')} s)"
+          f"{' (controlador digital)' if m.get('controlador') else ''}", flush=True)
 print(f"fumaça: os {len(mods)} exemplos abriram e rodaram ({time.time() - t_ex:.0f} s)", flush=True)
 api("/maisim/simu/editor/novo", {"modo": "descartar"})     # o controle mudado não fica sem salvar (o --parar recusaria desligar o Gecko)
