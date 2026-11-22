@@ -228,10 +228,18 @@ try:
     if za is not None and zb is not None:
         dif, meta_igual = iguais(za, zb, rb)
         ok(rb.get("estado") == "fim" and not dif and meta_igual, f"com a pausa, os mesmos números do caminho antigo ({len(zb['t'])} amostras){'' if not dif else f' — DIFEREM: {dif[:6]}'}")
-    def para(r):
-        if not estado["parado"] and r.get("estado") == "rodando" and (r.get("t") or 0) > 0.01:
+    def para(r):                                         # logo na 1ª amostra vista rodando
+        if not estado["parado"] and r.get("estado") == "rodando" and (r.get("t") or 0) > 0:
             api("editor/parar", {}); estado["parado"] = True
     rp, zp = roda(arq, "novo", tfim=tfim, amostras=am, acao=para)
+    if rp.get("estado") == "fim":
+        # numa máquina rápida a rodada inteira (~50 ms de passos no Windows depois do #292) acaba antes de o pedido chegar: pausa
+        # (que segura a rodada) e então para, o mesmo "parada no meio" visto pelo servidor
+        estado["parado"] = False
+        def pausa_e_para(r):
+            if not estado["parado"] and r.get("estado") == "rodando" and (r.get("t") or 0) > 0:
+                api("editor/pausar", {}); time.sleep(0.3); api("editor/parar", {}); estado["parado"] = True
+        rp, zp = roda(arq, "novo", tfim=tfim, amostras=am, acao=pausa_e_para)
     if zp is not None and za is not None:
         k = len(zp["t"])
         prefixo = all(np.array_equal(zp[c], za[c][:k], equal_nan=True) for c in zp.files if c != "meta")

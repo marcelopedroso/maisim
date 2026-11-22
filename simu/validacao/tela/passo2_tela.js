@@ -76,7 +76,12 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   // simulando, o circuito só para ver (Marcelo, 22/10): clicar seleciona e mostra os dados (travados, com o aviso); girar (R),
   // arrastar, salvar, abrir, fio e a paleta não mudam nada; o servidor recusa também a ponta, o "fora", a cor e apagar arquivo
   const pos = (n) => pg.evaluate((n) => { const e = dados.folhas[folhaAtual].elementos.find((x) => x.nome === n); return e && JSON.stringify([e.x, e.y, (e.terminais || []).map((t) => [t.x, t.y])]); }, n);
-  const bb = await (await pg.$("#svg .el")).boundingBox(), cx = bb.x + bb.width / 2, cy = bb.y + bb.height / 2;
+  // um ponto que acerta mesmo um componente (o meio da caixa do grupo pode cair num vazio entre o desenho e os rótulos: no Windows
+  // caiu, e o clique não selecionava nada)
+  const pt = await pg.evaluate(() => { for (const el of document.querySelectorAll("#svg .el")) for (const s of el.querySelectorAll("*")) {
+    const r = s.getBoundingClientRect(); if (r.width < 3 || r.height < 3) continue;
+    const x = r.x + r.width / 2, y = r.y + r.height / 2, h = document.elementFromPoint(x, y); if (h && el.contains(h)) return { x, y }; } return null; });
+  const cx = pt ? pt.x : 0, cy = pt ? pt.y : 0;
   await pg.mouse.click(cx, cy); await pg.waitForTimeout(500);
   const circ = await pg.evaluate(async () => { const P = $("props"), r = (rota, corpo) => api(rota, corpo).then(() => "aceitou", (e) => e.message);
     const srv = [await r("editor/cor", { canal: "x", cor: "" }), await r("editor/fora", { uid: "x", fora: true }), await r("editor/ponta", { canal: "x", sinal: "+", componente: "" }), await r("editor/apagar_arquivo", { arq: "nada.ipes" })];

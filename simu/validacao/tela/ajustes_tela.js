@@ -1,6 +1,7 @@
 // itens da revisão do cabeçalho (instância de teste: 7201 direto e a página de teste 7200 → 7201): atalhos mudos ao digitar o
 // controle.py; a dica não pega o title do iframe do scope; o desenho reajusta quando o cabeçalho quebra; o plano B do trilho
 const { chromium } = require("playwright");
+const { entraNaEdicao } = require("./_edicao");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
 (async () => {
@@ -8,8 +9,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
   await pg.goto("http://localhost:7201/maisim/simu/?modelo=exemplos%2Fexemplo_controle_pi.ipes");
   await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
-  await pg.click("#bt-editar"); await pg.waitForTimeout(600); while (await pg.$(".modal-fundo")) { await pg.click(".modal .m-extra, .modal .m-ok"); await pg.waitForTimeout(800); }
-  await pg.waitForFunction(() => dados && dados.editor, null, { timeout: 30000 });
+  await entraNaEdicao(pg, { ok: ".modal .m-extra, .modal .m-ok" });   // espera a pergunta das mudanças não salvas, que no Windows vem depois
   // 1. digitar no controle.py: w, 0, r não disparam conexão, ajustar nem girar
   await pg.click("#bt-ctl"); await pg.waitForFunction(() => ctl.carregado && ctl.editor, null, { timeout: 30000 });
   const verAntes = await pg.evaluate(() => JSON.stringify(ver));

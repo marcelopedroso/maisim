@@ -4,6 +4,7 @@
 // escolhida; cada resposta diz quem respondeu e a troca no meio da conversa ganha a linha "a partir daqui"; a dica do
 // trilho lista as IAs conectadas. A chave nunca volta para a página.
 const { chromium } = require("playwright");
+const { entraNaEdicao } = require("./_edicao");
 const fs = require("fs"), path = require("path"), { execSync } = require("child_process");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
@@ -32,7 +33,7 @@ const semChave = (pg) => pg.evaluate((k) => !document.documentElement.outerHTML.
     await api(pg, "claude/ia/sair", { ia: "eco" });
     await api(pg, "editor/abrir", { arq: ARQ, modo: "descartar" }); await api(pg, "claude/nova", {});
     await pg.reload(); await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
-    await pg.click("#bt-editar"); await pg.waitForTimeout(600); while (await pg.$(".modal-fundo")) { await pg.click(".modal .m-extra, .modal .m-ok"); await pg.waitForTimeout(800); }
+    await entraNaEdicao(pg, { ok: ".modal .m-extra, .modal .m-ok" });   // espera a pergunta das mudanças não salvas, que no Windows vem depois
     await pg.click("#bt-ctl"); await pg.waitForFunction(() => ctl.carregado && ctl.editor, null, { timeout: 30000 });
     await pg.click("#bt-ia"); await pg.waitForFunction(() => cla.estado && cla.estado.logado && cc.ias.some((a) => a.id === "eco"), null, { timeout: 20000 });
     const sel = () => pg.evaluate(() => ({ visivel: getComputedStyle($("cc-ia")).display !== "none", ops: [...$("cc-ia").options].map((o) => o.textContent), ia: ccIA(),

@@ -1,5 +1,6 @@
 // validador do controle (sublinhados + testar) e a janela de conflito ao abrir (manter / salvar e abrir / descartar)
 const { chromium } = require("playwright");
+const { entraNaEdicao, caminho } = require("./_edicao");
 const { execFileSync } = require("child_process");
 const REINICIA = require("path").resolve(__dirname, "../reinicia.py");   // (re)sobe só o servidor de teste
 let falhas = 0;
@@ -7,7 +8,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
 (async () => {
   const b = await chromium.launch(); const pg = await (await b.newContext({ viewport: { width: 1500, height: 900 } })).newPage(); await pg.addInitScript(() => { try { localStorage.setItem("maisim-simu-travado", "1"); } catch (e) { /* ok */ } }); /* começa travado (o padrão é editando; estes testes clicam no cadeado) */
   const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
-  const ARQ = require("os").homedir() + "/.cache/maisim_teste/circuitos/valida_tela.ipes";
+  const ARQ = caminho(require("os").homedir() + "/.cache/maisim_teste/circuitos/valida_tela.ipes");
   // o circuito do teste, montado aqui (antes era uma sobra na pasta da instância de teste): U.1 → S.1 → R.1, CONST_1 → GATE.1 → S.1
   const api = (rota, corpo) => fetch("http://localhost:7201/maisim/simu/" + rota, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo) }).then((r) => r.json());
   const cmd = (op, args) => api("editor/cmd", { op, args });
@@ -26,8 +27,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
   const aberto = await pg.evaluate(() => $("sel-modelo").value);
   ok(/valida_tela\.ipes$/.test(aberto || ""), `a página abriu o circuito do teste (${aberto})`);
-  await pg.click("#bt-editar"); await pg.waitForTimeout(500); if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok");
-  await pg.waitForFunction(() => dados && dados.editor, null, { timeout: 30000 });
+  await entraNaEdicao(pg, { ok: ".modal .m-ok" });   // espera a pergunta das mudanças não salvas, que no Windows vem depois
   await pg.evaluate(() => { sim.par.dt = "1e-6"; });
   await pg.click("#bt-ctl"); await pg.waitForFunction(() => ctl.carregado && ctl.editor, null, { timeout: 30000 });
   // o código do Marcelo, só com k1 no painel
@@ -85,7 +85,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   ok(/Salvar valida_tela\.ipes e criar/.test(bt3.join("|")) && /Descartar e criar/.test(bt3.join("|")), `novo: ${bt3.join(" · ")}`);
   await pg.keyboard.press("Escape"); await pg.waitForTimeout(600);
   ok(await pg.evaluate(() => dados.folhas["0"].elementos.some((e) => e.nome === "R.1")), "Esc no novo: o circuito continua");
-  await pg.evaluate((a) => api("editor/abrir", { arq: a, modo: "descartar" }), require("os").homedir() + "/.cache/maisim_teste/circuitos/valida_tela.ipes");
+  await pg.evaluate((a) => api("editor/abrir", { arq: a, modo: "descartar" }), caminho(require("os").homedir() + "/.cache/maisim_teste/circuitos/valida_tela.ipes"));
   ok(!erros.length, `sem erros de JS nem diálogos ${erros.join(" ; ")}`);
   await b.close(); process.exit(falhas ? 1 : 0);
 })();

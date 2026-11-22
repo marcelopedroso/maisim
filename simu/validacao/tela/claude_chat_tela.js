@@ -2,6 +2,7 @@
 // MAISIM_CLAUDE_BIN=…/validacao/claude_falso.py e MAISIM_CLAUDE_DIR numa pasta descartável): a conversa no painel do controle,
 // o uso da conta, a proposta (diferença, aplicar, voltar), a trava da simulação, anexos (📎 e arrastar) e o ✦
 const { chromium } = require("playwright");
+const { entraNaEdicao } = require("./_edicao");
 const fs = require("fs"), path = require("path"), { execSync } = require("child_process");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
@@ -27,8 +28,7 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
   await api(pg, "editor/abrir", { arq: PWM, modo: "descartar" });
   await api(pg, "claude/nova", {});
   await pg.reload(); await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
-  await pg.click("#bt-editar"); await pg.waitForTimeout(600); while (await pg.$(".modal-fundo")) { await pg.click(".modal .m-extra, .modal .m-ok"); await pg.waitForTimeout(800); }
-  await pg.waitForFunction(() => dados && dados.editor, null, { timeout: 30000 });
+  await entraNaEdicao(pg, { ok: ".modal .m-extra, .modal .m-ok" });   // espera a pergunta das mudanças não salvas, que no Windows vem depois
   await pg.click("#bt-ctl"); await pg.waitForFunction(() => ctl.carregado && ctl.editor, null, { timeout: 30000 });
   const original = await pg.evaluate(() => codigoAtual());
   // abrir a conversa

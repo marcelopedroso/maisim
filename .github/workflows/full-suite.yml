@@ -5,6 +5,8 @@
 # Runs at 04:00 (Brasília) only if main changed since the last green run, when VERSION changes on main (a new version:
 # tag, Release and packages right away), or by hand (Actions → full suite → Run workflow). Not after every merge: with
 # ~30 PRs a day that spent the month's Actions minutes in one day (24/10/2026); verify.yml already tests each PR.
+# On a branch, by hand (gh workflow run full-suite.yml --ref <branch>): only the tests, the summary and the logs (the
+# repository is public, so this is free and keeps the suite off the maintainer's machine); no tag, no PR comments, no issue.
 name: full suite
 
 on:
@@ -16,7 +18,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: full-suite-main
+  group: full-suite-${{ github.ref_name }}   # a run on a branch does not cancel the one on main
   cancel-in-progress: true
 
 permissions:
@@ -71,6 +73,7 @@ jobs:
   release:
     name: release (tag and notes)
     needs: suite
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -95,6 +98,7 @@ jobs:
   covered:
     name: tell the PRs it covered
     needs: suite
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -122,7 +126,7 @@ jobs:
   report:
     name: report failure
     needs: suite
-    if: failure()
+    if: failure() && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     permissions:
       issues: write

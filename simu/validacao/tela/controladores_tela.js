@@ -4,9 +4,10 @@
 // que ele lê (ou todas) e o que escreve (um dono só por atuação); rede; medidas do arquivo aberto; erro na aba certa;
 // "testar" com os dois; a proposta do Claude vai para o controle.py; uma rodada; renomear e apagar (levam o controlador).
 const { chromium } = require("playwright");
+const { entraNaEdicao, caminho } = require("./_edicao");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
-const PI = require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_controle_pi.ipes";
+const PI = caminho(require("os").homedir() + "/.cache/maisim_teste/circuitos/exemplo_controle_pi.ipes");
 const AQ = 'def passo(t, m, p, e):\n    envia("controle", {"i": m["i_L"]})\n';
 (async () => {
   let b;
@@ -15,8 +16,7 @@ const AQ = 'def passo(t, m, p, e):\n    envia("controle", {"i": m["i_L"]})\n';
     const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
     await pg.goto("http://localhost:7200/maisim/simu/?modelo=" + encodeURIComponent(PI));
     await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
-    await pg.click("#bt-editar"); await pg.waitForTimeout(600); while (await pg.$(".modal-fundo")) { await pg.click(".modal .m-extra, .modal .m-ok"); await pg.waitForTimeout(800); }
-    await pg.waitForFunction(() => dados && dados.editor, null, { timeout: 30000 });
+    await entraNaEdicao(pg, { ok: ".modal .m-extra, .modal .m-ok" });   // espera a pergunta das mudanças não salvas, que no Windows vem depois
     await pg.evaluate(async (pi) => { novoEstado(await api("editor/abrir", { arq: pi, modo: "descartar" }));   // o exemplo como está no arquivo (não o de trabalho)
       await recarregaControle(); sim.par.dt = "1e-6"; sim.par.tfim = "0.01"; sim.par.nome = "controladores_tela"; sim.par.amostras = "4000"; }, PI);
     await pg.click("#bt-ctl");

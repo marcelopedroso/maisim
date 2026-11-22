@@ -73,11 +73,15 @@ const abre = () => fetch("http://localhost:7201/maisim/simu/editor/abrir", { met
       if (!g) return null;
       const bb = (n) => n.getBoundingClientRect(), cruza = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
       const caixa = bb(g.querySelector(".corpo")), simb = g.querySelector(".simbolo"), sb = simb && bb(simb), nome = e.saidas[0];
+      // a tinta do ∿ na altura: 70 % da caixa do texto (a conta do ajustaSimbolo; com entradas externas, a caixa inteira). A caixa
+      // do texto inteira tem o espaço das ascendentes e descendentes da fonte, maior nas do Windows (Segoe UI): ela passava 2 px
+      // da caixa do bloco sem a tinta passar
+      const tinta = sb && (g.querySelector(".pino-ext") ? sb : { left: sb.left, right: sb.right, top: (sb.top + sb.bottom) / 2 - 0.35 * sb.height, bottom: (sb.top + sb.bottom) / 2 + 0.35 * sb.height });
       // a etiqueta da saída: o rótulo e a etiqueta do scope com o nome do sinal (fora da caixa)
       const etq = [...document.querySelectorAll("#svg text, #svg .tag-scope")].filter((n) => !n.closest(".tag-scope") || n.matches(".tag-scope"))
         .filter((n) => (n.textContent || "").trim().endsWith(nome));
       return { entradas: e.entradas.length, bornes: e.terminais.filter((t) => t.lado === "e").map((t) => `${t.x - e.x},${t.y - e.y}`).join(" "),
-        simb: simb ? simb.textContent : "", simbDentro: !!sb && sb.left >= caixa.left && sb.right <= caixa.right && sb.top >= caixa.top && sb.bottom <= caixa.bottom,
+        simb: simb ? simb.textContent : "", simbDentro: !!tinta && tinta.left >= caixa.left && tinta.right <= caixa.right && tinta.top >= caixa.top && tinta.bottom <= caixa.bottom,
         simbLivre: !!sb && ![...g.querySelectorAll(".borne, .pino-ext")].some((n) => cruza(bb(n), sb)),
         pinos: [...g.querySelectorAll(".pino-ext")].map((n) => n.textContent).join(" "),
         saida: etq.length, saidaFora: etq.length > 0 && etq.every((n) => !cruza(bb(n), caixa)),
@@ -130,7 +134,7 @@ const abre = () => fetch("http://localhost:7201/maisim/simu/editor/abrir", { met
         const f = dados.folhas["0"], i = f.elementos.findIndex((x) => x.nome === nome), e = f.elementos[i], g = document.querySelector(`#svg g.el[data-i="${i}"]`);
         if (!g) return null;
         const bb = (n) => n.getBoundingClientRect(), cruza = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
-        const caixa = bb(g.querySelector(".corpo")), simb = g.querySelector(".simbolo"), pn = [...g.querySelectorAll(".pino-ext")];
+        const caixa = bb(g.querySelector(".corpo")), simb = g.querySelector(".simbolo"), sb = simb && bb(simb), pn = [...g.querySelectorAll(".pino-ext")];
         return { entradas: e.entradas.length, bornes: e.terminais.filter((t) => t.lado === "e").map((t) => `${t.x - e.x},${t.y - e.y}`).join(" "),
           pinos: pn.map((n) => n.textContent).join(" "),
           pinosDentro: pn.every((n) => { const r = bb(n); return r.left >= caixa.left && r.right <= caixa.right && r.top >= caixa.top && r.bottom <= caixa.bottom; }),
