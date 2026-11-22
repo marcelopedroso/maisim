@@ -54,9 +54,8 @@ runs:
     - name: Playwright (Chromium) and Claude Code
       shell: bash
       run: |
-        mkdir -p ~/ns-test && cd ~/ns-test
-        npm init -y > /dev/null
-        npm install --no-audit --no-fund playwright@1.62.0 > /dev/null
+        mkdir -p ~/ns-test && cp .github/ci/node/package.json .github/ci/node/package-lock.json ~/ns-test/
+        cd ~/ns-test && npm ci --no-audit --no-fund > /dev/null   # as versões e os hashes do package-lock.json
         npx playwright install --with-deps chromium > /dev/null
         curl -fsSL https://claude.ai/install.sh | bash > /dev/null
         ~/.local/bin/claude --version
