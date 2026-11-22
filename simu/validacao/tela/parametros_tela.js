@@ -81,7 +81,10 @@ const abre = () => fetch("http://localhost:7201/maisim/simu/editor/abrir", { met
         simbLivre: !!sb && ![...g.querySelectorAll(".borne, .pino-ext")].some((n) => cruza(bb(n), sb)),
         pinos: [...g.querySelectorAll(".pino-ext")].map((n) => n.textContent).join(" "),
         saida: etq.length, saidaFora: etq.length > 0 && etq.every((n) => !cruza(bb(n), caixa)),
-        rotulos: [...document.querySelectorAll("#props [data-in]")].map((n) => n.closest("label").querySelector("span").textContent) };
+        rotulos: [...document.querySelectorAll("#props [data-in]")].map((n) => n.closest("label").querySelector("span").textContent),
+        // para a linha de FALHA: a caixa e o ∿ na tela (no Windows a fonte do ∿ é outra: a caixa do texto pode ser mais alta)
+        medidas: `caixa ${[caixa.left, caixa.top, caixa.right, caixa.bottom].map(Math.round)} · ∿ ${sb ? [sb.left, sb.top, sb.right, sb.bottom].map(Math.round) : "-"}`
+          + ` (font-size ${simb && simb.getAttribute("font-size")}, ${simb && getComputedStyle(simb).fontFamily})` };
     });
     await escolhe("SIGNAL.1");
     let ex = await painelExt();
@@ -96,7 +99,7 @@ const abre = () => fetch("http://localhost:7201/maisim/simu/editor/abrir", { met
       `com useExternal: cinza, com a entrada (${ex.join(" · ")})`);
     let dx = await desenhoExt();
     ok(dx && dx.entradas === 5 && dx.bornes === "-1,2 -1,3 -1,4 -1,5 -1,6", `o bloco ganha as 5 entradas onde o Gecko as põe (${dx && dx.bornes})`);
-    ok(dx && dx.simb === "∿" && dx.simbDentro && dx.simbLivre, `o ∿ continua na caixa, sem borne nem nome por cima (${dx && JSON.stringify([dx.simb, dx.simbDentro, dx.simbLivre])})`);
+    ok(dx && dx.simb === "∿" && dx.simbDentro && dx.simbLivre, `o ∿ continua na caixa, sem borne nem nome por cima (${dx && JSON.stringify([dx.simb, dx.simbDentro, dx.simbLivre])}; ${dx && dx.medidas})`);
     ok(dx && dx.pinos === "Â f off φ d", `os nomes das entradas junto dos bornes: ${dx && dx.pinos}`);
     ok(dx && dx.saida > 0 && dx.saidaFora, `a etiqueta da saída fica fora da caixa (${dx && dx.saida} etiqueta(s))`);
     ok(dx && dx.rotulos.join("|") === "entrada 1 · amplitude|entrada 2 · frequência|entrada 3 · offset|entrada 4 · fase (°)|entrada 5 · razão cíclica",
@@ -109,7 +112,8 @@ const abre = () => fetch("http://localhost:7201/maisim/simu/editor/abrir", { met
       && document.querySelector('#p-params input[data-p="useExternal"]:not(:checked)') && !document.querySelector("#p-params .nota-ext"); });
     ex = await painelExt(); dx = await desenhoExt();
     ok(ex.join() === "amplMAX:livre:,f:livre:,offset:livre:,phase:livre:,d:livre:" && dx && dx.entradas === 0 && dx.simbDentro && dx.saidaFora && !dx.pinos,
-      `sem useExternal de novo: campos livres, sem entradas (${ex.join(" ")}; ${dx && dx.entradas} entradas)`);
+      `sem useExternal de novo: campos livres, sem entradas (${ex.join(" ")}; ${dx && dx.entradas} entradas)`
+      + (dx && !(dx.simbDentro && dx.saidaFora && !dx.pinos) ? ` · ∿ dentro ${dx.simbDentro}, saída fora ${dx.saidaFora} (${dx.saida}), pinos "${dx.pinos}" · ${dx.medidas}` : ""));
 
     // 2c. o LIMIT e o HYS com useExternal (Marcelo, 24/10): o Gecko tira min e max das entradas 2 e 3 (LimitCalculatorExternal;
     // a 1 é o sinal) e o h da entrada 2 (HysteresisCalculatorExternal); os campos ficam cinza com o número da entrada, as entradas
@@ -131,7 +135,10 @@ const abre = () => fetch("http://localhost:7201/maisim/simu/editor/abrir", { met
           pinos: pn.map((n) => n.textContent).join(" "),
           pinosDentro: pn.every((n) => { const r = bb(n); return r.left >= caixa.left && r.right <= caixa.right && r.top >= caixa.top && r.bottom <= caixa.bottom; }),
           simbLivre: !!simb && !pn.some((n) => cruza(bb(n), bb(simb))),
-          rotulos: [...document.querySelectorAll("#props [data-in]")].map((n) => n.closest("label").querySelector("span").textContent) };
+          rotulos: [...document.querySelectorAll("#props [data-in]")].map((n) => n.closest("label").querySelector("span").textContent),
+        // para a linha de FALHA: a caixa e o ∿ na tela (no Windows a fonte do ∿ é outra: a caixa do texto pode ser mais alta)
+        medidas: `caixa ${[caixa.left, caixa.top, caixa.right, caixa.bottom].map(Math.round)} · ∿ ${sb ? [sb.left, sb.top, sb.right, sb.bottom].map(Math.round) : "-"}`
+          + ` (font-size ${simb && simb.getAttribute("font-size")}, ${simb && getComputedStyle(simb).fontFamily})` };
       }, nome);
       const livre = pars.map((p) => `${p}:livre:`).join(), cinza = pars.map((p, k) => `${p}:cinza:vem da entrada externa ${k + 2}`).join();
       await cmd("CREATE", nome, x, y, nome.split(".")[0]);
