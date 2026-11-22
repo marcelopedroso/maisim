@@ -79,8 +79,9 @@ try:
        f"chave mal formada: recusada sem guardar ({r1.get('erro')})")
     r = api("claude/ia/codigo", {"ia": "eco", "codigo": f"  {CHAVE}\n"})
     modo = stat.S_IMODE(os.stat(ARQ_CHAVE).st_mode) if ARQ_CHAVE.exists() else None
-    ok(r.get("logado") and r.get("chave") == "sk-••••••••••WXYZ" and CHAVE not in json.dumps(r) and modo == 0o600
-       and stat.S_IMODE(os.stat(ARQ_CHAVE.parent).st_mode) == 0o700 and ARQ_CHAVE.read_text().strip() == CHAVE,
+    ok(r.get("logado") and r.get("chave") == "sk-••••••••••WXYZ" and CHAVE not in json.dumps(r)
+       and (os.name == "nt" or (modo == 0o600 and stat.S_IMODE(os.stat(ARQ_CHAVE.parent).st_mode) == 0o700))   # (no Windows não há modo Unix)
+       and ARQ_CHAVE.read_text().strip() == CHAVE,
        f"chave salva: 0600 ({oct(modo or 0)}) na pasta 0700, a resposta só com {r.get('chave')!r}")
     vistos = json.dumps([api("claude/ias"), api("claude/estado")], ensure_ascii=False)
     ok(CHAVE not in vistos and "sk-••••••••••WXYZ" in vistos, "a página nunca recebe a chave de volta (/claude/ias, /claude/estado)")
