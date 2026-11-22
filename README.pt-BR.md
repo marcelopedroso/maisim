@@ -4,7 +4,7 @@
 
 [English](README.md) | **Português**
 
-[![verify](https://github.com/marcelopedroso/maisim/actions/workflows/verify.yml/badge.svg)](https://github.com/marcelopedroso/maisim/actions/workflows/verify.yml) [![full suite](https://github.com/marcelopedroso/maisim/actions/workflows/full-suite.yml/badge.svg?branch=main)](https://github.com/marcelopedroso/maisim/actions/workflows/full-suite.yml)
+[![verify](https://github.com/marcelopedroso/maisim/actions/workflows/verify.yml/badge.svg)](https://github.com/marcelopedroso/maisim/actions/workflows/verify.yml) [![full suite](https://github.com/marcelopedroso/maisim/actions/workflows/full-suite.yml/badge.svg?branch=main)](https://github.com/marcelopedroso/maisim/actions/workflows/full-suite.yml) [![packages: Windows · Linux · ARM · Android](https://img.shields.io/github/actions/workflow/status/marcelopedroso/maisim/pacotes.yml?branch=main&label=packages%3A%20Windows%20%C2%B7%20Linux%20%C2%B7%20ARM%20%C2%B7%20Android&logo=github)](https://github.com/marcelopedroso/maisim/actions/workflows/pacotes.yml) [![release](https://img.shields.io/github/v/release/marcelopedroso/maisim?label=release&color=7c3aed)](https://github.com/marcelopedroso/maisim/releases/latest) [![license: GPL-3.0](https://img.shields.io/github/license/marcelopedroso/maisim?color=blue)](LICENSE)
 
 **Plataforma aberta de simulação e controle de eletrônica de potência, com IA.**
 
