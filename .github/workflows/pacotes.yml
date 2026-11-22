@@ -189,6 +189,7 @@ jobs:
           path: |
             ${{ env.BATERIA }}
             ${{ env.TESTE }}/*.log
+            ${{ env.PROG }}/maisim/simu/validacao/tela/*.png
           retention-days: 14
           if-no-files-found: ignore
 
