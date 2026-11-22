@@ -17,7 +17,10 @@ const post = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(`/maisim/simu/at
     await pg.goto("http://localhost:7200/"); await pg.waitForSelector("#maisim-nav");
     const E = await post(pg, "verificar", {}).then(() => post(pg, "canal", { canal: "estavel" }));
     const VX = `${V}${E.depois ? ` +${E.depois}` : ""}${E.commit ? ` (${E.commit})` : ""}`;   // a versão por extenso
-    ok(E.tipo === "fonte" && !E.git && /^[0-9a-f]{7,}$/.test(E.commit || ""), `a versão de programador, sem o Atualizar pelo git no perfil de teste: commit ${E.commit}, ${E.depois} depois da v${V}`);
+    // o commit só existe rodando de um clone do git (no Windows a suíte roda no MaiSim instalado pelo .exe: sem o .git, sem commit)
+    const CLONE = fs.existsSync(path.join(__dirname, "../../../.git"));
+    ok(E.tipo === "fonte" && !E.git && (CLONE ? /^[0-9a-f]{7,}$/.test(E.commit || "") : !E.commit && E.depois == null),
+       `a versão de programador, sem o Atualizar pelo git no perfil de teste: ${CLONE ? "clone" : "sem o .git"}, commit ${E.commit}, ${E.depois} depois da v${V}`);
     await pg.evaluate(() => window.maisimNav.situacaoVersao());
     await pg.waitForSelector("#maisim-nav .versao:not([hidden])", { timeout: 10000 });
     const r = await pg.evaluate(() => { const v = document.querySelector("#maisim-nav .versao"), m = document.querySelector("#maisim-nav .marca").getBoundingClientRect(), c = v.getBoundingClientRect();
