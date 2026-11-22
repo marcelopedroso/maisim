@@ -143,3 +143,6 @@ jobs:
           if gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json files -q '.files[].path' | grep -qx VERSION; then
             gh workflow run full-suite.yml --repo "$GITHUB_REPOSITORY" --ref main
           fi
+          # the same for the code scanning and the Scorecard on main (a merge by this token does not trigger their push)
+          gh workflow run codeql.yml --repo "$GITHUB_REPOSITORY" --ref main || true
+          gh workflow run scorecard.yml --repo "$GITHUB_REPOSITORY" --ref main || true
