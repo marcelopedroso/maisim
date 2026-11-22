@@ -1,0 +1,52 @@
+# Assina os arquivos de versões já publicadas (manual: Actions → sign published releases → Run workflow). Cada arquivo
+# da Release (o instalador, os AppImages, o APK…) ganha um <arquivo>.sigstore.json: a assinatura Sigstore sem chave
+# (cosign sign-blob), feita com a identidade deste workflow neste repositório. Ela afirma que aquele é o arquivo que o
+# repositório publicou; não diz como foi montado (a procedência de montagem, o .intoto.jsonl, só as versões novas têm:
+# pacotes.yml). Conferir: cosign verify-blob --bundle X.sigstore.json --certificate-identity-regexp
+# 'https://github.com/marcelopedroso/maisim/.github/workflows/assina-versoes.yml@.*' \
+#   --certificate-oidc-issuer https://token.actions.githubusercontent.com X
+name: sign published releases
+
+on:
+  workflow_dispatch:
+    inputs:
+      tags:
+        description: "the release tags to sign, separated by spaces"
+        required: true
+        default: "v0.4.0 v0.5.0 v0.5.1 v0.6.0 v0.6.1"
+
+permissions:
+  contents: read
+
+jobs:
+  sign:
+    name: sign the files of each release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: write       # attach the signatures to the Release
+      id-token: write       # the keyless signature (Sigstore)
+    env:
+      TAGS: ${{ inputs.tags }}   # only through the environment
+    steps:
+      - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.10.1
+      - name: sign and attach
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          for TAG in $TAGS; do
+            [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "not a version tag: $TAG"; exit 1; }
+            d="$RUNNER_TEMP/$TAG"; mkdir -p "$d"; cd "$d"
+            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --clobber
+            n=0
+            for f in *; do
+              case "$f" in *.sha256|*.sigstore.json|*.intoto.jsonl|*.sig|*.asc) continue;; esac
+              [ -f "$f.sigstore.json" ] && continue
+              cosign sign-blob --yes --new-bundle-format --bundle "$f.sigstore.json" "$f" > /dev/null
+              n=$((n + 1))
+            done
+            ls *.sigstore.json > /dev/null 2>&1 && gh release upload "$TAG" *.sigstore.json --repo "$GITHUB_REPOSITORY" --clobber
+            echo "$TAG: $n file(s) signed"
+            cd / && rm -rf "$d"
+          done
