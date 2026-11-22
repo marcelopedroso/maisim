@@ -68,7 +68,7 @@ jobs:
           if-no-files-found: error
       - name: provenance attestation (signed by GitHub; proves this file was built here, from this commit)
         id: atestado   # também no test_only: confere o passo antes de uma versão (o atestado diz o commit da branch)
-        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
             pacote/dist/MaiSim-Setup-*.exe
@@ -220,7 +220,7 @@ jobs:
         run: bash pacote/linux/fumaca.sh
       - name: provenance attestation (signed by GitHub; proves this file was built here, from this commit)
         id: atestado   # também no test_only: confere o passo antes de uma versão (o atestado diz o commit da branch)
-        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
             pacote/dist/MaiSim-*-aarch64.AppImage
@@ -261,7 +261,7 @@ jobs:
         with:
           ref: ${{ inputs.test_only && github.ref || env.TAG }}
       - name: the Gradle wrapper in the repository is the official one (its checksum against gradle.org)
-        uses: gradle/actions/wrapper-validation@48b5f213c81028ace310571dc5ec0fbbca0b2947 # v4.4.4
+        uses: gradle/actions/wrapper-validation@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.4
       - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
@@ -296,7 +296,7 @@ jobs:
           fi
       - name: provenance attestation (signed by GitHub; proves this file was built here, from this commit)
         id: atestado   # também no test_only: confere o passo antes de uma versão (o atestado diz o commit da branch)
-        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
             pacote/dist/MaiSim-Android-*.apk
