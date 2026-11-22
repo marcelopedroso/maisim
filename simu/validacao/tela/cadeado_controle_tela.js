@@ -5,7 +5,7 @@
 const { chromium } = require("playwright");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
-const EX = "exemplos/exemplo_buck_pwm_interrupcao.ipes", OUTRO = "exemplos/exemplo_buck.ipes";
+const EX = "exemplos/exemplo_controle_pwm.ipes", OUTRO = "exemplos/exemplo_buck.ipes";
 (async () => {
   let b;
   try {

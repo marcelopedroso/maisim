@@ -311,7 +311,7 @@ interrupt (the ADC and the control) and the code only writes the comparator. Mai
   54°. With SHDWAMODE = 2 and INTSEL = 3, the delay is halved.
 - Use the **Right away** actuation: the delay is the shadow register's, and the pulse the code returns starts at the step
   after the sample (the run warns if not).
-- Example: `exemplo_buck_pwm_interrupcao` (10 kHz, interrupt at CTR = 0, Ts = 100 µs, PI with a 500 Hz crossover).
+- Example: `exemplo_controle_pwm` (10 kHz, interrupt at CTR = 0, Ts = 100 µs, PI with a 500 Hz crossover).
 
 ## 5. How not to go wrong (checklist)
 

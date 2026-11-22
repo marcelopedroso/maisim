@@ -41,14 +41,14 @@ print(f"fumaça: o PDF do Figuras ({nomes[0]}, {len(pdf)} bytes)", flush=True)
 src = open(RAIZ + "/simu/validacao/controle_c_api.py", encoding="utf-8").read()
 cod = src[src.index('CONTROLE_C = r"""') + len('CONTROLE_C = r"""'):]
 cod = cod[:cod.index('"""')]
-ex = json.load(open(RAIZ + "/exemplos/exemplo_controle_pwm.controle.json", encoding="utf-8"))
+ex = json.load(open(RAIZ + "/simu/validacao/dados/controle_pwm_simples.controle.json", encoding="utf-8"))   # o controle para o qual esse controle.c foi escrito (o fsw)
 api("/maisim/simu/editor/abrir", {"arq": "exemplos/exemplo_controle_pwm.ipes", "modo": "descartar"})
 api("/maisim/simu/editor/controle", {"controle": {**ex, "c": {"usar": True, "precisao": "double", "arquivos": {"controle.c": cod}}}})
 j = espera(api("/maisim/simu/editor/rodar", {"dt": "1e-06", "tfim": "0.002", "nome": "fumaca_c", "amostras": "500"}))
 assert j.get("estado") == "fim", f"o controle em C não rodou: {j.get('erro', j)}"
 print("fumaça: o controle em C rodou (o TinyCC do pacote)", flush=True)
 # o PWM dos registradores em C: o exemplo já vem em C (controle.c + pwm.c + pwm.h), com o pulso dentro da amostra
-api("/maisim/simu/editor/abrir", {"arq": "exemplos/exemplo_buck_pwm_interrupcao.ipes", "modo": "descartar"})
+api("/maisim/simu/editor/abrir", {"arq": "exemplos/exemplo_controle_pwm.ipes", "modo": "descartar"})
 c = api("/maisim/simu/editor/controle")["controle"]
 assert c.get("ativo") and (c.get("c") or {}).get("usar") and "pwm.c" in c["c"].get("arquivos", {}), f"o exemplo do PWM não veio em C: {sorted((c.get('c') or {}).get('arquivos', {}))}"
 j = espera(api("/maisim/simu/editor/rodar", {"dt": "1e-06", "tfim": "0.002", "nome": "fumaca_pwm_c", "amostras": "500"}))

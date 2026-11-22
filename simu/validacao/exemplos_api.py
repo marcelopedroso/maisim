@@ -56,10 +56,10 @@ try:
     nomes = {Path(m["arq"]).stem for m in mods if m.get("grupo") == "exemplos"}
     novos = {"exemplo_buck", "exemplo_buck_degrau", "exemplo_buck_termico", "exemplo_boost", "exemplo_buck_boost", "exemplo_retificador_trifasico", "exemplo_inversor_ponte_completa",
              "exemplo_inversor_trifasico", "exemplo_inversor_meia_ponte", "exemplo_ponte_h_cc", "exemplo_retificador_monofasico",
-             "exemplo_retificador_trifasico_controlado", "exemplo_motor_cc", "exemplo_pmsm", "exemplo_buck_pi_blocos", "exemplo_motor_cc_blocos", "exemplo_buck_pwm_interrupcao"}
+             "exemplo_retificador_trifasico_controlado", "exemplo_motor_cc", "exemplo_pmsm", "exemplo_buck_pi_blocos", "exemplo_motor_cc_blocos"}
     sub = list((RAIZ / "exemplos" / "subcircuitos").glob("*.ipes")) if (RAIZ / "exemplos" / "subcircuitos").is_dir() else []
-    ok(novos <= nomes and len(nomes) == 19 and "exemplo_cascata_hb" not in nomes and not sub and "exemplos do GeckoCIRCUITS" not in grupos,
-       f"o Abrir: os 19 exemplos (sem as células em cascata, que usam o SM-HB do MMC; nenhum subcircuito em exemplos/); sem o grupo do GeckoCIRCUITS ({sorted(grupos)})")
+    ok(novos <= nomes and len(nomes) == 18 and "exemplo_cascata_hb" not in nomes and not sub and "exemplos do GeckoCIRCUITS" not in grupos,
+       f"o Abrir: os 18 exemplos (sem as células em cascata, que usam o SM-HB do MMC; nenhum subcircuito em exemplos/); sem o grupo do GeckoCIRCUITS ({sorted(grupos)})")
     CONF = [  # arquivo, o que conferir na janela final (a média, salvo dito), alvo, tolerância
         ("buck", "v_o", 24.0, 0.04), ("buck_degrau", "i_L", 24.0 / 5, 0.04),
         # o buck térmico: Tj em regime = 25 °C + P·ΣRth, com P do modo simples do Gecko a 12 A e 48 V (condução

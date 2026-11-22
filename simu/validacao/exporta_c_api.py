@@ -42,7 +42,7 @@ CONTROLE_C = src[src.index('CONTROLE_C = r"""') + len('CONTROLE_C = r"""'):]
 CONTROLE_C = CONTROLE_C[:CONTROLE_C.index('"""')]
 STUB_TI = ("#define __interrupt\n#include <stdint.h>\nstatic struct { struct { struct { int ADCINT1; } bit; } ADCINTFLGCLR; } AdcaRegs;\n"
            "static struct { struct { int all; } PIEACK; } PieCtrlRegs;\n#define PIEACK_GROUP1 1\n")
-ex = json.loads((RAIZ / "exemplos/exemplo_controle_pwm.controle.json").read_text())
+ex = json.loads((RAIZ / "simu/validacao/dados/controle_pwm_simples.controle.json").read_text())
 cc = sinais_c.compilador()
 
 

@@ -1,4 +1,4 @@
-// instância de teste (7201): o PWM com os registradores nos parâmetros (exemplos/exemplo_buck_pwm_interrupcao) — o campo
+// instância de teste (7201): o PWM com os registradores nos parâmetros (exemplos/exemplo_controle_pwm) — o campo
 // do Ts fica só leitura com o valor tirado deles (2·TBPRD/f_clk = 100 µs) e o balão diz a conta; mudar o TBPRD na tabela
 // muda o Ts na hora; o guardado continua o Ts digitado; em inglês, o balão
 const { chromium } = require("playwright");
@@ -21,7 +21,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
     await pg.evaluate(() => mostraTabela("par")); await pg.waitForSelector("#ctl-par .ctl-par", { timeout: 15000 });
   };
   await carrega(false);
-  await pg.evaluate(async () => { await api("editor/abrir", { arq: "exemplos/exemplo_buck_pwm_interrupcao.ipes", modo: "descartar" });
+  await pg.evaluate(async () => { await api("editor/abrir", { arq: "exemplos/exemplo_controle_pwm.ipes", modo: "descartar" });
     novoEstado(await api("editor/estado")); ajusta(); sim.par.dt = "1e-6"; sim.par.tfim = "0.01"; await recarregaControle(); });
   await abrePainel();
   const ts = () => pg.evaluate(() => ({ v: document.getElementById("ctl-ts").value, ro: document.getElementById("ctl-ts").readOnly, info: document.getElementById("ctl-ts-i").title }));

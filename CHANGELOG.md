@@ -7,6 +7,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Changed
+- **The "Buck with digital control" example now has the PWM in the code with its registers, in C; the separate "Buck with PWM and interrupt" example is gone** (#285; `exemplos/exemplo_controle_pwm.*`, `app/index.html`, `app/public/textos_inicio.js`): the two had the same circuit. The first example a new installation opens (`exemplo_controle_pwm`) is now the one with the ePWM registers as parameters and Ts taken from them (`controle.c` + `pwm.c`, with the equivalent `controle.py`), instead of a carrier compared in the code every Ts = 2 µs. `exemplo_buck_pwm_interrupcao` was removed (18 examples). The board HIL harness and the tests that inject their own code keep the previous control as test data (`simu/validacao/dados/controle_pwm_simples.controle.json`).
 - **The examples on the start page say which ones come with the digital controller, and can be filtered by it** (#283; `app/index.html`, `app/public/textos_inicio.js`, `simu/servidor.py`): a "digital controller" tag marks the examples whose control code is on (the list of models now says so for the examples, read from each `<name>.controle.json`), and a filter above the grid shows All, Digital controller or Circuit and blocks only. The choice is remembered in the browser.
 
 ### Fixed
