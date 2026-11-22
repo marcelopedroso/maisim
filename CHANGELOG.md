@@ -6,6 +6,8 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-21
+
 ### Added
 - **A space vector modulation (SVM) example, in open loop** (#287; `exemplos/exemplo_inversor_svm.*`, `app/index.html`, `app/public/textos_inicio.js`): a three-phase inverter driven by code alone (a digital drive: it reads no measurement). The code computes the sector, the times T1, T2 and T0 and the three compare values, and the library's `pwm` module makes the pulses from the ePWM registers. The Scope shows the sector, the applied vector (V0 to V7) switching at the simulation step, the times, the duty cycles, the pulses, the line voltage and the currents.
 
