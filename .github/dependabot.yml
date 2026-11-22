@@ -19,3 +19,9 @@ updates:
       interval: weekly
     commit-message:
       prefix: "Page"
+  - package-ecosystem: docker                  # the ClusterFuzzLite base image (pinned by digest)
+    directory: /.clusterfuzzlite
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "CI"

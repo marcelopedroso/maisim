@@ -1,0 +1,34 @@
+# ClusterFuzzLite (free on GitHub Actions): fuzzing of the readers of files that come from other people (fuzz/*_fuzzer.py:
+# the .msd reader). On a PR that touches them, 5 minutes of fuzzing; a crash fails the check, with the input that
+# reproduces it. The weekly run (cflite_batch.yml) fuzzes longer. Recognised by the OpenSSF Scorecard (Fuzzing).
+name: fuzzing (PR)
+
+on:
+  pull_request:
+    paths: ["simu/msd.py", "simu/ipes.py", "fuzz/**", ".clusterfuzzlite/**"]
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  fuzz:
+    name: ClusterFuzzLite (5 min)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: build the fuzzers
+        uses: google/clusterfuzzlite/actions/build_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1
+        with:
+          language: python
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          sanitizer: address
+      - name: run the fuzzers
+        uses: google/clusterfuzzlite/actions/run_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          fuzz-seconds: 300
+          mode: code-change
+          sanitizer: address

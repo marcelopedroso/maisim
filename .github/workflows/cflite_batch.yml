@@ -1,0 +1,28 @@
+# ClusterFuzzLite, the weekly long run (30 minutes) of the fuzzers in fuzz/ (see cflite_pr.yml).
+name: fuzzing (weekly)
+
+on:
+  schedule:
+    - cron: "40 4 * * 0"
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  fuzz:
+    name: ClusterFuzzLite (30 min)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: build the fuzzers
+        uses: google/clusterfuzzlite/actions/build_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1
+        with:
+          language: python
+          sanitizer: address
+      - name: run the fuzzers
+        uses: google/clusterfuzzlite/actions/run_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          fuzz-seconds: 1800
+          mode: batch
+          sanitizer: address
