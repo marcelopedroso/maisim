@@ -52,7 +52,7 @@ jobs:
         run: |
           # (o que o AppRun confere no sistema: a tela virtual e as bibliotecas de janela do Java)
           sudo apt-get update -qq && sudo apt-get install -y -qq unzip xvfb libxtst6 libxrender1 libxi6 libxext6 fontconfig fonts-dejavu-core > /dev/null
-          python3 -m pip install --quiet pillow
+          python3 -m pip install --quiet --require-hashes -r .github/ci/requirements.txt   # o Pillow com os hashes
       - name: Linux AppImage
         run: bash pacote/linux/monta.sh
       - name: smoke test (the AppImage's MaiSim runs the buck and makes a PDF)
@@ -81,6 +81,8 @@ jobs:
         run: |
           # a assinatura (sigstore) do atestado de procedência ao lado dos pacotes: quem baixa confere com o cosign ou o gh
           cp "$ATESTADO" "pacote/dist/MaiSim-${TAG#v}-x86_64-windows.sigstore.json"
+          python3 -c 'import json,sys; print(json.dumps(json.load(open(sys.argv[1]))["dsseEnvelope"], separators=(",", ":")))' "$ATESTADO" \
+            > "pacote/dist/MaiSim-${TAG#v}-x86_64-windows.intoto.jsonl"   # a procedência (o envelope in-toto do atestado), no formato que o Scorecard procura
           # também com nome fixo (sem a versão): o link .../releases/latest/download/MaiSim-Setup.exe nunca muda (README, site)
           cd pacote/dist
           cp MaiSim-Setup-*.exe MaiSim-Setup.exe && sha256sum MaiSim-Setup.exe > MaiSim-Setup.exe.sha256
@@ -109,9 +111,8 @@ jobs:
       - name: browser for the screen walk (Playwright's Chromium; the same version the test suite uses)
         shell: bash
         run: |
-          mkdir -p "$RUNNER_TEMP/ns-test" && cd "$RUNNER_TEMP/ns-test"
-          npm init -y > /dev/null
-          npm install --no-audit --no-fund playwright@1.62.0 > /dev/null
+          mkdir -p "$RUNNER_TEMP/ns-test" && cp .github/ci/node/package.json .github/ci/node/package-lock.json "$RUNNER_TEMP/ns-test/"
+          cd "$RUNNER_TEMP/ns-test" && npm ci --no-audit --no-fund > /dev/null   # as versões e os hashes do package-lock.json
           npx playwright install chromium > /dev/null
           echo "NODE_PATH=$(cygpath -w "$RUNNER_TEMP/ns-test/node_modules")" >> "$GITHUB_ENV"
       - name: smoke test (installs silently; the installed MaiSim runs the buck, makes a PDF, runs the C control and every example, walks the screens in a browser and stops)
@@ -181,6 +182,8 @@ jobs:
         run: |
           # a assinatura (sigstore) do atestado de procedência ao lado dos pacotes: quem baixa confere com o cosign ou o gh
           cp "$ATESTADO" "pacote/dist/MaiSim-${TAG#v}-aarch64.sigstore.json"
+          python3 -c 'import json,sys; print(json.dumps(json.load(open(sys.argv[1]))["dsseEnvelope"], separators=(",", ":")))' "$ATESTADO" \
+            > "pacote/dist/MaiSim-${TAG#v}-aarch64.intoto.jsonl"   # a procedência (o envelope in-toto do atestado), no formato que o Scorecard procura
           # também com nome fixo (sem a versão), como o x86_64: os links .../releases/latest/download/... nunca mudam
           cd pacote/dist
           cp MaiSim-*-aarch64.AppImage MaiSim-aarch64.AppImage && sha256sum MaiSim-aarch64.AppImage > MaiSim-aarch64.AppImage.sha256
@@ -254,6 +257,8 @@ jobs:
         run: |
           # a assinatura (sigstore) do atestado de procedência ao lado dos pacotes: quem baixa confere com o cosign ou o gh
           cp "$ATESTADO" "pacote/dist/MaiSim-${TAG#v}-android.sigstore.json"
+          python3 -c 'import json,sys; print(json.dumps(json.load(open(sys.argv[1]))["dsseEnvelope"], separators=(",", ":")))' "$ATESTADO" \
+            > "pacote/dist/MaiSim-${TAG#v}-android.intoto.jsonl"   # a procedência (o envelope in-toto do atestado), no formato que o Scorecard procura
           # também com nome fixo (sem a versão): o link .../releases/latest/download/MaiSim-Android.apk nunca muda (site)
           cd pacote/dist
           cp MaiSim-Android-*.apk MaiSim-Android.apk

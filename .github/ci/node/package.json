@@ -1,0 +1,8 @@
+{
+  "name": "maisim-ci-browser",
+  "private": true,
+  "description": "Playwright for the screen tests and the Windows smoke test (npm ci: the versions and hashes of package-lock.json)",
+  "dependencies": {
+    "playwright": "1.62.0"
+  }
+}

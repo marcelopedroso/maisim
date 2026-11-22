@@ -89,6 +89,18 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
+  gradle-wrapper:
+    name: the Gradle wrapper is the official one
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: the committed gradle-wrapper.jar against the checksums published by gradle.org
+        uses: gradle/actions/wrapper-validation@48b5f213c81028ace310571dc5ec0fbbca0b2947 # v4.4.4
+
   merge:
     name: merge into main
     needs: tests
