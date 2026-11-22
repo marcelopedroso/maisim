@@ -1,0 +1,59 @@
+{
+ "colunas": 1,
+ "itens": [
+  {
+   "secao": "Inversor trifásico — SVM"
+  },
+  {
+   "titulo": "Setor (1 a 6) e vetor aplicado (V0 a V7)",
+   "sinais": [
+    "setor",
+    "vetor"
+   ],
+   "largura": 1
+  },
+  {
+   "titulo": "Tempos T1, T2 e T0 (µs)",
+   "sinais": [
+    "T1_us",
+    "T2_us",
+    "T0_us"
+   ],
+   "largura": 1
+  },
+  {
+   "titulo": "Razões cíclicas das fases",
+   "sinais": [
+    "d_a",
+    "d_b",
+    "d_c"
+   ],
+   "largura": 1
+  },
+  {
+   "titulo": "Pulsos das chaves de cima",
+   "sinais": [
+    "g_a",
+    "g_b",
+    "g_c"
+   ],
+   "largura": 1
+  },
+  {
+   "titulo": "Tensão de linha v_ab (V)",
+   "sinais": [
+    "v_ab"
+   ],
+   "largura": 1
+  },
+  {
+   "titulo": "Correntes de fase (A)",
+   "sinais": [
+    "i_a",
+    "i_b",
+    "i_c"
+   ],
+   "largura": 1
+  }
+ ]
+}
