@@ -6,9 +6,10 @@
 # creates the Release (a Release made with the Actions token does not trigger other workflows; workflow_dispatch does),
 # or by hand: Actions → packages → Run workflow, with the tag (e.g. v0.3.0-rc1).
 # The Windows installer is built on Linux; the "windows" job then installs it silently on a real Windows and runs the same
-# smoke test there (pacote/windows/fumaca.py). The Release is a draft (full-suite.yml creates it so): the "publish" job
+# smoke test there (pacote/windows/fumaca.py), and the "windows-suite" job runs the whole test suite on that installed
+# MaiSim (simu/validacao/ci.py). The Release is a draft (full-suite.yml creates it so): the "publish" job
 # makes it public only when every job here passed. If one fails, the Release stays a draft (nobody sees it, the update
-# check included) and the Windows job opens an issue.
+# check included) and the Windows jobs open an issue.
 name: packages
 
 on:
@@ -142,13 +143,15 @@ jobs:
             --body "The smoke test of the Windows installer of $TAG failed on Windows (install, start, the buck, a PDF, the C control, stop), so the Release was left as a draft: not published. Logs: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
   windows-suite:
-    name: the whole test suite on a real Windows, on the installed MaiSim (measuring; does not block the Release yet)
+    name: the whole test suite on a real Windows, on the installed MaiSim (required to publish)
     needs: build
     runs-on: windows-latest
     timeout-minutes: 180
-    continue-on-error: true
     permissions:
       contents: read
+      issues: write
+    env:
+      TAG: ${{ inputs.tag }}   # only through the environment, as in the other jobs
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -192,6 +195,15 @@ jobs:
             ${{ env.PROG }}/maisim/simu/validacao/tela/*.png
           retention-days: 14
           if-no-files-found: ignore
+      - name: open an issue with the run link
+        if: ${{ failure() && !inputs.test_only }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "Windows test suite failed for $TAG" \
+            --body "The whole test suite failed on the installed MaiSim $TAG on Windows, so the Release was left as a draft: not published. Summary, logs and screenshots: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
   arm:
     name: ARM (aarch64) AppImage and folder
@@ -331,7 +343,7 @@ jobs:
 
   publish:
     name: publish the Release (every package passed its smoke test)
-    needs: [build, windows, arm, android]
+    needs: [build, windows, windows-suite, arm, android]
     if: ${{ !inputs.test_only }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
