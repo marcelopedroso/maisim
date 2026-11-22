@@ -8,6 +8,8 @@ name: stress
 
 on:
   workflow_dispatch:
+  push:                   # TEMPORÁRIO: para rodar antes de existir no main (sai antes do PR)
+    branches: [memoria-java]
   schedule:
     - cron: "0 8 * * 6"   # Saturdays, 05:00 in Brasília
 
