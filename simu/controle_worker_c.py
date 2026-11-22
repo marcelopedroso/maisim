@@ -34,6 +34,12 @@ DIR_C = sinais_c.DIR_C
 saida = os.fdopen(os.dup(1), "w", buffering=1)
 os.dup2(2, 1)
 sys.stdout = sys.stderr
+# no Windows a DLL do controle (TinyCC) escreve pela msvcrt.dll, que tem a sua própria tabela de descritores: o dup2 acima
+# (o do Python, na ucrt) não chega lá, e o printf do controle.c se perdia. A msvcrt abre o stdout dela no STD_OUTPUT_HANDLE
+# do processo quando carrega (logo abaixo, a primeira vez): apontado para o log antes, o printf vai para o controle.log
+if os.name == "nt":
+    import msvcrt as _msvcrt_py
+    ctypes.windll.kernel32.SetStdHandle(-11, _msvcrt_py.get_osfhandle(2))   # STD_OUTPUT_HANDLE → o log
 cfg = {"nome": "controle", "arquivo": "controle.c", "atuacoes": None, "nomes": [], "prefixar": False, "varios": False}
 lib = estado = p_arr = None
 nomes = {"m": [], "p": [], "u": []}

@@ -69,8 +69,9 @@ try:
     ok(all(x.get("ERRO") == 409 and "sk-" in x.get("erro", "") for x in rs) and not ARQ.exists(), f"chave mal formada: recusada sem guardar ({rs[0].get('erro')})")
     r = api("claude/ia/codigo", {"ia": "deepseek", "codigo": f"\n {CHAVE} \n"})
     modo = stat.S_IMODE(os.stat(ARQ).st_mode) if ARQ.exists() else 0
-    ok(r.get("logado") and r.get("chave") == "sk-••••••••••9f3a" and CHAVE not in json.dumps(r) and modo == 0o600
-       and stat.S_IMODE(os.stat(ARQ.parent).st_mode) == 0o700 and ARQ.read_text().strip() == CHAVE,
+    ok(r.get("logado") and r.get("chave") == "sk-••••••••••9f3a" and CHAVE not in json.dumps(r)
+       and (os.name == "nt" or (modo == 0o600 and stat.S_IMODE(os.stat(ARQ.parent).st_mode) == 0o700))   # (no Windows não há modo Unix: vale a pasta do usuário)
+       and ARQ.read_text().strip() == CHAVE,
        f"chave salva: {r.get('chave')}, arquivo {oct(modo)} na pasta 0700 (sem rede: não conferida)")
     vistos = json.dumps([api("claude/ias"), api("claude/estado"), api("claude/ia/uso?ia=deepseek"), api("claude/pedido")], ensure_ascii=False)
     u = api("claude/ia/uso?ia=deepseek")

@@ -26,6 +26,8 @@ SO_LINUX = {
     "lancador_app_offline": "confere como o lançador abre o navegador no Linux (no Windows, o teste do instalador sobe o lançador de verdade)",
     "tcc_offline": "monta o TinyCC do Linux (pacote/tcc.sh); o do Windows vai no instalador e o teste do instalador o usa",
     "config_offline": "confere as pastas do perfil produto do Linux (~/MaiSim, ~/.cache/maisim); as do Windows o teste do instalador confere",
+    "atualizacao_git_api": "clona o repositório para testar o Atualizar da versão de desenvolvimento (a pasta instalada não é um clone git)",
+    "religa_gecko_api": "derruba o Gecko e o motor com SIGKILL, um sinal do Linux, para conferir a vigia do lançador",
 }
 
 

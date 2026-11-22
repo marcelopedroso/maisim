@@ -84,14 +84,14 @@ for va, vb, vc in pll_v:
     py += [mods["pll"].passo(e, va, vb, vc), e["vd"], e["vq"], e["w"]]
 pll_fim = dict(e)
 
-# 4. o C: o mesmo, num programa que imprime cada número em hexadecimal (%a: exato)
+# 4. o C: o mesmo, num programa que imprime cada número em hexadecimal (%.13a: exato)
 H = float.hex
 arr = lambda nome, xs: f"static const double {nome}[{len(xs)}] = {{{', '.join(H(float(x)) for x in xs)}}};"
 prog = "\n".join([
     "#include <stdio.h>", *[f'#include "{m}.h"' for m in MODULOS],
     arr("erros_pi", erros_pi), arr("pwm_t", pwm_t), arr("pwm_d", pwm_d), arr("pb_x", pb_x), arr("rampa_ref", rampa_ref),
     arr("pll_a", [v[0] for v in pll_v]), arr("pll_b", [v[1] for v in pll_v]), arr("pll_c", [v[2] for v in pll_v]),
-    "#define P(x) printf(\"%a\\n\", (double)(x))",
+    "#define P(x) printf(\"%.13a\\n\", (double)(x))",   # %.13a: exato também na msvcrt do Windows, cujo %a para em 6 dígitos
     "void maisim_padrao(int u, int o, maisim_real v) { (void)u; (void)o; (void)v; }   /* o pwm_pulsos (no SIL, o calço do MaiSim) */",
     "int main(void) {", "  int k, tipo;",
     f"  {{ PiEstado e; pi_iniciar(&e, {H(0.8)}, {H(120.0)}, {H(TS)}, -1.0, 1.0, 0.0); for (k = 0; k < {N}; k++) P(pi_passo(&e, erros_pi[k])); }}",

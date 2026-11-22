@@ -56,14 +56,8 @@ def pede(texto, ia="cursor", **extra):
 def cur():
     return next((a for a in api("claude/ias") if a["id"] == "cursor"), {})
 def vivos():
-    out = []
-    for d in Path("/proc").iterdir():
-        try:
-            if d.name.isdigit() and any(x.endswith(b"cursor_falso.py") for x in (d / "cmdline").read_bytes().split(b"\0")):
-                out.append(d.name)
-        except OSError:
-            pass
-    return out
+    from _servidor import processos_com
+    return processos_com("cursor_falso.py")
 def ate(cond, seg=20):
     fim = time.time() + seg
     while time.time() < fim:
