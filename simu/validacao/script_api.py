@@ -234,7 +234,7 @@ try:
     ok(c == 200 and j.get("nome") == "teste_mv_b/sub/s1", f"move um script para outra pasta ({j})")
     c, L = pede(SIMU + "scripts/ler?nome=teste_mv_b/sub/s1")
     ok(c == 200 and "maisim.scope" in L.get("codigo", ""), "o script está no lugar novo, com o código")
-    c, L = pede(SIMU + "scope/padrao?modelo=" + urllib.request.quote(meta_mod.replace("teste_mv_a/s1.py", "teste_mv_b/sub/s1.py")))
+    c, L = pede(SIMU + "scope/padrao?modelo=" + urllib.request.quote(meta_mod.replace("\\", "/").replace("teste_mv_a/s1.py", "teste_mv_b/sub/s1.py")))
     ok([x.get("sinais") for x in (L.get("layout") or {}).get("itens", [])] == [["a"]], "o layout do Scope foi junto")
     pede(SIMU + "scripts/salvar", {"nome": "teste_mv_a/s1", "codigo": "x\n"})
     c, j = pede(SIMU + "scripts/mover", {"nome": "teste_mv_a/s1", "destino": "teste_mv_b/sub"})
