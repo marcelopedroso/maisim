@@ -6,6 +6,8 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-22
+
 ### Added
 - **A workflow that proves we own the Android signing key** (#315; `.github/workflows/prova-chave-android.yml`): to register the package `app.maisim` in Google's Android Developer Console (developer verification, required in Brazil since 30/09/2026 for apps on certified devices), the console asks for an APK signed with the app's key containing a file it provides. This manual workflow builds the app with that file (from a repository secret) in its assets, signs it with the official key, checks the fingerprint and keeps the APK as an artifact for one day. The key never leaves the secrets.
 - **A weekly stress test of memory and speed, before and after each cut** (#316; `simu/validacao/estresse_api.py`, `simu/validacao/_memoria.py`, `.github/workflows/estresse.yml`): the whole class (every example in a row, watching memory grow), a leak check (the same circuit 30 times), a giant run (the PMSM with 10× its final time and 200 001 samples) and the Scope serving that giant recording, side by side with the Java processes as they were (no ceiling) and as configured now. It fails if a run does not finish, a Java process runs out of memory, or memory grows more than 200 MB over 25 runs of the same circuit.
