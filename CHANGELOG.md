@@ -7,7 +7,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Changed
-- **Vite 8 for the optional developer page server** (#PR; `app/package.json`, `app/package-lock.json`): the update Dependabot proposed in #293 (6.4.5 → 8.3.8). Vite only serves the page in the developer setup with `MAISIM_PAGINA=vite` (the packages and the default setup use `app/pagina.py`). Checked with Vite 8: the page and the menu, the proxy to the simulator, `Connection: close` on every response, the Gecko screen password refused without the page's header, a foreign `Host` refused (now by Vite's own check, 403, before ours), and the Gecko screen websocket opened by the page and dropped for another site or no origin.
+- **Vite 8 for the optional developer page server** (#313; `app/package.json`, `app/package-lock.json`): the update Dependabot proposed in #293 (6.4.5 → 8.3.8). Vite only serves the page in the developer setup with `MAISIM_PAGINA=vite` (the packages and the default setup use `app/pagina.py`). Checked with Vite 8: the page and the menu, the proxy to the simulator, `Connection: close` on every response, the Gecko screen password refused without the page's header, a foreign `Host` refused (now by Vite's own check, 403, before ours), and the Gecko screen websocket opened by the page and dropped for another site or no origin.
 
 ## [0.6.2] - 2026-11-22
 
