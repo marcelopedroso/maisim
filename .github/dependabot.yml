@@ -11,6 +11,12 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+    ignore:
+      # the provenance action stays on v2: v4 failed 2 of 6 attestations on 22/11/2026 ("error fetching tlog entry - (404)"
+      # from the Sigstore transparency log; it passed on a rerun), and a failed attestation leaves a Release unpublished.
+      # Remove this once v4 has been tried again in a "test only" packages run without failures.
+      - dependency-name: "actions/attest-build-provenance"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "CI"
   - package-ecosystem: npm
