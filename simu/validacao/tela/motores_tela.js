@@ -5,6 +5,7 @@
 // automático acompanha, n_MDC1 → omega_MDC1); um VIEWMOT novo ganha a máquina e o nome sozinho; o PMSM com "~" e as fases.
 // Os exemplos voltam como estavam (abrir de novo descarta).
 const { chromium } = require("playwright");
+const { entraNaEdicao } = require("./_edicao");
 const fs = require("fs"), path = require("path");
 const RAIZ = path.resolve(__dirname, "../../..");
 const conf = (k, p) => { try { const m = fs.readFileSync(path.join(RAIZ, "config/teste.env"), "utf8").match(new RegExp(`^${k}=(\\S+)`, "m")); return m ? m[1] : p; } catch (e) { return p; } };
@@ -17,9 +18,9 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   const abre = async (arq, nome) => {
     await pg.goto(`${B}?modelo=${encodeURIComponent(arq)}`);
     await pg.waitForFunction((n) => typeof dados !== "undefined" && dados && dados.folhas && dados.folhas["0"].elementos.some((e) => e.nome === n), nome, { timeout: 60000 });
-    if (!(await pg.evaluate(() => ed.ligado))) { await pg.click("#bt-editar"); await pg.waitForTimeout(500); }
-    while (await pg.$(".modal-fundo")) { await pg.click(".modal .m-ok"); await pg.waitForTimeout(800); }
-    await pg.waitForFunction(() => dados && dados.editor, null, { timeout: 30000 });
+    // a edição com este circuito no servidor: o de antes ficou com mudanças (o VIEWMOT novo) e a pergunta (descartar) vem
+    // da resposta do abrir, que no Windows passa dos 500 ms em que o teste a procurava
+    await entraNaEdicao(pg);
   };
   const sel = async (n) => { await pg.evaluate((n) => seleciona(dados.folhas["0"].elementos.find((x) => x.nome === n)), n); await pg.waitForTimeout(300); };
   const elem = (n) => pg.evaluate((n) => { const e = dados.folhas["0"].elementos.find((x) => x.nome === n); return e && { mede: e.mede, grandeza: e.grandeza, saidas: e.saidas }; }, n);

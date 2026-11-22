@@ -4,6 +4,7 @@
 // "polos, zeros e ganho" troca os campos e grava os polinômios da conta; um denominador nulo é recusado com a mensagem e nada
 // muda; em inglês, os mesmos campos. O circuito do teste sai no fim.
 const { chromium } = require("playwright");
+const { entraNaEdicao, caminho } = require("./_edicao");
 const fs = require("fs"), path = require("path"), http = require("http");
 const RAIZ = path.resolve(__dirname, "../../..");
 const conf = (k, p) => { try { const m = fs.readFileSync(path.join(RAIZ, "config/teste.env"), "utf8").match(new RegExp(`^${k}=(\\S+)`, "m")); return m ? m[1] : p; } catch (e) { return p; } };
@@ -18,7 +19,7 @@ const api = (rota, corpo) => new Promise((res) => {
   q.on("error", (e) => res({ erro: e.message })); if (d) q.write(d); q.end(); });
 const perto = (a, b) => a && a.length === b.length && a.every((x, i) => Math.abs(x - b[i]) <= 1e-9 * Math.max(Math.abs(x), Math.abs(b[i]), 1e-300));
 (async () => {
-  const ARQ = path.join(CIRC, "tf_tela_t.ipes");
+  const ARQ = caminho(path.join(CIRC, "tf_tela_t.ipes"));   // com "/", como o servidor o lista (o ?modelo= compara o texto)
   await api("editor/novo", { modo: "descartar" });
   for (const a of [["CONST.1", 4, 6, "CONST"], ["TF.1", 12, 6, "TF"]]) await api("editor/cmd", { op: "CREATE", args: a });
   await api("editor/cmd", { op: "OUTNODE", args: ["CONST.1", 0, "u"] }); await api("editor/cmd", { op: "INNODE", args: ["TF.1", 0, "u"] });
@@ -33,8 +34,7 @@ const perto = (a, b) => a && a.length === b.length && a.every((x, i) => Math.abs
   try {
     await pg.goto(`${B}?modelo=${encodeURIComponent(ARQ)}`);
     await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas && dados.folhas["0"].elementos.some((e) => e.nome === "TF.1"), null, { timeout: 60000 });
-    if (!(await pg.evaluate(() => ed.ligado))) { await pg.click("#bt-editar"); await pg.waitForTimeout(500); }
-    while (await pg.$(".modal-fundo")) { await pg.click(".modal .m-ok"); await pg.waitForTimeout(800); }
+    await entraNaEdicao(pg);
     ok(await rot() === "1/(1+0.001s)", `embaixo do bloco: “${await rot()}” (a TF nova da paleta, 1/(1 + 1e-3 s))`);
     await sel();
     const campos = await pg.evaluate(() => ({ num: document.querySelector("#tf-num").value, den: document.querySelector("#tf-den").value,

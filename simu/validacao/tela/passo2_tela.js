@@ -1,5 +1,6 @@
 // instância de teste (7201): abrir o exemplo pelo Abrir, painel com atraso e acionamentos, trava durante a rodada
 const { chromium } = require("playwright");
+const { entraNaEdicao } = require("./_edicao");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
 (async () => {
@@ -11,8 +12,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   // abrir o exemplo pelo Abrir (com busca)
   await pg.click("#bt-modelo"); await pg.waitForSelector(".lista-abrir .op"); await pg.fill(".busca-abrir", "exemplo_controle_pi"); await pg.keyboard.press("Enter");
   await pg.waitForFunction(() => /exemplo_controle_pi/.test($("bt-modelo").textContent) && document.querySelectorAll("#svg .el").length >= 6, null, { timeout: 90000 });
-  await pg.click("#bt-editar"); await pg.waitForTimeout(500); if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok");
-  await pg.waitForFunction(() => dados && dados.editor, null, { timeout: 30000 });
+  await entraNaEdicao(pg);   // o cadeado; a pergunta das mudanças não salvas (descartar) quando ela vier
   await pg.evaluate(() => { sim.par.dt = "1e-6"; sim.par.tfim = "0.04"; sim.par.nome = "exemplo_tela"; sim.par.amostras = "4000"; });
   await pg.click("#bt-ctl"); await pg.waitForFunction(() => ctl.carregado && ctl.editor, null, { timeout: 30000 }); await pg.waitForTimeout(400);
   const p = await pg.evaluate(() => ({ ativo: $("ctl-roda").value !== "off", atraso: $("ctl-atraso").value, info: (($("ctl-atraso-i").getAttribute("title") || $("ctl-atraso-i").dataset.dica || "") + "\n" + $("ctl-atraso-info").innerText),

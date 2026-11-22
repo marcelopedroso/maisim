@@ -1,4 +1,5 @@
 const { chromium } = require("playwright");
+const { entraNaEdicao } = require("./_edicao");
 const fs = require("fs"), os = require("os");
 let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
@@ -11,8 +12,7 @@ const rodadas = () => fs.readdirSync(os.homedir() + "/.cache/maisim_teste/rodada
   await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
   await pg.click("#bt-modelo"); await pg.waitForSelector(".lista-abrir .op"); await pg.fill(".busca-abrir", "exemplo_controle_pi"); await pg.keyboard.press("Enter");
   await pg.waitForFunction(() => /exemplo_controle_pi/.test($("bt-modelo").textContent) && document.querySelectorAll("#svg .el").length >= 6, null, { timeout: 90000 });
-  await pg.click("#bt-editar"); await pg.waitForTimeout(500); if (await pg.$(".modal-fundo")) await pg.click(".modal .m-ok");
-  await pg.waitForFunction(() => dados && dados.editor, null, { timeout: 60000 });
+  await entraNaEdicao(pg);   // o cadeado; a pergunta das mudanças não salvas (descartar) quando ela vier
   await pg.evaluate(() => { sim.par.dt = "1e-6"; sim.par.tfim = "0.01"; sim.par.nome = "revisao_tela"; sim.par.amostras = "1000"; });
   await pg.click("#bt-ctl"); await pg.waitForFunction(() => ctl.carregado && ctl.editor, null, { timeout: 30000 }); await pg.waitForTimeout(400);
   // (b) texto inválido no tempo de um acionamento: marcado, não grava, ▶ não roda com a configuração velha
