@@ -99,7 +99,7 @@ jobs:
         with:
           persist-credentials: false
       - name: the committed gradle-wrapper.jar against the checksums published by gradle.org
-        uses: gradle/actions/wrapper-validation@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.4
+        uses: gradle/actions/wrapper-validation@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
   merge:
     name: merge into main
