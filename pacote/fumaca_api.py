@@ -1,6 +1,6 @@
 """O que o teste de fumaça pede ao MaiSim de um pacote já no ar, igual no Linux (pacote/linux/fumaca.sh) e no Windows
 (pacote/windows/fumaca.py): abre o exemplo do buck e roda; gera um PDF no Figuras com a rodada; roda o controle em C (o
-TinyCC do pacote: a máquina pode não ter compilador). Só a biblioteca padrão. Sai com erro (e a mensagem do MaiSim) se
+TinyCC do pacote: a máquina pode não ter compilador); abre e roda todos os exemplos. Só a biblioteca padrão. Sai com erro (e a mensagem do MaiSim) se
 algo falhar.
 uso: python3 pacote/fumaca_api.py <porta da página> <raiz do repositório>   (o controle.c e o exemplo vêm do repositório)"""
 import json, sys, time, urllib.error, urllib.parse, urllib.request
@@ -54,4 +54,17 @@ assert c.get("ativo") and (c.get("c") or {}).get("usar") and "pwm.c" in c["c"].g
 j = espera(api("/maisim/simu/editor/rodar", {"dt": "1e-06", "tfim": "0.002", "nome": "fumaca_pwm_c", "amostras": "500"}))
 assert j.get("estado") == "fim", f"o PWM dos registradores em C não rodou: {j.get('erro', j)}"
 print("fumaça: o PWM dos registradores em C rodou (controle.c + pwm.c)", flush=True)
+# todos os exemplos abrem e rodam (cada um com o Δt do arquivo e até 50 ms; os com controlador digital, com o código deles)
+mods = [m for m in api("/maisim/simu/modelos") if (m.get("id_grupo") or m.get("grupo")) == "exemplos"]
+assert len(mods) >= 19, f"faltam exemplos na lista: {len(mods)}"
+t_ex = time.time()
+for m in sorted(mods, key=lambda x: x["arq"]):
+    r = api("/maisim/simu/editor/abrir", {"arq": m["arq"], "modo": "descartar"})
+    sm = r.get("simulacao") or {}
+    dt, tfim = float(sm.get("dt") or 1e-6), min(float(sm.get("tfim") or 0.02), 0.05)
+    t0 = time.time()
+    j = espera(api("/maisim/simu/editor/rodar", {"dt": repr(dt), "tfim": repr(tfim), "nome": "fumaca_exemplo", "amostras": "500", "por_cima": "1"}))
+    assert j.get("estado") == "fim", f"{m['arq']} não rodou: {j.get('erro', j)}"
+    print(f"fumaça: {m['arq'].split('/')[-1]:44s} {tfim * 1e3:5.1f} ms em {time.time() - t0:5.1f} s{' (controlador digital)' if m.get('controlador') else ''}", flush=True)
+print(f"fumaça: os {len(mods)} exemplos abriram e rodaram ({time.time() - t_ex:.0f} s)", flush=True)
 api("/maisim/simu/editor/novo", {"modo": "descartar"})     # o controle mudado não fica sem salvar (o --parar recusaria desligar o Gecko)
