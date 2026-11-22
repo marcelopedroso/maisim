@@ -12,7 +12,10 @@ fs.mkdirSync(CONF, { recursive: true }); fs.writeFileSync(path.join(CONF, "falso
 const REPO = path.resolve(__dirname, "../dados");   // o exemplo original, congelado (o do repositório é do Marcelo e muda); vai para a pasta de teste
 for (const f of ["exemplo_controle_pwm.ipes", "exemplo_controle_pwm.controle.json"]) fs.copyFileSync(path.join(REPO, f), path.join(ENV.MAISIM_SALVOS, f));
 const limpa = () => { logado(false); fs.rmSync(path.join(CONF, "falso_cenario"), { force: true }); };
-const URL = "http://localhost:7201/maisim/simu/?modelo=" + encodeURIComponent(path.join(ENV.MAISIM_SALVOS, "exemplo_controle_pwm.ipes"));
+// o caminho com "/", como o servidor lista os circuitos: com o "\\" do Windows o ?modelo= não batia e a página abria o
+// exemplo_controle_pwm do repositório (outro Kp) em vez da cópia congelada
+const PWM = path.join(ENV.MAISIM_SALVOS, "exemplo_controle_pwm.ipes").split(path.sep).join("/");
+const URL = "http://localhost:7201/maisim/simu/?modelo=" + encodeURIComponent(PWM);
 const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: "POST", headers: { "Content-Type": "application/json", "X-MaiSim": "1" }, body: JSON.stringify(c) } : {}).then((x) => x.json()), [rota, corpo]);
 (async () => {
  let b;
@@ -21,7 +24,7 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
   const erros = []; pg.on("pageerror", (e) => erros.push(e.message)); pg.on("dialog", (d) => { erros.push("diálogo: " + d.message()); d.dismiss(); });
   await pg.goto(URL);
   await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
-  await api(pg, "editor/abrir", { arq: path.join(ENV.MAISIM_SALVOS, "exemplo_controle_pwm.ipes"), modo: "descartar" });
+  await api(pg, "editor/abrir", { arq: PWM, modo: "descartar" });
   await api(pg, "claude/nova", {});
   await pg.reload(); await pg.waitForFunction(() => typeof dados !== "undefined" && dados && dados.folhas, null, { timeout: 30000 });
   await pg.click("#bt-editar"); await pg.waitForTimeout(600); while (await pg.$(".modal-fundo")) { await pg.click(".modal .m-extra, .modal .m-ok"); await pg.waitForTimeout(800); }
@@ -182,7 +185,7 @@ const api = (pg, rota, corpo) => pg.evaluate(([r, c]) => fetch(r, c ? { method: 
   const semIA = await pg.evaluate(() => ["cc-texto", "cc-enviar", "cc-modelo", "cc-ia"].map((id) => getComputedStyle($(id)).display === "none"));
   ok(semIA.every(Boolean), `nenhuma IA logada: sem a caixa de mensagem, o Enviar e os seletores — só o "Entrar" (escondidos: ${semIA})`);
   ok(!erros.length, `sem erros de JS nem diálogos ${erros.join(" ; ")}`);
-  await api(pg, "claude/nova", {}); await api(pg, "editor/abrir", { arq: path.join(ENV.MAISIM_SALVOS, "exemplo_controle_pwm.ipes"), modo: "descartar" });
+  await api(pg, "claude/nova", {}); await api(pg, "editor/abrir", { arq: PWM, modo: "descartar" });
  } catch (e) { ok(false, `o teste caiu: ${e.message}`); }
  finally { limpa(); if (b) await b.close(); }
  process.exit(falhas ? 1 : 0);
