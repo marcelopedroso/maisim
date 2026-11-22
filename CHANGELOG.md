@@ -7,7 +7,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Added
-- **OpenSSF Best Practices badge (passing)** (#PR; `README.md`, `README.pt-BR.md`): MaiSim meets all the criteria of the OpenSSF Best Practices "passing" level (project 17002 at bestpractices.dev: public repository and issues, CHANGELOG and semantic versions, automated tests on every PR and on Windows, CodeQL, fuzzing, a security policy with private reporting, signed downloads). The badge sits next to the Scorecard one, which also counts it.
+- **OpenSSF Best Practices badge (passing)** (#307; `README.md`, `README.pt-BR.md`): MaiSim meets all the criteria of the OpenSSF Best Practices "passing" level (project 17002 at bestpractices.dev: public repository and issues, CHANGELOG and semantic versions, automated tests on every PR and on Windows, CodeQL, fuzzing, a security policy with private reporting, signed downloads). The badge sits next to the Scorecard one, which also counts it.
 - **Fuzzing of the `.msd` reader** (#302; `fuzz/msd_fuzzer.py`, `.clusterfuzzlite/`, `.github/workflows/cflite_*.yml`): the file that carries a circuit, its subcircuits and runs between machines can come from anyone, and its reader must refuse anything malformed with a clear message. ClusterFuzzLite (free on GitHub Actions) now feeds it generated zips and raw bytes: 5 minutes on every PR that touches the readers, 30 minutes weekly. Any exception other than the expected refusal fails the check. A first local run of 5 minutes (1.2 million inputs) found nothing. Recognised by the OpenSSF Scorecard.
 
 ### Changed
