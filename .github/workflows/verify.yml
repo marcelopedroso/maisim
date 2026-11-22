@@ -134,6 +134,9 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           TESTED: ${{ github.event.pull_request.head.sha }}
         run: |
+          # the PR may have been closed while this job waited for the Codex review (22/11/2026: #315 was closed by hand and
+          # merged 35 s later by this job): a closed PR is never approved or merged
+          [ "$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json state -q .state)" = OPEN ] || { echo "PR #$PR is no longer open: not merging"; exit 0; }
           # only the commit that was tested: one pushed in between is not approved (and the merge below refuses it too)
           gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/reviews" -f event=APPROVE -f commit_id="$TESTED" \
             -f body="Verified by Actions: tests passed, the Codex review is done and no conversation is open." > /dev/null
@@ -143,6 +146,7 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           TESTED: ${{ github.event.pull_request.head.sha }}
         run: |
+          [ "$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json state -q .state)" = OPEN ] || { echo "PR #$PR is no longer open: not merging"; exit 0; }
           gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --squash --delete-branch --match-head-commit "$TESTED"
           # issues the PR closes ("Closes #N"): GitHub does not close them when the merge is made with the Actions token
           # (only this repository's: "Fixes other/repo#N" must not close our #N)

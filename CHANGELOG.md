@@ -13,6 +13,9 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 - **Vite 8 for the optional developer page server** (#313; `app/package.json`, `app/package-lock.json`): the update Dependabot proposed in #293 (6.4.5 → 8.3.8). Vite only serves the page in the developer setup with `MAISIM_PAGINA=vite` (the packages and the default setup use `app/pagina.py`). Checked with Vite 8: the page and the menu, the proxy to the simulator, `Connection: close` on every response, the Gecko screen password refused without the page's header, a foreign `Host` refused (now by Vite's own check, 403, before ours), and the Gecko screen websocket opened by the page and dropped for another site or no origin.
 - **CI: cosign-installer v4.1.3 and the Gradle wrapper check v6.4.1** (#314; `.github/workflows/assina-versoes.yml`, `.github/workflows/pacotes.yml`, `.github/workflows/verify.yml`): the updates Dependabot proposed in #312, with the right version comments (its own read "v3.10.1" and "v6.4.1.6.4.1.6.4.1"). The signing workflow was run with cosign-installer v4 on v0.4.0: the new signatures are standard Sigstore bundles, like the previous ones.
 
+### Fixed
+- **CI: a pull request closed while waiting for the review was still merged** (#PR; `.github/workflows/verify.yml`): the merge job waits up to 15 minutes for the Codex review and then approved and merged without checking the PR was still open; #315 was closed by hand and merged 35 s later. It now checks right before approving and before merging.
+
 ## [0.6.2] - 2026-11-22
 
 ### Added
