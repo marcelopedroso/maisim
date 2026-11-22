@@ -183,7 +183,7 @@ class Cursor(ComChave, IA):
             if v is None:
                 raise ValueError(lingua.tr("ia_cursor.sem_versao", pasta=str(Path(self.bin).parent / "versions")))
             return [str(v / "node.exe"), str(v / "index.js")]
-        return [self.bin]
+        return self.argv0()
 
     def comando_instala(self):
         """O instalador oficial do Cursor CLI (o botão Instalar da janela das contas): no Windows, o do PowerShell (sem

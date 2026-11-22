@@ -48,6 +48,7 @@ def main():
         shutil.copy(f, circ / f.name)
     amb = {k: x for k, x in os.environ.items() if not k.startswith("MAISIM_")}
     amb.update(cfg)
+    amb["PYTHONUTF8"] = "1"                       # como o lançador sobe os servidores (no Windows o padrão seria a página de código local)
     log = open(dados / "simu.log", "ab")
     subprocess.Popen([sys.executable, str(RAIZ / "simu" / "servidor.py")], cwd=RAIZ, env=amb, stdin=subprocess.DEVNULL,
                      stdout=log, stderr=subprocess.STDOUT,

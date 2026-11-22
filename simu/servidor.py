@@ -4779,7 +4779,7 @@ def claude_login_inicia():
             # navegador é o da própria pessoa, neste computador: o claude o abre sozinho e o retorno em localhost chega (um
             # .sh nem rodaria lá) — a tela fica com o link manual
             nav = {} if processos.WIN else dict(BROWSER=str(AQUI / "claude_navegador.sh"), MAISIM_CLAUDE_URL_ARQ=str(CLAUDE_URL_AUTO))
-            proc = subprocess.Popen([CLAUDE.bin, "auth", "login", "--claudeai"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            proc = subprocess.Popen([*CLAUDE.argv0(), "auth", "login", "--claudeai"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                     stderr=subprocess.STDOUT, cwd=str(CLAUDE_DIR), **processos.GRUPO, env=ambiente_claude(**nav))
             claude_login.clear()
             claude_login.update(proc=proc, andamento=True, desde=time.time(), url_auto=None, url_manual=None, erro=None, mensagem=None)
@@ -4834,7 +4834,7 @@ def claude_login_cancela(proc=None, motivo=None):
 def claude_sai():
     claude_login_cancela()
     try:
-        r = subprocess.run([CLAUDE.bin, "auth", "logout"], env=ambiente_claude(), capture_output=True, text=True, timeout=30,
+        r = subprocess.run([*CLAUDE.argv0(), "auth", "logout"], env=ambiente_claude(), capture_output=True, text=True, timeout=30,
                            stdin=subprocess.DEVNULL)
     except (subprocess.SubprocessError, OSError) as e:
         raise ErroMotor(f"claude auth logout: {e}")

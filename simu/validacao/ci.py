@@ -58,7 +58,7 @@ def prepara(cfg):
 def sobe(maisim, cfg, log):
     """O lançador da pasta maisim com o perfil de teste; espera ele dizer que está no ar."""
     amb = {k: x for k, x in os.environ.items() if not k.startswith("MAISIM_")}
-    amb.update(MAISIM_PERFIL="teste", MAISIM_NAVEGADOR="nenhum", PYTHONUNBUFFERED="1")
+    amb.update(MAISIM_PERFIL="teste", MAISIM_NAVEGADOR="nenhum", PYTHONUNBUFFERED="1", PYTHONUTF8="1")
     cmd = [sys.executable, str(Path(maisim) / "app" / "lancador.py")]
     f = open(log, "wb")
     proc = subprocess.Popen(cmd, cwd=maisim, stdin=subprocess.DEVNULL, stdout=f, stderr=subprocess.STDOUT, env=amb,
@@ -106,6 +106,7 @@ def roda(t, pasta_log, resumo, so_na_maquina):
         boot = f"import runpy, sys; sys.path.insert(0, {str(V)!r}); sys.argv[0] = {t + '.py'!r}; runpy.run_path({t + '.py'!r}, run_name='__main__')"
         cmd, cwd, prazo = [sys.executable, "-X", "utf8", "-c", boot], V, 900
     amb.setdefault("PYTHONIOENCODING", "utf-8")
+    amb["PYTHONUTF8"] = "1"                                # os Python que os testes sobem em UTF-8, como o lançador faz com os do MaiSim
     amb["MAISIM_PYTHON"] = sys.executable                  # o Python que os testes de tela usam para ler o ambiente do servidor (tela/_servidor.js)
     with open(log, "wb") as f:
         try:
