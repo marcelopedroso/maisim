@@ -263,7 +263,8 @@ RODADA_MODOS = ("substitui", "nova")   # a rodada nova substitui a anterior de m
 # script, o `maisim` e a raiz dos scripts, e roda o arquivo como __main__. O PYTHONPATH sozinho não basta: o Python
 # embutido do MaiSim instalado no Windows (o ._pth) ignora o PYTHONPATH e não põe a pasta do script no caminho, e o
 # `import maisim` falhava lá. O erro sai como o de um "python script.py" (sem os quadros deste começo).
-INICIO = """import os, runpy, sys, traceback
+INICIO = """# i18n-ok: código Python que o script roda, não texto da tela
+import os, runpy, sys, traceback
 sys.path[:0] = [c for c in os.environ["MAISIM_SCRIPT_CAMINHOS"].split(os.pathsep) if c and c not in sys.path]
 sys.argv = [os.environ["MAISIM_SCRIPT_ARQ"]]
 try:
