@@ -15,7 +15,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   try {
     fs.mkdirSync(PASTA, { recursive: true });
     const grava = (x, k) => { const arq = path.join(PASTA, `scope_soma_${x}.npz`);
-      execFileSync("python3", ["-c", `import numpy as np, json
+      execFileSync(process.env.MAISIM_PYTHON || "python3", ["-c", `import numpy as np, json
 t = np.arange(0, 0.04, 1e-4); w = 2 * np.pi * 50; z = ${10 + 5 * k} * np.cos(3 * w * t)
 meta = {"planta": "gecko-maisim", "rotulo": "soma_${x}", "dt": 1e-4, "Ts": 1e-4, "n_fino": 1, "dt_gecko": 1e-6, "tfim": 0.04, "sinais": [], "acionamentos": []}
 np.savez(${JSON.stringify(arq)}, meta=np.array(json.dumps(meta)), t=t, Va=1 + 180*np.cos(w*t) + z, Vb=2 + 180*np.cos(w*t-2*np.pi/3) + z, Vc=3 + 180*np.cos(w*t+2*np.pi/3) + z)`]);
@@ -116,7 +116,7 @@ np.savez(${JSON.stringify(arq)}, meta=np.array(json.dumps(meta)), t=t, Va=1 + 18
     ok(!semMed && (await curva()) !== null, "fechar o Medir tira a curva Σ; abrir põe de volta");
     // três fases equilibradas: o Σ da tabela é 0 limpo (antes, 2,4e-15 | 3,7e-12 ∠ −166,7° | THD 1,56 %)
     const req = path.join(PASTA, "scope_soma_eq.npz");
-    execFileSync("python3", ["-c", `import numpy as np, json
+    execFileSync(process.env.MAISIM_PYTHON || "python3", ["-c", `import numpy as np, json
 t = np.arange(0, 0.04, 1.4e-4); w = 2 * np.pi * 50
 meta = {"planta": "gecko-maisim", "rotulo": "soma_eq", "dt": 1.4e-4, "Ts": 1.4e-4, "n_fino": 1, "dt_gecko": 1e-6, "tfim": 0.04, "sinais": [], "acionamentos": []}
 np.savez(${JSON.stringify(req)}, meta=np.array(json.dumps(meta)), t=t, Va=180*np.cos(w*t + 0.23), Vb=180*np.cos(w*t + 0.23 - 2*np.pi/3), Vc=180*np.cos(w*t + 0.23 + 2*np.pi/3))`]);
@@ -128,7 +128,7 @@ np.savez(${JSON.stringify(req)}, meta=np.array(json.dumps(meta)), t=t, Va=180*np
        `três fases equilibradas, passo de 140 µs: Σ ${seq && seq.join(" | ")} (0, 0, 0, –); na legenda "${ceq && ceq.leg}" (a curva: ${ceq && ceq.y})`);
     // a Σ grande (três sinais de ~200: Σ ~600) escondida na legenda: a escala vertical volta à dos sinais
     const rvc = path.join(PASTA, "scope_soma_vc.npz");
-    execFileSync("python3", ["-c", `import numpy as np, json
+    execFileSync(process.env.MAISIM_PYTHON || "python3", ["-c", `import numpy as np, json
 t = np.arange(0, 0.04, 1e-4); w = 2 * np.pi * 50
 meta = {"planta": "gecko-maisim", "rotulo": "soma_vc", "dt": 1e-4, "Ts": 1e-4, "n_fino": 1, "dt_gecko": 1e-6, "tfim": 0.04, "sinais": [], "acionamentos": []}
 np.savez(${JSON.stringify(rvc)}, meta=np.array(json.dumps(meta)), t=t, Va=200 + 10*np.cos(w*t), Vb=195 + 10*np.cos(w*t), Vc=205 + 10*np.cos(w*t))`]);
@@ -156,7 +156,7 @@ np.savez(${JSON.stringify(rvc)}, meta=np.array(json.dumps(meta)), t=t, Va=200 + 
     ok(sa && sb && Math.abs(num(sa[3]) - 30) < 1e-6 && Math.abs(num(sb[3]) - 45) < 1e-6, `Comparar: Σ · A h3 ${sa && sa[3]}, Σ · B h3 ${sb && sb[3]}`);
     // passo que não divide o período (380 µs, como numa rodada longa do simu): antes, "janela incompleta: 685 de 684"
     const r380 = path.join(PASTA, "scope_soma_380.npz");
-    execFileSync("python3", ["-c", `import numpy as np, json
+    execFileSync(process.env.MAISIM_PYTHON || "python3", ["-c", `import numpy as np, json
 t = np.arange(0, 0.3, 380e-6); w = 2 * np.pi * 50
 meta = {"planta": "gecko-maisim", "rotulo": "soma_380", "dt": 380e-6, "Ts": 380e-6, "n_fino": 1, "dt_gecko": 1e-6, "tfim": 0.3, "sinais": [], "acionamentos": []}
 np.savez(${JSON.stringify(r380)}, meta=np.array(json.dumps(meta)), t=t, Va=5 + 180*np.cos(w*t + np.pi/6) + 20*np.cos(3*w*t), Vb=180*np.cos(w*t - np.pi/2), Vc=180*np.cos(w*t + 5*np.pi/6))`]);

@@ -120,7 +120,7 @@ const antes = new Set(fs.existsSync(CTX) ? fs.readdirSync(CTX) : []);
     const dj = await espDown;
     const novo = novos().find((x) => JSON.parse(fs.readFileSync(path.join(CTX, x, "meta.json"), "utf8")).continua_de);
     const zipJ = path.join(require("os").tmpdir(), `teste_junta_${novo}.maisimctx`); await dj.saveAs(zipJ);
-    const noZip = JSON.parse(execSync(`python3 -I -c "import sys, zipfile, json; z = zipfile.ZipFile(sys.argv[1]); print(json.dumps({n.split('/', 1)[1]: (z.read(n).decode() if n.endswith('resumo_ia.md') else '') for n in z.namelist()}))" "${zipJ}"`).toString());
+    const noZip = JSON.parse(execSync(`"${process.env.MAISIM_PYTHON || "python3"}" -I -c "import sys, zipfile, json; z = zipfile.ZipFile(sys.argv[1]); print(json.dumps({n.split('/', 1)[1]: (z.read(n).decode() if n.endswith('resumo_ia.md') else '') for n in z.namelist()}))" "${zipJ}"`).toString());
     await pg.waitForTimeout(300);
     const avJ = await pg.evaluate(() => ({ modal: !!document.querySelector(".cx-salvar"), aviso: $("cc-aviso").textContent }));
     ok(novo && dj.suggestedFilename() === `${novo}.maisimctx` && "anterior.md" in noZip && /li anterior\.md: Buck — Kp dobrado \(rev\)/.test(noZip["resumo_ia.md"] || "")

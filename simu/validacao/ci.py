@@ -23,6 +23,9 @@ for saida in (sys.stdout, sys.stderr):
 SO_LINUX = {
     # (a instância isolada do scope ao vivo, ISOLADOS, entra aqui no main(): sobe por bash, sobe_fila.sh)
     "gecko_novo_api": "derruba e sobe o Gecko da instância de teste pelo reinicia_gecko_teste.sh",
+    "lancador_app_offline": "confere como o lançador abre o navegador no Linux (no Windows, o teste do instalador sobe o lançador de verdade)",
+    "tcc_offline": "monta o TinyCC do Linux (pacote/tcc.sh); o do Windows vai no instalador e o teste do instalador o usa",
+    "config_offline": "confere as pastas do perfil produto do Linux (~/MaiSim, ~/.cache/maisim); as do Windows o teste do instalador confere",
 }
 
 
@@ -98,7 +101,10 @@ def roda(t, pasta_log, resumo, so_na_maquina):
         amb["NODE_OPTIONS"] = f'--require "{(V / "tela" / "_lingua.js").as_posix()}"' + (" " + amb["NODE_OPTIONS"] if amb.get("NODE_OPTIONS") else "")
         cmd, cwd, prazo = [shutil.which("node") or "node", f"{t}.js"], V / "tela", 600
     else:
-        cmd, cwd, prazo = [sys.executable, "-X", "utf8", f"{t}.py"], V, 900
+        # pelo runpy, com esta pasta no sys.path: o Python embutido do MaiSim instalado (o ._pth) não põe a pasta do script
+        # no caminho dos imports, nem lê o PYTHONPATH; os testes importam os vizinhos (_servidor, maisim…)
+        boot = f"import runpy, sys; sys.path.insert(0, {str(V)!r}); sys.argv[0] = {t + '.py'!r}; runpy.run_path({t + '.py'!r}, run_name='__main__')"
+        cmd, cwd, prazo = [sys.executable, "-X", "utf8", "-c", boot], V, 900
     amb.setdefault("PYTHONIOENCODING", "utf-8")
     amb["MAISIM_PYTHON"] = sys.executable                  # o Python que os testes de tela usam para ler o ambiente do servidor (tela/_servidor.js)
     with open(log, "wb") as f:

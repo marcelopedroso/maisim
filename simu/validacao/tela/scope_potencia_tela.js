@@ -16,7 +16,7 @@ const perto = (a, b, tol) => Math.abs(a - b) <= tol;
   try {
     fs.mkdirSync(PASTA, { recursive: true });
     const grava = (x, ia) => { const arq = path.join(PASTA, `scope_pot_${x}.npz`);
-      execFileSync("python3", ["-c", `import numpy as np, json
+      execFileSync(process.env.MAISIM_PYTHON || "python3", ["-c", `import numpy as np, json
 t = np.arange(0, 0.04, 1e-4); w = 2 * np.pi * 50; r = np.pi / 180
 meta = {"planta": "gecko-maisim", "rotulo": "pot_${x}", "dt": 1e-4, "Ts": 1e-4, "n_fino": 1, "dt_gecko": 1e-6, "tfim": 0.04, "sinais": [], "acionamentos": []}
 np.savez(${JSON.stringify(arq)}, meta=np.array(json.dumps(meta)), t=t, v_a=100*np.sin(w*t), i_a=${ia}*np.sin(w*t - 30*r),
@@ -190,7 +190,7 @@ np.savez(${JSON.stringify(arq)}, meta=np.array(json.dumps(meta)), t=t, v_a=100*n
     // passo fino (50 kHz, acima da janela de controle de 100 µs): P = média de v·i = 10 + 2·0,5 = 11 W, não 10 · 1 = 10. A tabela
     // mede no passo fino; a curva, sem o zoom fino, é a média do produto em cada janela (11), e com o zoom fino o produto (18 e 4)
     const rf = path.join(PASTA, "scope_pot_F.npz");
-    execFileSync("python3", ["-c", `import numpy as np, json
+    execFileSync(process.env.MAISIM_PYTHON || "python3", ["-c", `import numpy as np, json
 t = np.arange(0, 0.04, 1e-4); w = 2 * np.pi * 50; q = (-1.0) ** np.arange(len(t) * 10)
 meta = {"planta": "gecko-maisim", "rotulo": "pot_F", "dt": 1e-5, "Ts": 1e-4, "n_fino": 10, "dt_gecko": 1e-6, "tfim": 0.04, "sinais": [], "acionamentos": []}
 np.savez(${JSON.stringify(rf)}, meta=np.array(json.dumps(meta)), t=t, v_a=100*np.sin(w*t), i_a=10*np.sin(w*t - np.pi/6), fino_VDC=10 + 2*q, fino_IA=1 + 0.5*q)`]);

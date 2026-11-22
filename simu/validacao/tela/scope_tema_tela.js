@@ -21,7 +21,7 @@ const estado = (f) => f.evaluate(() => {
   try {
     fs.mkdirSync(PASTA, { recursive: true });
     const arq = path.join(PASTA, "scope_tema_A.npz");
-    execFileSync("python3", ["-c", `import numpy as np, json
+    execFileSync(process.env.MAISIM_PYTHON || "python3", ["-c", `import numpy as np, json
 t = np.arange(0, 0.04, 1e-4); w = 2 * np.pi * 50
 meta = {"planta": "gecko-maisim", "rotulo": "tema_A", "dt": 1e-4, "Ts": 1e-4, "n_fino": 1, "dt_gecko": 1e-6, "tfim": 0.04, "sinais": [], "acionamentos": []}
 np.savez(${JSON.stringify(arq)}, meta=np.array(json.dumps(meta)), t=t, Va=180*np.cos(w*t), Vb=180*np.cos(w*t-2.0944), Vc=180*np.cos(w*t+2.0944))`]);

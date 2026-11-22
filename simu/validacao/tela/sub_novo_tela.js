@@ -52,7 +52,7 @@ const B = "http://localhost:7200/maisim/simu/";
     await api("editor/mede", { nome: "AMP.1", tipo: "I", componente: "U.1" }); await api("editor/cmd", { op: "OUTNODE", args: ["AMP.1", 0, "i_U"] });
     let j = await api("editor/rodar", { dt: "1e-06", tfim: "0.001", nome: "sub_novo_tela", amostras: "1000" });
     for (let k = 0; k < 120 && ["rodando", "pausada", "preparando"].includes(j.estado); k++) { await pg.waitForTimeout(500); j = await api("editor/rodada"); }
-    const i = require("child_process").execFileSync("python3", ["-c", `import numpy as np; d=np.load(${JSON.stringify(j.arquivo || "")}); i=d["i_U"]; print(float(np.mean(i[len(i)//2:])))`]).toString().trim();
+    const i = require("child_process").execFileSync(process.env.MAISIM_PYTHON || "python3", ["-c", `import numpy as np; d=np.load(${JSON.stringify(j.arquivo || "")}); i=d["i_U"]; print(float(np.mean(i[len(i)//2:])))`]).toString().trim();
     ok(j.estado === "fim" && Math.abs(Math.abs(+i) - 10) < 1e-6, `simulado: |i| = ${Math.abs(+i).toFixed(6)} A (100 V / 10 Ω = 10 A)`);
     // nomes de dentro levam o nome do subcircuito (não "SM": subcircuito é qualquer coisa): Sub_1_… e, renomeado, filtro_…
     await api("editor/cmd", { op: "CREATE", args: ["SUBCIRCUIT.1#VOLT.1", 25, 10, "VOLT"] });

@@ -11,7 +11,7 @@ const URL = "http://localhost:7200/maisim/scope/";
 const PASTA = path.join(__dirname, "..", "tmp_scope_visoes"), RAIZ = path.resolve(__dirname, "../../..");
 fs.mkdirSync(PASTA, { recursive: true });
 const NPZ = path.join(PASTA, "scope_visoes.npz");
-require("child_process").execFileSync("python3", ["-c", `import numpy as np, json
+require("child_process").execFileSync(process.env.MAISIM_PYTHON || "python3", ["-c", `import numpy as np, json
 t = np.arange(0, 0.01, 1e-4)
 meta = {"planta": "gecko-maisim", "rotulo": "visoes", "modelo": "x/circuito_visoes.ipes", "dt": 1e-4, "Ts": 1e-4, "tfim": 0.01, "sinais": [], "acionamentos": []}
 np.savez(${JSON.stringify(NPZ)}, meta=np.array(json.dumps(meta)), t=t, sinal_a=np.sin(t), sinal_b=np.cos(t))`]);

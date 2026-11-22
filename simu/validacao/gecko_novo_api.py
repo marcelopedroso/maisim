@@ -139,7 +139,7 @@ for pid in set(re.findall(r"pid=(\d+)", s7203)): os.kill(int(pid), signal.SIGTER
 for _ in range(30):
     if not subprocess.run(["ss", "-ltnH", "sport = :7203"], capture_output=True, text=True).stdout.strip(): break
     time.sleep(0.3)
-cfg = dict(re.findall(r"(MAISIM_\w+)='?([^'\n]*)'?", subprocess.run(["python3", str(AQUI.parents[1] / "config" / "ler_config.py"), "--shell", "teste"], capture_output=True, text=True).stdout))
+cfg = dict(re.findall(r"(MAISIM_\w+)='?([^'\n]*)'?", subprocess.run([sys.executable, str(AQUI.parents[1] / "config" / "ler_config.py"), "--shell", "teste"], capture_output=True, text=True).stdout))
 T = Path(cfg["MAISIM_DADOS"]); jar = cfg.get("MAISIM_GECKO_JAR") or str(AQUI.parents[1] / "gecko" / "build" / "gecko-lote.jar")
 (T / "gecko.log").write_text("")
 subprocess.Popen(["setsid", "nohup", "java", f"-Duser.home={T}/home", "-Dpolyglot.js.nashorn-compat=true", "-jar", jar, str(T / "modelo.ipes"), "-p", cfg["MAISIM_PORTA_GECKO"]],

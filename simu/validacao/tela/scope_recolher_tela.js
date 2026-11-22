@@ -19,7 +19,7 @@ const LAYOUT = { colunas: 1, indice: { aberto: false, unica: false, secao: -1 },
   let b;
   try {
     fs.mkdirSync(PASTA, { recursive: true });
-    execFileSync("python3", ["-c", `import numpy as np, json
+    execFileSync(process.env.MAISIM_PYTHON || "python3", ["-c", `import numpy as np, json
 t = np.arange(0, 0.06, 1e-4); w = 2 * np.pi * 50
 meta = {"planta": "gecko-maisim", "rotulo": "recolher_teste", "dt": 1e-4, "Ts": 1e-4, "n_fino": 1, "dt_gecko": 1e-6, "tfim": 0.06,
         "sinais": [{"canal": "Va", "elemento": "VOLT.1"}, {"canal": "Vb", "elemento": "VOLT.2"}], "acionamentos": []}

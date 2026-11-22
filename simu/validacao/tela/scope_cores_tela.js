@@ -15,7 +15,7 @@ const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!
   try {
     fs.mkdirSync(PASTA, { recursive: true });
     const [ra, rb] = ["A", "B"].map((x, k) => { const arq = path.join(PASTA, `scope_cores_${x}.npz`);
-      execFileSync("python3", ["-c", `import numpy as np, json
+      execFileSync(process.env.MAISIM_PYTHON || "python3", ["-c", `import numpy as np, json
 t = np.arange(0, 0.04, 1e-4); w = 2 * np.pi * 50; a = ${180 - 10 * k}
 meta = {"planta": "gecko-maisim", "rotulo": "cores_${x}", "dt": 1e-4, "Ts": 1e-4, "n_fino": 1, "dt_gecko": 1e-6, "tfim": 0.04, "sinais": [], "acionamentos": []}
 np.savez(${JSON.stringify(arq)}, meta=np.array(json.dumps(meta)), t=t, Va=a*np.cos(w*t), Vb=a*np.cos(w*t-2.0944), Vc=a*np.cos(w*t+2.0944))`]);

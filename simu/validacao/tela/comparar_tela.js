@@ -9,7 +9,7 @@ let falhas = 0;
 const ok = (c, txt) => { console.log((c ? "OK   " : "FALHA") + " " + txt); if (!c) falhas++; };
 const SM = path.resolve(__dirname, "../../.."), PASTA = path.join(__dirname, "..", "tmp_comparar");
 const grava = (nome, dt) => { const arq = path.join(PASTA, `scope_${nome}.npz`);
-  execFileSync("python3", ["-c", `import numpy as np, json
+  execFileSync(process.env.MAISIM_PYTHON || "python3", ["-c", `import numpy as np, json
 t = np.arange(0, 0.04 + 1e-12, ${dt}); w = 2 * np.pi * 50
 meta = {"planta": "gecko-maisim", "rotulo": "${nome}", "modelo": "circuito_teste.ipes", "dt": ${dt}, "Ts": ${dt}, "n_fino": 1, "dt_gecko": 1e-6, "tfim": 0.04,
         "sinais": [{"canal": "Va", "elemento": "VOLT.1"}], "acionamentos": []}
