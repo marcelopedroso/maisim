@@ -6,6 +6,9 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 
 ## [Unreleased]
 
+### Changed
+- **The package smoke test opens and runs every example, and on Windows walks the screens in a real browser** (#289; `pacote/fumaca_api.py`, `pacote/fumaca_tela.js`, `pacote/windows/fumaca.py`, `.github/workflows/pacotes.yml`): before a Release is published, the installed MaiSim (Linux x86 and ARM, and the Windows installer on a real Windows) now also opens and runs the 19 examples; on Windows, Chromium then goes through the start page (examples, tag, filter), the editor, the Control panel (code editor, Digital controller, Ts from the registers), a run from the ▶ button with the Scope, and English, failing on any JavaScript error.
+
 ## [0.6.1] - 2026-11-21
 
 ### Added

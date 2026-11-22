@@ -3,7 +3,9 @@ montado no Linux (pacote/windows/monta.sh); aqui ele roda onde vai ser usado:
   1. instala o MaiSim-Setup-<versão>.exe em silêncio, como uma instalação nova (a pasta do programa, a porta e a pasta dos
      circuitos padrão) e confere o que ficou: o Python, o Java, o TinyCC, o lançador, o atalho e o maisim.env com a porta;
   2. sobe o MaiSim instalado (o Python, o Java e o Gecko de dentro dele), sem navegador, e espera ele dizer que está no ar;
-  3. faz o mesmo que o do Linux (pacote/fumaca_api.py): roda o buck, gera um PDF no Figuras e roda o controle em C;
+  3. faz o mesmo que o do Linux (pacote/fumaca_api.py): roda o buck, gera um PDF no Figuras, roda o controle em C e
+     abre e roda todos os exemplos; com MAISIM_FUMACA_TELAS=1 (e o Node com o Playwright), passa pelas telas num
+     navegador de verdade (pacote/fumaca_tela.js);
   4. para (--parar) e confere as sete portas livres.
 Não desinstala: o desinstalador pergunta dos circuitos numa caixa de mensagem, que ninguém responde no CI.
 Precisa: um Python do sistema (só a biblioteca padrão). Só no Windows. Os registros ficam em fumaca-logs/ (o CI os guarda).
@@ -104,6 +106,14 @@ fala(f"o MaiSim instalado subiu em {time.time() - t0:.0f} s (http://localhost:{p
 
 # 3. o mesmo que o do Linux: o buck, o PDF do Figuras e o controle em C
 ok = subprocess.run([sys.executable, "-X", "utf8", str(RAIZ / "pacote" / "fumaca_api.py"), str(porta), str(RAIZ)]).returncode
+# 3b. as telas num navegador de verdade (pacote/fumaca_tela.js; o CI põe o Node e o Playwright e liga MAISIM_FUMACA_TELAS)
+telas = "não rodaram (sem MAISIM_FUMACA_TELAS)"
+if ok == 0 and os.environ.get("MAISIM_FUMACA_TELAS") == "1":
+    node = shutil.which("node")
+    if not node:
+        falhou("MAISIM_FUMACA_TELAS pede as telas, e não há node nesta máquina", log_lanc)
+    ok = subprocess.run([node, str(RAIZ / "pacote" / "fumaca_tela.js"), str(porta)]).returncode
+    telas = "passaram" if ok == 0 else "falharam"
 
 # 4. para e confere as sete portas livres
 log_parar = LOGS / "parar.log"
@@ -117,4 +127,4 @@ if ok != 0 or sobra or proc.poll() is None:
     if proc.poll() is None:
         subprocess.run(lanc + ["--parar", "--forcar"], env=amb, timeout=120)
     falhou(f"a API: {ok}; portas ainda no ar: {sobra}; o lançador {'ainda no ar' if proc.poll() is None else 'saiu'}", log_lanc, log_parar)
-fala("ok — instalou, subiu, rodou o buck, gerou o PDF, rodou o controle em C e parou")
+fala(f"ok — instalou, subiu, rodou o buck, gerou o PDF, rodou o controle em C e todos os exemplos, as telas {telas}, e parou")

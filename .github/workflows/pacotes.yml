@@ -78,7 +78,7 @@ jobs:
     name: Windows installer on a real Windows (smoke test)
     needs: build
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     permissions:
       contents: read
       issues: write
@@ -92,7 +92,17 @@ jobs:
         with:
           name: windows-installer
           path: instalador
-      - name: smoke test (installs silently; the installed MaiSim runs the buck, makes a PDF, runs the C control and stops)
+      - name: browser for the screen walk (Playwright's Chromium; the same version the test suite uses)
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/ns-test" && cd "$RUNNER_TEMP/ns-test"
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund playwright@1.62.0 > /dev/null
+          npx playwright install chromium > /dev/null
+          echo "NODE_PATH=$(cygpath -w "$RUNNER_TEMP/ns-test/node_modules")" >> "$GITHUB_ENV"
+      - name: smoke test (installs silently; the installed MaiSim runs the buck, makes a PDF, runs the C control and every example, walks the screens in a browser and stops)
+        env:
+          MAISIM_FUMACA_TELAS: "1"
         run: python pacote/windows/fumaca.py instalador
       - name: keep the logs
         if: failure()
