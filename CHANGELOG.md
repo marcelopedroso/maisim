@@ -7,6 +7,7 @@ Each pull request adds its line under **Unreleased**; a release moves them under
 ## [Unreleased]
 
 ### Changed
+- **The whole test suite also runs on a real Windows, on the installed MaiSim** (#PR; `simu/validacao/ci.py`, `simu/validacao/reinicia.py`, `.github/workflows/pacotes.yml`, tests in `simu/validacao/`): the packages workflow installs the `.exe` silently and runs the suite against it (its Python, Java and TinyCC) with `ci.py`, a Python runner that reads the lists from `ci.sh`. The tests that only make sense on Linux are listed with the reason. For now it measures and does not block a Release (131 of 175 passing at the last run); it becomes required once it is all green. The tests no longer depend on `/proc`, `ss`, `bash` or `python3` being there, and talk to the servers through `127.0.0.1`.
 - **The package smoke test opens and runs every example, and on Windows walks the screens in a real browser** (#289; `pacote/fumaca_api.py`, `pacote/fumaca_tela.js`, `pacote/windows/fumaca.py`, `.github/workflows/pacotes.yml`): before a Release is published, the installed MaiSim (Linux x86 and ARM, and the Windows installer on a real Windows) now also opens and runs the 19 examples; on Windows, Chromium then goes through the start page (examples, tag, filter), the editor, the Control panel (code editor, Digital controller, Ts from the registers), a run from the ▶ button with the Scope, and English, failing on any JavaScript error.
 
 ### Fixed
