@@ -32,6 +32,7 @@ def mascaras_pwm(m, ph, act, t0, fc, dt, n, fb=False):
 
 class PublicadorScope:
     def __init__(self, url, meta, periodo=0.25):
+        self.rede = bool(url) and url.strip().lower() != "nenhum"   # "nenhum": não publica (só o .npz no fim), sem tentar a rede
         self.url = url.rstrip("/") + "/publicar"
         self.meta = meta
         self.periodo = periodo
@@ -45,6 +46,8 @@ class PublicadorScope:
         self.th.start()
 
     def _post(self, obj):
+        if not self.rede:
+            return
         try:
             req = urllib.request.Request(self.url, data=json.dumps(obj, separators=(",", ":")).encode(),
                                          headers={"Content-Type": "application/json"})

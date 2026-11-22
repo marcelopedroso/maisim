@@ -59,7 +59,7 @@ V = (R / "VERSION").read_text().strip()
 env = {k: v for k, v in os.environ.items() if not k.startswith("MAISIM_")}     # sem o perfil de teste do ci.sh
 env.update({"MAISIM_PORTA": str(B), "MAISIM_TELA_X": ":74", "MAISIM_DADOS": f"{T}/d", "MAISIM_CACHE": f"{T}/c", "MAISIM_NAVEGADOR": "nenhum",
             "MAISIM_CLAUDE_DIR": f"{T}/claude", "MAISIM_CURSOR_DIR": f"{T}/cursor", "MAISIM_DEEPSEEK_DIR": f"{T}/deepseek",
-            "MAISIM_EXEMPLOS_GECKO": "0", "MAISIM_ATUALIZA_GIT": str(REM), "MAISIM_ATUALIZA_ESPERA": "1", "MAISIM_PUBLICA_SCOPE": "http://127.0.0.1:9"})
+            "MAISIM_EXEMPLOS_GECKO": "0", "MAISIM_ATUALIZA_GIT": str(REM), "MAISIM_ATUALIZA_ESPERA": "1", "MAISIM_PUBLICA_SCOPE": "nenhum"})
 for k, nome in enumerate(("PAGINA", "SIMU", "SCOPE", "GECKO", "MOTOR", "TELA", "VNC")):
     env[f"MAISIM_PORTA_{nome}"] = str(B + k)                                     # nem um .env da raiz muda
 lanc = None

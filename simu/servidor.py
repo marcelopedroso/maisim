@@ -3748,7 +3748,9 @@ class Controladores:
 
 
 RODADAS = Path(os.environ.get("MAISIM_RODADAS") or DADOS / "rodadas")   # scope_*.npz das rodadas (o /maisim/scope lista tudo sob simu/)
-SCOPE = os.environ.get("MAISIM_PUBLICA_SCOPE") or f"http://localhost:{os.environ['MAISIM_PORTA_SCOPE']}"   # onde as rodadas são publicadas ao vivo
+# onde as rodadas são publicadas ao vivo ("nenhum": só o .npz). Por 127.0.0.1, não "localhost": o scope só escuta no IPv4,
+# e no Windows o "localhost" tenta o ::1 antes, com ~2 s perdidos em cada conexão recusada (eram ~9 s a cada rodada)
+SCOPE = os.environ.get("MAISIM_PUBLICA_SCOPE") or f"http://127.0.0.1:{os.environ['MAISIM_PORTA_SCOPE']}"
 
 
 rodada = {"estado": "parada"}                 # parada | rodando | pausada | fim | erro; t, tfim, progresso, arquivo …
