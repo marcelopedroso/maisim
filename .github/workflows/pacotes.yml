@@ -30,6 +30,10 @@ jobs:
     name: AppImage and Windows installer
     runs-on: ubuntu-22.04
     timeout-minutes: 60
+    permissions:
+      contents: write       # attach to the Release
+      id-token: write       # the provenance attestation
+      attestations: write
     env:
       TAG: ${{ inputs.tag }}   # only through the environment, never pasted into a script (whoever dispatches chooses it)
     steps:
@@ -62,6 +66,13 @@ jobs:
           path: pacote/dist/MaiSim-Setup-*.exe
           retention-days: 1
           if-no-files-found: error
+      - name: provenance attestation (signed by GitHub; proves this file was built here, from this commit)
+        if: ${{ !inputs.test_only }}
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            pacote/dist/MaiSim-Setup-*.exe
+            pacote/dist/MaiSim-*-x86_64.AppImage
       - name: attach to the Release
         if: ${{ !inputs.test_only }}
         env:
@@ -126,6 +137,10 @@ jobs:
     name: ARM (aarch64) AppImage and folder
     runs-on: ubuntu-24.04-arm   # free for public repositories; builds natively (the portable Python installs NumPy/matplotlib here)
     timeout-minutes: 60
+    permissions:
+      contents: write       # attach to the Release
+      id-token: write       # the provenance attestation
+      attestations: write
     env:
       TAG: ${{ inputs.tag }}
     steps:
@@ -148,6 +163,13 @@ jobs:
         run: bash pacote/linux/monta.sh
       - name: smoke test on ARM (the AppImage's MaiSim runs the buck and makes a PDF)
         run: bash pacote/linux/fumaca.sh
+      - name: provenance attestation (signed by GitHub; proves this file was built here, from this commit)
+        if: ${{ !inputs.test_only }}
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            pacote/dist/MaiSim-*-aarch64.AppImage
+            pacote/dist/MaiSim-*-aarch64.tar.gz
       - name: attach to the Release
         if: ${{ !inputs.test_only }}
         env:
@@ -164,6 +186,10 @@ jobs:
     name: Android app (the APK)
     runs-on: ubuntu-24.04   # has the Android SDK; the app is Kotlin + Gradle, arm64 only (no NDK: the proot comes prebuilt)
     timeout-minutes: 30
+    permissions:
+      contents: write       # attach to the Release
+      id-token: write       # the provenance attestation
+      attestations: write
     env:
       TAG: ${{ inputs.tag }}
     steps:
@@ -206,6 +232,12 @@ jobs:
           if [ -n "$ANDROID_KEYSTORE_B64" ] && [ "$IMP" != "$(cat chave.sha256)" ]; then
             echo "the APK is not signed with the registered key (chave.sha256)"; exit 1
           fi
+      - name: provenance attestation (signed by GitHub; proves this file was built here, from this commit)
+        if: ${{ !inputs.test_only }}
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            pacote/dist/MaiSim-Android-*.apk
       - name: attach to the Release
         if: ${{ !inputs.test_only }}
         env:

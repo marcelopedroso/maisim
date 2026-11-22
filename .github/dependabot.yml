@@ -1,0 +1,21 @@
+# Dependabot (free for public repositories): weekly PRs that update the versions of the GitHub Actions used by the
+# workflows (and by the composite action in .github/actions/prepare) and the page's dev dependency (Vite). The security
+# alerts and fixes for vulnerable dependencies are on in the repository settings. Dependabot PRs go through verify like
+# any other, and are not merged automatically (the merge job only merges the owner's PRs).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directories: ["/", "/.github/actions/prepare"]
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "CI"
+  - package-ecosystem: npm
+    directory: /app
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "Page"

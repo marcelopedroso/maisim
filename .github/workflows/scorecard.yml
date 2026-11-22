@@ -1,0 +1,40 @@
+# OpenSSF Scorecard (free; https://scorecard.dev): an independent check of the project's security practices (branch
+# protection, pinned dependencies, token permissions, signed releases, code review, fuzzing, …), scored 0 to 10. The
+# result is published (the badge in the README) and the findings go to Security → Code scanning. Runs weekly and when
+# main changes. The workflow follows the rules for publishing results: read-only by default, no other steps.
+name: scorecard
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "30 6 * * 1"
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      security-events: write   # the findings to Code scanning
+      id-token: write          # to publish the results (the badge)
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: ossf/scorecard-action@v2.4.0
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+      - uses: actions/upload-artifact@v7
+        with:
+          name: scorecard-sarif
+          path: results.sarif
+          retention-days: 5
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif

@@ -1,0 +1,40 @@
+# CodeQL (free for public repositories): GitHub's code scanning looks for security problems in the Python, JavaScript,
+# C, Java and workflow code on every PR, on main and weekly; the findings go to Security → Code scanning. Configured here
+# (not the "default setup") because MaiSim's Java (the Gecko patches, the editor engine) and the Android app cannot be
+# built by CodeQL's automatic build: every language is analysed without building (build-mode: none).
+name: codeql
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 5 * * 2"
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [actions, c-cpp, java-kotlin, javascript-typescript, python]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:${{ matrix.language }}

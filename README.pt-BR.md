@@ -4,7 +4,7 @@
 
 [English](README.md) | **Português**
 
-[![verify](https://github.com/marcelopedroso/maisim/actions/workflows/verify.yml/badge.svg)](https://github.com/marcelopedroso/maisim/actions/workflows/verify.yml) [![full suite](https://github.com/marcelopedroso/maisim/actions/workflows/full-suite.yml/badge.svg?branch=main)](https://github.com/marcelopedroso/maisim/actions/workflows/full-suite.yml) [![packages: Windows · Linux · ARM · Android](https://img.shields.io/github/actions/workflow/status/marcelopedroso/maisim/pacotes.yml?branch=main&label=packages%3A%20Windows%20%C2%B7%20Linux%20%C2%B7%20ARM%20%C2%B7%20Android&logo=github)](https://github.com/marcelopedroso/maisim/actions/workflows/pacotes.yml) [![release](https://img.shields.io/github/v/release/marcelopedroso/maisim?label=release&color=7c3aed)](https://github.com/marcelopedroso/maisim/releases/latest) [![license: GPL-3.0](https://img.shields.io/github/license/marcelopedroso/maisim?color=blue)](LICENSE)
+[![verify](https://github.com/marcelopedroso/maisim/actions/workflows/verify.yml/badge.svg)](https://github.com/marcelopedroso/maisim/actions/workflows/verify.yml) [![full suite](https://github.com/marcelopedroso/maisim/actions/workflows/full-suite.yml/badge.svg?branch=main)](https://github.com/marcelopedroso/maisim/actions/workflows/full-suite.yml) [![packages: Windows · Linux · ARM · Android](https://img.shields.io/github/actions/workflow/status/marcelopedroso/maisim/pacotes.yml?branch=main&label=packages%3A%20Windows%20%C2%B7%20Linux%20%C2%B7%20ARM%20%C2%B7%20Android&logo=github)](https://github.com/marcelopedroso/maisim/actions/workflows/pacotes.yml) [![release](https://img.shields.io/github/v/release/marcelopedroso/maisim?label=release&color=7c3aed)](https://github.com/marcelopedroso/maisim/releases/latest) [![license: GPL-3.0](https://img.shields.io/github/license/marcelopedroso/maisim?color=blue)](LICENSE) [![CodeQL](https://github.com/marcelopedroso/maisim/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/marcelopedroso/maisim/actions/workflows/codeql.yml) [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/marcelopedroso/maisim/badge)](https://scorecard.dev/viewer/?uri=github.com/marcelopedroso/maisim)
 
 **Plataforma aberta de simulação e controle de eletrônica de potência, com IA.**
 
@@ -37,7 +37,7 @@ prontos), e o controle digital (PI de corrente; buck com o PWM e o PI no código
 | **Android** (celulares ARM de 64 bits; o app, sem Termux) | [**MaiSim-Android.apk**](https://github.com/marcelopedroso/maisim/releases/latest/download/MaiSim-Android.apk) |
 | Versões anteriores e de teste (`-rc`) | [Releases](https://github.com/marcelopedroso/maisim/releases) |
 
-Cada arquivo tem o seu `.sha256` ao lado, na página de Releases. Vai tudo dentro (Python, Java, GeckoCIRCUITS): depois de
+Cada arquivo tem o seu `.sha256` ao lado, na página de Releases, e um atestado de procedência assinado pelo GitHub (como conferir: [SECURITY.md](SECURITY.md)). Vai tudo dentro (Python, Java, GeckoCIRCUITS): depois de
 baixar, não precisa de internet nem de instalar mais nada. A exceção é o app do Android: pequeno para baixar, ele se monta
 sozinho na primeira abertura.
 
