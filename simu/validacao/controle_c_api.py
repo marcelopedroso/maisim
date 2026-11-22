@@ -185,7 +185,7 @@ try:
     errado = CONTROLE_C.replace("e->n += 1;", "e->n += 1\n    sem_ponto_e_virgula")
     guarda(c={"usar": True, "arquivos": {"controle.c": errado}})
     je = roda("controle_c_erro")
-    ok("ERRO" in je and re.match(r"controle\.c linha 38:", je.get("erro", "")),
+    ok("ERRO" in je and re.match(r"controle\.c linha 3[89]:", je.get("erro", "")),   # 39 no TinyCC (aponta o símbolo depois do ";" que falta)
        f"erro de compilação volta com o arquivo e a linha, como o do Python: {je.get('erro', '')[:160]}")
     falta = CONTROLE_C.replace("size_t maisim_tamanho_estado(void) { return sizeof(Estado); }", "")
     guarda(c={"usar": True, "arquivos": {"controle.c": falta}})

@@ -89,7 +89,7 @@ try:
     errado = CONTROLE_C.replace("e->n += 1;", "e->n += 1\n    sem_ponto_e_virgula")
     e2 = pede(errado)
     erros = (e2.get("proposta") or {}).get("erros") or []
-    ok(any(x.get("arquivo") == "controle.c" and x.get("linha") == 38 for x in erros), f"a proposta com C errado traz o erro na linha 38: {erros[:1]}")
+    ok(any(x.get("arquivo") == "controle.c" and x.get("linha") in (38, 39) for x in erros), f"a proposta com C errado traz o erro na linha 38 (39 no TinyCC, que aponta o símbolo seguinte): {erros[:1]}")
     # a IA sabe a linguagem do painel (o seletor Python | C): o CONTEXTO.md diz qual roda
     ok("Linguagem do controle: Python" in resp, f"com o painel em Python, o CONTEXTO.md diz Python: {resp[-80:]}")
     abre_buck()

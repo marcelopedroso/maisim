@@ -171,14 +171,8 @@ def principal():
     ok(api("claude/pedir", {"texto": "outro", "dt": 1e-6, "tfim": 0.01}).get("ERRO") == 409, "um pedido por vez")
     e = api("claude/parar", {})
     time.sleep(1.5)
-    vivos = []                                               # processos cujo script é o claude_falso.py (não shells que o citam)
-    for d in Path("/proc").iterdir():
-        try:
-            argv = (d / "cmdline").read_bytes().split(b"\0")
-        except OSError:
-            continue
-        if len(argv) > 1 and argv[1].endswith(b"claude_falso.py"):
-            vivos.append(d.name)
+    from _servidor import processos_com                      # processos cujo comando é o claude_falso.py (Linux: /proc; Windows: CIM)
+    vivos = processos_com("claude_falso.py")
     ok(not e.get("andamento") and e.get("erro") == "parado" and not vivos, f"parar: o processo sai ({vivos or 'nenhum'})")
 
     # anexos

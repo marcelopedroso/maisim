@@ -294,7 +294,7 @@ elif cenario == "script":                               # a IA do script: lê o 
         usa("Write", file_path=rel)
         Path(rel).parent.mkdir(parents=True, exist_ok=True)
         Path(rel).write_text(cod)
-    arqs = sorted(str(f) for f in Path(".").rglob("*.py"))
+    arqs = sorted(f.as_posix() for f in Path(".").rglob("*.py"))
     resposta = f"script pronto; guia: {'sim' if 'maisim.scope' in guia else 'não'}; arquivos: {', '.join(arqs)}; ctx: {ctx.count(chr(10))} linhas"
     if (conf / "falso_resposta_script.md").exists():      # a resposta escrita pelo teste (equações em LaTeX, uma resposta real)
         resposta = (conf / "falso_resposta_script.md").read_text()

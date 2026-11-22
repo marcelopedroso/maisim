@@ -79,7 +79,7 @@ try:
         z = np.load(r["rodadas"][0]["arquivo"], allow_pickle=True)
         meta = json.loads(str(z["meta"]))
         t, ref, port, pulso = z["t"], z["ref"], z["carrier"], z["pulse"]
-        ok(meta["planta"] == "maisim-script" and meta["modelo"].endswith("pwm/sine_pwm.py") and meta.get("script") == "pwm/sine_pwm",
+        ok(meta["planta"] == "maisim-script" and meta["modelo"].replace("\\", "/").endswith("pwm/sine_pwm.py") and meta.get("script") == "pwm/sine_pwm",
            "a rodada é de script e aponta para o .py (com o caminho dele)")
         ok(abs(t[-1] + (t[1] - t[0]) - 3 / 60) < 1e-6, f"3 ciclos de 60 Hz (t final {t[-1]:.6f} s)")
         ok(set(np.unique(pulso)) <= {0.0, 1.0} and np.array_equal(pulso, (ref > port).astype(float)), "o pulso é ref > portadora em toda amostra")
@@ -205,7 +205,7 @@ try:
     c, r = pede(SIMU + "scripts/rodar", {"nome": "teste_ren/a"})
     modelo_a = json.loads(str(np.load(r["rodadas"][0]["arquivo"], allow_pickle=True)["meta"]))["modelo"]
     c, j = pede(SIMU + "scripts/renomear", {"nome": "teste_ren/a", "novo": "c"})
-    c2, L = pede(SIMU + "scope/padrao?modelo=" + urllib.request.quote(modelo_a.replace("teste_ren/a.py", "teste_ren/c.py")))
+    c2, L = pede(SIMU + "scope/padrao?modelo=" + urllib.request.quote(modelo_a.replace("\\", "/").replace("teste_ren/a.py", "teste_ren/c.py")))
     ok(c == 200 and j.get("nome") == "teste_ren/c" and [x.get("sinais") for x in (L.get("layout") or {}).get("itens", [])] == [["a"]],
        f"renomear um script: no mesmo lugar, e o layout do Scope vai junto ({j})")
     c, j = pede(SIMU + "scripts/renomear", {"nome": "teste_ren/c", "novo": "b"})
