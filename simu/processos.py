@@ -31,10 +31,13 @@ sem_janelas()                                            # quem importa este mó
 
 
 def encerra(pid, forte=False):
-    """Encerra o grupo de pid (ele e o que ele abriu); forte: sem esperar (SIGKILL / taskkill /F). Já encerrado: nada."""
+    """Encerra o grupo de pid (ele e o que ele abriu); forte: sem esperar (SIGKILL / taskkill /F). Já encerrado: nada.
+    No Windows é sempre o /F: sem ele o taskkill só manda o "feche a janela" (WM_CLOSE), que um programa de console sem
+    janela (o claude.exe, o worker do controle: todos sobem com CREATE_NO_WINDOW) não recebe, e o processo seguia vivo
+    (o Parar de um pedido à IA não parava nada). Um Ctrl+Break também não serve: o servidor não tem o console dele."""
     try:
         if WIN:
-            subprocess.run(["taskkill", "/PID", str(pid), "/T"] + (["/F"] if forte else []),
+            subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"],
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
         else:
             os.killpg(pid, signal.SIGKILL if forte else signal.SIGTERM)

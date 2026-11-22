@@ -54,8 +54,8 @@ try:
     ok(j5.get("estado") == "fim" and p4 <= p5 and len(p5) == 4, f"o mesmo nome noutro circuito: as do outro ficam ({len(p5)} pastas)")
     # o ULTIMA_RODADA.md da IA: a mais nova do circuito aberto, não a de outro (Marcelo, 22/10)
     import sys; sys.path.insert(0, str(Path(__file__).resolve().parents[1])); import resumo_rodada
-    u_pi, u_pwm = resumo_rodada.ultima(RODADAS, str(CIRC / "exemplo_controle_pi.ipes")), resumo_rodada.ultima(RODADAS, str(CIRC / "exemplo_controle_pwm.ipes"))
-    nenhum = resumo_rodada.ultima(RODADAS, str(CIRC / "nao_existe.ipes"))
+    u_pi, u_pwm = resumo_rodada.ultima(RODADAS, (CIRC / "exemplo_controle_pi.ipes").as_posix()), resumo_rodada.ultima(RODADAS, (CIRC / "exemplo_controle_pwm.ipes").as_posix())   # (o MaiSim grava o caminho com "/", também no Windows)
+    nenhum = resumo_rodada.ultima(RODADAS, (CIRC / "nao_existe.ipes").as_posix())
     ok(u_pi and u_pi.name in p5 - p4 and u_pwm and u_pwm.name in p4 and u_pwm != u_pi and nenhum is None,
        f"a última rodada por circuito: o PI ({u_pi and u_pi.name}), o PWM ({u_pwm and u_pwm.name}); de um circuito sem rodada, nenhuma")
     # com erro, a anterior fica
