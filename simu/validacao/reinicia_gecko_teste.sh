@@ -16,13 +16,15 @@ JAR=${MAISIM_GECKO_JAR:-$R/gecko/build/gecko-lote.jar}; [ -f "$JAR" ] || bash "$
 cp "$R/exemplos/exemplo_controle_pwm.ipes" "$T/modelo.ipes"; mkdir -p "$MAISIM_CACHE/gecko"
 # exec: o Gecko no lugar do subshell (um subshell esperando por ele segurava a saída de quem chamou, e o "| tail" não acabava);
 # setsid: noutro grupo de processos (o timeout do ci.sh derruba o grupo do teste, e o Gecko junto)
-(cd "$T" && DISPLAY=$MAISIM_TELA_X exec setsid nohup java -Duser.home="$T/home" -Dpolyglot.js.nashorn-compat=true -Dmaisim.dialogos="$MAISIM_CACHE/gecko/dialogos.txt" -jar "$JAR" "$T/modelo.ipes" -p "$MAISIM_PORTA_GECKO" > "$T/gecko.log" 2>&1 < /dev/null) &
+# $MAISIM_JAVA_GECKO / $MAISIM_JAVA_MOTOR: as opções de memória (config/padrao.env), sem aspas de propósito (uma por palavra)
+# shellcheck disable=SC2086
+(cd "$T" && DISPLAY=$MAISIM_TELA_X exec setsid nohup java $MAISIM_JAVA_GECKO -Duser.home="$T/home" -Dpolyglot.js.nashorn-compat=true -Dmaisim.dialogos="$MAISIM_CACHE/gecko/dialogos.txt" -jar "$JAR" "$T/modelo.ipes" -p "$MAISIM_PORTA_GECKO" > "$T/gecko.log" 2>&1 < /dev/null) &
 for _ in $(seq 1 60); do grep -q "GeckoCIRCUITS is ready" "$T/gecko.log" 2>/dev/null && break; sleep 1; done
 grep -q "GeckoCIRCUITS is ready" "$T/gecko.log" || { echo "o Gecko de teste não ficou pronto (veja $T/gecko.log)"; exit 1; }
 M="$R/simu/motor"                                  # o motor do editor: compila se o .java for mais novo
 if [ ! -f "$M/bin/maisim/MaiSimMotor.class" ] || [ "$M/src/maisim/MaiSimMotor.java" -nt "$M/bin/maisim/MaiSimMotor.class" ]; then
   javac -nowarn -encoding UTF-8 -cp "$JAR" -d "$M/bin" "$M/src/maisim/MaiSimMotor.java"
 fi
-setsid nohup java -cp "$JAR:$M/bin" maisim.MaiSimMotor --gecko-port "$MAISIM_PORTA_GECKO" --porta "$MAISIM_PORTA_MOTOR" > "$T/motor.log" 2>&1 < /dev/null &
+setsid nohup java $MAISIM_JAVA_MOTOR -cp "$JAR:$M/bin" maisim.MaiSimMotor --gecko-port "$MAISIM_PORTA_GECKO" --porta "$MAISIM_PORTA_MOTOR" > "$T/motor.log" 2>&1 < /dev/null &
 for _ in $(seq 1 15); do grep -q "ouvindo" "$T/motor.log" 2>/dev/null && break; sleep 1; done
 grep -q "ouvindo" "$T/motor.log" || { echo "o motor de teste não subiu (veja $T/motor.log)"; exit 1; }
