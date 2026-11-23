@@ -8,7 +8,8 @@ escolhidos por rodada ("laco": "novo" | "antigo" no editor/rodar; MAISIM_LACO d�
 2. Um sintético: o buck térmico (as perdas, FLOW, gravadas pela média do intervalo) com o CONST do ciclo de trabalho
    mudando no meio da rodada (acionamentos: no começo de uma amostra, no meio de outra e de volta) e a última amostra mais
    curta (o número de passos não é múltiplo do da amostra).
-3. Pausar, continuar e parar no caminho novo: a pausa não muda nada; o parar grava o começo da rodada inteira.
+3. Pausar, continuar e parar no caminho novo (o buck com 0,5 s, para dar tempo de pegar a rodada no meio): a pausa não muda
+   nada; o parar grava o começo da rodada inteira.
 4. A medida, intercalada (antigo, novo, antigo, novo, antigo, novo, para a carga da máquina pesar igual nos dois), com as
    medianas: o novo tem de ser pelo menos LIMITE vezes mais rápido no buck. O ganho depende da máquina: a ida e volta entre
    os processos é cara no WSL (≈ 8× medido) e barata no servidor do CI (1,9×: o antigo já leva ~1,5 s ali); o limite pega a
@@ -211,8 +212,9 @@ try:
         ok(not dif and meta_igual and ra.get("avisos") == rb.get("avisos"),
            f"o sintético: {len(zb.files) - 1} colunas idênticas pelos dois caminhos (as perdas, o CONST no meio, a amostra curta){'' if not dif else f' — DIFEREM: {dif[:6]}'}")
 
-    # 3. pausar, continuar e parar no caminho novo (o buck, mais longo: 0,1 s com 20 000 amostras)
-    arq, tfim, am = "exemplos/exemplo_buck.ipes", "0.1", "20000"
+    # 3. pausar, continuar e parar no caminho novo (o buck, mais longo: 0,5 s com 100 000 amostras). Com 0,1 s, os passos da
+    # rodada no Windows levavam ~50 ms (depois do #292) e a pausa às vezes chegava no fim (t = 0,09999…: falhou a trava da v0.7.0)
+    arq, tfim, am = "exemplos/exemplo_buck.ipes", "0.5", "100000"
     estado = {"pausou": False, "t_pausa": None, "parado": False}
     def pausa(r):
         if not estado["pausou"] and r.get("estado") == "rodando" and (r.get("t") or 0) > 0:
